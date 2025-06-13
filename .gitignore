@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+.localized
+
+# Xcode
+*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+/build/
+/DerivedData/
+*.xccheckout
+*.moved-aside
+
+# Local Database File - IMPORTANT
+# We version the schema, but not the live user data.
+dragonshield.sqlite
+dragonshield.sqlite-shm
+dragonshield.sqlite-wal
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# User-specific files
+*.user
+
+# Auto-generated version file
+DragonShield/Helpers/Version.swift
