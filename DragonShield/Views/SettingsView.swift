@@ -1,0 +1,137 @@
+// DragonShield/Views/SettingsView.swift
+// MARK: - Version 1.2
+// MARK: - History
+// - 1.1 -> 1.2: Removed redundant .onChange modifiers that were causing a state update crash loop.
+// - 1.0 -> 1.1: Added editable fields for Configuration settings (base_currency, decimal_precision, etc.).
+// - Initial functional version with Debug setting for database re-copy.
+
+import SwiftUI
+
+struct SettingsView: View {
+    // Inject DatabaseManager to access @Published config properties
+    @EnvironmentObject var dbManager: DatabaseManager
+    
+    @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
+    private var forceOverwriteDatabaseOnDebug: Bool = false
+
+    // Local state for text fields to allow temporary editing before committing
+    @State private var tempBaseCurrency: String = ""
+    @State private var tempDefaultTimeZone: String = ""
+    // For steppers/pickers, we can often bind directly to dbManager's @Published vars
+
+    var body: some View {
+        Form {
+            Section(header: Text("General Application Settings")) {
+                HStack {
+                    Text("Base Currency")
+                    Spacer()
+                    TextField("e.g., CHF", text: $tempBaseCurrency)
+                        .frame(width: 80)
+                        .multilineTextAlignment(.trailing)
+                        .onSubmit {
+                            // Validate and save
+                            let newCurrency = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                            if newCurrency.count == 3 && newCurrency.allSatisfy({$0.isLetter}) {
+                                _ = dbManager.updateConfiguration(key: "base_currency", value: newCurrency)
+                                // dbManager.baseCurrency will update via loadConfiguration in updateConfiguration
+                            } else {
+                                // Revert or show error
+                                tempBaseCurrency = dbManager.baseCurrency
+                            }
+                        }
+                }
+
+                Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
+                        value: Binding(
+                            get: { dbManager.decimalPrecision },
+                            set: { newValue in
+                                _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\(newValue)")
+                            }
+                        ),
+                        in: 0...8)
+                
+                Toggle("Auto FX Update", isOn: Binding(
+                    get: { dbManager.autoFxUpdate },
+                    set: { newValue in
+                        _ = dbManager.updateConfiguration(key: "auto_fx_update", value: newValue ? "true" : "false")
+                    }
+                ))
+
+                HStack {
+                    Text("Default Timezone")
+                    Spacer()
+                    TextField("e.g., Europe/Zurich", text: $tempDefaultTimeZone)
+                        .frame(minWidth: 150)
+                        .multilineTextAlignment(.trailing)
+                        .onSubmit {
+                            let newZone = tempDefaultTimeZone.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !newZone.isEmpty { // Basic validation
+                                _ = dbManager.updateConfiguration(key: "default_timezone", value: newZone)
+                            } else {
+                                tempDefaultTimeZone = dbManager.defaultTimeZone
+                            }
+                        }
+                }
+            }
+            
+            Section(header: Text("Table Display Settings")) {
+                Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
+                        value: Binding(
+                            get: { dbManager.tableRowSpacing },
+                            set: { newValue in
+                                _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", newValue))
+                            }
+                        ),
+                        in: 0.0...10.0, step: 0.5)
+                
+                Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
+                        value: Binding(
+                            get: { dbManager.tableRowPadding },
+                            set: { newValue in
+                                _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", newValue))
+                            }
+                        ),
+                        in: 0.0...20.0, step: 1.0)
+            }
+
+            #if DEBUG
+            Section(header: Text("Development / Debug Options")) {
+                VStack(alignment: .leading) {
+                    Toggle("Force Re-copy Database on Next Launch", isOn: $forceOverwriteDatabaseOnDebug)
+                    Text("Enable this to delete the current database and copy a fresh version from the bundle on next app start. Only for Debug builds.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            #endif
+            
+            Section(header: Text("About")) {
+                HStack {
+                    Text("App Version")
+                    Spacer()
+                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Settings")
+        .frame(minWidth: 450, idealWidth: 550, minHeight: 400)
+        .onAppear {
+            // Initialize temp states from dbManager's @Published properties
+            tempBaseCurrency = dbManager.baseCurrency
+            tempDefaultTimeZone = dbManager.defaultTimeZone
+        }
+    }
+}
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        // NOTE: You must have a `UserDefaultsKeys` struct with the appropriate key defined for this preview to work.
+        // Example: struct UserDefaultsKeys { static let forceOverwriteDatabaseOnDebug = "forceOverwriteDatabaseOnDebug" }
+        UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
+        let dbManager = DatabaseManager() // Create a preview instance
+
+        return SettingsView()
+            .environmentObject(dbManager)
+    }
+}
