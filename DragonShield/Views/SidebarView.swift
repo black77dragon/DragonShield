@@ -1,9 +1,8 @@
 // DragonShield/Views/SidebarView.swift
-// MARK: - Version 1.5
+// MARK: - Version 1.6
 // MARK: - History
+// - 1.5 -> 1.6: Enabled "Load Documents" navigation link to point to new ImportStatementView.
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
-// - 1.3 -> 1.4: Activated "Transaction History" navigation link.
-// - 1.2 -> 1.3: Activated "Edit Custody Accounts" navigation link.
 // - (Previous history)
 
 import SwiftUI
@@ -32,16 +31,10 @@ struct SidebarView: View {
             
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
-                HStack {
+                // MODIFIED: Enabled this NavigationLink
+                NavigationLink(destination: ImportStatementView()) {
                     Label("Load Documents", systemImage: "doc.text.fill")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("(coming soon)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .italic()
                 }
-                .onTapGesture {}
                 
                 NavigationLink(destination: CurrenciesView()) {
                     Label("Edit Currencies", systemImage: "dollarsign.circle.fill")
@@ -58,7 +51,6 @@ struct SidebarView: View {
                 }
                 .onTapGesture {}
 
-                // NEW: NavigationLink for Account Types
                 NavigationLink(destination: AccountTypesView()) {
                     Label("Edit Account Types", systemImage: "creditcard.circle.fill")
                 }
@@ -121,6 +113,7 @@ struct SidebarView_Previews: PreviewProvider {
         } detail: {
             DashboardView()
         }
-        .environmentObject(DatabaseManager()) // Ensure DBManager is available for previews if needed by linked views
+        .environmentObject(DatabaseManager())
+        .environmentObject(AssetManager())
     }
 }
