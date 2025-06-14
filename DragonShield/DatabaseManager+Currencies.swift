@@ -1,6 +1,7 @@
 // DragonShield/DatabaseManager+Currencies.swift
-// MARK: - Version 1.0 (2025-05-30)
+// MARK: - Version 1.1
 // MARK: - History
+// - 1.0 -> 1.1: Corrected string binding in fetchCurrencyDetails to fix data loading bug.
 // - Initial creation: Refactored from DatabaseManager.swift.
 
 import SQLite3
@@ -8,7 +9,7 @@ import Foundation
 
 extension DatabaseManager {
 
-    func fetchActiveCurrencies() -> [(code: String, name: String, symbol: String)] { // Used by AddInstrumentView
+    func fetchActiveCurrencies() -> [(code: String, name: String, symbol: String)] {
         var currencies: [(code: String, name: String, symbol: String)] = []
         let query = """
             SELECT currency_code, currency_name, currency_symbol
@@ -95,8 +96,12 @@ extension DatabaseManager {
         
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            _ = code.withCString { sqlite3_bind_text(statement, 1, $0, -1, nil) } // SQLITE_STATIC
-            
+            // --- THIS IS THE FIX ---
+            // Using SQLITE_TRANSIENT tells SQLite to make its own copy of the string, which is safer.
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(statement, 1, (code as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            // --- END OF FIX ---
+
             if sqlite3_step(statement) == SQLITE_ROW {
                 let currencyCode = String(cString: sqlite3_column_text(statement, 0))
                 let currencyName = String(cString: sqlite3_column_text(statement, 1))
