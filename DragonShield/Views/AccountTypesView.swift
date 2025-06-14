@@ -1,10 +1,10 @@
 // DragonShield/Views/AccountTypesView.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
+// - 1.3 -> 1.4: Implemented Edit functionality for account types.
 // - 1.2 -> 1.3: Corrected .alert modifier logic to resolve compiler errors.
-// - 1.1 -> 1.2: Re-included helper structs (ModernAccountTypeRowView, AccountTypesParticleBackground) to fix scope issues.
-// - 1.0 -> 1.1: Implemented Add and Delete functionality for account types.
-// - Initial creation: Read-only view for displaying account types.
+// - 1.1 -> 1.2: Re-included helper structs to fix scope issues.
+// - 1.0 -> 1.1: Implemented Add and Delete functionality.
 
 import SwiftUI
 
@@ -15,10 +15,10 @@ struct AccountTypesView: View {
     @State private var searchText = ""
 
     @State private var showAddTypeSheet = false
-    // Removed @State private var deleteAlertMessage: String = "" as it's handled by alert content
+    @State private var showEditTypeSheet = false // Added for edit sheet
+    
     @State private var showingDeleteAlert = false
     @State private var typeToDelete: DatabaseManager.AccountTypeData? = nil
-
 
     // Animation states
     @State private var headerOpacity: Double = 0
@@ -63,11 +63,14 @@ struct AccountTypesView: View {
         .sheet(isPresented: $showAddTypeSheet) {
             AddAccountTypeView().environmentObject(dbManager)
         }
-        .alert(isPresented: $showingDeleteAlert) { // Using the .alert(isPresented:content:) modifier
-            // Construct the Alert based on the state of typeToDelete and canDeleteAccountType check
+        // NEW: Sheet for editing an account type
+        .sheet(isPresented: $showEditTypeSheet) {
+            if let type = selectedType {
+                EditAccountTypeView(accountTypeId: type.id).environmentObject(dbManager)
+            }
+        }
+        .alert(isPresented: $showingDeleteAlert) {
             guard let type = typeToDelete else {
-                // Fallback alert if typeToDelete is nil, though this state should ideally not be reached
-                // if showingDeleteAlert is true.
                 return Alert(title: Text("Error"), message: Text("No type selected for deletion."), dismissButton: .default(Text("OK")))
             }
 
@@ -81,7 +84,7 @@ struct AccountTypesView: View {
                         performDelete(type)
                     },
                     secondaryButton: .cancel {
-                        typeToDelete = nil // Clear selection on cancel
+                        typeToDelete = nil
                     }
                 )
             } else {
@@ -89,18 +92,13 @@ struct AccountTypesView: View {
                     title: Text("Cannot Delete Account Type"),
                     message: Text(deleteCheckResult.message),
                     dismissButton: .default(Text("OK")) {
-                        typeToDelete = nil // Clear selection
+                        typeToDelete = nil
                     }
                 )
             }
         }
     }
     
-    // ... rest of the modernHeader, searchAndStats, typesContent, emptyStateView, typesTable, modernTableHeader ...
-    // ... modernActionBar, modernStatCard, animateEntrance, loadAccountTypes, performDelete ...
-    // These should be the same as the previously working version (AccountTypesView v1.1 / v1.2 before this specific alert fix attempt)
-
-    // MARK: - Modern Header (Example, ensure it's complete from previous version)
     private var modernHeader: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -123,7 +121,6 @@ struct AccountTypesView: View {
         }.padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
     
-    // MARK: - Search and Stats (Example)
     private var searchAndStats: some View {
         VStack(spacing: 12) {
             HStack {
@@ -137,7 +134,6 @@ struct AccountTypesView: View {
         }.padding(.horizontal, 24).offset(y: contentOffset)
     }
     
-    // MARK: - Types Content (Example)
     private var typesContent: some View {
         VStack(spacing: 16) {
             if accountTypes.isEmpty && searchText.isEmpty { emptyStateView }
@@ -146,7 +142,6 @@ struct AccountTypesView: View {
         }.padding(.horizontal, 24).padding(.top, 16).offset(y: contentOffset)
     }
     
-    // MARK: - Empty State (Example)
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -174,17 +169,20 @@ struct AccountTypesView: View {
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Types Table (Example)
     private var typesTable: some View {
         VStack(spacing: 0) {
             modernTableHeader
             ScrollView {
-                LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) { // Make sure dbManager provides this
+                LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) {
                     ForEach(filteredTypes) { type in
                         ModernAccountTypeRowView(
                             type: type, isSelected: selectedType?.id == type.id,
-                            rowPadding: CGFloat(dbManager.tableRowPadding), // Make sure dbManager provides this
-                            onTap: { selectedType = type }
+                            rowPadding: CGFloat(dbManager.tableRowPadding),
+                            onTap: { selectedType = type },
+                            onEdit: { // Added onEdit closure
+                                selectedType = type
+                                showEditTypeSheet = true
+                            }
                         )
                     }
                 }
@@ -193,18 +191,17 @@ struct AccountTypesView: View {
         }
     }
     
-    // MARK: - Modern Table Header (Example)
     private var modernTableHeader: some View {
         HStack {
             Text("Name").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 200, alignment: .leading)
             Text("Code").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 100, alignment: .leading)
             Text("Description").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
             Text("Status").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 80, alignment: .center)
-        }.padding(.horizontal, CGFloat(dbManager.tableRowPadding)).padding(.vertical, 12) // Make sure dbManager provides this
+        }.padding(.horizontal, CGFloat(dbManager.tableRowPadding))
+        .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.gray.opacity(0.1))).padding(.bottom, 1)
     }
 
-    // MARK: - Modern Action Bar (Example)
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
@@ -218,13 +215,16 @@ struct AccountTypesView: View {
                 }.buttonStyle(ScaleButtonStyle())
 
                 if selectedType != nil {
-                     Button { /* showEditTypeSheet = true */ } label: {
+                     // MODIFIED: Edit button is now enabled
+                     Button {
+                         showEditTypeSheet = true
+                     } label: {
                         HStack(spacing: 6) { Image(systemName: "pencil"); Text("Edit") }
                         .font(.system(size: 14, weight: .medium)).foregroundColor(.blue)
                         .padding(.horizontal, 16).padding(.vertical, 10)
                         .background(Color.blue.opacity(0.1)).clipShape(Capsule())
                         .overlay(Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1))
-                    }.buttonStyle(ScaleButtonStyle()).disabled(true)
+                    }.buttonStyle(ScaleButtonStyle())
 
                     Button {
                         if let type = selectedType {
@@ -250,7 +250,6 @@ struct AccountTypesView: View {
         }.opacity(buttonsOpacity)
     }
 
-    // MARK: - Helper Views (Example)
     private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) { Image(systemName: icon).font(.system(size: 12)).foregroundColor(color); Text(title).font(.system(size: 11, weight: .medium)).foregroundColor(.gray) }
@@ -260,14 +259,12 @@ struct AccountTypesView: View {
         .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
     }
 
-    // MARK: - Animations (Example)
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
     }
 
-    // MARK: - Functions (Example)
     func loadAccountTypes() {
          accountTypes = dbManager.fetchAccountTypes(activeOnly: false)
     }
@@ -282,12 +279,13 @@ struct AccountTypesView: View {
     }
 }
 
-// MARK: - Modern Account Type Row View (Ensure this is defined)
+// MODIFIED: Added onEdit closure
 struct ModernAccountTypeRowView: View {
     let type: DatabaseManager.AccountTypeData
     let isSelected: Bool
     let rowPadding: CGFloat
     let onTap: () -> Void
+    let onEdit: () -> Void
     
     var body: some View {
         HStack {
@@ -314,15 +312,25 @@ struct ModernAccountTypeRowView: View {
             }.frame(width: 80, alignment: .center)
         }
         .padding(.horizontal, rowPadding)
-        .padding(.vertical, rowPadding / 1.5) // Example of slightly different vertical padding
+        .padding(.vertical, rowPadding / 1.5)
         .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Color.indigo.opacity(0.1) : Color.clear).overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Color.indigo.opacity(0.3) : Color.clear, lineWidth: 1)))
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+        .onTapGesture(count: 2) { onEdit() } // Double-tap to edit
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .contextMenu { // Added Edit to context menu
+             Button("Edit '\(type.name)'") {
+                onEdit()
+            }
+            Divider()
+            Button("Select") {
+                onTap()
+            }
+        }
     }
 }
 
-// MARK: - Background Particles (Ensure this is defined)
+// Background particle struct and view remain the same
 struct AccountTypeParticle: Identifiable {
     let id = UUID()
     var position: CGPoint

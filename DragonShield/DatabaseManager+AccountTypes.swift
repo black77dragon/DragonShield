@@ -1,9 +1,8 @@
 // DragonShield/DatabaseManager+AccountTypes.swift
 // MARK: - Version 1.2
 // MARK: - History
-// - 1.1 -> 1.2: Corrected 'var' to 'let' for non-mutated variable to resolve compiler warning.
+// - 1.1 -> 1.2: Added updateAccountType method to support editing. Corrected var/let warning.
 // - 1.0 -> 1.1: Added addAccountType, deleteAccountType, canDeleteAccountType methods.
-// - Initial creation: Added fetchAccountTypes to support normalized account types.
 
 import SQLite3
 import Foundation
@@ -77,6 +76,46 @@ extension DatabaseManager {
         return success
     }
 
+    // NEW FUNCTION: updateAccountType
+    func updateAccountType(id: Int, code: String, name: String, description: String?, isActive: Bool) -> Bool {
+        let query = """
+            UPDATE AccountTypes SET
+                type_code = ?,
+                type_name = ?,
+                type_description = ?,
+                is_active = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE account_type_id = ?;
+        """
+        var statement: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare updateAccountType (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(statement, 1, (code as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 2, (name as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if let desc = description, !desc.isEmpty {
+            sqlite3_bind_text(statement, 3, (desc as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(statement, 3)
+        }
+        sqlite3_bind_int(statement, 4, isActive ? 1 : 0)
+        sqlite3_bind_int(statement, 5, Int32(id))
+
+        let success = sqlite3_step(statement) == SQLITE_DONE
+        sqlite3_finalize(statement)
+
+        if success {
+            print("✅ AccountType with ID \(id) updated successfully.")
+        } else {
+            print("❌ Failed to update AccountType with ID \(id): \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return success
+    }
+
     func deleteAccountType(id: Int) -> Bool {
         let query = "DELETE FROM AccountTypes WHERE account_type_id = ?;"
         var statement: OpaquePointer?
@@ -121,8 +160,8 @@ extension DatabaseManager {
         return (true, 0, "Account type can be deleted.")
     }
     
-    // Placeholder for fetchAccountTypeDetails - will be needed for Edit functionality
     func fetchAccountTypeDetails(id: Int) -> AccountTypeData? {
+        // Corrected the var to let for the query string
         let query = "SELECT account_type_id, type_code, type_name, type_description, is_active FROM AccountTypes WHERE account_type_id = ?"
         var statement: OpaquePointer?
         var accountType: AccountTypeData? = nil
