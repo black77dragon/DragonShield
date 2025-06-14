@@ -1,9 +1,9 @@
 // DragonShield/Views/SettingsView.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
+// - 1.2 -> 1.3: Replaced script-based versioning with a 100% Swift solution (AppVersionProvider) to fix build errors.
 // - 1.1 -> 1.2: Removed redundant .onChange modifiers that were causing a state update crash loop.
 // - 1.0 -> 1.1: Added editable fields for Configuration settings (base_currency, decimal_precision, etc.).
-// - Initial functional version with Debug setting for database re-copy.
 
 import SwiftUI
 
@@ -33,7 +33,6 @@ struct SettingsView: View {
                             let newCurrency = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
                             if newCurrency.count == 3 && newCurrency.allSatisfy({$0.isLetter}) {
                                 _ = dbManager.updateConfiguration(key: "base_currency", value: newCurrency)
-                                // dbManager.baseCurrency will update via loadConfiguration in updateConfiguration
                             } else {
                                 // Revert or show error
                                 tempBaseCurrency = dbManager.baseCurrency
@@ -109,7 +108,9 @@ struct SettingsView: View {
                 HStack {
                     Text("App Version")
                     Spacer()
-                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "N/A")
+                    // Use the new, reliable AppVersionProvider
+                    Text(AppVersionProvider.fullVersion)
+                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -127,7 +128,6 @@ struct SettingsView: View {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         // NOTE: You must have a `UserDefaultsKeys` struct with the appropriate key defined for this preview to work.
-        // Example: struct UserDefaultsKeys { static let forceOverwriteDatabaseOnDebug = "forceOverwriteDatabaseOnDebug" }
         UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
         let dbManager = DatabaseManager() // Create a preview instance
 
