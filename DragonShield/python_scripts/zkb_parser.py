@@ -85,7 +85,7 @@ def parse_date_from_excel_cell(cell_content: Any, input_format: Optional[str] = 
             if len(y_part) == 2: year += 2000; # noinspection PyBroadException
             try: return datetime(year, int(m), int(d)).strftime('%Y-%m-%d')
             except Exception: pass
-        if len(cell_str) > 10 and cell_str[4] == '-' and cell_str[7] == '-': # YYYY-MM-DD...
+        if len(cell_str) >= 10 and cell_str[4] == '-' and cell_str[7] == '-': # YYYY-MM-DD or longer
             try: return datetime.strptime(cell_str[:10], '%Y-%m-%d').strftime('%Y-%m-%d')
             except ValueError: pass
         # print(f"Warning: Could not parse date string '{cell_str}' to YYYY-MM-DD") # Reduce noise
