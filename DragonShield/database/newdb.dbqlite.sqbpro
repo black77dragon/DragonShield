@@ -1,13 +1,11 @@
--- DragonShield/docs/schema.sql
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="newdb.dbqlite.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="1"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="9623"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="Positions" custom_title="0" dock_id="7" table="4,9:mainPositions"/><dock_state state="000000ff00000000fd0000000100000002000003560000031afc0100000007fb000000160064006f0063006b00420072006f00770073006500310100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500320100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500330100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500340100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500350100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500360100000000000003560000000000000000fb000000160064006f0063006b00420072006f00770073006500370100000000000003560000010100ffffff000002c10000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="AccountSummary" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="81"/><column index="2" value="155"/><column index="3" value="142"/><column index="4" value="120"/><column index="5" value="126"/><column index="6" value="131"/><column index="7" value="134"/><column index="8" value="121"/><column index="9" value="131"/><column index="10" value="142"/><column index="11" value="108"/><column index="12" value="154"/><column index="13" value="151"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="Positions" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="84"/><column index="2" value="107"/><column index="4" value="185"/><column index="5" value="89"/><column index="7" value="126"/><column index="8" value="81"/><column index="9" value="148"/><column index="10" value="145"/><column index="12" value="158"/><column index="13" value="130"/><column index="14" value="102"/><column index="15" value="138"/><column index="16" value="102"/><column index="17" value="127"/><column index="18" value="154"/><column index="19" value="151"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="SQL 1*">-- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.5 - Positions View & Upload Metadata
+-- Version 4.4 - Normalized Account Types
 -- Created: 2025-05-24
--- Updated: 2025-06-15
+-- Updated: 2025-06-01
 --
 -- RECENT HISTORY:
--- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
---   Positions, updated PortfolioSummary and AccountSummary views.
--- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
+-- - v4.3 -&gt; v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
 -- - (Previous history for v4.3 and earlier...)
 --
 
@@ -98,7 +96,7 @@ CREATE TABLE ExchangeRates (
     rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
     currency_code TEXT NOT NULL,
     rate_date DATE NOT NULL,
-    rate_to_chf REAL NOT NULL CHECK (rate_to_chf > 0),
+    rate_to_chf REAL NOT NULL CHECK (rate_to_chf &gt; 0),
     rate_source TEXT DEFAULT 'manual' CHECK (rate_source IN ('manual', 'api', 'import')),
     api_provider TEXT,
     is_latest BOOLEAN DEFAULT 0,
@@ -157,7 +155,7 @@ INSERT INTO InstrumentGroups (group_code, group_name, group_description, sort_or
 ('REIT', 'REITs', 'Real estate investment trusts', 6),
 ('COMMODITY', 'Commodities', 'Commodity investments and futures', 7),
 ('STRUCTURED', 'Structured Products', 'Certificates and structured products', 8),
-('CASH', 'Cash & Money Market', 'Cash and money market instruments', 9),
+('CASH', 'Cash &amp; Money Market', 'Cash and money market instruments', 9),
 ('OTHER', 'Other', 'Other investment instruments', 10);
 
 CREATE TABLE Instruments (
@@ -421,98 +419,6 @@ CREATE TABLE PositionReports (
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
 );
 
--- Sample import sessions for testing
-INSERT INTO ImportSessions (
-    import_session_id,
-    session_name,
-    file_name,
-    file_path,
-    file_type,
-    file_size,
-    file_hash,
-    account_id,
-    import_status,
-    total_rows,
-    successful_rows,
-    failed_rows,
-    duplicate_rows,
-    processing_notes,
-    started_at,
-    completed_at
-) VALUES
-    (1, 'UBS Positions 2024-12-31', 'UBS_Positions_2024-12-31.csv',
-        '/uploads/UBS_Positions_2024-12-31.csv', 'CSV', 2048, 'HASH001', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-01 08:00:00', '2025-01-01 08:00:10'),
-    (2, 'UBS Positions 2025-03-26', 'UBS_Positions_2025-03-26.csv',
-        '/uploads/UBS_Positions_2025-03-26.csv', 'CSV', 2050, 'HASH002', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 08:00:00', '2025-03-27 08:00:10'),
-    (3, 'UBS Positions 2025-05-24', 'UBS_Positions_2025-05-24.csv',
-        '/uploads/UBS_Positions_2025-05-24.csv', 'CSV', 2055, 'HASH003', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 08:00:00', '2025-05-25 08:00:10'),
-    (4, 'IBKR Positions 2024-12-31', 'IBKR_Positions_2024-12-31.csv',
-        '/uploads/IBKR_Positions_2024-12-31.csv', 'CSV', 3150, 'HASH004', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Initial import',
-        '2025-01-02 09:00:00', '2025-01-02 09:00:15'),
-    (5, 'IBKR Positions 2025-03-26', 'IBKR_Positions_2025-03-26.csv',
-        '/uploads/IBKR_Positions_2025-03-26.csv', 'CSV', 3200, 'HASH005', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-03-27 09:00:00', '2025-03-27 09:00:15'),
-    (6, 'IBKR Positions 2025-05-24', 'IBKR_Positions_2025-05-24.csv',
-        '/uploads/IBKR_Positions_2025-05-24.csv', 'CSV', 3250, 'HASH006', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-05-25 09:00:00', '2025-05-25 09:00:15'),
-    (7, 'Coinbase Positions 2024-12-31', 'Coinbase_Positions_2024-12-31.csv',
-        '/uploads/Coinbase_Positions_2024-12-31.csv', 'CSV', 1024, 'HASH007', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-02 10:00:00', '2025-01-02 10:00:10'),
-    (8, 'Coinbase Positions 2025-03-26', 'Coinbase_Positions_2025-03-26.csv',
-        '/uploads/Coinbase_Positions_2025-03-26.csv', 'CSV', 1030, 'HASH008', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 10:00:00', '2025-03-27 10:00:10'),
-    (9, 'Coinbase Positions 2025-05-24', 'Coinbase_Positions_2025-05-24.csv',
-        '/uploads/Coinbase_Positions_2025-05-24.csv', 'CSV', 1040, 'HASH009', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 10:00:00', '2025-05-25 10:00:10'),
-    (10, 'UBS Positions 2025-06-30', 'UBS_Positions_2025-06-30.csv',
-        '/uploads/UBS_Positions_2025-06-30.csv', 'CSV', 2060, 'HASH010', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Quarter end',
-        '2025-07-01 08:00:00', '2025-07-01 08:00:10');
-
--- Sample position reports for each session
-INSERT INTO PositionReports (
-    import_session_id,
-    account_id,
-    instrument_id,
-    quantity,
-    report_date,
-    uploaded_at
-) VALUES
-    (1, 1, 1, 8, '2024-12-31', '2025-01-01 08:00:10'),
-    (1, 1, 2, 12, '2024-12-31', '2025-01-01 08:00:10'),
-    (2, 1, 1, 9, '2025-03-26', '2025-03-27 08:00:10'),
-    (2, 1, 2, 14, '2025-03-26', '2025-03-27 08:00:10'),
-    (3, 1, 1, 10, '2025-05-24', '2025-05-25 08:00:10'),
-    (3, 1, 2, 15, '2025-05-24', '2025-05-25 08:00:10'),
-    (4, 3, 5, 4, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 6, 2, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 9, 40, '2024-12-31', '2025-01-02 09:00:15'),
-    (5, 3, 5, 5, '2025-03-26', '2025-03-27 09:00:15'),
-    (5, 3, 6, 3, '2025-03-26', '2025-03-27 09:00:15'),
-    (5, 3, 9, 45, '2025-03-26', '2025-03-27 09:00:15'),
-    (6, 3, 5, 5, '2025-05-24', '2025-05-25 09:00:15'),
-    (6, 3, 6, 3, '2025-05-24', '2025-05-25 09:00:15'),
-    (6, 3, 9, 50, '2025-05-24', '2025-05-25 09:00:15'),
-    (7, 4, 13, 0.05, '2024-12-31', '2025-01-02 10:00:10'),
-    (7, 4, 14, 1.0, '2024-12-31', '2025-01-02 10:00:10'),
-    (8, 4, 13, 0.08, '2025-03-26', '2025-03-27 10:00:10'),
-    (8, 4, 14, 1.5, '2025-03-26', '2025-03-27 10:00:10'),
-    (9, 4, 13, 0.1, '2025-05-24', '2025-05-25 10:00:10'),
-    (9, 4, 14, 2.0, '2025-05-24', '2025-05-25 10:00:10'),
-    (10, 1, 1, 10, '2025-06-30', '2025-07-01 08:00:10'),
-    (10, 1, 2, 15, '2025-06-30', '2025-07-01 08:00:10');
 --=============================================================================
 -- TRIGGERS FOR AUTOMATIC CALCULATIONS
 --=============================================================================
@@ -526,13 +432,13 @@ BEGIN
         amount_chf = NEW.net_amount * COALESCE(
             (SELECT rate_to_chf FROM ExchangeRates
              WHERE currency_code = NEW.transaction_currency
-             AND rate_date <= NEW.transaction_date
+             AND rate_date &lt;= NEW.transaction_date
              ORDER BY rate_date DESC LIMIT 1), 1.0
         ),
         exchange_rate_to_chf = COALESCE(
             (SELECT rate_to_chf FROM ExchangeRates
              WHERE currency_code = NEW.transaction_currency
-             AND rate_date <= NEW.transaction_date
+             AND rate_date &lt;= NEW.transaction_date
              ORDER BY rate_date DESC LIMIT 1), 1.0
         )
     WHERE transaction_id = NEW.transaction_id;
@@ -576,7 +482,7 @@ SELECT
         ELSE 0
     END) as total_quantity,
     CASE
-        WHEN SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END) > 0
+        WHEN SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END) &gt; 0
         THEN SUM(CASE WHEN tt.type_code = 'BUY' THEN ABS(t.amount_chf) ELSE 0 END) /
              SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END)
         ELSE 0
@@ -595,14 +501,14 @@ JOIN Accounts a ON t.account_id = a.account_id
 JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
 LEFT JOIN PortfolioInstruments pi ON i.instrument_id = pi.instrument_id
 LEFT JOIN Portfolios p ON pi.portfolio_id = p.portfolio_id
-WHERE t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_date')
+WHERE t.transaction_date &lt;= (SELECT value FROM Configuration WHERE key = 'as_of_date')
   AND i.include_in_portfolio = 1
   AND ig.include_in_portfolio = 1
   AND a.include_in_portfolio = 1
   AND i.is_active = 1
   AND (p.include_in_total = 1 OR p.include_in_total IS NULL)
 GROUP BY p.portfolio_id, i.instrument_id, a.account_id
-HAVING total_quantity > 0;
+HAVING total_quantity &gt; 0;
 
 CREATE VIEW PortfolioSummary AS
 SELECT
@@ -647,7 +553,7 @@ JOIN AccountTypes act ON a.account_type_id = act.account_type_id -- NEW JOIN
 LEFT JOIN Transactions t ON a.account_id = t.account_id
 LEFT JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
 WHERE a.is_active = 1
-  AND (t.transaction_date IS NULL OR t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_date'))
+  AND (t.transaction_date IS NULL OR t.transaction_date &lt;= (SELECT value FROM Configuration WHERE key = 'as_of_date'))
 GROUP BY a.account_id, a.account_name, a.institution_name, act.type_name, a.currency_code
 ORDER BY a.account_name;
 
@@ -683,7 +589,7 @@ SELECT
         ELSE 0
     END), 0) as current_quantity,
     CASE
-        WHEN SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END) > 0
+        WHEN SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END) &gt; 0
         THEN SUM(CASE WHEN tt.type_code = 'BUY' THEN ABS(t.amount_chf) ELSE 0 END) /
              SUM(CASE WHEN tt.type_code = 'BUY' THEN t.quantity ELSE 0 END)
         ELSE 0
@@ -699,7 +605,7 @@ SELECT
 FROM Instruments i
 JOIN InstrumentGroups ig ON i.group_id = ig.group_id
 LEFT JOIN Transactions t ON i.instrument_id = t.instrument_id
-    AND t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_date')
+    AND t.transaction_date &lt;= (SELECT value FROM Configuration WHERE key = 'as_of_date')
 LEFT JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
 GROUP BY i.instrument_id, i.instrument_name, i.ticker_symbol, i.isin, ig.group_name, i.currency, i.include_in_portfolio, i.is_active
 ORDER BY i.instrument_name;
@@ -711,7 +617,7 @@ SELECT
     COUNT(*) as occurrence_count
 FROM Transactions t
 LEFT JOIN ExchangeRates er ON t.transaction_currency = er.currency_code
-    AND er.rate_date <= t.transaction_date
+    AND er.rate_date &lt;= t.transaction_date
 WHERE er.rate_id IS NULL
   AND t.transaction_currency != 'CHF'
 GROUP BY t.transaction_currency, t.transaction_date
@@ -748,7 +654,7 @@ HAVING SUM(CASE
            WHEN tt.type_code = 'BUY' THEN t.quantity
            WHEN tt.type_code = 'SELL' THEN -t.quantity
            ELSE 0
-       END) < 0;
+       END) &lt; 0;
 
 --=============================================================================
 -- FINAL DATABASE SETUP AND OPTIMIZATION
@@ -760,4 +666,4 @@ ANALYZE;
 
 --=============================================================================
 -- DATABASE CREATION COMPLETED SUCCESSFULLY
---=============================================================================
+--=============================================================================</sql><current_tab id="0"/></tab_sql></sqlb_project>

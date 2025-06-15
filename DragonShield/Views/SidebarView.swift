@@ -6,6 +6,10 @@
 // - (Previous history)
 
 import SwiftUI
+import AppKit
+
+// Access to the import parser
+private let importManager = ImportManager.shared
 
 struct SidebarView: View {
     var body: some View {
@@ -31,8 +35,9 @@ struct SidebarView: View {
             
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
-                // MODIFIED: Enabled this NavigationLink
-                NavigationLink(destination: ImportStatementView()) {
+                Button(action: {
+                    importManager.openAndParseDocument()
+                }) {
                     Label("Load Documents", systemImage: "doc.text.fill")
                 }
                 
