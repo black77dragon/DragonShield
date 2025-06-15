@@ -9,8 +9,8 @@ import Foundation
 extension DatabaseManager {
 
     // Placeholder, to be implemented
-    func fetchCurrentHoldings() -> [(portfolioName: String, instrumentName: String, quantity: Double, valueChf: Double)] {
-        print("⚠️ fetchCurrentHoldings() - Not yet implemented")
+    func fetchPositions() -> [(portfolioName: String, instrumentName: String, quantity: Double, valueChf: Double)] {
+        print("⚠️ fetchPositions() - Not yet implemented")
         return []
     }
     

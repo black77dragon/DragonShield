@@ -125,10 +125,11 @@ Account & Transaction Layer
 ├── Accounts (bank/custody accounts)
 ├── TransactionTypes (transaction categories)
 ├── Transactions (core transaction data)
+├── PositionReports (uploaded positions)
 └── ImportSessions (import tracking)
 
 Analysis Layer
-├── CurrentHoldings (view)
+├── Positions (view)
 ├── PortfolioSummary (view)
 ├── AccountSummary (view)
 └── InstrumentPerformance (view)
@@ -336,6 +337,18 @@ Analysis Layer
 - error_log: Error details
 ```
 
+#### PositionReports
+**Purpose**: Stores uploaded position snapshots
+```sql
+- position_id: Primary key
+- import_session_id: Related import session
+- account_id: Account containing the position
+- instrument_id: Instrument identifier
+- quantity: Units held
+- report_date: Statement's report date
+- uploaded_at: Timestamp when imported
+```
+
 ## Relationships & Constraints
 
 ### Primary Relationships
@@ -386,7 +399,7 @@ TransactionTypes ←→ Transactions (1:N)
 
 ## Views & Calculations
 
-### CurrentHoldings View
+### Positions View
 **Purpose**: Real-time portfolio positions
 **Key Features**:
 - Respects "as of date" configuration

@@ -16,8 +16,9 @@ DROP VIEW IF EXISTS InstrumentPerformance;
 DROP VIEW IF EXISTS LatestExchangeRates;
 DROP VIEW IF EXISTS AccountSummary;
 DROP VIEW IF EXISTS PortfolioSummary;
-DROP VIEW IF EXISTS CurrentHoldings;
+DROP VIEW IF EXISTS Positions;
 
+DROP TABLE IF EXISTS PositionReports;
 DROP TABLE IF EXISTS ImportSessions;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS TransactionTypes;
@@ -405,6 +406,19 @@ CREATE TABLE ImportSessions (
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id)
 );
 
+CREATE TABLE PositionReports (
+    position_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_session_id INTEGER,
+    account_id INTEGER NOT NULL,
+    instrument_id INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    report_date DATE NOT NULL,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),
+    FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
+);
+
 --=============================================================================
 -- TRIGGERS FOR AUTOMATIC CALCULATIONS
 --=============================================================================
@@ -450,7 +464,7 @@ END;
 -- PORTFOLIO CALCULATION VIEWS (AccountSummary MODIFIED)
 --=============================================================================
 
-CREATE VIEW CurrentHoldings AS
+CREATE VIEW Positions AS
 SELECT
     p.portfolio_id,
     p.portfolio_name,
@@ -498,25 +512,25 @@ HAVING total_quantity > 0;
 
 CREATE VIEW PortfolioSummary AS
 SELECT
-    COALESCE(ch.portfolio_name, 'Unassigned') as portfolio_name,
-    ch.instrument_group,
-    COUNT(DISTINCT ch.instrument_id) as instrument_count,
-    SUM(ch.transaction_count) as total_transactions,
-    SUM(ch.total_quantity * ch.avg_cost_chf_per_unit) as current_market_value_chf,
-    SUM(ch.total_invested_chf) as total_invested_chf,
-    SUM(ch.total_sold_chf) as total_sold_chf,
-    SUM(ch.total_dividends_chf) as total_dividends_chf,
-    SUM(ch.total_fees_chf) as total_fees_chf,
+    COALESCE(p.portfolio_name, 'Unassigned') as portfolio_name,
+    p.instrument_group,
+    COUNT(DISTINCT p.instrument_id) as instrument_count,
+    SUM(p.transaction_count) as total_transactions,
+    SUM(p.total_quantity * p.avg_cost_chf_per_unit) as current_market_value_chf,
+    SUM(p.total_invested_chf) as total_invested_chf,
+    SUM(p.total_sold_chf) as total_sold_chf,
+    SUM(p.total_dividends_chf) as total_dividends_chf,
+    SUM(p.total_fees_chf) as total_fees_chf,
     ROUND(
-        (SUM(ch.total_quantity * ch.avg_cost_chf_per_unit) - SUM(ch.total_invested_chf) + SUM(ch.total_sold_chf)) /
-        NULLIF(SUM(ch.total_invested_chf), 0) * 100, 2
+        (SUM(p.total_quantity * p.avg_cost_chf_per_unit) - SUM(p.total_invested_chf) + SUM(p.total_sold_chf)) /
+        NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
     ) as unrealized_return_percent,
     ROUND(
-        SUM(ch.total_dividends_chf) / NULLIF(SUM(ch.total_invested_chf), 0) * 100, 2
+        SUM(p.total_dividends_chf) / NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
     ) as dividend_yield_percent
-FROM CurrentHoldings ch
-GROUP BY ch.portfolio_name, ch.instrument_group
-ORDER BY ch.portfolio_name, ch.instrument_group;
+FROM Positions p
+GROUP BY p.portfolio_name, p.instrument_group
+ORDER BY p.portfolio_name, p.instrument_group;
 
 -- MODIFIED VIEW: AccountSummary
 CREATE VIEW AccountSummary AS

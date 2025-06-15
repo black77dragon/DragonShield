@@ -40,8 +40,8 @@ struct DatabaseConnectionTest: View {
             print("  - \(portfolio.name)")
         }
         
-        let holdings = dbManager.fetchCurrentHoldings()
-        print("📈 Current Holdings: \(holdings.count)")
+        let positions = dbManager.fetchPositions()
+        print("📈 Positions: \(positions.count)")
         
         print("✅ Database test completed successfully!")
     }
