@@ -1,10 +1,12 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.4 - Normalized Account Types
+-- Version 4.5 - Positions View & Upload Metadata
 -- Created: 2025-05-24
--- Updated: 2025-06-01
+-- Updated: 2025-06-15
 --
 -- RECENT HISTORY:
+-- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
+--   Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
 -- - (Previous history for v4.3 and earlier...)
 --
