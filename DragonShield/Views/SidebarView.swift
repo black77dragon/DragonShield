@@ -7,6 +7,10 @@
 // - (Previous history)
 
 import SwiftUI
+import AppKit
+
+// Access to the import parser
+private let importManager = ImportManager.shared
 
 struct SidebarView: View {
     var body: some View {
@@ -32,17 +36,12 @@ struct SidebarView: View {
             
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
-                HStack {
+                Button(action: {
+                    importManager.openAndParseDocument()
+                }) {
                     Label("Load Documents", systemImage: "doc.text.fill")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("(coming soon)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .italic()
                 }
-                .onTapGesture {}
-                
+
                 NavigationLink(destination: CurrenciesView()) {
                     Label("Edit Currencies", systemImage: "dollarsign.circle.fill")
                 }
