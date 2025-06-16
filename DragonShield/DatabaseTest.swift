@@ -1,3 +1,8 @@
+// DragonShield/DatabaseTest.swift
+// MARK: - Version 1.1 (2025-06-15)
+// MARK: - History
+// - 1.0 -> 1.1: Updated to fetch position reports using new database method.
+
 import SwiftUI
 
 struct DatabaseConnectionTest: View {
@@ -40,8 +45,8 @@ struct DatabaseConnectionTest: View {
             print("  - \(portfolio.name)")
         }
         
-        let positions = dbManager.fetchPositions()
-        print("📈 Positions: \(positions.count)")
+        let positions = dbManager.fetchPositionReports()
+        print("📈 Position reports: \(positions.count)")
         
         print("✅ Database test completed successfully!")
     }
