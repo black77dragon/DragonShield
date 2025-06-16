@@ -23,7 +23,7 @@ Four drill-down tiles:
 ### Additional Features
 - **Target Allocation & Alerts**: Define goals per class/instrument; automatic gap calculation and alerting
 - **Transaction History**: Chronological log with rich filter & sort, CSV export
-- **Positions**: Table listing all holdings with uploaded and report dates
+- **Positions**: Lists position reports directly from the database with account and instrument details
 - **Strategy Documentation**: Markdown notes field beside each instrument and at portfolio level
 - **Native macOS Experience**: Swift + SwiftUI, system dark/light mode, Touch ID unlock (planned)
 - **Minimalist UI**: Single accent color, generous whitespace, keyboard-first workflow (⌘-K palette)

@@ -1,6 +1,7 @@
 // DragonShield/DatabaseManager+OtherData.swift
-// MARK: - Version 1.1 (2025-06-13)
+// MARK: - Version 1.2 (2025-06-15)
 // MARK: - History
+// - 1.1 -> 1.2: Position reports now fetched via DatabaseManager+PositionReports.
 // - 1.0 -> 1.1: Added PositionData struct and sample data in fetchPositions().
 // - Initial creation: Refactored from DatabaseManager.swift (placeholder methods).
 

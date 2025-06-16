@@ -1,6 +1,7 @@
 // DragonShield/Views/PositionsView.swift
-// MARK: - Version 1.0 (2025-06-13)
+// MARK: - Version 1.1 (2025-06-15)
 // MARK: - History
+// - 1.0 -> 1.1: Display live PositionReports data from database.
 // - Initial creation: Displays positions with upload and report dates.
 
 import SwiftUI
@@ -8,19 +9,20 @@ import SwiftUI
 struct PositionsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
-    @State private var positions: [PositionData] = []
-    @State private var selectedPosition: PositionData? = nil
+    @State private var positions: [PositionReportData] = []
+    @State private var selectedPosition: PositionReportData? = nil
     @State private var searchText = ""
 
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
-    var filteredPositions: [PositionData] {
+    var filteredPositions: [PositionReportData] {
         if searchText.isEmpty { return positions }
         return positions.filter { position in
             position.instrumentName.localizedCaseInsensitiveContains(searchText) ||
             position.accountName.localizedCaseInsensitiveContains(searchText) ||
-            position.portfolioName.localizedCaseInsensitiveContains(searchText)
+            String(position.id).contains(searchText) ||
+            (position.importSessionId.map { String($0).contains(searchText) } ?? false)
         }
     }
 
@@ -104,11 +106,11 @@ struct PositionsView: View {
 
     private var modernTableHeader: some View {
         HStack {
-            Text("Portfolio").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 120, alignment: .leading)
+            Text("ID").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 50, alignment: .leading)
+            Text("Session").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .leading)
             Text("Account").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Instrument").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
             Text("Qty").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
-            Text("Value CHF").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 90, alignment: .trailing)
             Text("Uploaded").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
             Text("Report").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
         }
@@ -149,7 +151,7 @@ struct PositionsView: View {
     }
 
     private func loadPositions() {
-        positions = dbManager.fetchPositions()
+        positions = dbManager.fetchPositionReports()
     }
 
     private func animateEntrance() {
@@ -159,23 +161,25 @@ struct PositionsView: View {
 }
 
 struct ModernPositionRowView: View {
-    let position: PositionData
+    let position: PositionReportData
     let isSelected: Bool
     let rowPadding: CGFloat
     let onTap: () -> Void
 
-    private static var dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
+    private static var dateFormatter: DateFormatter = DateFormatter.iso8601DateOnly
+    private static var dateTimeFormatter: DateFormatter = DateFormatter.iso8601DateTime
 
     var body: some View {
         HStack {
-            Text(position.portfolioName)
-                .font(.system(size: 14, weight: .medium))
+            Text(String(position.id))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundColor(.primary)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
+
+            Text(position.importSessionId.map { String($0) } ?? "-")
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 70, alignment: .leading)
 
             Text(position.accountName)
                 .font(.system(size: 13))
@@ -193,12 +197,7 @@ struct ModernPositionRowView: View {
                 .foregroundColor(.primary)
                 .frame(width: 60, alignment: .trailing)
 
-            Text(String(format: "%.2f", position.valueChf))
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundColor(.primary)
-                .frame(width: 90, alignment: .trailing)
-
-            Text(position.uploadedAt, formatter: Self.dateFormatter)
+            Text(position.uploadedAt, formatter: Self.dateTimeFormatter)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .frame(width: 110, alignment: .center)
