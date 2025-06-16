@@ -1,6 +1,7 @@
 // DragonShield/Views/PositionsView.swift
-// MARK: - Version 1.1 (2025-06-15)
+// MARK: - Version 1.2 (2025-06-16)
 // MARK: - History
+// - 1.1 -> 1.2: Updated to use global PositionReportData type.
 // - 1.0 -> 1.1: Display live PositionReports data from database.
 // - Initial creation: Displays positions with upload and report dates.
 

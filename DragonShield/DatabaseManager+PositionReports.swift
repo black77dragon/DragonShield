@@ -1,14 +1,13 @@
 // DragonShield/DatabaseManager+PositionReports.swift
-// MARK: - Version 1.0 (2025-06-15)
+// MARK: - Version 1.1 (2025-06-16)
 // MARK: - History
+// - 1.0 -> 1.1: Move PositionReportData struct to global scope for easier access.
 // - Initial creation: Fetch position reports from PositionReports table joining Accounts and Instruments.
 
 import SQLite3
 import Foundation
 
-extension DatabaseManager {
-
-    struct PositionReportData: Identifiable {
+struct PositionReportData: Identifiable {
         var id: Int
         var importSessionId: Int?
         var accountName: String
@@ -16,7 +15,9 @@ extension DatabaseManager {
         var quantity: Double
         var reportDate: Date
         var uploadedAt: Date
-    }
+}
+
+extension DatabaseManager {
 
     func fetchPositionReports() -> [PositionReportData] {
         var reports: [PositionReportData] = []
