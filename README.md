@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.0** | June 13, 2025
+**Version 2.1** | June 17, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -121,6 +121,14 @@ DragonShield/
 - **Schema**: `docs/schema.sql`
 - **Dev Key**: Temporary; do not use for production data
 
+## Updating the Database
+
+Run the deploy script whenever you need to refresh the production database:
+
+```bash
+python3 python_scripts/deploy_db.py
+```
+
 ## 💡 Usage
 
 At present the application must be run from Xcode. Future releases will ship a signed & notarized .app bundle.
@@ -132,3 +140,8 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 ## 📜 License
 
 Dragon Shield is released under the MIT License. See LICENSE for full text.
+
+## Version History
+
+- 2.1: Documented database deployment script.
+- 2.0: Initial project documentation.
