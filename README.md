@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.1** | June 17, 2025
+**Version 2.2** | June 18, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -103,12 +103,15 @@ DragonShield/
    ```
    *Note: Create requirements.txt first (e.g. pysqlcipher3, pandas, openpyxl, pdfplumber)*
 
-5. **Open the Xcode project**
+5. **Generate the local database**
+   ```bash
+   python3 python_scripts/deploy_db.py
+   ```
+6. **Open the Xcode project**
    ```bash
    open DragonShield.xcodeproj
    ```
-
-6. **Build & run**
+7. **Build & run**
    - Select DragonShield → My Mac and press ⌘R
 
 > **⚠️ Important**: The current build is developer-only. Replace the default DB key with a Keychain-managed key before storing real data.
@@ -116,14 +119,14 @@ DragonShield/
 ## 💾 Database Information
 
 - **Type**: SQLite
-- **Path**: `~/Library/Application Support/DragonShield/dragonshield.sqlite`
+- **Path**: `~/Library/Application Support/DragonShield/dragonshield.sqlite` (generate with `python3 python_scripts/deploy_db.py`)
 - **Encryption**: SQLCipher (AES-256)
 - **Schema**: `docs/schema.sql`
 - **Dev Key**: Temporary; do not use for production data
 
 ## Updating the Database
 
-Run the deploy script whenever you need to refresh the production database:
+Run the deploy script whenever you need to create or refresh the database:
 
 ```bash
 python3 python_scripts/deploy_db.py
@@ -143,5 +146,6 @@ Dragon Shield is released under the MIT License. See LICENSE for full text.
 
 ## Version History
 
+- 2.2: Removed bundled database; added generation instructions and ignore rule.
 - 2.1: Documented database deployment script.
 - 2.0: Initial project documentation.
