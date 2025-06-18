@@ -1,10 +1,16 @@
+# python_scripts/import_tool.py
+# MARK: - Version 1.1
+# MARK: - History
+# - 1.0 -> 1.1: Replace builtin generics with typing equivalents for
+#   compatibility with older Python versions.
+
 import os
 import sqlite3
 import hashlib
 import json
 import io
 import contextlib
-from typing import Any
+from typing import Any, Dict, Tuple, Optional
 
 import zkb_parser  # existing parser in the same folder
 
@@ -28,7 +34,7 @@ def choose_account(conn: sqlite3.Connection) -> int:
             print("Please enter a valid number.")
 
 
-def compute_metadata(path: str) -> tuple[str, int, str]:
+def compute_metadata(path: str) -> Tuple[str, int, str]:
     size = os.path.getsize(path)
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -63,7 +69,7 @@ def insert_session(conn: sqlite3.Connection, name: str, fname: str, fpath: str,
 
 
 def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
-                    total: int, success: int, failed: int, notes: str | None = None):
+                    total: int, success: int, failed: int, notes: Optional[str] = None):
     conn.execute(
         """
         UPDATE ImportSessions
@@ -76,14 +82,14 @@ def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
     conn.commit()
 
 
-def parse_file(path: str) -> dict[str, Any]:
+def parse_file(path: str) -> Dict[str, Any]:
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         zkb_parser.process_file(path)
     return json.loads(buf.getvalue())
 
 
-def preview_records(data: dict[str, Any], limit: int = 3):
+def preview_records(data: Dict[str, Any], limit: int = 3):
     records = data.get("records", [])
     print(f"Parsed {len(records)} rows. Showing first {limit}:")
     for row in records[:limit]:
