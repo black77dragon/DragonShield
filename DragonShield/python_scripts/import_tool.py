@@ -1,3 +1,9 @@
+# python_scripts/import_tool.py
+# MARK: - Version 1.1 (2025-06-16)
+# MARK: - History
+# - 1.1: DB_PATH now uses the expanded user Library path.
+# - 1.0: Initial creation for interactive statement parsing.
+
 import os
 import sqlite3
 import hashlib
@@ -8,7 +14,9 @@ from typing import Any
 
 import zkb_parser  # existing parser in the same folder
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'dragonshield.sqlite')
+DB_PATH = os.path.expanduser(
+    os.path.join('~', 'Library', 'Application Support', 'DragonShield', 'dragonshield.sqlite')
+)
 
 
 def choose_account(conn: sqlite3.Connection) -> int:
