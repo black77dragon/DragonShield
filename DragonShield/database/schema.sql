@@ -5,6 +5,7 @@
 -- Updated: 2025-06-18
 --
 -- RECENT HISTORY:
+-- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
 -- - v4.6 -> v4.7: Added db_version configuration entry.
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
