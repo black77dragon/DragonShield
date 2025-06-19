@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.6 - Split Structure and Seed Data
+-- Version 4.7 - Added db_version configuration
 -- Created: 2025-05-24
--- Updated: 2025-06-16
+-- Updated: 2025-06-18
 --
 -- RECENT HISTORY:
+-- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
 --   Positions, updated PortfolioSummary and AccountSummary views.
