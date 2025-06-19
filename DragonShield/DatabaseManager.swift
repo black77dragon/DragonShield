@@ -1,7 +1,8 @@
 // DragonShield/DatabaseManager.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.5
 // MARK: - History
 // - 1.3 -> 1.4: Added @Published properties for defaultTimeZone, tableRowSpacing, tableRowPadding.
+// - 1.4 -> 1.5: Added dbVersion property and logging of database version.
 // - 1.2 -> 1.3: Modified #if DEBUG block to use a UserDefaults setting for forcing DB re-copy.
 // - 1.1 -> 1.2: Added a #if DEBUG block to init() to force delete/re-copy database from bundle.
 
@@ -22,6 +23,7 @@ class DatabaseManager: ObservableObject {
     @Published var defaultTimeZone: String = "Europe/Zurich"
     @Published var tableRowSpacing: Double = 1.0
     @Published var tableRowPadding: Double = 12.0
+    @Published var dbVersion: String = ""
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -63,6 +65,7 @@ class DatabaseManager: ObservableObject {
         
         openDatabase()
         loadConfiguration()
+        print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
     
     private func openDatabase() {
