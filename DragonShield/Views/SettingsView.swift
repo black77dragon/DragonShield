@@ -1,6 +1,7 @@
 // DragonShield/Views/SettingsView.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
+// - 1.3 -> 1.4: Added database information section (path, created, updated).
 // - 1.2 -> 1.3: Replaced script-based versioning with a 100% Swift solution (AppVersionProvider) to fix build errors.
 // - 1.1 -> 1.2: Removed redundant .onChange modifiers that were causing a state update crash loop.
 // - 1.0 -> 1.1: Added editable fields for Configuration settings (base_currency, decimal_precision, etc.).
@@ -103,7 +104,29 @@ struct SettingsView: View {
                 }
             }
             #endif
-            
+
+            Section(header: Text("Database Info")) {
+                HStack {
+                    Text("Path")
+                    Spacer()
+                    Text(dbManager.dbFilePath)
+                        .font(.caption)
+                        .multilineTextAlignment(.trailing)
+                }
+                HStack {
+                    Text("Created")
+                    Spacer()
+                    Text(dbManager.dbCreated.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) } ?? "-")
+                        .foregroundColor(.secondary)
+                }
+                HStack {
+                    Text("Last Updated")
+                    Spacer()
+                    Text(dbManager.dbModified.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) } ?? "-")
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Section(header: Text("About")) {
                 HStack {
                     Text("App Version")
