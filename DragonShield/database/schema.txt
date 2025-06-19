@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.txt
 -- Dragon Shield Seed Data
--- Version 4.6 - Extracted Seed Data
+-- Version 4.7 - Added db_version config
 -- Created: 2025-05-24
--- Updated: 2025-06-16
+-- Updated: 2025-06-18
 --
 -- RECENT HISTORY:
+-- - v4.6 -> v4.7: Added db_version configuration row.
 -- - v4.5 -> v4.6: Seed data split from schema.sql
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
@@ -20,7 +21,8 @@ INSERT INTO Configuration (key, value, data_type, description) VALUES
 ('default_timezone', 'Europe/Zurich', 'string', 'Default timezone for the application'),
 ('table_row_spacing', '1.0', 'number', 'Spacing between table rows in points'),
 ('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
-('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)');
+('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)'),
+('db_version', '4.7', 'string', 'Database schema version');
 INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
 ('CHF', 'Swiss Franc', 'CHF', 0),
 ('EUR', 'Euro', '€', 1),

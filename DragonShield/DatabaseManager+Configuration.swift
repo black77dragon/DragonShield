@@ -1,7 +1,8 @@
 // DragonShield/DatabaseManager+Configuration.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
 // - 1.0 -> 1.1: Enhanced loadConfiguration to populate new @Published vars. Added updateConfiguration method.
+// - 1.1 -> 1.2: Load db_version configuration and expose via dbVersion property.
 // - Initial creation: Refactored from DatabaseManager.swift.
 
 import SQLite3
@@ -12,10 +13,10 @@ extension DatabaseManager {
     func loadConfiguration() {
         // Added new keys to fetch
         let query = """
-            SELECT key, value, data_type FROM Configuration 
+            SELECT key, value, data_type FROM Configuration
             WHERE key IN (
-                'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update', 
-                'default_timezone', 'table_row_spacing', 'table_row_padding'
+                'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
+                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version'
             );
         """
         var statement: OpaquePointer?
@@ -49,6 +50,9 @@ extension DatabaseManager {
                         self.tableRowSpacing = Double(value) ?? 1.0
                     case "table_row_padding":
                         self.tableRowPadding = Double(value) ?? 12.0
+                    case "db_version":
+                        self.dbVersion = value
+                        print("📦 Database version loaded: \(value)")
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
