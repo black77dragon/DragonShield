@@ -1,6 +1,7 @@
 // DragonShield/Utils/DateFormatter+Extensions.swift
-// MARK: - Version 1.0 (2025-05-30)
+// MARK: - Version 1.1 (2025-06-15)
 // MARK: - History
+// - 1.0 -> 1.1: Added iso8601DateTime formatter for full timestamp parsing.
 // - Initial creation: ISO8601 DateFormatter for consistent date handling.
 
 import Foundation
@@ -18,6 +19,15 @@ extension DateFormatter {
         // if the string doesn't have time/timezone info.
         // If dates are local, ensure this matches how they are stored/interpreted.
         formatter.timeZone = TimeZone(secondsFromGMT: 0) // Or TimeZone.current if dates are local
+        return formatter
+    }()
+
+    static let iso8601DateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter
     }()
 }
