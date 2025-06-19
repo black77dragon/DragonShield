@@ -1,0 +1,4 @@
+pysqlcipher3
+pandas
+openpyxl
+pdfplumber

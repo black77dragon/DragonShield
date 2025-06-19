@@ -1,7 +1,9 @@
 // !$*UTF8*$!
+
 // MARK: - Version 1.1 (2025-06-18)
 // MARK: - History
 // - 1.0 -> 1.1: Added explicit Swift files to build phases and removed duplicates.
+ Added references for Swift files in DragonShield and Views directories.
 
 {
 	archiveVersion = 1;
@@ -13,6 +15,43 @@
 /* Begin PBXBuildFile section */
 		B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B307908C2DF4D19A00AF445B /* UniformTypeIdentifiers.framework */; };
 		B363B3802D9D921900619C86 /* Asset.swift in Sources */ = {isa = PBXBuildFile; fileRef = B363B37F2D9D921900619C86 /* Asset.swift */; };
+				79AB2E09D3C340F4B12C9E77 /* AssetManager.swift in Sources */,
+				8CAFBBAC2AF440818363B3EB /* DatabaseDiagnostics.swift in Sources */,
+				D2F690A8BD5340E18B551B44 /* DatabaseManager+AccountTypes.swift in Sources */,
+				FDA40DA91670420CAB5BBF58 /* DatabaseManager+Accounts.swift in Sources */,
+				E093B82574B3489A8730E4B3 /* DatabaseManager+Configuration.swift in Sources */,
+				64AFB97B251948DD8CC16B63 /* DatabaseManager+Currencies.swift in Sources */,
+				5DD98F7751DD4ED5AE17B7DC /* DatabaseManager+Dashboard.swift in Sources */,
+				5970384B350046A9867AC051 /* DatabaseManager+InstrumentTypes.swift in Sources */,
+				784D9CF1BC564CA093CABDD7 /* DatabaseManager+Instruments.swift in Sources */,
+				CE81E9448D8B42F78FEAFF4A /* DatabaseManager+OtherData.swift in Sources */,
+				E2EE766E98B44A9AA6FF37CD /* DatabaseManager+Portfolios.swift in Sources */,
+				A290E1A4C3284869A1235090 /* DatabaseManager+PositionReports.swift in Sources */,
+				F3FE56F9DD0F4AC49ED853DB /* DatabaseManager+TransactionHistory.swift in Sources */,
+				E4FF5898A7DC4596A838B45D /* DatabaseManager+TransactionTypes.swift in Sources */,
+				4CF9BDB2F57642EC813C5541 /* DatabaseManager.swift in Sources */,
+				D5B1722EBE294EF3BE1A21E0 /* DatabaseTest.swift in Sources */,
+				215EA4011428401B9D2AE608 /* DragonShieldApp.swift in Sources */,
+				7C830E5F3AC449FFBBEEE617 /* ImportManager.swift in Sources */,
+				937ABB8F378E47759AFEE706 /* AccountTypesView.swift in Sources */,
+				C92784B1A86A4706AAD0D1FA /* AddAccountTypeView.swift in Sources */,
+				ABC436E144D845A389B14BBF /* AddInstrumentView.swift in Sources */,
+				313CC0E4B10244E38EF99186 /* AssetMenuView.swift in Sources */,
+				2942BD5E85234C2780A62F3B /* ContentView.swift in Sources */,
+				821DC16F21FB43E3A0C1D294 /* CurrenciesView.swift in Sources */,
+				F756B5C5EBB344FB802ECAED /* CustodyAccountsView.swift in Sources */,
+				74882ADD9670481CAC05DBF3 /* DashboardView.swift in Sources */,
+				7345D7AD87B2484CA1A6A3AC /* EditAccountTypeView.swift in Sources */,
+				6533DBF1E61E474BAA9EC7E5 /* ImportStatementView.swift in Sources */,
+				8EBA2BCEC48D4B998A0BE1AA /* InstrumentEditView.swift in Sources */,
+				A58D10412E6740C6B62B75E3 /* InstrumentTypesView.swift in Sources */,
+				481DFC618779443AAAF7B61E /* PortfolioView.swift in Sources */,
+				48D31D7069984C5BB2CB71AB /* PositionsView.swift in Sources */,
+				2BF22EA9F96B4CC091204E7A /* SettingsView.swift in Sources */,
+				91A4A4F6738443E08018FC34 /* SidebarView.swift in Sources */,
+				7BE2F35A54C446A6BD3E28BA /* TransactionHistoryView.swift in Sources */,
+				27BF0D7C4C614929BE3BC5D1 /* TransactionTypesView.swift in Sources */,
+				07F92E38A1A141AE9152EA8E /* TransactionsView.swift in Sources */,
 		B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B37E7DA22D988B1D00100262 /* libsqlite3.tbd */; };
 		B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = B3ECBDDF2DF4D581002110F4 /* SQLite */; };
 		B3ECBE992DFC8D26002110F4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B3ECBE982DFC8D26002110F4 /* README.md */; };
@@ -53,6 +92,7 @@
 				ABE641D92DE647BE970E1639 /* TransactionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA09CA881AD46F6B31888B6 /* TransactionHistoryView.swift */; };
 				3A01EFEA086B4463AB462DA7 /* TransactionTypesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7498EB3C727400195C94E5F /* TransactionTypesView.swift */; };
 				958758D76C1D4CAE89818525 /* TransactionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC933E4B158348D5A6F43B4D /* TransactionsView.swift */; };
+
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,43 +101,44 @@
 		B37E7DA22D988B1D00100262 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		B3933B0F2D98475A00DDA4C2 /* DragonShield.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DragonShield.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3ECBE982DFC8D26002110F4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-				4B1D4551EA9644BB83679F71 /* AssetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetManager.swift; sourceTree = "<group>"; };
-				2B8C7E8EFF8F4EAE9B19F1FF /* DatabaseDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseDiagnostics.swift; sourceTree = "<group>"; };
-				C1321C99F7D741F0BB0DE945 /* DatabaseManager+AccountTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+AccountTypes.swift; sourceTree = "<group>"; };
-				CC50FB3A175348868D435A46 /* DatabaseManager+Accounts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Accounts.swift; sourceTree = "<group>"; };
-				65D12DC5DB72456B91F08915 /* DatabaseManager+Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Configuration.swift; sourceTree = "<group>"; };
-				FB517F30758349E1BFF0E764 /* DatabaseManager+Currencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Currencies.swift; sourceTree = "<group>"; };
-				795889F018FE464BB5D41AA8 /* DatabaseManager+Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Dashboard.swift; sourceTree = "<group>"; };
-				4293F32FDB464F4F807522B6 /* DatabaseManager+InstrumentTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+InstrumentTypes.swift; sourceTree = "<group>"; };
-				C54C78DA69C54CB2B96F3A70 /* DatabaseManager+Instruments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Instruments.swift; sourceTree = "<group>"; };
-				8DB569DF110045B39E877C81 /* DatabaseManager+OtherData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+OtherData.swift; sourceTree = "<group>"; };
-				3F84A2B65AAD427BA3F5BF15 /* DatabaseManager+Portfolios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Portfolios.swift; sourceTree = "<group>"; };
-				6D6E9471C1B04892A057D0CB /* DatabaseManager+PositionReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+PositionReports.swift; sourceTree = "<group>"; };
-				499088A348A84902B8674B61 /* DatabaseManager+TransactionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+TransactionHistory.swift; sourceTree = "<group>"; };
-				E8F94463ABC141BD8BB7AFCB /* DatabaseManager+TransactionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+TransactionTypes.swift; sourceTree = "<group>"; };
-				295998F6F4A24550A41CC13B /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
-				78221551762C455C8E960FA2 /* DatabaseTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTest.swift; sourceTree = "<group>"; };
-				24ECCA08BDCE4E61A08B1E50 /* DragonShieldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragonShieldApp.swift; sourceTree = "<group>"; };
-				5B0FCED6110A4AB2A5CE177C /* ImportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportManager.swift; sourceTree = "<group>"; };
-				8121FF4B70B04B59BBF2F70D /* AccountTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AccountTypesView.swift; sourceTree = "<group>"; };
-				9CB7A2E5823142CA89001185 /* AddAccountTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AddAccountTypeView.swift; sourceTree = "<group>"; };
-				218F35B0A8E943B4B9517653 /* AddInstrumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AddInstrumentView.swift; sourceTree = "<group>"; };
-				595348B2236345659A6F92DF /* AssetMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AssetMenuView.swift; sourceTree = "<group>"; };
-				618C23E546DC418DADEDC936 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ContentView.swift; sourceTree = "<group>"; };
-				1ED70264FE7D462FB0F948FC /* CurrenciesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/CurrenciesView.swift; sourceTree = "<group>"; };
-				AA4997E5F7EF4DA0878BF8AC /* CustodyAccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/CustodyAccountsView.swift; sourceTree = "<group>"; };
-				24D17C37F7A54FBAB2BB0740 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/DashboardView.swift; sourceTree = "<group>"; };
-				D06A4043BBC14CE68858FEB2 /* EditAccountTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/EditAccountTypeView.swift; sourceTree = "<group>"; };
-				30045586D9DC4C12ABCDF92A /* ImportStatementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ImportStatementView.swift; sourceTree = "<group>"; };
-				DB1E7ECC8AE9444DB729DABE /* InstrumentEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/InstrumentEditView.swift; sourceTree = "<group>"; };
-				448FF9EDF9B74E7DA0AE8FAF /* InstrumentTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/InstrumentTypesView.swift; sourceTree = "<group>"; };
-				D7C8C8A0B29C41EBAE13875F /* PortfolioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PortfolioView.swift; sourceTree = "<group>"; };
-				DB827E249C8F4BA6B351D6EC /* PositionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PositionsView.swift; sourceTree = "<group>"; };
-				8740E45935944F6CB07C4176 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
-				F0E6C69FF40640AEBCE48263 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SidebarView.swift; sourceTree = "<group>"; };
-				DDA09CA881AD46F6B31888B6 /* TransactionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionHistoryView.swift; sourceTree = "<group>"; };
-				D7498EB3C727400195C94E5F /* TransactionTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionTypesView.swift; sourceTree = "<group>"; };
-				CC933E4B158348D5A6F43B4D /* TransactionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionsView.swift; sourceTree = "<group>"; };
+
+				593BDB0E5FB04C40B657E5A0 /* AssetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetManager.swift; sourceTree = "<group>"; };
+				0B1AAE58CD264B8FB24FF086 /* DatabaseDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseDiagnostics.swift; sourceTree = "<group>"; };
+				ECD93C9F47EE4BE69A01A639 /* DatabaseManager+AccountTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+AccountTypes.swift; sourceTree = "<group>"; };
+				8528EA01C50E489CA4CA994C /* DatabaseManager+Accounts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Accounts.swift; sourceTree = "<group>"; };
+				0F25816FA3E14DDB898BB363 /* DatabaseManager+Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Configuration.swift; sourceTree = "<group>"; };
+				570CB5A9B59F4E2CAB730C63 /* DatabaseManager+Currencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Currencies.swift; sourceTree = "<group>"; };
+				FE80B1902A314246AE0FE31D /* DatabaseManager+Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Dashboard.swift; sourceTree = "<group>"; };
+				CFECB761083D4AA09B8045C3 /* DatabaseManager+InstrumentTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+InstrumentTypes.swift; sourceTree = "<group>"; };
+				135FF6E12B5D4F52AA645354 /* DatabaseManager+Instruments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Instruments.swift; sourceTree = "<group>"; };
+				880CBEF9EA6B46F3917CE525 /* DatabaseManager+OtherData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+OtherData.swift; sourceTree = "<group>"; };
+				174B9F54AFCB4299B7D8EF75 /* DatabaseManager+Portfolios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+Portfolios.swift; sourceTree = "<group>"; };
+				70954808DF534AA28B57E6D5 /* DatabaseManager+PositionReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+PositionReports.swift; sourceTree = "<group>"; };
+				F6853475577D484D9725C430 /* DatabaseManager+TransactionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+TransactionHistory.swift; sourceTree = "<group>"; };
+				B4CC4C82B27F46F2A428F298 /* DatabaseManager+TransactionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager+TransactionTypes.swift; sourceTree = "<group>"; };
+				99986B4BBC864C3AB363C0E1 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
+				5887D2208C2149D19753E6D8 /* DatabaseTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTest.swift; sourceTree = "<group>"; };
+				BAB64161A2494A3A99108D23 /* DragonShieldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragonShieldApp.swift; sourceTree = "<group>"; };
+				9612A548B3DB40848562A219 /* ImportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportManager.swift; sourceTree = "<group>"; };
+				CDC64D41323D44B794B71F94 /* AccountTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AccountTypesView.swift; sourceTree = "<group>"; };
+				307EB3927E034818908E394C /* AddAccountTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AddAccountTypeView.swift; sourceTree = "<group>"; };
+				B123585C77AB440CABF4DB28 /* AddInstrumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AddInstrumentView.swift; sourceTree = "<group>"; };
+				227896CDD8D748DA960284C9 /* AssetMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AssetMenuView.swift; sourceTree = "<group>"; };
+				176F4EAE5F824647AB756A32 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ContentView.swift; sourceTree = "<group>"; };
+				F8633736E38A4CE9B3C1C82B /* CurrenciesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/CurrenciesView.swift; sourceTree = "<group>"; };
+				6F23AF37B8184BAABF3F7CA0 /* CustodyAccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/CustodyAccountsView.swift; sourceTree = "<group>"; };
+				7CCF9C5A8A0F4B1F9833BD47 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/DashboardView.swift; sourceTree = "<group>"; };
+				8FEAF808ACE1493C84D66469 /* EditAccountTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/EditAccountTypeView.swift; sourceTree = "<group>"; };
+				1A72E1CBB1A846669206ABC8 /* ImportStatementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ImportStatementView.swift; sourceTree = "<group>"; };
+				5FC512F5BAD04BC6B64C73DB /* InstrumentEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/InstrumentEditView.swift; sourceTree = "<group>"; };
+				C7B0EF052AF4497E89CF8DAD /* InstrumentTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/InstrumentTypesView.swift; sourceTree = "<group>"; };
+				19F554EE1B3F4BDE949827CF /* PortfolioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PortfolioView.swift; sourceTree = "<group>"; };
+				E47A3A3B54A74840A8A14B7E /* PositionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PositionsView.swift; sourceTree = "<group>"; };
+				5BFF0804CA3C4F529FA6F3A0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
+				AE430291FCC44E92A339CC60 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SidebarView.swift; sourceTree = "<group>"; };
+				D99156FC233542119E722366 /* TransactionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionHistoryView.swift; sourceTree = "<group>"; };
+				86346F7F5285488CB51DFFAB /* TransactionTypesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionTypesView.swift; sourceTree = "<group>"; };
+				037940B28B284360AADE2897 /* TransactionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TransactionsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -275,6 +316,43 @@
 								3A01EFEA086B4463AB462DA7 /* TransactionTypesView.swift in Sources */,
 								958758D76C1D4CAE89818525 /* TransactionsView.swift in Sources */,
 				B363B3802D9D921900619C86 /* Asset.swift in Sources */,
+				79AB2E09D3C340F4B12C9E77 /* AssetManager.swift in Sources */,
+				8CAFBBAC2AF440818363B3EB /* DatabaseDiagnostics.swift in Sources */,
+				D2F690A8BD5340E18B551B44 /* DatabaseManager+AccountTypes.swift in Sources */,
+				FDA40DA91670420CAB5BBF58 /* DatabaseManager+Accounts.swift in Sources */,
+				E093B82574B3489A8730E4B3 /* DatabaseManager+Configuration.swift in Sources */,
+				64AFB97B251948DD8CC16B63 /* DatabaseManager+Currencies.swift in Sources */,
+				5DD98F7751DD4ED5AE17B7DC /* DatabaseManager+Dashboard.swift in Sources */,
+				5970384B350046A9867AC051 /* DatabaseManager+InstrumentTypes.swift in Sources */,
+				784D9CF1BC564CA093CABDD7 /* DatabaseManager+Instruments.swift in Sources */,
+				CE81E9448D8B42F78FEAFF4A /* DatabaseManager+OtherData.swift in Sources */,
+				E2EE766E98B44A9AA6FF37CD /* DatabaseManager+Portfolios.swift in Sources */,
+				A290E1A4C3284869A1235090 /* DatabaseManager+PositionReports.swift in Sources */,
+				F3FE56F9DD0F4AC49ED853DB /* DatabaseManager+TransactionHistory.swift in Sources */,
+				E4FF5898A7DC4596A838B45D /* DatabaseManager+TransactionTypes.swift in Sources */,
+				4CF9BDB2F57642EC813C5541 /* DatabaseManager.swift in Sources */,
+				D5B1722EBE294EF3BE1A21E0 /* DatabaseTest.swift in Sources */,
+				215EA4011428401B9D2AE608 /* DragonShieldApp.swift in Sources */,
+				7C830E5F3AC449FFBBEEE617 /* ImportManager.swift in Sources */,
+				937ABB8F378E47759AFEE706 /* AccountTypesView.swift in Sources */,
+				C92784B1A86A4706AAD0D1FA /* AddAccountTypeView.swift in Sources */,
+				ABC436E144D845A389B14BBF /* AddInstrumentView.swift in Sources */,
+				313CC0E4B10244E38EF99186 /* AssetMenuView.swift in Sources */,
+				2942BD5E85234C2780A62F3B /* ContentView.swift in Sources */,
+				821DC16F21FB43E3A0C1D294 /* CurrenciesView.swift in Sources */,
+				F756B5C5EBB344FB802ECAED /* CustodyAccountsView.swift in Sources */,
+				74882ADD9670481CAC05DBF3 /* DashboardView.swift in Sources */,
+				7345D7AD87B2484CA1A6A3AC /* EditAccountTypeView.swift in Sources */,
+				6533DBF1E61E474BAA9EC7E5 /* ImportStatementView.swift in Sources */,
+				8EBA2BCEC48D4B998A0BE1AA /* InstrumentEditView.swift in Sources */,
+				A58D10412E6740C6B62B75E3 /* InstrumentTypesView.swift in Sources */,
+				481DFC618779443AAAF7B61E /* PortfolioView.swift in Sources */,
+				48D31D7069984C5BB2CB71AB /* PositionsView.swift in Sources */,
+				2BF22EA9F96B4CC091204E7A /* SettingsView.swift in Sources */,
+				91A4A4F6738443E08018FC34 /* SidebarView.swift in Sources */,
+				7BE2F35A54C446A6BD3E28BA /* TransactionHistoryView.swift in Sources */,
+				27BF0D7C4C614929BE3BC5D1 /* TransactionTypesView.swift in Sources */,
+				07F92E38A1A141AE9152EA8E /* TransactionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -503,3 +581,5 @@
 	};
 	rootObject = B3933B072D98475A00DDA4C2 /* Project object */;
 }
+// MARK: - Version History
+// 1.1 - Added references for Swift files to PBXSourcesBuildPhase. (2025-06-30)
