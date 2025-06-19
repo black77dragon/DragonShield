@@ -1,9 +1,11 @@
 # python_scripts/import_tool.py
+
 # MARK: - Version 1.2
 # MARK: - History
 # - 1.1 -> 1.2: Support importing multiple files in one run and print summary.
 # - 1.0 -> 1.1: Replace builtin generics with typing equivalents for
 #   compatibility with older Python versions.
+
 
 import os
 import sqlite3
@@ -15,7 +17,9 @@ from typing import Any, Dict, Tuple, Optional
 
 import zkb_parser  # existing parser in the same folder
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'dragonshield.sqlite')
+DB_PATH = os.path.expanduser(
+    os.path.join('~', 'Library', 'Application Support', 'DragonShield', 'dragonshield.sqlite')
+)
 
 
 def choose_account(conn: sqlite3.Connection) -> int:
