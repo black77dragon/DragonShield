@@ -7,6 +7,7 @@
 -- RECENT HISTORY:
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
+-- - v4.6 -> v4.7: Added db_version configuration entry.
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
 --   Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
