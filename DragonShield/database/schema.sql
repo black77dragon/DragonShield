@@ -1,10 +1,13 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.5 - Positions View & Upload Metadata
+-- Version 4.7 - Added db_version configuration
 -- Created: 2025-05-24
--- Updated: 2025-06-15
+-- Updated: 2025-06-18
 --
 -- RECENT HISTORY:
+-- - v4.6 -> v4.7: Added db_version configuration row in seed data.
+-- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
+-- - v4.6 -> v4.7: Added db_version configuration entry.
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
 --   Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
@@ -51,17 +54,6 @@ CREATE TABLE Configuration (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO Configuration (key, value, data_type, description) VALUES
-('base_currency', 'CHF', 'string', 'Base reporting currency'),
-('as_of_date', '2025-05-24', 'date', 'Portfolio cut-off date for calculations'),
-('decimal_precision', '4', 'number', 'Decimal precision for financial calculations'),
-('auto_fx_update', 'true', 'boolean', 'Enable automatic FX rate updates'),
-('fx_api_provider', 'exchangerate-api', 'string', 'FX rate API provider'),
-('fx_update_frequency', 'daily', 'string', 'FX rate update frequency'),
-('default_timezone', 'Europe/Zurich', 'string', 'Default timezone for the application'),
-('table_row_spacing', '1.0', 'number', 'Spacing between table rows in points'),
-('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
-('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)');
 
 --=============================================================================
 -- CURRENCY AND EXCHANGE RATE MANAGEMENT
@@ -77,22 +69,6 @@ CREATE TABLE Currencies (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
-('CHF', 'Swiss Franc', 'CHF', 0),
-('EUR', 'Euro', '€', 1),
-('USD', 'US Dollar', '$', 1),
-('GBP', 'British Pound', '£', 1),
-('JPY', 'Japanese Yen', '¥', 1),
-('CAD', 'Canadian Dollar', 'C$', 1),
-('AUD', 'Australian Dollar', 'A$', 1),
-('SEK', 'Swedish Krona', 'SEK', 1),
-('NOK', 'Norwegian Krone', 'NOK', 1),
-('DKK', 'Danish Krone', 'DKK', 1),
-('CNY', 'Chinese Yuan', '¥', 1),
-('HKD', 'Hong Kong Dollar', 'HK$', 1),
-('SGD', 'Singapore Dollar', 'S$', 1),
-('BTC', 'Bitcoin', '₿', 1),
-('ETH', 'Ethereum', 'Ξ', 1);
 
 CREATE TABLE ExchangeRates (
     rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,14 +83,6 @@ CREATE TABLE ExchangeRates (
     UNIQUE(currency_code, rate_date)
 );
 
-INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, is_latest) VALUES
-('CHF', '2025-05-24', 1.0000, 'manual', 1),
-('EUR', '2025-05-24', 0.9200, 'api', 1),
-('USD', '2025-05-24', 0.8800, 'api', 1),
-('GBP', '2025-05-24', 0.7850, 'api', 1),
-('JPY', '2025-05-24', 0.0058, 'api', 1),
-('BTC', '2025-05-24', 59280.00, 'api', 1),
-('ETH', '2025-05-24', 2890.50, 'api', 1);
 
 CREATE TABLE FxRateUpdates (
     update_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,17 +116,6 @@ CREATE TABLE InstrumentGroups (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO InstrumentGroups (group_code, group_name, group_description, sort_order) VALUES
-('EQUITY', 'Equities', 'Individual stocks and equity instruments', 1),
-('ETF', 'ETFs', 'Exchange-traded funds', 2),
-('BOND', 'Bonds', 'Government and corporate bonds', 3),
-('FUND', 'Mutual Funds', 'Mutual funds and investment funds', 4),
-('CRYPTO', 'Cryptocurrencies', 'Digital assets and cryptocurrencies', 5),
-('REIT', 'REITs', 'Real estate investment trusts', 6),
-('COMMODITY', 'Commodities', 'Commodity investments and futures', 7),
-('STRUCTURED', 'Structured Products', 'Certificates and structured products', 8),
-('CASH', 'Cash & Money Market', 'Cash and money market instruments', 9),
-('OTHER', 'Other', 'Other investment instruments', 10);
 
 CREATE TABLE Instruments (
     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,23 +136,6 @@ CREATE TABLE Instruments (
     FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
 );
 
-INSERT INTO Instruments (isin, ticker_symbol, instrument_name, group_id, currency, country_code, exchange_code, sector) VALUES
-('CH0012032048', 'NESN', 'Nestlé SA', 1, 'CHF', 'CH', 'SWX', 'Consumer Staples'),
-('CH0244767585', 'NOVN', 'Novartis AG', 1, 'CHF', 'CH', 'SWX', 'Healthcare'),
-('CH0010570759', 'ROG', 'Roche Holding AG', 1, 'CHF', 'CH', 'SWX', 'Healthcare'),
-('CH0038863350', 'ABB', 'ABB Ltd', 1, 'CHF', 'CH', 'SWX', 'Industrials'),
-('US0378331005', 'AAPL', 'Apple Inc.', 1, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US5949181045', 'MSFT', 'Microsoft Corporation', 1, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US02079K3059', 'GOOGL', 'Alphabet Inc. Class A', 1, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US0231351067', 'AMZN', 'Amazon.com Inc.', 1, 'USD', 'US', 'NASDAQ', 'Consumer Discretionary'),
-('IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', 2, 'USD', 'IE', 'XETRA', NULL),
-('IE00B6R52259', 'IEMM', 'iShares Core MSCI Emerging Markets IMI UCITS ETF', 2, 'USD', 'IE', 'XETRA', NULL),
-('US9229087690', 'VTI', 'Vanguard Total Stock Market ETF', 2, 'USD', 'US', 'NYSE', NULL),
-('CH0224397213', 'CH0224397213', 'Swiss Confederation 0.5% 2031', 3, 'CHF', 'CH', 'SWX', NULL),
-(NULL, 'BTC', 'Bitcoin', 5, 'BTC', NULL, NULL, NULL),
-(NULL, 'ETH', 'Ethereum', 5, 'ETH', NULL, NULL, NULL),
-(NULL, 'CHF_CASH', 'Swiss Franc Cash', 9, 'CHF', 'CH', NULL, NULL),
-(NULL, 'USD_CASH', 'US Dollar Cash', 9, 'USD', 'US', NULL, NULL);
 
 CREATE INDEX idx_instruments_isin ON Instruments(isin);
 CREATE INDEX idx_instruments_ticker ON Instruments(ticker_symbol);
@@ -218,12 +158,6 @@ CREATE TABLE Portfolios (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO Portfolios (portfolio_code, portfolio_name, portfolio_description, is_default, sort_order) VALUES
-('MAIN', 'Main Portfolio', 'Primary investment portfolio', 1, 1),
-('PENSION', 'Pension Portfolio', '3rd pillar and pension investments', 0, 2),
-('TRADING', 'Trading Portfolio', 'Short-term trading and speculation', 0, 3),
-('CRYPTO', 'Crypto Portfolio', 'Cryptocurrency investments', 0, 4),
-('CASH', 'Cash Management', 'Cash holdings and money market', 0, 5);
 
 CREATE TABLE PortfolioInstruments (
     portfolio_id INTEGER NOT NULL,
@@ -236,14 +170,6 @@ CREATE TABLE PortfolioInstruments (
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id) ON DELETE CASCADE
 );
 
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 1, instrument_id FROM Instruments;
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 4, instrument_id FROM Instruments WHERE group_id = 5;
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 5, instrument_id FROM Instruments WHERE group_id = 9;
-
-CREATE INDEX idx_portfolio_instruments_portfolio ON PortfolioInstruments(portfolio_id);
 CREATE INDEX idx_portfolio_instruments_instrument ON PortfolioInstruments(instrument_id);
 
 --=============================================================================
@@ -262,12 +188,6 @@ CREATE TABLE AccountTypes (
 );
 
 -- Populate AccountTypes
-INSERT INTO AccountTypes (account_type_id, type_code, type_name, type_description) VALUES
-(1, 'BANK', 'Bank Account', 'Standard bank checking or savings account'),
-(2, 'CUSTODY', 'Custody Account', 'Brokerage or custody account for securities'),
-(3, 'CRYPTO', 'Crypto Wallet/Account', 'Account for holding cryptocurrencies'),
-(4, 'PENSION', 'Pension Account', 'Retirement or pension savings account'),
-(5, 'CASH', 'Cash Account', 'Physical cash or simple cash holdings');
 
 -- MODIFIED TABLE: Accounts
 CREATE TABLE Accounts (
@@ -290,16 +210,7 @@ CREATE TABLE Accounts (
 );
 
 -- Sample accounts (updated for account_type_id)
-INSERT INTO Accounts (account_number, account_name, institution_name, institution_bic, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
-('CH12-3456-7890-1234-5', 'UBS Custody Account', 'UBS Switzerland AG', 'UBSWCHZH80A', 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
-('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 'Credit Suisse (Schweiz) AG', 'CRESCHZZ80A', 1, 'CHF', '2023-06-10', 1, 1, NULL),
-('US-IBKR-987654321', 'Interactive Brokers Account', 'Interactive Brokers LLC', NULL, 2, 'USD', '2024-03-01', 1, 1, 'For US stocks and ETFs.'),
-('COINBASE-PRO-001', 'Coinbase Pro Account', 'Coinbase', NULL, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
-('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 'Self-Custody', NULL, 3, 'BTC', '2024-01-01', 1, 1, NULL),
-('VIAC-3A-12345', 'VIAC 3a Account', 'VIAC', NULL, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.');
 
-INSERT INTO Accounts (account_number, account_name, institution_name, institution_bic, account_type_id, currency_code, opening_date, closing_date, is_active, include_in_portfolio, notes) VALUES
-('OLD-BANK-007', 'Old Savings Account', 'Regional Bank XY', NULL, 1, 'CHF', '2010-01-01', '2023-12-31', 0, 0, 'Account closed end of last year.');
 
 --=============================================================================
 -- TRANSACTION MANAGEMENT
@@ -316,17 +227,6 @@ CREATE TABLE TransactionTypes (
     sort_order INTEGER DEFAULT 0
 );
 
-INSERT INTO TransactionTypes (type_code, type_name, type_description, affects_position, affects_cash, is_income, sort_order) VALUES
-('BUY', 'Purchase', 'Buy securities or assets', 1, 1, 0, 1),
-('SELL', 'Sale', 'Sell securities or assets', 1, 1, 0, 2),
-('DIVIDEND', 'Dividend', 'Dividend payment received', 0, 1, 1, 3),
-('INTEREST', 'Interest', 'Interest payment received', 0, 1, 1, 4),
-('FEE', 'Fee', 'Transaction or management fee', 0, 1, 0, 5),
-('TAX', 'Tax', 'Withholding tax or other taxes', 0, 1, 0, 6),
-('DEPOSIT', 'Cash Deposit', 'Cash deposit to account', 0, 1, 0, 7),
-('WITHDRAWAL', 'Cash Withdrawal', 'Cash withdrawal from account', 0, 1, 0, 8),
-('TRANSFER_IN', 'Transfer In', 'Securities transferred into account', 1, 0, 0, 9),
-('TRANSFER_OUT', 'Transfer Out', 'Securities transferred out of account', 1, 0, 0, 10);
 
 CREATE TABLE Transactions (
     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,19 +261,6 @@ CREATE TABLE Transactions (
     FOREIGN KEY (transaction_currency) REFERENCES Currencies(currency_code)
 );
 
-INSERT INTO Transactions (account_id, instrument_id, transaction_type_id, portfolio_id, transaction_date, quantity, price, gross_amount, fee, net_amount, transaction_currency, description) VALUES
-(1, 1, 1, 1, '2024-01-20', 10, 108.50, 1085.00, 9.95, -1094.95, 'CHF', 'Buy 10 Nestlé shares'),
-(1, 2, 1, 1, '2024-01-25', 15, 95.20, 1428.00, 9.95, -1437.95, 'CHF', 'Buy 15 Novartis shares'),
-(3, 5, 1, 1, '2024-02-01', 5, 185.25, 926.25, 1.00, -927.25, 'USD', 'Buy 5 Apple shares'),
-(3, 6, 1, 1, '2024-02-05', 3, 415.75, 1247.25, 1.00, -1248.25, 'USD', 'Buy 3 Microsoft shares'),
-(3, 9, 1, 1, '2024-02-10', 50, 87.45, 4372.50, 1.00, -4373.50, 'USD', 'Buy 50 IWDA ETF shares'),
-(4, 13, 1, 4, '2024-02-15', 0.1, 45000, 4500, 25.00, -4525.00, 'USD', 'Buy 0.1 Bitcoin'),
-(4, 14, 1, 4, '2024-03-01', 2, 2800, 5600, 20.00, -5620.00, 'USD', 'Buy 2 Ethereum'),
-(1, 1, 3, 1, '2024-03-15', 0, 0, 27.50, 0, 27.50, 'CHF', 'Nestlé dividend payment'),
-(1, 2, 3, 1, '2024-04-10', 0, 0, 42.75, 0, 42.75, 'CHF', 'Novartis dividend payment'),
-(1, NULL, 7, NULL, '2024-01-15', 0, 0, 50000, 0, 50000, 'CHF', 'Initial cash deposit'),
-(3, NULL, 7, NULL, '2024-01-30', 0, 0, 25000, 0, 25000, 'USD', 'Cash transfer to USD account'),
-(1, NULL, 5, NULL, '2024-12-31', 0, 0, 120, 0, -120, 'CHF', 'Annual custody fee');
 
 CREATE INDEX idx_transactions_date ON Transactions(transaction_date);
 CREATE INDEX idx_transactions_account ON Transactions(account_id);
@@ -422,97 +309,8 @@ CREATE TABLE PositionReports (
 );
 
 -- Sample import sessions for testing
-INSERT INTO ImportSessions (
-    import_session_id,
-    session_name,
-    file_name,
-    file_path,
-    file_type,
-    file_size,
-    file_hash,
-    account_id,
-    import_status,
-    total_rows,
-    successful_rows,
-    failed_rows,
-    duplicate_rows,
-    processing_notes,
-    started_at,
-    completed_at
-) VALUES
-    (1, 'UBS Positions 2024-12-31', 'UBS_Positions_2024-12-31.csv',
-        '/uploads/UBS_Positions_2024-12-31.csv', 'CSV', 2048, 'HASH001', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-01 08:00:00', '2025-01-01 08:00:10'),
-    (2, 'UBS Positions 2025-03-26', 'UBS_Positions_2025-03-26.csv',
-        '/uploads/UBS_Positions_2025-03-26.csv', 'CSV', 2050, 'HASH002', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 08:00:00', '2025-03-27 08:00:10'),
-    (3, 'UBS Positions 2025-05-24', 'UBS_Positions_2025-05-24.csv',
-        '/uploads/UBS_Positions_2025-05-24.csv', 'CSV', 2055, 'HASH003', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 08:00:00', '2025-05-25 08:00:10'),
-    (4, 'IBKR Positions 2024-12-31', 'IBKR_Positions_2024-12-31.csv',
-        '/uploads/IBKR_Positions_2024-12-31.csv', 'CSV', 3150, 'HASH004', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Initial import',
-        '2025-01-02 09:00:00', '2025-01-02 09:00:15'),
-    (5, 'IBKR Positions 2025-03-26', 'IBKR_Positions_2025-03-26.csv',
-        '/uploads/IBKR_Positions_2025-03-26.csv', 'CSV', 3200, 'HASH005', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-03-27 09:00:00', '2025-03-27 09:00:15'),
-    (6, 'IBKR Positions 2025-05-24', 'IBKR_Positions_2025-05-24.csv',
-        '/uploads/IBKR_Positions_2025-05-24.csv', 'CSV', 3250, 'HASH006', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-05-25 09:00:00', '2025-05-25 09:00:15'),
-    (7, 'Coinbase Positions 2024-12-31', 'Coinbase_Positions_2024-12-31.csv',
-        '/uploads/Coinbase_Positions_2024-12-31.csv', 'CSV', 1024, 'HASH007', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-02 10:00:00', '2025-01-02 10:00:10'),
-    (8, 'Coinbase Positions 2025-03-26', 'Coinbase_Positions_2025-03-26.csv',
-        '/uploads/Coinbase_Positions_2025-03-26.csv', 'CSV', 1030, 'HASH008', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 10:00:00', '2025-03-27 10:00:10'),
-    (9, 'Coinbase Positions 2025-05-24', 'Coinbase_Positions_2025-05-24.csv',
-        '/uploads/Coinbase_Positions_2025-05-24.csv', 'CSV', 1040, 'HASH009', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 10:00:00', '2025-05-25 10:00:10'),
-    (10, 'UBS Positions 2025-06-30', 'UBS_Positions_2025-06-30.csv',
-        '/uploads/UBS_Positions_2025-06-30.csv', 'CSV', 2060, 'HASH010', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Quarter end',
-        '2025-07-01 08:00:00', '2025-07-01 08:00:10');
 
 -- Sample position reports for each session
-INSERT INTO PositionReports (
-    import_session_id,
-    account_id,
-    instrument_id,
-    quantity,
-    report_date,
-    uploaded_at
-) VALUES
-    (1, 1, 1, 8, '2024-12-31', '2025-01-01 08:00:10'),
-    (1, 1, 2, 12, '2024-12-31', '2025-01-01 08:00:10'),
-    (2, 1, 1, 9, '2025-03-26', '2025-03-27 08:00:10'),
-    (2, 1, 2, 14, '2025-03-26', '2025-03-27 08:00:10'),
-    (3, 1, 1, 10, '2025-05-24', '2025-05-25 08:00:10'),
-    (3, 1, 2, 15, '2025-05-24', '2025-05-25 08:00:10'),
-    (4, 3, 5, 4, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 6, 2, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 9, 40, '2024-12-31', '2025-01-02 09:00:15'),
-    (5, 3, 5, 5, '2025-03-26', '2025-03-27 09:00:15'),
-    (5, 3, 6, 3, '2025-03-26', '2025-03-27 09:00:15'),
-    (5, 3, 9, 45, '2025-03-26', '2025-03-27 09:00:15'),
-    (6, 3, 5, 5, '2025-05-24', '2025-05-25 09:00:15'),
-    (6, 3, 6, 3, '2025-05-24', '2025-05-25 09:00:15'),
-    (6, 3, 9, 50, '2025-05-24', '2025-05-25 09:00:15'),
-    (7, 4, 13, 0.05, '2024-12-31', '2025-01-02 10:00:10'),
-    (7, 4, 14, 1.0, '2024-12-31', '2025-01-02 10:00:10'),
-    (8, 4, 13, 0.08, '2025-03-26', '2025-03-27 10:00:10'),
-    (8, 4, 14, 1.5, '2025-03-26', '2025-03-27 10:00:10'),
-    (9, 4, 13, 0.1, '2025-05-24', '2025-05-25 10:00:10'),
-    (9, 4, 14, 2.0, '2025-05-24', '2025-05-25 10:00:10'),
-    (10, 1, 1, 10, '2025-06-30', '2025-07-01 08:00:10'),
-    (10, 1, 2, 15, '2025-06-30', '2025-07-01 08:00:10');
 --=============================================================================
 -- TRIGGERS FOR AUTOMATIC CALCULATIONS
 --=============================================================================

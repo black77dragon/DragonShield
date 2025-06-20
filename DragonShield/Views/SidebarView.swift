@@ -1,8 +1,9 @@
 // DragonShield/Views/SidebarView.swift
-// MARK: - Version 1.6
+// MARK: - Version 1.7
 // MARK: - History
 // - 1.5 -> 1.6: Enabled "Load Documents" navigation link to point to new ImportStatementView.
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
+// - 1.6 -> 1.7: Added "Positions" navigation link.
 // - (Previous history)
 
 import SwiftUI
@@ -30,6 +31,9 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: TransactionHistoryView()) {
                     Label("Transaction History", systemImage: "clock.arrow.circlepath")
+                }
+                NavigationLink(destination: PositionsView()) {
+                    Label("Positions", systemImage: "tablecells")
                 }
             }
             

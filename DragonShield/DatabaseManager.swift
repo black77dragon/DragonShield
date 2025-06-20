@@ -1,7 +1,10 @@
 // DragonShield/DatabaseManager.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.6
 // MARK: - History
+// - 1.5 -> 1.6: Expose database path, creation date and modification date via
+//               @Published properties.
 // - 1.3 -> 1.4: Added @Published properties for defaultTimeZone, tableRowSpacing, tableRowPadding.
+// - 1.4 -> 1.5: Added dbVersion property and logging of database version.
 // - 1.2 -> 1.3: Modified #if DEBUG block to use a UserDefaults setting for forcing DB re-copy.
 // - 1.1 -> 1.2: Added a #if DEBUG block to init() to force delete/re-copy database from bundle.
 
@@ -22,6 +25,10 @@ class DatabaseManager: ObservableObject {
     @Published var defaultTimeZone: String = "Europe/Zurich"
     @Published var tableRowSpacing: Double = 1.0
     @Published var tableRowPadding: Double = 12.0
+    @Published var dbVersion: String = ""
+    @Published var dbFilePath: String = ""
+    @Published var dbCreated: Date?
+    @Published var dbModified: Date?
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -63,6 +70,8 @@ class DatabaseManager: ObservableObject {
         
         openDatabase()
         loadConfiguration()
+        updateFileMetadata()
+        print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
     
     private func openDatabase() {
@@ -79,6 +88,19 @@ class DatabaseManager: ObservableObject {
             }
         } else {
             print("❌ Failed to open database: \(String(cString: sqlite3_errmsg(db)))")
+        }
+    }
+
+    private func updateFileMetadata() {
+        do {
+            let attrs = try FileManager.default.attributesOfItem(atPath: dbPath)
+            DispatchQueue.main.async {
+                self.dbFilePath = self.dbPath
+                self.dbCreated = attrs[.creationDate] as? Date
+                self.dbModified = attrs[.modificationDate] as? Date
+            }
+        } catch {
+            print("⚠️ Failed to read DB file attributes: \(error)")
         }
     }
     

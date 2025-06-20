@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.0** | June 13, 2025
+**Version 2.5** | June 18, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -23,6 +23,7 @@ Four drill-down tiles:
 ### Additional Features
 - **Target Allocation & Alerts**: Define goals per class/instrument; automatic gap calculation and alerting
 - **Transaction History**: Chronological log with rich filter & sort, CSV export
+- **Positions**: Lists position reports directly from the database with account and instrument details
 - **Strategy Documentation**: Markdown notes field beside each instrument and at portfolio level
 - **Native macOS Experience**: Swift + SwiftUI, system dark/light mode, Touch ID unlock (planned)
 - **Minimalist UI**: Single accent color, generous whitespace, keyboard-first workflow (⌘-K palette)
@@ -100,14 +101,17 @@ DragonShield/
    ```bash
    pip install -r requirements.txt
    ```
-   *Note: Create requirements.txt first (e.g. pysqlcipher3, pandas, openpyxl, pdfplumber)*
+   All required packages are listed in `requirements.txt`.
 
-5. **Open the Xcode project**
+5. **Generate the local database**
+   ```bash
+   python3 python_scripts/deploy_db.py
+   ```
+6. **Open the Xcode project**
    ```bash
    open DragonShield.xcodeproj
    ```
-
-6. **Build & run**
+7. **Build & run**
    - Select DragonShield → My Mac and press ⌘R
 
 > **⚠️ Important**: The current build is developer-only. Replace the default DB key with a Keychain-managed key before storing real data.
@@ -115,10 +119,18 @@ DragonShield/
 ## 💾 Database Information
 
 - **Type**: SQLite
-- **Path**: `~/Library/Application Support/DragonShield/dragonshield.sqlite`
+- **Path**: `~/Library/Application Support/DragonShield/dragonshield.sqlite` (generate with `python3 python_scripts/deploy_db.py`)
 - **Encryption**: SQLCipher (AES-256)
 - **Schema**: `docs/schema.sql`
 - **Dev Key**: Temporary; do not use for production data
+
+## Updating the Database
+
+Run the deploy script to rebuild the database from the schema and copy it to your Application Support folder. The script prints the schema version and final path:
+
+```bash
+python3 python_scripts/deploy_db.py
+```
 
 ## 💡 Usage
 
@@ -131,3 +143,15 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 ## 📜 License
 
 Dragon Shield is released under the MIT License. See LICENSE for full text.
+
+## Version History
+- 2.5: Settings view shows database info and added `db_tool.py` utility.
+- 2.4: Import script supports multiple files and shows summaries.
+- 2.3: Import tool compatible with Python 3.8+.
+- 2.2: Removed bundled database; added generation instructions and ignore rule.
+- 2.2: Documented schema version 4.7 and added `db_version` configuration.
+- 2.2: Added requirements file and clarified setup instructions.
+- 2.2: Automated database build and deployment with version logging.
+- 2.2: Added Python tests and CI workflow.
+- 2.1: Documented database deployment script.
+- 2.0: Initial project documentation.
