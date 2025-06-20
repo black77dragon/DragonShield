@@ -1,7 +1,8 @@
 // DragonShield/Views/CustodyAccountsView.swift
-// MARK: - Version 1.5
+// MARK: - Version 1.6
 // MARK: - History
 // - 1.4 -> 1.5: Accounts now reference Institutions. Added picker fields.
+// - 1.5 -> 1.6: Added institution picker to Edit view to resolve compile error.
 // - 1.3 -> 1.4: Updated deprecated onChange modifiers to new syntax for macOS 14.0+.
 // - 1.2 -> 1.3: Updated Add/Edit views to use Picker for AccountType based on normalized schema.
 // - 1.2 (Corrected - Full): Ensured all helper views like accountsContent, emptyStateView, accountsTable are fully defined within CustodyAccountsView. Provided full implementations for helper functions in Add/Edit views and fixed animation function signatures.
@@ -364,7 +365,7 @@ struct AddCustodyAccountView: View {
     }
 
     // MODIFIED: Replaced accountType TextField with a Picker
-    private var accountTypePickerField: some View {
+private var accountTypePickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "briefcase.fill").foregroundColor(.gray)
@@ -385,11 +386,15 @@ struct AddCustodyAccountView: View {
         }
     }
 
+
+    // Picker for selecting the associated institution - used in Add/Edit forms
     private var institutionPickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "building.2.fill").foregroundColor(.gray)
-                Text("Institution*").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7))
+                Text("Institution*")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.black.opacity(0.7))
             }
             Picker("Institution*", selection: $selectedInstitutionId) {
                 Text("Select Institution...").tag(nil as Int?)
@@ -398,18 +403,27 @@ struct AddCustodyAccountView: View {
                 }
             }
             .pickerStyle(MenuPickerStyle())
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(Color.white.opacity(0.8))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(selectedInstitutionId == nil && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(
+                        selectedInstitutionId == nil && !isValid && showingAlert ?
+                            Color.red.opacity(0.6) : Color.gray.opacity(0.3),
+                        lineWidth: 1
+                    )
             )
             if selectedInstitutionId == nil && !isValid && showingAlert {
-                Text("Institution is required.").font(.caption).foregroundColor(.red.opacity(0.8)).padding(.horizontal, 4)
+                Text("Institution is required.")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.8))
+                    .padding(.horizontal, 4)
             }
         }
     }
+
     
     private var addModernContent: some View {
         ScrollView {
@@ -623,6 +637,43 @@ struct EditCustodyAccountView: View {
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedAccountTypeId == nil && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1))
             if selectedAccountTypeId == nil && !isValid && showingAlert {
                 Text("Account Type is required.").font(.caption).foregroundColor(.red.opacity(0.8)).padding(.horizontal, 4)
+            }
+        }
+    }
+
+    // Picker for selecting the associated institution when editing an account
+    private var institutionPickerField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "building.2.fill").foregroundColor(.gray)
+                Text("Institution*")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            Picker("Institution*", selection: $selectedInstitutionId) {
+                Text("Select Institution...").tag(nil as Int?)
+                ForEach(availableInstitutions) { inst in
+                    Text(inst.name).tag(inst.id as Int?)
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        selectedInstitutionId == nil && !isValid && showingAlert ?
+                            Color.red.opacity(0.6) : Color.gray.opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
+            if selectedInstitutionId == nil && !isValid && showingAlert {
+                Text("Institution is required.")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.8))
+                    .padding(.horizontal, 4)
             }
         }
     }
