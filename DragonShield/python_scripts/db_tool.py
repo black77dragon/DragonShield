@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # python_scripts/db_tool.py
-# MARK: - Version 1.0
+# MARK: - Version 1.1
 # MARK: - History
+# - 1.0 -> 1.1: Updated default target directory to production container path.
 # - 1.0: Initial creation. Build database from schema and seed data and deploy to target directory.
 
 import argparse
@@ -9,13 +10,21 @@ import os
 import shutil
 from pathlib import Path
 
+DEFAULT_TARGET_DIR = (
+    "/Users/renekeller/Library/Containers/"
+    "com.rene.DragonShield/Data/Library/Application Support/DragonShield"
+)
+
 import deploy_db
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Build and deploy Dragon Shield database")
-    parser.add_argument('--target-dir', default=os.path.expanduser(os.path.join('~', 'Library', 'Application Support', 'DragonShield')),
-                        help='Destination directory for dragonshield.sqlite')
+    parser.add_argument(
+        '--target-dir',
+        default=DEFAULT_TARGET_DIR,
+        help='Destination directory for dragonshield.sqlite'
+    )
     parser.add_argument('--schema', default=str(Path(__file__).resolve().parents[1] / 'database' / 'schema.sql'),
                         help='Path to schema.sql')
     parser.add_argument('--seed', default=str(Path(__file__).resolve().parents[1] / 'database' / 'schema.txt'),

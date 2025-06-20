@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # python_scripts/deploy_db.py
-# MARK: - Version 1.2
+# MARK: - Version 1.3
 # MARK: - History
+# - 1.2 -> 1.3: Deploys database to container path used by the production app.
 # - 1.1 -> 1.2: Display detailed progress and final summary information.
 # - 1.0 -> 1.1: Builds DB from schema, stores version, and deploys to app support.
 
@@ -9,6 +10,11 @@ import os
 import shutil
 import sqlite3
 import re
+
+DEFAULT_TARGET_DIR = (
+    "/Users/renekeller/Library/Containers/"
+    "com.rene.DragonShield/Data/Library/Application Support/DragonShield"
+)
 
 def parse_version(sql_path: str) -> str:
     with open(sql_path, 'r', encoding='utf-8') as f:
@@ -57,7 +63,7 @@ def main() -> None:
     size = os.path.getsize(source_path)
     print(f"✅ Created database at {source_path} (v{version}, {table_count} tables, {size} bytes)")
 
-    dest_dir = os.path.expanduser(os.path.join('~', 'Library', 'Application Support', 'DragonShield'))
+    dest_dir = DEFAULT_TARGET_DIR
     os.makedirs(dest_dir, exist_ok=True)
     dest_path = os.path.join(dest_dir, 'dragonshield.sqlite')
     shutil.copy2(source_path, dest_path)

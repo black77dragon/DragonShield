@@ -1,5 +1,6 @@
-# Version 1.0
+# Version 1.1
 # History
+# - 1.0 -> 1.1: Adjusted for production container path constant.
 # - 1.0: Test db_tool build and copy logic.
 
 import os
