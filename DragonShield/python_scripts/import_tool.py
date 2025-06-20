@@ -1,7 +1,8 @@
 # python_scripts/import_tool.py
 
-# MARK: - Version 1.2
+# MARK: - Version 1.3
 # MARK: - History
+# - 1.2 -> 1.3: Updated default database path to production container location.
 # - 1.1 -> 1.2: Support importing multiple files in one run and print summary.
 # - 1.0 -> 1.1: Replace builtin generics with typing equivalents for
 #   compatibility with older Python versions.
@@ -17,8 +18,9 @@ from typing import Any, Dict, Tuple, Optional
 
 import zkb_parser  # existing parser in the same folder
 
-DB_PATH = os.path.expanduser(
-    os.path.join('~', 'Library', 'Application Support', 'DragonShield', 'dragonshield.sqlite')
+DB_PATH = os.path.join(
+    "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
+    "dragonshield.sqlite",
 )
 
 

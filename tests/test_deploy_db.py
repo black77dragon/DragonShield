@@ -1,5 +1,6 @@
-# Version 1.1
+# Version 1.2
 # History
+# - 1.1 -> 1.2: Updated for container target path constant.
 # - 1.0: Initial test for deploy_db main copy behavior.
 # - 1.0 -> 1.1: Stub os.path.getsize to avoid missing file error.
 
@@ -30,7 +31,7 @@ def test_main_copies_db(monkeypatch, tmp_path):
 
     monkeypatch.setattr(deploy_db.shutil, 'copy2', fake_copy)
     monkeypatch.setattr(deploy_db.os, 'makedirs', fake_makedirs)
-    monkeypatch.setattr(deploy_db.os.path, 'expanduser', lambda p: str(tmp_path))
+    monkeypatch.setattr(deploy_db, 'DEFAULT_TARGET_DIR', str(tmp_path))
     monkeypatch.setattr(deploy_db.os.path, 'getsize', lambda p: 0)
     monkeypatch.setattr('builtins.input', lambda _: 'y')
 
