@@ -1,8 +1,10 @@
 // DragonShield/DatabaseManager+Accounts.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
 // - 1.2 -> 1.3: Accounts now reference Institutions table via institution_id.
 //                Queries updated accordingly.
+// - 1.3 -> 1.4: Fixed duplicate variable and added missing institutionId
+//                retrieval in fetchAccountDetails.
 // - 1.1 -> 1.2: Modified to use account_type_id and join with AccountTypes table. Updated CRUD methods.
 // - 1.0 -> 1.1: Updated AccountData struct and CRUD methods to include institution_bic, closing_date,
 //               and handle opening_date as optional, aligning with the definitive DB schema.
@@ -67,7 +69,6 @@ extension DatabaseManager {
                 let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
                 let accountTypeId = Int(sqlite3_column_int(statement, 12))
                 let institutionId = Int(sqlite3_column_int(statement, 13))
-                let institutionId = Int(sqlite3_column_int(statement, 13))
                 
                 accounts.append(AccountData(
                     id: id,
@@ -125,7 +126,8 @@ extension DatabaseManager {
                 let isActive = sqlite3_column_int(statement, 10) == 1
                 let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
                 let accountTypeId = Int(sqlite3_column_int(statement, 12))
-                
+                let institutionId = Int(sqlite3_column_int(statement, 13))
+
                 sqlite3_finalize(statement)
                 return AccountData(
                     id: id, accountName: accountName, institutionId: institutionId,
