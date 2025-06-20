@@ -1,6 +1,8 @@
 // DragonShield/Views/InstitutionsView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
+// - 1.0 -> 1.1: Fixed List selection error by requiring InstitutionData
+//                to conform to Hashable.
 // - Initial creation: Manage Institutions table using same design as other maintenance views.
 
 import SwiftUI

@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.8** | June 19, 2025
+**Version 2.9** | June 20, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -142,9 +142,10 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 ## 📜 License
 
-Dragon Shield is released under the MIT License. See LICENSE for full text.
+-Dragon Shield is released under the MIT License. See LICENSE for full text.
 
--## Version History
+## Version History
+- 2.9: Added Hashable conformance for InstitutionData.
 - 2.8: Fixed compile issue in CustodyAccountsView.
 - 2.7: Added Institutions table and management view.
 - 2.6: Updated default database path to container directory.
