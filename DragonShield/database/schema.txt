@@ -4,6 +4,7 @@
 -- Updated: 2025-06-19
 --
 -- RECENT HISTORY:
+-- - v4.7 -> v4.8: Added Institutions table and updated Accounts seed data.
 -- - v4.6 -> v4.7: Added db_version configuration row.
 -- - v4.5 -> v4.6: Seed data split from schema.sql
 -- - v4.6 -> v4.7: Added db_version configuration entry
@@ -96,15 +97,23 @@ INSERT INTO AccountTypes (account_type_id, type_code, type_name, type_descriptio
 (3, 'CRYPTO', 'Crypto Wallet/Account', 'Account for holding cryptocurrencies'),
 (4, 'PENSION', 'Pension Account', 'Retirement or pension savings account'),
 (5, 'CASH', 'Cash Account', 'Physical cash or simple cash holdings');
-INSERT INTO Accounts (account_number, account_name, institution_name, institution_bic, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
-('CH12-3456-7890-1234-5', 'UBS Custody Account', 'UBS Switzerland AG', 'UBSWCHZH80A', 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
-('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 'Credit Suisse (Schweiz) AG', 'CRESCHZZ80A', 1, 'CHF', '2023-06-10', 1, 1, NULL),
-('US-IBKR-987654321', 'Interactive Brokers Account', 'Interactive Brokers LLC', NULL, 2, 'USD', '2024-03-01', 1, 1, 'For US stocks and ETFs.'),
-('COINBASE-PRO-001', 'Coinbase Pro Account', 'Coinbase', NULL, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
-('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 'Self-Custody', NULL, 3, 'BTC', '2024-01-01', 1, 1, NULL),
-('VIAC-3A-12345', 'VIAC 3a Account', 'VIAC', NULL, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.');
-INSERT INTO Accounts (account_number, account_name, institution_name, institution_bic, account_type_id, currency_code, opening_date, closing_date, is_active, include_in_portfolio, notes) VALUES
-('OLD-BANK-007', 'Old Savings Account', 'Regional Bank XY', NULL, 1, 'CHF', '2010-01-01', '2023-12-31', 0, 0, 'Account closed end of last year.');
+INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website, is_active) VALUES
+ (1, 'UBS Switzerland AG', 'BANK', 'UBSWCHZH80A', 'https://www.ubs.com', 1),
+ (2, 'Credit Suisse (Schweiz) AG', 'BANK', 'CRESCHZZ80A', 'https://www.credit-suisse.com', 1),
+ (3, 'Interactive Brokers LLC', 'BROKER', NULL, 'https://www.interactivebrokers.com', 1),
+ (4, 'Coinbase', 'CRYPTO_EXCHANGE', NULL, 'https://www.coinbase.com', 1),
+ (5, 'Self-Custody', 'WALLET', NULL, NULL, 1),
+ (6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
+ (7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
+INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
+('CH12-3456-7890-1234-5', 'UBS Custody Account', 1, 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
+('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 2, 1, 'CHF', '2023-06-10', 1, 1, NULL),
+('US-IBKR-987654321', 'Interactive Brokers Account', 3, 2, 'USD', '2024-03-01', 1, 1, 'For US stocks and ETFs.'),
+('COINBASE-PRO-001', 'Coinbase Pro Account', 4, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
+('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 5, 3, 'BTC', '2024-01-01', 1, 1, NULL),
+('VIAC-3A-12345', 'VIAC 3a Account', 6, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.');
+INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, closing_date, is_active, include_in_portfolio, notes) VALUES
+('OLD-BANK-007', 'Old Savings Account', 7, 1, 'CHF', '2010-01-01', '2023-12-31', 0, 0, 'Account closed end of last year.');
 INSERT INTO TransactionTypes (type_code, type_name, type_description, affects_position, affects_cash, is_income, sort_order) VALUES
 ('BUY', 'Purchase', 'Buy securities or assets', 1, 1, 0, 1),
 ('SELL', 'Sale', 'Sell securities or assets', 1, 1, 0, 2),

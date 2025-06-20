@@ -1,9 +1,10 @@
 // DragonShield/Views/SidebarView.swift
-// MARK: - Version 1.7
+// MARK: - Version 1.8
 // MARK: - History
 // - 1.5 -> 1.6: Enabled "Load Documents" navigation link to point to new ImportStatementView.
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
 // - 1.6 -> 1.7: Added "Positions" navigation link.
+// - 1.7 -> 1.8: Added "Edit Institutions" navigation link.
 // - (Previous history)
 
 import SwiftUI
@@ -47,6 +48,10 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: CurrenciesView()) {
                     Label("Edit Currencies", systemImage: "dollarsign.circle.fill")
+                }
+
+                NavigationLink(destination: InstitutionsView()) {
+                    Label("Edit Institutions", systemImage: "building.2.fill")
                 }
                 
                 HStack {
