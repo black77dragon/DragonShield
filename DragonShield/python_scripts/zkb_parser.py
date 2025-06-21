@@ -3,6 +3,8 @@ import sys
 import re
 import openpyxl
 import json
+import os
+import csv
 from datetime import datetime
 from typing import Dict, Tuple, Any, List, Set, Optional
 from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
@@ -132,6 +134,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
     # (Initialization of parsed_data and stats variables remains the same)
     parsed_data = {
         "main_custody_account_nr": None,
+        "institution_name": "ZKB",
         "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]), # Pass only filename
         "summary": {
             "processed_file": filepath, "total_data_rows_attempted": 0, 
@@ -146,25 +149,42 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
     unmapped_category_pairs_internal: Set[Tuple[str,str]] = set()
 
     try:
-        workbook = openpyxl.load_workbook(filepath, data_only=True) # data_only=True is important
-        sheet = workbook[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, str) else \
-                workbook.worksheets[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, int) else \
-                workbook.active
+        rows: List[List[Any]]
+        if filepath.lower().endswith('.csv'):
+            with open(filepath, newline='', encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                rows = [list(r) for r in reader]
+            sheet = None
+            max_column = max(len(r) for r in rows) if rows else 0
+            def cell(row: int, col: int):
+                return rows[row-1][col-1] if 0 <= row-1 < len(rows) and 0 <= col-1 < len(rows[row-1]) else None
+        else:
+            workbook = openpyxl.load_workbook(filepath, data_only=True)
+            sheet = workbook[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, str) else \
+                    workbook.worksheets[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, int) else \
+                    workbook.active
+            max_column = sheet.max_column
+            def cell(row: int, col: int):
+                return sheet.cell(row=row, column=col).value
         
         # (Portfolio Nr extraction logic remains the same)
-        for col_idx in range(1, min(sheet.max_column + 1, 6)):
-            cell_val_line6 = sheet.cell(row=LINE_6_PORTFOLIO_NR_LINE_NUMBER, column=col_idx).value # Get value directly
+        for col_idx in range(1, min(max_column + 1, 6)):
+            cell_val_line6 = cell(LINE_6_PORTFOLIO_NR_LINE_NUMBER, col_idx)
             parsed_nr = parse_portfolio_nr_from_cell_value(cell_val_line6)
             if parsed_nr:
                 main_custody_account_nr_internal = parsed_nr
                 parsed_data["main_custody_account_nr"] = main_custody_account_nr_internal
-                break 
+                break
         if not main_custody_account_nr_internal:
             print(f"Warning: Could not parse Custody Account Nr from Line {LINE_6_PORTFOLIO_NR_LINE_NUMBER}.\n")
 
 
-        header_cells = [cell for cell in sheet[HEADER_ROW_NUMBER]]
-        headers = [str(cell.value).strip() if cell.value is not None else "" for cell in header_cells]
+        if sheet is None:
+            header_cells = [cell(HEADER_ROW_NUMBER, i) for i in range(1, max_column + 1)]
+            headers = [str(h).strip() if h is not None else "" for h in header_cells]
+        else:
+            header_cells = [c for c in sheet[HEADER_ROW_NUMBER]]
+            headers = [str(c.value).strip() if c.value is not None else "" for c in header_cells]
         header_map = {name: idx for idx, name in enumerate(headers)}
         
         whrg_indices = [i for i, h_name in enumerate(headers) if h_name == "Whrg."]
@@ -174,9 +194,13 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
         if idx_whrg_kurs == -1: print("Warning: Could not find second 'Whrg.' column header for price currency.")
 
 
-        for row_idx_iter, row_cells_obj_tuple in enumerate(sheet.iter_rows(min_row=HEADER_ROW_NUMBER + 1), start=HEADER_ROW_NUMBER + 1):
-            # Get actual values from cell objects
-            row_cells_tuple = [_get_actual_cell_value(cell) for cell in row_cells_obj_tuple]
+        if sheet is None:
+            row_iter = enumerate(rows[HEADER_ROW_NUMBER:], start=HEADER_ROW_NUMBER + 1)
+        else:
+            row_iter = ((idx, [_get_actual_cell_value(c) for c in row])
+                        for idx, row in enumerate(sheet.iter_rows(min_row=HEADER_ROW_NUMBER + 1), start=HEADER_ROW_NUMBER + 1))
+
+        for row_idx_iter, row_cells_tuple in row_iter:
 
             parsed_data["summary"]["total_data_rows_attempted"] += 1
             
@@ -203,6 +227,8 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
 
             parsed_data["summary"]["data_rows_successfully_parsed"] += 1
             record_data: Dict[str, Any] = {}
+            record_data["institution_name"] = "ZKB"
+            record_data["main_custody_account_nr_from_file"] = main_custody_account_nr_internal
             asset_unterkategorie_str = get_str_val_from_tuple(COL_ASSET_UNTERKATEGORIE)
             mapped_group = get_mapped_instrument_group(anlagekategorie_str, asset_unterkategorie_str, unmapped_category_pairs_internal)
             
