@@ -1,7 +1,8 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
+// - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
 
 import Foundation
 import AppKit
@@ -15,7 +16,17 @@ class ImportManager {
     ///   - url: URL of the document to parse.
     ///   - completion: Called with the raw JSON string output or an error.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        var scriptPath = Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts")
+        var scriptPath: String?
+        let bundleCandidates = [
+            Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts"),
+            Bundle.main.resourcePath.map { $0 + "/python_scripts/zkb_parser.py" }
+        ]
+        for candidate in bundleCandidates {
+            if let path = candidate, FileManager.default.fileExists(atPath: path) {
+                scriptPath = path
+                break
+            }
+        }
         if scriptPath == nil {
             // Fallback to current working directory for development environments
             let cwd = FileManager.default.currentDirectoryPath
