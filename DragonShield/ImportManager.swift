@@ -1,10 +1,11 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.5
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
 // - 1.2 -> 1.3: Improved parser lookup with debug logging and exit code checks.
 // - 1.3 -> 1.4: Return checked paths so UI can show detailed error messages.
+// - 1.4 -> 1.5: Added environment variable and Application Support search paths.
 
 import Foundation
 import AppKit
@@ -20,9 +21,13 @@ class ImportManager {
         var checkedPaths: [String] = []
         let fm = FileManager.default
 
+        let envCandidate = ProcessInfo.processInfo.environment["ZKB_PARSER_PATH"]
+
         let bundleCandidates: [String?] = [
+            envCandidate,
             Bundle.main.url(forResource: "zkb_parser", withExtension: "py", subdirectory: "python_scripts")?.path,
             Bundle.main.resourceURL?.appendingPathComponent("python_scripts/zkb_parser.py").path,
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/python_scripts/zkb_parser.py").path,
             Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("python_scripts/zkb_parser.py").path
         ]
 
@@ -30,6 +35,17 @@ class ImportManager {
             if let p = path {
                 checkedPaths.append(p)
                 if fm.fileExists(atPath: p) { return (p, checkedPaths) }
+            }
+        }
+
+        if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let supportCandidates = [
+                appSupport.appendingPathComponent("python_scripts/zkb_parser.py").path,
+                appSupport.appendingPathComponent("DragonShield/python_scripts/zkb_parser.py").path
+            ]
+            for path in supportCandidates {
+                checkedPaths.append(path)
+                if fm.fileExists(atPath: path) { return (path, checkedPaths) }
             }
         }
 
