@@ -1,4 +1,8 @@
 # python_scripts/zkb_parser.py
+# MARK: - Version 0.11
+# MARK: - History
+# - 0.9 -> 0.10: Added CSV support and institution metadata.
+# - 0.10 -> 0.11: Return explicit exit codes on errors.
 import sys
 import re
 import openpyxl
@@ -130,7 +134,13 @@ def get_mapped_instrument_group(anlagekategorie: str, asset_unterkategorie: str,
     if norm_anlage or norm_unter: unmapped_pairs.add((norm_anlage, norm_unter))
     return f"UNMAPPED_CATEGORY"
 
-def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
+# Exit codes for command-line usage
+EXIT_SUCCESS = 0
+EXIT_FILE_NOT_FOUND = 1
+EXIT_DEPENDENCY_ERROR = 2
+EXIT_GENERAL_ERROR = 3
+
+def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> int:
     # (Initialization of parsed_data and stats variables remains the same)
     parsed_data = {
         "main_custody_account_nr": None,
@@ -148,6 +158,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
     main_custody_account_nr_internal: Optional[str] = None
     unmapped_category_pairs_internal: Set[Tuple[str,str]] = set()
 
+    exit_code = EXIT_SUCCESS
     try:
         rows: List[List[Any]]
         if filepath.lower().endswith('.csv'):
@@ -275,15 +286,27 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None):
         parsed_data["summary"]["unmapped_categories"] = sorted(list(unmapped_category_pairs_internal))
 
     # (Exception handling and JSON printing remain the same)
-    except FileNotFoundError: parsed_data["summary"]["error"] = f"File not found at {filepath}"
-    except ImportError: parsed_data["summary"]["error"] = "The 'openpyxl' library is required. Please install it (e.g., pip install openpyxl)."
-    except Exception as e: import traceback; parsed_data["summary"]["error"] = f"An error occurred: {str(e)}"; parsed_data["summary"]["traceback"] = traceback.format_exc()
+    except FileNotFoundError:
+        parsed_data["summary"]["error"] = f"File not found at {filepath}"
+        exit_code = EXIT_FILE_NOT_FOUND
+    except ImportError:
+        parsed_data["summary"]["error"] = "The 'openpyxl' library is required. Please install it (e.g., pip install openpyxl)."
+        exit_code = EXIT_DEPENDENCY_ERROR
+    except Exception as e:
+        import traceback
+        parsed_data["summary"]["error"] = f"An error occurred: {str(e)}"
+        parsed_data["summary"]["traceback"] = traceback.format_exc()
+        exit_code = EXIT_GENERAL_ERROR
     
     print(json.dumps(parsed_data, indent=2, ensure_ascii=False))
+    return exit_code
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         filepath_arg = sys.argv[1]
-        process_file(filepath_arg)
+        code = process_file(filepath_arg)
+        sys.exit(code)
     else:
         print(json.dumps({"error": "Please provide the XLSX file path as an argument.", "usage": "python zkb_parser.py <path_to_your_ZKB_file.xlsx>"}))
+        sys.exit(1)
+

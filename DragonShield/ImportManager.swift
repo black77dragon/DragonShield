@@ -1,5 +1,5 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.8
+// MARK: - Version 1.9
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -9,6 +9,7 @@
 // - 1.5 -> 1.6: Search PATH directories and parent folders for parser.
 // - 1.6 -> 1.7: Simplify lookup to module directory and run parser via -m.
 // - 1.7 -> 1.8: Add fallback search using the project source path.
+// - 1.8 -> 1.9: Invoke parser via /usr/bin/env to avoid sandbox python issues.
 
 import Foundation
 import AppKit
@@ -78,8 +79,8 @@ class ImportManager {
         print("Using parser directory: \(moduleDir)")
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = ["-m", "zkb_parser", url.path]
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", "-m", "zkb_parser", url.path]
         process.environment = ["PYTHONPATH": moduleDir]
 
         let pipe = Pipe()
