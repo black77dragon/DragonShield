@@ -1,8 +1,9 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
+// - 1.2 -> 1.3: Improved parser lookup with debug logging and exit code checks.
 
 import Foundation
 import AppKit
@@ -11,38 +12,42 @@ import AppKit
 class ImportManager {
     static let shared = ImportManager()
 
+    /// Attempts to locate the Python parser script in the app bundle or working
+    /// directory. Prints the checked paths for easier debugging.
+    private func findParserScript() -> String? {
+        var checkedPaths: [String] = []
+        let fm = FileManager.default
+
+        let bundleCandidates: [String?] = [
+            Bundle.main.url(forResource: "zkb_parser", withExtension: "py", subdirectory: "python_scripts")?.path,
+            Bundle.main.resourceURL?.appendingPathComponent("python_scripts/zkb_parser.py").path,
+            Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("python_scripts/zkb_parser.py").path
+        ]
+
+        for path in bundleCandidates {
+            if let p = path { checkedPaths.append(p); if fm.fileExists(atPath: p) { return p } }
+        }
+
+        let cwd = fm.currentDirectoryPath
+        let devCandidates = ["python_scripts/zkb_parser.py", "DragonShield/python_scripts/zkb_parser.py"]
+            .map { cwd + "/" + $0 }
+        for path in devCandidates { checkedPaths.append(path); if fm.fileExists(atPath: path) { return path } }
+
+        print("❌ Parser script not found. Paths checked:\n - " + checkedPaths.joined(separator: "\n - "))
+        return nil
+    }
+
     /// Parses a document using the Python parser script.
     /// - Parameters:
     ///   - url: URL of the document to parse.
     ///   - completion: Called with the raw JSON string output or an error.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        var scriptPath: String?
-        let bundleCandidates = [
-            Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts"),
-            Bundle.main.resourcePath.map { $0 + "/python_scripts/zkb_parser.py" }
-        ]
-        for candidate in bundleCandidates {
-            if let path = candidate, FileManager.default.fileExists(atPath: path) {
-                scriptPath = path
-                break
-            }
-        }
-        if scriptPath == nil {
-            // Fallback to current working directory for development environments
-            let cwd = FileManager.default.currentDirectoryPath
-            let possible = [
-                "python_scripts/zkb_parser.py",
-                "DragonShield/python_scripts/zkb_parser.py"
-            ].map { cwd + "/" + $0 }
-            for path in possible where FileManager.default.fileExists(atPath: path) {
-                scriptPath = path
-                break
-            }
-        }
-        guard let scriptPath else {
-            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found"])))
+        guard let scriptPath = findParserScript() else {
+            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found. Check logs for paths searched."])) )
             return
         }
+
+        print("Using parser at: \(scriptPath)")
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
@@ -59,11 +64,21 @@ class ImportManager {
             return
         }
 
-        process.terminationHandler = { _ in
+        process.terminationHandler = { proc in
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let output = String(data: data, encoding: .utf8) ?? ""
+            let exitCode = proc.terminationStatus
             DispatchQueue.main.async {
-                completion(.success(output))
+                if exitCode == 0 {
+                    completion(.success(output))
+                } else {
+                    let err = NSError(
+                        domain: "ImportManager",
+                        code: Int(exitCode),
+                        userInfo: [NSLocalizedDescriptionKey: "Parser exited with code \(exitCode). Output:\n\(output)"]
+                    )
+                    completion(.failure(err))
+                }
             }
         }
     }
