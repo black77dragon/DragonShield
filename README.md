@@ -144,6 +144,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 -Dragon Shield is released under the MIT License. See LICENSE for full text.
 
+
 - 2.24: Search for Python interpreter in Homebrew locations or env var.
 - 2.23: Run parser via /usr/bin/python3 to avoid sandbox xcrun error.
 - 2.22: Launch parser via /usr/bin/env and return exit codes.
@@ -153,23 +154,4 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 - 2.18: Search Application Support and env var path for parser.
 - 2.17: Display checked parser paths in import error messages.
 - 2.16: Enhanced parser lookup and logging for easier debugging.
-- 2.15: Improved parser script search to avoid missing zkb_parser.py.
-- 2.14: Added import error alerts and parser path fallback.
-- 2.13: Added ZKB statement upload UI and parser integration.
-- 2.12: Deleting an institution now removes it from the list immediately.
-- 2.11: Improved Institutions maintenance UI with edit and delete actions.
-- 2.10: Institutions screen now supports add, edit and delete with dependency checks.
-- 2.9: Added Hashable conformance for InstitutionData.
-- 2.8: Fixed compile issue in CustodyAccountsView.
-- 2.7: Added Institutions table and management view.
-- 2.6: Updated default database path to container directory.
-- 2.5: Settings view shows database info and added `db_tool.py` utility.
-- 2.4: Import script supports multiple files and shows summaries.
-- 2.3: Import tool compatible with Python 3.8+.
-- 2.2: Removed bundled database; added generation instructions and ignore rule.
-- 2.2: Documented schema version 4.7 and added `db_version` configuration.
-- 2.2: Added requirements file and clarified setup instructions.
-- 2.2: Automated database build and deployment with version logging.
-- 2.2: Added Python tests and CI workflow.
-- 2.1: Documented database deployment script.
-- 2.0: Initial project documentation.
+

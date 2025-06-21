@@ -1,8 +1,10 @@
 # python_scripts/zkb_parser.py
+
 # MARK: - Version 0.11
 # MARK: - History
 # - 0.9 -> 0.10: Added CSV support and institution metadata.
 # - 0.10 -> 0.11: Return explicit exit codes on errors.
+
 import sys
 import re
 import openpyxl
