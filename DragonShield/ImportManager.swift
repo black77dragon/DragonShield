@@ -1,4 +1,5 @@
 // DragonShield/ImportManager.swift
+
 // MARK: - Version 1.11
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
@@ -13,13 +14,14 @@
 // - 1.9 -> 1.10: Run parser using /usr/bin/python3 to bypass xcrun sandbox error.
 // - 1.10 -> 1.11: Allow custom Python interpreter path via env var and Homebrew locations.
 
+
 import Foundation
 import AppKit
 
 /// Manages document imports by invoking the bundled Python parser.
 class ImportManager {
     static let shared = ImportManager()
-
+  
     /// Attempts to locate the directory containing the Python parser module.
     /// Returns that directory path and the list of checked locations.
     private func findParserModuleDir() -> (path: String?, checked: [String]) {
@@ -103,6 +105,7 @@ class ImportManager {
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = ["-m", "zkb_parser", url.path]
         process.environment = ["PYTHONPATH": moduleDir]
+
 
         let pipe = Pipe()
         process.standardOutput = pipe

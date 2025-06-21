@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# MARK: - Version 1.0
+# MARK: - History
+# - 1.0: Placeholder wrapper around system python.
+
+# Placeholder for bundled Python interpreter
+exec /usr/bin/python3 "$@"
