@@ -1,8 +1,10 @@
 // DragonShield/DatabaseManager+Institutions.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
 // - 1.0 -> 1.1: Added Hashable conformance to InstitutionData for use in Lists
 //                and Picker tags.
+// - 1.1 -> 1.2: deleteInstitution now performs a hard delete instead of
+//                deactivating the entry.
 // - Initial creation: Provides CRUD operations for Institutions table.
 
 import SQLite3
@@ -105,7 +107,7 @@ extension DatabaseManager {
     }
 
     func deleteInstitution(id: Int) -> Bool {
-        let query = "UPDATE Institutions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE institution_id = ?;"
+        let query = "DELETE FROM Institutions WHERE institution_id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deleteInstitution: \(String(cString: sqlite3_errmsg(db)))")
@@ -114,7 +116,7 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 1, Int32(id))
         let result = sqlite3_step(stmt) == SQLITE_DONE
         sqlite3_finalize(stmt)
-        if result { print("✅ Soft deleted institution (ID: \(id))") } else { print("❌ Soft delete institution failed: \(String(cString: sqlite3_errmsg(db)))") }
+        if result { print("✅ Deleted institution (ID: \(id))") } else { print("❌ Delete institution failed: \(String(cString: sqlite3_errmsg(db)))") }
         return result
     }
 

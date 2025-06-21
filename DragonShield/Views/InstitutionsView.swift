@@ -1,10 +1,12 @@
 // DragonShield/Views/InstitutionsView.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
 // - 1.1 -> 1.2: Added add/edit/delete notifications and dependency check
 //                on delete. List now refreshes automatically.
 // - 1.2 -> 1.3: Added action bar with Edit/Delete buttons and double-click to
 //                edit, matching the AccountTypes maintenance UX.
+// - 1.3 -> 1.4: Delete action now removes the institution from the database
+//                permanently and clears the current selection.
 // - 1.0 -> 1.1: Fixed List selection error by requiring InstitutionData
 //                to conform to Hashable.
 // - Initial creation: Manage Institutions table using same design as other maintenance views.
@@ -114,8 +116,7 @@ struct InstitutionsView: View {
                     title: Text("Delete Institution"),
                     message: Text("Are you sure you want to delete '\(inst.name)'?"),
                     primaryButton: .destructive(Text("Delete")) {
-                        _ = dbManager.deleteInstitution(id: inst.id)
-                        loadData()
+                        performDelete(inst)
                     },
                     secondaryButton: .cancel { institutionToDelete = nil }
                 )
@@ -130,6 +131,15 @@ struct InstitutionsView: View {
     }
 
     private func loadData() { institutions = dbManager.fetchInstitutions(activeOnly: false) }
+
+    private func performDelete(_ inst: DatabaseManager.InstitutionData) {
+        let success = dbManager.deleteInstitution(id: inst.id)
+        if success {
+            loadData()
+            selectedInstitution = nil
+            institutionToDelete = nil
+        }
+    }
 }
 
 struct AddInstitutionView: View {
