@@ -1,5 +1,5 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.10
+// MARK: - Version 1.11
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -11,6 +11,7 @@
 // - 1.7 -> 1.8: Add fallback search using the project source path.
 // - 1.8 -> 1.9: Invoke parser via /usr/bin/env to avoid sandbox python issues.
 // - 1.9 -> 1.10: Run parser using /usr/bin/python3 to bypass xcrun sandbox error.
+// - 1.10 -> 1.11: Allow custom Python interpreter path via env var and Homebrew locations.
 
 import Foundation
 import AppKit
@@ -64,6 +65,22 @@ class ImportManager {
         return (nil, checked)
     }
 
+    /// Determine which Python interpreter to use for running the parser.
+    /// Searches environment variables and common Homebrew locations before falling back.
+    private func resolvePythonPath() -> String {
+        let fm = FileManager.default
+        let env = ProcessInfo.processInfo.environment
+        let envCandidates = [env["DS_PYTHON_PATH"], env["PYTHON_BINARY"], env["PYTHON_PATH"]]
+        for candidate in envCandidates.compactMap({ $0 }) {
+            if fm.isExecutableFile(atPath: candidate) { return candidate }
+        }
+        let known = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"]
+        for path in known {
+            if fm.isExecutableFile(atPath: path) { return path }
+        }
+        return "python3"
+    }
+
     /// Parses a document using the Python parser script.
     /// - Parameters:
     ///   - url: URL of the document to parse.
@@ -77,10 +94,13 @@ class ImportManager {
             return
         }
 
+        let pythonPath = resolvePythonPath()
+
         print("Using parser directory: \(moduleDir)")
+        print("Using python interpreter: \(pythonPath)")
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = ["-m", "zkb_parser", url.path]
         process.environment = ["PYTHONPATH": moduleDir]
 
