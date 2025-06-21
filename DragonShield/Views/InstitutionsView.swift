@@ -1,8 +1,10 @@
 // DragonShield/Views/InstitutionsView.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
 // - 1.1 -> 1.2: Added add/edit/delete notifications and dependency check
 //                on delete. List now refreshes automatically.
+// - 1.2 -> 1.3: Added action bar with Edit/Delete buttons and double-click to
+//                edit, matching the AccountTypes maintenance UX.
 // - 1.0 -> 1.1: Fixed List selection error by requiring InstitutionData
 //                to conform to Hashable.
 // - Initial creation: Manage Institutions table using same design as other maintenance views.
@@ -45,6 +47,10 @@ struct InstitutionsView: View {
                     }
                     .tag(inst as DatabaseManager.InstitutionData?)
                     .onTapGesture { selectedInstitution = inst }
+                    .onTapGesture(count: 2) {
+                        selectedInstitution = inst
+                        showEditSheet = true
+                    }
                     .contextMenu {
                         Button("Edit") { selectedInstitution = inst; showEditSheet = true }
                         Button("Delete", role: .destructive) { institutionToDelete = inst; showingDeleteAlert = true }
@@ -52,6 +58,39 @@ struct InstitutionsView: View {
                 }
             }
             .frame(maxHeight: .infinity)
+
+            Divider()
+            HStack(spacing: 16) {
+                Button(action: { showAddSheet = true }) {
+                    Label("Add", systemImage: "plus")
+                }
+                .buttonStyle(BorderlessButtonStyle())
+
+                Button(action: { if let inst = selectedInstitution { selectedInstitution = inst; showEditSheet = true } }) {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                .disabled(selectedInstitution == nil)
+
+                Button(action: {
+                    if let inst = selectedInstitution {
+                        institutionToDelete = inst
+                        showingDeleteAlert = true
+                    }
+                }) {
+                    Label("Delete", systemImage: "trash")
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                .disabled(selectedInstitution == nil)
+
+                Spacer()
+                if let inst = selectedInstitution {
+                    Text("Selected: \(inst.name)")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
         }
         .onAppear { loadData() }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshInstitutions"))) { _ in
