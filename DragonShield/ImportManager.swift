@@ -1,11 +1,12 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.5
+// MARK: - Version 1.6
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
 // - 1.2 -> 1.3: Improved parser lookup with debug logging and exit code checks.
 // - 1.3 -> 1.4: Return checked paths so UI can show detailed error messages.
 // - 1.4 -> 1.5: Added environment variable and Application Support search paths.
+// - 1.5 -> 1.6: Search PATH directories and parent folders for parser.
 
 import Foundation
 import AppKit
@@ -23,36 +24,43 @@ class ImportManager {
 
         let envCandidate = ProcessInfo.processInfo.environment["ZKB_PARSER_PATH"]
 
-        let bundleCandidates: [String?] = [
-            envCandidate,
-            Bundle.main.url(forResource: "zkb_parser", withExtension: "py", subdirectory: "python_scripts")?.path,
-            Bundle.main.resourceURL?.appendingPathComponent("python_scripts/zkb_parser.py").path,
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/python_scripts/zkb_parser.py").path,
-            Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("python_scripts/zkb_parser.py").path
-        ]
-
-        for path in bundleCandidates {
-            if let p = path {
-                checkedPaths.append(p)
-                if fm.fileExists(atPath: p) { return (p, checkedPaths) }
+        var candidateSet: [String] = []
+        func addCandidate(_ p: String?) {
+            if let p = p, !candidateSet.contains(p) {
+                candidateSet.append(p)
             }
+        }
+
+        addCandidate(envCandidate)
+        addCandidate(Bundle.main.url(forResource: "zkb_parser", withExtension: "py", subdirectory: "python_scripts")?.path)
+        addCandidate(Bundle.main.resourceURL?.appendingPathComponent("python_scripts/zkb_parser.py").path)
+        addCandidate(Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/python_scripts/zkb_parser.py").path)
+        addCandidate(Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("python_scripts/zkb_parser.py").path)
+
+        // Search parent directories of the bundle for development scenarios
+        var parentURL = Bundle.main.bundleURL
+        for _ in 0..<4 {
+            parentURL.deleteLastPathComponent()
+            addCandidate(parentURL.appendingPathComponent("python_scripts/zkb_parser.py").path)
+            addCandidate(parentURL.appendingPathComponent("DragonShield/python_scripts/zkb_parser.py").path)
         }
 
         if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let supportCandidates = [
-                appSupport.appendingPathComponent("python_scripts/zkb_parser.py").path,
-                appSupport.appendingPathComponent("DragonShield/python_scripts/zkb_parser.py").path
-            ]
-            for path in supportCandidates {
-                checkedPaths.append(path)
-                if fm.fileExists(atPath: path) { return (path, checkedPaths) }
-            }
+            addCandidate(appSupport.appendingPathComponent("python_scripts/zkb_parser.py").path)
+            addCandidate(appSupport.appendingPathComponent("DragonShield/python_scripts/zkb_parser.py").path)
         }
 
         let cwd = fm.currentDirectoryPath
-        let devCandidates = ["python_scripts/zkb_parser.py", "DragonShield/python_scripts/zkb_parser.py"]
-            .map { cwd + "/" + $0 }
-        for path in devCandidates {
+        addCandidate(cwd + "/python_scripts/zkb_parser.py")
+        addCandidate(cwd + "/DragonShield/python_scripts/zkb_parser.py")
+
+        if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
+            for dir in pathEnv.split(separator: ":") {
+                addCandidate(String(dir) + "/zkb_parser.py")
+            }
+        }
+
+        for path in candidateSet {
             checkedPaths.append(path)
             if fm.fileExists(atPath: path) { return (path, checkedPaths) }
         }
