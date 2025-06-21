@@ -1,9 +1,10 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
 // - 1.2 -> 1.3: Improved parser lookup with debug logging and exit code checks.
+// - 1.3 -> 1.4: Return checked paths so UI can show detailed error messages.
 
 import Foundation
 import AppKit
@@ -13,8 +14,9 @@ class ImportManager {
     static let shared = ImportManager()
 
     /// Attempts to locate the Python parser script in the app bundle or working
-    /// directory. Prints the checked paths for easier debugging.
-    private func findParserScript() -> String? {
+    /// directory. Returns the path and list of checked paths so errors can
+    /// present these details.
+    private func findParserScript() -> (path: String?, checked: [String]) {
         var checkedPaths: [String] = []
         let fm = FileManager.default
 
@@ -25,16 +27,22 @@ class ImportManager {
         ]
 
         for path in bundleCandidates {
-            if let p = path { checkedPaths.append(p); if fm.fileExists(atPath: p) { return p } }
+            if let p = path {
+                checkedPaths.append(p)
+                if fm.fileExists(atPath: p) { return (p, checkedPaths) }
+            }
         }
 
         let cwd = fm.currentDirectoryPath
         let devCandidates = ["python_scripts/zkb_parser.py", "DragonShield/python_scripts/zkb_parser.py"]
             .map { cwd + "/" + $0 }
-        for path in devCandidates { checkedPaths.append(path); if fm.fileExists(atPath: path) { return path } }
+        for path in devCandidates {
+            checkedPaths.append(path)
+            if fm.fileExists(atPath: path) { return (path, checkedPaths) }
+        }
 
         print("❌ Parser script not found. Paths checked:\n - " + checkedPaths.joined(separator: "\n - "))
-        return nil
+        return (nil, checkedPaths)
     }
 
     /// Parses a document using the Python parser script.
@@ -42,8 +50,11 @@ class ImportManager {
     ///   - url: URL of the document to parse.
     ///   - completion: Called with the raw JSON string output or an error.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let scriptPath = findParserScript() else {
-            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found. Check logs for paths searched."])) )
+        let result = findParserScript()
+        guard let scriptPath = result.path else {
+            let pathsString = result.checked.map { "- " + $0 }.joined(separator: "\n")
+            let message = "Parser script not found. Paths checked:\n" + pathsString
+            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: message])))
             return
         }
 
