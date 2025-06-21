@@ -1,4 +1,9 @@
 # python_scripts/zkb_parser.py
+
+# MARK: - Version 1.0
+# MARK: - History
+# - 1.0: Initial version providing ZKB CSV/XLSX parsing functionality.
+
 import sys
 import re
 import openpyxl
