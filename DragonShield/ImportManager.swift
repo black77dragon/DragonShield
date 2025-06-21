@@ -1,5 +1,5 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 1.7
+// MARK: - Version 1.8
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -8,6 +8,7 @@
 // - 1.4 -> 1.5: Added environment variable and Application Support search paths.
 // - 1.5 -> 1.6: Search PATH directories and parent folders for parser.
 // - 1.6 -> 1.7: Simplify lookup to module directory and run parser via -m.
+// - 1.7 -> 1.8: Add fallback search using the project source path.
 
 import Foundation
 import AppKit
@@ -30,6 +31,16 @@ class ImportManager {
         add(Bundle.main.resourceURL?.appendingPathComponent("python_scripts").path)
         add(Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/python_scripts").path)
         add(Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("python_scripts").path)
+
+        // Search relative to the project source directory where this file resides
+        let sourceFileURL = URL(fileURLWithPath: #file)
+        var srcParent = sourceFileURL.deletingLastPathComponent()
+        add(srcParent.appendingPathComponent("python_scripts").path)
+        for _ in 0..<4 {
+            srcParent.deleteLastPathComponent()
+            add(srcParent.appendingPathComponent("python_scripts").path)
+            add(srcParent.appendingPathComponent("DragonShield/python_scripts").path)
+        }
 
         var parentURL = Bundle.main.bundleURL
         for _ in 0..<3 {
