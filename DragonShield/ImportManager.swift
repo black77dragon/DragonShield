@@ -1,3 +1,8 @@
+// DragonShield/ImportManager.swift
+// MARK: - Version 1.1
+// MARK: - History
+// - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
+
 import Foundation
 import AppKit
 
@@ -10,8 +15,21 @@ class ImportManager {
     ///   - url: URL of the document to parse.
     ///   - completion: Called with the raw JSON string output or an error.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let scriptPath = Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts") else {
-            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found in bundle"])))
+        var scriptPath = Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts")
+        if scriptPath == nil {
+            // Fallback to current working directory for development environments
+            let cwd = FileManager.default.currentDirectoryPath
+            let possible = [
+                "python_scripts/zkb_parser.py",
+                "DragonShield/python_scripts/zkb_parser.py"
+            ].map { cwd + "/" + $0 }
+            for path in possible where FileManager.default.fileExists(atPath: path) {
+                scriptPath = path
+                break
+            }
+        }
+        guard let scriptPath else {
+            completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found"])))
             return
         }
 
@@ -52,6 +70,14 @@ class ImportManager {
                         print("\n📥 Import result:\n\(output)")
                     case .failure(let error):
                         print("❌ Import failed: \(error.localizedDescription)")
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Import Error"
+                            alert.informativeText = error.localizedDescription
+                            alert.alertStyle = .warning
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                        }
                     }
                 }
             }

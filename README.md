@@ -145,6 +145,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 -Dragon Shield is released under the MIT License. See LICENSE for full text.
 
 ## Version History
+- 2.14: Added import error alerts and parser path fallback.
 - 2.13: Added ZKB statement upload UI and parser integration.
 - 2.12: Deleting an institution now removes it from the list immediately.
 - 2.11: Improved Institutions maintenance UI with edit and delete actions.

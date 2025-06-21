@@ -1,8 +1,9 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
 // - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
+// - 1.2 -> 1.3: Present alert pop-ups when import errors occur.
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -69,6 +70,14 @@ struct ImportStatementView: View {
             allowedContentTypes: importMode == .zkb ? allowedFileTypesZkb : allowedFileTypesGeneric
         ) { result in
             handleFileImport(result: result)
+        }
+        .alert("Import Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "Unknown Error")
         }
     }
     
