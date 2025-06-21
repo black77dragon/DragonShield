@@ -1,6 +1,7 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.13** | June 21, 2025
+**Version 2.16** | June 21, 2025
+
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -145,21 +146,21 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 -Dragon Shield is released under the MIT License. See LICENSE for full text.
 
 ## Version History
-- 2.13: Removed outdated parser scripts and cleaned up repository.
-- 2.12: Deleting an institution now removes it from the list immediately.
-- 2.11: Improved Institutions maintenance UI with edit and delete actions.
-- 2.10: Institutions screen now supports add, edit and delete with dependency checks.
-- 2.9: Added Hashable conformance for InstitutionData.
-- 2.8: Fixed compile issue in CustodyAccountsView.
-- 2.7: Added Institutions table and management view.
-- 2.6: Updated default database path to container directory.
-- 2.5: Settings view shows database info and added `db_tool.py` utility.
-- 2.4: Import script supports multiple files and shows summaries.
-- 2.3: Import tool compatible with Python 3.8+.
-- 2.2: Removed bundled database; added generation instructions and ignore rule.
-- 2.2: Documented schema version 4.7 and added `db_version` configuration.
-- 2.2: Added requirements file and clarified setup instructions.
-- 2.2: Automated database build and deployment with version logging.
+
+- 2.16: Deleting an institution now removes it from the list immediately.
+- 2.15: Improved Institutions maintenance UI with edit and delete actions.
+- 2.14: Institutions screen now supports add, edit and delete with dependency checks.
+- 2.13: Added Hashable conformance for InstitutionData.
+- 2.12: Fixed compile issue in CustodyAccountsView.
+- 2.11: Added Institutions table and management view.
+- 2.10: Updated default database path to container directory.
+- 2.9: Settings view shows database info and added `db_tool.py` utility.
+- 2.8: Import script supports multiple files and shows summaries.
+- 2.7: Import tool compatible with Python 3.8+.
+- 2.6: Removed bundled database; added generation instructions and ignore rule.
+- 2.5: Documented schema version 4.7 and added `db_version` configuration.
+- 2.4: Added requirements file and clarified setup instructions.
+- 2.3: Automated database build and deployment with version logging.
 - 2.2: Added Python tests and CI workflow.
 - 2.1: Documented database deployment script.
 - 2.0: Initial project documentation.
