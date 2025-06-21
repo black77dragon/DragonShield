@@ -1,3 +1,9 @@
+// DragonShield/ImportManager.swift
+// MARK: - Version 1.1
+// MARK: - History
+// - 1.0 -> 1.1: Run bundled Python interpreter and locate parser via
+//               findParserScript helper.
+
 import Foundation
 import AppKit
 
@@ -5,18 +11,28 @@ import AppKit
 class ImportManager {
     static let shared = ImportManager()
 
+    /// Locates the bundled parser script.
+    private func findParserScript() -> String? {
+        Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts")
+    }
+
     /// Parses a document using the Python parser script.
     /// - Parameters:
     ///   - url: URL of the document to parse.
     ///   - completion: Called with the raw JSON string output or an error.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let scriptPath = Bundle.main.path(forResource: "zkb_parser", ofType: "py", inDirectory: "python_scripts") else {
+        guard let scriptPath = findParserScript() else {
             completion(.failure(NSError(domain: "ImportManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parser script not found in bundle"])))
             return
         }
 
+        guard let pythonPath = Bundle.main.path(forResource: "python3", ofType: nil, inDirectory: "python/bin") else {
+            completion(.failure(NSError(domain: "ImportManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Bundled Python interpreter not found"])))
+            return
+        }
+
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = [scriptPath, url.path]
 
         let pipe = Pipe()
