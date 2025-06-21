@@ -1,7 +1,9 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.3
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
+// - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
+// - 1.2 -> 1.3: Present alert pop-ups when import errors occur.
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -13,9 +15,13 @@ struct ImportStatementView: View {
     @State private var selectedFileURL: URL?
     @State private var showingFileImporter = false
     @State private var errorMessage: String?
+
+    enum ImportMode { case generic, zkb }
+    @State private var importMode: ImportMode = .generic
     
     // Supported file types for the importer
-    private let allowedFileTypes: [UTType] = [.commaSeparatedText, .spreadsheet, .pdf]
+    private let allowedFileTypesGeneric: [UTType] = [.commaSeparatedText, .spreadsheet, .pdf]
+    private let allowedFileTypesZkb: [UTType] = [.spreadsheet, .commaSeparatedText]
 
     var body: some View {
         ZStack {
@@ -34,7 +40,19 @@ struct ImportStatementView: View {
                     if let url = selectedFileURL {
                         fileSelectedView(url: url)
                     } else {
-                        dropZoneView
+                        VStack(spacing: 40) {
+                            VStack {
+                                Text("General Upload")
+                                    .font(.headline)
+                                dropZoneView
+                            }
+                            Divider()
+                            VStack {
+                                Text("Upload ZKB Statement")
+                                    .font(.headline)
+                                zkbDropZoneView
+                            }
+                        }
                     }
                     
                     if let error = errorMessage {
@@ -49,9 +67,17 @@ struct ImportStatementView: View {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: allowedFileTypes
+            allowedContentTypes: importMode == .zkb ? allowedFileTypesZkb : allowedFileTypesGeneric
         ) { result in
             handleFileImport(result: result)
+        }
+        .alert("Import Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "Unknown Error")
         }
     }
     
@@ -92,6 +118,7 @@ struct ImportStatementView: View {
                 .foregroundStyle(.tertiary) // CORRECTED: Use .foregroundStyle
 
             Button {
+                importMode = .generic
                 showingFileImporter = true
             } label: {
                 HStack {
@@ -118,6 +145,55 @@ struct ImportStatementView: View {
                 )
         )
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
+            importMode = .generic
+            handleDrop(providers: providers)
+            return true
+        }
+    }
+
+    private var zkbDropZoneView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "tray.and.arrow.down")
+                .font(.system(size: 80))
+                .foregroundStyle(isTargeted ? Color.accentColor : .gray.opacity(0.4))
+
+            Text("Drag & Drop ZKB File")
+                .font(.title2).bold()
+                .foregroundStyle(.secondary)
+
+            Text("or")
+                .font(.headline)
+                .foregroundStyle(.tertiary)
+
+            Button {
+                importMode = .zkb
+                showingFileImporter = true
+            } label: {
+                HStack {
+                    Image(systemName: "folder.fill")
+                    Text("Select ZKB File")
+                }
+                .font(.headline)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.accentColor)
+        }
+        .frame(maxWidth: 500, maxHeight: 300)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(isTargeted ? Color.accentColor.opacity(0.1) : Color.clear)
+                .background(.regularMaterial)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(
+                    isTargeted ? Color.accentColor : Color.gray.opacity(0.4),
+                    style: StrokeStyle(lineWidth: 3, dash: [10, 5])
+                )
+        )
+        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
+            importMode = .zkb
             handleDrop(providers: providers)
             return true
         }
@@ -196,12 +272,16 @@ struct ImportStatementView: View {
     
     private func processSelectedFile(url: URL) {
         print("Starting processing for file: \(url.path)")
-        // In the next step, we will call the Python parser from here
-        // and then move to the account identification view.
-        errorMessage = "File processing logic is not yet implemented."
-        
-        // Remember to release the resource access when done with the file
-        // url.stopAccessingSecurityScopedResource()
+        ImportManager.shared.parseDocument(at: url) { result in
+            url.stopAccessingSecurityScopedResource()
+            switch result {
+            case .success(let output):
+                print("Parser Output:\n\(output)")
+                selectedFileURL = nil
+            case .failure(let error):
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 }
 

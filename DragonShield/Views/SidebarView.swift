@@ -1,10 +1,11 @@
 // DragonShield/Views/SidebarView.swift
-// MARK: - Version 1.8
+// MARK: - Version 1.9
 // MARK: - History
 // - 1.5 -> 1.6: Enabled "Load Documents" navigation link to point to new ImportStatementView.
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
 // - 1.6 -> 1.7: Added "Positions" navigation link.
 // - 1.7 -> 1.8: Added "Edit Institutions" navigation link.
+// - 1.8 -> 1.9: Converted Load Documents action back to NavigationLink with error alert support.
 // - (Previous history)
 
 import SwiftUI
@@ -40,9 +41,7 @@ struct SidebarView: View {
             
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
-                Button(action: {
-                    importManager.openAndParseDocument()
-                }) {
+                NavigationLink(destination: ImportStatementView()) {
                     Label("Load Documents", systemImage: "doc.text.fill")
                 }
                 
