@@ -1,6 +1,8 @@
 // DragonShield/Views/CustodyAccountsView.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.6
 // MARK: - History
+// - 1.4 -> 1.5: Accounts now reference Institutions. Added picker fields.
+// - 1.5 -> 1.6: Added institution picker to Edit view to resolve compile error.
 // - 1.3 -> 1.4: Updated deprecated onChange modifiers to new syntax for macOS 14.0+.
 // - 1.2 -> 1.3: Updated Add/Edit views to use Picker for AccountType based on normalized schema.
 // - 1.2 (Corrected - Full): Ensured all helper views like accountsContent, emptyStateView, accountsTable are fully defined within CustodyAccountsView. Provided full implementations for helper functions in Add/Edit views and fixed animation function signatures.
@@ -279,8 +281,8 @@ struct AddCustodyAccountView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     
     @State private var accountName: String = ""
-    @State private var institutionName: String = ""
-    @State private var institutionBic: String = ""
+    @State private var selectedInstitutionId: Int? = nil
+    @State private var availableInstitutions: [DatabaseManager.InstitutionData] = []
     @State private var accountNumber: String = ""
     // MODIFIED: Use selectedAccountTypeId and availableAccountTypes
     @State private var selectedAccountTypeId: Int? = nil
@@ -304,9 +306,9 @@ struct AddCustodyAccountView: View {
 
     var isValid: Bool {
         !accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !institutionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        selectedInstitutionId != nil &&
         !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedAccountTypeId != nil && // MODIFIED: Check if an account type ID is selected
+        selectedAccountTypeId != nil &&
         !currencyCode.isEmpty &&
         (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
     }
@@ -361,9 +363,9 @@ struct AddCustodyAccountView: View {
             }
         }
     }
-    
+
     // MODIFIED: Replaced accountType TextField with a Picker
-    private var accountTypePickerField: some View {
+private var accountTypePickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "briefcase.fill").foregroundColor(.gray)
@@ -383,6 +385,45 @@ struct AddCustodyAccountView: View {
             }
         }
     }
+
+
+    // Picker for selecting the associated institution - used in Add/Edit forms
+    private var institutionPickerField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "building.2.fill").foregroundColor(.gray)
+                Text("Institution*")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            Picker("Institution*", selection: $selectedInstitutionId) {
+                Text("Select Institution...").tag(nil as Int?)
+                ForEach(availableInstitutions) { inst in
+                    Text(inst.name).tag(inst.id as Int?)
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        selectedInstitutionId == nil && !isValid && showingAlert ?
+                            Color.red.opacity(0.6) : Color.gray.opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
+            if selectedInstitutionId == nil && !isValid && showingAlert {
+                Text("Institution is required.")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.8))
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
     
     private var addModernContent: some View {
         ScrollView {
@@ -390,8 +431,7 @@ struct AddCustodyAccountView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     sectionHeader(title: "Account Details", icon: "pencil.and.scribble", color: .blue)
                     addModernTextField(title: "Account Name*", text: $accountName, placeholder: "e.g., Main Trading Account", icon: "tag.fill", isRequired: true)
-                    addModernTextField(title: "Institution Name*", text: $institutionName, placeholder: "e.g., Interactive Brokers", icon: "building.2.fill", isRequired: true)
-                    addModernTextField(title: "Institution BIC", text: $institutionBic, placeholder: "e.g., UBSWCHZH80A (Optional)", icon: "barcode.viewfinder")
+                    institutionPickerField
                     addModernTextField(title: "Account Number*", text: $accountNumber, placeholder: "e.g., U1234567", icon: "number.square.fill", isRequired: true)
                     accountTypePickerField // MODIFIED: Using Picker
                 }.modifier(ModernFormSection(color: .blue))
@@ -439,25 +479,24 @@ struct AddCustodyAccountView: View {
     }
     private func loadInitialData() {
         availableCurrencies = dbManager.fetchActiveCurrencies()
-        availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true) // Fetch account types
+        availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true)
+        availableInstitutions = dbManager.fetchInstitutions(activeOnly: true)
         if let chfCurrency = availableCurrencies.first(where: {$0.code == "CHF"}) { currencyCode = chfCurrency.code } else if let firstCurrency = availableCurrencies.first { currencyCode = firstCurrency.code }
+        if let firstInst = availableInstitutions.first { selectedInstitutionId = firstInst.id }
         // Optionally set a default account type if desired, e.g., the first one
         // if !availableAccountTypes.isEmpty { selectedAccountTypeId = availableAccountTypes[0].id }
         setOpeningDate = false; openingDateInput = Date(); setClosingDate = false; closingDateInput = Date();
     }
     private func saveAccount() {
-        guard isValid, let typeId = selectedAccountTypeId else { // Ensure typeId is not nil
+        guard isValid, let typeId = selectedAccountTypeId, let instId = selectedInstitutionId else {
             var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate && setOpeningDate && closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil { errorMsg += "\nAccount Type is required."}
             alertMessage = errorMsg; showingAlert = true; return
         }
         isLoading = true
         let finalOpeningDate: Date? = setOpeningDate ? openingDateInput : nil; let finalClosingDate: Date? = setClosingDate ? closingDateInput : nil
-        let finalInstitutionBic: String? = institutionBic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : institutionBic.trimmingCharacters(in: .whitespacesAndNewlines)
-        
         let success = dbManager.addAccount(
             accountName: accountName.trimmingCharacters(in: .whitespacesAndNewlines),
-            institutionName: institutionName.trimmingCharacters(in: .whitespacesAndNewlines),
-            institutionBic: finalInstitutionBic,
+            institutionId: instId,
             accountNumber: accountNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             accountTypeId: typeId, // Pass selected ID
             currencyCode: currencyCode,
@@ -480,7 +519,10 @@ struct EditCustodyAccountView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let accountId: Int
     
-    @State private var accountName: String = ""; @State private var institutionName: String = ""; @State private var institutionBic: String = ""; @State private var accountNumber: String = "";
+    @State private var accountName: String = ""
+    @State private var selectedInstitutionId: Int? = nil
+    @State private var availableInstitutions: [DatabaseManager.InstitutionData] = []
+    @State private var accountNumber: String = ""
     // MODIFIED: Use selectedAccountTypeId and availableAccountTypes
     @State private var selectedAccountTypeId: Int? = nil
     @State private var availableAccountTypes: [DatabaseManager.AccountTypeData] = []
@@ -496,9 +538,9 @@ struct EditCustodyAccountView: View {
     init(accountId: Int) { self.accountId = accountId }
     var isValid: Bool {
         !accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !institutionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        selectedInstitutionId != nil &&
         !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedAccountTypeId != nil && // MODIFIED
+        selectedAccountTypeId != nil &&
         !currencyCode.isEmpty &&
         (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
     }
@@ -507,8 +549,7 @@ struct EditCustodyAccountView: View {
         let co: Date? = setOpeningDate ? openingDateInput : nil; let oo: Date? = originalSetOpeningDate ? originalOpeningDateInput : nil;
         let cc: Date? = setClosingDate ? closingDateInput : nil; let oc: Date? = originalSetClosingDate ? originalClosingDateInput : nil;
         hasChanges = accountName != original.accountName ||
-                         institutionName != original.institutionName ||
-                         (institutionBic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : institutionBic.trimmingCharacters(in: .whitespacesAndNewlines)) != original.institutionBic ||
+                         selectedInstitutionId != original.institutionId ||
                          accountNumber != original.accountNumber ||
                          selectedAccountTypeId != originalAccTypeId || // MODIFIED
                          currencyCode != original.currencyCode ||
@@ -526,7 +567,7 @@ struct EditCustodyAccountView: View {
         }.frame(width: 650, height: 820).clipShape(RoundedRectangle(cornerRadius: 20)).shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale).onAppear { loadAccountData(); animateEditEntrance(); }
         .alert("Result", isPresented: $showingAlert) { Button("OK") { showingAlert = false } } message: { Text(alertMessage) }
-        .onChange(of: accountName) { _,_ in detectChanges() }.onChange(of: institutionName) { _,_ in detectChanges() }.onChange(of: institutionBic) { _,_ in detectChanges() }.onChange(of: accountNumber) { _,_ in detectChanges() }
+        .onChange(of: accountName) { _,_ in detectChanges() }.onChange(of: selectedInstitutionId) { _,_ in detectChanges() }.onChange(of: accountNumber) { _,_ in detectChanges() }
         .onChange(of: selectedAccountTypeId) { _,_ in detectChanges() } // MODIFIED
         .onChange(of: currencyCode) { _,_ in detectChanges() }
         .onChange(of: setOpeningDate) { _,_ in detectChanges() }.onChange(of: openingDateInput) { _,_ in detectChanges() }.onChange(of: setClosingDate) { _,_ in detectChanges() }.onChange(of: closingDateInput) { _,_ in detectChanges() }
@@ -600,14 +641,50 @@ struct EditCustodyAccountView: View {
         }
     }
 
+    // Picker for selecting the associated institution when editing an account
+    private var institutionPickerField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "building.2.fill").foregroundColor(.gray)
+                Text("Institution*")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            Picker("Institution*", selection: $selectedInstitutionId) {
+                Text("Select Institution...").tag(nil as Int?)
+                ForEach(availableInstitutions) { inst in
+                    Text(inst.name).tag(inst.id as Int?)
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        selectedInstitutionId == nil && !isValid && showingAlert ?
+                            Color.red.opacity(0.6) : Color.gray.opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
+            if selectedInstitutionId == nil && !isValid && showingAlert {
+                Text("Institution is required.")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.8))
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
     private var editModernContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 20) {
                     sectionHeader(title: "Account Details", icon: "pencil.and.scribble", color: .orange)
                     editModernTextField(title: "Account Name*", text: $accountName, placeholder: "e.g., Main Trading Account", icon: "tag.fill", isRequired: true)
-                    editModernTextField(title: "Institution Name*", text: $institutionName, placeholder: "e.g., Interactive Brokers", icon: "building.2.fill", isRequired: true)
-                    editModernTextField(title: "Institution BIC", text: $institutionBic, placeholder: "e.g., UBSWCHZH80A (Optional)", icon: "barcode.viewfinder")
+                    institutionPickerField
                     editModernTextField(title: "Account Number*", text: $accountNumber, placeholder: "e.g., U1234567", icon: "number.square.fill", isRequired: true)
                     accountTypePickerField // MODIFIED: Using Picker
                 }.modifier(ModernFormSection(color: .orange))
@@ -655,10 +732,13 @@ struct EditCustodyAccountView: View {
     }
     func loadAccountData() {
         availableCurrencies = dbManager.fetchActiveCurrencies()
-        availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true) // Fetch account types
+        availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true)
+        availableInstitutions = dbManager.fetchInstitutions(activeOnly: true)
         
         if let details = dbManager.fetchAccountDetails(id: accountId) {
-            accountName = details.accountName; institutionName = details.institutionName; institutionBic = details.institutionBic ?? ""; accountNumber = details.accountNumber;
+            accountName = details.accountName
+            selectedInstitutionId = details.institutionId
+            accountNumber = details.accountNumber
             selectedAccountTypeId = details.accountTypeId; // Set selected ID for Picker
             currencyCode = details.currencyCode;
             if let oDate = details.openingDate { openingDateInput = oDate; setOpeningDate = true } else { setOpeningDate = false; openingDateInput = Date() }
@@ -673,20 +753,19 @@ struct EditCustodyAccountView: View {
         let response = alert.runModal(); if response == .alertFirstButtonReturn { saveAccountChanges() } else if response == .alertSecondButtonReturn { animateEditExit() }
     }
     func saveAccountChanges() {
-        guard isValid, let typeId = selectedAccountTypeId else { // Ensure typeId is not nil
+        guard isValid, let typeId = selectedAccountTypeId, let _ = selectedInstitutionId else {
             var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate && setOpeningDate && closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil {errorMsg += "\nAccount Type is required."}
             alertMessage = errorMsg; showingAlert = true; return
         }
         guard hasChanges else { animateEditExit(); return } // Only save if there are changes
         isLoading = true
-        let finalOpeningDate: Date? = setOpeningDate ? openingDateInput : nil; let finalClosingDate: Date? = setClosingDate ? closingDateInput : nil
-        let finalInstitutionBic: String? = institutionBic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : institutionBic.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalOpeningDate: Date? = setOpeningDate ? openingDateInput : nil
+        let finalClosingDate: Date? = setClosingDate ? closingDateInput : nil
         
         let success = dbManager.updateAccount(
             id: accountId,
             accountName: accountName.trimmingCharacters(in: .whitespacesAndNewlines),
-            institutionName: institutionName.trimmingCharacters(in: .whitespacesAndNewlines),
-            institutionBic: finalInstitutionBic,
+            institutionId: selectedInstitutionId!,
             accountNumber: accountNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             accountTypeId: typeId, // Pass selected ID
             currencyCode: currencyCode,

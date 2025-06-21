@@ -1,6 +1,10 @@
 // DragonShield/DatabaseManager+Accounts.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.4
 // MARK: - History
+// - 1.2 -> 1.3: Accounts now reference Institutions table via institution_id.
+//                Queries updated accordingly.
+// - 1.3 -> 1.4: Fixed duplicate variable and added missing institutionId
+//                retrieval in fetchAccountDetails.
 // - 1.1 -> 1.2: Modified to use account_type_id and join with AccountTypes table. Updated CRUD methods.
 // - 1.0 -> 1.1: Updated AccountData struct and CRUD methods to include institution_bic, closing_date,
 //               and handle opening_date as optional, aligning with the definitive DB schema.
@@ -15,6 +19,7 @@ extension DatabaseManager {
     struct AccountData: Identifiable, Equatable {
         var id: Int
         var accountName: String
+        var institutionId: Int
         var institutionName: String
         var institutionBic: String?
         var accountNumber: String
@@ -30,14 +35,16 @@ extension DatabaseManager {
 
     func fetchAccounts() -> [AccountData] {
         var accounts: [AccountData] = []
-        // MODIFIED: Join with AccountTypes table
+        // MODIFIED: Join with AccountTypes and Institutions tables
         let query = """
-            SELECT a.account_id, a.account_name, a.institution_name, a.institution_bic, 
-                   a.account_number, at.type_name AS account_type_name, a.currency_code, 
+            SELECT a.account_id, a.account_name,
+                   i.institution_name, i.bic,
+                   a.account_number, at.type_name AS account_type_name, a.currency_code,
                    a.opening_date, a.closing_date, a.include_in_portfolio, a.is_active, a.notes,
-                   a.account_type_id
+                   a.account_type_id, a.institution_id
             FROM Accounts a
             JOIN AccountTypes at ON a.account_type_id = at.account_type_id
+            JOIN Institutions i ON a.institution_id = i.institution_id
             ORDER BY a.account_name COLLATE NOCASE;
         """
         
@@ -49,22 +56,24 @@ extension DatabaseManager {
                 let institutionName = String(cString: sqlite3_column_text(statement, 2))
                 
                 let institutionBic: String? = sqlite3_column_text(statement, 3).map { String(cString: $0) }
-                
+
                 let accountNumber = String(cString: sqlite3_column_text(statement, 4))
-                let accountTypeName = String(cString: sqlite3_column_text(statement, 5)) // Fetched type_name
+                let accountTypeName = String(cString: sqlite3_column_text(statement, 5))
                 let currencyCode = String(cString: sqlite3_column_text(statement, 6))
-                
+
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                
+
                 let includeInPortfolio = sqlite3_column_int(statement, 9) == 1
                 let isActive = sqlite3_column_int(statement, 10) == 1
                 let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
                 let accountTypeId = Int(sqlite3_column_int(statement, 12))
+                let institutionId = Int(sqlite3_column_int(statement, 13))
                 
                 accounts.append(AccountData(
                     id: id,
                     accountName: accountName,
+                    institutionId: institutionId,
                     institutionName: institutionName,
                     institutionBic: institutionBic,
                     accountNumber: accountNumber,
@@ -86,14 +95,16 @@ extension DatabaseManager {
     }
 
     func fetchAccountDetails(id: Int) -> AccountData? {
-        // MODIFIED: Join with AccountTypes table
+        // MODIFIED: Join with AccountTypes and Institutions tables
         let query = """
-            SELECT a.account_id, a.account_name, a.institution_name, a.institution_bic, 
-                   a.account_number, at.type_name AS account_type_name, a.currency_code, 
+            SELECT a.account_id, a.account_name,
+                   i.institution_name, i.bic,
+                   a.account_number, at.type_name AS account_type_name, a.currency_code,
                    a.opening_date, a.closing_date, a.include_in_portfolio, a.is_active, a.notes,
-                   a.account_type_id
+                   a.account_type_id, a.institution_id
             FROM Accounts a
             JOIN AccountTypes at ON a.account_type_id = at.account_type_id
+            JOIN Institutions i ON a.institution_id = i.institution_id
             WHERE a.account_id = ?;
         """
         var statement: OpaquePointer?
@@ -115,11 +126,13 @@ extension DatabaseManager {
                 let isActive = sqlite3_column_int(statement, 10) == 1
                 let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
                 let accountTypeId = Int(sqlite3_column_int(statement, 12))
-                
+                let institutionId = Int(sqlite3_column_int(statement, 13))
+
                 sqlite3_finalize(statement)
                 return AccountData(
-                    id: id, accountName: accountName, institutionName: institutionName,
-                    institutionBic: institutionBic, accountNumber: accountNumber, accountType: accountTypeName,
+                    id: id, accountName: accountName, institutionId: institutionId,
+                    institutionName: institutionName, institutionBic: institutionBic,
+                    accountNumber: accountNumber, accountType: accountTypeName,
                     accountTypeId: accountTypeId, currencyCode: currencyCode, openingDate: openingDate,
                     closingDate: closingDate, includeInPortfolio: includeInPortfolio, isActive: isActive, notes: notes
                 )
@@ -134,17 +147,17 @@ extension DatabaseManager {
     }
 
     func addAccount(
-        accountName: String, institutionName: String, institutionBic: String?,
-        accountNumber: String, accountTypeId: Int, // MODIFIED: accountTypeId instead of accountType string
+        accountName: String, institutionId: Int,
+        accountNumber: String, accountTypeId: Int,
         currencyCode: String, openingDate: Date?, closingDate: Date?,
         includeInPortfolio: Bool, isActive: Bool, notes: String?
     ) -> Bool {
-        // MODIFIED: Use account_type_id in INSERT query
+        // MODIFIED: Use institution_id and account_type_id in INSERT query
         let query = """
-            INSERT INTO Accounts (account_name, institution_name, institution_bic, account_number, 
-                                  account_type_id, currency_code, opening_date, closing_date, 
+            INSERT INTO Accounts (account_name, institution_id, account_number,
+                                  account_type_id, currency_code, opening_date, closing_date,
                                   include_in_portfolio, is_active, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
@@ -155,37 +168,29 @@ extension DatabaseManager {
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         
         sqlite3_bind_text(statement, 1, (accountName as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(statement, 2, (institutionName as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        
-        if let bic = institutionBic, !bic.isEmpty {
-            sqlite3_bind_text(statement, 3, (bic as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        } else {
-            sqlite3_bind_null(statement, 3)
-        }
-        
-        sqlite3_bind_text(statement, 4, (accountNumber as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(statement, 5, Int32(accountTypeId)) // Bind account_type_id
-        sqlite3_bind_text(statement, 6, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(statement, 2, Int32(institutionId))
+        sqlite3_bind_text(statement, 3, (accountNumber as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(statement, 4, Int32(accountTypeId))
+        sqlite3_bind_text(statement, 5, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
         
         if let oDate = openingDate {
-            sqlite3_bind_text(statement, 7, (DateFormatter.iso8601DateOnly.string(from: oDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 6, (DateFormatter.iso8601DateOnly.string(from: oDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(statement, 7)
+            sqlite3_bind_null(statement, 6)
         }
 
         if let cDate = closingDate {
-            sqlite3_bind_text(statement, 8, (DateFormatter.iso8601DateOnly.string(from: cDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 7, (DateFormatter.iso8601DateOnly.string(from: cDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(statement, 8)
+            sqlite3_bind_null(statement, 7)
         }
-        
-        sqlite3_bind_int(statement, 9, includeInPortfolio ? 1 : 0)
-        sqlite3_bind_int(statement, 10, isActive ? 1 : 0)
-        
+        sqlite3_bind_int(statement, 8, includeInPortfolio ? 1 : 0)
+        sqlite3_bind_int(statement, 9, isActive ? 1 : 0)
+
         if let notesText = notes, !notesText.isEmpty {
-            sqlite3_bind_text(statement, 11, (notesText as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 10, (notesText as NSString).utf8String, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(statement, 11)
+            sqlite3_bind_null(statement, 10)
         }
         
         let result = sqlite3_step(statement) == SQLITE_DONE
@@ -200,15 +205,15 @@ extension DatabaseManager {
     }
 
     func updateAccount(
-        id: Int, accountName: String, institutionName: String, institutionBic: String?,
-        accountNumber: String, accountTypeId: Int, // MODIFIED: accountTypeId instead of accountType string
+        id: Int, accountName: String, institutionId: Int,
+        accountNumber: String, accountTypeId: Int,
         currencyCode: String, openingDate: Date?, closingDate: Date?,
         includeInPortfolio: Bool, isActive: Bool, notes: String?
     ) -> Bool {
-        // MODIFIED: Use account_type_id in UPDATE query
+        // MODIFIED: Use institution_id and account_type_id in UPDATE query
         let query = """
             UPDATE Accounts SET
-                account_name = ?, institution_name = ?, institution_bic = ?, account_number = ?, 
+                account_name = ?, institution_id = ?, account_number = ?,
                 account_type_id = ?, currency_code = ?, opening_date = ?, closing_date = ?,
                 include_in_portfolio = ?, is_active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
             WHERE account_id = ?;
@@ -222,35 +227,30 @@ extension DatabaseManager {
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
         sqlite3_bind_text(statement, 1, (accountName as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(statement, 2, (institutionName as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        if let bic = institutionBic, !bic.isEmpty {
-            sqlite3_bind_text(statement, 3, (bic as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        } else {
-            sqlite3_bind_null(statement, 3)
-        }
-        sqlite3_bind_text(statement, 4, (accountNumber as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(statement, 5, Int32(accountTypeId)) // Bind account_type_id
-        sqlite3_bind_text(statement, 6, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(statement, 2, Int32(institutionId))
+        sqlite3_bind_text(statement, 3, (accountNumber as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(statement, 4, Int32(accountTypeId))
+        sqlite3_bind_text(statement, 5, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
         
         if let oDate = openingDate {
-            sqlite3_bind_text(statement, 7, (DateFormatter.iso8601DateOnly.string(from: oDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 6, (DateFormatter.iso8601DateOnly.string(from: oDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(statement, 6)
+        }
+        if let cDate = closingDate {
+            sqlite3_bind_text(statement, 7, (DateFormatter.iso8601DateOnly.string(from: cDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
         } else {
             sqlite3_bind_null(statement, 7)
         }
-        if let cDate = closingDate {
-            sqlite3_bind_text(statement, 8, (DateFormatter.iso8601DateOnly.string(from: cDate) as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        } else {
-            sqlite3_bind_null(statement, 8)
-        }
-        
-        sqlite3_bind_int(statement, 9, includeInPortfolio ? 1 : 0)
-        sqlite3_bind_int(statement, 10, isActive ? 1 : 0)
+
+        sqlite3_bind_int(statement, 8, includeInPortfolio ? 1 : 0)
+        sqlite3_bind_int(statement, 9, isActive ? 1 : 0)
         if let notesText = notes, !notesText.isEmpty {
-            sqlite3_bind_text(statement, 11, (notesText as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 10, (notesText as NSString).utf8String, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(statement, 11)
+            sqlite3_bind_null(statement, 10)
         }
-        sqlite3_bind_int(statement, 12, Int32(id))
+        sqlite3_bind_int(statement, 11, Int32(id))
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)

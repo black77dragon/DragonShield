@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.7 - Added db_version configuration
+-- Version 4.8 - Introduced Institutions table and updated Accounts
 -- Created: 2025-05-24
--- Updated: 2025-06-18
+-- Updated: 2025-06-19
 --
 -- RECENT HISTORY:
+-- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
 -- - v4.6 -> v4.7: Added db_version configuration entry.
@@ -27,6 +28,7 @@ DROP TABLE IF EXISTS PositionReports;
 DROP TABLE IF EXISTS ImportSessions;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS TransactionTypes;
+DROP TABLE IF EXISTS Institutions;
 DROP TABLE IF EXISTS Accounts;
 DROP TABLE IF EXISTS AccountTypes; -- Dropping new table if it exists
 DROP TABLE IF EXISTS PortfolioInstruments;
@@ -189,14 +191,25 @@ CREATE TABLE AccountTypes (
 
 -- Populate AccountTypes
 
+-- NEW TABLE: Institutions
+CREATE TABLE Institutions (
+    institution_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution_name TEXT NOT NULL,
+    institution_type TEXT,
+    bic TEXT,
+    website TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- MODIFIED TABLE: Accounts
 CREATE TABLE Accounts (
     account_id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_number TEXT UNIQUE,
     account_name TEXT NOT NULL,
-    institution_name TEXT NOT NULL,
-    institution_bic TEXT,
-    account_type_id INTEGER NOT NULL, -- MODIFIED: Replaces account_type text
+    institution_id INTEGER NOT NULL,
+    account_type_id INTEGER NOT NULL,
     currency_code TEXT NOT NULL,
     is_active BOOLEAN DEFAULT 1,
     include_in_portfolio BOOLEAN DEFAULT 1,
@@ -205,7 +218,8 @@ CREATE TABLE Accounts (
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (account_type_id) REFERENCES AccountTypes(account_type_id), -- NEW FK
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
+    FOREIGN KEY (account_type_id) REFERENCES AccountTypes(account_type_id),
     FOREIGN KEY (currency_code) REFERENCES Currencies(currency_code)
 );
 
