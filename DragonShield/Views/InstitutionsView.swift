@@ -1,6 +1,8 @@
 // DragonShield/Views/InstitutionsView.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
+// - 1.1 -> 1.2: Added add/edit/delete notifications and dependency check
+//                on delete. List now refreshes automatically.
 // - 1.0 -> 1.1: Fixed List selection error by requiring InstitutionData
 //                to conform to Hashable.
 // - Initial creation: Manage Institutions table using same design as other maintenance views.
@@ -52,19 +54,39 @@ struct InstitutionsView: View {
             .frame(maxHeight: .infinity)
         }
         .onAppear { loadData() }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshInstitutions"))) { _ in
+            loadData()
+        }
         .sheet(isPresented: $showAddSheet) { AddInstitutionView().environmentObject(dbManager) }
         .sheet(isPresented: $showEditSheet) {
             if let inst = selectedInstitution {
                 EditInstitutionView(institutionId: inst.id).environmentObject(dbManager)
             }
         }
-        .alert("Delete Institution", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let inst = institutionToDelete { _ = dbManager.deleteInstitution(id: inst.id); loadData() }
+        .alert(isPresented: $showingDeleteAlert) {
+            guard let inst = institutionToDelete else {
+                return Alert(title: Text("Error"), message: Text("No institution selected."), dismissButton: .default(Text("OK")))
             }
-        } message: {
-            if let inst = institutionToDelete { Text("Delete \(inst.name)?") }
+
+            let deleteInfo = dbManager.canDeleteInstitution(id: inst.id)
+
+            if deleteInfo.0 {
+                return Alert(
+                    title: Text("Delete Institution"),
+                    message: Text("Are you sure you want to delete '\(inst.name)'?"),
+                    primaryButton: .destructive(Text("Delete")) {
+                        _ = dbManager.deleteInstitution(id: inst.id)
+                        loadData()
+                    },
+                    secondaryButton: .cancel { institutionToDelete = nil }
+                )
+            } else {
+                return Alert(
+                    title: Text("Cannot Delete Institution"),
+                    message: Text(deleteInfo.2),
+                    dismissButton: .default(Text("OK")) { institutionToDelete = nil }
+                )
+            }
         }
     }
 
@@ -107,7 +129,12 @@ struct AddInstitutionView: View {
 
     private func save() {
         let success = dbManager.addInstitution(name: name.trimmingCharacters(in: .whitespacesAndNewlines), bic: bic.isEmpty ? nil : bic, type: type.isEmpty ? nil : type, website: website.isEmpty ? nil : website, isActive: isActive)
-        alertMessage = success ? "✅ Added" : "❌ Failed"
+        if success {
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
+            alertMessage = "✅ Added"
+        } else {
+            alertMessage = "❌ Failed"
+        }
         showingAlert = true
     }
 }
@@ -157,7 +184,12 @@ struct EditInstitutionView: View {
 
     private func save() {
         let success = dbManager.updateInstitution(id: institutionId, name: name.trimmingCharacters(in: .whitespacesAndNewlines), bic: bic.isEmpty ? nil : bic, type: type.isEmpty ? nil : type, website: website.isEmpty ? nil : website, isActive: isActive)
-        alertMessage = success ? "✅ Updated" : "❌ Failed"
+        if success {
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
+            alertMessage = "✅ Updated"
+        } else {
+            alertMessage = "❌ Failed"
+        }
         showingAlert = true
     }
 }
