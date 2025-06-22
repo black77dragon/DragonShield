@@ -1,1 +1,0 @@
-# DragonShield Python package
