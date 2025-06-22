@@ -1,9 +1,10 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
 // - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
 // - 1.2 -> 1.3: Present alert pop-ups when import errors occur.
+// - 1.3 -> 1.4: Show parser debug output in a new debug area.
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -15,6 +16,7 @@ struct ImportStatementView: View {
     @State private var selectedFileURL: URL?
     @State private var showingFileImporter = false
     @State private var errorMessage: String?
+    @State private var debugText: String = ""
 
     enum ImportMode { case generic, zkb }
     @State private var importMode: ImportMode = .generic
@@ -60,6 +62,23 @@ struct ImportStatementView: View {
                             .font(.caption)
                             .foregroundColor(.red)
                             .padding(.top, 10)
+                    }
+                    if !debugText.isEmpty {
+                        VStack(alignment: .leading) {
+                            Text("Debug Output")
+                                .font(.headline)
+                                .padding(.bottom, 4)
+                            ScrollView {
+                                Text(debugText)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(4)
+                            }
+                            .frame(maxHeight: 150)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .padding(.top, 20)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -217,6 +236,7 @@ struct ImportStatementView: View {
                 Button(role: .destructive) {
                     selectedFileURL = nil
                     errorMessage = nil
+                    debugText = ""
                 } label: {
                     Label("Clear", systemImage: "xmark.circle")
                 }
@@ -272,12 +292,20 @@ struct ImportStatementView: View {
     
     private func processSelectedFile(url: URL) {
         print("Starting processing for file: \(url.path)")
+        debugText = ""
         ImportManager.shared.parseDocument(at: url) { result in
             url.stopAccessingSecurityScopedResource()
             switch result {
             case .success(let output):
                 print("Parser Output:\n\(output)")
                 selectedFileURL = nil
+                if let data = output.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let logs = json["debug_logs"] as? [String] {
+                    debugText = logs.joined(separator: "\n")
+                } else {
+                    debugText = output
+                }
             case .failure(let error):
                 errorMessage = error.localizedDescription
             }
