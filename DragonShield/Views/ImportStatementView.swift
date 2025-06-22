@@ -1,5 +1,5 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.6
+// MARK: - Version 1.7
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
 // - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
@@ -7,6 +7,7 @@
 // - 1.3 -> 1.4: Show parser debug output in a new debug area.
 // - 1.4 -> 1.5: Clear debug output when starting a new parse.
 // - 1.5 -> 1.6: Make debug output selectable for easy copy/paste.
+// - 1.6 -> 1.7: Display debug text using ScrollView for reliable selection and add log export.
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -66,18 +67,26 @@ struct ImportStatementView: View {
                             .padding(.top, 10)
                     }
                     if !debugText.isEmpty {
-                        VStack(alignment: .leading) {
-                            Text("Debug Output")
-                                .font(.headline)
-                                .padding(.bottom, 4)
-                            TextEditor(text: $debugText)
-                                .font(.system(.caption, design: .monospaced))
-                                .frame(maxHeight: 150)
-                                .scrollContentBackground(.hidden)
-                                .background(Color.gray.opacity(0.1))
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .disabled(true)
-                                .textSelection(.enabled)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Debug Output")
+                                    .font(.headline)
+                                Spacer()
+                                Button("Open Log File") {
+                                    ImportManager.shared.openLogFile()
+                                }
+                                .font(.caption)
+                            }
+                            ScrollView {
+                                Text(debugText)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                                    .padding(4)
+                            }
+                            .frame(maxHeight: 150)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .padding(.top, 20)
                     }

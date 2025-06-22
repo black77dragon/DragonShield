@@ -149,6 +149,16 @@ class ImportManager {
         }
     }
 
+    /// Opens the parser log file in the user's default app if available.
+    func openLogFile() {
+        let result = findParserModuleDir()
+        guard let moduleDir = result.path else { return }
+        let logURL = URL(fileURLWithPath: moduleDir)
+            .deletingLastPathComponent()
+            .appendingPathComponent("zkb_parser.log")
+        NSWorkspace.shared.open(logURL)
+    }
+
     /// Presents an open panel and invokes the parser on the selected file.
     func openAndParseDocument() {
         let panel = NSOpenPanel()
