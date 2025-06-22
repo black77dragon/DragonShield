@@ -1,10 +1,11 @@
 # python_scripts/zkb_parser.py
 
-# MARK: - Version 0.12
+# MARK: - Version 0.13
 # MARK: - History
 # - 0.9 -> 0.10: Added CSV support and institution metadata.
 # - 0.10 -> 0.11: Return explicit exit codes on errors.
 # - 0.11 -> 0.12: Added structured debug logging output.
+# - 0.12 -> 0.13: Persist debug logs to a project log file.
 
 import sys
 import re
@@ -15,6 +16,10 @@ import csv
 from datetime import datetime
 from typing import Dict, Tuple, Any, List, Set, Optional
 from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
+
+# Persistent log file in main project directory
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+LOG_FILE_PATH = os.path.join(PROJECT_DIR, "zkb_parser.log")
 
 # --- Configuration Section (Keep as is) ---
 ANLAGEKATEGORIE_TO_GROUP_MAP: Dict[str, str] = {
@@ -145,7 +150,16 @@ EXIT_GENERAL_ERROR = 3
 
 def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> int:
     debug_logs: List[str] = []
-    debug_logs.append(f"Parsing file: {filepath}")
+
+    log_file = open(LOG_FILE_PATH, "a", encoding="utf-8")
+    def log(msg: str):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        entry = f"[{timestamp}] {msg}"
+        debug_logs.append(entry)
+        print(entry, file=log_file)
+        log_file.flush()
+
+    log(f"Parsing file: {filepath}")
 
     parsed_data = {
         "main_custody_account_nr": None,
@@ -171,7 +185,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
             with open(filepath, newline='', encoding='utf-8-sig') as f:
                 reader = csv.reader(f)
                 rows = [list(r) for r in reader]
-            debug_logs.append(f"Loaded CSV with {len(rows)} rows")
+            log(f"Loaded CSV with {len(rows)} rows")
             sheet = None
             max_column = max(len(r) for r in rows) if rows else 0
             def cell(row: int, col: int):
@@ -182,7 +196,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                     workbook.worksheets[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, int) else \
                     workbook.active
             max_column = sheet.max_column
-            debug_logs.append(f"Loaded workbook. Using sheet '{sheet.title}' with {sheet.max_row} rows")
+            log(f"Loaded workbook. Using sheet '{sheet.title}' with {sheet.max_row} rows")
             def cell(row: int, col: int):
                 return sheet.cell(row=row, column=col).value
         
@@ -193,12 +207,12 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
             if parsed_nr:
                 main_custody_account_nr_internal = parsed_nr
                 parsed_data["main_custody_account_nr"] = main_custody_account_nr_internal
-                debug_logs.append(f"Found custody account: {parsed_nr}")
+                log(f"Found custody account: {parsed_nr}")
                 break
         if not main_custody_account_nr_internal:
             print(f"Warning: Could not parse Custody Account Nr from Line {LINE_6_PORTFOLIO_NR_LINE_NUMBER}.\n")
         else:
-            debug_logs.append("Custody account successfully parsed")
+            log("Custody account successfully parsed")
 
 
         if sheet is None:
@@ -208,15 +222,15 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
             header_cells = [c for c in sheet[HEADER_ROW_NUMBER]]
             headers = [str(c.value).strip() if c.value is not None else "" for c in header_cells]
         header_map = {name: idx for idx, name in enumerate(headers)}
-        debug_logs.append(f"Parsed headers: {headers}")
+        log(f"Parsed headers: {headers}")
         
         whrg_indices = [i for i, h_name in enumerate(headers) if h_name == "Whrg."]
         idx_whrg_nominal = whrg_indices[0] if len(whrg_indices) > 0 else IDX_WHRG_NOMINAL_FALLBACK
         idx_whrg_kurs = whrg_indices[1] if len(whrg_indices) > 1 else IDX_WHRG_KURS_FALLBACK
         if idx_whrg_nominal == -1:
-            debug_logs.append("Could not find first 'Whrg.' column header for nominal currency")
+            log("Could not find first 'Whrg.' column header for nominal currency")
         if idx_whrg_kurs == -1:
-            debug_logs.append("Could not find second 'Whrg.' column header for price currency")
+            log("Could not find second 'Whrg.' column header for price currency")
 
 
         if sheet is None:
@@ -228,7 +242,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
         for row_idx_iter, row_cells_tuple in row_iter:
             parsed_data["summary"]["total_data_rows_attempted"] += 1
             if row_idx_iter <= HEADER_ROW_NUMBER + 5:
-                debug_logs.append(f"Row {row_idx_iter} values: {row_cells_tuple[:10]}")
+                log(f"Row {row_idx_iter} values: {row_cells_tuple[:10]}")
             
             def get_str_val_from_tuple(col_name, default_val=""):
                 col_idx = header_map.get(col_name)
@@ -298,29 +312,30 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
 
             parsed_data["records"].append(record_data)
             if len(parsed_data["records"]) <= 5:
-                debug_logs.append(f"Parsed record {len(parsed_data['records'])}: {record_data}")
+                log(f"Parsed record {len(parsed_data['records'])}: {record_data}")
         
         parsed_data["summary"]["unmapped_categories"] = sorted(list(unmapped_category_pairs_internal))
-        debug_logs.append(f"Finished parsing {len(parsed_data['records'])} records")
+        log(f"Finished parsing {len(parsed_data['records'])} records")
 
     # (Exception handling and JSON printing remain the same)
     except FileNotFoundError:
         parsed_data["summary"]["error"] = f"File not found at {filepath}"
-        debug_logs.append("File not found error")
+        log("File not found error")
         exit_code = EXIT_FILE_NOT_FOUND
     except ImportError:
         parsed_data["summary"]["error"] = "The 'openpyxl' library is required. Please install it (e.g., pip install openpyxl)."
-        debug_logs.append("Missing dependency openpyxl")
+        log("Missing dependency openpyxl")
         exit_code = EXIT_DEPENDENCY_ERROR
     except Exception as e:
         import traceback
         parsed_data["summary"]["error"] = f"An error occurred: {str(e)}"
         parsed_data["summary"]["traceback"] = traceback.format_exc()
-        debug_logs.append(f"Unhandled exception: {str(e)}")
+        log(f"Unhandled exception: {str(e)}")
         exit_code = EXIT_GENERAL_ERROR
     
-    debug_logs.append("Outputting JSON result")
+    log("Outputting JSON result")
     print(json.dumps(parsed_data, indent=2, ensure_ascii=False))
+    log_file.close()
     return exit_code
 
 if __name__ == "__main__":

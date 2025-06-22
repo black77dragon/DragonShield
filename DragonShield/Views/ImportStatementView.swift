@@ -1,10 +1,11 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.5
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
 // - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
 // - 1.2 -> 1.3: Present alert pop-ups when import errors occur.
 // - 1.3 -> 1.4: Show parser debug output in a new debug area.
+// - 1.4 -> 1.5: Clear debug output when starting a new parse.
 
 import SwiftUI
 import UniformTypeIdentifiers
