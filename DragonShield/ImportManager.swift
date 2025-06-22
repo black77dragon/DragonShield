@@ -71,11 +71,18 @@ class ImportManager {
     /// Searches environment variables and common Homebrew locations before falling back.
     private func resolvePythonPath() -> String {
         let fm = FileManager.default
+        // Prefer bundled interpreter if present
+        if let bundled = Bundle.main.path(forResource: "python3", ofType: nil, inDirectory: "python/bin"),
+           fm.isExecutableFile(atPath: bundled) {
+            return bundled
+        }
+
         let env = ProcessInfo.processInfo.environment
         let envCandidates = [env["DS_PYTHON_PATH"], env["PYTHON_BINARY"], env["PYTHON_PATH"]]
         for candidate in envCandidates.compactMap({ $0 }) {
             if fm.isExecutableFile(atPath: candidate) { return candidate }
         }
+
         let known = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"]
         for path in known {
             if fm.isExecutableFile(atPath: path) { return path }
@@ -126,10 +133,15 @@ class ImportManager {
                 if exitCode == 0 {
                     completion(.success(output))
                 } else {
+                    var desc = "Parser exited with code \(exitCode). Output:\n\(output)"
+                    if output.contains("xcrun: error: cannot be used within an App Sandbox") {
+                        desc = "Python interpreter failed due to App Sandbox restrictions. " +
+                               "Use a standalone Python or set DS_PYTHON_PATH."
+                    }
                     let err = NSError(
                         domain: "ImportManager",
                         code: Int(exitCode),
-                        userInfo: [NSLocalizedDescriptionKey: "Parser exited with code \(exitCode). Output:\n\(output)"]
+                        userInfo: [NSLocalizedDescriptionKey: desc]
                     )
                     completion(.failure(err))
                 }

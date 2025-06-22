@@ -308,7 +308,8 @@ struct ImportStatementView: View {
                     debugText = output
                 }
             case .failure(let error):
-                errorMessage = error.localizedDescription
+                debugText = error.localizedDescription
+                errorMessage = "Import failed. See debug output."
             }
         }
     }

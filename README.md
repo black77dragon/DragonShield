@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.25** | June 22, 2025
+**Version 2.26** | June 22, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -142,10 +142,11 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 ## 📜 License
 
--Dragon Shield is released under the MIT License. See LICENSE for full text.
+Dragon Shield is released under the MIT License. See LICENSE for full text.
 
 
 ## Version History
+- 2.26: Improved error message when Python sandbox issue occurs and display debug output on failures.
 - 2.25: ZKB parser now writes debug logs to a persistent file and the Import view displays them.
 - 2.24: Search for Python interpreter in Homebrew locations or env var.
 - 2.23: Run parser via /usr/bin/python3 to avoid sandbox xcrun error.
