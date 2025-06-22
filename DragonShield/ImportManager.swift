@@ -83,7 +83,13 @@ class ImportManager {
             if fm.isExecutableFile(atPath: candidate) { return candidate }
         }
 
-        let known = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"]
+        let known = [
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3",
+            "/usr/bin/python3",
+            "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+            "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3"
+        ]
         for path in known {
             if fm.isExecutableFile(atPath: path) { return path }
         }
