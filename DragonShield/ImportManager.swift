@@ -136,7 +136,7 @@ class ImportManager {
                     var desc = "Parser exited with code \(exitCode). Output:\n\(output)"
                     if output.contains("xcrun: error: cannot be used within an App Sandbox") {
                         desc = "Python interpreter failed due to App Sandbox restrictions. " +
-                               "Use a standalone Python or set DS_PYTHON_PATH."
+                               "Set DS_PYTHON_PATH to a standalone Python binary, e.g. from python.org."
                     }
                     let err = NSError(
                         domain: "ImportManager",
