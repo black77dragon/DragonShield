@@ -111,7 +111,10 @@ class ImportManager {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = ["-m", "zkb_parser", url.path]
-        process.environment = ["PYTHONPATH": moduleDir]
+        var env = ProcessInfo.processInfo.environment
+        env["PYTHONPATH"] = moduleDir
+        env["DS_LOG_FILE"] = logFileURL().path
+        process.environment = env
 
 
         let pipe = Pipe()
@@ -149,14 +152,19 @@ class ImportManager {
         }
     }
 
+    /// Returns the URL of the persistent parser log file inside the
+    /// application's Application Support directory.
+    private func logFileURL() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory,
+                                                  in: .userDomainMask).first!
+        return appSupport
+            .appendingPathComponent("DragonShield")
+            .appendingPathComponent("zkb_parser.log")
+    }
+
     /// Opens the parser log file in the user's default app if available.
     func openLogFile() {
-        let result = findParserModuleDir()
-        guard let moduleDir = result.path else { return }
-        let logURL = URL(fileURLWithPath: moduleDir)
-            .deletingLastPathComponent()
-            .appendingPathComponent("zkb_parser.log")
-        NSWorkspace.shared.open(logURL)
+        NSWorkspace.shared.open(logFileURL())
     }
 
     /// Presents an open panel and invokes the parser on the selected file.

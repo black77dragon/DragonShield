@@ -28,9 +28,21 @@ from parser_utils import (
     _get_actual_cell_value,
 )
 
-# Persistent log file in main project directory
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-LOG_FILE_PATH = os.path.join(PROJECT_DIR, "zkb_parser.log")
+# Persistent log file in Application Support directory or path from env var
+APP_SUPPORT_DIR = os.path.join(
+    os.path.expanduser("~"),
+    "Library",
+    "Containers",
+    "com.rene.DragonShield",
+    "Data",
+    "Library",
+    "Application Support",
+    "DragonShield",
+)
+LOG_FILE_PATH = os.environ.get(
+    "DS_LOG_FILE",
+    os.path.join(APP_SUPPORT_DIR, "zkb_parser.log"),
+)
 
 # --- Configuration Section (Keep as is) ---
 ANLAGEKATEGORIE_TO_GROUP_MAP: Dict[str, str] = {
