@@ -93,7 +93,7 @@ class ImportManager {
         let env = ProcessInfo.processInfo.environment
         let envCandidates = [env["DS_PYTHON_PATH"], env["PYTHON_BINARY"], env["PYTHON_PATH"]]
         for candidate in envCandidates.compactMap({ $0 }) {
-            if fm.isExecutableFile(atPath: candidate) { return candidate }
+            if fm.isExecutableFile(atPath: candidate) { return (candidate, nil) }
         }
 
         let known = [
@@ -104,9 +104,9 @@ class ImportManager {
             "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3"
         ]
         for path in known {
-            if fm.isExecutableFile(atPath: path) { return path }
+            if fm.isExecutableFile(atPath: path) { return (path, nil) }
         }
-        return "python3"
+        return ("python3", nil)
     }
 
     /// Parses a document using the Python parser script.
