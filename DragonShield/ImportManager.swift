@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 1.11
+// MARK: - Version 1.12
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -13,6 +13,7 @@
 // - 1.8 -> 1.9: Invoke parser via /usr/bin/env to avoid sandbox python issues.
 // - 1.9 -> 1.10: Run parser using /usr/bin/python3 to bypass xcrun sandbox error.
 // - 1.10 -> 1.11: Allow custom Python interpreter path via env var and Homebrew locations.
+// - 1.11 -> 1.12: Ensure parser log directory exists before writing.
 
 
 import Foundation
@@ -163,9 +164,9 @@ class ImportManager {
     private func logFileURL() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory,
                                                   in: .userDomainMask).first!
-        return appSupport
-            .appendingPathComponent("DragonShield")
-            .appendingPathComponent("zkb_parser.log")
+        let dir = appSupport.appendingPathComponent("DragonShield")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("zkb_parser.log")
     }
 
     /// Opens the parser log file in the user's default app if available.
