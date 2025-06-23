@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 1.12
+// MARK: - Version 1.13
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -14,6 +14,7 @@
 // - 1.9 -> 1.10: Run parser using /usr/bin/python3 to bypass xcrun sandbox error.
 // - 1.10 -> 1.11: Allow custom Python interpreter path via env var and Homebrew locations.
 // - 1.11 -> 1.12: Ensure parser log directory exists before writing.
+// - 1.12 -> 1.13: Detect bundled Python framework interpreter and set env vars.
 
 
 import Foundation
@@ -70,12 +71,23 @@ class ImportManager {
 
     /// Determine which Python interpreter to use for running the parser.
     /// Searches environment variables and common Homebrew locations before falling back.
-    private func resolvePythonPath() -> String {
+    private func resolvePythonPath() -> (exe: String, lib: String?) {
         let fm = FileManager.default
-        // Prefer bundled interpreter if present
+        // Prefer bundled Python.framework interpreter if present
+        let versions = ["3.12", "3.11", "3.10"]
+        for v in versions {
+            if let exeURL = Bundle.main.url(forResource: "python3", withExtension: nil,
+                                            subdirectory: "Python.framework/Versions/\(v)/bin"),
+               fm.isExecutableFile(atPath: exeURL.path) {
+                let libURL = Bundle.main.url(forResource: nil, withExtension: nil,
+                                            subdirectory: "Python.framework/Versions/\(v)/lib/python\(v)/site-packages")
+                return (exeURL.path, libURL?.path)
+            }
+        }
+
         if let bundled = Bundle.main.path(forResource: "python3", ofType: nil, inDirectory: "python/bin"),
            fm.isExecutableFile(atPath: bundled) {
-            return bundled
+            return (bundled, nil)
         }
 
         let env = ProcessInfo.processInfo.environment
@@ -110,7 +122,9 @@ class ImportManager {
             return
         }
 
-        let pythonPath = resolvePythonPath()
+        let pythonInfo = resolvePythonPath()
+        let pythonPath = pythonInfo.exe
+        let pythonLib = pythonInfo.lib
 
         print("Using parser directory: \(moduleDir)")
         print("Using python interpreter: \(pythonPath)")
@@ -119,8 +133,11 @@ class ImportManager {
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = ["-m", "zkb_parser", url.path]
         var env = ProcessInfo.processInfo.environment
-        env["PYTHONPATH"] = moduleDir
-        env["DS_LOG_FILE"] = logFileURL().path
+        var pyPaths: [String] = [moduleDir]
+        if let lib = pythonLib { pyPaths.append(lib) }
+        env["PYTHONPATH"] = pyPaths.joined(separator: ":")
+        env["DS_PYTHON_PATH"] = pythonPath
+        env["DS_LOG_FILE"] = logFileURL(for: moduleDir).path
         process.environment = env
 
 
@@ -146,7 +163,7 @@ class ImportManager {
                     var desc = "Parser exited with code \(exitCode). Output:\n\(output)"
                     if output.contains("xcrun: error: cannot be used within an App Sandbox") {
                         desc = "Python interpreter failed due to App Sandbox restrictions. " +
-                               "Set DS_PYTHON_PATH to a standalone Python binary, e.g. from python.org."
+                               "Use the bundled interpreter or set DS_PYTHON_PATH to a standalone Python binary."
                     }
                     let err = NSError(
                         domain: "ImportManager",
@@ -159,19 +176,16 @@ class ImportManager {
         }
     }
 
-    /// Returns the URL of the persistent parser log file inside the
-    /// application's Application Support directory.
-    private func logFileURL() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory,
-                                                  in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("DragonShield")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    /// Returns the URL of the persistent parser log file inside the project directory.
+    private func logFileURL(for moduleDir: String) -> URL {
+        let dir = URL(fileURLWithPath: moduleDir).deletingLastPathComponent()
         return dir.appendingPathComponent("zkb_parser.log")
     }
 
     /// Opens the parser log file in the user's default app if available.
     func openLogFile() {
-        NSWorkspace.shared.open(logFileURL())
+        let moduleDir = findParserModuleDir().path ?? FileManager.default.currentDirectoryPath
+        NSWorkspace.shared.open(logFileURL(for: moduleDir))
     }
 
     /// Presents an open panel and invokes the parser on the selected file.

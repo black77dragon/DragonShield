@@ -1,6 +1,6 @@
 # python_scripts/zkb_parser.py
 
-# MARK: - Version 0.16
+# MARK: - Version 0.17
 # MARK: - History
 # - 0.9 -> 0.10: Added CSV support and institution metadata.
 # - 0.10 -> 0.11: Return explicit exit codes on errors.
@@ -9,6 +9,7 @@
 # - 0.13 -> 0.14: Reuse parsing helpers from parser_utils for maintainability.
 # - 0.14 -> 0.15: Import openpyxl lazily so CSV parsing works without it.
 # - 0.15 -> 0.16: Create log directory if missing.
+# - 0.16 -> 0.17: Default log file now stored in project directory.
 
 import sys
 import re
@@ -33,20 +34,11 @@ from parser_utils import (
     _get_actual_cell_value,
 )
 
-# Persistent log file in Application Support directory or path from env var
-APP_SUPPORT_DIR = os.path.join(
-    os.path.expanduser("~"),
-    "Library",
-    "Containers",
-    "com.rene.DragonShield",
-    "Data",
-    "Library",
-    "Application Support",
-    "DragonShield",
-)
+# Persistent log file in project directory or path from env var
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LOG_FILE_PATH = os.environ.get(
     "DS_LOG_FILE",
-    os.path.join(APP_SUPPORT_DIR, "zkb_parser.log"),
+    os.path.join(PROJECT_DIR, "zkb_parser.log"),
 )
 os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
 
