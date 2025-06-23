@@ -1,16 +1,20 @@
 # python_scripts/zkb_parser.py
 
-# MARK: - Version 0.14
+# MARK: - Version 0.15
 # MARK: - History
 # - 0.9 -> 0.10: Added CSV support and institution metadata.
 # - 0.10 -> 0.11: Return explicit exit codes on errors.
 # - 0.11 -> 0.12: Added structured debug logging output.
 # - 0.12 -> 0.13: Persist debug logs to a project log file.
 # - 0.13 -> 0.14: Reuse parsing helpers from parser_utils for maintainability.
+# - 0.14 -> 0.15: Import openpyxl lazily so CSV parsing works without it.
 
 import sys
 import re
-import openpyxl
+try:
+    import openpyxl
+except Exception:  # openpyxl might be missing when only CSV parsing is needed
+    openpyxl = None
 import json
 import os
 import csv
@@ -126,6 +130,8 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
             def cell(row: int, col: int):
                 return rows[row-1][col-1] if 0 <= row-1 < len(rows) and 0 <= col-1 < len(rows[row-1]) else None
         else:
+            if openpyxl is None:
+                raise ImportError("openpyxl is required for XLSX files")
             workbook = openpyxl.load_workbook(filepath, data_only=True)
             sheet = workbook[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, str) else \
                     workbook.worksheets[sheet_name_or_index] if sheet_name_or_index is not None and isinstance(sheet_name_or_index, int) else \
