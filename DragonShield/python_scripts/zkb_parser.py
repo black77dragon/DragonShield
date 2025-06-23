@@ -1,6 +1,6 @@
 # python_scripts/zkb_parser.py
 
-# MARK: - Version 0.17
+# MARK: - Version 0.18
 # MARK: - History
 # - 0.9 -> 0.10: Added CSV support and institution metadata.
 # - 0.10 -> 0.11: Return explicit exit codes on errors.
@@ -10,6 +10,7 @@
 # - 0.14 -> 0.15: Import openpyxl lazily so CSV parsing works without it.
 # - 0.15 -> 0.16: Create log directory if missing.
 # - 0.16 -> 0.17: Default log file now stored in project directory.
+# - 0.17 -> 0.18: Improved interpreter debug notes.
 
 import sys
 import re
@@ -41,6 +42,8 @@ LOG_FILE_PATH = os.environ.get(
     os.path.join(PROJECT_DIR, "zkb_parser.log"),
 )
 os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
+
+PYTHON_USED = os.environ.get("DS_PYTHON_PATH", sys.executable)
 
 # --- Configuration Section (Keep as is) ---
 ANLAGEKATEGORIE_TO_GROUP_MAP: Dict[str, str] = {
@@ -92,6 +95,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
         print(entry, file=log_file)
         log_file.flush()
 
+    log(f"Interpreter: {PYTHON_USED}")
     log(f"Parsing file: {filepath}")
 
     parsed_data = {

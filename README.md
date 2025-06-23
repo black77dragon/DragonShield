@@ -1,6 +1,6 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.31** | June 22, 2025
+**Version 2.32** | June 22, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
@@ -115,7 +115,8 @@ DragonShield/
    - Select DragonShield → My Mac and press ⌘R
 
 8. **Bundled Python Interpreter**
-   - The app looks for a bundled `Python.framework` first. If unavailable, set `DS_PYTHON_PATH` to a standalone interpreter, e.g. `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3`.
+   - Copy a standalone `Python.framework` (e.g. from the [python.org macOS universal2 installer](https://www.python.org/downloads/macos/)) into `DragonShield.app/Contents/Frameworks`.
+   - The app first checks this location when starting the parser. If the framework isn't bundled, set `DS_PYTHON_PATH` to an external interpreter, e.g. `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3`.
 
 > **⚠️ Important**: The current build is developer-only. Replace the default DB key with a Keychain-managed key before storing real data.
 
@@ -149,6 +150,7 @@ Dragon Shield is released under the MIT License. See LICENSE for full text.
 
 
 ## Version History
+- 2.32: Python framework can be bundled in the Frameworks directory and PYTHONHOME is set automatically.
 - 2.31: Added support for bundled Python interpreter and project log file.
 - 2.30: Added python.org interpreter paths and DS_PYTHON_PATH setup instructions.
 - 2.29: Parser logs are stored in Application Support and open directly from the UI.

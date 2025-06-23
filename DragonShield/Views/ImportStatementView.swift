@@ -1,5 +1,5 @@
 // DragonShield/Views/ImportStatementView.swift
-// MARK: - Version 1.7
+// MARK: - Version 1.8
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
 // - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
@@ -8,6 +8,7 @@
 // - 1.4 -> 1.5: Clear debug output when starting a new parse.
 // - 1.5 -> 1.6: Make debug output selectable for easy copy/paste.
 // - 1.6 -> 1.7: Display debug text using ScrollView for reliable selection and add log export.
+// - 1.7 -> 1.8: Bundle Python framework instructions and environment debug.
 
 import SwiftUI
 import UniformTypeIdentifiers

@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 1.13
+// MARK: - Version 1.14
 // MARK: - History
 // - 1.0 -> 1.1: Added fallback search for parser and error alert handling.
 // - 1.1 -> 1.2: Search bundle resource path before falling back to CWD.
@@ -15,6 +15,7 @@
 // - 1.10 -> 1.11: Allow custom Python interpreter path via env var and Homebrew locations.
 // - 1.11 -> 1.12: Ensure parser log directory exists before writing.
 // - 1.12 -> 1.13: Detect bundled Python framework interpreter and set env vars.
+// - 1.13 -> 1.14: Support Frameworks directory and set PYTHONHOME when using bundled Python.
 
 
 import Foundation
@@ -83,6 +84,12 @@ class ImportManager {
                                             subdirectory: "Python.framework/Versions/\(v)/lib/python\(v)/site-packages")
                 return (exeURL.path, libURL?.path)
             }
+            let frameworks = Bundle.main.bundleURL.appendingPathComponent("Contents/Frameworks/Python.framework/Versions/\(v)")
+            let exeURL = frameworks.appendingPathComponent("bin/python3")
+            if fm.isExecutableFile(atPath: exeURL.path) {
+                let libURL = frameworks.appendingPathComponent("lib/python\(v)/site-packages")
+                return (exeURL.path, fm.fileExists(atPath: libURL.path) ? libURL.path : nil)
+            }
         }
 
         if let bundled = Bundle.main.path(forResource: "python3", ofType: nil, inDirectory: "python/bin"),
@@ -136,6 +143,10 @@ class ImportManager {
         var pyPaths: [String] = [moduleDir]
         if let lib = pythonLib { pyPaths.append(lib) }
         env["PYTHONPATH"] = pyPaths.joined(separator: ":")
+        if let lib = pythonLib {
+            let home = URL(fileURLWithPath: lib).deletingLastPathComponent().deletingLastPathComponent().path
+            env["PYTHONHOME"] = home
+        }
         env["DS_PYTHON_PATH"] = pythonPath
         env["DS_LOG_FILE"] = logFileURL(for: moduleDir).path
         process.environment = env
