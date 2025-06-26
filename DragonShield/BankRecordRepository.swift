@@ -14,6 +14,7 @@ class BankRecordRepository {
     }
 
     func saveRecords(_ records: [MyBankRecord]) throws {
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         let sql = "INSERT INTO bankRecord (id, transactionDate, description, amount, currency, bankAccount) VALUES (?, ?, ?, ?, ?, ?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
