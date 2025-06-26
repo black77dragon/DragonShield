@@ -1,9 +1,11 @@
 // DragonShield/ImportManager.swift
+
 // MARK: - Version 2.0.0.2
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift CSV processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
+
 
 import Foundation
 import AppKit
@@ -21,8 +23,10 @@ class ImportManager {
     /// Parses a CSV document and saves the records to the database.
     func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
+
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
+
             do {
                 let records = try self.csvProcessor.processCSVFile(url: url)
                 if let repo = self.repository {
@@ -47,11 +51,13 @@ class ImportManager {
     func openAndParseDocument() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
+
         if #available(macOS 12.0, *) {
             panel.allowedContentTypes = [UTType.commaSeparatedText]
         } else {
             panel.allowedFileTypes = ["csv"]
         }
+
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 self.parseDocument(at: url) { result in
