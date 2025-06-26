@@ -1,19 +1,18 @@
 // DragonShield/XLSXParsingService.swift
-// MARK: - Version 1.0.1.0
+// MARK: - Version 1.0.1.1
 // MARK: - History
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
+// - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
 
 import Foundation
-import ZIPFoundation
 
 /// Parses the first worksheet of an XLSX workbook into dictionaries keyed by the header row.
+enum XLSXParsingError: Error { case extractionFailed(String) }
+
 struct XLSXParsingService {
     func parseWorkbook(at url: URL) throws -> [[String: String]] {
-        guard let archive = Archive(url: url, accessMode: .read) else { return [] }
-        let sharedStrings = try extractSharedStrings(from: archive)
-        guard let sheetEntry = archive["xl/worksheets/sheet1.xml"] else { return [] }
-        var sheetData = Data()
-        _ = try archive.extract(sheetEntry) { sheetData.append($0) }
+        let sharedStrings = try extractSharedStrings(from: url)
+        let sheetData = try extractEntry(from: url, path: "xl/worksheets/sheet1.xml")
         let worksheetParser = WorksheetParser(sharedStrings: sharedStrings)
         let parser = XMLParser(data: sheetData)
         parser.delegate = worksheetParser
@@ -21,15 +20,30 @@ struct XLSXParsingService {
         return worksheetParser.rows
     }
 
-    private func extractSharedStrings(from archive: Archive) throws -> [String] {
-        guard let entry = archive["xl/sharedStrings.xml"] else { return [] }
-        var xmlData = Data()
-        _ = try archive.extract(entry) { xmlData.append($0) }
+    private func extractSharedStrings(from url: URL) throws -> [String] {
+        guard let xmlData = try? extractEntry(from: url, path: "xl/sharedStrings.xml") else {
+            return []
+        }
         let delegate = SharedStringsParser()
         let parser = XMLParser(data: xmlData)
         parser.delegate = delegate
         parser.parse()
         return delegate.strings
+    }
+
+    private func extractEntry(from url: URL, path: String) throws -> Data {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-p", url.path, path]
+        let output = Pipe()
+        process.standardOutput = output
+        try process.run()
+        process.waitUntilExit()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        if process.terminationStatus != 0 {
+            throw XLSXParsingError.extractionFailed(path)
+        }
+        return data
     }
 }
 
