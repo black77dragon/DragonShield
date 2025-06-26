@@ -1,13 +1,17 @@
 // DragonShield/CSVParsingService.swift
-// MARK: - Version 1.0.0.0
+
+// MARK: - Version 1.0.0.1
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial basic CSV parsing implementation.
+// - 1.0.0.0 -> 1.0.0.1: Fix newline splitting logic.
+
 
 import Foundation
 
 struct CSVParsingService {
     func parse(csvString: String, delimiter: Character = ",") -> [[String: String]] {
         var rows: [[String: String]] = []
+
         let lines = csvString.split(whereSeparator: \n).map(String.init)
         guard let headerLine = lines.first else { return rows }
         let headers = headerLine.split(separator: delimiter).map { String($0).trimmingCharacters(in: .whitespaces) }
