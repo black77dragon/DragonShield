@@ -1,8 +1,10 @@
 // DragonShield/ImportManager.swift
-
-// MARK: - Version 2.0.2.1
-// MARK: - History
-// - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
+// MARK: - Version 2.0.2.2
+// - 2.0.2.1 -> 2.0.2.2: Hold DB connection to avoid invalid pointer errors.
+    private let dbManager = DatabaseManager()
+    private lazy var repository: BankRecordRepository? = {
+        guard let db = dbManager.db else { return nil }
+    }()
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
 // - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
