@@ -1,8 +1,9 @@
 // DragonShield/DatabaseManager.swift
-// MARK: - Version 1.6
+// MARK: - Version 1.6.0.1
 // MARK: - History
 // - 1.5 -> 1.6: Expose database path, creation date and modification date via
 //               @Published properties.
+// - 1.6 -> 1.6.0.1: Use sqlite3_open_v2 with FULLMUTEX and log errors when opening fails.
 // - 1.3 -> 1.4: Added @Published properties for defaultTimeZone, tableRowSpacing, tableRowPadding.
 // - 1.4 -> 1.5: Added dbVersion property and logging of database version.
 // - 1.2 -> 1.3: Modified #if DEBUG block to use a UserDefaults setting for forcing DB re-copy.
@@ -75,8 +76,8 @@ class DatabaseManager: ObservableObject {
     }
     
     private func openDatabase() {
-        // ... (openDatabase logic remains the same as v1.3) ...
-        if sqlite3_open(dbPath, &db) == SQLITE_OK {
+        let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
             print("✅ Database opened: \(dbPath)")
             sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nil, nil, nil)
             sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
@@ -87,7 +88,8 @@ class DatabaseManager: ObservableObject {
                 print("❌ Database write test failed: \(String(cString: sqlite3_errmsg(db)))")
             }
         } else {
-            print("❌ Failed to open database: \(String(cString: sqlite3_errmsg(db)))")
+            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
+            print("❌ Failed to open database at \(dbPath): \(msg)")
         }
     }
 
