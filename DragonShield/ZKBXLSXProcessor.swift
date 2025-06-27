@@ -1,7 +1,8 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.0.0
+// MARK: - Version 1.0.1.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
+// - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 
 import Foundation
 
@@ -12,7 +13,11 @@ struct ZKBXLSXProcessor {
         self.parser = parser
     }
 
-    func process(url: URL) throws -> [MyBankRecord] {
+    func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
+        progress?("file \(url.lastPathComponent) successfully opened")
+        if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
+            if let val = cellValue { progress?("Report date is \(val)") }
+        }
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
         var records: [MyBankRecord] = []

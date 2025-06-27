@@ -1,10 +1,11 @@
 // DragonShield/XLSXParsingService.swift
-// MARK: - Version 1.0.2.0
+// MARK: - Version 1.0.3.0
 // MARK: - History
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
 // - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
 // - 1.0.1.1 -> 1.0.1.2: Provide descriptive parsing errors.
 // - 1.0.1.2 -> 1.0.2.0: Support specifying the header row index.
+// - 1.0.2.0 -> 1.0.3.0: Add helper to extract a specific cell value.
 
 import Foundation
 
@@ -29,6 +30,16 @@ struct XLSXParsingService {
         parser.delegate = worksheetParser
         parser.parse()
         return worksheetParser.rows
+    }
+
+    func cellValue(from url: URL, cell: String) throws -> String? {
+        let sharedStrings = try extractSharedStrings(from: url)
+        let sheetData = try extractEntry(from: url, path: "xl/worksheets/sheet1.xml")
+        let parser = XMLParser(data: sheetData)
+        let delegate = SingleCellParser(targetCell: cell, sharedStrings: sharedStrings)
+        parser.delegate = delegate
+        parser.parse()
+        return delegate.value
     }
 
     private func extractSharedStrings(from url: URL) throws -> [String] {
@@ -138,5 +149,47 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
             index = index * 26 + Int(ch.asciiValue! - 65 + 1)
         }
         return index
+    }
+}
+
+private final class SingleCellParser: NSObject, XMLParserDelegate {
+    let targetCell: String
+    let sharedStrings: [String]
+    var value: String?
+    private var currentCell: String?
+    private var cellType: String?
+    private var capturing = false
+    private var buffer = ""
+
+    init(targetCell: String, sharedStrings: [String]) {
+        self.targetCell = targetCell
+        self.sharedStrings = sharedStrings
+    }
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        switch elementName {
+        case "c":
+            currentCell = attributeDict["r"]
+            cellType = attributeDict["t"]
+        case "v":
+            if currentCell == targetCell { capturing = true; buffer = "" }
+        default: break
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if capturing { buffer += string }
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        if elementName == "v" && capturing {
+            capturing = false
+            var val = buffer
+            if cellType == "s", let idx = Int(val), idx < sharedStrings.count {
+                val = sharedStrings[idx]
+            }
+            value = val
+            parser.abortParsing()
+        }
     }
 }

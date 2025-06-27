@@ -1,5 +1,5 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 2.0.2.0
+// MARK: - Version 2.0.2.1
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
@@ -8,6 +8,7 @@
 // - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
 // - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
+// - 2.0.2.0 -> 2.0.2.1: Provide progress logging via callback.
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
@@ -22,12 +23,12 @@ class ImportManager {
     }
 
     /// Parses a XLSX document and saves the records to the database.
-    func parseDocument(at url: URL, completion: @escaping (Result<String, Error>) -> Void) {
+    func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
-                let records = try self.xlsxProcessor.process(url: url)
+                let records = try self.xlsxProcessor.process(url: url, progress: progress)
                 if let repo = self.repository {
                     try repo.saveRecords(records)
                 }
@@ -57,7 +58,9 @@ class ImportManager {
         }
         panel.begin { response in
             if response == .OK, let url = panel.url {
-                self.parseDocument(at: url) { result in
+                self.parseDocument(at: url, progress: { message in
+                    print("\u{1F4C4} \(message)")
+                }) { result in
                     switch result {
                     case .success(let output):
                         print("\n📥 Import result:\n\(output)")
