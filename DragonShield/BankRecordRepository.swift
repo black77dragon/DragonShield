@@ -1,9 +1,11 @@
 // DragonShield/BankRecordRepository.swift
-// MARK: - Version 1.0.0.2
+// MARK: - Version 1.0.1.0
 // - 1.0.0.1 -> 1.0.0.2: Provide detailed insert/prepare error information.
+// - 1.0.0.2 -> 1.0.1.0: Hold DatabaseManager reference for connection stability.
 enum BankRecordRepositoryError: LocalizedError {
     case prepareFailed(String)
     case insertFailed(String)
+    case connectionUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -11,13 +13,22 @@ enum BankRecordRepositoryError: LocalizedError {
             return "Failed to prepare INSERT statement: \(msg)"
         case .insertFailed(let msg):
             return "Failed to insert record: \(msg)"
+        case .connectionUnavailable:
+            return "Database connection unavailable"
         }
     }
 }
 
-            throw BankRecordRepositoryError.prepareFailed(msg)
-                throw BankRecordRepositoryError.insertFailed(msg)
-// - 0.0.0.0 -> 1.0.0.0: Initial repository for saving records using SQLite.
+    private let dbManager: DatabaseManager
+    init(dbManager: DatabaseManager) {
+        self.dbManager = dbManager
+        guard let db = dbManager.db else {
+            print("❌ Database connection not available when creating table")
+            return
+        }
+        guard let db = dbManager.db else {
+            throw BankRecordRepositoryError.connectionUnavailable
+        }
 // - 1.0.0.0 -> 1.0.0.1: Create table if missing and surface SQLite errors.
 
 import Foundation
