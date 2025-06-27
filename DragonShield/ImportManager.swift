@@ -1,4 +1,5 @@
 // DragonShield/ImportManager.swift
+
 // MARK: - Version 2.0.2.1
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
@@ -9,6 +10,7 @@
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
 // - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
 // - 2.0.2.0 -> 2.0.2.1: Provide progress logging via callback.
+
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
@@ -17,6 +19,7 @@ import UniformTypeIdentifiers
 class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = ZKBXLSXProcessor()
+
     private var repository: BankRecordRepository? {
         guard let db = DatabaseManager().db else { return nil }
         return BankRecordRepository(db: db)
@@ -29,6 +32,7 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let records = try self.xlsxProcessor.process(url: url, progress: progress)
+
                 if let repo = self.repository {
                     try repo.saveRecords(records)
                 }
@@ -47,6 +51,7 @@ class ImportManager {
         }
     }
 
+
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {
         let panel = NSOpenPanel()
@@ -56,6 +61,7 @@ class ImportManager {
         } else {
             panel.allowedFileTypes = ["xlsx"]
         }
+
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 self.parseDocument(at: url, progress: { message in

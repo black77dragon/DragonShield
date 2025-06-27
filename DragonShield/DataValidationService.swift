@@ -1,4 +1,5 @@
 // DragonShield/DataValidationService.swift
+
 // MARK: - Version 1.0.0.2
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial validation logic for parsed CSV rows.
@@ -22,6 +23,7 @@ enum ValidationError: LocalizedError {
             return "Value '\(value)' is not a valid number."
         }
     }
+
 }
 
 struct DataValidationService {
