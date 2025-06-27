@@ -1,4 +1,5 @@
 // DragonShield/BankRecordRepository.swift
+
 // MARK: - Version 1.0.0.1
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial repository for saving records using SQLite.
@@ -29,6 +30,7 @@ class BankRecordRepository {
         if sqlite3_exec(db, createSQL, nil, nil, nil) != SQLITE_OK {
             print("❌ Failed to create bankRecord table: \(String(cString: sqlite3_errmsg(db)))")
         }
+
     }
 
     func saveRecords(_ records: [MyBankRecord]) throws {
@@ -36,8 +38,10 @@ class BankRecordRepository {
         let sql = "INSERT INTO bankRecord (id, transactionDate, description, amount, currency, bankAccount) VALUES (?, ?, ?, ?, ?, ?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+
             let msg = String(cString: sqlite3_errmsg(db))
             throw NSError(domain: "BankRecordRepository", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare INSERT statement: \(msg)"])
+
         }
         defer { sqlite3_finalize(stmt) }
         let formatter = ISO8601DateFormatter()
@@ -49,8 +53,10 @@ class BankRecordRepository {
             sqlite3_bind_text(stmt, 5, record.currency, -1, SQLITE_TRANSIENT)
             sqlite3_bind_text(stmt, 6, record.bankAccount, -1, SQLITE_TRANSIENT)
             if sqlite3_step(stmt) != SQLITE_DONE {
+
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw NSError(domain: "BankRecordRepository", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to insert record: \(msg)"])
+
             }
             sqlite3_reset(stmt)
         }
