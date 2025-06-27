@@ -1,13 +1,23 @@
 // DragonShield/XLSXParsingService.swift
-// MARK: - Version 1.0.1.1
+// MARK: - Version 1.0.1.2
 // MARK: - History
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
 // - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
+// - 1.0.1.1 -> 1.0.1.2: Provide descriptive parsing errors.
 
 import Foundation
 
 /// Parses the first worksheet of an XLSX workbook into dictionaries keyed by the header row.
-enum XLSXParsingError: Error { case extractionFailed(String) }
+enum XLSXParsingError: LocalizedError {
+    case extractionFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .extractionFailed(let path):
+            return "Failed to extract entry '\(path)' from XLSX archive."
+        }
+    }
+}
 
 struct XLSXParsingService {
     func parseWorkbook(at url: URL) throws -> [[String: String]] {
