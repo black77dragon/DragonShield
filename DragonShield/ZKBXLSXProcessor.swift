@@ -1,10 +1,11 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.1.2
+// MARK: - Version 1.0.2.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 // - 1.0.1.0 -> 1.0.1.1: Fix conditional binding when reading cell value.
 // - 1.0.1.1 -> 1.0.1.2: Correct regex pattern for statement date parsing.
+// - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
 
 import Foundation
 
@@ -21,23 +22,50 @@ struct ZKBXLSXProcessor {
             progress?("Report date is \(cellValue)")
         }
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
+        let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
+        let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
+        if let number = portfolioNumber { progress?("Portfolio \(number)") }
+
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
         var records: [MyBankRecord] = []
         for row in rawRows {
-            guard row["Asset-Unterkategorie"] == "Konten" else { continue }
-            let desc = row["Beschreibung"] ?? ""
-            let account = row["Valor"] ?? ""
-            let currency = row["Whrg."] ?? ""
-            let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
-            guard let amount = Self.parseNumber(amountStr) else { continue }
-            let record = MyBankRecord(transactionDate: statementDate,
-                                     description: desc,
-                                     amount: amount,
-                                     currency: currency,
-                                     bankAccount: account)
-            records.append(record)
+            if row["Asset-Unterkategorie"] == "Konten" {
+                let desc = row["Beschreibung"] ?? ""
+                let account = row["Valor"] ?? ""
+                let currency = row["Whrg."] ?? ""
+                let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
+                guard let amount = Self.parseNumber(amountStr) else { continue }
+                let record = MyBankRecord(transactionDate: statementDate,
+                                         description: desc,
+                                         amount: amount,
+                                         currency: currency,
+                                         bankAccount: account)
+                records.append(record)
+            } else {
+                let desc = row["Beschreibung"] ?? ""
+                let account = portfolioNumber ?? ""
+                let currency = row["Whrg."] ?? ""
+                let amountStr = row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? ""
+                guard let amount = Self.parseNumber(amountStr) else { continue }
+                let record = MyBankRecord(transactionDate: statementDate,
+                                         description: desc,
+                                         amount: amount,
+                                         currency: currency,
+                                         bankAccount: account)
+                records.append(record)
+            }
         }
         return records
+    }
+
+    private static func portfolioNumber(from cell: String?) -> String? {
+        guard let cell = cell else { return nil }
+        let pattern = "Portfolio-Nr.\\s*(.+)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+           let match = regex.firstMatch(in: cell, range: NSRange(cell.startIndex..., in: cell)) {
+            return String(cell[Range(match.range(at: 1), in: cell)!]).trimmingCharacters(in: .whitespaces)
+        }
+        return nil
     }
 
     private static func parseNumber(_ string: String) -> Double? {

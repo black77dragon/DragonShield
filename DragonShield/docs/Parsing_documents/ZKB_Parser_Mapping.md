@@ -4,8 +4,6 @@ This document outlines the mapping logic for parsing the Zürcher Kantonalbank (
 
 ## 1. Statement-Level Data
 
-This information applies to the entire import session and is extracted once per file.
-
 | Source | ZKB XLS Data Example | Dragon Shield Database Target | Transformation / Logic / Notes |
 | :--- | :--- | :--- | :--- |
 | **File Name** | `Position List Mar 26 2025` | `Transactions.transaction_date` | The date ("2025-03-26") is parsed from the filename and used as the "as-of" date for all imported positions. |
@@ -46,3 +44,4 @@ This special mapping applies only to rows where `Asset-Unterkategorie` is **"Kon
 | `(Implied)` | `Accounts.account_type_id` | Mapped to the `account_type_id` for your "Cash Account" `AccountType`. |
 | `Anzahl / Nominal` | `Transactions.quantity` & `Transactions.net_amount` | This balance creates a single snapshot/deposit transaction to represent the cash holding as of the statement date. The `price` for this transaction is set to `1.0`. |
 | `Devisenkurs` | `ExchangeRates.rate_to_chf` | If the cash account currency is not the base currency (CHF), this value is used to create/update an entry in the `ExchangeRates` table for the statement date. |
+
