@@ -1,9 +1,10 @@
 // DragonShield/XLSXParsingService.swift
-// MARK: - Version 1.0.1.2
+// MARK: - Version 1.0.2.0
 // MARK: - History
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
 // - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
 // - 1.0.1.1 -> 1.0.1.2: Provide descriptive parsing errors.
+// - 1.0.1.2 -> 1.0.2.0: Support specifying the header row index.
 
 import Foundation
 
@@ -20,10 +21,10 @@ enum XLSXParsingError: LocalizedError {
 }
 
 struct XLSXParsingService {
-    func parseWorkbook(at url: URL) throws -> [[String: String]] {
+    func parseWorkbook(at url: URL, headerRow: Int = 1) throws -> [[String: String]] {
         let sharedStrings = try extractSharedStrings(from: url)
         let sheetData = try extractEntry(from: url, path: "xl/worksheets/sheet1.xml")
-        let worksheetParser = WorksheetParser(sharedStrings: sharedStrings)
+        let worksheetParser = WorksheetParser(sharedStrings: sharedStrings, headerRow: headerRow)
         let parser = XMLParser(data: sheetData)
         parser.delegate = worksheetParser
         parser.parse()
@@ -71,6 +72,7 @@ private final class SharedStringsParser: NSObject, XMLParserDelegate {
 
 private final class WorksheetParser: NSObject, XMLParserDelegate {
     let sharedStrings: [String]
+    let headerRow: Int
     var rows: [[String: String]] = []
     private var headers: [Int: String] = [:]
     private var currentRow: [Int: String] = [:]
@@ -78,11 +80,17 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
     private var cellType: String?
     private var value = ""
     private var capturing = false
+    private var rowIndex = 0
 
-    init(sharedStrings: [String]) { self.sharedStrings = sharedStrings }
+    init(sharedStrings: [String], headerRow: Int) {
+        self.sharedStrings = sharedStrings
+        self.headerRow = headerRow
+    }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         switch elementName {
+        case "row":
+            rowIndex += 1
         case "c":
             currentCol = columnIndex(from: attributeDict["r"] ?? "A")
             cellType = attributeDict["t"]
@@ -105,13 +113,13 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
             if cellType == "s", let idx = Int(val), idx < sharedStrings.count {
                 val = sharedStrings[idx]
             }
-            if headers.isEmpty {
+            if rowIndex == headerRow {
                 headers[currentCol] = val
-            } else {
+            } else if rowIndex > headerRow {
                 currentRow[currentCol] = val
             }
         case "row":
-            if !headers.isEmpty {
+            if rowIndex > headerRow {
                 var dict: [String: String] = [:]
                 for (idx, header) in headers {
                     dict[header] = currentRow[idx] ?? ""
