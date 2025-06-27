@@ -1,9 +1,10 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.1.1
+// MARK: - Version 1.0.1.2
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 // - 1.0.1.0 -> 1.0.1.1: Fix conditional binding when reading cell value.
+// - 1.0.1.1 -> 1.0.1.2: Correct regex pattern for statement date parsing.
 
 import Foundation
 
@@ -45,7 +46,8 @@ struct ZKBXLSXProcessor {
     }
 
     private static func statementDate(from filename: String) -> Date? {
-        let pattern = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ \.-]+(\\d{1,2})[ \.-]+(\\d{4})"
+        // Match strings like "Mar 26 2025" in filenames
+        let pattern = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ .-]+(\\d{1,2})[ .-]+(\\d{4})"
         if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
            let match = regex.firstMatch(in: filename, range: NSRange(filename.startIndex..., in: filename)) {
             let monthStr = String(filename[Range(match.range(at: 1), in: filename)!])
