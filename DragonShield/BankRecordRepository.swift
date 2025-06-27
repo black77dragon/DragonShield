@@ -1,7 +1,22 @@
 // DragonShield/BankRecordRepository.swift
+// MARK: - Version 1.0.0.2
+// - 1.0.0.1 -> 1.0.0.2: Provide detailed insert/prepare error information.
+enum BankRecordRepositoryError: LocalizedError {
+    case prepareFailed(String)
+    case insertFailed(String)
 
-// MARK: - Version 1.0.0.1
-// MARK: - History
+    var errorDescription: String? {
+        switch self {
+        case .prepareFailed(let msg):
+            return "Failed to prepare INSERT statement: \(msg)"
+        case .insertFailed(let msg):
+            return "Failed to insert record: \(msg)"
+        }
+    }
+}
+
+            throw BankRecordRepositoryError.prepareFailed(msg)
+                throw BankRecordRepositoryError.insertFailed(msg)
 // - 0.0.0.0 -> 1.0.0.0: Initial repository for saving records using SQLite.
 // - 1.0.0.0 -> 1.0.0.1: Create table if missing and surface SQLite errors.
 
