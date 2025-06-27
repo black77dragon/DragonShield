@@ -5,7 +5,6 @@
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
-
 // - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
 // - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
@@ -19,7 +18,6 @@ import UniformTypeIdentifiers
 class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = ZKBXLSXProcessor()
-
     private var repository: BankRecordRepository? {
         guard let db = DatabaseManager().db else { return nil }
         return BankRecordRepository(db: db)
@@ -32,7 +30,6 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let records = try self.xlsxProcessor.process(url: url, progress: progress)
-
                 if let repo = self.repository {
                     try repo.saveRecords(records)
                 }
@@ -50,7 +47,6 @@ class ImportManager {
             }
         }
     }
-
 
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {

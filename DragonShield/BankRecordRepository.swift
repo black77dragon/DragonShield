@@ -5,7 +5,6 @@
 // - 0.0.0.0 -> 1.0.0.0: Initial repository for saving records using SQLite.
 // - 1.0.0.0 -> 1.0.0.1: Create table if missing and surface SQLite errors.
 
-
 import Foundation
 import SQLite3
 
