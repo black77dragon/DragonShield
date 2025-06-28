@@ -1,12 +1,12 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.2.0
+// MARK: - Version 1.0.2.1
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 // - 1.0.1.0 -> 1.0.1.1: Fix conditional binding when reading cell value.
 // - 1.0.1.1 -> 1.0.1.2: Correct regex pattern for statement date parsing.
 // - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
-
+// - 1.0.2.0 -> 1.0.2.1: Add detailed progress messages for each row.
 import Foundation
 
 struct ZKBXLSXProcessor {
@@ -17,24 +17,28 @@ struct ZKBXLSXProcessor {
     }
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
-        progress?("file \(url.lastPathComponent) successfully opened")
+        progress?("Opened file \(url.lastPathComponent)")
         if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
-            progress?("Report date is \(cellValue)")
+            progress?("Cell A1 value: \(cellValue)")
         }
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
+        let dateString = ISO8601DateFormatter().string(from: statementDate)
+        progress?("Statement date: \(dateString)")
         let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
         let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
-        if let number = portfolioNumber { progress?("Portfolio \(number)") }
+        if let number = portfolioNumber { progress?("Portfolio number: \(number)") }
 
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
+        progress?("Rows found: \(rawRows.count)")
         var records: [MyBankRecord] = []
-        for row in rawRows {
+        for (idx, row) in rawRows.enumerated() {
             if row["Asset-Unterkategorie"] == "Konten" {
                 let desc = row["Beschreibung"] ?? ""
                 let account = row["Valor"] ?? ""
                 let currency = row["Whrg."] ?? ""
                 let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
+                progress?("Row \(idx + 1): cash \(desc) \(amount) \(currency)")
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
                                          amount: amount,
@@ -47,6 +51,7 @@ struct ZKBXLSXProcessor {
                 let currency = row["Whrg."] ?? ""
                 let amountStr = row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
+                progress?("Row \(idx + 1): position \(desc) \(amount) \(currency)")
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
                                          amount: amount,
