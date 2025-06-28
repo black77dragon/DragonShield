@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 2.0.2.6
+// MARK: - Version 2.0.3.0
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
@@ -14,6 +14,7 @@
 // - 2.0.2.3 -> 2.0.2.4: Keep DB manager alive via repository reference.
 // - 2.0.2.4 -> 2.0.2.5: Guard UTType initialization and minor cleanup.
 // - 2.0.2.5 -> 2.0.2.6: Log import details to file and forward progress.
+// - 2.0.2.6 -> 2.0.3.0: Route log messages through OSLog categories.
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
@@ -31,7 +32,7 @@ class ImportManager {
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
-            LoggingService.shared.log(message)
+            LoggingService.shared.log(message, logger: .parser)
             progress?(message)
         }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -39,9 +40,9 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let records = try self.xlsxProcessor.process(url: url, progress: logger)
-                LoggingService.shared.log("Parsed \(records.count) rows")
+                LoggingService.shared.log("Parsed \(records.count) rows", logger: .parser)
                 try self.repository.saveRecords(records)
-                LoggingService.shared.log("Saved records to database")
+                LoggingService.shared.log("Saved records to database", logger: .database)
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
@@ -50,7 +51,7 @@ class ImportManager {
                     completion(.success(json))
                 }
             } catch {
-                LoggingService.shared.log("Import failed: \(error.localizedDescription)")
+                LoggingService.shared.log("Import failed: \(error.localizedDescription)", logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }

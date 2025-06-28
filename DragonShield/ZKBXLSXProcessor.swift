@@ -1,5 +1,5 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.2.1
+// MARK: - Version 1.0.3.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
@@ -7,29 +7,44 @@
 // - 1.0.1.1 -> 1.0.1.2: Correct regex pattern for statement date parsing.
 // - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
 // - 1.0.2.0 -> 1.0.2.1: Add detailed progress messages for each row.
+// - 1.0.2.1 -> 1.0.3.0: Emit OSLog entries for parsing progress.
 import Foundation
+import OSLog
 
 struct ZKBXLSXProcessor {
     private let parser: XLSXParsingService
+    private let log = Logger.parser
 
     init(parser: XLSXParsingService = XLSXParsingService()) {
         self.parser = parser
     }
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
-        progress?("Opened file \(url.lastPathComponent)")
+        let openMsg = "Opened file \(url.lastPathComponent)"
+        log.info("\(openMsg, privacy: .public)")
+        progress?(openMsg)
         if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
-            progress?("Cell A1 value: \(cellValue)")
+            let msg = "Cell A1 value: \(cellValue)"
+            log.info("\(msg, privacy: .public)")
+            progress?(msg)
         }
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
         let dateString = ISO8601DateFormatter().string(from: statementDate)
-        progress?("Statement date: \(dateString)")
+        let dateMsg = "Statement date: \(dateString)"
+        log.info("\(dateMsg, privacy: .public)")
+        progress?(dateMsg)
         let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
         let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
-        if let number = portfolioNumber { progress?("Portfolio number: \(number)") }
+        if let number = portfolioNumber {
+            let msg = "Portfolio number: \(number)"
+            log.info("\(msg, privacy: .public)")
+            progress?(msg)
+        }
 
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
-        progress?("Rows found: \(rawRows.count)")
+        let rowsMsg = "Rows found: \(rawRows.count)"
+        log.info("\(rowsMsg, privacy: .public)")
+        progress?(rowsMsg)
         var records: [MyBankRecord] = []
         for (idx, row) in rawRows.enumerated() {
             if row["Asset-Unterkategorie"] == "Konten" {
@@ -38,7 +53,9 @@ struct ZKBXLSXProcessor {
                 let currency = row["Whrg."] ?? ""
                 let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
-                progress?("Row \(idx + 1): cash \(desc) \(amount) \(currency)")
+                let msg = "Row \(idx + 1): cash \(desc) \(amount) \(currency)"
+                log.debug("\(msg, privacy: .public)")
+                progress?(msg)
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
                                          amount: amount,
@@ -51,7 +68,9 @@ struct ZKBXLSXProcessor {
                 let currency = row["Whrg."] ?? ""
                 let amountStr = row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
-                progress?("Row \(idx + 1): position \(desc) \(amount) \(currency)")
+                let msg = "Row \(idx + 1): position \(desc) \(amount) \(currency)"
+                log.debug("\(msg, privacy: .public)")
+                progress?(msg)
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
                                          amount: amount,
