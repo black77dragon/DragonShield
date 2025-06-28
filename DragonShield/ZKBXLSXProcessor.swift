@@ -1,5 +1,5 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.3.0
+// MARK: - Version 1.0.4.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
@@ -8,12 +8,14 @@
 // - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
 // - 1.0.2.0 -> 1.0.2.1: Add detailed progress messages for each row.
 // - 1.0.2.1 -> 1.0.3.0: Emit OSLog entries for parsing progress.
+// - 1.0.3.0 -> 1.0.4.0: Log messages via LoggingService and improve number parsing.
 import Foundation
 import OSLog
 
 struct ZKBXLSXProcessor {
     private let parser: XLSXParsingService
     private let log = Logger.parser
+    private let logging = LoggingService.shared
 
     init(parser: XLSXParsingService = XLSXParsingService()) {
         self.parser = parser
@@ -21,29 +23,29 @@ struct ZKBXLSXProcessor {
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
         let openMsg = "Opened file \(url.lastPathComponent)"
-        log.info("\(openMsg, privacy: .public)")
+        logging.log(openMsg, logger: log)
         progress?(openMsg)
         if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
             let msg = "Cell A1 value: \(cellValue)"
-            log.info("\(msg, privacy: .public)")
+            logging.log(msg, logger: log)
             progress?(msg)
         }
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
         let dateString = ISO8601DateFormatter().string(from: statementDate)
         let dateMsg = "Statement date: \(dateString)"
-        log.info("\(dateMsg, privacy: .public)")
+        logging.log(dateMsg, logger: log)
         progress?(dateMsg)
         let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
         let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
         if let number = portfolioNumber {
             let msg = "Portfolio number: \(number)"
-            log.info("\(msg, privacy: .public)")
+            logging.log(msg, logger: log)
             progress?(msg)
         }
 
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
         let rowsMsg = "Rows found: \(rawRows.count)"
-        log.info("\(rowsMsg, privacy: .public)")
+        logging.log(rowsMsg, logger: log)
         progress?(rowsMsg)
         var records: [MyBankRecord] = []
         for (idx, row) in rawRows.enumerated() {
@@ -54,7 +56,7 @@ struct ZKBXLSXProcessor {
                 let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
                 let msg = "Row \(idx + 1): cash \(desc) \(amount) \(currency)"
-                log.debug("\(msg, privacy: .public)")
+                logging.log(msg, logger: log)
                 progress?(msg)
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
@@ -69,7 +71,7 @@ struct ZKBXLSXProcessor {
                 let amountStr = row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? ""
                 guard let amount = Self.parseNumber(amountStr) else { continue }
                 let msg = "Row \(idx + 1): position \(desc) \(amount) \(currency)"
-                log.debug("\(msg, privacy: .public)")
+                logging.log(msg, logger: log)
                 progress?(msg)
                 let record = MyBankRecord(transactionDate: statementDate,
                                          description: desc,
@@ -93,7 +95,12 @@ struct ZKBXLSXProcessor {
     }
 
     private static func parseNumber(_ string: String) -> Double? {
-        let cleaned = string.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: ",", with: ".")
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = trimmed
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "%", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: "")
         return Double(cleaned)
     }
 
