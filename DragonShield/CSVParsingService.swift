@@ -1,5 +1,4 @@
 // DragonShield/CSVParsingService.swift
-
 // MARK: - Version 1.0.0.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Basic CSV parsing utility used for early prototypes.
@@ -25,6 +24,5 @@ struct CSVParsingService {
             records.append(row)
         }
         return records
-
     }
 }

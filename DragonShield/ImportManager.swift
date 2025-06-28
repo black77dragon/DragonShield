@@ -1,15 +1,18 @@
 // DragonShield/ImportManager.swift
-// MARK: - Version 2.0.2.4
-// - 2.0.2.1 -> 2.0.2.2: Hold DB connection to avoid invalid pointer errors.
-// - 2.0.2.2 -> 2.0.2.3: Propagate detailed repository errors.
-// - 2.0.2.3 -> 2.0.2.4: Keep DB manager alive via repository reference.
-    private let dbManager = DatabaseManager()
-    private lazy var repository: BankRecordRepository = {
-        BankRecordRepository(dbManager: dbManager)
-                try self.repository.saveRecords(records)
+
+// MARK: - Version 2.0.2.5
+// MARK: - History
+// - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
+// - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
+// - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
+// - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
 // - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
 // - 2.0.2.0 -> 2.0.2.1: Provide progress logging via callback.
+// - 2.0.2.1 -> 2.0.2.2: Hold DB connection to avoid invalid pointer errors.
+// - 2.0.2.2 -> 2.0.2.3: Propagate detailed repository errors.
+// - 2.0.2.3 -> 2.0.2.4: Keep DB manager alive via repository reference.
+// - 2.0.2.4 -> 2.0.2.5: Guard UTType initialization and minor cleanup.
 
 import Foundation
 import AppKit
@@ -19,10 +22,10 @@ import UniformTypeIdentifiers
 class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = ZKBXLSXProcessor()
-    private var repository: BankRecordRepository? {
-        guard let db = DatabaseManager().db else { return nil }
-        return BankRecordRepository(db: db)
-    }
+    private let dbManager = DatabaseManager()
+    private lazy var repository: BankRecordRepository = {
+        BankRecordRepository(dbManager: dbManager)
+    }()
 
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
@@ -31,9 +34,7 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let records = try self.xlsxProcessor.process(url: url, progress: progress)
-                if let repo = self.repository {
-                    try repo.saveRecords(records)
-                }
+                try self.repository.saveRecords(records)
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
@@ -54,29 +55,29 @@ class ImportManager {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         if #available(macOS 12.0, *) {
-            panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")!]
+            if let xlsxType = UTType(filenameExtension: "xlsx") {
+                panel.allowedContentTypes = [xlsxType]
+            }
         } else {
             panel.allowedFileTypes = ["xlsx"]
         }
-
         panel.begin { response in
-            if response == .OK, let url = panel.url {
-                self.parseDocument(at: url, progress: { message in
-                    print("\u{1F4C4} \(message)")
-                }) { result in
-                    switch result {
-                    case .success(let output):
-                        print("\n📥 Import result:\n\(output)")
-                    case .failure(let error):
-                        print("❌ Import failed: \(error.localizedDescription)")
-                        DispatchQueue.main.async {
-                            let alert = NSAlert()
-                            alert.messageText = "Import Error"
-                            alert.informativeText = error.localizedDescription
-                            alert.alertStyle = .warning
-                            alert.addButton(withTitle: "OK")
-                            alert.runModal()
-                        }
+            guard response == .OK, let url = panel.url else { return }
+            self.parseDocument(at: url, progress: { message in
+                print("\u{1F4C4} \(message)")
+            }) { result in
+                switch result {
+                case .success(let output):
+                    print("\n📥 Import result:\n\(output)")
+                case .failure(let error):
+                    print("❌ Import failed: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = "Import Error"
+                        alert.informativeText = error.localizedDescription
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
                     }
                 }
             }
