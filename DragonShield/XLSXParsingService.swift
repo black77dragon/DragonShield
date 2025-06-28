@@ -1,11 +1,12 @@
 // DragonShield/XLSXParsingService.swift
-// MARK: - Version 1.0.3.0
+// MARK: - Version 1.0.4.0
 // MARK: - History
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
 // - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
 // - 1.0.1.1 -> 1.0.1.2: Provide descriptive parsing errors.
 // - 1.0.1.2 -> 1.0.2.0: Support specifying the header row index.
 // - 1.0.2.0 -> 1.0.3.0: Add helper to extract a specific cell value.
+// - 1.0.3.0 -> 1.0.4.0: Trim whitespace from headers and values.
 
 import Foundation
 
@@ -124,6 +125,7 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
             if cellType == "s", let idx = Int(val), idx < sharedStrings.count {
                 val = sharedStrings[idx]
             }
+            val = val.trimmingCharacters(in: .whitespacesAndNewlines)
             if rowIndex == headerRow {
                 headers[currentCol] = val
             } else if rowIndex > headerRow {

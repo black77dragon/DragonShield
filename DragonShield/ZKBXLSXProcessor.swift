@@ -1,5 +1,5 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.6.0
+// MARK: - Version 1.0.7.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
@@ -11,6 +11,7 @@
 // - 1.0.3.0 -> 1.0.4.0: Log messages via LoggingService and improve number parsing.
 // - 1.0.4.0 -> 1.0.5.0: Emit human readable log messages and report parsed count.
 // - 1.0.5.0 -> 1.0.6.0: Log each parsed record and flag parsing failures.
+// - 1.0.6.0 -> 1.0.7.0: Print parsed row data and log file completion summary.
 import Foundation
 import OSLog
 
@@ -54,6 +55,10 @@ struct ZKBXLSXProcessor {
         var records: [MyBankRecord] = []
         var parsedCount = 0
         for (idx, row) in rawRows.enumerated() {
+            let rawMsg = "Row \(idx + 1) raw values: " +
+                row.map { "\($0)=\($1)" }.joined(separator: ", ")
+            logging.log(rawMsg, type: .debug, logger: log)
+            progress?(rawMsg)
             let isCash = row["Asset-Unterkategorie"] == "Konten"
             let desc = row["Beschreibung"] ?? ""
             let account = isCash ? (row["Valor"] ?? "") : (portfolioNumber ?? "")
@@ -76,10 +81,16 @@ struct ZKBXLSXProcessor {
                                      bankAccount: account)
             records.append(record)
             parsedCount += 1
+            let recordMsg = "Record \(idx + 1) parsed: date \(dateString), desc '\(desc)', amount \(amount) \(currency), account \(account)"
+            logging.log(recordMsg, type: .debug, logger: log)
+            progress?(recordMsg)
         }
         let summary = "Finished parsing: \(parsedCount) records created"
         logging.log(summary, type: .info, logger: log)
         progress?(summary)
+        let fileSummary = "Completed import for \(url.lastPathComponent) with \(parsedCount) records"
+        logging.log(fileSummary, type: .info, logger: log)
+        progress?(fileSummary)
         return records
     }
 

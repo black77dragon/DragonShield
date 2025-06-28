@@ -35,6 +35,7 @@ class ImportManager {
             LoggingService.shared.log(message, type: .info, logger: .parser)
             progress?(message)
         }
+        LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
@@ -50,6 +51,7 @@ class ImportManager {
                 DispatchQueue.main.async {
                     completion(.success(json))
                 }
+                LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
