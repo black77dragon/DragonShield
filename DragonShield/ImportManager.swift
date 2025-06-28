@@ -1,10 +1,10 @@
 // DragonShield/ImportManager.swift
+
 // MARK: - Version 2.0.2.5
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
-
 // - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
 // - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
@@ -13,6 +13,7 @@
 // - 2.0.2.2 -> 2.0.2.3: Propagate detailed repository errors.
 // - 2.0.2.3 -> 2.0.2.4: Keep DB manager alive via repository reference.
 // - 2.0.2.4 -> 2.0.2.5: Guard UTType initialization and minor cleanup.
+
 import Foundation
 import AppKit
 import UniformTypeIdentifiers

@@ -47,6 +47,7 @@ class BankRecordRepository {
                 bankAccount TEXT NOT NULL
             );
             """
+
         guard let db = dbManager.db else {
             print("❌ Database connection not available when creating table")
             return
@@ -78,6 +79,7 @@ class BankRecordRepository {
             if sqlite3_step(stmt) != SQLITE_DONE {
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw BankRecordRepositoryError.insertFailed(msg)
+
             }
             sqlite3_reset(stmt)
         }
