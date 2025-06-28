@@ -1,9 +1,11 @@
 // DragonShield/LoggingService.swift
-// MARK: - Version 1.0.0.0
+// MARK: - Version 1.0.1.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial logging service writing messages to a log file.
+// - 1.0.0.0 -> 1.0.1.0: Also forward messages to OSLog with categories.
 
 import Foundation
+import OSLog
 
 final class LoggingService {
     static let shared = LoggingService()
@@ -24,9 +26,10 @@ final class LoggingService {
         }
     }
 
-    func log(_ message: String) {
+    func log(_ message: String, logger: Logger = .general) {
         let timestamp = formatter.string(from: Date())
         let line = "[\(timestamp)] \(message)\n"
+        logger.info("\(message, privacy: .public)")
         queue.async {
             if let handle = try? FileHandle(forWritingTo: self.fileURL) {
                 defer { try? handle.close() }
