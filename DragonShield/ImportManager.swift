@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 2.0.2.5
+// MARK: - Version 2.0.2.6
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
@@ -13,7 +13,7 @@
 // - 2.0.2.2 -> 2.0.2.3: Propagate detailed repository errors.
 // - 2.0.2.3 -> 2.0.2.4: Keep DB manager alive via repository reference.
 // - 2.0.2.4 -> 2.0.2.5: Guard UTType initialization and minor cleanup.
-
+// - 2.0.2.5 -> 2.0.2.6: Log import details to file and forward progress.
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
@@ -29,12 +29,19 @@ class ImportManager {
 
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
+        LoggingService.shared.clearLog()
+        let logger: (String) -> Void = { message in
+            LoggingService.shared.log(message)
+            progress?(message)
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
-                let records = try self.xlsxProcessor.process(url: url, progress: progress)
+                let records = try self.xlsxProcessor.process(url: url, progress: logger)
+                LoggingService.shared.log("Parsed \(records.count) rows")
                 try self.repository.saveRecords(records)
+                LoggingService.shared.log("Saved records to database")
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
@@ -43,6 +50,7 @@ class ImportManager {
                     completion(.success(json))
                 }
             } catch {
+                LoggingService.shared.log("Import failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
