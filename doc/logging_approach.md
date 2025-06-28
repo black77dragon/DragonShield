@@ -28,17 +28,17 @@ Logger.parser.info("Parsed \(rows) rows")
 
 ## LoggingService
 
-`LoggingService` is a singleton responsible for maintaining a text log file. It exposes `log(_ message:logger:)` which:
+`LoggingService` is a singleton responsible for maintaining a text log file. It exposes `log(_ message:type:logger:)` which:
 
 1. Timestamp the message using ISO 8601 format.
 2. Writes the message to the log file asynchronously.
-3. Forwards the same text to `OSLog` using the provided logger category (defaulting to `.general`).
+3. Forwards the same text to `OSLog` using the provided logger category and log `OSLogType` (defaulting to `.info`).
 
 Log files are stored in the temporary directory as `import.log`. The service also offers `clearLog()` to reset the file at the start of an import operation and `readLog()` to fetch its contents.
 
 ## ImportManager and ZKBXLSXProcessor
 
-When an import is initiated, `ImportManager` clears the log file and forwards parser progress through `LoggingService`. The `ZKBXLSXProcessor` logs individual steps—opening files, reading specific cells, and processing each row—using both OSLog and the progress callback. Recent updates provide more descriptive messages such as the detected portfolio number, the number of worksheet rows found and a summary of how many records were created.
+When an import is initiated, `ImportManager` clears the log file and forwards parser progress through `LoggingService`. The `ZKBXLSXProcessor` logs individual steps—opening files, reading specific cells, processing each row, and reporting failures—using both OSLog and the progress callback. Recent updates also log the key fields of each parsed record and summarize how many were created.
 
 ## Viewing Logs
 
