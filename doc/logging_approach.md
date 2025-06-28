@@ -38,7 +38,7 @@ Log files are stored in the temporary directory as `import.log`. The service als
 
 ## ImportManager and ZKBXLSXProcessor
 
-When an import is initiated, `ImportManager` clears the log file and forwards parser progress through `LoggingService`. The `ZKBXLSXProcessor` logs individual steps—opening files, reading specific cells, and processing each row—using both OSLog and the progress callback.
+When an import is initiated, `ImportManager` clears the log file and forwards parser progress through `LoggingService`. The `ZKBXLSXProcessor` logs individual steps—opening files, reading specific cells, and processing each row—using both OSLog and the progress callback. Recent updates provide more descriptive messages such as the detected portfolio number, the number of worksheet rows found and a summary of how many records were created.
 
 ## Viewing Logs
 

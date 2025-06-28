@@ -1,5 +1,5 @@
 // DragonShield/ZKBXLSXProcessor.swift
-// MARK: - Version 1.0.3.0
+// MARK: - Version 1.0.5.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
@@ -8,77 +8,76 @@
 // - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
 // - 1.0.2.0 -> 1.0.2.1: Add detailed progress messages for each row.
 // - 1.0.2.1 -> 1.0.3.0: Emit OSLog entries for parsing progress.
+// - 1.0.3.0 -> 1.0.4.0: Log messages via LoggingService and improve number parsing.
+// - 1.0.4.0 -> 1.0.5.0: Emit human readable log messages and report parsed count.
 import Foundation
 import OSLog
 
 struct ZKBXLSXProcessor {
     private let parser: XLSXParsingService
     private let log = Logger.parser
+    private let logging = LoggingService.shared
 
     init(parser: XLSXParsingService = XLSXParsingService()) {
         self.parser = parser
     }
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
-        let openMsg = "Opened file \(url.lastPathComponent)"
-        log.info("\(openMsg, privacy: .public)")
+        let openMsg = "Starting import: \(url.lastPathComponent)"
+        logging.log(openMsg, logger: log)
         progress?(openMsg)
+
         if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
-            let msg = "Cell A1 value: \(cellValue)"
-            log.info("\(msg, privacy: .public)")
+            let msg = "A1 header: \(cellValue)"
+            logging.log(msg, logger: log)
             progress?(msg)
         }
+
         let statementDate = Self.statementDate(from: url.lastPathComponent) ?? Date()
         let dateString = ISO8601DateFormatter().string(from: statementDate)
-        let dateMsg = "Statement date: \(dateString)"
-        log.info("\(dateMsg, privacy: .public)")
+        let dateMsg = "Parsed statement date \(dateString)"
+        logging.log(dateMsg, logger: log)
         progress?(dateMsg)
         let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
         let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
         if let number = portfolioNumber {
-            let msg = "Portfolio number: \(number)"
-            log.info("\(msg, privacy: .public)")
+            let msg = "Detected portfolio number \(number)"
+            logging.log(msg, logger: log)
             progress?(msg)
         }
 
         let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
-        let rowsMsg = "Rows found: \(rawRows.count)"
-        log.info("\(rowsMsg, privacy: .public)")
+        let rowsMsg = "Worksheet rows found: \(rawRows.count)"
+        logging.log(rowsMsg, logger: log)
         progress?(rowsMsg)
         var records: [MyBankRecord] = []
+        var parsedCount = 0
         for (idx, row) in rawRows.enumerated() {
-            if row["Asset-Unterkategorie"] == "Konten" {
-                let desc = row["Beschreibung"] ?? ""
-                let account = row["Valor"] ?? ""
-                let currency = row["Whrg."] ?? ""
-                let amountStr = row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? ""
-                guard let amount = Self.parseNumber(amountStr) else { continue }
-                let msg = "Row \(idx + 1): cash \(desc) \(amount) \(currency)"
-                log.debug("\(msg, privacy: .public)")
-                progress?(msg)
-                let record = MyBankRecord(transactionDate: statementDate,
-                                         description: desc,
-                                         amount: amount,
-                                         currency: currency,
-                                         bankAccount: account)
-                records.append(record)
-            } else {
-                let desc = row["Beschreibung"] ?? ""
-                let account = portfolioNumber ?? ""
-                let currency = row["Whrg."] ?? ""
-                let amountStr = row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? ""
-                guard let amount = Self.parseNumber(amountStr) else { continue }
-                let msg = "Row \(idx + 1): position \(desc) \(amount) \(currency)"
-                log.debug("\(msg, privacy: .public)")
-                progress?(msg)
-                let record = MyBankRecord(transactionDate: statementDate,
-                                         description: desc,
-                                         amount: amount,
-                                         currency: currency,
-                                         bankAccount: account)
-                records.append(record)
+            let isCash = row["Asset-Unterkategorie"] == "Konten"
+            let desc = row["Beschreibung"] ?? ""
+            let account = isCash ? (row["Valor"] ?? "") : (portfolioNumber ?? "")
+            let currency = row["Whrg."] ?? ""
+            let amountStr = isCash ? (row["Anzahl / Nominal"] ?? row["Wert in CHF"] ?? "") : (row["Wert in CHF"] ?? row["Anzahl / Nominal"] ?? "")
+            guard let amount = Self.parseNumber(amountStr) else {
+                logging.log("⚠️ Row \(idx + 1): unable to parse amount '\(amountStr)'", logger: log)
+                progress?("Row \(idx + 1): could not parse amount")
+                continue
             }
+            let typeMsg = isCash ? "cash" : "position"
+            let msg = "Parsed \(typeMsg) row \(idx + 1): \(desc) \(amount) \(currency)"
+            logging.log(msg, logger: log)
+            progress?(msg)
+            let record = MyBankRecord(transactionDate: statementDate,
+                                     description: desc,
+                                     amount: amount,
+                                     currency: currency,
+                                     bankAccount: account)
+            records.append(record)
+            parsedCount += 1
         }
+        let summary = "Finished parsing: \(parsedCount) records created"
+        logging.log(summary, logger: log)
+        progress?(summary)
         return records
     }
 
@@ -93,7 +92,18 @@ struct ZKBXLSXProcessor {
     }
 
     private static func parseNumber(_ string: String) -> Double? {
-        let cleaned = string.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: ",", with: ".")
+        var cleaned = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return nil }
+        cleaned = cleaned
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "’", with: "")
+            .replacingOccurrences(of: "%", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+        if cleaned.hasPrefix("(") && cleaned.hasSuffix(")") {
+            cleaned.removeFirst(); cleaned.removeLast()
+            cleaned = "-" + cleaned
+        }
         return Double(cleaned)
     }
 
