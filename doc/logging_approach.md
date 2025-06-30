@@ -1,48 +1,61 @@
-# Dragon Shield Logging Approach
+# DragonShield - Logging Architecture
 
-This document explains how Dragon Shield handles logging in the Swift codebase, focusing on persistent OSLog integration and file-based logs.
+| | |
+|---|---|
+| **Document ID:** | `LoggingArchitecture.md` |
+| **Version:** | `1.0` |
+| **Date:** | `2025-06-30` |
+| **Author:** | `RWK` |
+| **Status:** | `Final` |
 
-## Overview
+---
+## Document History
 
-The app uses a hybrid strategy:
+| Version | Date | Author | Changes |
+|---|---|---|---|
+| 1.0 | 2025-06-30 | RWK | Initial creation of the logging architecture document. |
 
-1. **OSLog** for fast, structured logging that integrates with macOS's unified logging system.
-2. **LoggingService** for writing logs to a local file so they can be viewed after the app exits.
+---
 
-Both mechanisms work together, providing real-time diagnostics in the macOS Console app as well as a persistent log file stored in the user's temporary directory.
+## 1. Philosophy
 
-## OSLog Categories
+This document outlines the unified logging strategy for the DragonShield application. Our approach prioritizes **performance, structure, and flexibility**. We treat logging as a decoupled, cross-cutting concern, not a feature-specific implementation.
 
-`Logger.swift` defines several `OSLog` categories to organize messages:
+The core principles are:
+-   **A Single API:** All application modules use one consistent API for emitting log messages.
+-   **Configurable Backends:** The destination of logs (Console, file, network) is determined at application startup, not at the call site.
+-   **Structured Data:** Logs should capture not just a string, but key-value metadata for powerful filtering and diagnostics.
+-   **Performance First:** Logging should have a minimal performance impact, achieved by leveraging Apple's Unified Logging system (`OSLog`).
 
-- `general` – default category for miscellaneous messages.
-- `ui` – user interface events.
-- `parser` – logs produced while parsing documents.
-- `database` – database related activity.
+## 2. Core Technology: `swift-log`
 
-Each category shares the subsystem identifier derived from the application's bundle identifier. Use these static properties when emitting logs, for example:
+We will use Apple's [swift-log](https://github.com/apple/swift-log) as the single logging API throughout the DragonShield codebase.
+
+**Rationale:** `swift-log` is a logging *facade*. It provides the `Logger` API that your code will interact with, but it doesn't handle the log *storage*. Instead, one or more `LogHandler` backends are configured to process and store the logs. This decouples your code from the concrete logging implementation, which is a critical best practice.
+
+## 3. Architecture
+
+The system is bootstrapped once at application launch with a multiplexing handler that directs logs to two destinations simultaneously:
+
+1.  **`OSLog` Backend:** A handler that forwards all log messages to Apple's Unified Logging system. This provides high-performance, low-overhead logging with rich metadata, viewable live in the **Console.app**.
+2.  **File Backend:** A handler that writes formatted logs to a persistent, rotating text file. This provides an easily accessible log archive for debugging user-reported issues without requiring them to use complex tools.
+
+![DragonShield Logging Architecture](https://i.imgur.com/G5gDkS1.png)
+
+This architecture eliminates the redundancy of the previous approach where a service both wrote to a file and manually called `OSLog`. Here, you log once, and the framework handles distribution.
+
+## 4. Usage
+
+### Getting a Logger
+
+Do **not** use static, predefined loggers. Instead, instantiate a `Logger` with a `label` that identifies its context. The label should follow a reverse-DNS convention.
 
 ```swift
-Logger.parser.info("Parsed \(rows) rows")
-```
+// In your parsing module
+let logger = Logger(label: "com.dragonshield.parser")
 
-## LoggingService
+// In a UI component
+let logger = Logger(label: "com.dragonshield.ui.settingsview")
 
-`LoggingService` is a singleton responsible for maintaining a text log file. It exposes `log(_ message:type:logger:)` which:
-
-1. Timestamp the message using ISO 8601 format.
-2. Writes the message to the log file asynchronously.
-3. Forwards the same text to `OSLog` using the provided logger category and log `OSLogType` (defaulting to `.info`).
-
-Log files are stored in the temporary directory as `import.log`. The service also offers `clearLog()` to reset the file at the start of an import operation and `readLog()` to fetch its contents.
-
-## ImportManager and ZKBXLSXProcessor
-
-When an import is initiated, `ImportManager` clears the log file and forwards parser progress through `LoggingService`. The `ZKBXLSXProcessor` logs individual steps—opening files, reading specific cells, processing each row, and reporting failures—using both OSLog and the progress callback. Recent updates also log the key fields of each parsed record and summarize how many were created.
-
-## Viewing Logs
-
-1. **Console App**: Open `/Applications/Utilities/Console.app`, start streaming, and filter by your bundle identifier to see live OSLog messages.
-2. **Log File**: Inspect the `import.log` file in the macOS temporary directory for a persistent record of each import session.
-
-This dual-layer approach ensures robust diagnostics during development and in production environments.
+// In a database service
+let logger = Logger(label: "com.dragonshield.database.service")
