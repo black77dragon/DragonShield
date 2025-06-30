@@ -1,3 +1,6 @@
+Of course. Here is the updated `AssetClassConcept.md` with the requested introductory description.
+
+````markdown
 # DragonShield - Asset Class Definition Concept
 
 | | |
@@ -78,3 +81,64 @@ CREATE TABLE AssetClasses (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+````
+
+### `AssetSubClasses` Table
+
+This table holds the specific instrument types and links back to a parent `AssetClass`.
+
+```sql
+CREATE TABLE AssetSubClasses (
+    sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL,
+    sub_class_code TEXT NOT NULL UNIQUE,
+    sub_class_name TEXT NOT NULL,
+    sub_class_description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES AssetClasses(class_id)
+);
+```
+
+### `Instruments` Table (Modified)
+
+The `Instruments` table now contains a foreign key `sub_class_id` to link each instrument to its specific classification.
+
+```sql
+CREATE TABLE Instruments (
+    instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    isin TEXT UNIQUE,
+    ticker_symbol TEXT,
+    instrument_name TEXT NOT NULL,
+    sub_class_id INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    -- ... other columns
+    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id),
+    FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
+);
+```
+
+## 4\. Examples in Practice
+
+The following table demonstrates how various instruments from the seed data (`schema.txt`) are classified using this system.
+
+| Instrument Name | Asset Sub-Class | Asset Class | Explanation |
+|---|---|---|---|
+| **Nestlé SA** | `Single Stock` | `Equity` | A direct holding in a publicly traded company. |
+| **iShares Core MSCI World UCITS ETF** | `Equity ETF` | `Equity` | An Exchange-Traded Fund that primarily holds a basket of global stocks. |
+| **Swiss Confederation 0.5% 2031** | `Government Bond` | `Fixed Income` | A debt instrument issued by the Swiss government. |
+| **Bitcoin** | `Cryptocurrency` | `Alternatives` | A digital asset classified under the "Alternatives" class. |
+| **Swiss Franc Cash** | `Cash` | `Liquidity` | Represents a holding in a fiat currency, categorized under Liquidity. |
+
+## 5\. Benefits of this Approach
+
+  * **Clarity & Unambiguity:** Every instrument has a clear, two-level classification, eliminating guesswork.
+  * **Flexible Reporting:** The portfolio can be analyzed at a high level (e.g., `Equity` vs. `Fixed Income` allocation) or a granular level (e.g., `Single Stock` vs. `Equity ETF` exposure within the `Equity` class).
+  * **Scalability:** New and exotic instrument types can be easily added as new `AssetSubClasses` without disrupting the high-level `AssetClass` structure.
+  * **Industry Alignment:** This hierarchical model is a standard practice in the financial industry for portfolio management and risk analysis.
+
+<!-- end list -->
+
+```
+```
