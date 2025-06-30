@@ -1,6 +1,3 @@
-Of course. Here is the updated `AssetClassConcept.md` with the requested introductory description.
-
-````markdown
 # DragonShield - Asset Class Definition Concept
 
 | | |
