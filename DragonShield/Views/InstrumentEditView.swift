@@ -320,7 +320,7 @@ struct InstrumentEditView: View {
                 )
                 .onChange(of: instrumentName) { oldValue, newValue in detectChanges() }
                 
-                // Asset Type and Currency side by side
+                // Asset SubClass and Currency side by side
                 HStack(spacing: 16) {
                     modernAssetTypePicker()
                         .frame(maxWidth: .infinity)
@@ -515,7 +515,7 @@ struct InstrumentEditView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
                 
-                Text("Asset Type*")
+                Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 
@@ -531,7 +531,7 @@ struct InstrumentEditView: View {
                 }
             } label: {
                 HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset Type")
+                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
                         .foregroundColor(.black)
                         .font(.system(size: 16))
                     
