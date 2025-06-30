@@ -116,7 +116,34 @@ CREATE TABLE Instruments (
 );
 ```
 
-## 4\. Examples in Practice
+## 4\.Asset Classes and Sub-Classes
+
+| Asset Class | Asset Sub-Class | Notes |
+|-------------|-----------------|-------|
+| **Liquidity** | Cash | Physical and bank account balances |
+| | Money Market Instruments | Short-term, highly liquid debt |
+| **Equity** | Single Stock | Direct ownership in a company |
+| | Equity ETF | ETFs that primarily hold stocks |
+| | Equity Fund | Mutual funds that primarily hold stocks |
+| | Equity REIT | REITs focused on owning/operating real estate |
+| **Fixed Income** | Government Bond | Debt issued by national governments |
+| | Corporate Bond | Debt issued by corporations |
+| | Bond ETF | ETFs that primarily hold bonds |
+| | Bond Fund | Mutual funds that primarily hold bonds |
+| **Real Assets** | Direct Real Estate | Physical property ownership |
+| | Mortgage REIT | REITs focused on real estate financing |
+| | Commodities | Raw materials or primary agricultural products |
+| | Infrastructure | Investments in public works like roads, bridges |
+| **Alternatives** | Hedge Fund | Actively managed funds with diverse strategies |
+| | Private Equity / Debt | Investments in non-publicly traded companies |
+| | Structured Product | Pre-packaged investments (e.g., certificates) |
+| | Cryptocurrency | Digital or virtual tokens |
+| **Derivatives** | Options | Contracts giving the right to buy/sell an asset |
+| | Futures | Contracts to buy/sell an asset at a future date |
+| **Other** | Other | Catch-all for unclassified instruments |
+
+
+## 5\. Examples in Practice
 
 The following table demonstrates how various instruments from the seed data (`schema.txt`) are classified using this system.
 
