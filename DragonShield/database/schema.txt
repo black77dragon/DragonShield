@@ -63,27 +63,59 @@ INSERT INTO AssetClasses (class_code, class_name, class_description, sort_order)
 
 INSERT INTO AssetSubClasses (class_id, sub_class_code, sub_class_name, sort_order) VALUES
 (1, 'CASH', 'Cash', 1),
+(1, 'MM_INST', 'Money Market Instruments', 2),
 (2, 'STOCK', 'Single Stock', 1),
 (2, 'EQUITY_ETF', 'Equity ETF', 2),
+(2, 'EQUITY_FUND', 'Equity Fund', 3),
+(2, 'EQUITY_REIT', 'Equity REIT', 4),
 (3, 'GOV_BOND', 'Government Bond', 1),
-(5, 'CRYPTO', 'Cryptocurrency', 1);
+(3, 'CORP_BOND', 'Corporate Bond', 2),
+(3, 'BOND_ETF', 'Bond ETF', 3),
+(3, 'BOND_FUND', 'Bond Fund', 4),
+(4, 'DIRECT_RE', 'Direct Real Estate', 1),
+(4, 'MORT_REIT', 'Mortgage REIT', 2),
+(4, 'COMMOD', 'Commodities', 3),
+(4, 'INFRA', 'Infrastructure', 4),
+(5, 'HEDGE_FUND', 'Hedge Fund', 1),
+(5, 'PRIVATE', 'Private Equity / Debt', 2),
+(5, 'STRUCTURED', 'Structured Product', 3),
+(5, 'CRYPTO', 'Cryptocurrency', 4),
+(6, 'OPTION', 'Options', 1),
+(6, 'FUTURE', 'Futures', 2),
+(7, 'OTHER', 'Other', 1);
 INSERT INTO Instruments (isin, ticker_symbol, instrument_name, sub_class_id, currency, country_code, exchange_code, sector) VALUES
-('CH0012032048', 'NESN', 'Nestlé SA', 2, 'CHF', 'CH', 'SWX', 'Consumer Staples'),
-('CH0244767585', 'NOVN', 'Novartis AG', 2, 'CHF', 'CH', 'SWX', 'Healthcare'),
-('CH0010570759', 'ROG', 'Roche Holding AG', 2, 'CHF', 'CH', 'SWX', 'Healthcare'),
-('CH0038863350', 'ABB', 'ABB Ltd', 2, 'CHF', 'CH', 'SWX', 'Industrials'),
-('US0378331005', 'AAPL', 'Apple Inc.', 2, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US5949181045', 'MSFT', 'Microsoft Corporation', 2, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US02079K3059', 'GOOGL', 'Alphabet Inc. Class A', 2, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US0231351067', 'AMZN', 'Amazon.com Inc.', 2, 'USD', 'US', 'NASDAQ', 'Consumer Discretionary'),
-('IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', 3, 'USD', 'IE', 'XETRA', NULL),
-('IE00B6R52259', 'IEMM', 'iShares Core MSCI Emerging Markets IMI UCITS ETF', 3, 'USD', 'IE', 'XETRA', NULL),
-('US9229087690', 'VTI', 'Vanguard Total Stock Market ETF', 3, 'USD', 'US', 'NYSE', NULL),
-('CH0224397213', 'CH0224397213', 'Swiss Confederation 0.5% 2031', 4, 'CHF', 'CH', 'SWX', NULL),
-(NULL, 'BTC', 'Bitcoin', 5, 'BTC', NULL, NULL, NULL),
-(NULL, 'ETH', 'Ethereum', 5, 'ETH', NULL, NULL, NULL),
+('CH0012032048', 'NESN', 'Nestlé SA', 3, 'CHF', 'CH', 'SWX', 'Consumer Staples'),
+('CH0244767585', 'NOVN', 'Novartis AG', 3, 'CHF', 'CH', 'SWX', 'Healthcare'),
+('CH0010570759', 'ROG', 'Roche Holding AG', 3, 'CHF', 'CH', 'SWX', 'Healthcare'),
+('CH0038863350', 'ABB', 'ABB Ltd', 3, 'CHF', 'CH', 'SWX', 'Industrials'),
+('US0378331005', 'AAPL', 'Apple Inc.', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
+('US5949181045', 'MSFT', 'Microsoft Corporation', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
+('US02079K3059', 'GOOGL', 'Alphabet Inc. Class A', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
+('US0231351067', 'AMZN', 'Amazon.com Inc.', 3, 'USD', 'US', 'NASDAQ', 'Consumer Discretionary'),
+('IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', 4, 'USD', 'IE', 'XETRA', NULL),
+('IE00B6R52259', 'IEMM', 'iShares Core MSCI Emerging Markets IMI UCITS ETF', 4, 'USD', 'IE', 'XETRA', NULL),
+('US9229087690', 'VTI', 'Vanguard Total Stock Market ETF', 4, 'USD', 'US', 'NYSE', NULL),
+('CH0224397213', 'CH0224397213', 'Swiss Confederation 0.5% 2031', 7, 'CHF', 'CH', 'SWX', NULL),
+(NULL, 'BTC', 'Bitcoin', 18, 'BTC', NULL, NULL, NULL),
+(NULL, 'ETH', 'Ethereum', 18, 'ETH', NULL, NULL, NULL),
 (NULL, 'CHF_CASH', 'Swiss Franc Cash', 1, 'CHF', 'CH', NULL, NULL),
-(NULL, 'USD_CASH', 'US Dollar Cash', 1, 'USD', 'US', NULL, NULL);
+(NULL, 'USD_CASH', 'US Dollar Cash', 1, 'USD', 'US', NULL, NULL),
+(NULL, 'MMFUSD', 'US Dollar Money Market Fund', 2, 'USD', 'US', NULL, NULL),
+(NULL, 'VGTSX', 'Vanguard Total Stock Market Index Fund', 5, 'USD', 'US', 'NASDAQ', NULL),
+(NULL, 'SPG', 'Simon Property Group REIT', 6, 'USD', 'US', 'NYSE', 'Real Estate'),
+(NULL, 'AAPL2030', 'Apple Inc. 3.2% 2030 Bond', 8, 'USD', 'US', 'NASDAQ', 'Technology'),
+(NULL, 'AGGG', 'iShares Core Global Aggregate Bond ETF', 9, 'USD', 'IE', 'XETRA', NULL),
+(NULL, 'VBF', 'Vanguard Bond Fund', 10, 'USD', 'US', 'NASDAQ', NULL),
+(NULL, 'ZUR_OFFICE', 'Zurich Office Building', 11, 'CHF', 'CH', NULL, 'Real Estate'),
+(NULL, 'NLY', 'Annaly Capital Management', 12, 'USD', 'US', 'NYSE', 'Real Estate'),
+(NULL, 'GOLD_BULL', 'Physical Gold', 13, 'USD', 'US', NULL, 'Metals'),
+(NULL, 'GLIN', 'Global Infrastructure Fund', 14, 'USD', 'US', 'NYSE', NULL),
+(NULL, 'HEDGE_ABS', 'ABC Global Macro Hedge Fund', 15, 'USD', 'US', NULL, NULL),
+(NULL, 'PEFUND', 'Private Equity Fund', 16, 'USD', 'US', NULL, NULL),
+(NULL, 'CSNOTE26', 'Credit Suisse Autocallable 2026', 17, 'USD', 'US', NULL, NULL),
+(NULL, 'AAPL_OCT25_C150', 'AAPL Oct2025 Call 150', 19, 'USD', 'US', 'NASDAQ', NULL),
+(NULL, 'ESU25', 'E-mini S&P 500 Sep 2025', 20, 'USD', 'US', 'CME', NULL),
+(NULL, 'COLLECT_ART', 'Modern Art Piece', 21, 'CHF', 'CH', NULL, NULL);
 INSERT INTO Portfolios (portfolio_code, portfolio_name, portfolio_description, is_default, sort_order) VALUES
 ('MAIN', 'Main Portfolio', 'Primary investment portfolio', 1, 1),
 ('PENSION', 'Pension Portfolio', '3rd pillar and pension investments', 0, 2),
@@ -93,7 +125,7 @@ INSERT INTO Portfolios (portfolio_code, portfolio_name, portfolio_description, i
 INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
 SELECT 1, instrument_id FROM Instruments;
 INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 4, instrument_id FROM Instruments WHERE sub_class_id = 5;
+SELECT 4, instrument_id FROM Instruments WHERE sub_class_id = 18;
 INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
 SELECT 5, instrument_id FROM Instruments WHERE sub_class_id = 1;
 INSERT INTO AccountTypes (account_type_id, type_code, type_name, type_description) VALUES
