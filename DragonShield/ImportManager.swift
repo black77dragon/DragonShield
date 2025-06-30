@@ -32,17 +32,18 @@ class ImportManager {
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
-            LoggingService.shared.log(message, logger: .parser)
+            LoggingService.shared.log(message, type: .info, logger: .parser)
             progress?(message)
         }
+        LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let records = try self.xlsxProcessor.process(url: url, progress: logger)
-                LoggingService.shared.log("Parsed \(records.count) rows", logger: .parser)
+                LoggingService.shared.log("Parsed \(records.count) rows", type: .info, logger: .parser)
                 try self.repository.saveRecords(records)
-                LoggingService.shared.log("Saved records to database", logger: .database)
+                LoggingService.shared.log("Saved records to database", type: .info, logger: .database)
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
@@ -50,8 +51,9 @@ class ImportManager {
                 DispatchQueue.main.async {
                     completion(.success(json))
                 }
+                LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
-                LoggingService.shared.log("Import failed: \(error.localizedDescription)", logger: .parser)
+                LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
