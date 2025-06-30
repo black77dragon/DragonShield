@@ -7,7 +7,7 @@
 | **Date:** | `2025-06-30` |
 | **Author:** | `DragonShield Maintainers` |
 | **Status:** | `Final` |
-
+| **Description:** | `This document describes the error and debuggin logging concept` |
 ---
 ## Document History
 
