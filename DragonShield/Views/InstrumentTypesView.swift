@@ -629,6 +629,9 @@ struct ModernTypeRowView: View {
 // MARK: - Add Asset SubClass View
 struct AddAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
+
+    @State private var assetClasses: [(id: Int, name: String)] = []
+    @State private var selectedClassId: Int = 0
     
     @State private var typeName = ""
     @State private var typeCode = ""
@@ -645,6 +648,7 @@ struct AddAssetSubClassView: View {
     @State private var sectionsOffset: CGFloat = 50
     
     var isValid: Bool {
+        !assetClasses.isEmpty && selectedClassId != 0 &&
         !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         Int(sortOrder) != nil
@@ -675,6 +679,7 @@ struct AddAssetSubClassView: View {
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale)
         .onAppear {
+            loadAssetClasses()
             animateAddEntrance()
         }
         .alert("Result", isPresented: $showingAlert) {
@@ -795,6 +800,46 @@ struct AddAssetSubClassView: View {
             }
             
             VStack(spacing: 16) {
+                // Asset Class selection
+                HStack {
+                    Image(systemName: "circle.grid.2x2")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+
+                    Text("Asset Class*")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.black.opacity(0.7))
+
+                    Spacer()
+                }
+
+                Menu {
+                    ForEach(assetClasses, id: \.id) { cls in
+                        Button(cls.name) { selectedClassId = cls.id }
+                    }
+                } label: {
+                    HStack {
+                        Text(assetClasses.first(where: { $0.id == selectedClassId })?.name ?? "Select Asset Class")
+                            .foregroundColor(.black)
+                            .font(.system(size: 16))
+
+                        Spacer()
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                }
+
                 addModernTextField(
                     title: "Type Name",
                     text: $typeName,
@@ -952,6 +997,7 @@ struct AddAssetSubClassView: View {
         
         let dbManager = DatabaseManager()
         let success = dbManager.addInstrumentType(
+            classId: selectedClassId,
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: typeName.trimmingCharacters(in: .whitespacesAndNewlines),
             description: typeDescription.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -973,12 +1019,24 @@ struct AddAssetSubClassView: View {
             }
         }
     }
+
+    func loadAssetClasses() {
+        let dbManager = DatabaseManager()
+        let classes = dbManager.fetchAssetClasses()
+        assetClasses = classes
+        if let first = classes.first {
+            selectedClassId = first.id
+        }
+    }
 }
 
 // MARK: - Edit Asset SubClass View
 struct EditAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     let typeId: Int
+
+    @State private var assetClasses: [(id: Int, name: String)] = []
+    @State private var selectedClassId: Int = 0
     
     @State private var typeName = ""
     @State private var typeCode = ""
@@ -1001,8 +1059,10 @@ struct EditAssetSubClassView: View {
     @State private var originalDescription = ""
     @State private var originalSortOrder = "0"
     @State private var originalIsActive = true
+    @State private var originalClassId = 0
     
     var isValid: Bool {
+        !assetClasses.isEmpty && selectedClassId != 0 &&
         !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         Int(sortOrder) != nil
@@ -1013,7 +1073,8 @@ struct EditAssetSubClassView: View {
                      typeCode != originalCode ||
                      typeDescription != originalDescription ||
                      sortOrder != originalSortOrder ||
-                     isActive != originalIsActive
+                     isActive != originalIsActive ||
+                     selectedClassId != originalClassId
     }
     
     var body: some View {
@@ -1042,6 +1103,7 @@ struct EditAssetSubClassView: View {
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale)
         .onAppear {
+            loadAssetClasses()
             loadTypeData()
             animateEditEntrance()
         }
@@ -1195,6 +1257,46 @@ struct EditAssetSubClassView: View {
             }
             
             VStack(spacing: 16) {
+                // Asset Class selection
+                HStack {
+                    Image(systemName: "circle.grid.2x2")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+
+                    Text("Asset Class*")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.black.opacity(0.7))
+
+                    Spacer()
+                }
+
+                Menu {
+                    ForEach(assetClasses, id: \.id) { cls in
+                        Button(cls.name) { selectedClassId = cls.id; detectChanges() }
+                    }
+                } label: {
+                    HStack {
+                        Text(assetClasses.first(where: { $0.id == selectedClassId })?.name ?? "Select Asset Class")
+                            .foregroundColor(.black)
+                            .font(.system(size: 16))
+
+                        Spacer()
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                }
+
                 editModernTextField(
                     title: "Type Name",
                     text: $typeName,
@@ -1353,13 +1455,15 @@ struct EditAssetSubClassView: View {
             typeDescription = details.description
             sortOrder = "\(details.sortOrder)"
             isActive = details.isActive
-            
+            selectedClassId = details.classId
+
             // Store original values
             originalName = typeName
             originalCode = typeCode
             originalDescription = typeDescription
             originalSortOrder = sortOrder
             originalIsActive = isActive
+            originalClassId = details.classId
         }
     }
     
@@ -1396,6 +1500,7 @@ struct EditAssetSubClassView: View {
         let dbManager = DatabaseManager()
         let success = dbManager.updateInstrumentType(
             id: typeId,
+            classId: selectedClassId,
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: typeName.trimmingCharacters(in: .whitespacesAndNewlines),
             description: typeDescription.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1413,6 +1518,7 @@ struct EditAssetSubClassView: View {
                 self.originalDescription = self.typeDescription
                 self.originalSortOrder = self.sortOrder
                 self.originalIsActive = self.isActive
+                self.originalClassId = self.selectedClassId
                 self.detectChanges()
                 
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
@@ -1425,6 +1531,13 @@ struct EditAssetSubClassView: View {
                 self.showingAlert = true
             }
         }
+    }
+
+    func loadAssetClasses() {
+        let dbManager = DatabaseManager()
+        assetClasses = dbManager.fetchAssetClasses()
+        if assetClasses.isEmpty { return }
+        if selectedClassId == 0 { selectedClassId = assetClasses.first!.id }
     }
 }
 
