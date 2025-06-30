@@ -1,0 +1,80 @@
+# DragonShield - Asset Class Definition Concept
+
+| | |
+|---|---|
+| **Document ID:** | `AssetClassConcept.md` |
+| **Version:** | `1.1` |
+| **Date:** | `2025-06-30` |
+| **Author:** | `DragonShield Maintainers` |
+| **Status:** | `Final` |
+
+---
+
+This document outlines the hierarchical asset classification methodology used within the DragonShield application. It details the rationale, core concepts, and database implementation of the `AssetClasses` and `AssetSubClasses` structure.
+
+## Document History
+
+| Version | Date | Author | Changes |
+|---|---|---|---|
+| 1.1 | 2025-06-30 | System | Added brief introductory description at the top. |
+| 1.0 | 2025-06-30 | System | Initial creation of the asset class conceptual document. |
+
+---
+
+## 1. Introduction & Purpose
+
+This document outlines the asset classification methodology used within the DragonShield application. As of schema version 4.9, the system has migrated from a flat `InstrumentGroups` structure to a more robust, hierarchical model.
+
+The previous model was insufficient for accurately classifying complex financial instruments, leading to ambiguity. For example, it was unclear whether an ETF composed of equities should be classified as an "Equity" or an "ETF."
+
+The new, two-tier system, consisting of **`AssetClasses`** and **`AssetSubClasses`**, resolves these issues. It provides a scalable and unambiguous framework that aligns with financial industry best practices, enabling more powerful and accurate portfolio analysis and reporting.
+
+## 2. Core Concepts
+
+The classification model is built upon two core tables in the database schema: `AssetClasses` and `AssetSubClasses`.
+
+### 2.1. Asset Class
+
+An **Asset Class** is the highest-level category of an investment. It groups instruments with similar financial characteristics, risk profiles, and market behaviors. These are broad categories that form the foundation of strategic asset allocation.
+
+In the database, these are defined in the `AssetClasses` table.
+
+**Example `AssetClasses` from Seed Data:**
+* Liquidity
+* Equity
+* Fixed Income
+* Real Assets
+* Alternatives
+
+### 2.2. Asset Sub-Class
+
+An **Asset Sub-Class** is a more granular classification that belongs to a single parent Asset Class. It defines the specific *type* or *structure* of the instrument within its broader category. Every instrument in the application is assigned a Sub-Class, which in turn rolls up to a primary Asset Class.
+
+This relationship is enforced by a foreign key from the `AssetSubClasses` table to the `AssetClasses` table.
+
+### 2.3. Solving the Classification Problem
+
+This hierarchical structure provides a clear solution to previous ambiguities:
+
+* **Problem:** Is an ETF holding stocks an "ETF" or "Equity"?
+* **Solution:** It is both. Its primary `AssetClass` is **Equity**, and its more specific `AssetSubClass` is **Equity ETF**.
+
+This allows for reporting at both a high level (total allocation to Equities) and a granular level (breakdown of Single Stocks vs. Equity ETFs).
+
+## 3. Database Schema Implementation
+
+The following tables from `schema.sql` define the asset classification structure.
+
+### `AssetClasses` Table
+This table holds the main categories.
+
+```sql
+CREATE TABLE AssetClasses (
+    class_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_code TEXT NOT NULL UNIQUE,
+    class_name TEXT NOT NULL,
+    class_description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
