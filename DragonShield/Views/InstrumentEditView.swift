@@ -679,7 +679,7 @@ struct InstrumentEditView: View {
         let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentDetails(id: instrumentId) {
             instrumentName = details.name
-            selectedGroupId = details.groupId
+            selectedGroupId = details.subClassId
             currency = details.currency
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
