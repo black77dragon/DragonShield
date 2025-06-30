@@ -12,12 +12,12 @@ import SwiftUI
 // MARK: - History: Initial creation - instrument types management with CRUD operations
 
 struct AssetSubClassesView: View {
-    @State private var subClasses: [(id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
+    @State private var subClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
-    @State private var selectedSubClass: (id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var selectedSubClass: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
     @State private var showingDeleteAlert = false
-    @State private var subClassToDelete: (id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var subClassToDelete: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
     @State private var searchText = ""
     
     // Animation states
@@ -26,7 +26,7 @@ struct AssetSubClassesView: View {
     @State private var buttonsOpacity: Double = 0
     
     // Filtered subclasses based on search
-    var filteredSubClasses: [(id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
+    var filteredSubClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
         if searchText.isEmpty {
             return subClasses.sorted { $0.sortOrder < $1.sortOrder }
         } else {
@@ -490,7 +490,7 @@ struct AssetSubClassesView: View {
         subClasses = dbManager.fetchInstrumentTypes()
     }
 
-    func confirmDelete(_ type: (id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
+    func confirmDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
         
         // Check if deletion is safe
@@ -525,7 +525,7 @@ struct AssetSubClassesView: View {
         }
     }
 
-    private func performDelete(_ type: (id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
+    private func performDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrumentType(id: type.id)
         
@@ -539,7 +539,7 @@ struct AssetSubClassesView: View {
 
 // MARK: - Modern Type Row
 struct ModernTypeRowView: View {
-    let type: (id: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)
+    let type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
