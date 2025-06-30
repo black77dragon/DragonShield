@@ -27,7 +27,7 @@ class AssetManager: ObservableObject {
         let assetTypeLookup = Dictionary(uniqueKeysWithValues: assetTypeData.map { ($0.id, $0.name) })
         
         let loadedAssets = instrumentData.map { instrument in
-            let typeName = assetTypeLookup[instrument.groupId] ?? "Unknown"
+            let typeName = assetTypeLookup[instrument.subClassId] ?? "Unknown"
             return DragonAsset(
                 name: instrument.name,
                 type: typeName,

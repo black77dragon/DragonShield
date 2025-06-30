@@ -54,7 +54,7 @@ final class LoggingService {
 
     func readLog() -> String {
         queue.sync {
-            (try? String(contentsOf: fileURL)) ?? ""
+            (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
         }
     }
 }

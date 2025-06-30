@@ -10,7 +10,7 @@ extension DatabaseManager {
 
     func fetchAssetTypes() -> [(id: Int, name: String)] { // This is used by AddInstrumentView
         var groups: [(id: Int, name: String)] = []
-        let query = "SELECT group_id, group_name FROM InstrumentGroups WHERE is_active = 1 ORDER BY sort_order, group_id"
+        let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses ORDER BY sort_order, sub_class_id"
         
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -28,25 +28,30 @@ extension DatabaseManager {
         return groups
     }
 
-    func fetchInstrumentTypes() -> [(id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
-        var types: [(id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
+    func fetchInstrumentTypes() -> [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
+        var types: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
         let query = """
-            SELECT group_id, group_code, group_name, group_description, sort_order, is_active
-            FROM InstrumentGroups
-            ORDER BY sort_order, group_name
+            SELECT asc.sub_class_id, asc.class_id, ac.class_description,
+                   asc.sub_class_code, asc.sub_class_name,
+                   asc.sub_class_description, asc.sort_order, 1
+            FROM AssetSubClasses asc
+            JOIN AssetClasses ac ON asc.class_id = ac.class_id
+            ORDER BY asc.sort_order, asc.sub_class_name
         """
         
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
-                let code = String(cString: sqlite3_column_text(statement, 1))
-                let name = String(cString: sqlite3_column_text(statement, 2))
-                let description = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
-                let sortOrder = Int(sqlite3_column_int(statement, 4))
-                let isActive = sqlite3_column_int(statement, 5) == 1
-                
-                types.append((id: id, code: code, name: name, description: description, sortOrder: sortOrder, isActive: isActive))
+                let classId = Int(sqlite3_column_int(statement, 1))
+                let classDesc = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? ""
+                let code = String(cString: sqlite3_column_text(statement, 3))
+                let name = String(cString: sqlite3_column_text(statement, 4))
+                let description = sqlite3_column_text(statement, 5).map { String(cString: $0) } ?? ""
+                let sortOrder = Int(sqlite3_column_int(statement, 6))
+                let isActive = sqlite3_column_int(statement, 7) == 1
+
+                types.append((id: id, classId: classId, classDescription: classDesc, code: code, name: name, description: description, sortOrder: sortOrder, isActive: isActive))
             }
         } else {
             print("❌ Failed to prepare fetchInstrumentTypes: \(String(cString: sqlite3_errmsg(db)))")
@@ -55,11 +60,14 @@ extension DatabaseManager {
         return types
     }
     
-    func fetchInstrumentTypeDetails(id: Int) -> (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? {
+    func fetchInstrumentTypeDetails(id: Int) -> (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? {
         let query = """
-            SELECT group_id, group_code, group_name, group_description, sort_order, is_active
-            FROM InstrumentGroups
-            WHERE group_id = ?
+            SELECT asc.sub_class_id, asc.class_id, ac.class_description,
+                   asc.sub_class_code, asc.sub_class_name, asc.sub_class_description,
+                   asc.sort_order, 1
+            FROM AssetSubClasses asc
+            JOIN AssetClasses ac ON asc.class_id = ac.class_id
+            WHERE asc.sub_class_id = ?
         """
         
         var statement: OpaquePointer?
@@ -68,14 +76,16 @@ extension DatabaseManager {
             
             if sqlite3_step(statement) == SQLITE_ROW {
                 let typeId = Int(sqlite3_column_int(statement, 0))
-                let code = String(cString: sqlite3_column_text(statement, 1))
-                let name = String(cString: sqlite3_column_text(statement, 2))
-                let description = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
-                let sortOrder = Int(sqlite3_column_int(statement, 4))
-                let isActive = sqlite3_column_int(statement, 5) == 1
-                
+                let classId = Int(sqlite3_column_int(statement, 1))
+                let classDesc = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? ""
+                let code = String(cString: sqlite3_column_text(statement, 3))
+                let name = String(cString: sqlite3_column_text(statement, 4))
+                let description = sqlite3_column_text(statement, 5).map { String(cString: $0) } ?? ""
+                let sortOrder = Int(sqlite3_column_int(statement, 6))
+                let isActive = sqlite3_column_int(statement, 7) == 1
+
                 sqlite3_finalize(statement)
-                return (id: typeId, code: code, name: name, description: description, sortOrder: sortOrder, isActive: isActive)
+                return (id: typeId, classId: classId, classDescription: classDesc, code: code, name: name, description: description, sortOrder: sortOrder, isActive: isActive)
             } else {
                 print("ℹ️ No instrument type details found for ID: \(id)")
             }
@@ -88,8 +98,8 @@ extension DatabaseManager {
     
     func addInstrumentType(code: String, name: String, description: String, sortOrder: Int, isActive: Bool) -> Bool {
         let query = """
-            INSERT INTO InstrumentGroups (group_code, group_name, group_description, sort_order, is_active)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO AssetSubClasses (class_id, sub_class_code, sub_class_name, sub_class_description, sort_order)
+            VALUES (2, ?, ?, ?, ?)
         """
         
         var statement: OpaquePointer?
@@ -108,7 +118,6 @@ extension DatabaseManager {
             sqlite3_bind_null(statement, 3)
         }
         sqlite3_bind_int(statement, 4, Int32(sortOrder))
-        sqlite3_bind_int(statement, 5, isActive ? 1 : 0)
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
@@ -123,9 +132,9 @@ extension DatabaseManager {
     
     func updateInstrumentType(id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool) -> Bool {
         let query = """
-            UPDATE InstrumentGroups
-            SET group_code = ?, group_name = ?, group_description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE group_id = ?
+            UPDATE AssetSubClasses
+            SET class_id = 2, sub_class_code = ?, sub_class_name = ?, sub_class_description = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE sub_class_id = ?
         """
         
         var statement: OpaquePointer?
@@ -144,8 +153,7 @@ extension DatabaseManager {
             sqlite3_bind_null(statement, 3)
         }
         sqlite3_bind_int(statement, 4, Int32(sortOrder))
-        sqlite3_bind_int(statement, 5, isActive ? 1 : 0)
-        sqlite3_bind_int(statement, 6, Int32(id))
+        sqlite3_bind_int(statement, 5, Int32(id))
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
@@ -159,7 +167,7 @@ extension DatabaseManager {
     }
     
     func deleteInstrumentType(id: Int) -> Bool { // Hard delete
-        let deleteQuery = "DELETE FROM InstrumentGroups WHERE group_id = ?"
+        let deleteQuery = "DELETE FROM AssetSubClasses WHERE sub_class_id = ?"
         var statement: OpaquePointer?
         
         guard sqlite3_prepare_v2(db, deleteQuery, -1, &statement, nil) == SQLITE_OK else {
@@ -180,7 +188,7 @@ extension DatabaseManager {
     }
 
     func canDeleteInstrumentType(id: Int) -> (canDelete: Bool, instrumentCount: Int) {
-        let checkQuery = "SELECT COUNT(*) FROM Instruments WHERE group_id = ?"
+        let checkQuery = "SELECT COUNT(*) FROM Instruments WHERE sub_class_id = ?"
         var checkStatement: OpaquePointer?
         var count: Int = 0
         

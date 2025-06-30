@@ -1,6 +1,8 @@
-// DragonShield/Views/InstrumentTypesView.swift
-// MARK: - Version 1.1
+// DragonShield/Views/AssetSubClassesView.swift
+// MARK: - Version 1.2
 // MARK: - History
+// - 1.1 -> 1.2: Renamed Instrument Types screen to Asset SubClasses and added
+//   asset class description column.
 // - 1.0 -> 1.1: Updated deprecated onChange modifiers to new syntax for macOS 14.0+.
 // - Initial creation - instrument types management with CRUD operations
 
@@ -9,13 +11,13 @@ import SwiftUI
 // MARK: - Version 1.0
 // MARK: - History: Initial creation - instrument types management with CRUD operations
 
-struct InstrumentTypesView: View {
-    @State private var instrumentTypes: [(id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
+struct AssetSubClassesView: View {
+    @State private var subClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
-    @State private var selectedType: (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var selectedSubClass: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
     @State private var showingDeleteAlert = false
-    @State private var typeToDelete: (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var subClassToDelete: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
     @State private var searchText = ""
     
     // Animation states
@@ -23,12 +25,12 @@ struct InstrumentTypesView: View {
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
     
-    // Filtered types based on search
-    var filteredTypes: [(id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
+    // Filtered subclasses based on search
+    var filteredSubClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
         if searchText.isEmpty {
-            return instrumentTypes.sorted { $0.sortOrder < $1.sortOrder }
+            return subClasses.sorted { $0.sortOrder < $1.sortOrder }
         } else {
-            return instrumentTypes.filter { type in
+            return subClasses.filter { type in
                 type.name.localizedCaseInsensitiveContains(searchText) ||
                 type.code.localizedCaseInsensitiveContains(searchText) ||
                 type.description.localizedCaseInsensitiveContains(searchText)
@@ -61,29 +63,29 @@ struct InstrumentTypesView: View {
             }
         }
         .onAppear {
-            loadInstrumentTypes()
+            loadSubClasses()
             animateEntrance()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshInstrumentTypes"))) { _ in
-            loadInstrumentTypes()
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshAssetSubClasses"))) { _ in
+            loadSubClasses()
         }
         .sheet(isPresented: $showAddTypeSheet) {
-            AddInstrumentTypeView()
+            AddAssetSubClassView()
         }
         .sheet(isPresented: $showEditTypeSheet) {
-            if let type = selectedType {
-                EditInstrumentTypeView(typeId: type.id)
+            if let type = selectedSubClass {
+                EditAssetSubClassView(typeId: type.id)
             }
         }
-        .alert("Delete Instrument Type", isPresented: $showingDeleteAlert) {
+        .alert("Delete Asset SubClass", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                if let type = typeToDelete {
+                if let type = subClassToDelete {
                     confirmDelete(type)
                 }
             }
         } message: {
-            if let type = typeToDelete {
+            if let type = subClassToDelete {
                 Text("Are you sure you want to delete '\(type.name)'?")
             }
         }
@@ -98,7 +100,7 @@ struct InstrumentTypesView: View {
                         .font(.system(size: 32))
                         .foregroundColor(.purple)
                     
-                    Text("Instrument Types")
+                    Text("Asset SubClasses")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
@@ -120,21 +122,21 @@ struct InstrumentTypesView: View {
             HStack(spacing: 16) {
                 modernStatCard(
                     title: "Total",
-                    value: "\(instrumentTypes.count)",
+                    value: "\(subClasses.count)",
                     icon: "number.circle.fill",
                     color: .purple
                 )
                 
                 modernStatCard(
                     title: "Active",
-                    value: "\(instrumentTypes.filter { $0.isActive }.count)",
+                    value: "\(subClasses.filter { $0.isActive }.count)",
                     icon: "checkmark.circle.fill",
                     color: .green
                 )
                 
                 modernStatCard(
                     title: "Inactive",
-                    value: "\(instrumentTypes.filter { !$0.isActive }.count)",
+                    value: "\(subClasses.filter { !$0.isActive }.count)",
                     icon: "pause.circle.fill",
                     color: .orange
                 )
@@ -153,7 +155,7 @@ struct InstrumentTypesView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
                 
-                TextField("Search instrument types...", text: $searchText)
+                TextField("Search asset subclasses...", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
                 
                 if !searchText.isEmpty {
@@ -181,7 +183,7 @@ struct InstrumentTypesView: View {
             // Results indicator
             if !searchText.isEmpty {
                 HStack {
-                    Text("Found \(filteredTypes.count) of \(instrumentTypes.count) types")
+                    Text("Found \(filteredSubClasses.count) of \(subClasses.count) subclasses")
                         .font(.caption)
                         .foregroundColor(.gray)
                     Spacer()
@@ -195,7 +197,7 @@ struct InstrumentTypesView: View {
     // MARK: - Types Content
     private var typesContent: some View {
         VStack(spacing: 16) {
-            if filteredTypes.isEmpty {
+            if filteredSubClasses.isEmpty {
                 emptyStateView
             } else {
                 typesTable
@@ -223,13 +225,13 @@ struct InstrumentTypesView: View {
                     )
                 
                 VStack(spacing: 8) {
-                    Text(searchText.isEmpty ? "No instrument types yet" : "No matching types")
+                    Text(searchText.isEmpty ? "No asset subclasses yet" : "No matching subclasses")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(.gray)
                     
                     Text(searchText.isEmpty ?
-                         "Create your first instrument type to categorize your assets" :
+                         "Create your first asset subclass to categorize your assets" :
                          "Try adjusting your search terms")
                         .font(.body)
                         .foregroundColor(.gray)
@@ -271,15 +273,15 @@ struct InstrumentTypesView: View {
             // Table content
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    ForEach(filteredTypes, id: \.id) { type in
+                    ForEach(filteredSubClasses, id: \.id) { type in
                         ModernTypeRowView(
                             type: type,
-                            isSelected: selectedType?.id == type.id,
+                            isSelected: selectedSubClass?.id == type.id,
                             onTap: {
-                                selectedType = type
+                                selectedSubClass = type
                             },
                             onEdit: {
-                                selectedType = type
+                                selectedSubClass = type
                                 showEditTypeSheet = true
                             }
                         )
@@ -307,6 +309,11 @@ struct InstrumentTypesView: View {
                 .foregroundColor(.gray)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
+            Text("Asset Class")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 140, alignment: .leading)
+
             Text("Code")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
@@ -364,7 +371,7 @@ struct InstrumentTypesView: View {
                 .buttonStyle(ScaleButtonStyle())
                 
                 // Secondary actions
-                if selectedType != nil {
+                if selectedSubClass != nil {
                     Button {
                         showEditTypeSheet = true
                     } label: {
@@ -386,8 +393,8 @@ struct InstrumentTypesView: View {
                     .buttonStyle(ScaleButtonStyle())
                     
                     Button {
-                        if let type = selectedType {
-                            typeToDelete = type
+                        if let type = selectedSubClass {
+                            subClassToDelete = type
                             showingDeleteAlert = true
                         }
                     } label: {
@@ -412,7 +419,7 @@ struct InstrumentTypesView: View {
                 Spacer()
                 
                 // Selection indicator
-                if let type = selectedType {
+                if let type = selectedSubClass {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.purple)
@@ -478,12 +485,12 @@ struct InstrumentTypesView: View {
     }
     
     // MARK: - Functions
-    func loadInstrumentTypes() {
+    func loadSubClasses() {
         let dbManager = DatabaseManager()
-        instrumentTypes = dbManager.fetchInstrumentTypes()
+        subClasses = dbManager.fetchInstrumentTypes()
     }
-    
-    func confirmDelete(_ type: (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
+
+    func confirmDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
         
         // Check if deletion is safe
@@ -492,8 +499,8 @@ struct InstrumentTypesView: View {
         if deleteInfo.instrumentCount > 0 {
             // Show warning dialog for types with instruments
             let alert = NSAlert()
-            alert.messageText = "Delete Instrument Type with Data"
-            alert.informativeText = "This instrument type '\(type.name)' is used by \(deleteInfo.instrumentCount) instrument(s). Deleting it may cause data inconsistencies.\n\nAre you sure you want to proceed?"
+            alert.messageText = "Delete Asset SubClass with Data"
+            alert.informativeText = "This asset subclass '\(type.name)' is used by \(deleteInfo.instrumentCount) instrument(s). Deleting it may cause data inconsistencies.\n\nAre you sure you want to proceed?"
             alert.alertStyle = .critical
             alert.addButton(withTitle: "Delete Anyway")
             alert.addButton(withTitle: "Cancel")
@@ -505,7 +512,7 @@ struct InstrumentTypesView: View {
         } else {
             // Safe to delete - no instruments use this type
             let alert = NSAlert()
-            alert.messageText = "Delete Instrument Type"
+            alert.messageText = "Delete Asset SubClass"
             alert.informativeText = "Are you sure you want to delete '\(type.name)'?"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "Delete")
@@ -518,21 +525,21 @@ struct InstrumentTypesView: View {
         }
     }
 
-    private func performDelete(_ type: (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
+    private func performDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrumentType(id: type.id)
         
         if success {
-            loadInstrumentTypes()
-            selectedType = nil
-            typeToDelete = nil
+            loadSubClasses()
+            selectedSubClass = nil
+            subClassToDelete = nil
         }
     }
 }
 
 // MARK: - Modern Type Row
 struct ModernTypeRowView: View {
-    let type: (id: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)
+    let type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
@@ -543,6 +550,11 @@ struct ModernTypeRowView: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(type.classDescription)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .frame(width: 140, alignment: .leading)
             
             Text(type.code)
                 .font(.system(size: 13, design: .monospaced))
@@ -592,10 +604,10 @@ struct ModernTypeRowView: View {
             onEdit()
         }
         .contextMenu {
-            Button("Edit Type") {
+            Button("Edit SubClass") {
                 onEdit()
             }
-            Button("Select Type") {
+            Button("Select SubClass") {
                 onTap()
             }
             Divider()
@@ -614,8 +626,8 @@ struct ModernTypeRowView: View {
     }
 }
 
-// MARK: - Add Instrument Type View
-struct AddInstrumentTypeView: View {
+// MARK: - Add Asset SubClass View
+struct AddAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     
     @State private var typeName = ""
@@ -699,7 +711,7 @@ struct AddInstrumentTypeView: View {
                     .font(.system(size: 24))
                     .foregroundColor(.purple)
                 
-                Text("Add Instrument Type")
+                Text("Add Asset SubClass")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         LinearGradient(
@@ -951,20 +963,20 @@ struct AddInstrumentTypeView: View {
             self.isLoading = false
             
             if success {
-                NotificationCenter.default.post(name: NSNotification.Name("RefreshInstrumentTypes"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.animateAddExit()
                 }
             } else {
-                self.alertMessage = "❌ Failed to add instrument type. Please try again."
+                self.alertMessage = "❌ Failed to add asset subclass. Please try again."
                 self.showingAlert = true
             }
         }
     }
 }
 
-// MARK: - Edit Instrument Type View
-struct EditInstrumentTypeView: View {
+// MARK: - Edit Asset SubClass View
+struct EditAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     let typeId: Int
     
@@ -1069,7 +1081,7 @@ struct EditInstrumentTypeView: View {
                     .font(.system(size: 24))
                     .foregroundColor(.orange)
                 
-                Text("Edit Instrument Type")
+                Text("Edit Asset SubClass")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         LinearGradient(
@@ -1403,13 +1415,13 @@ struct EditInstrumentTypeView: View {
                 self.originalIsActive = self.isActive
                 self.detectChanges()
                 
-                NotificationCenter.default.post(name: NSNotification.Name("RefreshInstrumentTypes"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.animateEditExit()
                 }
             } else {
-                self.alertMessage = "❌ Failed to update instrument type. Please try again."
+                self.alertMessage = "❌ Failed to update asset subclass. Please try again."
                 self.showingAlert = true
             }
         }

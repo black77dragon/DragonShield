@@ -453,7 +453,7 @@ struct AddInstrumentView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
                 
-                Text("Asset Type*")
+                Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 
@@ -468,7 +468,7 @@ struct AddInstrumentView: View {
                 }
             } label: {
                 HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset Type")
+                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
                         .foregroundColor(.black)
                         .font(.system(size: 16))
                     
@@ -639,7 +639,7 @@ struct AddInstrumentView: View {
         
         let success = dbManager.addInstrument(
             name: trimmedName,
-            groupId: selectedGroupId,
+            subClassId: selectedGroupId,
             currency: trimmedCurrency,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),

@@ -75,7 +75,7 @@ struct ContentView: View {
         instruments = dbInstruments.map { instrument in
             SimpleInstrument(
                 name: instrument.name,
-                type: typeLookup[instrument.groupId] ?? "Unknown",
+                type: typeLookup[instrument.subClassId] ?? "Unknown",
                 currency: instrument.currency
             )
         }

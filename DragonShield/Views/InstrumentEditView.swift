@@ -320,7 +320,7 @@ struct InstrumentEditView: View {
                 )
                 .onChange(of: instrumentName) { oldValue, newValue in detectChanges() }
                 
-                // Asset Type and Currency side by side
+                // Asset SubClass and Currency side by side
                 HStack(spacing: 16) {
                     modernAssetTypePicker()
                         .frame(maxWidth: .infinity)
@@ -515,7 +515,7 @@ struct InstrumentEditView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
                 
-                Text("Asset Type*")
+                Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 
@@ -531,7 +531,7 @@ struct InstrumentEditView: View {
                 }
             } label: {
                 HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset Type")
+                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
                         .foregroundColor(.black)
                         .font(.system(size: 16))
                     
@@ -679,7 +679,7 @@ struct InstrumentEditView: View {
         let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentDetails(id: instrumentId) {
             instrumentName = details.name
-            selectedGroupId = details.groupId
+            selectedGroupId = details.subClassId
             currency = details.currency
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
@@ -729,7 +729,7 @@ struct InstrumentEditView: View {
         let success = dbManager.updateInstrument(
             id: instrumentId,
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
-            groupId: selectedGroupId,
+            subClassId: selectedGroupId,
             currency: currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),

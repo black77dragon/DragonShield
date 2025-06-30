@@ -68,8 +68,8 @@ struct SidebarView: View {
                     Label("Edit Account Types", systemImage: "creditcard.circle.fill")
                 }
                 
-                NavigationLink(destination: InstrumentTypesView()) {
-                    Label("Edit Instrument Types", systemImage: "folder.fill")
+                NavigationLink(destination: AssetSubClassesView()) {
+                    Label("Edit Asset SubClasses", systemImage: "folder.fill")
                 }
                 
                 NavigationLink(destination: TransactionTypesView()) {

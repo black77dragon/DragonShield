@@ -1,5 +1,6 @@
-# Version 1.1
+# Version 1.2
 # History
+# - 1.1 -> 1.2: Updated for interactive phased workflow.
 # - 1.0 -> 1.1: Adjusted for production container path constant.
 # - 1.0: Test db_tool build and copy logic.
 
@@ -28,8 +29,10 @@ def test_db_tool_copies(monkeypatch, tmp_path):
 
     monkeypatch.setattr(db_tool.shutil, 'copy2', fake_copy)
     monkeypatch.setattr(db_tool.os, 'makedirs', fake_makedirs)
-    monkeypatch.setattr(db_tool.deploy_db, 'build_database', lambda *a, **k: 0)
     monkeypatch.setattr(db_tool.deploy_db, 'parse_version', lambda p: 'test')
+    monkeypatch.setattr(db_tool, 'create_empty_db', lambda *a, **k: 0)
+    monkeypatch.setattr(db_tool, 'load_seed_data', lambda *a, **k: 0)
+    monkeypatch.setattr('builtins.input', lambda _: 'y')
 
     db_tool.main(['--target-dir', str(tmp_path)])
 
