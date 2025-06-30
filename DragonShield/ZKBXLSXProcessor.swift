@@ -12,6 +12,7 @@
 // - 1.0.4.0 -> 1.0.5.0: Emit human readable log messages and report parsed count.
 // - 1.0.5.0 -> 1.0.6.0: Log each parsed record and flag parsing failures.
 // - 1.0.6.0 -> 1.0.7.0: Print parsed row data and log file completion summary.
+
 import Foundation
 import OSLog
 
@@ -25,6 +26,7 @@ struct ZKBXLSXProcessor {
     }
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
+
         let openMsg = "Starting import: \(url.lastPathComponent)"
         logging.log(openMsg, type: .info, logger: log)
         progress?(openMsg)
@@ -32,6 +34,7 @@ struct ZKBXLSXProcessor {
         if let cellValue = try? parser.cellValue(from: url, cell: "A1") {
             let msg = "A1 header: \(cellValue)"
             logging.log(msg, type: .debug, logger: log)
+
             progress?(msg)
         }
 
@@ -39,6 +42,7 @@ struct ZKBXLSXProcessor {
         let dateString = ISO8601DateFormatter().string(from: statementDate)
         let dateMsg = "Parsed statement date \(dateString)"
         logging.log(dateMsg, type: .info, logger: log)
+
         progress?(dateMsg)
         let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
         let portfolioNumber = Self.portfolioNumber(from: portfolioCell)
