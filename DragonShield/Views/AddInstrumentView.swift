@@ -639,7 +639,7 @@ struct AddInstrumentView: View {
         
         let success = dbManager.addInstrument(
             name: trimmedName,
-            groupId: selectedGroupId,
+            subClassId: selectedGroupId,
             currency: trimmedCurrency,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),

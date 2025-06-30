@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.8 - Introduced Institutions table and updated Accounts
+-- Version 4.9 - Replaced InstrumentGroups with AssetClasses and AssetSubClasses
 -- Created: 2025-05-24
 -- Updated: 2025-06-19
 --
@@ -12,6 +12,7 @@
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to
 --   Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
+-- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses tables.
 -- - (Previous history for v4.3 and earlier...)
 --
 
@@ -34,7 +35,8 @@ DROP TABLE IF EXISTS AccountTypes; -- Dropping new table if it exists
 DROP TABLE IF EXISTS PortfolioInstruments;
 DROP TABLE IF EXISTS Portfolios;
 DROP TABLE IF EXISTS Instruments;
-DROP TABLE IF EXISTS InstrumentGroups;
+DROP TABLE IF EXISTS AssetSubClasses;
+DROP TABLE IF EXISTS AssetClasses;
 DROP TABLE IF EXISTS FxRateUpdates;
 DROP TABLE IF EXISTS ExchangeRates;
 DROP TABLE IF EXISTS Currencies;
@@ -106,16 +108,27 @@ CREATE INDEX idx_exchange_rates_latest ON ExchangeRates(currency_code, is_latest
 -- ASSET MANAGEMENT
 --=============================================================================
 
-CREATE TABLE InstrumentGroups (
-    group_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_code TEXT NOT NULL UNIQUE,
-    group_name TEXT NOT NULL,
-    group_description TEXT,
+
+CREATE TABLE AssetClasses (
+    class_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_code TEXT NOT NULL UNIQUE,
+    class_name TEXT NOT NULL,
+    class_description TEXT,
     sort_order INTEGER DEFAULT 0,
-    include_in_portfolio BOOLEAN DEFAULT 1,
-    is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE AssetSubClasses (
+    sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL,
+    sub_class_code TEXT NOT NULL UNIQUE,
+    sub_class_name TEXT NOT NULL,
+    sub_class_description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES AssetClasses(class_id)
 );
 
 
@@ -124,7 +137,7 @@ CREATE TABLE Instruments (
     isin TEXT UNIQUE,
     ticker_symbol TEXT,
     instrument_name TEXT NOT NULL,
-    group_id INTEGER NOT NULL,
+    sub_class_id INTEGER NOT NULL,
     currency TEXT NOT NULL,
     country_code TEXT,
     exchange_code TEXT,
@@ -134,14 +147,14 @@ CREATE TABLE Instruments (
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (group_id) REFERENCES InstrumentGroups(group_id),
+    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id),
     FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
 );
 
 
 CREATE INDEX idx_instruments_isin ON Instruments(isin);
 CREATE INDEX idx_instruments_ticker ON Instruments(ticker_symbol);
-CREATE INDEX idx_instruments_group ON Instruments(group_id);
+CREATE INDEX idx_instruments_sub_class ON Instruments(sub_class_id);
 CREATE INDEX idx_instruments_currency ON Instruments(currency);
 
 --=============================================================================
@@ -378,7 +391,8 @@ SELECT
     i.instrument_name,
     i.isin,
     i.ticker_symbol,
-    ig.group_name as instrument_group,
+    ac.class_name as asset_class,
+    asc.sub_class_name as asset_sub_class,
     a.account_id,
     a.account_name,
     i.currency as instrument_currency,
@@ -402,14 +416,14 @@ SELECT
     MAX(t.transaction_date) as last_transaction_date
 FROM Transactions t
 JOIN Instruments i ON t.instrument_id = i.instrument_id
-JOIN InstrumentGroups ig ON i.group_id = ig.group_id
+JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+JOIN AssetClasses ac ON asc.class_id = ac.class_id
 JOIN Accounts a ON t.account_id = a.account_id
 JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
 LEFT JOIN PortfolioInstruments pi ON i.instrument_id = pi.instrument_id
 LEFT JOIN Portfolios p ON pi.portfolio_id = p.portfolio_id
 WHERE t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_date')
   AND i.include_in_portfolio = 1
-  AND ig.include_in_portfolio = 1
   AND a.include_in_portfolio = 1
   AND i.is_active = 1
   AND (p.include_in_total = 1 OR p.include_in_total IS NULL)
@@ -419,7 +433,7 @@ HAVING total_quantity > 0;
 CREATE VIEW PortfolioSummary AS
 SELECT
     COALESCE(p.portfolio_name, 'Unassigned') as portfolio_name,
-    p.instrument_group,
+    p.asset_class,
     COUNT(DISTINCT p.instrument_id) as instrument_count,
     SUM(p.transaction_count) as total_transactions,
     SUM(p.total_quantity * p.avg_cost_chf_per_unit) as current_market_value_chf,
@@ -435,8 +449,8 @@ SELECT
         SUM(p.total_dividends_chf) / NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
     ) as dividend_yield_percent
 FROM Positions p
-GROUP BY p.portfolio_name, p.instrument_group
-ORDER BY p.portfolio_name, p.instrument_group;
+GROUP BY p.portfolio_name, p.asset_class
+ORDER BY p.portfolio_name, p.asset_class;
 
 -- MODIFIED VIEW: AccountSummary
 CREATE VIEW AccountSummary AS
@@ -487,7 +501,7 @@ SELECT
     i.instrument_name,
     i.ticker_symbol,
     i.isin,
-    ig.group_name,
+    ac.class_name,
     i.currency,
     COALESCE(SUM(CASE
         WHEN tt.type_code = 'BUY' OR tt.type_code = 'TRANSFER_IN' THEN t.quantity
@@ -509,11 +523,12 @@ SELECT
     i.include_in_portfolio,
     i.is_active
 FROM Instruments i
-JOIN InstrumentGroups ig ON i.group_id = ig.group_id
+JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+JOIN AssetClasses ac ON asc.class_id = ac.class_id
 LEFT JOIN Transactions t ON i.instrument_id = t.instrument_id
     AND t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_date')
 LEFT JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
-GROUP BY i.instrument_id, i.instrument_name, i.ticker_symbol, i.isin, ig.group_name, i.currency, i.include_in_portfolio, i.is_active
+GROUP BY i.instrument_id, i.instrument_name, i.ticker_symbol, i.isin, ac.class_name, i.currency, i.include_in_portfolio, i.is_active
 ORDER BY i.instrument_name;
 
 CREATE VIEW DataIntegrityCheck AS

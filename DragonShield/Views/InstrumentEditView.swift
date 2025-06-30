@@ -729,7 +729,7 @@ struct InstrumentEditView: View {
         let success = dbManager.updateInstrument(
             id: instrumentId,
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
-            groupId: selectedGroupId,
+            subClassId: selectedGroupId,
             currency: currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),
