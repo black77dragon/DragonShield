@@ -52,7 +52,8 @@ struct ZKBXLSXProcessor {
             progress?(msg)
         }
 
-        let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
+        // Worksheet header is on row 7
+        let rawRows = try parser.parseWorkbook(at: url, headerRow: 7)
         let rowsMsg = "Worksheet rows found: \(rawRows.count)"
         logging.log(rowsMsg, type: .info, logger: log)
         progress?(rowsMsg)

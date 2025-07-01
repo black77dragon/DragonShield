@@ -13,21 +13,21 @@ This document outlines the mapping logic for parsing the Zürcher Kantonalbank (
 
 ## 2. Position & Instrument Mapping (for Securities/Funds)
 
-These mappings apply to all rows that are **not** cash accounts (i.e., where `Asset-Unterkategorie` is not "Konten").
+These mappings apply to all rows that are **not** cash accounts (i.e., where `Asset-Unterkategorie` is not "Konten"). The worksheet header appears on **row 7**, so parsing begins with data on row 8.
 
-| ZKB XLS Column | Dragon Shield Database Target | Transformation / Logic / Notes |
-| :--- | :--- | :--- |
-| `Anlagekategorie` & `Asset-Unterkategorie` | `Instruments.group_id` | Mapped to an `InstrumentGroups.group_id` via a configuration map (e.g., "Aktien & ähnliche" -> "Equities"). The sub-category helps refine the mapping (e.g., for bond funds vs. bonds). |
-| `Beschreibung` | `Instruments.instrument_name` | The primary name for the security. May require cleaning to remove extra details like interest rates. |
-| `ISIN` | `Instruments.isin` | The primary unique identifier used to look up existing instruments or create new ones. |
-| `Symbol` / `Valor` | `Instruments.ticker_symbol` | The `Symbol` column is used first. If empty, the `Valor` number is used as a fallback for the ticker. |
-| `Whrg.` (2nd instance, next to `Kurs`) | `Instruments.currency` | The trading currency of the instrument itself (e.g., "CHF", "USD"). |
-| `Branche` | `Instruments.sector` | Directly mapped to the instrument's sector. |
-| `Anzahl / Nominal` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. |
-| `Einstandskurs` | `Transactions.price` | **Cost Basis.** Used as the price for the initial transaction. For bonds priced in percent (e.g., "99.50%"), the value is converted to a decimal (0.995). |
-| `Währung(Einstandskurs)` | `Transactions.transaction_currency` | The currency in which the `Einstandskurs` is denominated. |
-| `Fälligkeit` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
-| `Kurs`, `Wert in CHF` | *(Informational)* | The current market price and value. Not used for the initial cost-basis transaction but are key for P&L calculations and "exits" reconciliation. |
+| ZKB XLS Column | Excel Column | Dragon Shield Database Target | Transformation / Logic / Notes |
+| :--- | :--- | :--- | :--- |
+| `Anlagekategorie` & `Asset-Unterkategorie` | `A`, `B` | `Instruments.group_id` | Mapped to an `InstrumentGroups.group_id` via a configuration map (e.g., "Aktien & ähnliche" -> "Equities"). The sub-category helps refine the mapping (e.g., for bond funds vs. bonds). |
+| `Beschreibung` | `E` | `Instruments.instrument_name` | The primary name for the security. May require cleaning to remove extra details like interest rates. |
+| `ISIN` | `W` | `Instruments.isin` | The primary unique identifier used to look up existing instruments or create new ones. |
+| `Symbol` / `Valor` | `AV` / `F` | `Instruments.ticker_symbol` | The `Symbol` column is used first. If empty, the `Valor` number is used as a fallback for the ticker. |
+| `Whrg.` (2nd instance, next to `Kurs`) | `H` | `Instruments.currency` | The trading currency of the instrument itself (e.g., "CHF", "USD"). |
+| `Branche` | `AN` | `Instruments.sector` | Directly mapped to the instrument's sector. |
+| `Anzahl / Nominal` | `D` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. |
+| `Einstandskurs` | `K` | `Transactions.price` | **Cost Basis.** Used as the price for the initial transaction. For bonds priced in percent (e.g., "99.50%"), the value is converted to a decimal (0.995). |
+| `Währung(Einstandskurs)` | `J` | `Transactions.transaction_currency` | The currency in which the `Einstandskurs` is denominated. |
+| `Fälligkeit` | `G` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
+| `Kurs`, `Wert in CHF` | `I`, `N` | *(Informational)* | The current market price and value. Not used for the initial cost-basis transaction but are key for P&L calculations and "exits" reconciliation. |
 
 ---
 

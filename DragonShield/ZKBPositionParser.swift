@@ -37,7 +37,8 @@ struct ZKBPositionParser {
         logging.log("Portfolio number: \(accountNumber)", type: .info, logger: log)
         progress?("Portfolio \(accountNumber)")
 
-        let rows = try parser.parseWorkbook(at: url, headerRow: 8)
+        // Header row starts at Excel row 7 so data begins at row 8
+        let rows = try parser.parseWorkbook(at: url, headerRow: 7)
         logging.log("Rows found: \(rows.count)", type: .info, logger: log)
         progress?("Rows found: \(rows.count)")
 
