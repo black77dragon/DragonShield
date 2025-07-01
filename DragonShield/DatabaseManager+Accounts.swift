@@ -287,4 +287,20 @@ extension DatabaseManager {
     func canDeleteAccount(id: Int) -> (canDelete: Bool, dependencyCount: Int, message: String) {
         return (canDelete: true, dependencyCount: 0, message: "Soft delete allowed. No dependency check implemented yet.")
     }
+
+    /// Returns the account_id for a given account number if it exists.
+    func findAccountId(accountNumber: String) -> Int? {
+        let query = "SELECT account_id FROM Accounts WHERE account_number = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, accountNumber, -1, nil)
+        if sqlite3_step(statement) == SQLITE_ROW {
+            return Int(sqlite3_column_int(statement, 0))
+        }
+        return nil
+    }
 }

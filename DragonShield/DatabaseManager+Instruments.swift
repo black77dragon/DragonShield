@@ -222,4 +222,20 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return nil
     }
+
+    /// Finds the instrument_id for the given ISIN if present.
+    func findInstrumentId(isin: String) -> Int? {
+        let query = "SELECT instrument_id FROM Instruments WHERE isin = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstrumentId: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, isin, -1, nil)
+        if sqlite3_step(statement) == SQLITE_ROW {
+            return Int(sqlite3_column_int(statement, 0))
+        }
+        return nil
+    }
 }

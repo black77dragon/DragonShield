@@ -285,16 +285,37 @@ struct ImportStatementView: View {
     
     private func processSelectedFile(url: URL) {
         logMessages.removeAll()
-        ImportManager.shared.parseDocument(at: url, progress: { message in
-            DispatchQueue.main.async { logMessages.append(message) }
-        }) { result in
-            url.stopAccessingSecurityScopedResource()
-            switch result {
-            case .success(let output):
-                print("Parser Output:\n\(output)")
-                selectedFileURL = nil
-            case .failure(let error):
-                errorMessage = error.localizedDescription
+        if importMode == .zkb {
+            ImportManager.shared.importPositions(at: url, progress: { message in
+                DispatchQueue.main.async { logMessages.append(message) }
+            }) { result in
+                url.stopAccessingSecurityScopedResource()
+                switch result {
+                case .success(let summary):
+                    selectedFileURL = nil
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = "Import Completed"
+                        alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows"
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        } else {
+            ImportManager.shared.parseDocument(at: url, progress: { message in
+                DispatchQueue.main.async { logMessages.append(message) }
+            }) { result in
+                url.stopAccessingSecurityScopedResource()
+                switch result {
+                case .success(let output):
+                    print("Parser Output:\n\(output)")
+                    selectedFileURL = nil
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
             }
         }
     }

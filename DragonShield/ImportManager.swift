@@ -23,9 +23,13 @@ import UniformTypeIdentifiers
 class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = ZKBXLSXProcessor()
+    private let positionParser = ZKBPositionParser()
     private let dbManager = DatabaseManager()
     private lazy var repository: BankRecordRepository = {
         BankRecordRepository(dbManager: dbManager)
+    }()
+    private lazy var positionRepository: PositionReportRepository = {
+        PositionReportRepository(dbManager: dbManager)
     }()
 
     /// Parses a XLSX document and saves the records to the database.
@@ -54,6 +58,55 @@ class ImportManager {
                 LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    /// Parses a ZKB statement and saves position reports.
+    func importPositions(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
+        LoggingService.shared.clearLog()
+        let logger: (String) -> Void = { message in
+            LoggingService.shared.log(message, type: .info, logger: .parser)
+            progress?(message)
+        }
+        LoggingService.shared.log("Importing positions: \(url.lastPathComponent)", type: .info, logger: .parser)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let accessGranted = url.startAccessingSecurityScopedResource()
+            defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
+                var reports: [PositionReport] = []
+                for row in rows {
+                    guard let accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber) else {
+                        LoggingService.shared.log("Account not found for \(row.accountNumber)", type: .error, logger: .database)
+                        continue
+                    }
+                    var instrumentId: Int?
+                    if let isin = row.isin {
+                        instrumentId = self.dbManager.findInstrumentId(isin: isin)
+                        if instrumentId == nil {
+                            _ = self.dbManager.addInstrument(name: row.instrumentName, subClassId: 3, currency: row.currency, tickerSymbol: nil, isin: isin, countryCode: nil, exchangeCode: nil, sector: nil)
+                            instrumentId = self.dbManager.findInstrumentId(isin: isin)
+                        }
+                    }
+                    guard let insId = instrumentId else {
+                        LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
+                        continue
+                    }
+                    let report = PositionReport(accountId: accountId, instrumentId: insId, quantity: row.quantity, reportDate: Date())
+                    reports.append(report)
+                }
+                try self.positionRepository.saveReports(reports)
+                LoggingService.shared.log("Saved position reports", type: .info, logger: .database)
+                DispatchQueue.main.async {
+                    completion(.success(summary))
+                }
+                LoggingService.shared.log("Position import complete", type: .info, logger: .parser)
+            } catch {
+                LoggingService.shared.log("Position import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }

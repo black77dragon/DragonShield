@@ -11,3 +11,4 @@ All notable changes to this project will be documented in this file.
 - Modernize Asset Class add/edit windows with standard design and logging
 - Modernize Asset Class list view with search, animations and action bar
 - Fix missing modernStatCard helper in Asset Classes view
+- Add ZKB position import with progress logging and summary alert
