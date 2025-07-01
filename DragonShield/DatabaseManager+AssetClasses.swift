@@ -5,6 +5,7 @@
 
 import SQLite3
 import Foundation
+import OSLog
 
 extension DatabaseManager {
 
@@ -31,7 +32,7 @@ extension DatabaseManager {
                 classes.append(AssetClassData(id: id, code: code, name: name, description: description, sortOrder: sortOrder))
             }
         } else {
-            print("❌ Failed to prepare fetchAssetClassesDetailed: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare fetchAssetClassesDetailed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
         return classes
@@ -52,7 +53,7 @@ extension DatabaseManager {
                 return AssetClassData(id: cid, code: code, name: name, description: description, sortOrder: sortOrder)
             }
         } else {
-            print("❌ Failed to prepare fetchAssetClassDetails: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare fetchAssetClassDetails: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
         return nil
@@ -62,7 +63,7 @@ extension DatabaseManager {
         let query = "INSERT INTO AssetClasses (class_code, class_name, class_description, sort_order) VALUES (?, ?, ?, ?)"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare addAssetClass: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare addAssetClass: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -76,7 +77,11 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 4, Int32(sortOrder))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        if result { print("✅ Inserted asset class '\(name)'") } else { print("❌ Insert asset class failed: \(String(cString: sqlite3_errmsg(db)))") }
+        if result {
+            LoggingService.shared.log("Inserted asset class \(name)", type: .info, logger: .database)
+        } else {
+            LoggingService.shared.log("Insert asset class failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
         return result
     }
 
@@ -84,7 +89,7 @@ extension DatabaseManager {
         let query = "UPDATE AssetClasses SET class_code = ?, class_name = ?, class_description = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE class_id = ?"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare updateAssetClass: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare updateAssetClass: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -99,7 +104,11 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 5, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        if result { print("✅ Updated asset class (ID: \(id))") } else { print("❌ Update asset class failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))") }
+        if result {
+            LoggingService.shared.log("Updated asset class ID \(id)", type: .info, logger: .database)
+        } else {
+            LoggingService.shared.log("Update asset class failed ID \(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
         return result
     }
 
@@ -107,13 +116,17 @@ extension DatabaseManager {
         let query = "DELETE FROM AssetClasses WHERE class_id = ?"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare deleteAssetClass: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare deleteAssetClass: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
         sqlite3_bind_int(statement, 1, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        if result { print("✅ Deleted asset class (ID: \(id))") } else { print("❌ Delete asset class failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))") }
+        if result {
+            LoggingService.shared.log("Deleted asset class ID \(id)", type: .info, logger: .database)
+        } else {
+            LoggingService.shared.log("Delete asset class failed ID \(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
         return result
     }
 
@@ -128,7 +141,7 @@ extension DatabaseManager {
             }
             sqlite3_finalize(statement)
         } else {
-            print("❌ Failed to prepare canDeleteAssetClass check: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare canDeleteAssetClass check: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         return (canDelete: count == 0, subClassCount: count)
     }
