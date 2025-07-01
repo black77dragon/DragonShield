@@ -48,3 +48,5 @@ This special mapping applies only to rows where `Asset-Unterkategorie` is **"Kon
 | `Anzahl / Nominal` | `Transactions.quantity` & `Transactions.net_amount` | This balance creates a single snapshot/deposit transaction to represent the cash holding as of the statement date. The `price` for this transaction is set to `1.0`. |
 | `Devisenkurs` | `ExchangeRates.rate_to_chf` | If the cash account currency is not the base currency (CHF), this value is used to create/update an entry in the `ExchangeRates` table for the statement date. |
 
+If the parser cannot find an existing account matching the portfolio number (for securities) or the `Valor` number (for cash rows), a new account is created automatically using the ZKB institution and the appropriate account type (`CUSTODY` for securities, `CASH` for cash accounts).
+

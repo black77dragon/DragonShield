@@ -123,7 +123,28 @@ class ImportManager {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
                 var reports: [PositionReport] = []
                 for row in rows {
-                    guard let accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber) else {
+                    var accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
+                    if accountId == nil {
+                        let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                        let typeCode = row.isCash ? "CASH" : "CUSTODY"
+                        let accountTypeId = self.dbManager.findAccountTypeId(code: typeCode) ?? 1
+                        let name = row.isCash ? row.accountName : "ZKB Custody \(row.accountNumber)"
+                        let created = self.dbManager.addAccount(accountName: name,
+                                                                institutionId: institutionId,
+                                                                accountNumber: row.accountNumber,
+                                                                accountTypeId: accountTypeId,
+                                                                currencyCode: row.currency,
+                                                                openingDate: nil,
+                                                                closingDate: nil,
+                                                                includeInPortfolio: true,
+                                                                isActive: true,
+                                                                notes: nil)
+                        if created {
+                            accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
+                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
+                        }
+                    }
+                    guard let accId = accountId else {
                         LoggingService.shared.log("Account not found for \(row.accountNumber)", type: .error, logger: .database)
                         continue
                     }
@@ -153,7 +174,7 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(accountId: accountId, instrumentId: insId, quantity: row.quantity, reportDate: Date())
+                    let report = PositionReport(accountId: accId, instrumentId: insId, quantity: row.quantity, reportDate: row.reportDate)
                     reports.append(report)
                 }
                 try self.positionRepository.saveReports(reports)

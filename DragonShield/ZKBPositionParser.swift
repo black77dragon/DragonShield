@@ -14,11 +14,14 @@ struct PositionImportSummary: Codable {
 
 struct ParsedPositionRecord {
     let accountNumber: String
+    let accountName: String
     let instrumentName: String
     let tickerSymbol: String?
     let isin: String?
     let currency: String
     let quantity: Double
+    let reportDate: Date
+    let isCash: Bool
 }
 
 struct ZKBPositionParser {
@@ -66,11 +69,14 @@ struct ZKBPositionParser {
                 continue
             }
             let record = ParsedPositionRecord(accountNumber: isCash ? (row["Valor"] ?? "") : accountNumber,
+                                               accountName: descr,
                                                instrumentName: instrumentName,
                                                tickerSymbol: ticker,
                                                isin: isin,
                                                currency: currency,
-                                               quantity: quantity)
+                                               quantity: quantity,
+                                               reportDate: statementDate,
+                                               isCash: isCash)
             records.append(record)
             summary.parsedRows += 1
             if isCash { summary.cashAccounts += 1 } else { summary.securityRecords += 1 }
