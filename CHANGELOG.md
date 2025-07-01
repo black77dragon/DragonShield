@@ -9,3 +9,4 @@ All notable changes to this project will be documented in this file.
 - Added Asset Class maintenance screens with create, update and delete
 - Fix compile errors in Asset Class maintenance view on macOS
 - Modernize Asset Class add/edit windows with standard design and logging
+- Modernize Asset Class list view with search, animations and action bar

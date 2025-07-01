@@ -1,7 +1,9 @@
 import SwiftUI
 
-// MARK: - Version 1.0
-// MARK: - History: Initial creation - asset class management with CRUD operations
+// MARK: - Version 1.1
+// MARK: - History
+// - 1.0: Initial creation - asset class management with CRUD operations
+// - 1.1: Modernized list view with animations, search and action bar
 
 struct AssetClassesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -9,96 +11,406 @@ struct AssetClassesView: View {
     @State private var assetClasses: [DatabaseManager.AssetClassData] = []
     @State private var showAddSheet = false
     @State private var showEditSheet = false
-    // Holds the selected asset class id for Table single selection
-    @State private var selectedClassId: DatabaseManager.AssetClassData.ID? = nil
-    // Currently selected asset class when invoking context actions
     @State private var selectedClass: DatabaseManager.AssetClassData? = nil
-    @State private var showingDeleteAlert = false
     @State private var classToDelete: DatabaseManager.AssetClassData? = nil
+    @State private var showingDeleteAlert = false
     @State private var searchText = ""
 
+    // Animation states
+    @State private var headerOpacity: Double = 0
+    @State private var contentOffset: CGFloat = 30
+    @State private var buttonsOpacity: Double = 0
+
     var filteredClasses: [DatabaseManager.AssetClassData] {
-        if searchText.isEmpty { return assetClasses }
-        return assetClasses.filter { ac in
-            ac.name.localizedCaseInsensitiveContains(searchText) ||
-            ac.code.localizedCaseInsensitiveContains(searchText) ||
-            (ac.description ?? "").localizedCaseInsensitiveContains(searchText)
+        if searchText.isEmpty {
+            return assetClasses.sorted { $0.sortOrder < $1.sortOrder }
+        } else {
+            return assetClasses.filter { ac in
+                ac.name.localizedCaseInsensitiveContains(searchText) ||
+                ac.code.localizedCaseInsensitiveContains(searchText) ||
+                (ac.description ?? "").localizedCaseInsensitiveContains(searchText)
+            }.sorted { $0.sortOrder < $1.sortOrder }
         }
     }
 
     var body: some View {
-        VStack {
-            HStack {
-                TextField("Search", text: $searchText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                Spacer()
-                Button("Add") { showAddSheet = true }
-            }.padding()
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.99, blue: 1.0),
+                    Color(red: 0.95, green: 0.97, blue: 0.99),
+                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            Table(filteredClasses, selection: $selectedClassId) {
-                TableColumn("Code") { Text($0.code) }
-                TableColumn("Name") { Text($0.name) }
-                TableColumn("Description") { Text($0.description ?? "") }
-                TableColumn("Sort") { Text(String($0.sortOrder)) }
-            }
-            .onDeleteCommand {
-                if let selId = selectedClassId,
-                   let ac = assetClasses.first(where: { $0.id == selId }) {
-                    classToDelete = ac
-                    showingDeleteAlert = true
-                }
-            }
-            .contextMenu(forSelectionType: DatabaseManager.AssetClassData.self) { items in
-                if let item = items.first {
-                    Button("Edit") {
-                        selectedClassId = item.id
-                        selectedClass = item
-                        showEditSheet = true
-                    }
-                    Button("Delete") {
-                        classToDelete = item
-                        showingDeleteAlert = true
-                    }
-                }
+            VStack(spacing: 0) {
+                modernHeader
+                searchAndStats
+                classesContent
+                modernActionBar
             }
         }
-        .onAppear(perform: loadData)
-        .onChange(of: selectedClassId) { newId in
-            selectedClass = assetClasses.first(where: { $0.id == newId })
+        .onAppear {
+            loadData()
+            animateEntrance()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshAssetClasses"))) { _ in
             loadData()
         }
-        .sheet(isPresented: $showAddSheet) { AddAssetClassView().environmentObject(dbManager) }
+        .sheet(isPresented: $showAddSheet) {
+            AddAssetClassView().environmentObject(dbManager)
+        }
         .sheet(isPresented: $showEditSheet) {
-            if let ac = selectedClass { EditAssetClassView(classId: ac.id).environmentObject(dbManager) }
+            if let ac = selectedClass {
+                EditAssetClassView(classId: ac.id).environmentObject(dbManager)
+            }
         }
         .alert("Delete Asset Class", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) { deleteSelected() }
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                if let ac = classToDelete { deleteClass(ac) }
+            }
         } message: {
             if let ac = classToDelete {
-                Text("Delete \(ac.name)?")
-            } else { Text("") }
+                Text("Are you sure you want to delete '\(ac.name)'?")
+            }
         }
     }
 
+    // MARK: - Subviews
+    private var modernHeader: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    Image(systemName: "folder.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.blue)
+
+                    Text("Asset Classes")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.black, .gray],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
+
+                Text("Manage your high-level asset categories")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            modernStatCard(
+                title: "Total",
+                value: "\(assetClasses.count)",
+                icon: "number.circle.fill",
+                color: .blue
+            )
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
+        .opacity(headerOpacity)
+    }
+
+    private var searchAndStats: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+
+                TextField("Search asset classes...", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.regularMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+
+            if !searchText.isEmpty {
+                HStack {
+                    Text("Found \(filteredClasses.count) of \(assetClasses.count) classes")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                }
+            }
+        }
+        .padding(.horizontal, 24)
+        .offset(y: contentOffset)
+    }
+
+    private var classesContent: some View {
+        VStack(spacing: 16) {
+            if filteredClasses.isEmpty {
+                emptyStateView
+            } else {
+                classesTable
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+        .offset(y: contentOffset)
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 16) {
+                Image(systemName: searchText.isEmpty ? "folder" : "magnifyingglass")
+                    .font(.system(size: 64))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                VStack(spacing: 8) {
+                    Text(searchText.isEmpty ? "No asset classes yet" : "No matching classes")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.gray)
+
+                    Text(searchText.isEmpty ?
+                         "Create your first asset class to categorize your assets" :
+                         "Try adjusting your search terms")
+                        .font(.body)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+
+                if searchText.isEmpty {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                            Text("Add Your First Class")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                        .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.top, 8)
+                }
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var classesTable: some View {
+        VStack(spacing: 0) {
+            modernTableHeader
+
+            ScrollView {
+                LazyVStack(spacing: 1) {
+                    ForEach(filteredClasses, id: \.id) { ac in
+                        ModernClassRowView(
+                            assetClass: ac,
+                            isSelected: selectedClass?.id == ac.id,
+                            onTap: { selectedClass = ac },
+                            onEdit: {
+                                selectedClass = ac
+                                showEditSheet = true
+                            }
+                        )
+                    }
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.regularMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        }
+    }
+
+    private var modernTableHeader: some View {
+        HStack {
+            Text("Code")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 80, alignment: .leading)
+
+            Text("Name")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Description")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Order")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 60, alignment: .center)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.1))
+        )
+        .padding(.bottom, 1)
+    }
+
+    private var modernActionBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(height: 1)
+
+            HStack(spacing: 16) {
+                Button {
+                    showAddSheet = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                        Text("Add New Class")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .clipShape(Capsule())
+                    .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                if selectedClass != nil {
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "pencil")
+                            Text("Edit")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.purple)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.purple.opacity(0.1))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+
+                    Button {
+                        if let ac = selectedClass {
+                            classToDelete = ac
+                            showingDeleteAlert = true
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Delete")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                }
+
+                Spacer()
+
+                if let ac = selectedClass {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Selected: \(ac.name)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.05))
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(.regularMaterial)
+        }
+        .opacity(buttonsOpacity)
+    }
+
+    // MARK: - Functions
     private func loadData() {
         assetClasses = dbManager.fetchAssetClassesDetailed()
     }
 
-    private func deleteSelected() {
-        guard let ac = classToDelete else { return }
+    private func deleteClass(_ ac: DatabaseManager.AssetClassData) {
         let info = dbManager.canDeleteAssetClass(id: ac.id)
+
         if info.canDelete {
             if dbManager.deleteAssetClass(id: ac.id) {
                 loadData()
+                selectedClass = nil
             }
-        } else {
-            // simple alert with message about dependencies
-            // For brevity we reuse the same alert
-            classToDelete = nil
-            showingDeleteAlert = false
+        }
+    }
+
+    private func animateEntrance() {
+        withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+            headerOpacity = 1.0
+        }
+
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) {
+            contentOffset = 0
+        }
+
+        withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
+            buttonsOpacity = 1.0
         }
     }
 }
@@ -287,7 +599,7 @@ struct AddAssetClassView: View {
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) { sectionsOffset = 0 }
     }
 
-    private func animateExit() {
+private func animateExit() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             formScale = 0.9
             headerOpacity = 0
@@ -296,6 +608,66 @@ struct AddAssetClassView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             presentationMode.wrappedValue.dismiss()
         }
+    }
+}
+
+// MARK: - Modern Class Row
+struct ModernClassRowView: View {
+    let assetClass: DatabaseManager.AssetClassData
+    let isSelected: Bool
+    let onTap: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        HStack {
+            Text(assetClass.code)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 80, alignment: .leading)
+
+            Text(assetClass.name)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(assetClass.description ?? "")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(assetClass.sortOrder)")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: 60, alignment: .center)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                )
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .onTapGesture(count: 2) { onEdit() }
+        .contextMenu {
+            Button("Edit Class") { onEdit() }
+            Button("Select Class") { onTap() }
+            Divider()
+            Button("Copy Code") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(assetClass.code, forType: .string)
+            }
+            Button("Copy Name") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(assetClass.name, forType: .string)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 
