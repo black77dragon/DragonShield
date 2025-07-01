@@ -88,7 +88,14 @@ class ImportManager {
                     if let isin = row.isin {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                         if instrumentId == nil {
-                            _ = self.dbManager.addInstrument(name: row.instrumentName, subClassId: 3, currency: row.currency, tickerSymbol: nil, isin: isin, countryCode: nil, exchangeCode: nil, sector: nil)
+                            _ = self.dbManager.addInstrument(name: row.instrumentName,
+                                                           subClassId: 3,
+                                                           currency: row.currency,
+                                                           tickerSymbol: row.tickerSymbol,
+                                                           isin: isin,
+                                                           countryCode: nil,
+                                                           exchangeCode: nil,
+                                                           sector: nil)
                             instrumentId = self.dbManager.findInstrumentId(isin: isin)
                         }
                     }

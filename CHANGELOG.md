@@ -13,3 +13,4 @@ All notable changes to this project will be documented in this file.
 - Fix missing modernStatCard helper in Asset Classes view
 - Add ZKB position import with progress logging and summary alert
 - Fix quantity extraction for ZKB position import and document Excel column mapping
+- Parse ticker symbol from Valor and build instrument names including institution and currency

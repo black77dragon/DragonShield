@@ -15,6 +15,7 @@ struct PositionImportSummary: Codable {
 struct ParsedPositionRecord {
     let accountNumber: String
     let instrumentName: String
+    let tickerSymbol: String?
     let isin: String?
     let currency: String
     let quantity: Double
@@ -53,17 +54,20 @@ struct ZKBPositionParser {
                 continue
             }
             let currency = row["Whrg."] ?? "CHF"
-            let name = row["Beschreibung"] ?? ""
+            let descr = row["Beschreibung"] ?? ""
             let isin = row["ISIN"]
+            let ticker = row["Valor"]
+            let instrumentName = "ZKB \(descr) \(currency)"
             let record = ParsedPositionRecord(accountNumber: isCash ? (row["Valor"] ?? "") : accountNumber,
-                                               instrumentName: name,
+                                               instrumentName: instrumentName,
+                                               tickerSymbol: ticker,
                                                isin: isin,
                                                currency: currency,
                                                quantity: quantity)
             records.append(record)
             summary.parsedRows += 1
             if isCash { summary.cashAccounts += 1 } else { summary.securityRecords += 1 }
-            let msg = "Parsed row \(idx+1): \(name) qty \(quantity) \(currency)"
+            let msg = "Parsed row \(idx+1): \(instrumentName) qty \(quantity) \(currency)"
             logging.log(msg, type: .debug, logger: log)
             progress?(msg)
         }

@@ -296,7 +296,7 @@ struct ImportStatementView: View {
                     DispatchQueue.main.async {
                         let alert = NSAlert()
                         alert.messageText = "Import Completed"
-                        alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows"
+                        alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows\nCash Accounts: \(summary.cashAccounts)\nSecurities: \(summary.securityRecords)"
                         alert.addButton(withTitle: "OK")
                         alert.runModal()
                     }

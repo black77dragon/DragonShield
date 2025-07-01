@@ -13,14 +13,15 @@ This document outlines the mapping logic for parsing the Zürcher Kantonalbank (
 
 ## 2. Position & Instrument Mapping (for Securities/Funds)
 
-These mappings apply to all rows that are **not** cash accounts (i.e., where `Asset-Unterkategorie` is not "Konten"). The worksheet header appears on **row 7**, so parsing begins with data on row 8.
+These mappings apply to all rows that are **not** cash accounts (i.e., where `Asset-Unterkategorie` is not "Konten").
+All positions originate from the institution **ZKB**, so `Institutions.institution_name` is set to `"ZKB"` for each imported instrument. The worksheet header appears on **row 7**, so parsing begins with data on row 8.
 
 | ZKB XLS Column | Excel Column | Dragon Shield Database Target | Transformation / Logic / Notes |
 | :--- | :--- | :--- | :--- |
 | `Anlagekategorie` & `Asset-Unterkategorie` | `A`, `B` | `Instruments.group_id` | Mapped to an `InstrumentGroups.group_id` via a configuration map (e.g., "Aktien & ähnliche" -> "Equities"). The sub-category helps refine the mapping (e.g., for bond funds vs. bonds). |
-| `Beschreibung` | `E` | `Instruments.instrument_name` | The primary name for the security. May require cleaning to remove extra details like interest rates. |
+| `Beschreibung` | `E` | `Instruments.instrument_name` | Combined with the institution name "ZKB" and `Whrg.` to form the instrument display name (e.g., `ZKB Kontokorrent Wertschriften CHF`). |
 | `ISIN` | `W` | `Instruments.isin` | The primary unique identifier used to look up existing instruments or create new ones. |
-| `Symbol` / `Valor` | `AV` / `F` | `Instruments.ticker_symbol` | The `Symbol` column is used first. If empty, the `Valor` number is used as a fallback for the ticker. |
+| `Valor` | `F` | `Instruments.ticker_symbol` | Used as the ticker symbol for the instrument. |
 | `Whrg.` (2nd instance, next to `Kurs`) | `H` | `Instruments.currency` | The trading currency of the instrument itself (e.g., "CHF", "USD"). |
 | `Branche` | `AN` | `Instruments.sector` | Directly mapped to the instrument's sector. |
 | `Anzahl / Nominal` | `D` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. |
