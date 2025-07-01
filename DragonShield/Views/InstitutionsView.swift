@@ -293,6 +293,57 @@ private extension InstitutionsView {
         .offset(y: contentOffset)
     }
 
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            VStack(spacing: 16) {
+                Image(systemName: searchText.isEmpty && institutions.isEmpty ? "building.2" : "magnifyingglass")
+                    .font(.system(size: 64))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                VStack(spacing: 8) {
+                    Text(searchText.isEmpty && institutions.isEmpty ? "No institutions yet" : "No matching institutions")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.gray)
+
+                    Text(searchText.isEmpty && institutions.isEmpty ? "Add your first institution to get started." : "Try adjusting your search terms.")
+                        .font(.body)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+
+                if searchText.isEmpty && institutions.isEmpty {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                            Text("Add First Institution")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                        .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.top, 8)
+                }
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var institutionsTable: some View {
         VStack(spacing: 0) {
             modernTableHeader
