@@ -9,6 +9,9 @@ struct AssetClassesView: View {
     @State private var assetClasses: [DatabaseManager.AssetClassData] = []
     @State private var showAddSheet = false
     @State private var showEditSheet = false
+    // Holds the selected asset class id for Table single selection
+    @State private var selectedClassId: DatabaseManager.AssetClassData.ID? = nil
+    // Currently selected asset class when invoking context actions
     @State private var selectedClass: DatabaseManager.AssetClassData? = nil
     @State private var showingDeleteAlert = false
     @State private var classToDelete: DatabaseManager.AssetClassData? = nil
@@ -32,21 +35,37 @@ struct AssetClassesView: View {
                 Button("Add") { showAddSheet = true }
             }.padding()
 
-            Table(filteredClasses, selection: $selectedClass) {
+            Table(filteredClasses, selection: $selectedClassId) {
                 TableColumn("Code") { Text($0.code) }
                 TableColumn("Name") { Text($0.name) }
                 TableColumn("Description") { Text($0.description ?? "") }
                 TableColumn("Sort") { Text(String($0.sortOrder)) }
             }
             .onDeleteCommand {
-                if let sel = selectedClass { classToDelete = sel; showingDeleteAlert = true }
+                if let selId = selectedClassId,
+                   let ac = assetClasses.first(where: { $0.id == selId }) {
+                    classToDelete = ac
+                    showingDeleteAlert = true
+                }
             }
             .contextMenu(forSelectionType: DatabaseManager.AssetClassData.self) { items in
-                Button("Edit") { selectedClass = items.first; showEditSheet = true }
-                Button("Delete") { classToDelete = items.first; showingDeleteAlert = true }
+                if let item = items.first {
+                    Button("Edit") {
+                        selectedClassId = item.id
+                        selectedClass = item
+                        showEditSheet = true
+                    }
+                    Button("Delete") {
+                        classToDelete = item
+                        showingDeleteAlert = true
+                    }
+                }
             }
         }
         .onAppear(perform: loadData)
+        .onChange(of: selectedClassId) { newId in
+            selectedClass = assetClasses.first(where: { $0.id == newId })
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshAssetClasses"))) { _ in
             loadData()
         }

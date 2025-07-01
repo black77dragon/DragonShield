@@ -8,7 +8,7 @@ import Foundation
 
 extension DatabaseManager {
 
-    struct AssetClassData: Identifiable, Equatable {
+    struct AssetClassData: Identifiable, Hashable {
         let id: Int
         var code: String
         var name: String

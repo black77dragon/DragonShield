@@ -7,3 +7,4 @@ All notable changes to this project will be documented in this file.
 - Restyled Institutions maintenance window for consistent look and feel
 - Fix compile error in Institutions view due to missing empty state component
 - Added Asset Class maintenance screens with create, update and delete
+- Fix compile errors in Asset Class maintenance view on macOS
