@@ -24,11 +24,13 @@ All positions originate from the institution **ZKB**, so `Institutions.instituti
 | `Valor` | `F` | `Instruments.ticker_symbol` | Used as the ticker symbol for the instrument. |
 | `Whrg.` (2nd instance, next to `Kurs`) | `H` | `Instruments.currency` | The trading currency of the instrument itself (e.g., "CHF", "USD"). |
 | `Branche` | `AN` | `Instruments.sector` | Directly mapped to the instrument's sector. |
-| `Anzahl / Nominal` | `D` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. |
+| `Anzahl / Nominal` | `D` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. If the row describes **ZKB Call Account USD** and this cell is blank, the parser records a value of `0`. |
 | `Einstandskurs` | `K` | `Transactions.price` | **Cost Basis.** Used as the price for the initial transaction. For bonds priced in percent (e.g., "99.50%"), the value is converted to a decimal (0.995). |
 | `Währung(Einstandskurs)` | `J` | `Transactions.transaction_currency` | The currency in which the `Einstandskurs` is denominated. |
 | `Fälligkeit` | `G` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
 | `Kurs`, `Wert in CHF` | `I`, `N` | *(Informational)* | The current market price and value. Not used for the initial cost-basis transaction but are key for P&L calculations and "exits" reconciliation. |
+
+If the parser does not find a matching instrument by `ISIN`, the import workflow presents a dialog showing the parsed fields (name, ticker, ISIN and currency). The user can adjust these values before the instrument is created and the position is stored.
 
 ---
 

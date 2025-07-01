@@ -32,6 +32,49 @@ class ImportManager {
         PositionReportRepository(dbManager: dbManager)
     }()
 
+    private func promptForInstrument(record: ParsedPositionRecord) -> (name: String, ticker: String?, isin: String?, currency: String)? {
+        var nameField = NSTextField(string: record.instrumentName)
+        var tickerField = NSTextField(string: record.tickerSymbol ?? "")
+        var isinField = NSTextField(string: record.isin ?? "")
+        var currencyField = NSTextField(string: record.currency)
+
+        func row(label: String, field: NSTextField) -> NSStackView {
+            field.frame = NSRect(x: 0, y: 0, width: 200, height: 22)
+            let labelView = NSTextField(labelWithString: label)
+            labelView.alignment = .right
+            labelView.frame = NSRect(x: 0, y: 0, width: 80, height: 22)
+            let stack = NSStackView(views: [labelView, field])
+            stack.orientation = .horizontal
+            stack.spacing = 8
+            return stack
+        }
+
+        let content = NSStackView()
+        content.orientation = .vertical
+        content.spacing = 8
+        content.addArrangedSubview(row(label: "Name", field: nameField))
+        content.addArrangedSubview(row(label: "Ticker", field: tickerField))
+        content.addArrangedSubview(row(label: "ISIN", field: isinField))
+        content.addArrangedSubview(row(label: "Currency", field: currencyField))
+
+        let alert = NSAlert()
+        alert.messageText = "New Instrument"
+        alert.informativeText = "Provide details for the new instrument"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.accessoryView = content
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return nil }
+        let ticker = tickerField.stringValue.trimmingCharacters(in: .whitespaces)
+        let isin = isinField.stringValue.trimmingCharacters(in: .whitespaces)
+        let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
+        let currency = currencyField.stringValue.trimmingCharacters(in: .whitespaces)
+        return (name: name,
+                ticker: ticker.isEmpty ? nil : ticker,
+                isin: isin.isEmpty ? nil : isin,
+                currency: currency.isEmpty ? record.currency : currency)
+    }
+
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
@@ -87,16 +130,23 @@ class ImportManager {
                     var instrumentId: Int?
                     if let isin = row.isin {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
-                        if instrumentId == nil {
-                            _ = self.dbManager.addInstrument(name: row.instrumentName,
+                    }
+                    if instrumentId == nil {
+                        var details: (name: String, ticker: String?, isin: String?, currency: String)?
+                        DispatchQueue.main.sync {
+                            details = self.promptForInstrument(record: row)
+                        }
+                        guard let info = details else { continue }
+                        _ = self.dbManager.addInstrument(name: info.name,
                                                            subClassId: 3,
-                                                           currency: row.currency,
-                                                           tickerSymbol: row.tickerSymbol,
-                                                           isin: isin,
+                                                           currency: info.currency,
+                                                           tickerSymbol: info.ticker,
+                                                           isin: info.isin,
                                                            countryCode: nil,
                                                            exchangeCode: nil,
                                                            sector: nil)
-                            instrumentId = self.dbManager.findInstrumentId(isin: isin)
+                        if let searchIsin = info.isin ?? row.isin {
+                            instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
                         }
                     }
                     guard let insId = instrumentId else {

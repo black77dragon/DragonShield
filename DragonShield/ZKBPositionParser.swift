@@ -48,16 +48,23 @@ struct ZKBPositionParser {
 
         for (idx, row) in rows.enumerated() {
             let isCash = row["Asset-Unterkategorie"] == "Konten"
-            guard let qtyStr = row["Anzahl / Nominal"], let quantity = ZKBXLSXProcessor.parseNumber(qtyStr) else {
-                logging.log("Row \(idx+1) skipped - missing quantity", type: .debug, logger: log)
-                progress?("Row \(idx+1) skipped")
-                continue
-            }
             let currency = row["Whrg."] ?? "CHF"
             let descr = row["Beschreibung"] ?? ""
             let isin = row["ISIN"]
             let ticker = row["Valor"]
             let instrumentName = "ZKB \(descr) \(currency)"
+            let qtyStr = row["Anzahl / Nominal"]
+            var quantity: Double
+            if let str = qtyStr, let q = ZKBXLSXProcessor.parseNumber(str) {
+                quantity = q
+            } else if instrumentName == "ZKB Call Account USD" {
+                quantity = 0
+                logging.log("Row \(idx+1) missing quantity - defaulting to 0 for Call Account USD", type: .debug, logger: log)
+            } else {
+                logging.log("Row \(idx+1) skipped - missing quantity", type: .debug, logger: log)
+                progress?("Row \(idx+1) skipped")
+                continue
+            }
             let record = ParsedPositionRecord(accountNumber: isCash ? (row["Valor"] ?? "") : accountNumber,
                                                instrumentName: instrumentName,
                                                tickerSymbol: ticker,
