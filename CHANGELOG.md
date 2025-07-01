@@ -10,3 +10,4 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in Asset Class maintenance view on macOS
 - Modernize Asset Class add/edit windows with standard design and logging
 - Modernize Asset Class list view with search, animations and action bar
+- Fix missing modernStatCard helper in Asset Classes view

@@ -413,6 +413,34 @@ struct AssetClassesView: View {
             buttonsOpacity = 1.0
         }
     }
+
+    private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundColor(color)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.primary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(color.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
+    }
 }
 
 struct AddAssetClassView: View {
