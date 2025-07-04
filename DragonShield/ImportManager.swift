@@ -143,8 +143,7 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
-                let detailsSemaphore = DispatchSemaphore(value: 0)
-                DispatchQueue.main.async {
+                DispatchQueue.main.sync {
                     let alert = NSAlert()
                     alert.messageText = "Import Details"
                     if let first = rows.first {
@@ -155,19 +154,27 @@ class ImportManager {
                     }
                     alert.addButton(withTitle: "OK")
                     alert.runModal()
-                    detailsSemaphore.signal()
                 }
-                detailsSemaphore.wait()
+
+                let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
+                let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
+                let hash = url.sha256() ?? ""
+                let custAccount = rows.first(where: { !$0.isCash })?.accountNumber ?? rows.first?.accountNumber
+                let accId = custAccount.flatMap { self.dbManager.findAccountId(accountNumber: $0) }
+                let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
+                                                                  fileName: url.lastPathComponent,
+                                                                  filePath: url.path,
+                                                                  fileType: "XLSX",
+                                                                  fileSize: fileSize,
+                                                                  fileHash: hash,
+                                                                  accountId: accId)
 
                 var reports: [PositionReport] = []
                 for parsed in rows {
                     var action: RecordPromptResult = .save(parsed)
-                    let sem = DispatchSemaphore(value: 0)
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.sync {
                         action = self.promptForPosition(record: parsed)
-                        sem.signal()
                     }
-                    sem.wait()
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
                         continue
@@ -203,12 +210,9 @@ class ImportManager {
                     }
                     if instrumentId == nil {
                     var instAction: InstrumentPromptResult = .ignore
-                    let instSem = DispatchSemaphore(value: 0)
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.sync {
                         instAction = self.promptForInstrument(record: row)
-                        instSem.signal()
                     }
-                    instSem.wait()
                         switch instAction {
                         case let .save(name, subClassId, currency, ticker, isin, sector):
                             _ = self.dbManager.addInstrument(name: name,
@@ -232,11 +236,22 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(accountId: accId, instrumentId: insId, quantity: row.quantity, reportDate: row.reportDate)
+                    let report = PositionReport(importSessionId: sessionId ?? 0,
+                                                accountId: accId,
+                                                instrumentId: insId,
+                                                quantity: row.quantity,
+                                                reportDate: row.reportDate)
                     reports.append(report)
                 }
                 try self.positionRepository.saveReports(reports)
                 LoggingService.shared.log("Saved position reports", type: .info, logger: .database)
+                if let sid = sessionId {
+                    self.dbManager.completeImportSession(id: sid,
+                                                       totalRows: summary.totalRows,
+                                                       successRows: summary.parsedRows,
+                                                       failedRows: summary.totalRows - summary.parsedRows,
+                                                       notes: nil)
+                }
                 DispatchQueue.main.async {
                     completion(.success(summary))
                 }
