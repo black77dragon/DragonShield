@@ -24,3 +24,4 @@ All notable changes to this project will be documented in this file.
 - Prompt to delete existing ZKB positions before importing and show count
 - Parse value date from ZKB sheets, show import details summary and improve instrument popups
 - Correct custody account number detection from cell B6 and extend new instrument prompt with dropdowns
+- Fix compile error in instrument prompt view when selecting subclass or currency

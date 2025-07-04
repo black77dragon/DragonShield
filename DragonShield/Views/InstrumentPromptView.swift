@@ -119,11 +119,11 @@ struct InstrumentPromptView: View {
                 Spacer()
             }
             Picker(title, selection: selection) {
-                ForEach(options, id: \.(0)) { value, label in
+                ForEach(options, id: \.0) { value, label in
                     Text(label).tag(value)
                 }
             }
-            .pickerStyle(.popUp)
+            .pickerStyle(MenuPickerStyle())
         }
     }
 
