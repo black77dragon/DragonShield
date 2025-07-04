@@ -13,13 +13,13 @@ struct PositionImportSummary: Codable {
 }
 
 struct ParsedPositionRecord {
-    let accountNumber: String
-    let accountName: String
-    let instrumentName: String
-    let tickerSymbol: String?
-    let isin: String?
-    let currency: String
-    let quantity: Double
+    var accountNumber: String
+    var accountName: String
+    var instrumentName: String
+    var tickerSymbol: String?
+    var isin: String?
+    var currency: String
+    var quantity: Double
     let reportDate: Date
     let isCash: Bool
 }

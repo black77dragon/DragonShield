@@ -17,6 +17,7 @@
 // - 2.0.2.6 -> 2.0.3.0: Route log messages through OSLog categories.
 import Foundation
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Manages document imports using the native XLSX processing pipeline.

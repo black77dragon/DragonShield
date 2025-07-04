@@ -94,7 +94,7 @@ struct PositionReviewView: View {
     }
 }
 
-private extension Binding where Value == String? {
+private extension Binding where Value == String {
     init(_ source: Binding<String?>, replacingNilWith nilReplacement: String) {
         self.init(get: { source.wrappedValue ?? nilReplacement },
                   set: { source.wrappedValue = $0.isEmpty ? nil : $0 })
