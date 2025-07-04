@@ -97,6 +97,23 @@ class ImportManager {
         return result
     }
 
+    private func showImportSummary(fileName: String, account: String?, valueDate: Date?, validRows: Int) {
+        let view = ImportSummaryView(fileName: fileName,
+                                     accountNumber: account,
+                                     valueDate: valueDate,
+                                     validRows: validRows) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 350),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Import Details"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+    }
+
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
@@ -144,16 +161,11 @@ class ImportManager {
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
                 DispatchQueue.main.sync {
-                    let alert = NSAlert()
-                    alert.messageText = "Import Details"
-                    if let first = rows.first {
-                        let dateStr = DateFormatter.swissDate.string(from: first.reportDate)
-                        alert.informativeText = "File: \(url.lastPathComponent)\nCustody Account: \(first.accountNumber)\nValue Date: \(dateStr)\nValid Rows: \(summary.parsedRows)"
-                    } else {
-                        alert.informativeText = "File: \(url.lastPathComponent)\nValid Rows: \(summary.parsedRows)"
-                    }
-                    alert.addButton(withTitle: "OK")
-                    alert.runModal()
+                    let first = rows.first
+                    self.showImportSummary(fileName: url.lastPathComponent,
+                                           account: first?.accountNumber,
+                                           valueDate: first?.reportDate,
+                                           validRows: summary.parsedRows)
                 }
 
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]

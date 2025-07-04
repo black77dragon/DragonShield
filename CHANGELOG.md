@@ -28,3 +28,4 @@ All notable changes to this project will be documented in this file.
 - Record ZKB import sessions and link position reports
 - Eliminate QoS warnings by presenting modals synchronously
 - Condense instrument popups and rename review dialog title
+- Show import summary in modern styled popup
