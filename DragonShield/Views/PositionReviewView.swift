@@ -12,9 +12,9 @@ struct PositionReviewView: View {
                            startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 12) {
                 HStack {
-                    Text("Review Position")
+                    Text("📝 Instrument")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
@@ -63,6 +63,7 @@ struct PositionReviewView: View {
                         completion(.save(record))
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.orange)
                 }
                 .padding([.horizontal, .bottom], 24)
             }

@@ -16,9 +16,9 @@ struct InstrumentPromptView: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 12) {
                 HStack {
-                    Text("Add Instrument")
+                    Text("🎸 New Instrument")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
@@ -45,7 +45,7 @@ struct InstrumentPromptView: View {
                         modernTextField(title: "ISIN", text: $isin, placeholder: "ISIN", icon: "barcode", isRequired: false)
                         modernTextField(title: "Currency", text: $currency, placeholder: "Currency", icon: "dollarsign.circle", isRequired: true)
                     }
-                    .modifier(ModernFormSection(color: .blue))
+                    .modifier(ModernFormSection(color: .purple))
                 }
                 .formStyle(.grouped)
                 .padding(.horizontal, 24)
@@ -67,6 +67,7 @@ struct InstrumentPromptView: View {
                                          currency: currency))
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.purple)
                 }
                 .padding([.horizontal, .bottom], 24)
             }

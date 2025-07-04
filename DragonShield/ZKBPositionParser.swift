@@ -36,7 +36,12 @@ struct ZKBPositionParser {
         let dateMsg = "Statement date: \(ISO8601DateFormatter().string(from: statementDate))"
         logging.log(dateMsg, type: .info, logger: log)
         progress?(dateMsg)
-        let portfolioCell = try? parser.cellValue(from: url, cell: "A6")
+        let valueDateStr = (try? parser.cellValue(from: url, cell: "B3")) ?? ""
+        let valueDate = DateFormatter.swissDate.date(from: valueDateStr) ?? statementDate
+        let valMsg = "Value date: \(DateFormatter.swissDate.string(from: valueDate))"
+        logging.log(valMsg, type: .info, logger: log)
+        progress?(valMsg)
+        let portfolioCell = try? parser.cellValue(from: url, cell: "B6")
         let accountNumber = ZKBXLSXProcessor.portfolioNumber(from: portfolioCell) ?? ""
         logging.log("Portfolio number: \(accountNumber)", type: .info, logger: log)
         progress?("Portfolio \(accountNumber)")
@@ -75,7 +80,7 @@ struct ZKBPositionParser {
                                                isin: isin,
                                                currency: currency,
                                                quantity: quantity,
-                                               reportDate: statementDate,
+                                               reportDate: valueDate,
                                                isCash: isCash)
             records.append(record)
             summary.parsedRows += 1

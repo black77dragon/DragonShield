@@ -143,12 +143,31 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
+                let detailsSemaphore = DispatchSemaphore(value: 0)
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Details"
+                    if let first = rows.first {
+                        let dateStr = DateFormatter.swissDate.string(from: first.reportDate)
+                        alert.informativeText = "File: \(url.lastPathComponent)\nCustody Account: \(first.accountNumber)\nValue Date: \(dateStr)\nValid Rows: \(summary.parsedRows)"
+                    } else {
+                        alert.informativeText = "File: \(url.lastPathComponent)\nValid Rows: \(summary.parsedRows)"
+                    }
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                    detailsSemaphore.signal()
+                }
+                detailsSemaphore.wait()
+
                 var reports: [PositionReport] = []
                 for parsed in rows {
                     var action: RecordPromptResult = .save(parsed)
-                    DispatchQueue.main.sync {
+                    let sem = DispatchSemaphore(value: 0)
+                    DispatchQueue.main.async {
                         action = self.promptForPosition(record: parsed)
+                        sem.signal()
                     }
+                    sem.wait()
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
                         continue
@@ -183,10 +202,13 @@ class ImportManager {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
                     if instrumentId == nil {
-                        var instAction: InstrumentPromptResult = .ignore
-                        DispatchQueue.main.sync {
-                            instAction = self.promptForInstrument(record: row)
-                        }
+                    var instAction: InstrumentPromptResult = .ignore
+                    let instSem = DispatchSemaphore(value: 0)
+                    DispatchQueue.main.async {
+                        instAction = self.promptForInstrument(record: row)
+                        instSem.signal()
+                    }
+                    instSem.wait()
                         switch instAction {
                         case let .save(name, ticker, isin, currency):
                             _ = self.dbManager.addInstrument(name: name,

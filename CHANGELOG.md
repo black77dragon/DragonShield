@@ -22,3 +22,4 @@ All notable changes to this project will be documented in this file.
 - Restyle import popups using instrument maintenance window design
 - Fix compile errors in position review and import views
 - Prompt to delete existing ZKB positions before importing and show count
+- Parse value date from ZKB sheets, show import details summary and improve instrument popups
