@@ -63,4 +63,32 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return reports
     }
+
+    /// Deletes position reports where the associated account name contains the provided text.
+    /// - Parameter substring: The case-insensitive text to match within account names.
+    /// - Returns: The number of deleted rows.
+    func deletePositionReports(accountNameContains substring: String) -> Int {
+        let sql = """
+            DELETE FROM PositionReports
+            WHERE account_id IN (
+                SELECT account_id FROM Accounts
+                WHERE account_name LIKE '%' || ? || '%' COLLATE NOCASE
+            );
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        sqlite3_bind_text(stmt, 1, substring, -1, nil)
+        let stepResult = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        sqlite3_finalize(stmt)
+        if stepResult == SQLITE_DONE {
+            print("✅ Deleted \(deleted) position reports matching \(substring)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
 }

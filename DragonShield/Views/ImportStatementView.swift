@@ -286,6 +286,20 @@ struct ImportStatementView: View {
     private func processSelectedFile(url: URL) {
         logMessages.removeAll()
         if importMode == .zkb {
+            let confirm = NSAlert()
+            confirm.messageText = "Delete ZKB Positions?"
+            confirm.informativeText = "Do you want to delete all Positions in the ZKB Custody Account and all ZKB Cash Accounts"
+            confirm.addButton(withTitle: "OK")
+            confirm.addButton(withTitle: "Cancel")
+            let response = confirm.runModal()
+            if response == .alertFirstButtonReturn {
+                let deleted = ImportManager.shared.deleteZKBPositions()
+                let info = NSAlert()
+                info.messageText = "Positions Deleted"
+                info.informativeText = "Number of deleted positions: \(deleted)"
+                info.addButton(withTitle: "OK")
+                info.runModal()
+            }
             ImportManager.shared.importPositions(at: url, progress: { message in
                 DispatchQueue.main.async { logMessages.append(message) }
             }) { result in

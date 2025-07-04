@@ -21,3 +21,4 @@ All notable changes to this project will be documented in this file.
 - Provide instrument add dialog with Save/Ignore/Abort when new ISINs are encountered
 - Restyle import popups using instrument maintenance window design
 - Fix compile errors in position review and import views
+- Prompt to delete existing ZKB positions before importing and show count

@@ -228,6 +228,12 @@ class ImportManager {
         }
     }
 
+    /// Deletes all position reports where the account name contains "ZKB".
+    /// - Returns: The number of deleted records.
+    func deleteZKBPositions() -> Int {
+        dbManager.deletePositionReports(accountNameContains: "ZKB")
+    }
+
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {
         let panel = NSOpenPanel()
