@@ -20,7 +20,7 @@ struct InstrumentPromptView: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
 
-            VStack(spacing: 12) {
+            VStack(spacing: 6) {
                 HStack {
                     Text("🎸 New Instrument")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
@@ -51,10 +51,10 @@ struct InstrumentPromptView: View {
                         modernTextField(title: "ISIN", text: $isin, placeholder: "ISIN", icon: "barcode", isRequired: false)
                         modernTextField(title: "Sector", text: $sector, placeholder: "Sector", icon: "briefcase", isRequired: false)
                     }
-                    .modifier(ModernFormSection(color: .pink))
+                    .modifier(CompactFormSection(color: .pink))
                 }
                 .formStyle(.grouped)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
 
                 HStack {
                     Button("Ignore") {
@@ -91,7 +91,7 @@ struct InstrumentPromptView: View {
         icon: String,
         isRequired: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14))
@@ -108,7 +108,7 @@ struct InstrumentPromptView: View {
     }
 
     private func pickerField<T: Hashable>(title: String, selection: Binding<T>, options: [(T, String)], icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14))

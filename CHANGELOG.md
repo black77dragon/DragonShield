@@ -27,3 +27,4 @@ All notable changes to this project will be documented in this file.
 - Fix compile error in instrument prompt view when selecting subclass or currency
 - Record ZKB import sessions and link position reports
 - Eliminate QoS warnings by presenting modals synchronously
+- Condense instrument popups and rename review dialog title
