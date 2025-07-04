@@ -65,18 +65,20 @@ struct ImportSummaryView: View {
     }
 
     private func infoRow(title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(.gray)
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 Spacer()
             }
             Text(value)
-                .font(.system(size: 16))
+                .font(.system(size: 15))
         }
+        .padding(.vertical, 1)
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
 }

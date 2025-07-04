@@ -29,3 +29,5 @@ All notable changes to this project will be documented in this file.
 - Eliminate QoS warnings by presenting modals synchronously
 - Condense instrument popups and rename review dialog title
 - Show import summary in modern styled popup
+- Condense import details popup row spacing
+- Default custody positions to "ZKB Custody Account" name

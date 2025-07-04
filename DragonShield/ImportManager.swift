@@ -196,7 +196,7 @@ class ImportManager {
                         let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                         let typeCode = row.isCash ? "CASH" : "CUSTODY"
                         let accountTypeId = self.dbManager.findAccountTypeId(code: typeCode) ?? 1
-                        let name = row.isCash ? row.accountName : "ZKB Custody \(row.accountNumber)"
+                        let name = row.isCash ? row.accountName : "ZKB Custody Account"
                         let created = self.dbManager.addAccount(accountName: name,
                                                                 institutionId: institutionId,
                                                                 accountNumber: row.accountNumber,

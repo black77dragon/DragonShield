@@ -74,7 +74,7 @@ struct ZKBPositionParser {
                 continue
             }
             let record = ParsedPositionRecord(accountNumber: isCash ? (row["Valor"] ?? "") : accountNumber,
-                                               accountName: descr,
+                                               accountName: isCash ? descr : "ZKB Custody Account",
                                                instrumentName: instrumentName,
                                                tickerSymbol: ticker,
                                                isin: isin,
