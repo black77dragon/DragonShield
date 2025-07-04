@@ -17,3 +17,4 @@ All notable changes to this project will be documented in this file.
 - Default quantity to zero for "ZKB Call Account USD" when cell is blank
 - Prompt for instrument details when new securities are imported
 - Automatically create ZKB custody and cash accounts when missing and save position reports
+- Review each parsed position with editable popup before saving and fix layout constraints

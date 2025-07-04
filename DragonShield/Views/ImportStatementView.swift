@@ -301,7 +301,11 @@ struct ImportStatementView: View {
                         alert.runModal()
                     }
                 case .failure(let error):
-                    errorMessage = error.localizedDescription
+                    if let impErr = error as? ImportManager.ImportError, impErr == .aborted {
+                        errorMessage = "Import aborted by user"
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
                 }
             }
         } else {
