@@ -52,7 +52,8 @@ struct ZKBXLSXProcessor {
             progress?(msg)
         }
 
-        let rawRows = try parser.parseWorkbook(at: url, headerRow: 8)
+        // Worksheet header is on row 7
+        let rawRows = try parser.parseWorkbook(at: url, headerRow: 7)
         let rowsMsg = "Worksheet rows found: \(rawRows.count)"
         logging.log(rowsMsg, type: .info, logger: log)
         progress?(rowsMsg)
@@ -98,7 +99,7 @@ struct ZKBXLSXProcessor {
         return records
     }
 
-    private static func portfolioNumber(from cell: String?) -> String? {
+    static func portfolioNumber(from cell: String?) -> String? {
         guard let cell = cell else { return nil }
         let pattern = "Portfolio-Nr.\\s*(.+)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: []),
@@ -108,7 +109,7 @@ struct ZKBXLSXProcessor {
         return nil
     }
 
-    private static func parseNumber(_ string: String) -> Double? {
+    static func parseNumber(_ string: String) -> Double? {
         var cleaned = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return nil }
         cleaned = cleaned
@@ -124,7 +125,7 @@ struct ZKBXLSXProcessor {
         return Double(cleaned)
     }
 
-    private static func statementDate(from filename: String) -> Date? {
+    static func statementDate(from filename: String) -> Date? {
         // Match strings like "Mar 26 2025" in filenames
         let pattern = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ .-]+(\\d{1,2})[ .-]+(\\d{4})"
         if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),

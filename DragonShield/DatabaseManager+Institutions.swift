@@ -136,5 +136,21 @@ extension DatabaseManager {
         if count > 0 { return (false, count, "Institution used by \(count) account(s).") }
         return (true, 0, "Institution can be deleted.")
     }
+
+    /// Returns the institution_id for a given institution name if it exists.
+    func findInstitutionId(name: String) -> Int? {
+        let query = "SELECT institution_id FROM Institutions WHERE institution_name = ? COLLATE NOCASE LIMIT 1;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstitutionId: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, name, -1, nil)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            return Int(sqlite3_column_int(stmt, 0))
+        }
+        return nil
+    }
 }
 

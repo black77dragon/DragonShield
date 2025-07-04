@@ -182,4 +182,20 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return accountType
     }
+
+    /// Returns the account_type_id for the given type_code if present.
+    func findAccountTypeId(code: String) -> Int? {
+        let query = "SELECT account_type_id FROM AccountTypes WHERE type_code = ? COLLATE NOCASE LIMIT 1;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findAccountTypeId: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, code, -1, nil)
+        if sqlite3_step(statement) == SQLITE_ROW {
+            return Int(sqlite3_column_int(statement, 0))
+        }
+        return nil
+    }
 }
