@@ -48,107 +48,52 @@ class ImportManager {
         case aborted
     }
 
-    private func makeRow(label: String, field: NSTextField) -> NSStackView {
-        field.translatesAutoresizingMaskIntoConstraints = false
-        let labelView = NSTextField(labelWithString: label)
-        labelView.alignment = .right
-        labelView.translatesAutoresizingMaskIntoConstraints = false
-        labelView.widthAnchor.constraint(equalToConstant: 100).isActive = true
-        let stack = NSStackView(views: [labelView, field])
-        stack.orientation = .horizontal
-        stack.spacing = 8
-        return stack
-    }
 
     private func promptForInstrument(record: ParsedPositionRecord) -> InstrumentPromptResult {
-        let nameField = NSTextField(string: record.instrumentName)
-        let tickerField = NSTextField(string: record.tickerSymbol ?? "")
-        let isinField = NSTextField(string: record.isin ?? "")
-        let currencyField = NSTextField(string: record.currency)
-
-        let content = NSStackView()
-        content.orientation = .vertical
-        content.spacing = 8
-        content.translatesAutoresizingMaskIntoConstraints = false
-        content.addArrangedSubview(makeRow(label: "Name", field: nameField))
-        content.addArrangedSubview(makeRow(label: "Ticker", field: tickerField))
-        content.addArrangedSubview(makeRow(label: "ISIN", field: isinField))
-        content.addArrangedSubview(makeRow(label: "Currency", field: currencyField))
-        content.widthAnchor.constraint(equalToConstant: 320).isActive = true
-
-        let alert = NSAlert()
-        alert.messageText = "Add Instrument"
-        alert.informativeText = "Provide details for the new instrument"
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Ignore")
-        alert.addButton(withTitle: "Abort")
-        alert.accessoryView = content
-        let response = alert.runModal()
-        switch response {
-        case .alertFirstButtonReturn:
-            let ticker = tickerField.stringValue.trimmingCharacters(in: .whitespaces)
-            let isin = isinField.stringValue.trimmingCharacters(in: .whitespaces)
-            let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
-            let currency = currencyField.stringValue.trimmingCharacters(in: .whitespaces)
-            return .save(name: name,
-                         ticker: ticker.isEmpty ? nil : ticker,
-                         isin: isin.isEmpty ? nil : isin,
-                         currency: currency.isEmpty ? record.currency : currency)
-        case .alertSecondButtonReturn:
-            return .ignore
-        default:
-            return .abort
+        var result: InstrumentPromptResult = .ignore
+        let view = InstrumentPromptView(
+            name: record.instrumentName,
+            ticker: record.tickerSymbol ?? "",
+            isin: record.isin ?? "",
+            currency: record.currency
+        ) { action in
+            result = action
+            NSApp.stopModal()
         }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered, defer: false)
+        window.title = "Add Instrument"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        return result
     }
 
     private func promptForPosition(record: ParsedPositionRecord) -> RecordPromptResult {
-        let accNumberField = NSTextField(string: record.accountNumber)
-        let accNameField = NSTextField(string: record.accountName)
-        let nameField = NSTextField(string: record.instrumentName)
-        let tickerField = NSTextField(string: record.tickerSymbol ?? "")
-        let isinField = NSTextField(string: record.isin ?? "")
-        let currencyField = NSTextField(string: record.currency)
-        let qtyField = NSTextField(string: String(record.quantity))
-
-        let content = NSStackView()
-        content.orientation = .vertical
-        content.spacing = 8
-        content.translatesAutoresizingMaskIntoConstraints = false
-        content.addArrangedSubview(makeRow(label: "Account No", field: accNumberField))
-        content.addArrangedSubview(makeRow(label: "Account Name", field: accNameField))
-        content.addArrangedSubview(makeRow(label: "Instrument", field: nameField))
-        content.addArrangedSubview(makeRow(label: "Ticker", field: tickerField))
-        content.addArrangedSubview(makeRow(label: "ISIN", field: isinField))
-        content.addArrangedSubview(makeRow(label: "Currency", field: currencyField))
-        content.addArrangedSubview(makeRow(label: "Quantity", field: qtyField))
-        content.widthAnchor.constraint(equalToConstant: 360).isActive = true
-
-        let alert = NSAlert()
-        alert.messageText = "Review Position"
-        alert.informativeText = "Edit details or choose an action"
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Ignore")
-        alert.addButton(withTitle: "Abort")
-        alert.accessoryView = content
-        let response = alert.runModal()
-        switch response {
-        case .alertFirstButtonReturn:
-            let qty = Double(qtyField.stringValue) ?? record.quantity
-            let newRecord = ParsedPositionRecord(accountNumber: accNumberField.stringValue,
-                                                 accountName: accNameField.stringValue,
-                                                 instrumentName: nameField.stringValue,
-                                                 tickerSymbol: tickerField.stringValue.isEmpty ? nil : tickerField.stringValue,
-                                                 isin: isinField.stringValue.isEmpty ? nil : isinField.stringValue,
-                                                 currency: currencyField.stringValue,
-                                                 quantity: qty,
-                                                 reportDate: record.reportDate,
-                                                 isCash: record.isCash)
-            return .save(newRecord)
-        case .alertSecondButtonReturn:
-            return .ignore
-        default:
-            return .abort
+        var mutable = record
+        var result: RecordPromptResult = .ignore
+        let view = PositionReviewView(record: mutable) { action in
+            result = action
+            NSApp.stopModal()
         }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered, defer: false)
+        window.title = "Review Position"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        // capture updated record if Save was chosen
+        if case .save(let updated) = result {
+            mutable = updated
+            result = .save(mutable)
+        }
+        return result
     }
 
     /// Parses a XLSX document and saves the records to the database.

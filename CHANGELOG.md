@@ -19,3 +19,4 @@ All notable changes to this project will be documented in this file.
 - Automatically create ZKB custody and cash accounts when missing and save position reports
 - Review each parsed position with editable popup before saving and fix layout constraints
 - Provide instrument add dialog with Save/Ignore/Abort when new ISINs are encountered
+- Restyle import popups using instrument maintenance window design
