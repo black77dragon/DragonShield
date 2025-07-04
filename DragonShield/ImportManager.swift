@@ -40,7 +40,7 @@ class ImportManager {
     }
 
     enum InstrumentPromptResult {
-        case save(name: String, ticker: String?, isin: String?, currency: String)
+        case save(name: String, subClassId: Int, currency: String, ticker: String?, isin: String?, sector: String?)
         case ignore
         case abort
     }
@@ -210,15 +210,15 @@ class ImportManager {
                     }
                     instSem.wait()
                         switch instAction {
-                        case let .save(name, ticker, isin, currency):
+                        case let .save(name, subClassId, currency, ticker, isin, sector):
                             _ = self.dbManager.addInstrument(name: name,
-                                                           subClassId: 3,
+                                                           subClassId: subClassId,
                                                            currency: currency,
                                                            tickerSymbol: ticker,
                                                            isin: isin,
                                                            countryCode: nil,
                                                            exchangeCode: nil,
-                                                           sector: nil)
+                                                           sector: sector)
                             if let searchIsin = isin ?? row.isin {
                                 instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
                             }
