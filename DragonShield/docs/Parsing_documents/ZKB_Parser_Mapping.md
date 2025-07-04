@@ -30,7 +30,7 @@ All positions originate from the institution **ZKB**, so `Institutions.instituti
 | `Fälligkeit` | `G` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
 | `Kurs`, `Wert in CHF` | `I`, `N` | *(Informational)* | The current market price and value. Not used for the initial cost-basis transaction but are key for P&L calculations and "exits" reconciliation. |
 
-If the parser does not find a matching instrument by `ISIN`, the import workflow presents a dialog showing the parsed fields (name, ticker, ISIN and currency). The user can adjust these values before the instrument is created and the position is stored.
+If the parser does not find a matching instrument by `ISIN`, the import workflow presents an "Add Instrument" window pre-filled with the parsed name, ticker, ISIN and currency. The user can modify these values and choose **Save**, **Ignore** or **Abort**. Saving creates the instrument before storing the position; Ignore skips the position and Abort cancels the import.
 
 ---
 

@@ -38,6 +38,12 @@ class ImportManager {
         case abort
     }
 
+    enum InstrumentPromptResult {
+        case save(name: String, ticker: String?, isin: String?, currency: String)
+        case ignore
+        case abort
+    }
+
     enum ImportError: Error {
         case aborted
     }
@@ -54,7 +60,7 @@ class ImportManager {
         return stack
     }
 
-    private func promptForInstrument(record: ParsedPositionRecord) -> (name: String, ticker: String?, isin: String?, currency: String)? {
+    private func promptForInstrument(record: ParsedPositionRecord) -> InstrumentPromptResult {
         let nameField = NSTextField(string: record.instrumentName)
         let tickerField = NSTextField(string: record.tickerSymbol ?? "")
         let isinField = NSTextField(string: record.isin ?? "")
@@ -71,21 +77,28 @@ class ImportManager {
         content.widthAnchor.constraint(equalToConstant: 320).isActive = true
 
         let alert = NSAlert()
-        alert.messageText = "New Instrument"
+        alert.messageText = "Add Instrument"
         alert.informativeText = "Provide details for the new instrument"
         alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Ignore")
+        alert.addButton(withTitle: "Abort")
         alert.accessoryView = content
         let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else { return nil }
-        let ticker = tickerField.stringValue.trimmingCharacters(in: .whitespaces)
-        let isin = isinField.stringValue.trimmingCharacters(in: .whitespaces)
-        let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
-        let currency = currencyField.stringValue.trimmingCharacters(in: .whitespaces)
-        return (name: name,
-                ticker: ticker.isEmpty ? nil : ticker,
-                isin: isin.isEmpty ? nil : isin,
-                currency: currency.isEmpty ? record.currency : currency)
+        switch response {
+        case .alertFirstButtonReturn:
+            let ticker = tickerField.stringValue.trimmingCharacters(in: .whitespaces)
+            let isin = isinField.stringValue.trimmingCharacters(in: .whitespaces)
+            let name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
+            let currency = currencyField.stringValue.trimmingCharacters(in: .whitespaces)
+            return .save(name: name,
+                         ticker: ticker.isEmpty ? nil : ticker,
+                         isin: isin.isEmpty ? nil : isin,
+                         currency: currency.isEmpty ? record.currency : currency)
+        case .alertSecondButtonReturn:
+            return .ignore
+        default:
+            return .abort
+        }
     }
 
     private func promptForPosition(record: ParsedPositionRecord) -> RecordPromptResult {
@@ -224,21 +237,27 @@ class ImportManager {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
                     if instrumentId == nil {
-                        var details: (name: String, ticker: String?, isin: String?, currency: String)?
+                        var instAction: InstrumentPromptResult = .ignore
                         DispatchQueue.main.sync {
-                            details = self.promptForInstrument(record: row)
+                            instAction = self.promptForInstrument(record: row)
                         }
-                        guard let info = details else { continue }
-                        _ = self.dbManager.addInstrument(name: info.name,
+                        switch instAction {
+                        case let .save(name, ticker, isin, currency):
+                            _ = self.dbManager.addInstrument(name: name,
                                                            subClassId: 3,
-                                                           currency: info.currency,
-                                                           tickerSymbol: info.ticker,
-                                                           isin: info.isin,
+                                                           currency: currency,
+                                                           tickerSymbol: ticker,
+                                                           isin: isin,
                                                            countryCode: nil,
                                                            exchangeCode: nil,
                                                            sector: nil)
-                        if let searchIsin = info.isin ?? row.isin {
-                            instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                            if let searchIsin = isin ?? row.isin {
+                                instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                            }
+                        case .ignore:
+                            continue
+                        case .abort:
+                            throw ImportError.aborted
                         }
                     }
                     guard let insId = instrumentId else {
