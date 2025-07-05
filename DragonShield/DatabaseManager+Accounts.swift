@@ -288,9 +288,16 @@ extension DatabaseManager {
         return (canDelete: true, dependencyCount: 0, message: "Soft delete allowed. No dependency check implemented yet.")
     }
 
-    /// Returns the account_id for a given account number if it exists.
-    func findAccountId(accountNumber: String) -> Int? {
-        let query = "SELECT account_id FROM Accounts WHERE account_number = ? LIMIT 1;"
+    /// Returns the account_id for a given account number, optionally matching
+    /// part of the account name. Spaces and non\u{00A0}breaking spaces in the
+    /// account number are ignored when searching. The comparison is case-insensitive
+    /// and also ignores hyphens for greater flexibility.
+    func findAccountId(accountNumber: String, nameContains: String? = nil) -> Int? {
+        var query = "SELECT account_id FROM Accounts WHERE LOWER(REPLACE(REPLACE(REPLACE(account_number, ' ', ''), char(160), ''), '-', '')) = LOWER(REPLACE(REPLACE(REPLACE(?, ' ', ''), char(160), ''), '-', ''))"
+        if nameContains != nil {
+            query += " AND account_name LIKE ? COLLATE NOCASE"
+        }
+        query += " LIMIT 1;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))")
@@ -298,6 +305,10 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, accountNumber, -1, nil)
+        if let name = nameContains {
+            let pattern = "%\(name)%"
+            sqlite3_bind_text(statement, 2, pattern, -1, nil)
+        }
         if sqlite3_step(statement) == SQLITE_ROW {
             return Int(sqlite3_column_int(statement, 0))
         }
