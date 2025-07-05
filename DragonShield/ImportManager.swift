@@ -45,6 +45,12 @@ class ImportManager {
         case abort
     }
 
+    enum AccountPromptResult {
+        case save(name: String, institutionId: Int, number: String, accountTypeId: Int, currency: String)
+        case cancel
+        case abort
+    }
+
     enum ImportError: Error {
         case aborted
     }
@@ -69,6 +75,29 @@ class ImportManager {
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        return result
+    }
+
+    private func promptForAccount(number: String, currency: String) -> AccountPromptResult {
+        var result: AccountPromptResult = .cancel
+        let instId = dbManager.findInstitutionId(name: "ZKB") ?? 1
+        let typeId = dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
+        let view = AccountPromptView(accountName: "ZKB Custody Account",
+                                     accountNumber: number,
+                                     institutionId: instId,
+                                     accountTypeId: typeId,
+                                     currencyCode: currency) { action in
+            result = action
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Add Account"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view.environmentObject(dbManager))
         NSApp.runModal(for: window)
         return result
     }
@@ -194,21 +223,31 @@ class ImportManager {
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                 if accountId == nil {
-                    let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                    let accountTypeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-                    let created = self.dbManager.addAccount(accountName: "ZKB Custody Account",
-                                                            institutionId: institutionId,
-                                                            accountNumber: custodyNumber,
-                                                            accountTypeId: accountTypeId,
-                                                            currencyCode: rows.first?.currency ?? "CHF",
-                                                            openingDate: nil,
-                                                            closingDate: nil,
-                                                            includeInPortfolio: true,
-                                                            isActive: true,
-                                                            notes: nil)
-                    if created {
+                    var accAction: AccountPromptResult = .cancel
+                    DispatchQueue.main.sync {
+                        accAction = self.promptForAccount(number: custodyNumber,
+                                                         currency: rows.first?.currency ?? "CHF")
+                    }
+                    switch accAction {
+                    case let .save(name, instId, number, typeId, curr):
+                        _ = self.dbManager.addAccount(accountName: name,
+                                                       institutionId: instId,
+                                                       accountNumber: number,
+                                                       accountTypeId: typeId,
+                                                       currencyCode: curr,
+                                                       openingDate: nil,
+                                                       closingDate: nil,
+                                                       includeInPortfolio: true,
+                                                       isActive: true,
+                                                       notes: nil)
+                        accountId = self.dbManager.findAccountId(accountNumber: number)
+                        if accountId != nil {
+                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
+                        }
+                    case .cancel:
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
-                        LoggingService.shared.log("Created account ZKB Custody Account", type: .info, logger: .database)
+                    case .abort:
+                        throw ImportError.aborted
                     }
                 }
                 guard let accId = accountId else {
@@ -227,7 +266,6 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    let accId = accId
                     var instrumentId: Int?
                     if let isin = row.isin {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
