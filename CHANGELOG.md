@@ -41,3 +41,5 @@ All notable changes to this project will be documented in this file.
 - Allow reimporting the same file by removing unique constraint on file hash
 - Prompt to create new accounts when account number is missing and retry if insertion fails
 - Fix compile errors in AccountPromptView due to incorrect parameter labels
+- Improve account lookup when importing positions to match numbers with spaces
+  and require account name containing "ZKB" to prevent repeated prompts
