@@ -39,3 +39,4 @@ All notable changes to this project will be documented in this file.
 - Display a status alert after each position save attempt
 - Allow reimporting the same file by removing unique constraint on file hash
 - Prompt to create new accounts when account number is missing and retry if insertion fails
+- Fix compile errors in AccountPromptView due to incorrect parameter labels

@@ -73,10 +73,10 @@ struct AccountPromptView: View {
                     Button("Save") {
                         presentationMode.wrappedValue.dismiss()
                         completion(.save(name: accountName,
-                                          institutionId: institutionId,
-                                          accountNumber: accountNumber,
-                                          accountTypeId: accountTypeId,
-                                          currency: currencyCode))
+                                         institutionId: institutionId,
+                                         number: accountNumber,
+                                         accountTypeId: accountTypeId,
+                                         currency: currencyCode))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.blue)
@@ -117,7 +117,7 @@ struct AccountPromptView: View {
                 Spacer()
             }
             Picker(title, selection: selection) {
-                ForEach(options, id: \.(0)) { value, label in
+                ForEach(options, id: \.0) { value, label in
                     Text(label).tag(value)
                 }
             }
