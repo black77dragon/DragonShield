@@ -290,11 +290,12 @@ extension DatabaseManager {
 
     /// Returns the account_id for a given account number, optionally matching
     /// part of the account name. Spaces and non\u{00A0}breaking spaces in the
-    /// account number are ignored when searching.
+    /// account number are ignored when searching. The comparison is case-insensitive
+    /// and also ignores hyphens for greater flexibility.
     func findAccountId(accountNumber: String, nameContains: String? = nil) -> Int? {
-        var query = "SELECT account_id FROM Accounts WHERE REPLACE(REPLACE(account_number, ' ', ''), char(160), '') = REPLACE(REPLACE(?, ' ', ''), char(160), '')"
+        var query = "SELECT account_id FROM Accounts WHERE LOWER(REPLACE(REPLACE(REPLACE(account_number, ' ', ''), char(160), ''), '-', '')) = LOWER(REPLACE(REPLACE(REPLACE(?, ' ', ''), char(160), ''), '-', ''))"
         if nameContains != nil {
-            query += " AND account_name LIKE ?"
+            query += " AND account_name LIKE ? COLLATE NOCASE"
         }
         query += " LIMIT 1;"
         var statement: OpaquePointer?

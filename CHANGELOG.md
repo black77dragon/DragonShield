@@ -47,3 +47,5 @@ All notable changes to this project will be documented in this file.
 - Fallback to account lookup by number only to use existing ZKB Custody Account
 - Fix account lookup to ignore non-breaking spaces in numbers
 - Retry import session creation when file_hash is unique in older databases
+- Improve custody account search by ignoring hyphens and case
+- Restrict ZKB position deletions to accounts linked to the ZKB institution

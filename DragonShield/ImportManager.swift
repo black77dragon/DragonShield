@@ -352,10 +352,10 @@ class ImportManager {
         }
     }
 
-    /// Deletes all position reports where the account name contains "ZKB".
+    /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
-        dbManager.deletePositionReports(accountNameContains: "ZKB")
+        dbManager.deletePositionReports(institutionName: "ZKB")
     }
 
     /// Presents an open panel and processes the selected XLSX file.
