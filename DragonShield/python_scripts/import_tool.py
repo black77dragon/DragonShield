@@ -78,15 +78,16 @@ def insert_session(conn: sqlite3.Connection, name: str, fname: str, fpath: str,
 
 
 def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
-                    total: int, success: int, failed: int, notes: Optional[str] = None):
+                    total: int, success: int, failed: int, duplicate: int,
+                    notes: Optional[str] = None):
     conn.execute(
         """
         UPDATE ImportSessions
            SET import_status=?, total_rows=?, successful_rows=?,
-               failed_rows=?, completed_at=datetime('now'), processing_notes=?
+               failed_rows=?, duplicate_rows=?, completed_at=datetime('now'), processing_notes=?
          WHERE import_session_id=?
         """,
-        (status, total, success, failed, notes, sess_id),
+        (status, total, success, failed, duplicate, notes, sess_id),
     )
     conn.commit()
 
@@ -144,11 +145,12 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
             data.get('summary', {}).get('data_rows_successfully_parsed', 0),
             data.get('summary', {}).get('total_data_rows_attempted', 0)
             - data.get('summary', {}).get('data_rows_successfully_parsed', 0),
+            data.get('summary', {}).get('duplicate_rows', 0),
             None,
         )
         print("Import committed.")
     else:
-        update_session(conn, session_id, 'CANCELLED', 0, 0, 0, 'User cancelled')
+        update_session(conn, session_id, 'CANCELLED', 0, 0, 0, 0, 'User cancelled')
         print("Import cancelled.")
     return data.get('summary', {})
 

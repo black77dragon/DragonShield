@@ -172,10 +172,13 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                 let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
+                let valueDate = rows.first?.reportDate ?? Date()
+                let sessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+                let fileType = url.pathExtension.uppercased()
+                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
                                                                   filePath: url.path,
-                                                                  fileType: "XLSX",
+                                                                  fileType: fileType,
                                                                   fileSize: fileSize,
                                                                   fileHash: hash,
                                                                   institutionId: institutionId)
@@ -261,7 +264,8 @@ class ImportManager {
                                                        totalRows: summary.totalRows,
                                                        successRows: summary.parsedRows,
                                                        failedRows: summary.totalRows - summary.parsedRows,
-                                                       notes: nil)
+                                                       duplicateRows: 0,
+                                                       notes: "will be determined later")
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))

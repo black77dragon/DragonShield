@@ -43,6 +43,7 @@ def setup_db():
             total_rows INTEGER,
             successful_rows INTEGER,
             failed_rows INTEGER,
+            duplicate_rows INTEGER,
             processing_notes TEXT,
             started_at TEXT,
             completed_at TEXT
@@ -80,9 +81,9 @@ def test_insert_and_update_session():
     row = conn.execute('SELECT session_name FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
     assert row[0] == 'Test Session'
 
-    import_tool.update_session(conn, sess_id, 'COMPLETED', 5, 4, 1, 'done')
-    row = conn.execute('SELECT import_status, total_rows, successful_rows, failed_rows, processing_notes FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
-    assert row == ('COMPLETED', 5, 4, 1, 'done')
+    import_tool.update_session(conn, sess_id, 'COMPLETED', 5, 4, 1, 2, 'done')
+    row = conn.execute('SELECT import_status, total_rows, successful_rows, failed_rows, duplicate_rows, processing_notes FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
+    assert row == ('COMPLETED', 5, 4, 1, 2, 'done')
 
 
 def test_parse_file(monkeypatch, tmp_path):

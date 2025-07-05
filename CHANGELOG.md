@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
+- Store import sessions by institution and value date, tracking duplicate rows
 - Allow editing Asset Class in Asset SubClass popup
 - Restyled Institutions maintenance window for consistent look and feel
 - Fix compile error in Institutions view due to missing empty state component

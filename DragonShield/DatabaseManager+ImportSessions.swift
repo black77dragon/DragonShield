@@ -34,10 +34,10 @@ extension DatabaseManager {
         return Int(sqlite3_last_insert_rowid(db))
     }
 
-    func completeImportSession(id: Int, totalRows: Int, successRows: Int, failedRows: Int, notes: String?) {
+    func completeImportSession(id: Int, totalRows: Int, successRows: Int, failedRows: Int, duplicateRows: Int, notes: String?) {
         let sql = """
             UPDATE ImportSessions
-               SET import_status='COMPLETED', total_rows=?, successful_rows=?, failed_rows=?, processing_notes=?, completed_at=datetime('now')
+               SET import_status='COMPLETED', total_rows=?, successful_rows=?, failed_rows=?, duplicate_rows=?, processing_notes=?, completed_at=datetime('now')
              WHERE import_session_id=?;
             """
         var stmt: OpaquePointer?
@@ -50,12 +50,13 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 1, Int32(totalRows))
         sqlite3_bind_int(stmt, 2, Int32(successRows))
         sqlite3_bind_int(stmt, 3, Int32(failedRows))
+        sqlite3_bind_int(stmt, 4, Int32(duplicateRows))
         if let notes = notes {
-            sqlite3_bind_text(stmt, 4, notes, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 5, notes, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(stmt, 4)
+            sqlite3_bind_null(stmt, 5)
         }
-        sqlite3_bind_int(stmt, 5, Int32(id))
+        sqlite3_bind_int(stmt, 6, Int32(id))
         if sqlite3_step(stmt) != SQLITE_DONE {
             print("❌ Failed to update ImportSession: \(String(cString: sqlite3_errmsg(db)))")
         }
