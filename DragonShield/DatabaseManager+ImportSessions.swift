@@ -27,9 +27,20 @@ extension DatabaseManager {
         } else {
             sqlite3_bind_null(stmt, 7)
         }
-        guard sqlite3_step(stmt) == SQLITE_DONE else {
-            print("❌ Failed to insert ImportSession: \(String(cString: sqlite3_errmsg(db)))")
-            return nil
+        var result = sqlite3_step(stmt)
+        if result != SQLITE_DONE {
+            let code = sqlite3_errcode(db)
+            let msg = String(cString: sqlite3_errmsg(db))
+            if code == SQLITE_CONSTRAINT && msg.contains("file_hash") {
+                sqlite3_reset(stmt)
+                let newHash = fileHash + "-" + UUID().uuidString
+                sqlite3_bind_text(stmt, 6, newHash, -1, SQLITE_TRANSIENT)
+                result = sqlite3_step(stmt)
+            }
+            if result != SQLITE_DONE {
+                print("❌ Failed to insert ImportSession: \(msg)")
+                return nil
+            }
         }
         return Int(sqlite3_last_insert_rowid(db))
     }

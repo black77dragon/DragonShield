@@ -45,3 +45,5 @@ All notable changes to this project will be documented in this file.
   and require account name containing "ZKB" to prevent repeated prompts
 - Append numbers to import session names when duplicates exist
 - Fallback to account lookup by number only to use existing ZKB Custody Account
+- Fix account lookup to ignore non-breaking spaces in numbers
+- Retry import session creation when file_hash is unique in older databases

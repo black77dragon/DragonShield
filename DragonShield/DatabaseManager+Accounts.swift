@@ -289,10 +289,10 @@ extension DatabaseManager {
     }
 
     /// Returns the account_id for a given account number, optionally matching
-    /// part of the account name. Spaces in the account number are ignored when
-    /// searching.
+    /// part of the account name. Spaces and non\u{00A0}breaking spaces in the
+    /// account number are ignored when searching.
     func findAccountId(accountNumber: String, nameContains: String? = nil) -> Int? {
-        var query = "SELECT account_id FROM Accounts WHERE REPLACE(account_number, ' ', '') = REPLACE(?, ' ', '')"
+        var query = "SELECT account_id FROM Accounts WHERE REPLACE(REPLACE(account_number, ' ', ''), char(160), '') = REPLACE(REPLACE(?, ' ', ''), char(160), '')"
         if nameContains != nil {
             query += " AND account_name LIKE ?"
         }
