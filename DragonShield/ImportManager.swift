@@ -172,14 +172,14 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                 let custAccount = rows.first(where: { !$0.isCash })?.accountNumber ?? rows.first?.accountNumber
-                let accId = custAccount.flatMap { self.dbManager.findAccountId(accountNumber: $0) }
+                let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                 let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
                                                                   fileName: url.lastPathComponent,
                                                                   filePath: url.path,
                                                                   fileType: "XLSX",
                                                                   fileSize: fileSize,
                                                                   fileHash: hash,
-                                                                  accountId: accId)
+                                                                  institutionId: institutionId)
 
                 var reports: [PositionReport] = []
                 for parsed in rows {
