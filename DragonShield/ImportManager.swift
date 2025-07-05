@@ -210,7 +210,8 @@ class ImportManager {
                 let hash = url.sha256() ?? ""
                 let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                let valueDate = rows.first?.reportDate ?? Date()
-               let sessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let baseSessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
                 let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
@@ -221,7 +222,10 @@ class ImportManager {
                                                                   institutionId: institutionId)
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
-                var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                if accountId == nil {
+                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                }
                 while accountId == nil {
                     var accAction: AccountPromptResult = .cancel
                     DispatchQueue.main.sync {
@@ -240,12 +244,18 @@ class ImportManager {
                                                        includeInPortfolio: true,
                                                        isActive: true,
                                                        notes: nil)
-                        accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "ZKB")
+                        accountId = self.dbManager.findAccountId(accountNumber: number)
+                        if accountId == nil {
+                            accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "ZKB")
+                        }
                         if accountId != nil {
                             LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
                         }
                     case .cancel:
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                        if accountId == nil {
+                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                        }
                         if accountId == nil {
                             DispatchQueue.main.sync {
                                 self.showStatusAlert(title: "Account Required",

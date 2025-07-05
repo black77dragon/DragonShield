@@ -77,6 +77,23 @@ def insert_session(conn: sqlite3.Connection, name: str, fname: str, fpath: str,
     return cur.lastrowid
 
 
+def session_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM ImportSessions WHERE session_name=? LIMIT 1",
+        (name,),
+    ).fetchone()
+    return row is not None
+
+
+def next_session_name(conn: sqlite3.Connection, base: str) -> str:
+    name = base
+    counter = 0
+    while session_exists(conn, name):
+        counter += 1
+        name = f"{base} ({counter})"
+    return name
+
+
 def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
                     total: int, success: int, failed: int, duplicate: int,
                     notes: Optional[str] = None):
@@ -115,9 +132,11 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
 
     file_type, size, file_hash = compute_metadata(file_path)
 
+    base_name = f"Import {os.path.basename(file_path)}"
+    sess_name = next_session_name(conn, base_name)
     session_id = insert_session(
         conn,
-        f"Import {os.path.basename(file_path)}",
+        sess_name,
         os.path.basename(file_path),
         os.path.abspath(file_path),
         file_type,

@@ -34,6 +34,30 @@ extension DatabaseManager {
         return Int(sqlite3_last_insert_rowid(db))
     }
 
+    /// Returns true if a session with the given name already exists.
+    private func importSessionExists(name: String) -> Bool {
+        let query = "SELECT 1 FROM ImportSessions WHERE session_name=? LIMIT 1;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare importSessionExists: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, name, -1, nil)
+        return sqlite3_step(stmt) == SQLITE_ROW
+    }
+
+    /// Generates a unique session name by appending an incrementing suffix if needed.
+    func nextImportSessionName(base: String) -> String {
+        var name = base
+        var counter = 0
+        while importSessionExists(name: name) {
+            counter += 1
+            name = "\(base) (\(counter))"
+        }
+        return name
+    }
+
     func completeImportSession(id: Int, totalRows: Int, successRows: Int, failedRows: Int, duplicateRows: Int, notes: String?) {
         let sql = """
             UPDATE ImportSessions

@@ -43,3 +43,5 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in AccountPromptView due to incorrect parameter labels
 - Improve account lookup when importing positions to match numbers with spaces
   and require account name containing "ZKB" to prevent repeated prompts
+- Append numbers to import session names when duplicates exist
+- Fallback to account lookup by number only to use existing ZKB Custody Account
