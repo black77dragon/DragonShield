@@ -114,6 +114,14 @@ class ImportManager {
         NSApp.runModal(for: window)
     }
 
+    private func showStatusAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
@@ -172,8 +180,8 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                 let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                let valueDate = rows.first?.reportDate ?? Date()
-                let sessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let valueDate = rows.first?.reportDate ?? Date()
+               let sessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
                 let fileType = url.pathExtension.uppercased()
                 let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
@@ -183,7 +191,33 @@ class ImportManager {
                                                                   fileHash: hash,
                                                                   institutionId: institutionId)
 
-                var reports: [PositionReport] = []
+                let custodyNumber = rows.first?.accountNumber ?? ""
+                var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                if accountId == nil {
+                    let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                    let accountTypeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
+                    let created = self.dbManager.addAccount(accountName: "ZKB Custody Account",
+                                                            institutionId: institutionId,
+                                                            accountNumber: custodyNumber,
+                                                            accountTypeId: accountTypeId,
+                                                            currencyCode: rows.first?.currency ?? "CHF",
+                                                            openingDate: nil,
+                                                            closingDate: nil,
+                                                            includeInPortfolio: true,
+                                                            isActive: true,
+                                                            notes: nil)
+                    if created {
+                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                        LoggingService.shared.log("Created account ZKB Custody Account", type: .info, logger: .database)
+                    }
+                }
+                guard let accId = accountId else {
+                    LoggingService.shared.log("Account not found for \(custodyNumber)", type: .error, logger: .database)
+                    throw ImportError.aborted
+                }
+
+                var success = 0
+                var failure = 0
                 for parsed in rows {
                     var action: RecordPromptResult = .save(parsed)
                     DispatchQueue.main.sync {
@@ -193,31 +227,7 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    var accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
-                    if accountId == nil {
-                        let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                        let typeCode = row.isCash ? "CASH" : "CUSTODY"
-                        let accountTypeId = self.dbManager.findAccountTypeId(code: typeCode) ?? 1
-                        let name = row.isCash ? row.accountName : "ZKB Custody Account"
-                        let created = self.dbManager.addAccount(accountName: name,
-                                                                institutionId: institutionId,
-                                                                accountNumber: row.accountNumber,
-                                                                accountTypeId: accountTypeId,
-                                                                currencyCode: row.currency,
-                                                                openingDate: nil,
-                                                                closingDate: nil,
-                                                                includeInPortfolio: true,
-                                                                isActive: true,
-                                                                notes: nil)
-                        if created {
-                            accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
-                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
-                        }
-                    }
-                    guard let accId = accountId else {
-                        LoggingService.shared.log("Account not found for \(row.accountNumber)", type: .error, logger: .database)
-                        continue
-                    }
+                    let accId = accId
                     var instrumentId: Int?
                     if let isin = row.isin {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
@@ -255,15 +265,26 @@ class ImportManager {
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
                                                 reportDate: row.reportDate)
-                    reports.append(report)
+                    do {
+                        try self.positionRepository.saveReports([report])
+                        success += 1
+                        DispatchQueue.main.sync {
+                            self.showStatusAlert(title: "Position Saved",
+                                                  message: "Saved \(row.instrumentName)")
+                        }
+                    } catch {
+                        failure += 1
+                        DispatchQueue.main.sync {
+                            self.showStatusAlert(title: "Save Failed",
+                                                  message: error.localizedDescription)
+                        }
+                    }
                 }
-                try self.positionRepository.saveReports(reports)
-                LoggingService.shared.log("Saved position reports", type: .info, logger: .database)
                 if let sid = sessionId {
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,
-                                                       successRows: summary.parsedRows,
-                                                       failedRows: summary.totalRows - summary.parsedRows,
+                                                       successRows: success,
+                                                       failedRows: failure,
                                                        duplicateRows: 0,
                                                        notes: "will be determined later")
                 }

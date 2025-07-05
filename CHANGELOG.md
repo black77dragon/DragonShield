@@ -35,3 +35,5 @@ All notable changes to this project will be documented in this file.
 - Condense import details popup row spacing
 - Default custody positions to "ZKB Custody Account" name
 - Fix saving position reports when no import session is created
+- Use single custody account for all parsed positions
+- Display a status alert after each position save attempt
