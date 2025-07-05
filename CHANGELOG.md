@@ -34,3 +34,4 @@ All notable changes to this project will be documented in this file.
 - Show import summary in modern styled popup
 - Condense import details popup row spacing
 - Default custody positions to "ZKB Custody Account" name
+- Fix saving position reports when no import session is created

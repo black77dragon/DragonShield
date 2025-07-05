@@ -250,7 +250,7 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(importSessionId: sessionId ?? 0,
+                    let report = PositionReport(importSessionId: sessionId,
                                                 accountId: accId,
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
