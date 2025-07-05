@@ -37,3 +37,4 @@ All notable changes to this project will be documented in this file.
 - Fix saving position reports when no import session is created
 - Use single custody account for all parsed positions
 - Display a status alert after each position save attempt
+- Allow reimporting the same file by removing unique constraint on file hash

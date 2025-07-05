@@ -114,13 +114,6 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
         return {}
 
     file_type, size, file_hash = compute_metadata(file_path)
-    dup = conn.execute(
-        "SELECT import_session_id FROM ImportSessions WHERE file_hash=?",
-        (file_hash,),
-    ).fetchone()
-    if dup:
-        print("This file was already imported. Session id:", dup[0])
-        return {}
 
     session_id = insert_session(
         conn,

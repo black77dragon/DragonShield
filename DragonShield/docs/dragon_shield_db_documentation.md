@@ -328,7 +328,7 @@ Analysis Layer
 - file_path: File location
 - file_type: File format (CSV/XLSX/PDF)
 - file_size: File size in bytes
-- file_hash: SHA-256 hash for duplicate detection
+- file_hash: SHA-256 hash used for duplicate detection (not unique)
 - institution_id: Source institution
 - import_status: Processing status
 - total_rows: Total records processed

@@ -307,7 +307,7 @@ CREATE TABLE ImportSessions (
     file_path TEXT,
     file_type TEXT NOT NULL CHECK (file_type IN ('CSV', 'XLSX', 'PDF')),
     file_size INTEGER,
-    file_hash TEXT UNIQUE,
+    file_hash TEXT,
     institution_id INTEGER,
     import_status TEXT DEFAULT 'PENDING' CHECK (import_status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED')),
     total_rows INTEGER DEFAULT 0,
