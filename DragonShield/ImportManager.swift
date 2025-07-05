@@ -222,7 +222,7 @@ class ImportManager {
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
-                if accountId == nil {
+                while accountId == nil {
                     var accAction: AccountPromptResult = .cancel
                     DispatchQueue.main.sync {
                         accAction = self.promptForAccount(number: custodyNumber,
@@ -246,14 +246,17 @@ class ImportManager {
                         }
                     case .cancel:
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                        if accountId == nil {
+                            DispatchQueue.main.sync {
+                                self.showStatusAlert(title: "Account Required",
+                                                      message: "Account \(custodyNumber) is required to save positions.")
+                            }
+                        }
                     case .abort:
                         throw ImportError.aborted
                     }
                 }
-                guard let accId = accountId else {
-                    LoggingService.shared.log("Account not found for \(custodyNumber)", type: .error, logger: .database)
-                    throw ImportError.aborted
-                }
+                let accId = accountId!
 
                 var success = 0
                 var failure = 0
