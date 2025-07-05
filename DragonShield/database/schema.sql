@@ -308,7 +308,7 @@ CREATE TABLE ImportSessions (
     file_type TEXT NOT NULL CHECK (file_type IN ('CSV', 'XLSX', 'PDF')),
     file_size INTEGER,
     file_hash TEXT UNIQUE,
-    account_id INTEGER,
+    institution_id INTEGER,
     import_status TEXT DEFAULT 'PENDING' CHECK (import_status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED')),
     total_rows INTEGER DEFAULT 0,
     successful_rows INTEGER DEFAULT 0,
@@ -319,7 +319,7 @@ CREATE TABLE ImportSessions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     started_at DATETIME,
     completed_at DATETIME,
-    FOREIGN KEY (account_id) REFERENCES Accounts(account_id)
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id)
 );
 
 CREATE TABLE PositionReports (

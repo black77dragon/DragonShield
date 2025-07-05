@@ -38,7 +38,7 @@ def setup_db():
             file_type TEXT,
             file_size INTEGER,
             file_hash TEXT,
-            account_id INTEGER,
+            institution_id INTEGER,
             import_status TEXT,
             total_rows INTEGER,
             successful_rows INTEGER,

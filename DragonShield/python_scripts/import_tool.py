@@ -24,19 +24,21 @@ DB_PATH = os.path.join(
 )
 
 
-def choose_account(conn: sqlite3.Connection) -> int:
-    rows = conn.execute("SELECT account_id, account_name FROM Accounts ORDER BY account_name").fetchall()
+def choose_institution(conn: sqlite3.Connection) -> int:
+    rows = conn.execute(
+        "SELECT institution_id, institution_name FROM Institutions ORDER BY institution_name"
+    ).fetchall()
     if not rows:
-        raise RuntimeError("No accounts found in database")
-    print("Available accounts:")
-    for acc_id, name in rows:
-        print(f"{acc_id}: {name}")
+        raise RuntimeError("No institutions found in database")
+    print("Available institutions:")
+    for inst_id, name in rows:
+        print(f"{inst_id}: {name}")
     while True:
         try:
-            choice = int(input("Select account id: "))
-            if any(acc_id == choice for acc_id, _ in rows):
+            choice = int(input("Select institution id: "))
+            if any(inst_id == choice for inst_id, _ in rows):
                 return choice
-            print("Invalid account id. Try again.")
+            print("Invalid institution id. Try again.")
         except ValueError:
             print("Please enter a valid number.")
 
@@ -60,16 +62,16 @@ def compute_metadata(path: str) -> Tuple[str, int, str]:
 
 
 def insert_session(conn: sqlite3.Connection, name: str, fname: str, fpath: str,
-                    ftype: str, size: int, fh: str, account_id: int) -> int:
+                    ftype: str, size: int, fh: str, institution_id: int) -> int:
     cur = conn.cursor()
     cur.execute(
         """
         INSERT INTO ImportSessions
             (session_name, file_name, file_path, file_type, file_size, file_hash,
-             account_id, import_status, started_at)
+             institution_id, import_status, started_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'PROCESSING', datetime('now'))
         """,
-        (name, fname, fpath, ftype, size, fh, account_id),
+        (name, fname, fpath, ftype, size, fh, institution_id),
     )
     conn.commit()
     return cur.lastrowid
@@ -105,7 +107,7 @@ def preview_records(data: Dict[str, Any], limit: int = 3):
         print("Error during parsing:", err)
 
 
-def process_file_path(conn: sqlite3.Connection, account_id: int, file_path: str) -> Dict[str, Any]:
+def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: str) -> Dict[str, Any]:
     if not os.path.isfile(file_path):
         print("File not found.")
         return {}
@@ -127,7 +129,7 @@ def process_file_path(conn: sqlite3.Connection, account_id: int, file_path: str)
         file_type,
         size,
         file_hash,
-        account_id,
+        institution_id,
     )
     print("Import session", session_id, "created. Parsing...")
     data = parse_file(file_path)
@@ -155,12 +157,12 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     summaries = []
     try:
-        account_id = choose_account(conn)
+        institution_id = choose_institution(conn)
         while True:
             file_path = input("Enter path to statement file: ").strip()
             if not file_path:
                 break
-            summary = process_file_path(conn, account_id, file_path)
+            summary = process_file_path(conn, institution_id, file_path)
             if summary:
                 summaries.append((file_path, summary))
             again = input("Import another file? [y/N]: ").strip().lower() == 'y'

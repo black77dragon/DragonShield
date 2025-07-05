@@ -4,9 +4,9 @@ import CryptoKit
 
 extension DatabaseManager {
     /// Creates a new import session and returns its id.
-    func startImportSession(sessionName: String, fileName: String, filePath: String, fileType: String, fileSize: Int, fileHash: String, accountId: Int?) -> Int? {
+    func startImportSession(sessionName: String, fileName: String, filePath: String, fileType: String, fileSize: Int, fileHash: String, institutionId: Int?) -> Int? {
         let sql = """
-            INSERT INTO ImportSessions (session_name, file_name, file_path, file_type, file_size, file_hash, account_id, import_status, started_at)
+            INSERT INTO ImportSessions (session_name, file_name, file_path, file_type, file_size, file_hash, institution_id, import_status, started_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'PROCESSING', datetime('now'));
             """
         var stmt: OpaquePointer?
@@ -22,8 +22,8 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 4, fileType, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 5, Int32(fileSize))
         sqlite3_bind_text(stmt, 6, fileHash, -1, SQLITE_TRANSIENT)
-        if let acc = accountId {
-            sqlite3_bind_int(stmt, 7, Int32(acc))
+        if let inst = institutionId {
+            sqlite3_bind_int(stmt, 7, Int32(inst))
         } else {
             sqlite3_bind_null(stmt, 7)
         }
