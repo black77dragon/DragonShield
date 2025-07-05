@@ -171,7 +171,6 @@ class ImportManager {
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
-                let custAccount = rows.first(where: { !$0.isCash })?.accountNumber ?? rows.first?.accountNumber
                 let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                 let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
                                                                   fileName: url.lastPathComponent,
