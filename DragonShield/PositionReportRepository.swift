@@ -6,6 +6,7 @@ import Foundation
 import SQLite3
 
 struct PositionReport {
+    let importSessionId: Int
     let accountId: Int
     let instrumentId: Int
     let quantity: Double
@@ -59,7 +60,7 @@ final class PositionReportRepository {
     }
 
     func saveReports(_ reports: [PositionReport]) throws {
-        let sql = "INSERT INTO PositionReports (account_id, instrument_id, quantity, report_date) VALUES (?, ?, ?, ?)"
+        let sql = "INSERT INTO PositionReports (import_session_id, account_id, instrument_id, quantity, report_date) VALUES (?, ?, ?, ?, ?)"
         var stmt: OpaquePointer?
         guard let db = dbManager.db else {
             throw PositionReportRepositoryError.connectionUnavailable
@@ -71,10 +72,11 @@ final class PositionReportRepository {
         defer { sqlite3_finalize(stmt) }
         let dateFormatter = DateFormatter.iso8601DateOnly
         for rpt in reports {
-            sqlite3_bind_int(stmt, 1, Int32(rpt.accountId))
-            sqlite3_bind_int(stmt, 2, Int32(rpt.instrumentId))
-            sqlite3_bind_double(stmt, 3, rpt.quantity)
-            sqlite3_bind_text(stmt, 4, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
+            sqlite3_bind_int(stmt, 1, Int32(rpt.importSessionId))
+            sqlite3_bind_int(stmt, 2, Int32(rpt.accountId))
+            sqlite3_bind_int(stmt, 3, Int32(rpt.instrumentId))
+            sqlite3_bind_double(stmt, 4, rpt.quantity)
+            sqlite3_bind_text(stmt, 5, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
             if sqlite3_step(stmt) != SQLITE_DONE {
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw PositionReportRepositoryError.insertFailed(msg)

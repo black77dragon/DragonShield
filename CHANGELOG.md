@@ -21,3 +21,13 @@ All notable changes to this project will be documented in this file.
 - Provide instrument add dialog with Save/Ignore/Abort when new ISINs are encountered
 - Restyle import popups using instrument maintenance window design
 - Fix compile errors in position review and import views
+- Prompt to delete existing ZKB positions before importing and show count
+- Parse value date from ZKB sheets, show import details summary and improve instrument popups
+- Correct custody account number detection from cell B6 and extend new instrument prompt with dropdowns
+- Fix compile error in instrument prompt view when selecting subclass or currency
+- Record ZKB import sessions and link position reports
+- Eliminate QoS warnings by presenting modals synchronously
+- Condense instrument popups and rename review dialog title
+- Show import summary in modern styled popup
+- Condense import details popup row spacing
+- Default custody positions to "ZKB Custody Account" name

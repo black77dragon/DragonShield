@@ -6,6 +6,10 @@ struct InstrumentPromptView: View {
     @State var ticker: String
     @State var isin: String
     @State var currency: String
+    @State var subClassId: Int = 1
+    @State var sector: String = ""
+    @State private var subClasses: [(id: Int, name: String)] = []
+    @State private var currencies: [(code: String, name: String, symbol: String)] = []
     let completion: (ImportManager.InstrumentPromptResult) -> Void
 
     var body: some View {
@@ -16,9 +20,9 @@ struct InstrumentPromptView: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 6) {
                 HStack {
-                    Text("Add Instrument")
+                    Text("🎸 New Instrument")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
@@ -41,14 +45,16 @@ struct InstrumentPromptView: View {
                 Form {
                     Section {
                         modernTextField(title: "Name", text: $name, placeholder: "Instrument Name", icon: "doc.text", isRequired: true)
+                        pickerField(title: "SubClass", selection: $subClassId, options: subClasses.map { ($0.id, $0.name) }, icon: "folder")
+                        pickerField(title: "Currency", selection: $currency, options: currencies.map { ($0.code, $0.code) }, icon: "dollarsign.circle")
                         modernTextField(title: "Ticker", text: $ticker, placeholder: "Ticker", icon: "number", isRequired: false)
                         modernTextField(title: "ISIN", text: $isin, placeholder: "ISIN", icon: "barcode", isRequired: false)
-                        modernTextField(title: "Currency", text: $currency, placeholder: "Currency", icon: "dollarsign.circle", isRequired: true)
+                        modernTextField(title: "Sector", text: $sector, placeholder: "Sector", icon: "briefcase", isRequired: false)
                     }
-                    .modifier(ModernFormSection(color: .blue))
+                    .modifier(CompactFormSection(color: .pink))
                 }
                 .formStyle(.grouped)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
 
                 HStack {
                     Button("Ignore") {
@@ -62,16 +68,20 @@ struct InstrumentPromptView: View {
                     Button("Save") {
                         presentationMode.wrappedValue.dismiss()
                         completion(.save(name: name,
+                                         subClassId: subClassId,
+                                         currency: currency,
                                          ticker: ticker.isEmpty ? nil : ticker,
                                          isin: isin.isEmpty ? nil : isin,
-                                         currency: currency))
+                                         sector: sector.isEmpty ? nil : sector))
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.pink)
                 }
                 .padding([.horizontal, .bottom], 24)
             }
         }
         .frame(minWidth: 600, minHeight: 450)
+        .onAppear(perform: loadData)
     }
 
     private func modernTextField(
@@ -81,7 +91,7 @@ struct InstrumentPromptView: View {
         icon: String,
         isRequired: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14))
@@ -95,5 +105,33 @@ struct InstrumentPromptView: View {
                 .font(.system(size: 16))
                 .textFieldStyle(.roundedBorder)
         }
+    }
+
+    private func pickerField<T: Hashable>(title: String, selection: Binding<T>, options: [(T, String)], icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.black.opacity(0.7))
+                Spacer()
+            }
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.0) { value, label in
+                    Text(label).tag(value)
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+        }
+    }
+
+    private func loadData() {
+        let db = DatabaseManager()
+        self.subClasses = db.fetchAssetTypes()
+        if let first = subClasses.first { subClassId = first.id }
+        self.currencies = db.fetchActiveCurrencies()
+        if let firstCurr = currencies.first { currency = firstCurr.code }
     }
 }

@@ -17,6 +17,18 @@ struct ModernFormSection: ViewModifier {
     }
 }
 
+struct CompactFormSection: ViewModifier {
+    let color: Color
+    func body(content: Content) -> some View {
+        content
+            .padding(12)
+            .background(glassMorphismBackground(color: color))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.2), lineWidth: 1))
+            .shadow(color: color.opacity(0.1), radius: 4, x: 0, y: 2)
+    }
+}
+
 // This helper function should also be accessible, e.g., in the same shared file or globally.
 private func glassMorphismBackground(color: Color) -> some View {
     ZStack {

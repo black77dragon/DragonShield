@@ -12,9 +12,9 @@ struct PositionReviewView: View {
                            startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 6) {
                 HStack {
-                    Text("Review Position")
+                    Text("📝 Confirm Instrument Position Upload")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
@@ -44,10 +44,10 @@ struct PositionReviewView: View {
                         modernTextField(title: "Currency", text: $record.currency, placeholder: "", icon: "dollarsign.circle", isRequired: true)
                         modernTextField(title: "Quantity", text: Binding(get: { String(record.quantity) }, set: { record.quantity = Double($0) ?? record.quantity }), placeholder: "", icon: "number", isRequired: true)
                     }
-                    .modifier(ModernFormSection(color: .orange))
+                    .modifier(CompactFormSection(color: .orange))
                 }
                 .formStyle(.grouped)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
 
                 HStack {
                     Button("Ignore") {
@@ -63,6 +63,7 @@ struct PositionReviewView: View {
                         completion(.save(record))
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.orange)
                 }
                 .padding([.horizontal, .bottom], 24)
             }
@@ -77,7 +78,7 @@ struct PositionReviewView: View {
         icon: String,
         isRequired: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14))

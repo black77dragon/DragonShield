@@ -40,7 +40,7 @@ class ImportManager {
     }
 
     enum InstrumentPromptResult {
-        case save(name: String, ticker: String?, isin: String?, currency: String)
+        case save(name: String, subClassId: Int, currency: String, ticker: String?, isin: String?, sector: String?)
         case ignore
         case abort
     }
@@ -97,6 +97,23 @@ class ImportManager {
         return result
     }
 
+    private func showImportSummary(fileName: String, account: String?, valueDate: Date?, validRows: Int) {
+        let view = ImportSummaryView(fileName: fileName,
+                                     accountNumber: account,
+                                     valueDate: valueDate,
+                                     validRows: validRows) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 350),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Import Details"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+    }
+
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
@@ -143,6 +160,27 @@ class ImportManager {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
+                DispatchQueue.main.sync {
+                    let first = rows.first
+                    self.showImportSummary(fileName: url.lastPathComponent,
+                                           account: first?.accountNumber,
+                                           valueDate: first?.reportDate,
+                                           validRows: summary.parsedRows)
+                }
+
+                let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
+                let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
+                let hash = url.sha256() ?? ""
+                let custAccount = rows.first(where: { !$0.isCash })?.accountNumber ?? rows.first?.accountNumber
+                let accId = custAccount.flatMap { self.dbManager.findAccountId(accountNumber: $0) }
+                let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
+                                                                  fileName: url.lastPathComponent,
+                                                                  filePath: url.path,
+                                                                  fileType: "XLSX",
+                                                                  fileSize: fileSize,
+                                                                  fileHash: hash,
+                                                                  accountId: accId)
+
                 var reports: [PositionReport] = []
                 for parsed in rows {
                     var action: RecordPromptResult = .save(parsed)
@@ -158,7 +196,7 @@ class ImportManager {
                         let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                         let typeCode = row.isCash ? "CASH" : "CUSTODY"
                         let accountTypeId = self.dbManager.findAccountTypeId(code: typeCode) ?? 1
-                        let name = row.isCash ? row.accountName : "ZKB Custody \(row.accountNumber)"
+                        let name = row.isCash ? row.accountName : "ZKB Custody Account"
                         let created = self.dbManager.addAccount(accountName: name,
                                                                 institutionId: institutionId,
                                                                 accountNumber: row.accountNumber,
@@ -183,20 +221,20 @@ class ImportManager {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
                     if instrumentId == nil {
-                        var instAction: InstrumentPromptResult = .ignore
-                        DispatchQueue.main.sync {
-                            instAction = self.promptForInstrument(record: row)
-                        }
+                    var instAction: InstrumentPromptResult = .ignore
+                    DispatchQueue.main.sync {
+                        instAction = self.promptForInstrument(record: row)
+                    }
                         switch instAction {
-                        case let .save(name, ticker, isin, currency):
+                        case let .save(name, subClassId, currency, ticker, isin, sector):
                             _ = self.dbManager.addInstrument(name: name,
-                                                           subClassId: 3,
+                                                           subClassId: subClassId,
                                                            currency: currency,
                                                            tickerSymbol: ticker,
                                                            isin: isin,
                                                            countryCode: nil,
                                                            exchangeCode: nil,
-                                                           sector: nil)
+                                                           sector: sector)
                             if let searchIsin = isin ?? row.isin {
                                 instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
                             }
@@ -210,11 +248,22 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(accountId: accId, instrumentId: insId, quantity: row.quantity, reportDate: row.reportDate)
+                    let report = PositionReport(importSessionId: sessionId ?? 0,
+                                                accountId: accId,
+                                                instrumentId: insId,
+                                                quantity: row.quantity,
+                                                reportDate: row.reportDate)
                     reports.append(report)
                 }
                 try self.positionRepository.saveReports(reports)
                 LoggingService.shared.log("Saved position reports", type: .info, logger: .database)
+                if let sid = sessionId {
+                    self.dbManager.completeImportSession(id: sid,
+                                                       totalRows: summary.totalRows,
+                                                       successRows: summary.parsedRows,
+                                                       failedRows: summary.totalRows - summary.parsedRows,
+                                                       notes: nil)
+                }
                 DispatchQueue.main.async {
                     completion(.success(summary))
                 }
@@ -226,6 +275,12 @@ class ImportManager {
                 }
             }
         }
+    }
+
+    /// Deletes all position reports where the account name contains "ZKB".
+    /// - Returns: The number of deleted records.
+    func deleteZKBPositions() -> Int {
+        dbManager.deletePositionReports(accountNameContains: "ZKB")
     }
 
     /// Presents an open panel and processes the selected XLSX file.

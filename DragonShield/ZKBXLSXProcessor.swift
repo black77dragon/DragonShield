@@ -100,13 +100,14 @@ struct ZKBXLSXProcessor {
     }
 
     static func portfolioNumber(from cell: String?) -> String? {
-        guard let cell = cell else { return nil }
-        let pattern = "Portfolio-Nr.\\s*(.+)"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: cell, range: NSRange(cell.startIndex..., in: cell)) {
-            return String(cell[Range(match.range(at: 1), in: cell)!]).trimmingCharacters(in: .whitespaces)
+        guard let raw = cell?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return nil }
+        let pattern = "Portfolio-Nr.?\\s*(.+)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+           let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)) {
+            return String(raw[Range(match.range(at: 1), in: raw)!]).trimmingCharacters(in: .whitespaces)
         }
-        return nil
+        return raw
     }
 
     static func parseNumber(_ string: String) -> Double? {
