@@ -62,3 +62,4 @@ All notable changes to this project will be documented in this file.
 - Fix Positions view table headers for quantity and price columns
 - Remove OLD-BANK-007 from seed data and rename ZKB Custody test account
 - Populate purchase and current price in seed position reports
+- Fix argument order when constructing PositionReportData to resolve compile error
