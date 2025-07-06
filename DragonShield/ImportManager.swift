@@ -212,18 +212,10 @@ class ImportManager {
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
-                let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                let valueDate = rows.first?.reportDate ?? Date()
                let baseSessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
-                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
-                                                                  fileName: url.lastPathComponent,
-                                                                  filePath: url.path,
-                                                                  fileType: fileType,
-                                                                  fileSize: fileSize,
-                                                                  fileHash: hash,
-                                                                  institutionId: institutionId)
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
@@ -277,6 +269,16 @@ class ImportManager {
                     }
                 }
                 let accId = accountId!
+                let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
+                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+
+                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
+                                                                  fileName: url.lastPathComponent,
+                                                                  filePath: url.path,
+                                                                  fileType: fileType,
+                                                                  fileSize: fileSize,
+                                                                  fileHash: hash,
+                                                                  institutionId: institutionId)
 
                 var success = 0
                 var failure = 0
