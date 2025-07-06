@@ -298,9 +298,15 @@ extension DatabaseManager {
             query += " AND account_name LIKE ? COLLATE NOCASE"
         }
         query += " LIMIT 1;"
+        let sanitized = accountNumber
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "\u{00A0}", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .lowercased()
+        LoggingService.shared.log("findAccountId search: number=\(accountNumber) sanitized=\(sanitized) nameFilter=\(nameContains ?? "nil")", type: .debug, logger: .database)
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
         defer { sqlite3_finalize(statement) }
@@ -310,8 +316,11 @@ extension DatabaseManager {
             sqlite3_bind_text(statement, 2, pattern, -1, nil)
         }
         if sqlite3_step(statement) == SQLITE_ROW {
-            return Int(sqlite3_column_int(statement, 0))
+            let id = Int(sqlite3_column_int(statement, 0))
+            LoggingService.shared.log("findAccountId found id=\(id) for sanitized=\(sanitized)", type: .debug, logger: .database)
+            return id
         }
+        LoggingService.shared.log("findAccountId no match for sanitized=\(sanitized)", type: .debug, logger: .database)
         return nil
     }
 }

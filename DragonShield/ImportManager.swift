@@ -223,8 +223,10 @@ class ImportManager {
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                LoggingService.shared.log("Lookup account for \(custodyNumber) -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 if accountId == nil {
                     accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                    LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 }
                 while accountId == nil {
                     var accAction: AccountPromptResult = .cancel
@@ -245,16 +247,20 @@ class ImportManager {
                                                        isActive: true,
                                                        notes: nil)
                         accountId = self.dbManager.findAccountId(accountNumber: number)
+                        LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
                             accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "ZKB")
+                            LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId != nil {
                             LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
                         }
                     case .cancel:
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                        LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
                             accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                            LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId == nil {
                             DispatchQueue.main.sync {
