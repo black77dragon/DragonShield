@@ -64,3 +64,4 @@ All notable changes to this project will be documented in this file.
 - Populate purchase and current price in seed position reports
 - Fix argument order when constructing PositionReportData to resolve compile error
 - Enlarge the import details popup so all information is visible
+- Delete ZKB position reports using institution_id so all matching entries are removed

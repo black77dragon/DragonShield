@@ -114,12 +114,13 @@ extension DatabaseManager {
     /// - Parameter institution: The institution name to match (case-insensitive).
     /// - Returns: The number of deleted rows.
     func deletePositionReports(institutionName institution: String) -> Int {
+        // Use the institution_id stored with each position report to remove
+        // all entries belonging to the requested institution.
         let sql = """
             DELETE FROM PositionReports
-            WHERE account_id IN (
-                SELECT a.account_id FROM Accounts a
-                JOIN Institutions i ON a.institution_id = i.institution_id
-                WHERE i.institution_name = ? COLLATE NOCASE
+            WHERE institution_id = (
+                SELECT institution_id FROM Institutions
+                 WHERE institution_name = ? COLLATE NOCASE
             );
             """
         var stmt: OpaquePointer?
