@@ -18,7 +18,7 @@ All positions originate from the institution **ZKB**, so `Institutions.instituti
 
 | ZKB XLS Column | Excel Column | Dragon Shield Database Target | Transformation / Logic / Notes |
 | :--- | :--- | :--- | :--- |
-| `Anlagekategorie` & `Asset-Unterkategorie` | `A`, `B` | `Instruments.group_id` | Mapped to an `InstrumentGroups.group_id` via a configuration map (e.g., "Aktien & ähnliche" -> "Equities"). The sub-category helps refine the mapping (e.g., for bond funds vs. bonds). |
+| `Anlagekategorie` & `Asset-Unterkategorie` | `A`, `B` | `AssetSubClasses.sub_class_id` | Mapped to an `AssetSubClasses.sub_class_id` via a configuration map in DragonShield/docs/AssetClassDefinitionConcept.md defined in the last column ZKB Parsing |
 | `Beschreibung` | `E` | `Instruments.instrument_name` | Combined with the institution name "ZKB" and `Whrg.` to form the instrument display name (e.g., `ZKB Kontokorrent Wertschriften CHF`). |
 | `ISIN` | `W` | `Instruments.isin` | The primary unique identifier used to look up existing instruments or create new ones. |
 | `Valor` | `F` | `Instruments.ticker_symbol` | Used as the ticker symbol for the instrument. |
