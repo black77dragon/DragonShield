@@ -118,7 +118,7 @@ extension DatabaseManager {
         // all entries belonging to the requested institution.
         let sql = """
             DELETE FROM PositionReports
-            WHERE institution_id = (
+            WHERE institution_id IN (
                 SELECT institution_id FROM Institutions
                  WHERE institution_name = ? COLLATE NOCASE
             );
