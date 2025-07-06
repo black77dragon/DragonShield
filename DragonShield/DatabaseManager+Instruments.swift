@@ -224,17 +224,32 @@ extension DatabaseManager {
     }
 
     /// Finds the instrument_id for the given ISIN if present.
+    /// Finds the instrument_id for the given ISIN. The lookup ignores
+    /// case and non-alphanumeric characters to better match data coming
+    /// from spreadsheets that may use different formatting.
     func findInstrumentId(isin: String) -> Int? {
-        let query = "SELECT instrument_id FROM Instruments WHERE isin = ? LIMIT 1;"
+        let sanitizedSearch = isin.uppercased().unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { String($0) }
+            .joined()
+        let query = "SELECT instrument_id, isin FROM Instruments WHERE isin IS NOT NULL;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare findInstrumentId: \(String(cString: sqlite3_errmsg(db)))")
             return nil
         }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, isin, -1, nil)
-        if sqlite3_step(statement) == SQLITE_ROW {
-            return Int(sqlite3_column_int(statement, 0))
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            guard let isinPtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbIsin = String(cString: isinPtr)
+            let sanitizedDb = dbIsin.uppercased().unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { String($0) }
+                .joined()
+            if sanitizedDb == sanitizedSearch {
+                return id
+            }
         }
         return nil
     }
