@@ -223,7 +223,7 @@ Analysis Layer
 **Purpose**: Individual financial instruments
 ```sql
 - instrument_id: Primary key
-- isin: International Securities ID
+- isin: International Securities ID (optional)
 - ticker_symbol: Trading symbol
 - instrument_name: Full name
 - group_id: Asset classification
