@@ -72,3 +72,6 @@ All notable changes to this project will be documented in this file.
 - Bind deletion query parameters correctly so ZKB records are removed
 - Delete ZKB positions by institution_id with a single query for reliability
 - Delete ZKB positions by building a dynamic IN clause for all matching institution IDs and log the IDs removed
+- Automatically start ZKB position import when a file is chosen without asking to delete existing rows
+- Condense import popups, enlarge windows and use smaller fonts for better readability
+- Guess asset sub-class from statement categories when adding new instruments

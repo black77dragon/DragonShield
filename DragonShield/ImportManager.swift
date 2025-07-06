@@ -62,7 +62,8 @@ class ImportManager {
             name: record.instrumentName,
             ticker: record.tickerSymbol ?? "",
             isin: record.isin ?? "",
-            currency: record.currency
+            currency: record.currency,
+            subClassId: record.subClassIdGuess
         ) { action in
             result = action
             NSApp.stopModal()

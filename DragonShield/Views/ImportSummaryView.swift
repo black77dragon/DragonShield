@@ -17,14 +17,14 @@ struct ImportSummaryView: View {
             VStack(spacing: 6) {
                 HStack {
                     Text("\u{1F4CA} Import Details")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
                         presentationMode.wrappedValue.dismiss()
                         completion()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.gray)
                             .frame(width: 32, height: 32)
                             .background(Color.gray.opacity(0.1))
@@ -62,22 +62,22 @@ struct ImportSummaryView: View {
             }
         }
         // Increased default size so all details are visible
-        .frame(minWidth: 650, minHeight: 380)
+        .frame(minWidth: 700, minHeight: 420)
     }
 
     private func infoRow(title: String, value: String, icon: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundColor(.gray)
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 Spacer()
             }
             Text(value)
-                .font(.system(size: 15))
+                .font(.system(size: 14))
         }
         .padding(.vertical, 1)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))

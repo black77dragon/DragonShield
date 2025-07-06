@@ -24,6 +24,7 @@ struct ParsedPositionRecord {
     var currentPrice: Double?
     let reportDate: Date
     let isCash: Bool
+    var subClassIdGuess: Int?
 }
 
 struct ZKBPositionParser {
@@ -57,7 +58,9 @@ struct ZKBPositionParser {
         var records: [ParsedPositionRecord] = []
 
         for (idx, row) in rows.enumerated() {
-            let isCash = row["Asset-Unterkategorie"] == "Konten"
+            let category = row["Anlagekategorie"] ?? ""
+            let subCategory = row["Asset-Unterkategorie"] ?? ""
+            let isCash = subCategory == "Konten"
             let currency = row["Whrg."] ?? "CHF"
             let descr = row["Beschreibung"] ?? ""
             let isin = row["ISIN"]
@@ -75,8 +78,9 @@ struct ZKBPositionParser {
                 progress?("Row \(idx+1) skipped")
                 continue
             }
-            let purchasePrice = row["Einstandskurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
-            let currentPrice = row["Kurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
+           let purchasePrice = row["Einstandskurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
+           let currentPrice = row["Kurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
+            let guess = Self.guessSubClassId(category: category, subCategory: subCategory, isCash: isCash)
             let record = ParsedPositionRecord(accountNumber: accountNumber,
                                                accountName: isCash ? descr : "ZKB Custody Account",
                                                instrumentName: instrumentName,
@@ -87,7 +91,8 @@ struct ZKBPositionParser {
                                                purchasePrice: purchasePrice,
                                                currentPrice: currentPrice,
                                                reportDate: valueDate,
-                                               isCash: isCash)
+                                               isCash: isCash,
+                                               subClassIdGuess: guess)
             records.append(record)
             summary.parsedRows += 1
             if isCash { summary.cashAccounts += 1 } else { summary.securityRecords += 1 }
@@ -99,5 +104,20 @@ struct ZKBPositionParser {
         logging.log("Finished parsing positions", type: .info, logger: log)
         progress?("Parsed \(summary.parsedRows) rows")
         return (summary, records)
+    }
+
+    private static func guessSubClassId(category: String, subCategory: String, isCash: Bool) -> Int? {
+        if isCash { return 1 }
+        let cat = category.lowercased()
+        let sub = subCategory.lowercased()
+        if sub.contains("fonds") || sub.contains("etf") {
+            if cat.contains("aktien") { return 4 } // Equity ETF
+            if cat.contains("festverzinsliche") { return 9 } // Bond ETF
+        }
+        if cat.contains("aktien") { return 3 } // Single Stock
+        if cat.contains("festverzinsliche") { return 8 } // Bond
+        if cat.contains("liquid") { return 1 }
+        if cat.contains("rohstoff") || cat.contains("immobil") || cat.contains("ai") { return 13 }
+        return nil
     }
 }
