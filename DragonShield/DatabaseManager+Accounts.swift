@@ -289,38 +289,51 @@ extension DatabaseManager {
     }
 
     /// Returns the account_id for a given account number, optionally matching
-    /// part of the account name. Spaces and non\u{00A0}breaking spaces in the
-    /// account number are ignored when searching. The comparison is case-insensitive
-    /// and also ignores hyphens for greater flexibility.
+    /// part of the account name. The lookup strips all non\u{00A0}alphanumeric
+    /// characters from the account number for a resilient comparison and is
+    /// case-insensitive. This helps match numbers that may include various
+    /// dashes or whitespace characters in the source data.
     func findAccountId(accountNumber: String, nameContains: String? = nil) -> Int? {
-        var query = "SELECT account_id FROM Accounts WHERE LOWER(REPLACE(REPLACE(REPLACE(account_number, ' ', ''), char(160), ''), '-', '')) = LOWER(REPLACE(REPLACE(REPLACE(?, ' ', ''), char(160), ''), '-', ''))"
-        if nameContains != nil {
-            query += " AND account_name LIKE ? COLLATE NOCASE"
-        }
-        query += " LIMIT 1;"
-        let sanitized = accountNumber
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "\u{00A0}", with: "")
-            .replacingOccurrences(of: "-", with: "")
+        let sanitizedSearch = accountNumber.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { Character($0) }
+            .map { String($0) }
+            .joined()
             .lowercased()
-        LoggingService.shared.log("findAccountId search: number=\(accountNumber) sanitized=\(sanitized) nameFilter=\(nameContains ?? "nil")", type: .debug, logger: .database)
+        LoggingService.shared.log(
+            "findAccountId search: number=\(accountNumber) sanitized=\(sanitizedSearch) nameFilter=\(nameContains ?? "nil")",
+            type: .debug, logger: .database
+        )
+
+        var query = "SELECT account_id, account_number FROM Accounts"
+        if let _ = nameContains {
+            query += " WHERE account_name LIKE ? COLLATE NOCASE"
+        }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             LoggingService.shared.log("Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, accountNumber, -1, nil)
         if let name = nameContains {
             let pattern = "%\(name)%"
-            sqlite3_bind_text(statement, 2, pattern, -1, nil)
+            sqlite3_bind_text(statement, 1, pattern, -1, nil)
         }
-        if sqlite3_step(statement) == SQLITE_ROW {
+        while sqlite3_step(statement) == SQLITE_ROW {
             let id = Int(sqlite3_column_int(statement, 0))
-            LoggingService.shared.log("findAccountId found id=\(id) for sanitized=\(sanitized)", type: .debug, logger: .database)
-            return id
+            let dbNumber = String(cString: sqlite3_column_text(statement, 1))
+            let sanitizedDb = dbNumber.unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { Character($0) }
+                .map { String($0) }
+                .joined()
+                .lowercased()
+            if sanitizedDb == sanitizedSearch {
+                LoggingService.shared.log("findAccountId found id=\(id) for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
+                return id
+            }
         }
-        LoggingService.shared.log("findAccountId no match for sanitized=\(sanitized)", type: .debug, logger: .database)
+        LoggingService.shared.log("findAccountId no match for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
         return nil
     }
 }
