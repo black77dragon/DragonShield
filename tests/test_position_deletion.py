@@ -49,3 +49,16 @@ def test_delete_by_institution():
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert remaining == [(2,)]
     conn.close()
+
+
+def test_delete_query_with_missing_param():
+    conn = setup_db()
+    cur = conn.execute('SELECT count(*) FROM PositionReports')
+    assert cur.fetchone()[0] == 3
+    # Simulate Swift bug where second bind parameter is left null
+    deleted = conn.execute(DELETE_QUERY, ('ZKB', None)).rowcount
+    # Only rows matching institution_id are removed
+    assert deleted == 1
+    remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
+    assert set(remaining) == {(1,), (2,)}
+    conn.close()

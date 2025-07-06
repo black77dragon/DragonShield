@@ -135,6 +135,7 @@ extension DatabaseManager {
             return 0
         }
         sqlite3_bind_text(stmt, 1, institution, -1, nil)
+        sqlite3_bind_text(stmt, 2, institution, -1, nil)
         let stepResult = sqlite3_step(stmt)
         let deleted = sqlite3_changes(db)
         sqlite3_finalize(stmt)
