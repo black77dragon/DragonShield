@@ -53,3 +53,4 @@ All notable changes to this project will be documented in this file.
 - Add debug logs for custody account lookups to help diagnose duplicates
 - Strip all non-alphanumeric characters when searching account numbers so the ZKB custody account is detected
 - Clarify that `Instruments.isin` is optional rather than mandatory
+- Add ZKB Custody Test Account with sample position reports to seed data
