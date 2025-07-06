@@ -326,12 +326,16 @@ CREATE TABLE PositionReports (
     position_id INTEGER PRIMARY KEY AUTOINCREMENT,
     import_session_id INTEGER,
     account_id INTEGER NOT NULL,
+    institution_id INTEGER NOT NULL,
     instrument_id INTEGER NOT NULL,
     quantity REAL NOT NULL,
+    purchase_price REAL,
+    current_price REAL,
     report_date DATE NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
 );
 

@@ -11,8 +11,11 @@ struct PositionReportData: Identifiable {
         var id: Int
         var importSessionId: Int?
         var accountName: String
+        var institutionName: String
         var instrumentName: String
         var quantity: Double
+        var purchasePrice: Double?
+        var currentPrice: Double?
         var reportDate: Date
         var uploadedAt: Date
 }
@@ -23,9 +26,12 @@ extension DatabaseManager {
         var reports: [PositionReportData] = []
         let query = """
             SELECT pr.position_id, pr.import_session_id, a.account_name,
-                   i.instrument_name, pr.quantity, pr.report_date, pr.uploaded_at
+                   ins.institution_name, i.instrument_name, pr.quantity,
+                   pr.purchase_price, pr.current_price, pr.report_date,
+                   pr.uploaded_at
             FROM PositionReports pr
             JOIN Accounts a ON pr.account_id = a.account_id
+            JOIN Institutions ins ON pr.institution_id = ins.institution_id
             JOIN Instruments i ON pr.instrument_id = i.instrument_id
             ORDER BY pr.position_id;
         """
@@ -40,18 +46,30 @@ extension DatabaseManager {
                     sessionId = nil
                 }
                 let accountName = String(cString: sqlite3_column_text(statement, 2))
-                let instrumentName = String(cString: sqlite3_column_text(statement, 3))
-                let quantity = sqlite3_column_double(statement, 4)
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 5))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 6))
+                let institutionName = String(cString: sqlite3_column_text(statement, 3))
+                let instrumentName = String(cString: sqlite3_column_text(statement, 4))
+                let quantity = sqlite3_column_double(statement, 5)
+                var purchasePrice: Double?
+                if sqlite3_column_type(statement, 6) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 6)
+                }
+                var currentPrice: Double?
+                if sqlite3_column_type(statement, 7) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 7)
+                }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 8))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 9))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
                     id: id,
                     importSessionId: sessionId,
                     accountName: accountName,
+                    institutionName: institutionName,
                     instrumentName: instrumentName,
                     quantity: quantity,
+                    purchasePrice: purchasePrice,
+                    currentPrice: currentPrice,
                     reportDate: reportDate,
                     uploadedAt: uploadedAt
                 ))
@@ -92,32 +110,50 @@ extension DatabaseManager {
         return Int(deleted)
     }
 
-    /// Deletes position reports where the associated account belongs to the given institution.
-    /// - Parameter institution: The institution name to match (case-insensitive).
+    /// Deletes position reports linked to the specified institution IDs.
+    /// - Parameter institutionIds: The identifiers to match.
     /// - Returns: The number of deleted rows.
-    func deletePositionReports(institutionName institution: String) -> Int {
+    func deletePositionReports(institutionIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty else { return 0 }
+        let placeholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
         let sql = """
             DELETE FROM PositionReports
-            WHERE account_id IN (
-                SELECT a.account_id FROM Accounts a
-                JOIN Institutions i ON a.institution_id = i.institution_id
-                WHERE i.institution_name = ? COLLATE NOCASE
-            );
+                  WHERE institution_id IN (\(placeholders))
+                     OR account_id IN (
+                        SELECT account_id FROM Accounts
+                         WHERE institution_id IN (\(placeholders))
+                  );
             """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
             return 0
         }
-        sqlite3_bind_text(stmt, 1, institution, -1, nil)
+        defer { sqlite3_finalize(stmt) }
+        for (i, id) in institutionIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(i + 1), Int32(id))
+        }
+        for (i, id) in institutionIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(institutionIds.count + i + 1), Int32(id))
+        }
         let stepResult = sqlite3_step(stmt)
         let deleted = sqlite3_changes(db)
-        sqlite3_finalize(stmt)
         if stepResult == SQLITE_DONE {
-            print("✅ Deleted \(deleted) position reports for institution \(institution)")
+            print("✅ Deleted \(deleted) position reports for institution ids \(institutionIds)")
         } else {
             print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
         }
         return Int(deleted)
+    }
+
+    /// Deletes position reports for all institutions matching the given name.
+    func deletePositionReports(institutionName: String) -> Int {
+        let ids = findInstitutionIds(name: institutionName)
+        if ids.isEmpty {
+            print("⚠️ No institution found matching \(institutionName)")
+            return 0
+        }
+        print("🗑️ Deleting positions for \(institutionName) institutions with ids: \(ids)")
+        return deletePositionReports(institutionIds: ids)
     }
 }

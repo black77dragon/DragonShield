@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Delete position reports for any institution directly from the Positions view
 - Delete existing ZKB position reports for all ZKB accounts before importing new positions
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
@@ -56,3 +57,21 @@ All notable changes to this project will be documented in this file.
 - Clarify that `Instruments.isin` is optional rather than mandatory
 - Add ZKB Custody Test Account with sample position reports to seed data
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
+- Store institution_id from the linked account when saving PositionReports and prompt before removing existing ZKB positions
+- Track purchase and current price in PositionReports when importing ZKB files
+- Display institution name in Positions view
+- Fix Positions view table headers for quantity and price columns
+- Remove OLD-BANK-007 from seed data and rename ZKB Custody test account
+- Populate purchase and current price in seed position reports
+- Fix argument order when constructing PositionReportData to resolve compile error
+- Enlarge the import details popup so all information is visible
+- Delete ZKB position reports using institution_id so all matching entries are removed
+- Use IN query when deleting by institution so duplicates with the same name are fully removed
+- Ensure seed PositionReports contain only one entry per account and instrument
+- Remove ZKB position reports even when old rows lack an institution_id by joining through Accounts
+- Bind deletion query parameters correctly so ZKB records are removed
+- Delete ZKB positions by institution_id with a single query for reliability
+- Delete ZKB positions by building a dynamic IN clause for all matching institution IDs and log the IDs removed
+- Automatically start ZKB position import when a file is chosen without asking to delete existing rows
+- Condense import popups, enlarge windows and use smaller fonts for better readability
+- Guess asset sub-class from statement categories when adding new instruments

@@ -152,5 +152,23 @@ extension DatabaseManager {
         }
         return nil
     }
+
+    /// Returns all institution IDs for a given institution name. Useful when
+    /// duplicates exist with the same name.
+    func findInstitutionIds(name: String) -> [Int] {
+        let query = "SELECT institution_id FROM Institutions WHERE institution_name = ? COLLATE NOCASE;"
+        var stmt: OpaquePointer?
+        var ids: [Int] = []
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstitutionIds: \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, name, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            ids.append(Int(sqlite3_column_int(stmt, 0)))
+        }
+        return ids
+    }
 }
 

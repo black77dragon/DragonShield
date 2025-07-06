@@ -343,8 +343,11 @@ Analysis Layer
 - position_id: Primary key
 - import_session_id: Related import session
 - account_id: Account containing the position
+- institution_id: Owning institution (derived from the linked account)
 - instrument_id: Instrument identifier
 - quantity: Units held
+- purchase_price: Original price paid per unit
+- current_price: Current market price per unit
 - report_date: Statement's report date
 - uploaded_at: Timestamp when imported
 ```

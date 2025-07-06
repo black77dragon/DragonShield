@@ -62,7 +62,8 @@ class ImportManager {
             name: record.instrumentName,
             ticker: record.tickerSymbol ?? "",
             isin: record.isin ?? "",
-            currency: record.currency
+            currency: record.currency,
+            subClassId: record.subClassIdGuess
         ) { action in
             result = action
             NSApp.stopModal()
@@ -133,7 +134,8 @@ class ImportManager {
                                      validRows: validRows) {
             NSApp.stopModal()
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 350),
+        // Enlarged window to prevent clipping of details
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Import Details"
@@ -185,7 +187,7 @@ class ImportManager {
     }
 
     /// Parses a ZKB statement and saves position reports.
-    func importPositions(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
+    func importPositions(at url: URL, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
             LoggingService.shared.log(message, type: .info, logger: .parser)
@@ -195,8 +197,10 @@ class ImportManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            let removed = self.deleteZKBPositions()
-            LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+            if deleteExisting {
+                let removed = self.deleteZKBPositions()
+                LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+            }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
                 DispatchQueue.main.sync {
@@ -210,18 +214,10 @@ class ImportManager {
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
-                let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                let valueDate = rows.first?.reportDate ?? Date()
                let baseSessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
-                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
-                                                                  fileName: url.lastPathComponent,
-                                                                  filePath: url.path,
-                                                                  fileType: fileType,
-                                                                  fileSize: fileSize,
-                                                                  fileHash: hash,
-                                                                  institutionId: institutionId)
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
@@ -275,6 +271,16 @@ class ImportManager {
                     }
                 }
                 let accId = accountId!
+                let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
+                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+
+                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
+                                                                  fileName: url.lastPathComponent,
+                                                                  filePath: url.path,
+                                                                  fileType: fileType,
+                                                                  fileSize: fileSize,
+                                                                  fileHash: hash,
+                                                                  institutionId: institutionId)
 
                 var success = 0
                 var failure = 0
@@ -321,8 +327,11 @@ class ImportManager {
                     }
                     let report = PositionReport(importSessionId: sessionId,
                                                 accountId: accId,
+                                                institutionId: institutionId,
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
+                                                purchasePrice: row.purchasePrice,
+                                                currentPrice: row.currentPrice,
                                                 reportDate: row.reportDate)
                     do {
                         try self.positionRepository.saveReports([report])

@@ -223,13 +223,6 @@ struct ImportStatementView: View {
                     Label("Clear", systemImage: "xmark.circle")
                 }
                 
-                Button {
-                    // This will trigger the next step in the logic
-                    processSelectedFile(url: url)
-                } label: {
-                    Label("Next: Identify Account", systemImage: "arrow.right.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
             }
 
             if !logMessages.isEmpty {
@@ -253,6 +246,7 @@ struct ImportStatementView: View {
             if url.startAccessingSecurityScopedResource() {
                 self.selectedFileURL = url
                 self.errorMessage = nil
+                processSelectedFile(url: url)
             } else {
                 self.errorMessage = "Could not access the selected file."
             }
@@ -272,6 +266,7 @@ struct ImportStatementView: View {
                         if url.startAccessingSecurityScopedResource() {
                             self.selectedFileURL = url
                             self.errorMessage = nil
+                            processSelectedFile(url: url)
                         } else {
                             self.errorMessage = "Could not access the dropped file."
                         }
@@ -286,9 +281,7 @@ struct ImportStatementView: View {
     private func processSelectedFile(url: URL) {
         logMessages.removeAll()
         if importMode == .zkb {
-            let deleted = ImportManager.shared.deleteZKBPositions()
-            LoggingService.shared.log("Deleted ZKB positions: \(deleted)", type: .info, logger: .database)
-            ImportManager.shared.importPositions(at: url, progress: { message in
+            ImportManager.shared.importPositions(at: url, deleteExisting: false, progress: { message in
                 DispatchQueue.main.async { logMessages.append(message) }
             }) { result in
                 url.stopAccessingSecurityScopedResource()

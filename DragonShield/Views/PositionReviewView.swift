@@ -15,14 +15,14 @@ struct PositionReviewView: View {
             VStack(spacing: 6) {
                 HStack {
                     Text("📝 Confirm Instrument Position Upload")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
                         presentationMode.wrappedValue.dismiss()
                         completion(.abort)
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.gray)
                             .frame(width: 32, height: 32)
                             .background(Color.gray.opacity(0.1))
@@ -68,7 +68,7 @@ struct PositionReviewView: View {
                 .padding([.horizontal, .bottom], 24)
             }
         }
-        .frame(minWidth: 600, minHeight: 550)
+        .frame(minWidth: 720, minHeight: 560)
     }
 
     private func modernTextField(
@@ -81,15 +81,15 @@ struct PositionReviewView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(.gray)
                 Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 Spacer()
             }
             TextField(placeholder, text: text)
-                .font(.system(size: 16))
+                .font(.system(size: 15))
                 .textFieldStyle(.roundedBorder)
         }
     }

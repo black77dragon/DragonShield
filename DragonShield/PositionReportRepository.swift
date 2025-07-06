@@ -8,8 +8,11 @@ import SQLite3
 struct PositionReport {
     let importSessionId: Int?
     let accountId: Int
+    let institutionId: Int
     let instrumentId: Int
     let quantity: Double
+    let purchasePrice: Double?
+    let currentPrice: Double?
     let reportDate: Date
 }
 
@@ -45,11 +48,15 @@ final class PositionReportRepository {
                 position_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 import_session_id INTEGER,
                 account_id INTEGER NOT NULL,
+                institution_id INTEGER NOT NULL,
                 instrument_id INTEGER NOT NULL,
                 quantity REAL NOT NULL,
+                purchase_price REAL,
+                current_price REAL,
                 report_date DATE NOT NULL,
                 uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+                FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
                 FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
             );
             """
@@ -60,7 +67,7 @@ final class PositionReportRepository {
     }
 
     func saveReports(_ reports: [PositionReport]) throws {
-        let sql = "INSERT INTO PositionReports (import_session_id, account_id, instrument_id, quantity, report_date) VALUES (?, ?, ?, ?, ?)"
+        let sql = "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, purchase_price, current_price, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         var stmt: OpaquePointer?
         guard let db = dbManager.db else {
             throw PositionReportRepositoryError.connectionUnavailable
@@ -78,9 +85,20 @@ final class PositionReportRepository {
                 sqlite3_bind_null(stmt, 1)
             }
             sqlite3_bind_int(stmt, 2, Int32(rpt.accountId))
-            sqlite3_bind_int(stmt, 3, Int32(rpt.instrumentId))
-            sqlite3_bind_double(stmt, 4, rpt.quantity)
-            sqlite3_bind_text(stmt, 5, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
+            sqlite3_bind_int(stmt, 3, Int32(rpt.institutionId))
+            sqlite3_bind_int(stmt, 4, Int32(rpt.instrumentId))
+            sqlite3_bind_double(stmt, 5, rpt.quantity)
+            if let pPrice = rpt.purchasePrice {
+                sqlite3_bind_double(stmt, 6, pPrice)
+            } else {
+                sqlite3_bind_null(stmt, 6)
+            }
+            if let cPrice = rpt.currentPrice {
+                sqlite3_bind_double(stmt, 7, cPrice)
+            } else {
+                sqlite3_bind_null(stmt, 7)
+            }
+            sqlite3_bind_text(stmt, 8, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
             if sqlite3_step(stmt) != SQLITE_DONE {
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw PositionReportRepositoryError.insertFailed(msg)

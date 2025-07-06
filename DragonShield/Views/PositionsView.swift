@@ -14,6 +14,11 @@ struct PositionsView: View {
     @State private var selectedPosition: PositionReportData? = nil
     @State private var searchText = ""
 
+    @State private var institutions: [DatabaseManager.InstitutionData] = []
+    @State private var selectedInstitutionId: Int? = nil
+    @State private var showingDeleteAlert = false
+    @State private var buttonsOpacity: Double = 0
+
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
@@ -43,11 +48,27 @@ struct PositionsView: View {
             VStack(spacing: 0) {
                 modernHeader
                 positionsContent
+                modernActionBar
             }
         }
         .onAppear {
             loadPositions()
+            loadInstitutions()
             animateEntrance()
+        }
+        .alert("Delete Positions", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let id = selectedInstitutionId {
+                    _ = dbManager.deletePositionReports(institutionIds: [id])
+                    loadPositions()
+                }
+            }
+        } message: {
+            if let id = selectedInstitutionId,
+               let name = institutions.first(where: { $0.id == id })?.name {
+                Text("Are you sure you want to delete all positions for \(name)? This action cannot be undone.")
+            }
         }
     }
 
@@ -110,8 +131,11 @@ struct PositionsView: View {
             Text("ID").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 50, alignment: .leading)
             Text("Session").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .leading)
             Text("Account").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
+            Text("Institution").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Instrument").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
             Text("Qty").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
+            Text("Purchase").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
+            Text("Current").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
             Text("Uploaded").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
             Text("Report").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
         }
@@ -151,13 +175,99 @@ struct PositionsView: View {
         .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
     }
 
+    private var modernActionBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(height: 1)
+
+            HStack(spacing: 16) {
+                Menu {
+                    ForEach(institutions, id: \.id) { inst in
+                        Button(inst.name) {
+                            selectedInstitutionId = inst.id
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(selectedInstitutionId.flatMap { id in
+                            institutions.first { $0.id == id }?.name
+                        } ?? "Select Institution")
+                            .font(.system(size: 14, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                if selectedInstitutionId != nil {
+                    Button {
+                        showingDeleteAlert = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Delete Positions")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                }
+
+                Spacer()
+
+                if let id = selectedInstitutionId,
+                   let inst = institutions.first(where: { $0.id == id }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Selected: \(inst.name)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.05))
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(.regularMaterial)
+        }
+        .opacity(buttonsOpacity)
+    }
+
     private func loadPositions() {
         positions = dbManager.fetchPositionReports()
+    }
+
+    private func loadInstitutions() {
+        institutions = dbManager.fetchInstitutions()
     }
 
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
+        withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
     }
 }
 
@@ -187,6 +297,11 @@ struct ModernPositionRowView: View {
                 .foregroundColor(.secondary)
                 .frame(width: 150, alignment: .leading)
 
+            Text(position.institutionName)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .frame(width: 150, alignment: .leading)
+
             Text(position.instrumentName)
                 .font(.system(size: 14))
                 .foregroundColor(.primary)
@@ -197,6 +312,30 @@ struct ModernPositionRowView: View {
                 .font(.system(size: 14, design: .monospaced))
                 .foregroundColor(.primary)
                 .frame(width: 60, alignment: .trailing)
+
+            if let p = position.purchasePrice {
+                Text(String(format: "%.2f", p))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .frame(width: 70, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 70, alignment: .trailing)
+            }
+
+            if let cp = position.currentPrice {
+                Text(String(format: "%.2f", cp))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .frame(width: 70, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 70, alignment: .trailing)
+            }
 
             Text(position.uploadedAt, formatter: Self.dateTimeFormatter)
                 .font(.system(size: 12))

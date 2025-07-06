@@ -12,6 +12,15 @@ struct InstrumentPromptView: View {
     @State private var currencies: [(code: String, name: String, symbol: String)] = []
     let completion: (ImportManager.InstrumentPromptResult) -> Void
 
+    init(name: String, ticker: String, isin: String, currency: String, subClassId: Int? = nil, completion: @escaping (ImportManager.InstrumentPromptResult) -> Void) {
+        _name = State(initialValue: name)
+        _ticker = State(initialValue: ticker)
+        _isin = State(initialValue: isin)
+        _currency = State(initialValue: currency)
+        _subClassId = State(initialValue: subClassId ?? 1)
+        self.completion = completion
+    }
+
     var body: some View {
         ZStack {
             LinearGradient(
@@ -23,14 +32,14 @@ struct InstrumentPromptView: View {
             VStack(spacing: 6) {
                 HStack {
                     Text("🎸 New Instrument")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                     Spacer()
                     Button {
                         presentationMode.wrappedValue.dismiss()
                         completion(.abort)
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.gray)
                             .frame(width: 32, height: 32)
                             .background(Color.gray.opacity(0.1))
@@ -80,7 +89,7 @@ struct InstrumentPromptView: View {
                 .padding([.horizontal, .bottom], 24)
             }
         }
-        .frame(minWidth: 600, minHeight: 450)
+        .frame(minWidth: 720, minHeight: 520)
         .onAppear(perform: loadData)
     }
 
@@ -94,15 +103,15 @@ struct InstrumentPromptView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(.gray)
                 Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 Spacer()
             }
             TextField(placeholder, text: text)
-                .font(.system(size: 16))
+                .font(.system(size: 15))
                 .textFieldStyle(.roundedBorder)
         }
     }
@@ -111,10 +120,10 @@ struct InstrumentPromptView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(.gray)
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
                 Spacer()
             }
