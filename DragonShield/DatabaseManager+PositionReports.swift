@@ -110,33 +110,50 @@ extension DatabaseManager {
         return Int(deleted)
     }
 
-    /// Deletes position reports linked to the specified institution.
-    /// - Parameter institutionId: The institution identifier.
+    /// Deletes position reports linked to the specified institution IDs.
+    /// - Parameter institutionIds: The identifiers to match.
     /// - Returns: The number of deleted rows.
-    func deletePositionReports(institutionId: Int) -> Int {
+    func deletePositionReports(institutionIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty else { return 0 }
+        let placeholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
         let sql = """
             DELETE FROM PositionReports
-            WHERE institution_id = ?
-               OR account_id IN (
-                    SELECT account_id FROM Accounts
-                     WHERE institution_id = ?
-               );
+                  WHERE institution_id IN (\(placeholders))
+                     OR account_id IN (
+                        SELECT account_id FROM Accounts
+                         WHERE institution_id IN (\(placeholders))
+                  );
             """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
             return 0
         }
-        sqlite3_bind_int(stmt, 1, Int32(institutionId))
-        sqlite3_bind_int(stmt, 2, Int32(institutionId))
+        defer { sqlite3_finalize(stmt) }
+        for (i, id) in institutionIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(i + 1), Int32(id))
+        }
+        for (i, id) in institutionIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(institutionIds.count + i + 1), Int32(id))
+        }
         let stepResult = sqlite3_step(stmt)
         let deleted = sqlite3_changes(db)
-        sqlite3_finalize(stmt)
         if stepResult == SQLITE_DONE {
-            print("✅ Deleted \(deleted) position reports for institution id \(institutionId)")
+            print("✅ Deleted \(deleted) position reports for institution ids \(institutionIds)")
         } else {
             print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
         }
         return Int(deleted)
+    }
+
+    /// Deletes position reports for all institutions matching the given name.
+    func deletePositionReports(institutionName: String) -> Int {
+        let ids = findInstitutionIds(name: institutionName)
+        if ids.isEmpty {
+            print("⚠️ No institution found matching \(institutionName)")
+            return 0
+        }
+        print("🗑️ Deleting positions for \(institutionName) institutions with ids: \(ids)")
+        return deletePositionReports(institutionIds: ids)
     }
 }

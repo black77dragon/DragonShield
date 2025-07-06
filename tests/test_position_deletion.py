@@ -1,14 +1,16 @@
 import sqlite3
 
-# query replicating DatabaseManager.deletePositionReports(institutionId:)
-DELETE_QUERY = """
-    DELETE FROM PositionReports
-          WHERE institution_id = ?
-             OR account_id IN (
-                    SELECT account_id FROM Accounts
-                     WHERE institution_id = ?
-             );
-"""
+# build query replicating DatabaseManager.deletePositionReports(institutionIds:)
+def build_delete_query(count):
+    placeholders = ', '.join(['?'] * count)
+    return f"""
+        DELETE FROM PositionReports
+              WHERE institution_id IN ({placeholders})
+                 OR account_id IN (
+                        SELECT account_id FROM Accounts
+                         WHERE institution_id IN ({placeholders})
+              );
+    """
 
 def setup_db():
     conn = sqlite3.connect(':memory:')
@@ -40,7 +42,8 @@ def test_delete_by_institution():
     conn = setup_db()
     cur = conn.execute('SELECT count(*) FROM PositionReports')
     assert cur.fetchone()[0] == 3
-    deleted = conn.execute(DELETE_QUERY, (1, 1)).rowcount
+    query = build_delete_query(1)
+    deleted = conn.execute(query, (1, 1)).rowcount
     assert deleted == 2
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert remaining == [(2,)]
@@ -52,9 +55,24 @@ def test_delete_query_with_missing_param():
     cur = conn.execute('SELECT count(*) FROM PositionReports')
     assert cur.fetchone()[0] == 3
     # Simulate Swift bug where second bind parameter is left null
-    deleted = conn.execute(DELETE_QUERY, (1, None)).rowcount
+    query = build_delete_query(1)
+    deleted = conn.execute(query, (1, None)).rowcount
     # Only rows matching institution_id are removed
     assert deleted == 1
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert set(remaining) == {(1,), (2,)}
+    conn.close()
+
+
+def test_delete_multiple_ids():
+    conn = setup_db()
+    conn.execute("INSERT INTO Institutions VALUES (3, 'ZKB')")
+    conn.execute("INSERT INTO Accounts VALUES (3, 'ZKB2', 3)")
+    conn.execute("INSERT INTO PositionReports VALUES (4, 3, 3, 1, 40, '2024-01-01')")
+    query = build_delete_query(2)
+    ids = (1, 3, 1, 3)
+    deleted = conn.execute(query, ids).rowcount
+    assert deleted == 3
+    remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
+    assert remaining == [(2,)]
     conn.close()

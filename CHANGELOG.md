@@ -70,3 +70,4 @@ All notable changes to this project will be documented in this file.
 - Remove ZKB position reports even when old rows lack an institution_id by joining through Accounts
 - Bind deletion query parameters correctly so ZKB records are removed
 - Delete ZKB positions by institution_id with a single query for reliability
+- Delete ZKB positions by building a dynamic IN clause for all matching institution IDs and log the IDs removed
