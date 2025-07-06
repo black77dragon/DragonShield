@@ -20,6 +20,8 @@ struct ParsedPositionRecord {
     var isin: String?
     var currency: String
     var quantity: Double
+    var purchasePrice: Double?
+    var currentPrice: Double?
     let reportDate: Date
     let isCash: Bool
 }
@@ -73,6 +75,8 @@ struct ZKBPositionParser {
                 progress?("Row \(idx+1) skipped")
                 continue
             }
+            let purchasePrice = row["Einstandskurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
+            let currentPrice = row["Kurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
             let record = ParsedPositionRecord(accountNumber: accountNumber,
                                                accountName: isCash ? descr : "ZKB Custody Account",
                                                instrumentName: instrumentName,
@@ -80,6 +84,8 @@ struct ZKBPositionParser {
                                                isin: isin,
                                                currency: currency,
                                                quantity: quantity,
+                                               purchasePrice: purchasePrice,
+                                               currentPrice: currentPrice,
                                                reportDate: valueDate,
                                                isCash: isCash)
             records.append(record)

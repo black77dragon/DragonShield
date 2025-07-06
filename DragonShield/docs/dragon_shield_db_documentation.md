@@ -345,6 +345,8 @@ Analysis Layer
 - account_id: Account containing the position
 - instrument_id: Instrument identifier
 - quantity: Units held
+- purchase_price: Original price paid per unit
+- current_price: Current market price per unit
 - report_date: Statement's report date
 - uploaded_at: Timestamp when imported
 ```

@@ -326,6 +326,8 @@ class ImportManager {
                                                 institutionId: institutionId,
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
+                                                purchasePrice: row.purchasePrice,
+                                                currentPrice: row.currentPrice,
                                                 reportDate: row.reportDate)
                     do {
                         try self.positionRepository.saveReports([report])

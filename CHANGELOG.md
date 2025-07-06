@@ -57,3 +57,4 @@ All notable changes to this project will be documented in this file.
 - Add ZKB Custody Test Account with sample position reports to seed data
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
 - Store institution_id with each PositionReport and prompt before removing existing ZKB positions
+- Track purchase and current price in PositionReports when importing ZKB files

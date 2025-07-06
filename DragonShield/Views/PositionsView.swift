@@ -198,6 +198,30 @@ struct ModernPositionRowView: View {
                 .foregroundColor(.primary)
                 .frame(width: 60, alignment: .trailing)
 
+            if let p = position.purchasePrice {
+                Text(String(format: "%.2f", p))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .frame(width: 70, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 70, alignment: .trailing)
+            }
+
+            if let cp = position.currentPrice {
+                Text(String(format: "%.2f", cp))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .frame(width: 70, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 70, alignment: .trailing)
+            }
+
             Text(position.uploadedAt, formatter: Self.dateTimeFormatter)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)

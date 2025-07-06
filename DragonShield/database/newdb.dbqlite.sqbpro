@@ -413,6 +413,8 @@ CREATE TABLE PositionReports (
     institution_id INTEGER NOT NULL,
     instrument_id INTEGER NOT NULL,
     quantity REAL NOT NULL,
+    purchase_price REAL,
+    current_price REAL,
     report_date DATE NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),

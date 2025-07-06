@@ -13,6 +13,8 @@ struct PositionReportData: Identifiable {
         var accountName: String
         var instrumentName: String
         var quantity: Double
+        var purchasePrice: Double?
+        var currentPrice: Double?
         var reportDate: Date
         var uploadedAt: Date
 }
@@ -23,7 +25,8 @@ extension DatabaseManager {
         var reports: [PositionReportData] = []
         let query = """
             SELECT pr.position_id, pr.import_session_id, a.account_name,
-                   i.instrument_name, pr.quantity, pr.report_date, pr.uploaded_at
+                   i.instrument_name, pr.quantity, pr.purchase_price,
+                   pr.current_price, pr.report_date, pr.uploaded_at
             FROM PositionReports pr
             JOIN Accounts a ON pr.account_id = a.account_id
             JOIN Instruments i ON pr.instrument_id = i.instrument_id
@@ -42,8 +45,16 @@ extension DatabaseManager {
                 let accountName = String(cString: sqlite3_column_text(statement, 2))
                 let instrumentName = String(cString: sqlite3_column_text(statement, 3))
                 let quantity = sqlite3_column_double(statement, 4)
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 5))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 6))
+                var purchasePrice: Double?
+                if sqlite3_column_type(statement, 5) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 5)
+                }
+                var currentPrice: Double?
+                if sqlite3_column_type(statement, 6) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 6)
+                }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 7))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 8))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -52,6 +63,8 @@ extension DatabaseManager {
                     accountName: accountName,
                     instrumentName: instrumentName,
                     quantity: quantity,
+                    purchasePrice: purchasePrice,
+                    currentPrice: currentPrice,
                     reportDate: reportDate,
                     uploadedAt: uploadedAt
                 ))
