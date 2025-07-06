@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Delete position reports for any institution directly from the Positions view
 - Delete existing ZKB position reports for all ZKB accounts before importing new positions
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
