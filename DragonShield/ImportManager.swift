@@ -133,7 +133,8 @@ class ImportManager {
                                      validRows: validRows) {
             NSApp.stopModal()
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 350),
+        // Enlarged window to prevent clipping of details
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Import Details"

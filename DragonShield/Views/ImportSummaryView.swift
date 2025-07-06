@@ -61,7 +61,8 @@ struct ImportSummaryView: View {
                 .padding([.horizontal, .bottom], 24)
             }
         }
-        .frame(minWidth: 500, minHeight: 320)
+        // Increased default size so all details are visible
+        .frame(minWidth: 650, minHeight: 380)
     }
 
     private func infoRow(title: String, value: String, icon: String) -> some View {
