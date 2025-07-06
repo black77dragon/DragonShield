@@ -3,8 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Delete existing ZKB position reports for all ZKB accounts before importing new positions
+- Replace `account_id` with `institution_id` in `ImportSessions` table
+- Fix incorrect parameter label when starting import sessions
+- Store import sessions by institution and value date, tracking duplicate rows
 - Allow editing Asset Class in Asset SubClass popup
 - Restyled Institutions maintenance window for consistent look and feel
+- Retry account prompt until a custody account is created during position import
 - Fix compile error in Institutions view due to missing empty state component
 - Added Asset Class maintenance screens with create, update and delete
 - Fix compile errors in Asset Class maintenance view on macOS
@@ -31,3 +36,23 @@ All notable changes to this project will be documented in this file.
 - Show import summary in modern styled popup
 - Condense import details popup row spacing
 - Default custody positions to "ZKB Custody Account" name
+- Fix saving position reports when no import session is created
+- Use single custody account for all parsed positions
+- Display a status alert after each position save attempt
+- Allow reimporting the same file by removing unique constraint on file hash
+- Prompt to create new accounts when account number is missing and retry if insertion fails
+- Fix compile errors in AccountPromptView due to incorrect parameter labels
+- Improve account lookup when importing positions to match numbers with spaces
+  and require account name containing "ZKB" to prevent repeated prompts
+- Append numbers to import session names when duplicates exist
+- Fallback to account lookup by number only to use existing ZKB Custody Account
+- Fix account lookup to ignore non-breaking spaces in numbers
+- Retry import session creation when file_hash is unique in older databases
+- Improve custody account search by ignoring hyphens and case
+- Restrict ZKB position deletions to accounts linked to the ZKB institution
+- Add ZKB institution to seed data script for tests
+- Add debug logs for custody account lookups to help diagnose duplicates
+- Strip all non-alphanumeric characters when searching account numbers so the ZKB custody account is detected
+- Clarify that `Instruments.isin` is optional rather than mandatory
+- Add ZKB Custody Test Account with sample position reports to seed data
+- Look up instruments by ISIN ignoring spaces and case so existing records are detected

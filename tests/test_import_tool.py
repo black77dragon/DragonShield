@@ -38,11 +38,12 @@ def setup_db():
             file_type TEXT,
             file_size INTEGER,
             file_hash TEXT,
-            account_id INTEGER,
+            institution_id INTEGER,
             import_status TEXT,
             total_rows INTEGER,
             successful_rows INTEGER,
             failed_rows INTEGER,
+            duplicate_rows INTEGER,
             processing_notes TEXT,
             started_at TEXT,
             completed_at TEXT
@@ -80,9 +81,23 @@ def test_insert_and_update_session():
     row = conn.execute('SELECT session_name FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
     assert row[0] == 'Test Session'
 
-    import_tool.update_session(conn, sess_id, 'COMPLETED', 5, 4, 1, 'done')
-    row = conn.execute('SELECT import_status, total_rows, successful_rows, failed_rows, processing_notes FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
-    assert row == ('COMPLETED', 5, 4, 1, 'done')
+    # inserting again with same name should append suffix
+    sess_id2 = import_tool.insert_session(
+        conn,
+        import_tool.next_session_name(conn, 'Test Session'),
+        'file2.csv',
+        '/tmp/file2.csv',
+        'CSV',
+        12,
+        'hash2',
+        1,
+    )
+    row2 = conn.execute('SELECT session_name FROM ImportSessions WHERE import_session_id=?', (sess_id2,)).fetchone()
+    assert row2[0] == 'Test Session (1)'
+
+    import_tool.update_session(conn, sess_id, 'COMPLETED', 5, 4, 1, 2, 'done')
+    row = conn.execute('SELECT import_status, total_rows, successful_rows, failed_rows, duplicate_rows, processing_notes FROM ImportSessions WHERE import_session_id=?', (sess_id,)).fetchone()
+    assert row == ('COMPLETED', 5, 4, 1, 2, 'done')
 
 
 def test_parse_file(monkeypatch, tmp_path):

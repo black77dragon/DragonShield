@@ -45,6 +45,12 @@ class ImportManager {
         case abort
     }
 
+    enum AccountPromptResult {
+        case save(name: String, institutionId: Int, number: String, accountTypeId: Int, currency: String)
+        case cancel
+        case abort
+    }
+
     enum ImportError: Error {
         case aborted
     }
@@ -69,6 +75,29 @@ class ImportManager {
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        return result
+    }
+
+    private func promptForAccount(number: String, currency: String) -> AccountPromptResult {
+        var result: AccountPromptResult = .cancel
+        let instId = dbManager.findInstitutionId(name: "ZKB") ?? 1
+        let typeId = dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
+        let view = AccountPromptView(accountName: "ZKB Custody Account",
+                                     accountNumber: number,
+                                     institutionId: instId,
+                                     accountTypeId: typeId,
+                                     currencyCode: currency) { action in
+            result = action
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Add Account"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view.environmentObject(dbManager))
         NSApp.runModal(for: window)
         return result
     }
@@ -112,6 +141,14 @@ class ImportManager {
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+    }
+
+    private func showStatusAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     /// Parses a XLSX document and saves the records to the database.
@@ -158,6 +195,8 @@ class ImportManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
+            let removed = self.deleteZKBPositions()
+            LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
                 DispatchQueue.main.sync {
@@ -171,17 +210,74 @@ class ImportManager {
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
-                let custAccount = rows.first(where: { !$0.isCash })?.accountNumber ?? rows.first?.accountNumber
-                let accId = custAccount.flatMap { self.dbManager.findAccountId(accountNumber: $0) }
-                let sessionId = self.dbManager.startImportSession(sessionName: "Import \(url.lastPathComponent)",
+                let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+               let valueDate = rows.first?.reportDate ?? Date()
+               let baseSessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
+                let fileType = url.pathExtension.uppercased()
+                let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
                                                                   filePath: url.path,
-                                                                  fileType: "XLSX",
+                                                                  fileType: fileType,
                                                                   fileSize: fileSize,
                                                                   fileHash: hash,
-                                                                  accountId: accId)
+                                                                  institutionId: institutionId)
 
-                var reports: [PositionReport] = []
+                let custodyNumber = rows.first?.accountNumber ?? ""
+                var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                LoggingService.shared.log("Lookup account for \(custodyNumber) -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                if accountId == nil {
+                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                    LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                }
+                while accountId == nil {
+                    var accAction: AccountPromptResult = .cancel
+                    DispatchQueue.main.sync {
+                        accAction = self.promptForAccount(number: custodyNumber,
+                                                         currency: rows.first?.currency ?? "CHF")
+                    }
+                    switch accAction {
+                    case let .save(name, instId, number, typeId, curr):
+                        _ = self.dbManager.addAccount(accountName: name,
+                                                       institutionId: instId,
+                                                       accountNumber: number,
+                                                       accountTypeId: typeId,
+                                                       currencyCode: curr,
+                                                       openingDate: nil,
+                                                       closingDate: nil,
+                                                       includeInPortfolio: true,
+                                                       isActive: true,
+                                                       notes: nil)
+                        accountId = self.dbManager.findAccountId(accountNumber: number)
+                        LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                        if accountId == nil {
+                            accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "ZKB")
+                            LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                        }
+                        if accountId != nil {
+                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
+                        }
+                    case .cancel:
+                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                        LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                        if accountId == nil {
+                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                            LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                        }
+                        if accountId == nil {
+                            DispatchQueue.main.sync {
+                                self.showStatusAlert(title: "Account Required",
+                                                      message: "Account \(custodyNumber) is required to save positions.")
+                            }
+                        }
+                    case .abort:
+                        throw ImportError.aborted
+                    }
+                }
+                let accId = accountId!
+
+                var success = 0
+                var failure = 0
                 for parsed in rows {
                     var action: RecordPromptResult = .save(parsed)
                     DispatchQueue.main.sync {
@@ -189,31 +285,6 @@ class ImportManager {
                     }
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
-                        continue
-                    }
-                    var accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
-                    if accountId == nil {
-                        let institutionId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                        let typeCode = row.isCash ? "CASH" : "CUSTODY"
-                        let accountTypeId = self.dbManager.findAccountTypeId(code: typeCode) ?? 1
-                        let name = row.isCash ? row.accountName : "ZKB Custody Account"
-                        let created = self.dbManager.addAccount(accountName: name,
-                                                                institutionId: institutionId,
-                                                                accountNumber: row.accountNumber,
-                                                                accountTypeId: accountTypeId,
-                                                                currencyCode: row.currency,
-                                                                openingDate: nil,
-                                                                closingDate: nil,
-                                                                includeInPortfolio: true,
-                                                                isActive: true,
-                                                                notes: nil)
-                        if created {
-                            accountId = self.dbManager.findAccountId(accountNumber: row.accountNumber)
-                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
-                        }
-                    }
-                    guard let accId = accountId else {
-                        LoggingService.shared.log("Account not found for \(row.accountNumber)", type: .error, logger: .database)
                         continue
                     }
                     var instrumentId: Int?
@@ -248,21 +319,33 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(importSessionId: sessionId ?? 0,
+                    let report = PositionReport(importSessionId: sessionId,
                                                 accountId: accId,
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
                                                 reportDate: row.reportDate)
-                    reports.append(report)
+                    do {
+                        try self.positionRepository.saveReports([report])
+                        success += 1
+                        DispatchQueue.main.sync {
+                            self.showStatusAlert(title: "Position Saved",
+                                                  message: "Saved \(row.instrumentName)")
+                        }
+                    } catch {
+                        failure += 1
+                        DispatchQueue.main.sync {
+                            self.showStatusAlert(title: "Save Failed",
+                                                  message: error.localizedDescription)
+                        }
+                    }
                 }
-                try self.positionRepository.saveReports(reports)
-                LoggingService.shared.log("Saved position reports", type: .info, logger: .database)
                 if let sid = sessionId {
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,
-                                                       successRows: summary.parsedRows,
-                                                       failedRows: summary.totalRows - summary.parsedRows,
-                                                       notes: nil)
+                                                       successRows: success,
+                                                       failedRows: failure,
+                                                       duplicateRows: 0,
+                                                       notes: "will be determined later")
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))
@@ -277,10 +360,16 @@ class ImportManager {
         }
     }
 
-    /// Deletes all position reports where the account name contains "ZKB".
+    /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
-        dbManager.deletePositionReports(accountNameContains: "ZKB")
+        let accounts = dbManager.fetchAccounts(institutionName: "ZKB")
+        if !accounts.isEmpty {
+            let numbers = accounts.map { $0.number }.joined(separator: ", ")
+            LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
+                                      type: .info, logger: .database)
+        }
+        return dbManager.deletePositionReports(institutionName: "ZKB")
     }
 
     /// Presents an open panel and processes the selected XLSX file.

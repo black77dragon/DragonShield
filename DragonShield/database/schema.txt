@@ -140,15 +140,18 @@ INSERT INTO Institutions (institution_id, institution_name, institution_type, bi
  (3, 'Interactive Brokers LLC', 'BROKER', NULL, 'https://www.interactivebrokers.com', 1),
  (4, 'Coinbase', 'CRYPTO_EXCHANGE', NULL, 'https://www.coinbase.com', 1),
  (5, 'Self-Custody', 'WALLET', NULL, NULL, 1),
- (6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
- (7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
+(6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
+(7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
+INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website, is_active) VALUES
+ (8, 'ZKB', 'BANK', NULL, NULL, 1);
 INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
 ('CH12-3456-7890-1234-5', 'UBS Custody Account', 1, 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
 ('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 2, 1, 'CHF', '2023-06-10', 1, 1, NULL),
 ('US-IBKR-987654321', 'Interactive Brokers Account', 3, 2, 'USD', '2024-03-01', 1, 1, 'For US stocks and ETFs.'),
 ('COINBASE-PRO-001', 'Coinbase Pro Account', 4, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
 ('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 5, 3, 'BTC', '2024-01-01', 1, 1, NULL),
-('VIAC-3A-12345', 'VIAC 3a Account', 6, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.');
+('VIAC-3A-12345', 'VIAC 3a Account', 6, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.'),
+('S 398424-05', 'ZKB Custody Test Account', 8, 2, 'CHF', '2024-06-01', 1, 1, 'Test ZKB account.');
 INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, closing_date, is_active, include_in_portfolio, notes) VALUES
 ('OLD-BANK-007', 'Old Savings Account', 7, 1, 'CHF', '2010-01-01', '2023-12-31', 0, 0, 'Account closed end of last year.');
 INSERT INTO TransactionTypes (type_code, type_name, type_description, affects_position, affects_cash, is_income, sort_order) VALUES
@@ -183,7 +186,7 @@ INSERT INTO ImportSessions (
     file_type,
     file_size,
     file_hash,
-    account_id,
+    institution_id,
     import_status,
     total_rows,
     successful_rows,
@@ -232,7 +235,11 @@ INSERT INTO ImportSessions (
     (10, 'UBS Positions 2025-06-30', 'UBS_Positions_2025-06-30.csv',
         '/uploads/UBS_Positions_2025-06-30.csv', 'CSV', 2060, 'HASH010', 1,
         'COMPLETED', 2, 2, 0, 0, 'Quarter end',
-        '2025-07-01 08:00:00', '2025-07-01 08:00:10');
+        '2025-07-01 08:00:00', '2025-07-01 08:00:10'),
+    (11, 'ZKB Positions 2025-07-01', 'ZKB_Positions_2025-07-01.xlsx',
+        '/uploads/ZKB_Positions_2025-07-01.xlsx', 'XLSX', 3072, 'HASH011', 8,
+        'COMPLETED', 3, 3, 0, 0, 'Initial import',
+        '2025-07-02 09:00:00', '2025-07-02 09:00:15');
 INSERT INTO PositionReports (
     import_session_id,
     account_id,
@@ -263,4 +270,6 @@ INSERT INTO PositionReports (
     (9, 4, 13, 0.1, '2025-05-24', '2025-05-25 10:00:10'),
     (9, 4, 14, 2.0, '2025-05-24', '2025-05-25 10:00:10'),
     (10, 1, 1, 10, '2025-06-30', '2025-07-01 08:00:10'),
-    (10, 1, 2, 15, '2025-06-30', '2025-07-01 08:00:10');
+    (10, 1, 2, 15, '2025-06-30', '2025-07-01 08:00:10'),
+    (11, 7, 1, 25, '2025-07-01', '2025-07-02 09:00:15'),
+    (11, 7, 2, 30, '2025-07-01', '2025-07-02 09:00:15');

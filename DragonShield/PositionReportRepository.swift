@@ -6,7 +6,7 @@ import Foundation
 import SQLite3
 
 struct PositionReport {
-    let importSessionId: Int
+    let importSessionId: Int?
     let accountId: Int
     let instrumentId: Int
     let quantity: Double
@@ -72,7 +72,11 @@ final class PositionReportRepository {
         defer { sqlite3_finalize(stmt) }
         let dateFormatter = DateFormatter.iso8601DateOnly
         for rpt in reports {
-            sqlite3_bind_int(stmt, 1, Int32(rpt.importSessionId))
+            if let sessId = rpt.importSessionId {
+                sqlite3_bind_int(stmt, 1, Int32(sessId))
+            } else {
+                sqlite3_bind_null(stmt, 1)
+            }
             sqlite3_bind_int(stmt, 2, Int32(rpt.accountId))
             sqlite3_bind_int(stmt, 3, Int32(rpt.instrumentId))
             sqlite3_bind_double(stmt, 4, rpt.quantity)

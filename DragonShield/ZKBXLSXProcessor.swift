@@ -100,12 +100,12 @@ struct ZKBXLSXProcessor {
     }
 
     static func portfolioNumber(from cell: String?) -> String? {
-        guard let raw = cell?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else { return nil }
+        let spaces = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\u{00a0}"))
+        guard let raw = cell?.trimmingCharacters(in: spaces), !raw.isEmpty else { return nil }
         let pattern = "Portfolio-Nr.?\\s*(.+)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
            let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)) {
-            return String(raw[Range(match.range(at: 1), in: raw)!]).trimmingCharacters(in: .whitespaces)
+            return String(raw[Range(match.range(at: 1), in: raw)!]).trimmingCharacters(in: spaces)
         }
         return raw
     }

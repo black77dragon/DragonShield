@@ -288,19 +288,76 @@ extension DatabaseManager {
         return (canDelete: true, dependencyCount: 0, message: "Soft delete allowed. No dependency check implemented yet.")
     }
 
-    /// Returns the account_id for a given account number if it exists.
-    func findAccountId(accountNumber: String) -> Int? {
-        let query = "SELECT account_id FROM Accounts WHERE account_number = ? LIMIT 1;"
+    /// Returns the account_id for a given account number, optionally matching
+    /// part of the account name. The lookup strips all non\u{00A0}alphanumeric
+    /// characters from the account number for a resilient comparison and is
+    /// case-insensitive. This helps match numbers that may include various
+    /// dashes or whitespace characters in the source data.
+    func findAccountId(accountNumber: String, nameContains: String? = nil) -> Int? {
+        let sanitizedSearch = accountNumber.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { Character($0) }
+            .map { String($0) }
+            .joined()
+            .lowercased()
+        LoggingService.shared.log(
+            "findAccountId search: number=\(accountNumber) sanitized=\(sanitizedSearch) nameFilter=\(nameContains ?? "nil")",
+            type: .debug, logger: .database
+        )
+
+        var query = "SELECT account_id, account_number FROM Accounts"
+        if let _ = nameContains {
+            query += " WHERE account_name LIKE ? COLLATE NOCASE"
+        }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare findAccountId: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, accountNumber, -1, nil)
-        if sqlite3_step(statement) == SQLITE_ROW {
-            return Int(sqlite3_column_int(statement, 0))
+        if let name = nameContains {
+            let pattern = "%\(name)%"
+            sqlite3_bind_text(statement, 1, pattern, -1, nil)
         }
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            let dbNumber = String(cString: sqlite3_column_text(statement, 1))
+            let sanitizedDb = dbNumber.unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { Character($0) }
+                .map { String($0) }
+                .joined()
+                .lowercased()
+            if sanitizedDb == sanitizedSearch {
+                LoggingService.shared.log("findAccountId found id=\(id) for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
+                return id
+            }
+        }
+        LoggingService.shared.log("findAccountId no match for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
         return nil
+    }
+
+    /// Returns IDs and numbers of all accounts belonging to the given institution name.
+    func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
+        let sql = """
+            SELECT a.account_id, a.account_number
+              FROM Accounts a
+              JOIN Institutions i ON a.institution_id = i.institution_id
+             WHERE i.institution_name = ? COLLATE NOCASE;
+            """
+        var stmt: OpaquePointer?
+        var results: [(Int, String)] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchAccounts(institutionName): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, institutionName, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let number = String(cString: sqlite3_column_text(stmt, 1))
+            results.append((id, number))
+        }
+        return results
     }
 }

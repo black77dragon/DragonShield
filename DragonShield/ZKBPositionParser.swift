@@ -73,7 +73,7 @@ struct ZKBPositionParser {
                 progress?("Row \(idx+1) skipped")
                 continue
             }
-            let record = ParsedPositionRecord(accountNumber: isCash ? (row["Valor"] ?? "") : accountNumber,
+            let record = ParsedPositionRecord(accountNumber: accountNumber,
                                                accountName: isCash ? descr : "ZKB Custody Account",
                                                instrumentName: instrumentName,
                                                tickerSymbol: ticker,
