@@ -110,6 +110,7 @@ struct PositionsView: View {
             Text("ID").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 50, alignment: .leading)
             Text("Session").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .leading)
             Text("Account").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
+            Text("Institution").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Instrument").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
             Text("Qty").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
             Text("Uploaded").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
@@ -183,6 +184,11 @@ struct ModernPositionRowView: View {
                 .frame(width: 70, alignment: .leading)
 
             Text(position.accountName)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .frame(width: 150, alignment: .leading)
+
+            Text(position.institutionName)
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .frame(width: 150, alignment: .leading)

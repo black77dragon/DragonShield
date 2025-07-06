@@ -58,3 +58,4 @@ All notable changes to this project will be documented in this file.
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
 - Store institution_id with each PositionReport and prompt before removing existing ZKB positions
 - Track purchase and current price in PositionReports when importing ZKB files
+- Display institution name in Positions view

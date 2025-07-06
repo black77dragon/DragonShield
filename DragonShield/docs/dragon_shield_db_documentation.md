@@ -343,6 +343,7 @@ Analysis Layer
 - position_id: Primary key
 - import_session_id: Related import session
 - account_id: Account containing the position
+- institution_id: Owning institution
 - instrument_id: Instrument identifier
 - quantity: Units held
 - purchase_price: Original price paid per unit
