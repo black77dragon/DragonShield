@@ -336,4 +336,28 @@ extension DatabaseManager {
         LoggingService.shared.log("findAccountId no match for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
         return nil
     }
+
+    /// Returns IDs and numbers of all accounts belonging to the given institution name.
+    func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
+        let sql = """
+            SELECT a.account_id, a.account_number
+              FROM Accounts a
+              JOIN Institutions i ON a.institution_id = i.institution_id
+             WHERE i.institution_name = ? COLLATE NOCASE;
+            """
+        var stmt: OpaquePointer?
+        var results: [(Int, String)] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchAccounts(institutionName): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, institutionName, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let number = String(cString: sqlite3_column_text(stmt, 1))
+            results.append((id, number))
+        }
+        return results
+    }
 }
