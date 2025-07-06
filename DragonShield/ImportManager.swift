@@ -371,13 +371,14 @@ class ImportManager {
     /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
+        guard let zkbId = dbManager.findInstitutionId(name: "ZKB") else { return 0 }
         let accounts = dbManager.fetchAccounts(institutionName: "ZKB")
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
             LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        return dbManager.deletePositionReports(institutionName: "ZKB")
+        return dbManager.deletePositionReports(institutionId: zkbId)
     }
 
     /// Presents an open panel and processes the selected XLSX file.

@@ -110,23 +110,16 @@ extension DatabaseManager {
         return Int(deleted)
     }
 
-    /// Deletes position reports where the associated account belongs to the given institution.
-    /// - Parameter institution: The institution name to match (case-insensitive).
+    /// Deletes position reports linked to the specified institution.
+    /// - Parameter institutionId: The institution identifier.
     /// - Returns: The number of deleted rows.
-    func deletePositionReports(institutionName institution: String) -> Int {
-        // Delete by matching either the stored institution_id or the account's
-        // institution. This handles old records that may lack the correct
-        // institution_id value.
+    func deletePositionReports(institutionId: Int) -> Int {
         let sql = """
             DELETE FROM PositionReports
-            WHERE institution_id IN (
-                    SELECT institution_id FROM Institutions
-                     WHERE institution_name = ? COLLATE NOCASE
-                )
+            WHERE institution_id = ?
                OR account_id IN (
                     SELECT account_id FROM Accounts
-                         JOIN Institutions USING(institution_id)
-                     WHERE institution_name = ? COLLATE NOCASE
+                     WHERE institution_id = ?
                );
             """
         var stmt: OpaquePointer?
@@ -134,13 +127,13 @@ extension DatabaseManager {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
             return 0
         }
-        sqlite3_bind_text(stmt, 1, institution, -1, nil)
-        sqlite3_bind_text(stmt, 2, institution, -1, nil)
+        sqlite3_bind_int(stmt, 1, Int32(institutionId))
+        sqlite3_bind_int(stmt, 2, Int32(institutionId))
         let stepResult = sqlite3_step(stmt)
         let deleted = sqlite3_changes(db)
         sqlite3_finalize(stmt)
         if stepResult == SQLITE_DONE {
-            print("✅ Deleted \(deleted) position reports for institution \(institution)")
+            print("✅ Deleted \(deleted) position reports for institution id \(institutionId)")
         } else {
             print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
         }

@@ -1,16 +1,12 @@
 import sqlite3
 
-# query replicating DatabaseManager.deletePositionReports
+# query replicating DatabaseManager.deletePositionReports(institutionId:)
 DELETE_QUERY = """
     DELETE FROM PositionReports
-          WHERE institution_id IN (
-                SELECT institution_id FROM Institutions
-                 WHERE institution_name = ? COLLATE NOCASE
-          )
+          WHERE institution_id = ?
              OR account_id IN (
-                SELECT account_id FROM Accounts
-                     JOIN Institutions USING(institution_id)
-                 WHERE institution_name = ? COLLATE NOCASE
+                    SELECT account_id FROM Accounts
+                     WHERE institution_id = ?
              );
 """
 
@@ -44,7 +40,7 @@ def test_delete_by_institution():
     conn = setup_db()
     cur = conn.execute('SELECT count(*) FROM PositionReports')
     assert cur.fetchone()[0] == 3
-    deleted = conn.execute(DELETE_QUERY, ('ZKB', 'ZKB')).rowcount
+    deleted = conn.execute(DELETE_QUERY, (1, 1)).rowcount
     assert deleted == 2
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert remaining == [(2,)]
@@ -56,7 +52,7 @@ def test_delete_query_with_missing_param():
     cur = conn.execute('SELECT count(*) FROM PositionReports')
     assert cur.fetchone()[0] == 3
     # Simulate Swift bug where second bind parameter is left null
-    deleted = conn.execute(DELETE_QUERY, ('ZKB', None)).rowcount
+    deleted = conn.execute(DELETE_QUERY, (1, None)).rowcount
     # Only rows matching institution_id are removed
     assert deleted == 1
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()

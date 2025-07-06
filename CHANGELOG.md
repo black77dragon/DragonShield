@@ -69,3 +69,4 @@ All notable changes to this project will be documented in this file.
 - Ensure seed PositionReports contain only one entry per account and instrument
 - Remove ZKB position reports even when old rows lack an institution_id by joining through Accounts
 - Bind deletion query parameters correctly so ZKB records are removed
+- Delete ZKB positions by institution_id with a single query for reliability
