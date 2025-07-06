@@ -114,14 +114,20 @@ extension DatabaseManager {
     /// - Parameter institution: The institution name to match (case-insensitive).
     /// - Returns: The number of deleted rows.
     func deletePositionReports(institutionName institution: String) -> Int {
-        // Use the institution_id stored with each position report to remove
-        // all entries belonging to the requested institution.
+        // Delete by matching either the stored institution_id or the account's
+        // institution. This handles old records that may lack the correct
+        // institution_id value.
         let sql = """
             DELETE FROM PositionReports
             WHERE institution_id IN (
-                SELECT institution_id FROM Institutions
-                 WHERE institution_name = ? COLLATE NOCASE
-            );
+                    SELECT institution_id FROM Institutions
+                     WHERE institution_name = ? COLLATE NOCASE
+                )
+               OR account_id IN (
+                    SELECT account_id FROM Accounts
+                         JOIN Institutions USING(institution_id)
+                     WHERE institution_name = ? COLLATE NOCASE
+               );
             """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
