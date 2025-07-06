@@ -59,3 +59,6 @@ All notable changes to this project will be documented in this file.
 - Store institution_id from the linked account when saving PositionReports and prompt before removing existing ZKB positions
 - Track purchase and current price in PositionReports when importing ZKB files
 - Display institution name in Positions view
+- Fix Positions view table headers for quantity and price columns
+- Remove OLD-BANK-007 from seed data and rename ZKB Custody test account
+- Populate purchase and current price in seed position reports

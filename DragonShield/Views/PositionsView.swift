@@ -113,6 +113,8 @@ struct PositionsView: View {
             Text("Institution").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Instrument").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
             Text("Qty").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
+            Text("Purchase").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
+            Text("Current").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
             Text("Uploaded").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
             Text("Report").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
         }
