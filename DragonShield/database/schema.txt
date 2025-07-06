@@ -140,8 +140,10 @@ INSERT INTO Institutions (institution_id, institution_name, institution_type, bi
  (3, 'Interactive Brokers LLC', 'BROKER', NULL, 'https://www.interactivebrokers.com', 1),
  (4, 'Coinbase', 'CRYPTO_EXCHANGE', NULL, 'https://www.coinbase.com', 1),
  (5, 'Self-Custody', 'WALLET', NULL, NULL, 1),
- (6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
- (7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
+(6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
+(7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
+INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website, is_active) VALUES
+ (8, 'ZKB', 'BANK', NULL, NULL, 1);
 INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
 ('CH12-3456-7890-1234-5', 'UBS Custody Account', 1, 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
 ('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 2, 1, 'CHF', '2023-06-10', 1, 1, NULL),

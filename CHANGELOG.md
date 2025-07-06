@@ -49,4 +49,5 @@ All notable changes to this project will be documented in this file.
 - Retry import session creation when file_hash is unique in older databases
 - Improve custody account search by ignoring hyphens and case
 - Restrict ZKB position deletions to accounts linked to the ZKB institution
+- Add ZKB institution to seed data script for tests
 - Add debug logs for custody account lookups to help diagnose duplicates
