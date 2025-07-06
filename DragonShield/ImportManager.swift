@@ -285,6 +285,26 @@ class ImportManager {
                 var success = 0
                 var failure = 0
                 for parsed in rows {
+                    if parsed.isCash {
+                        let accNumber = parsed.tickerSymbol ?? ""
+                        var cashId = self.dbManager.findAccountId(accountNumber: accNumber)
+                        if cashId == nil {
+                            let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                            let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
+                            _ = self.dbManager.addAccount(accountName: parsed.accountName,
+                                                           institutionId: instId,
+                                                           accountNumber: accNumber,
+                                                           accountTypeId: typeId,
+                                                           currencyCode: parsed.currency,
+                                                           openingDate: nil,
+                                                           closingDate: nil,
+                                                           includeInPortfolio: true,
+                                                           isActive: true,
+                                                           notes: nil)
+                        }
+                        continue
+                    }
+
                     var action: RecordPromptResult = .save(parsed)
                     DispatchQueue.main.sync {
                         action = self.promptForPosition(record: parsed)
