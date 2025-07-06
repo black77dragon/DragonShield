@@ -286,9 +286,16 @@ struct ImportStatementView: View {
     private func processSelectedFile(url: URL) {
         logMessages.removeAll()
         if importMode == .zkb {
-            let deleted = ImportManager.shared.deleteZKBPositions()
-            LoggingService.shared.log("Deleted ZKB positions: \(deleted)", type: .info, logger: .database)
-            ImportManager.shared.importPositions(at: url, progress: { message in
+            let alert = NSAlert()
+            alert.messageText = "Delete existing ZKB positions?"
+            alert.informativeText = "Remove all position reports for institution ZKB before importing?"
+            alert.addButton(withTitle: "Yes")
+            alert.addButton(withTitle: "No")
+            alert.addButton(withTitle: "Abort")
+            let response = alert.runModal()
+            if response == .alertThirdButtonReturn { return }
+            let deleteExisting = response == .alertFirstButtonReturn
+            ImportManager.shared.importPositions(at: url, deleteExisting: deleteExisting, progress: { message in
                 DispatchQueue.main.async { logMessages.append(message) }
             }) { result in
                 url.stopAccessingSecurityScopedResource()

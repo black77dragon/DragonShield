@@ -56,3 +56,4 @@ All notable changes to this project will be documented in this file.
 - Clarify that `Instruments.isin` is optional rather than mandatory
 - Add ZKB Custody Test Account with sample position reports to seed data
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
+- Store institution_id with each PositionReport and prompt before removing existing ZKB positions

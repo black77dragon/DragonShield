@@ -185,7 +185,7 @@ class ImportManager {
     }
 
     /// Parses a ZKB statement and saves position reports.
-    func importPositions(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
+    func importPositions(at url: URL, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
             LoggingService.shared.log(message, type: .info, logger: .parser)
@@ -195,8 +195,10 @@ class ImportManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            let removed = self.deleteZKBPositions()
-            LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+            if deleteExisting {
+                let removed = self.deleteZKBPositions()
+                LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+            }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
                 DispatchQueue.main.sync {
@@ -321,6 +323,7 @@ class ImportManager {
                     }
                     let report = PositionReport(importSessionId: sessionId,
                                                 accountId: accId,
+                                                institutionId: institutionId,
                                                 instrumentId: insId,
                                                 quantity: row.quantity,
                                                 reportDate: row.reportDate)
