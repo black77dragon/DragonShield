@@ -122,19 +122,19 @@ CREATE TABLE Instruments (
 | --- | --- | --- | --- |
 | **Liquidity** | Cash | Physical and bank account balances. |  |
 |  | Money Market Instruments | Short-term, highly liquid debt. | “Geldmarktfonds / CHF” |
-| **Equity** | Single Stock | Direct ownership in a company. | “Aktien” + “<region>”; region could be “Schweiz”, “Europa”, “Taiwan”, “USA” |
+| **Equity** | Single Stock | Direct ownership in a company. | “Aktien” + region; region could be “Schweiz”, “Europa”, “Taiwan”, “USA” |
 |  | Equity ETF | ETFs that primarily hold stocks. |  |
-|  | Equity Fund | Mutual funds that primarily hold stocks. | “Aktienfonds” + “<region>”; region could be “Schweiz”, “Europa”, “Taiwan”, “USA” |
+|  | Equity Fund | Mutual funds that primarily hold stocks. | “Aktienfonds” + region; region could be “Schweiz”, “Europa”, “Taiwan”, “USA” |
 |  | Equity REIT | REITs focused on owning/operating real estate. |  |
-| **Fixed Income** | Government Bond | Debt issued by national governments. | “Obligationen”+ “<currency>”; currency could be “CHF”, “USD”, “GBP” |
-|  | Corporate Bond | Debt issued by corporations. | “Obligationen“+ “<currency>” |
+| **Fixed Income** | Government Bond | Debt issued by national governments. | “Obligationen”+ currency; currency could be “CHF”, “USD”, “GBP” |
+|  | Corporate Bond | Debt issued by corporations. | “Obligationen“+ currency |
 |  | Bond ETF | ETFs that primarily hold bonds. |  |
-|  | Bond Fund | Mutual funds that primarily hold bonds. | “Obligationenfonds” + “<currency>” |
+|  | Bond Fund | Mutual funds that primarily hold bonds. | “Obligationenfonds” + currency |
 | **Real Assets** | Direct Real Estate | Physical property ownership. |  |
 |  | Mortgage REIT | REITs focused on real estate financing. |  |
 |  | Commodities | Raw materials or primary agricultural products. |  |
 |  | Infrastructure | Investments in public works like roads, bridges. |  |
-| **Alternatives** | Hedge Fund | Actively managed funds with diverse strategies. | “Hedge-Funds”+ “<region>”; region could be “Cayman”, “Europa”, “Taiwan”, “USA” |
+| **Alternatives** | Hedge Fund | Actively managed funds with diverse strategies. | “Hedge-Funds”+ region; region could be “Cayman”, “Europa”, “Taiwan”, “USA” |
 |  | Private Equity / Debt | Investments in non-publicly traded companies. |  |
 |  | Structured Product | Pre-packaged investments (e.g., certificates). |  |
 |  | Cryptocurrency | Digital or virtual tokens. |  |
