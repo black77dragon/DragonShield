@@ -253,4 +253,20 @@ extension DatabaseManager {
         }
         return nil
     }
+
+    /// Finds the instrument_id for the given ticker symbol, ignoring case.
+    func findInstrumentId(ticker: String) -> Int? {
+        let query = "SELECT instrument_id FROM Instruments WHERE ticker_symbol = ? COLLATE NOCASE LIMIT 1;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstrumentId(ticker): \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, ticker, -1, nil)
+        if sqlite3_step(statement) == SQLITE_ROW {
+            return Int(sqlite3_column_int(statement, 0))
+        }
+        return nil
+    }
 }

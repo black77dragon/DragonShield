@@ -106,18 +106,35 @@ struct ZKBPositionParser {
         return (summary, records)
     }
 
+    /// Maps the ZKB "Anlagekategorie" and "Asset-Unterkategorie" strings to an
+    /// `AssetSubClasses.sub_class_id` based on the table in
+    /// `docs/AssetClassDefinitionConcept.md`.
     private static func guessSubClassId(category: String, subCategory: String, isCash: Bool) -> Int? {
-        if isCash { return 1 }
+        if isCash { return 1 } // Cash
+
         let cat = category.lowercased()
         let sub = subCategory.lowercased()
-        if sub.contains("fonds") || sub.contains("etf") {
-            if cat.contains("aktien") { return 4 } // Equity ETF
-            if cat.contains("festverzinsliche") { return 9 } // Bond ETF
-        }
-        if cat.contains("aktien") { return 3 } // Single Stock
-        if cat.contains("festverzinsliche") { return 8 } // Bond
-        if cat.contains("liquid") { return 1 }
+
+        // Direct mappings from the documentation table
+        if sub.contains("geldmarktfonds") { return 2 }        // Money Market Instruments
+        if sub.starts(with: "aktien ") { return 3 }           // Single Stock
+        if sub.starts(with: "aktien/") { return 3 }           // Single Stock (alternate delimiter)
+        if sub.starts(with: "aktienfonds") { return 5 }       // Equity Fund
+        if sub.contains("obligationenfonds") { return 10 }    // Bond Fund
+        if sub.starts(with: "obligationen") { return 8 }      // Corporate/Government Bond
+        if sub.contains("hedge-funds") || sub.contains("hedge funds") { return 15 } // Hedge Fund
+        if sub.contains("standard-optionen") { return 19 }    // Options
+
+        // ETF detection relies on keywords since no explicit mapping text exists
+        if sub.contains("etf") && cat.contains("aktien") { return 4 } // Equity ETF
+        if sub.contains("etf") && cat.contains("festverzinsliche") { return 9 } // Bond ETF
+
+        // Fallbacks by high level category
+        if cat.contains("festverzinsliche") { return 8 }
+        if cat.contains("aktien") { return 3 }
         if cat.contains("rohstoff") || cat.contains("immobil") || cat.contains("ai") { return 13 }
+        if cat.contains("liquid") { return 1 }
+
         return nil
     }
 }
