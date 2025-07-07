@@ -317,6 +317,9 @@ class ImportManager {
                     if let isin = row.isin {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
+                    if instrumentId == nil, let ticker = row.tickerSymbol {
+                        instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
+                    }
                     if instrumentId == nil {
                     var instAction: InstrumentPromptResult = .ignore
                     DispatchQueue.main.sync {
