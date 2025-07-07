@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
 - Store import sessions by institution and value date, tracking duplicate rows
+- Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
 - Allow editing Asset Class in Asset SubClass popup
 - Restyled Institutions maintenance window for consistent look and feel
 - Retry account prompt until a custody account is created during position import

@@ -110,32 +110,64 @@ struct ZKBPositionParser {
     /// `AssetSubClasses.sub_class_id` based on the table in
     /// `docs/AssetClassDefinitionConcept.md`.
     private static func guessSubClassId(category: String, subCategory: String, isCash: Bool) -> Int? {
-        if isCash { return 1 } // Cash
+        // Mapping based on the "ZKB Parsing" column in
+        // docs/AssetClassDefinitionConcept.md. Keys are matched
+        // case-insensitively and may represent prefixes.
+
+        // Hard-coded lookup for subclass names used in log messages
+        let names: [Int: String] = [
+            1: "Cash", 2: "Money Market Instruments", 3: "Single Stock",
+            4: "Equity ETF", 5: "Equity Fund", 6: "Equity REIT",
+            7: "Government Bond", 8: "Corporate Bond", 9: "Bond ETF",
+            10: "Bond Fund", 11: "Direct Real Estate", 12: "Mortgage REIT",
+            13: "Commodities", 14: "Infrastructure", 15: "Hedge Fund",
+            16: "Private Equity / Debt", 17: "Structured Product",
+            18: "Cryptocurrency", 19: "Options", 20: "Futures",
+            21: "Other"
+        ]
 
         let cat = category.lowercased()
         let sub = subCategory.lowercased()
 
-        // Direct mappings from the documentation table
-        if sub.contains("geldmarktfonds") { return 2 }        // Money Market Instruments
-        if sub.starts(with: "aktien ") { return 3 }           // Single Stock
-        if sub.starts(with: "aktien/") { return 3 }           // Single Stock (alternate delimiter)
-        if sub.starts(with: "aktienfonds") { return 5 }       // Equity Fund
-        if sub.contains("obligationenfonds") { return 10 }    // Bond Fund
-        if sub.starts(with: "obligationen") { return 8 }      // Corporate/Government Bond
-        if sub.contains("hedge-funds") || sub.contains("hedge funds") { return 15 } // Hedge Fund
-        if sub.contains("standard-optionen") { return 19 }    // Options
+        var result: Int?
 
-        // ETF detection relies on keywords since no explicit mapping text exists
-        if sub.contains("etf") && cat.contains("aktien") { return 4 } // Equity ETF
-        if sub.contains("etf") && cat.contains("festverzinsliche") { return 9 } // Bond ETF
+        if isCash {
+            result = 1
+        } else if sub.contains("geldmarktfonds") {
+            result = 2
+        } else if sub.starts(with: "aktienfonds") {
+            result = 5
+        } else if sub.starts(with: "aktien ") || sub.starts(with: "aktien/") {
+            result = 3
+        } else if sub.contains("obligationenfonds") {
+            result = 10
+        } else if sub.starts(with: "obligationen") {
+            result = 8
+        } else if sub.contains("hedge-funds") || sub.contains("hedge funds") {
+            result = 15
+        } else if sub.contains("standard-optionen") {
+            result = 19
+        } else if sub.contains("etf") && cat.contains("aktien") {
+            result = 4
+        } else if sub.contains("etf") && cat.contains("festverzinsliche") {
+            result = 9
+        } else if cat.contains("festverzinsliche") {
+            result = 8
+        } else if cat.contains("aktien") {
+            result = 3
+        } else if cat.contains("rohstoff") || cat.contains("immobil") || cat.contains("ai") {
+            result = 13
+        } else if cat.contains("liquid") {
+            result = 1
+        }
 
-        // Fallbacks by high level category
-        if cat.contains("festverzinsliche") { return 8 }
-        if cat.contains("aktien") { return 3 }
+        if let id = result {
+            let name = names[id] ?? "Unknown"
+            LoggingService.shared.log("Sub-category '\(subCategory)' mapped to \(name) (ID \(id))", type: .debug, logger: .parser)
+        } else {
+            LoggingService.shared.log("Sub-category '\(subCategory)' has no mapping", type: .debug, logger: .parser)
+        }
 
-        if cat.contains("rohstoff") || cat.contains("immobil") || cat.contains("ai") { return 13 }
-        if cat.contains("liquid") { return 1 }
-
-        return nil
+        return result
     }
 }
