@@ -320,22 +320,26 @@ class ImportManager {
                         instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
                     }
                     if instrumentId == nil {
-                    var instAction: InstrumentPromptResult = .ignore
-                    DispatchQueue.main.sync {
-                        instAction = self.promptForInstrument(record: row)
-                    }
+                        var instAction: InstrumentPromptResult = .ignore
+                        DispatchQueue.main.sync {
+                            instAction = self.promptForInstrument(record: row)
+                        }
                         switch instAction {
                         case let .save(name, subClassId, currency, ticker, isin, sector):
-                            _ = self.dbManager.addInstrument(name: name,
-                                                           subClassId: subClassId,
-                                                           currency: currency,
-                                                           tickerSymbol: ticker,
-                                                           isin: isin,
-                                                           countryCode: nil,
-                                                           exchangeCode: nil,
-                                                           sector: sector)
-                            if let searchIsin = isin ?? row.isin {
-                                instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                            instrumentId = self.dbManager.addInstrumentReturningId(name: name,
+                                                                                     subClassId: subClassId,
+                                                                                     currency: currency,
+                                                                                     tickerSymbol: ticker,
+                                                                                     isin: isin,
+                                                                                     countryCode: nil,
+                                                                                     exchangeCode: nil,
+                                                                                     sector: sector)
+                            if instrumentId == nil {
+                                if let searchIsin = isin ?? row.isin {
+                                    instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                                } else if let searchTicker = ticker ?? row.tickerSymbol {
+                                    instrumentId = self.dbManager.findInstrumentId(ticker: searchTicker)
+                                }
                             }
                         case .ignore:
                             continue
