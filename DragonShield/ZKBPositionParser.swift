@@ -132,6 +132,7 @@ struct ZKBPositionParser {
         // Fallbacks by high level category
         if cat.contains("festverzinsliche") { return 8 }
         if cat.contains("aktien") { return 3 }
+
         if cat.contains("rohstoff") || cat.contains("immobil") || cat.contains("ai") { return 13 }
         if cat.contains("liquid") { return 1 }
 
