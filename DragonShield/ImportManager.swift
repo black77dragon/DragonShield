@@ -287,8 +287,7 @@ class ImportManager {
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
-                        var cashId = self.dbManager.findAccountId(accountNumber: accNumber)
-                        if cashId == nil {
+                        if self.dbManager.findAccountId(accountNumber: accNumber) == nil {
                             let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                             let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
                             _ = self.dbManager.addAccount(accountName: parsed.accountName,
