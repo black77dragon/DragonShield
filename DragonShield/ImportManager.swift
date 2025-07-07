@@ -313,11 +313,14 @@ class ImportManager {
                         continue
                     }
                     var instrumentId: Int?
-                    if let isin = row.isin {
+                    if let isin = row.isin, !isin.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
-                    if instrumentId == nil, let ticker = row.tickerSymbol {
+                    if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
+                    }
+                    if instrumentId == nil {
+                        LoggingService.shared.log("Instrument not found for \(row.instrumentName) - prompting user", type: .info, logger: .parser)
                     }
                     if instrumentId == nil {
                         var instAction: InstrumentPromptResult = .ignore
