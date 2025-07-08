@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.9 - Replaced InstrumentGroups with AssetClasses and AssetSubClasses
+-- Version 4.10 - Exclude cash from P&L views
 -- Created: 2025-05-24
 -- Updated: 2025-06-19
 --
@@ -431,6 +431,7 @@ WHERE t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_
   AND a.include_in_portfolio = 1
   AND i.is_active = 1
   AND (p.include_in_total = 1 OR p.include_in_total IS NULL)
+  AND asc.sub_class_code != 'CASH'
 GROUP BY p.portfolio_id, i.instrument_id, a.account_id
 HAVING total_quantity > 0;
 
@@ -453,6 +454,7 @@ SELECT
         SUM(p.total_dividends_chf) / NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
     ) as dividend_yield_percent
 FROM Positions p
+WHERE p.asset_sub_class != 'Cash'
 GROUP BY p.portfolio_name, p.asset_class
 ORDER BY p.portfolio_name, p.asset_class;
 

@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - Prompt for instrument details when new securities are imported
 - Automatically create ZKB custody and cash accounts when missing and save position reports
 - Fix unused variable warning when auto-creating ZKB cash accounts
+- Exclude cash instruments from performance and allocation views
 - Fix missing instrument popup and save newly added instruments
 - Fix instrument lookup to prompt when new securities are parsed
 - Review each parsed position with editable popup before saving and fix layout constraints
