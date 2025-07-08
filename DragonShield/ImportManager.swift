@@ -80,11 +80,14 @@ class ImportManager {
         return result
     }
 
-    private func promptForAccount(number: String, currency: String) -> AccountPromptResult {
+    private func promptForAccount(number: String,
+                                  currency: String,
+                                  accountTypeCode: String = "CUSTODY") -> AccountPromptResult {
         var result: AccountPromptResult = .cancel
         let instId = dbManager.findInstitutionId(name: "ZKB") ?? 1
-        let typeId = dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-        let view = AccountPromptView(accountName: "ZKB Custody Account",
+        let typeId = dbManager.findAccountTypeId(code: accountTypeCode) ?? 1
+        let defaultName = accountTypeCode == "CASH" ? "ZKB Cash Account" : "ZKB Custody Account"
+        let view = AccountPromptView(accountName: defaultName,
                                      accountNumber: number,
                                      institutionId: instId,
                                      accountTypeId: typeId,
@@ -101,6 +104,15 @@ class ImportManager {
         window.contentView = NSHostingView(rootView: view.environmentObject(dbManager))
         NSApp.runModal(for: window)
         return result
+    }
+
+    private func confirmCashAccount(name: String, currency: String, amount: Double) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Create Cash Account?"
+        alert.informativeText = "Account: \(name)\nCurrency: \(currency)\nBalance: \(amount)"
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Skip")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func promptForPosition(record: ParsedPositionRecord) -> RecordPromptResult {
@@ -230,7 +242,8 @@ class ImportManager {
                     var accAction: AccountPromptResult = .cancel
                     DispatchQueue.main.sync {
                         accAction = self.promptForAccount(number: custodyNumber,
-                                                         currency: rows.first?.currency ?? "CHF")
+                                                         currency: rows.first?.currency ?? "CHF",
+                                                         accountTypeCode: "CUSTODY")
                     }
                     switch accAction {
                     case let .save(name, instId, number, typeId, curr):
@@ -287,10 +300,18 @@ class ImportManager {
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
-                        if self.dbManager.findAccountId(accountNumber: accNumber) == nil {
-                            let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
-                            let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
-                            _ = self.dbManager.addAccount(accountName: parsed.accountName,
+                        var accId = self.dbManager.findAccountId(accountNumber: accNumber)
+                        if accId == nil {
+                            var proceed = false
+                            DispatchQueue.main.sync {
+                                proceed = self.confirmCashAccount(name: parsed.accountName,
+                                                                  currency: parsed.currency,
+                                                                  amount: parsed.quantity)
+                            }
+                            if proceed {
+                                let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                                let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
+                                _ = self.dbManager.addAccount(accountName: parsed.accountName,
                                                            institutionId: instId,
                                                            accountNumber: accNumber,
                                                            accountTypeId: typeId,
@@ -300,6 +321,25 @@ class ImportManager {
                                                            includeInPortfolio: true,
                                                            isActive: true,
                                                            notes: nil)
+                                accId = self.dbManager.findAccountId(accountNumber: accNumber)
+                            }
+                        }
+                        if let aId = accId,
+                           let instrId = self.dbManager.findInstrumentId(ticker: "\(parsed.currency.uppercased())_CASH") {
+                            let rpt = PositionReport(importSessionId: sessionId,
+                                                     accountId: aId,
+                                                     institutionId: institutionId,
+                                                     instrumentId: instrId,
+                                                     quantity: parsed.quantity,
+                                                     purchasePrice: nil,
+                                                     currentPrice: nil,
+                                                     reportDate: parsed.reportDate)
+                            do {
+                                try self.positionRepository.saveReports([rpt])
+                                success += 1
+                            } catch {
+                                failure += 1
+                            }
                         }
                         continue
                     }
