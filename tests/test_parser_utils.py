@@ -3,7 +3,11 @@
 # - 1.0: Tests for parser_utils.findParserScript helper.
 
 from pathlib import Path
+import sys
 import pytest
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
 
 from DragonShield.python_scripts import parser_utils
 
@@ -46,3 +50,4 @@ def test_find_parser_missing():
 
     msg = str(exc.value)
     assert "Parser script not found" in msg
+
