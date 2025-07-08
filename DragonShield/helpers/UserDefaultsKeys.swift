@@ -7,4 +7,5 @@ import Foundation
 
 struct UserDefaultsKeys {
     static let forceOverwriteDatabaseOnDebug = "forceOverwriteDatabaseOnDebug"
+    static let enableParsingCheckpoints = "enableParsingCheckpoints"
 }

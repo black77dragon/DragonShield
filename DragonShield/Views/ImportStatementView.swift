@@ -17,6 +17,8 @@ struct ImportStatementView: View {
     @State private var showingFileImporter = false
     @State private var errorMessage: String?
     @State private var logMessages: [String] = []
+    @State private var importSummary: PositionImportSummary?
+    @State private var showSummaryPanel = false
 
     enum ImportMode { case generic, zkb }
     @State private var importMode: ImportMode = .generic
@@ -65,6 +67,13 @@ struct ImportStatementView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if showSummaryPanel, let summary = importSummary {
+                    ImportSummaryPanel(summary: summary,
+                                       logs: logMessages,
+                                       isPresented: $showSummaryPanel)
+                        .transition(.move(edge: .bottom))
+                }
             }
         }
         .fileImporter(
@@ -288,12 +297,18 @@ struct ImportStatementView: View {
                 switch result {
                 case .success(let summary):
                     selectedFileURL = nil
-                    DispatchQueue.main.async {
-                        let alert = NSAlert()
-                        alert.messageText = "Import Completed"
-                        alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows\nCash Accounts: \(summary.cashAccounts)\nSecurities: \(summary.securityRecords)"
-                        alert.addButton(withTitle: "OK")
-                        alert.runModal()
+                    let checkpoints = UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
+                    if checkpoints {
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Import Completed"
+                            alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows\nCash Accounts: \(summary.cashAccounts)\nSecurities: \(summary.securityRecords)"
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                        }
+                    } else {
+                        importSummary = summary
+                        showSummaryPanel = true
                     }
                 case .failure(let error):
                     if let impErr = error as? ImportManager.ImportError, impErr == .aborted {
