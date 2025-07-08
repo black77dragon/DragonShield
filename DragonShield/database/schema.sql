@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.10 - Exclude cash from P&L views
+-- Version 4.11 - Extend Institutions table with operational fields
 -- Created: 2025-05-24
 -- Updated: 2025-06-19
 --
@@ -211,6 +211,10 @@ CREATE TABLE Institutions (
     institution_type TEXT,
     bic TEXT,
     website TEXT,
+    contact_info TEXT,
+    default_currency TEXT CHECK (LENGTH(default_currency) = 3),
+    country_code TEXT CHECK (LENGTH(country_code) = 2),
+    notes TEXT,
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

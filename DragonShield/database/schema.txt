@@ -26,8 +26,8 @@ INSERT INTO Configuration (key, value, data_type, description) VALUES
 ('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
 ('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)'),
 -- Removed duplicate db_version entry causing UNIQUE constraint failure
--- Version 4.10
-('db_version', '4.10', 'string', 'Database schema version');
+-- Version 4.11
+('db_version', '4.11', 'string', 'Database schema version');
 INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
 ('CHF', 'Swiss Franc', 'CHF', 0),
 ('EUR', 'Euro', '€', 1),

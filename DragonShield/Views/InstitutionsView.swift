@@ -119,11 +119,22 @@ struct AddInstitutionView: View {
     @State private var bic = ""
     @State private var type = ""
     @State private var website = ""
+    @State private var contactInfo = ""
+    @State private var defaultCurrency = ""
+    @State private var countryCode = ""
+    @State private var notes = ""
+    @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
+    @State private var availableCountries: [String] = []
     @State private var isActive = true
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
-    var isValid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var isValid: Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currValid = defaultCurrency.isEmpty || defaultCurrency.count == 3
+        let countryValid = countryCode.isEmpty || countryCode.count == 2
+        return !trimmedName.isEmpty && currValid && countryValid
+    }
 
     var body: some View {
         VStack {
@@ -133,6 +144,21 @@ struct AddInstitutionView: View {
                 TextField("BIC", text: $bic)
                 TextField("Type", text: $type)
                 TextField("Website", text: $website)
+                TextField("Contact Info", text: $contactInfo)
+                Picker("Default Currency", selection: $defaultCurrency) {
+                    Text("None").tag("")
+                    ForEach(availableCurrencies, id: \.code) { curr in
+                        Text("\(curr.code)").tag(curr.code)
+                    }
+                }
+                Picker("Country", selection: $countryCode) {
+                    Text("None").tag("")
+                    ForEach(availableCountries, id: \.self) { code in
+                        Text("\(flagEmoji(code)) \(code)").tag(code)
+                    }
+                }
+                TextEditor(text: $notes)
+                    .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
             }
             HStack {
@@ -141,12 +167,25 @@ struct AddInstitutionView: View {
                 Button("Save") { save() }.disabled(!isValid)
             }.padding()
         }
-        .padding().frame(width: 400, height: 300)
+        .padding().frame(width: 400, height: 500)
+        .onAppear {
+            availableCurrencies = dbManager.fetchActiveCurrencies()
+            availableCountries = Locale.isoRegionCodes.sorted()
+        }
         .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.hasPrefix("✅") { presentationMode.wrappedValue.dismiss() } } } message: { Text(alertMessage) }
     }
 
     private func save() {
-        let success = dbManager.addInstitution(name: name.trimmingCharacters(in: .whitespacesAndNewlines), bic: bic.isEmpty ? nil : bic, type: type.isEmpty ? nil : type, website: website.isEmpty ? nil : website, isActive: isActive)
+        let success = dbManager.addInstitution(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            bic: bic.isEmpty ? nil : bic,
+            type: type.isEmpty ? nil : type,
+            website: website.isEmpty ? nil : website,
+            contactInfo: contactInfo.isEmpty ? nil : contactInfo,
+            defaultCurrency: defaultCurrency.isEmpty ? nil : defaultCurrency,
+            countryCode: countryCode.isEmpty ? nil : countryCode,
+            notes: notes.isEmpty ? nil : notes,
+            isActive: isActive)
         if success {
             NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
             alertMessage = "✅ Added"
@@ -166,12 +205,23 @@ struct EditInstitutionView: View {
     @State private var bic = ""
     @State private var type = ""
     @State private var website = ""
+    @State private var contactInfo = ""
+    @State private var defaultCurrency = ""
+    @State private var countryCode = ""
+    @State private var notes = ""
+    @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
+    @State private var availableCountries: [String] = []
     @State private var isActive = true
     @State private var loaded = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
-    var isValid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var isValid: Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currValid = defaultCurrency.isEmpty || defaultCurrency.count == 3
+        let countryValid = countryCode.isEmpty || countryCode.count == 2
+        return !trimmedName.isEmpty && currValid && countryValid
+    }
 
     var body: some View {
         VStack {
@@ -181,6 +231,21 @@ struct EditInstitutionView: View {
                 TextField("BIC", text: $bic)
                 TextField("Type", text: $type)
                 TextField("Website", text: $website)
+                TextField("Contact Info", text: $contactInfo)
+                Picker("Default Currency", selection: $defaultCurrency) {
+                    Text("None").tag("")
+                    ForEach(availableCurrencies, id: \.code) { curr in
+                        Text("\(curr.code)").tag(curr.code)
+                    }
+                }
+                Picker("Country", selection: $countryCode) {
+                    Text("None").tag("")
+                    ForEach(availableCountries, id: \.self) { code in
+                        Text("\(flagEmoji(code)) \(code)").tag(code)
+                    }
+                }
+                TextEditor(text: $notes)
+                    .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
             }
             HStack {
@@ -189,19 +254,42 @@ struct EditInstitutionView: View {
                 Button("Save") { save() }.disabled(!isValid)
             }.padding()
         }
-        .padding().frame(width: 400, height: 300)
-        .onAppear { if !loaded { load() } }
+        .padding().frame(width: 400, height: 500)
+        .onAppear {
+            if !loaded { load() }
+            availableCurrencies = dbManager.fetchActiveCurrencies()
+            availableCountries = Locale.isoRegionCodes.sorted()
+        }
         .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.hasPrefix("✅") { presentationMode.wrappedValue.dismiss() } } } message: { Text(alertMessage) }
     }
 
     private func load() {
         if let inst = dbManager.fetchInstitutionDetails(id: institutionId) {
-            name = inst.name; bic = inst.bic ?? ""; type = inst.type ?? ""; website = inst.website ?? ""; isActive = inst.isActive; loaded = true
+            name = inst.name
+            bic = inst.bic ?? ""
+            type = inst.type ?? ""
+            website = inst.website ?? ""
+            contactInfo = inst.contactInfo ?? ""
+            defaultCurrency = inst.defaultCurrency ?? ""
+            countryCode = inst.countryCode ?? ""
+            notes = inst.notes ?? ""
+            isActive = inst.isActive
+            loaded = true
         }
     }
 
     private func save() {
-        let success = dbManager.updateInstitution(id: institutionId, name: name.trimmingCharacters(in: .whitespacesAndNewlines), bic: bic.isEmpty ? nil : bic, type: type.isEmpty ? nil : type, website: website.isEmpty ? nil : website, isActive: isActive)
+        let success = dbManager.updateInstitution(
+            id: institutionId,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            bic: bic.isEmpty ? nil : bic,
+            type: type.isEmpty ? nil : type,
+            website: website.isEmpty ? nil : website,
+            contactInfo: contactInfo.isEmpty ? nil : contactInfo,
+            defaultCurrency: defaultCurrency.isEmpty ? nil : defaultCurrency,
+            countryCode: countryCode.isEmpty ? nil : countryCode,
+            notes: notes.isEmpty ? nil : notes,
+            isActive: isActive)
         if success {
             NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
             alertMessage = "✅ Updated"
@@ -387,6 +475,14 @@ private extension InstitutionsView {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
                 .frame(width: 120, alignment: .leading)
+            Text("Cur")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 50, alignment: .leading)
+            Text("Country")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 70, alignment: .leading)
             Text("Status")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
@@ -559,6 +655,15 @@ struct ModernInstitutionRowView: View {
                 .foregroundColor(.secondary)
                 .frame(width: 120, alignment: .leading)
 
+            Text(institution.defaultCurrency ?? "")
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 50, alignment: .leading)
+
+            Text(institution.countryCode.map { "\(flagEmoji($0)) \($0)" } ?? "")
+                .font(.system(size: 13))
+                .frame(width: 70, alignment: .leading)
+
             HStack(spacing: 4) {
                 Circle()
                     .fill(institution.isActive ? Color.green : Color.orange)
@@ -599,6 +704,10 @@ struct ModernInstitutionRowView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
+}
+
+private func flagEmoji(_ code: String) -> String {
+    code.uppercased().unicodeScalars.compactMap { UnicodeScalar(127397 + $0.value) }.map { String($0) }.joined()
 }
 
 struct InstitutionParticle: Identifiable {
