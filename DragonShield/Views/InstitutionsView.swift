@@ -170,7 +170,7 @@ struct AddInstitutionView: View {
         .padding().frame(width: 400, height: 500)
         .onAppear {
             availableCurrencies = dbManager.fetchActiveCurrencies()
-            availableCountries = Locale.isoRegionCodes.sorted()
+            availableCountries = Locale.Region.isoRegions.map(\.identifier).sorted()
         }
         .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.hasPrefix("✅") { presentationMode.wrappedValue.dismiss() } } } message: { Text(alertMessage) }
     }
@@ -258,7 +258,7 @@ struct EditInstitutionView: View {
         .onAppear {
             if !loaded { load() }
             availableCurrencies = dbManager.fetchActiveCurrencies()
-            availableCountries = Locale.isoRegionCodes.sorted()
+            availableCountries = Locale.Region.isoRegions.map(\.identifier).sorted()
         }
         .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.hasPrefix("✅") { presentationMode.wrappedValue.dismiss() } } } message: { Text(alertMessage) }
     }

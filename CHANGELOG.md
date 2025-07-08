@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Allow editing Asset Class in Asset SubClass popup
 - Create cash accounts during position import and record deposits
 - Extend Institutions with contact info, currency and country fields
+- Fix deprecated isoRegionCodes warning in Institutions view
 - Rename cash account names using institution and currency codes
 - Restyled Institutions maintenance window for consistent look and feel
 - Retry account prompt until a custody account is created during position import
