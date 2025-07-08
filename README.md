@@ -132,6 +132,15 @@ Run the deploy script to rebuild the database from the schema and copy it to the
 python3 python_scripts/deploy_db.py
 ```
 
+
+### GPT Shell
+A small CLI to experiment with OpenAI function calls. Requires `OPENAI_API_KEY` in the environment.
+
+```bash
+python3 python_scripts/gpt_shell.py list
+python3 python_scripts/gpt_shell.py schema echo
+python3 python_scripts/gpt_shell.py call echo '{"text": "hello"}'
+```
 ## 💡 Usage
 
 At present the application must be run from Xcode. Future releases will ship a signed & notarized .app bundle.

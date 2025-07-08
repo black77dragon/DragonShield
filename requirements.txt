@@ -2,3 +2,5 @@ pysqlcipher3
 pandas
 openpyxl
 pdfplumber
+openai
+jsonschema
