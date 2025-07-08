@@ -259,6 +259,8 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 record_data["balance"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_ANZAHL_NOMINAL))
                 record_data["value_in_chf"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_WERT_CHF))
                 record_data["fx_rate_to_chf"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_DEVISENKURS))
+                record_data["asset_class_code"] = "LIQ"
+                record_data["asset_sub_class_code"] = "CASH"
             else: 
                 # (Security holding processing logic largely the same)
                 parsed_data["summary"]["security_holding_records"] += 1
