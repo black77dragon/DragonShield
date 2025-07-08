@@ -83,3 +83,4 @@ All notable changes to this project will be documented in this file.
 - Automatically start ZKB position import when a file is chosen without asking to delete existing rows
 - Condense import popups, enlarge windows and use smaller fonts for better readability
 - Guess asset sub-class from statement categories when adding new instruments
+- Fix asset sub-class dropdown defaulting to Cash when prompting for new instruments
