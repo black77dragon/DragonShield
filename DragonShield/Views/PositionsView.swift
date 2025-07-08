@@ -133,6 +133,7 @@ struct PositionsView: View {
             Text("Account").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Institution").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 150, alignment: .leading)
             Text("Instrument").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading)
+            Text("Currency").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .center)
             Text("Qty").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
             Text("Purchase").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
             Text("Current").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 70, alignment: .trailing)
@@ -308,6 +309,11 @@ struct ModernPositionRowView: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            Text(position.instrumentCurrency)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                .frame(width: 60, alignment: .center)
+
             Text(String(format: "%.2f", position.quantity))
                 .font(.system(size: 14, design: .monospaced))
                 .foregroundColor(.primary)
@@ -360,6 +366,14 @@ struct ModernPositionRowView: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    private func colorForCurrency(_ code: String) -> Color {
+        switch code.uppercased() {
+        case "USD": return .green
+        case "CHF": return .red
+        default: return .primary
+        }
     }
 }
 

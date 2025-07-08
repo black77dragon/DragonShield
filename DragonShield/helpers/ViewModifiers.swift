@@ -21,7 +21,8 @@ struct CompactFormSection: ViewModifier {
     let color: Color
     func body(content: Content) -> some View {
         content
-            .padding(12)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
             .background(glassMorphismBackground(color: color))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.2), lineWidth: 1))
