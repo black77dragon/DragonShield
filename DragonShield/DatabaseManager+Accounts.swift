@@ -263,7 +263,7 @@ extension DatabaseManager {
         return result
     }
 
-    // deleteAccount and canDeleteAccount remain unchanged as they don't directly use account_type
+    // Soft delete by setting is_active flag to 0
     func deleteAccount(id: Int) -> Bool {
         let query = "UPDATE accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?;"
         var statement: OpaquePointer?
@@ -284,8 +284,48 @@ extension DatabaseManager {
         return result
     }
 
+    /// Counts position reports referencing the given account.
+    private func positionReportCount(forAccountId id: Int) -> Int {
+        let query = "SELECT COUNT(*) FROM PositionReports WHERE account_id = ?;"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                count = Int(sqlite3_column_int(stmt, 0))
+            }
+        } else {
+            print("❌ Failed to prepare positionReportCount: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
+    /// Permanently removes the account from the database.
+    func deleteAccountPermanently(id: Int) -> Bool {
+        let query = "DELETE FROM Accounts WHERE account_id = ?;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deleteAccountPermanently (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        sqlite3_bind_int(statement, 1, Int32(id))
+        let result = sqlite3_step(statement) == SQLITE_DONE
+        sqlite3_finalize(statement)
+        if result {
+            print("✅ Permanently deleted account (ID: \(id))")
+        } else {
+            print("❌ Permanent delete account failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return result
+    }
+
     func canDeleteAccount(id: Int) -> (canDelete: Bool, dependencyCount: Int, message: String) {
-        return (canDelete: true, dependencyCount: 0, message: "Soft delete allowed. No dependency check implemented yet.")
+        let count = positionReportCount(forAccountId: id)
+        if count > 0 {
+            return (false, count, "Account has \(count) position report(s).")
+        }
+        return (true, 0, "Account can be deleted.")
     }
 
     /// Returns the account_id for a given account number, optionally matching

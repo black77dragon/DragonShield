@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Create cash accounts during position import and record deposits
 - Rename cash account names using institution and currency codes
 - Restyled Institutions maintenance window for consistent look and feel
+- Offer delete vs disable option when removing custody accounts, blocking deletion if position reports exist
 - Retry account prompt until a custody account is created during position import
 - Fix compile error in Institutions view due to missing empty state component
 - Added Asset Class maintenance screens with create, update and delete

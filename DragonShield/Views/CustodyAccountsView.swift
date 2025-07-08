@@ -19,7 +19,9 @@ struct CustodyAccountsView: View {
     @State private var showAddAccountSheet = false
     @State private var showEditAccountSheet = false
     @State private var selectedAccount: DatabaseManager.AccountData? = nil
+    @State private var showingDeleteOptions = false
     @State private var showingDeleteAlert = false
+    @State private var deletionAlertMessage = ""
     @State private var accountToDelete: DatabaseManager.AccountData? = nil
     @State private var searchText = ""
 
@@ -72,17 +74,23 @@ struct CustodyAccountsView: View {
                 EditCustodyAccountView(accountId: account.id).environmentObject(dbManager)
             }
         }
-        .alert("Delete Account", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
+        .confirmationDialog("Remove Account", isPresented: $showingDeleteOptions, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let account = accountToDelete {
-                    confirmDelete(account)
+                    confirmDelete(account, hardDelete: true)
                 }
             }
-        } message: {
-            if let account = accountToDelete {
-                Text("Are you sure you want to delete account '\(account.accountName)' (\(account.accountNumber))? This will mark it as inactive.")
+            Button("Disable") {
+                if let account = accountToDelete {
+                    confirmDelete(account, hardDelete: false)
+                }
             }
+            Button("Cancel", role: .cancel) { accountToDelete = nil }
+        }
+        .alert("Delete Account", isPresented: $showingDeleteAlert) {
+            Button("OK", role: .cancel) { accountToDelete = nil }
+        } message: {
+            Text(deletionAlertMessage)
         }
     }
 
@@ -201,7 +209,25 @@ struct CustodyAccountsView: View {
                 Button { showAddAccountSheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Account") }.font(.system(size: 16, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 20).padding(.vertical, 12).background(Color.blue).clipShape(Capsule()) .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3) }.buttonStyle(ScaleButtonStyle())
                 if selectedAccount != nil {
                     Button { showEditAccountSheet = true } label: { HStack(spacing: 6) { Image(systemName: "pencil"); Text("Edit") }.font(.system(size: 14, weight: .medium)).foregroundColor(.orange) .padding(.horizontal, 16).padding(.vertical, 10).background(Color.orange.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.orange.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
-                    Button { if let acc = selectedAccount { accountToDelete = acc; showingDeleteAlert = true } } label: { HStack(spacing: 6) { Image(systemName: "trash"); Text("Delete") }.font(.system(size: 14, weight: .medium)).foregroundColor(.red).padding(.horizontal, 16).padding(.vertical, 10).background(Color.red.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
+                    Button {
+                        if let acc = selectedAccount {
+                            accountToDelete = acc
+                            showingDeleteOptions = true
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Delete")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1))
+                    }
+                    .buttonStyle(ScaleButtonStyle())
                 }
                 Spacer()
                 if let account = selectedAccount { HStack(spacing: 8) { Image(systemName: "checkmark.circle.fill").foregroundColor(.blue); Text("Selected: \(account.accountName.prefix(20))\(account.accountName.count > 20 ? "..." : "")").font(.system(size: 14, weight: .medium)).foregroundColor(.secondary) }.padding(.horizontal, 12).padding(.vertical, 6).background(Color.blue.opacity(0.05)).clipShape(Capsule()) }
@@ -226,12 +252,24 @@ struct CustodyAccountsView: View {
         accounts = self.dbManager.fetchAccounts()
     }
     
-    func confirmDelete(_ account: DatabaseManager.AccountData) {
-        if self.dbManager.deleteAccount(id: account.id) {
+    func confirmDelete(_ account: DatabaseManager.AccountData, hardDelete: Bool) {
+        if hardDelete {
+            let info = dbManager.canDeleteAccount(id: account.id)
+            if info.canDelete {
+                if dbManager.deleteAccountPermanently(id: account.id) {
+                    loadAccounts()
+                }
+            } else {
+                deletionAlertMessage = "Cannot delete account. \(info.dependencyCount) position report(s) exist."
+                showingDeleteAlert = true
+                return
+            }
+        } else {
+            _ = dbManager.deleteAccount(id: account.id)
             loadAccounts()
-            selectedAccount = nil
-            accountToDelete = nil
         }
+        selectedAccount = nil
+        accountToDelete = nil
     }
 }
 
