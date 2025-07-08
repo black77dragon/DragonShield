@@ -84,3 +84,4 @@ All notable changes to this project will be documented in this file.
 - Condense import popups, enlarge windows and use smaller fonts for better readability
 - Guess asset sub-class from statement categories when adding new instruments
 - Fix asset sub-class dropdown defaulting to Cash when prompting for new instruments
+- Document asset class concept version 2.1 with ZKB mapping
