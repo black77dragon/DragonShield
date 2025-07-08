@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
 - Store import sessions by institution and value date, tracking duplicate rows
+- Restyle Currency Maintenance window and update title to "Currency Maintenance"
 - Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
 - Allow editing Asset Class in Asset SubClass popup
 - Create cash accounts during position import and record deposits

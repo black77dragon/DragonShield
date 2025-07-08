@@ -42,15 +42,16 @@ struct CurrenciesView: View {
                 colors: [Color(red: 0.98, green: 0.99, blue: 1.0), Color(red: 0.95, green: 0.97, blue: 0.99), Color(red: 0.93, green: 0.95, blue: 0.98)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
-            
+
             CurrencyParticleBackground()
-            
+
             VStack(spacing: 0) {
                 modernHeader
                 searchAndStats
                 currenciesContent
                 modernActionBar
             }
+            .padding(24)
         }
         .onAppear {
             loadCurrencies()
@@ -81,6 +82,7 @@ struct CurrenciesView: View {
                 Text("Are you sure you want to delete '\(currency.name) (\(currency.code))'?")
             }
         }
+        .navigationTitle("Currency Maintenance")
     }
     
     // MARK: - Subviews (Header, Search, etc. - Unchanged)
@@ -124,8 +126,9 @@ struct CurrenciesView: View {
                 currenciesTable
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 16)
+        .padding(24)
+        .background(Theme.surface)
+        .cornerRadius(8)
         .offset(y: contentOffset)
     }
     
@@ -138,7 +141,11 @@ struct CurrenciesView: View {
                     Text(searchText.isEmpty ? "No currencies yet" : "No matching currencies").font(.title2).fontWeight(.semibold).foregroundColor(.gray)
                     Text(searchText.isEmpty ? "Add your first currency to start managing exchange rates" : "Try adjusting your search terms").font(.body).foregroundColor(.gray).multilineTextAlignment(.center)
                 }
-                if searchText.isEmpty { Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add Your First Currency") }.font(.headline).foregroundColor(.white).padding(.horizontal, 24).padding(.vertical, 12).background(Color.green).clipShape(Capsule()).shadow(color: .green.opacity(0.3), radius: 8, x: 0, y: 4) }.buttonStyle(ScaleButtonStyle()).padding(.top, 8) }
+                if searchText.isEmpty { Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add Your First Currency") } }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityLabel("Add Currency")
+                    .focusable()
+                    .padding(.top, 8) }
             }
             Spacer()
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -183,10 +190,21 @@ struct CurrenciesView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
-                Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Currency") }.font(.system(size: 16, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 20).padding(.vertical, 12).background(Color.green).clipShape(Capsule()).shadow(color: .green.opacity(0.3), radius: 6, x: 0, y: 3) }.buttonStyle(ScaleButtonStyle())
+                Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Currency") } }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityLabel("Add Currency")
+                    .focusable()
                 if selectedCurrency != nil {
-                    Button { showEditCurrencySheet = true } label: { HStack(spacing: 6) { Image(systemName: "pencil"); Text("Edit") }.font(.system(size: 14, weight: .medium)).foregroundColor(.blue).padding(.horizontal, 16).padding(.vertical, 10).background(Color.blue.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
-                    Button { if let currency = selectedCurrency { currencyToDelete = currency; showingDeleteAlert = true } } label: { HStack(spacing: 6) { Image(systemName: "trash"); Text("Delete") }.font(.system(size: 14, weight: .medium)).foregroundColor(.red).padding(.horizontal, 16).padding(.vertical, 10).background(Color.red.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
+                    Button { showEditCurrencySheet = true } label: { HStack(spacing: 6) { Image(systemName: "pencil"); Text("Edit") } }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityLabel("Edit Currency")
+                        .focusable()
+                    Button {
+                        if let currency = selectedCurrency { currencyToDelete = currency; showingDeleteAlert = true }
+                    } label: { HStack(spacing: 6) { Image(systemName: "trash"); Text("Delete") } }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityLabel("Delete Currency")
+                        .focusable()
                 }
                 Spacer()
                 if let currency = selectedCurrency { HStack(spacing: 8) { Image(systemName: "checkmark.circle.fill").foregroundColor(.green); Text("Selected: \(currency.code)").font(.system(size: 14, weight: .medium)).foregroundColor(.secondary) }.padding(.horizontal, 12).padding(.vertical, 6).background(Color.green.opacity(0.05)).clipShape(Capsule()) }
@@ -237,7 +255,8 @@ struct ModernCurrencyRowView: View {
                 .padding(.horizontal, 8).padding(.vertical, 4).background(Color.green.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 6))
                 .frame(width: 80, alignment: .leading)
             Text(currency.name)
-                .font(.system(size: 15, weight: .medium)).foregroundColor(.primary)
+                .font(.system(size: 14))
+                .foregroundColor(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(currency.symbol)
                 .font(.system(size: 16, weight: .bold)).foregroundColor(.secondary)
@@ -255,6 +274,8 @@ struct ModernCurrencyRowView: View {
         .padding(.vertical, rowPadding)
         .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Color.green.opacity(0.1) : Color.clear).overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)))
         .contentShape(Rectangle())
+        .accessibilityLabel("\(currency.name) \(currency.code)")
+        .focusable()
         .onTapGesture { onTap() }
         .onTapGesture(count: 2) { onEdit() }
         .contextMenu {
