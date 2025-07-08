@@ -87,3 +87,4 @@ All notable changes to this project will be documented in this file.
 - Fix asset sub-class dropdown defaulting to Cash when prompting for new instruments
 - Document asset class concept version 2.1 with ZKB mapping
 - Reduce vertical spacing in import dialogs so all fields fit without scrolling
+- Display instrument currency in Positions view
