@@ -91,3 +91,4 @@ All notable changes to this project will be documented in this file.
 - Reduce vertical spacing in import dialogs so all fields fit without scrolling
 - Display instrument currency in Positions view
 - Toggle parsing checkpoints to suppress import popups and show inline summary
+- Make import summary panel scrollable and arrange import view in two columns
