@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.10 - Exclude cash from P&L views
+-- Version 4.11 - Enhanced Institutions with contact info and default currency
 -- Created: 2025-05-24
 -- Updated: 2025-06-19
 --
@@ -13,6 +13,7 @@
 --   Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses tables.
+-- - v4.10 -> v4.11: Expanded Institutions with contact info and currency fields.
 -- - (Previous history for v4.3 and earlier...)
 --
 
@@ -211,6 +212,10 @@ CREATE TABLE Institutions (
     institution_type TEXT,
     bic TEXT,
     website TEXT,
+    contact_info TEXT,
+    default_currency TEXT,
+    country_code TEXT,
+    notes TEXT,
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

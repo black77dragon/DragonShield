@@ -9,6 +9,7 @@
 -- - v4.5 -> v4.6: Seed data split from schema.sql
 -- - v4.6 -> v4.7: Added db_version configuration entry
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses
+-- - v4.10 -> v4.11: Added extended institution details
 -- - v4.7 -> v4.7.1: Removed duplicate db_version row causing UNIQUE constraint failure
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
@@ -26,8 +27,8 @@ INSERT INTO Configuration (key, value, data_type, description) VALUES
 ('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
 ('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)'),
 -- Removed duplicate db_version entry causing UNIQUE constraint failure
--- Version 4.10
-('db_version', '4.10', 'string', 'Database schema version');
+-- Version 4.11
+('db_version', '4.11', 'string', 'Database schema version');
 INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
 ('CHF', 'Swiss Franc', 'CHF', 0),
 ('EUR', 'Euro', '€', 1),
@@ -134,16 +135,24 @@ INSERT INTO AccountTypes (account_type_id, type_code, type_name, type_descriptio
 (3, 'CRYPTO', 'Crypto Wallet/Account', 'Account for holding cryptocurrencies'),
 (4, 'PENSION', 'Pension Account', 'Retirement or pension savings account'),
 (5, 'CASH', 'Cash Account', 'Physical cash or simple cash holdings');
-INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website, is_active) VALUES
- (1, 'UBS Switzerland AG', 'BANK', 'UBSWCHZH80A', 'https://www.ubs.com', 1),
- (2, 'Credit Suisse (Schweiz) AG', 'BANK', 'CRESCHZZ80A', 'https://www.credit-suisse.com', 1),
- (3, 'Interactive Brokers LLC', 'BROKER', NULL, 'https://www.interactivebrokers.com', 1),
- (4, 'Coinbase', 'CRYPTO_EXCHANGE', NULL, 'https://www.coinbase.com', 1),
- (5, 'Self-Custody', 'WALLET', NULL, NULL, 1),
-(6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch', 1),
-(7, 'Regional Bank XY', 'BANK', NULL, NULL, 1);
-INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website, is_active) VALUES
- (8, 'ZKB', 'BANK', NULL, NULL, 1);
+INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website,
+    contact_info, default_currency, country_code, notes, is_active) VALUES
+ (1, 'UBS Switzerland AG', 'BANK', 'UBSWCHZH80A', 'https://www.ubs.com',
+    'info@ubs.com', 'CHF', 'CH', 'Major Swiss bank', 1),
+ (2, 'Credit Suisse (Schweiz) AG', 'BANK', 'CRESCHZZ80A', 'https://www.credit-suisse.com',
+    'info@credit-suisse.com', 'CHF', 'CH', 'Swiss bank', 1),
+ (3, 'Interactive Brokers LLC', 'BROKER', NULL, 'https://www.interactivebrokers.com',
+    'support@interactivebrokers.com', 'USD', 'US', 'International brokerage', 1),
+ (4, 'Coinbase', 'CRYPTO_EXCHANGE', NULL, 'https://www.coinbase.com',
+    'support@coinbase.com', 'USD', 'US', 'Cryptocurrency exchange', 1),
+ (5, 'Self-Custody', 'WALLET', NULL, NULL,
+    NULL, 'BTC', NULL, 'Cold storage wallet', 1),
+ (6, 'VIAC', 'PENSION', NULL, 'https://www.viac.ch',
+    'support@viac.ch', 'CHF', 'CH', 'Swiss pension provider', 1),
+ (7, 'Regional Bank XY', 'BANK', NULL, NULL,
+    NULL, 'CHF', 'CH', 'Regional test bank', 1),
+ (8, 'ZKB', 'BANK', NULL, NULL,
+    'info@zkb.ch', 'CHF', 'CH', 'Zürcher Kantonalbank', 1);
 INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
 ('CH12-3456-7890-1234-5', 'UBS Custody Account', 1, 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
 ('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 2, 1, 'CHF', '2023-06-10', 1, 1, NULL),
