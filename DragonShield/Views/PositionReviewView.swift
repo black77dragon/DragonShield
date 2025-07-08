@@ -78,7 +78,7 @@ struct PositionReviewView: View {
         icon: String,
         isRequired: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 13))
