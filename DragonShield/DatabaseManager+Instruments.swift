@@ -116,6 +116,57 @@ extension DatabaseManager {
         
         return result
     }
+
+    /// Inserts a new instrument and returns the generated row ID on success.
+    func addInstrumentReturningId(name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Int? {
+        let query = """
+            INSERT INTO Instruments (instrument_name, sub_class_id, currency, ticker_symbol, isin, sector, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        """
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            let error = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("Failed to prepare insert instrument: \(error)", type: .error, logger: .database)
+            return nil
+        }
+
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+        _ = name.withCString { sqlite3_bind_text(statement, 1, $0, -1, SQLITE_TRANSIENT) }
+        sqlite3_bind_int(statement, 2, Int32(subClassId))
+        _ = currency.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
+
+        if let ticker = tickerSymbol, !ticker.isEmpty {
+            _ = ticker.withCString { sqlite3_bind_text(statement, 4, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 4)
+        }
+
+        if let isinCode = isin, !isinCode.isEmpty {
+            _ = isinCode.withCString { sqlite3_bind_text(statement, 5, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 5)
+        }
+
+        if let sectorName = sector, !sectorName.isEmpty {
+            _ = sectorName.withCString { sqlite3_bind_text(statement, 6, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 6)
+        }
+
+        let success = sqlite3_step(statement) == SQLITE_DONE
+        let insertedId = success ? Int(sqlite3_last_insert_rowid(db)) : nil
+        sqlite3_finalize(statement)
+
+        if let id = insertedId {
+            LoggingService.shared.log("Inserted instrument \(name) with ID \(id)", type: .info, logger: .database)
+        } else {
+            LoggingService.shared.log("Insert instrument \(name) failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+
+        return insertedId
+    }
     
     func updateInstrument(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, sector: String?) -> Bool {
         let query = """

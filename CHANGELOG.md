@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Fix incorrect parameter label when starting import sessions
 - Store import sessions by institution and value date, tracking duplicate rows
+- Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
 - Allow editing Asset Class in Asset SubClass popup
 - Restyled Institutions maintenance window for consistent look and feel
 - Retry account prompt until a custody account is created during position import
@@ -23,6 +24,9 @@ All notable changes to this project will be documented in this file.
 - Default quantity to zero for "ZKB Call Account USD" when cell is blank
 - Prompt for instrument details when new securities are imported
 - Automatically create ZKB custody and cash accounts when missing and save position reports
+- Fix unused variable warning when auto-creating ZKB cash accounts
+- Fix missing instrument popup and save newly added instruments
+- Fix instrument lookup to prompt when new securities are parsed
 - Review each parsed position with editable popup before saving and fix layout constraints
 - Provide instrument add dialog with Save/Ignore/Abort when new ISINs are encountered
 - Restyle import popups using instrument maintenance window design
@@ -79,3 +83,4 @@ All notable changes to this project will be documented in this file.
 - Automatically start ZKB position import when a file is chosen without asking to delete existing rows
 - Condense import popups, enlarge windows and use smaller fonts for better readability
 - Guess asset sub-class from statement categories when adding new instruments
+- Fix asset sub-class dropdown defaulting to Cash when prompting for new instruments

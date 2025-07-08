@@ -287,8 +287,7 @@ class ImportManager {
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
-                        var cashId = self.dbManager.findAccountId(accountNumber: accNumber)
-                        if cashId == nil {
+                        if self.dbManager.findAccountId(accountNumber: accNumber) == nil {
                             let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
                             let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
                             _ = self.dbManager.addAccount(accountName: parsed.accountName,
@@ -314,29 +313,36 @@ class ImportManager {
                         continue
                     }
                     var instrumentId: Int?
-                    if let isin = row.isin {
+                    if let isin = row.isin, !isin.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
                     }
-                    if instrumentId == nil, let ticker = row.tickerSymbol {
+                    if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
                     }
                     if instrumentId == nil {
-                    var instAction: InstrumentPromptResult = .ignore
-                    DispatchQueue.main.sync {
-                        instAction = self.promptForInstrument(record: row)
+                        LoggingService.shared.log("Instrument not found for \(row.instrumentName) - prompting user", type: .info, logger: .parser)
                     }
+                    if instrumentId == nil {
+                        var instAction: InstrumentPromptResult = .ignore
+                        DispatchQueue.main.sync {
+                            instAction = self.promptForInstrument(record: row)
+                        }
                         switch instAction {
                         case let .save(name, subClassId, currency, ticker, isin, sector):
-                            _ = self.dbManager.addInstrument(name: name,
-                                                           subClassId: subClassId,
-                                                           currency: currency,
-                                                           tickerSymbol: ticker,
-                                                           isin: isin,
-                                                           countryCode: nil,
-                                                           exchangeCode: nil,
-                                                           sector: sector)
-                            if let searchIsin = isin ?? row.isin {
-                                instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                            instrumentId = self.dbManager.addInstrumentReturningId(name: name,
+                                                                                     subClassId: subClassId,
+                                                                                     currency: currency,
+                                                                                     tickerSymbol: ticker,
+                                                                                     isin: isin,
+                                                                                     countryCode: nil,
+                                                                                     exchangeCode: nil,
+                                                                                     sector: sector)
+                            if instrumentId == nil {
+                                if let searchIsin = isin ?? row.isin {
+                                    instrumentId = self.dbManager.findInstrumentId(isin: searchIsin)
+                                } else if let searchTicker = ticker ?? row.tickerSymbol {
+                                    instrumentId = self.dbManager.findInstrumentId(ticker: searchTicker)
+                                }
                             }
                         case .ignore:
                             continue
