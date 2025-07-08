@@ -33,6 +33,10 @@ class ImportManager {
         PositionReportRepository(dbManager: dbManager)
     }()
 
+    private var checkpointsEnabled: Bool {
+        UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
+    }
+
     enum RecordPromptResult {
         case save(ParsedPositionRecord)
         case ignore
@@ -239,7 +243,8 @@ class ImportManager {
                     LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 }
                 while accountId == nil {
-                    var accAction: AccountPromptResult = .cancel
+                    if self.checkpointsEnabled {
+                        var accAction: AccountPromptResult = .cancel
                     DispatchQueue.main.sync {
                         accAction = self.promptForAccount(number: custodyNumber,
                                                          currency: rows.first?.currency ?? "CHF",
@@ -274,13 +279,30 @@ class ImportManager {
                             LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId == nil {
-                            DispatchQueue.main.sync {
-                                self.showStatusAlert(title: "Account Required",
-                                                      message: "Account \(custodyNumber) is required to save positions.")
+                            if self.checkpointsEnabled {
+                                DispatchQueue.main.sync {
+                                    self.showStatusAlert(title: "Account Required",
+                                                          message: "Account \(custodyNumber) is required to save positions.")
+                                }
                             }
                         }
                     case .abort:
                         throw ImportError.aborted
+                    }
+                    } else {
+                        let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                        let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
+                        _ = self.dbManager.addAccount(accountName: "ZKB Custody Account",
+                                                       institutionId: instId,
+                                                       accountNumber: custodyNumber,
+                                                       accountTypeId: typeId,
+                                                       currencyCode: rows.first?.currency ?? "CHF",
+                                                       openingDate: nil,
+                                                       closingDate: nil,
+                                                       includeInPortfolio: true,
+                                                       isActive: true,
+                                                       notes: nil)
+                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                     }
                 }
                 let accId = accountId!
@@ -302,11 +324,14 @@ class ImportManager {
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
-                            var proceed = false
-                            DispatchQueue.main.sync {
-                                proceed = self.confirmCashAccount(name: parsed.accountName,
-                                                                  currency: parsed.currency,
-                                                                  amount: parsed.quantity)
+                            var proceed = true
+                            if self.checkpointsEnabled {
+                                proceed = false
+                                DispatchQueue.main.sync {
+                                    proceed = self.confirmCashAccount(name: parsed.accountName,
+                                                                      currency: parsed.currency,
+                                                                      amount: parsed.quantity)
+                                }
                             }
                             if proceed {
                                 let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
@@ -345,8 +370,10 @@ class ImportManager {
                     }
 
                     var action: RecordPromptResult = .save(parsed)
-                    DispatchQueue.main.sync {
-                        action = self.promptForPosition(record: parsed)
+                    if self.checkpointsEnabled {
+                        DispatchQueue.main.sync {
+                            action = self.promptForPosition(record: parsed)
+                        }
                     }
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
@@ -364,8 +391,17 @@ class ImportManager {
                     }
                     if instrumentId == nil {
                         var instAction: InstrumentPromptResult = .ignore
-                        DispatchQueue.main.sync {
-                            instAction = self.promptForInstrument(record: row)
+                        if self.checkpointsEnabled {
+                            DispatchQueue.main.sync {
+                                instAction = self.promptForInstrument(record: row)
+                            }
+                        } else {
+                            instAction = .save(name: row.instrumentName,
+                                               subClassId: row.subClassIdGuess ?? 21,
+                                               currency: row.currency,
+                                               ticker: row.tickerSymbol,
+                                               isin: row.isin,
+                                               sector: nil)
                         }
                         switch instAction {
                         case let .save(name, subClassId, currency, ticker, isin, sector):
@@ -405,15 +441,19 @@ class ImportManager {
                     do {
                         try self.positionRepository.saveReports([report])
                         success += 1
-                        DispatchQueue.main.sync {
-                            self.showStatusAlert(title: "Position Saved",
-                                                  message: "Saved \(row.instrumentName)")
+                        if self.checkpointsEnabled {
+                            DispatchQueue.main.sync {
+                                self.showStatusAlert(title: "Position Saved",
+                                                      message: "Saved \(row.instrumentName)")
+                            }
                         }
                     } catch {
                         failure += 1
-                        DispatchQueue.main.sync {
-                            self.showStatusAlert(title: "Save Failed",
-                                                  message: error.localizedDescription)
+                        if self.checkpointsEnabled {
+                            DispatchQueue.main.sync {
+                                self.showStatusAlert(title: "Save Failed",
+                                                      message: error.localizedDescription)
+                            }
                         }
                     }
                 }

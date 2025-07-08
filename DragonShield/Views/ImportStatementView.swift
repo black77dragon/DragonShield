@@ -17,6 +17,8 @@ struct ImportStatementView: View {
     @State private var showingFileImporter = false
     @State private var errorMessage: String?
     @State private var logMessages: [String] = []
+    @State private var importSummary: PositionImportSummary?
+    @State private var showSummaryPanel = false
 
     enum ImportMode { case generic, zkb }
     @State private var importMode: ImportMode = .generic
@@ -38,33 +40,51 @@ struct ImportStatementView: View {
                 modernHeader.padding(.bottom, 30)
 
                 // Main Content
-                VStack {
-                    if let url = selectedFileURL {
-                        fileSelectedView(url: url)
-                    } else {
-                        VStack(spacing: 40) {
-                            VStack {
-                                Text("General Upload")
-                                    .font(.headline)
-                                dropZoneView
-                            }
-                            Divider()
-                            VStack {
-                                Text("Upload ZKB Statement")
-                                    .font(.headline)
-                                zkbDropZoneView
+                HStack(alignment: .top, spacing: 24) {
+                    VStack {
+                        if let url = selectedFileURL {
+                            fileSelectedView(url: url)
+                        } else {
+                            VStack(spacing: 32) {
+                                VStack {
+                                    Text("General Upload")
+                                        .font(.headline)
+                                    dropZoneView
+                                }
+                                Divider()
+                                VStack {
+                                    Text("Upload ZKB Statement")
+                                        .font(.headline)
+                                    zkbDropZoneView
+                                }
                             }
                         }
+
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .padding(.top, 10)
+                        }
                     }
-                    
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(.top, 10)
+                    .frame(minWidth: 260, maxWidth: 300)
+                    .padding()
+                    .background(.thinMaterial)
+                    .cornerRadius(16)
+                    .shadow(radius: 4)
+
+                    if showSummaryPanel, let summary = importSummary {
+                        ImportSummaryPanel(summary: summary,
+                                           logs: logMessages,
+                                           isPresented: $showSummaryPanel)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .transition(.move(edge: .trailing))
+                    } else {
+                        Spacer()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal)
             }
         }
         .fileImporter(
@@ -132,7 +152,7 @@ struct ImportStatementView: View {
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)
         }
-        .frame(maxWidth: 500, maxHeight: 300)
+        .frame(maxWidth: 280, maxHeight: 240)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(isTargeted ? Color.accentColor.opacity(0.1) : Color.clear)
@@ -146,6 +166,7 @@ struct ImportStatementView: View {
                     style: StrokeStyle(lineWidth: 3, dash: [10, 5])
                 )
         )
+        .shadow(radius: 3)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             importMode = .generic
             handleDrop(providers: providers)
@@ -180,7 +201,7 @@ struct ImportStatementView: View {
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)
         }
-        .frame(maxWidth: 500, maxHeight: 300)
+        .frame(maxWidth: 280, maxHeight: 240)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(isTargeted ? Color.accentColor.opacity(0.1) : Color.clear)
@@ -194,6 +215,7 @@ struct ImportStatementView: View {
                     style: StrokeStyle(lineWidth: 3, dash: [10, 5])
                 )
         )
+        .shadow(radius: 3)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             importMode = .zkb
             handleDrop(providers: providers)
@@ -288,12 +310,18 @@ struct ImportStatementView: View {
                 switch result {
                 case .success(let summary):
                     selectedFileURL = nil
-                    DispatchQueue.main.async {
-                        let alert = NSAlert()
-                        alert.messageText = "Import Completed"
-                        alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows\nCash Accounts: \(summary.cashAccounts)\nSecurities: \(summary.securityRecords)"
-                        alert.addButton(withTitle: "OK")
-                        alert.runModal()
+                    let checkpoints = UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
+                    if checkpoints {
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Import Completed"
+                            alert.informativeText = "Parsed \(summary.parsedRows) of \(summary.totalRows) rows\nCash Accounts: \(summary.cashAccounts)\nSecurities: \(summary.securityRecords)"
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                        }
+                    } else {
+                        importSummary = summary
+                        showSummaryPanel = true
                     }
                 case .failure(let error):
                     if let impErr = error as? ImportManager.ImportError, impErr == .aborted {
