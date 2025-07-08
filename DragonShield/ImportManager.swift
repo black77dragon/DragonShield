@@ -33,6 +33,10 @@ class ImportManager {
         PositionReportRepository(dbManager: dbManager)
     }()
 
+    private var checkpointsEnabled: Bool {
+        UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
+    }
+
     enum RecordPromptResult {
         case save(ParsedPositionRecord)
         case ignore
