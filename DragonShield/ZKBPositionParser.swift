@@ -81,8 +81,12 @@ struct ZKBPositionParser {
            let purchasePrice = row["Einstandskurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
            let currentPrice = row["Kurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
             let guess = Self.guessSubClassId(category: category, subCategory: subCategory, isCash: isCash)
+            let accountName = isCash ? Self.renameCashAccount(description: descr,
+                                                             currency: currency,
+                                                             institution: "ZKB")
+                                      : "ZKB Custody Account"
             let record = ParsedPositionRecord(accountNumber: accountNumber,
-                                               accountName: isCash ? descr : "ZKB Custody Account",
+                                               accountName: accountName,
                                                instrumentName: instrumentName,
                                                tickerSymbol: ticker,
                                                isin: isin,
@@ -104,6 +108,23 @@ struct ZKBPositionParser {
         logging.log("Finished parsing positions", type: .info, logger: log)
         progress?("Parsed \(summary.parsedRows) rows")
         return (summary, records)
+    }
+
+    /// Renames a cash account using the institution and currency codes.
+    /// - Parameters:
+    ///   - description: The German description from the statement.
+    ///   - currency: The account currency code.
+    ///   - institution: The institution code prefix.
+    /// - Returns: The formatted account name.
+    private static func renameCashAccount(description: String,
+                                          currency: String,
+                                          institution: String) -> String {
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        let english = (lower == "kontokorrent" || lower == "kontokorrent wertschriften")
+            ? "Cash Account" : trimmed
+        let parts = [institution, english, currency]
+        return parts.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     /// Maps the ZKB "Anlagekategorie" and "Asset-Unterkategorie" strings to an
