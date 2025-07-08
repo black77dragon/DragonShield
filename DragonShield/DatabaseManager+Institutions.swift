@@ -18,12 +18,16 @@ extension DatabaseManager {
         var bic: String?
         var type: String?
         var website: String?
+        var contactInfo: String?
+        var defaultCurrency: String?
+        var countryCode: String?
+        var notes: String?
         var isActive: Bool
     }
 
     func fetchInstitutions(activeOnly: Bool = true) -> [InstitutionData] {
         var institutions: [InstitutionData] = []
-        var query = "SELECT institution_id, institution_name, bic, institution_type, website, is_active FROM Institutions"
+        var query = "SELECT institution_id, institution_name, bic, institution_type, website, contact_info, default_currency, country_code, notes, is_active FROM Institutions"
         if activeOnly { query += " WHERE is_active = 1" }
         query += " ORDER BY institution_name COLLATE NOCASE;"
 
@@ -35,8 +39,12 @@ extension DatabaseManager {
                 let bic = sqlite3_column_text(stmt, 2).map { String(cString: $0) }
                 let type = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
                 let website = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
-                let isActive = sqlite3_column_int(stmt, 5) == 1
-                institutions.append(InstitutionData(id: id, name: name, bic: bic, type: type, website: website, isActive: isActive))
+                let contactInfo = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                let defaultCurrency = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let countryCode = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let notes = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let isActive = sqlite3_column_int(stmt, 9) == 1
+                institutions.append(InstitutionData(id: id, name: name, bic: bic, type: type, website: website, contactInfo: contactInfo, defaultCurrency: defaultCurrency, countryCode: countryCode, notes: notes, isActive: isActive))
             }
         } else {
             print("❌ Failed to prepare fetchInstitutions: \(String(cString: sqlite3_errmsg(db)))")
@@ -46,7 +54,7 @@ extension DatabaseManager {
     }
 
     func fetchInstitutionDetails(id: Int) -> InstitutionData? {
-        let query = "SELECT institution_id, institution_name, bic, institution_type, website, is_active FROM Institutions WHERE institution_id = ?;"
+        let query = "SELECT institution_id, institution_name, bic, institution_type, website, contact_info, default_currency, country_code, notes, is_active FROM Institutions WHERE institution_id = ?;"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(id))
@@ -56,9 +64,13 @@ extension DatabaseManager {
                 let bic = sqlite3_column_text(stmt, 2).map { String(cString: $0) }
                 let type = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
                 let website = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
-                let isActive = sqlite3_column_int(stmt, 5) == 1
+                let contactInfo = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                let defaultCurrency = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let countryCode = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let notes = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let isActive = sqlite3_column_int(stmt, 9) == 1
                 sqlite3_finalize(stmt)
-                return InstitutionData(id: id, name: name, bic: bic, type: type, website: website, isActive: isActive)
+                return InstitutionData(id: id, name: name, bic: bic, type: type, website: website, contactInfo: contactInfo, defaultCurrency: defaultCurrency, countryCode: countryCode, notes: notes, isActive: isActive)
             }
         } else {
             print("❌ Failed to prepare fetchInstitutionDetails: \(String(cString: sqlite3_errmsg(db)))")
@@ -67,8 +79,8 @@ extension DatabaseManager {
         return nil
     }
 
-    func addInstitution(name: String, bic: String?, type: String?, website: String?, isActive: Bool) -> Bool {
-        let query = "INSERT INTO Institutions (institution_name, bic, institution_type, website, is_active) VALUES (?, ?, ?, ?, ?);"
+    func addInstitution(name: String, bic: String?, type: String?, website: String?, contactInfo: String?, defaultCurrency: String?, countryCode: String?, notes: String?, isActive: Bool) -> Bool {
+        let query = "INSERT INTO Institutions (institution_name, bic, institution_type, website, contact_info, default_currency, country_code, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare addInstitution: \(String(cString: sqlite3_errmsg(db)))")
@@ -79,15 +91,19 @@ extension DatabaseManager {
         if let b = bic, !b.isEmpty { sqlite3_bind_text(stmt, 2, (b as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 2) }
         if let t = type, !t.isEmpty { sqlite3_bind_text(stmt, 3, (t as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 3) }
         if let w = website, !w.isEmpty { sqlite3_bind_text(stmt, 4, (w as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 4) }
-        sqlite3_bind_int(stmt, 5, isActive ? 1 : 0)
+        if let cInfo = contactInfo, !cInfo.isEmpty { sqlite3_bind_text(stmt, 5, (cInfo as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 5) }
+        if let dCurr = defaultCurrency, !dCurr.isEmpty { sqlite3_bind_text(stmt, 6, (dCurr as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 6) }
+        if let cCode = countryCode, !cCode.isEmpty { sqlite3_bind_text(stmt, 7, (cCode as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes, !n.isEmpty { sqlite3_bind_text(stmt, 8, (n as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_int(stmt, 9, isActive ? 1 : 0)
         let result = sqlite3_step(stmt) == SQLITE_DONE
         sqlite3_finalize(stmt)
         if result { print("✅ Inserted institution '\(name)'") } else { print("❌ Insert institution failed: \(String(cString: sqlite3_errmsg(db)))") }
         return result
     }
 
-    func updateInstitution(id: Int, name: String, bic: String?, type: String?, website: String?, isActive: Bool) -> Bool {
-        let query = "UPDATE Institutions SET institution_name = ?, bic = ?, institution_type = ?, website = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE institution_id = ?;"
+    func updateInstitution(id: Int, name: String, bic: String?, type: String?, website: String?, contactInfo: String?, defaultCurrency: String?, countryCode: String?, notes: String?, isActive: Bool) -> Bool {
+        let query = "UPDATE Institutions SET institution_name = ?, bic = ?, institution_type = ?, website = ?, contact_info = ?, default_currency = ?, country_code = ?, notes = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE institution_id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare updateInstitution: \(String(cString: sqlite3_errmsg(db)))")
@@ -98,8 +114,12 @@ extension DatabaseManager {
         if let b = bic, !b.isEmpty { sqlite3_bind_text(stmt, 2, (b as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 2) }
         if let t = type, !t.isEmpty { sqlite3_bind_text(stmt, 3, (t as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 3) }
         if let w = website, !w.isEmpty { sqlite3_bind_text(stmt, 4, (w as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 4) }
-        sqlite3_bind_int(stmt, 5, isActive ? 1 : 0)
-        sqlite3_bind_int(stmt, 6, Int32(id))
+        if let cInfo = contactInfo, !cInfo.isEmpty { sqlite3_bind_text(stmt, 5, (cInfo as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 5) }
+        if let dCurr = defaultCurrency, !dCurr.isEmpty { sqlite3_bind_text(stmt, 6, (dCurr as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 6) }
+        if let cCode = countryCode, !cCode.isEmpty { sqlite3_bind_text(stmt, 7, (cCode as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes, !n.isEmpty { sqlite3_bind_text(stmt, 8, (n as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_int(stmt, 9, isActive ? 1 : 0)
+        sqlite3_bind_int(stmt, 10, Int32(id))
         let result = sqlite3_step(stmt) == SQLITE_DONE
         sqlite3_finalize(stmt)
         if result { print("✅ Updated institution (ID: \(id))") } else { print("❌ Update institution failed: \(String(cString: sqlite3_errmsg(db)))") }
