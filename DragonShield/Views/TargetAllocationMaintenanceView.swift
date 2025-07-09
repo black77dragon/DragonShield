@@ -63,87 +63,132 @@ struct TargetAllocationMaintenanceView: View {
 
     private var leftPane: some View {
         VStack(alignment: .leading) {
-            List {
-                ForEach(viewModel.assetClasses) { cls in
-                    DisclosureGroup(
-                        isExpanded: Binding(
-                            get: { viewModel.expandedClasses[cls.id] ?? false },
-                            set: { viewModel.expandedClasses[cls.id] = $0 }
-                        )
-                    ) {
-                        ForEach(viewModel.subAssetClasses(for: cls.id), id: \.id) { sub in
-                            HStack {
-                                Text(sub.name)
-                                    .font(.system(size: 14))
-                                Spacer()
-                                Slider(
-                                    value: Binding(
-                                        get: { viewModel.subClassTargets[sub.id] ?? 0 },
-                                        set: { viewModel.subClassTargets[sub.id] = $0 }
-                                    ),
-                                    in: 0...100,
-                                    step: 5
-                                )
-                                TextField(
-                                    "",
-                                    value: Binding(
-                                        get: { viewModel.subClassTargets[sub.id] ?? 0 },
-                                        set: { viewModel.subClassTargets[sub.id] = $0 }
-                                    ),
-                                    formatter: viewModel.numberFormatter
-                                )
-                                .frame(width: 40)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        let sum = viewModel.totalSubClassPct(for: cls.id)
-                        if abs(sum - 100) > 0.01 {
-                            Text("\u{26A0}\u{FE0F} Sub-class totals: \(Int(sum))% (should be 100%)")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
-                    } label: {
-                        HStack {
-                            Text(cls.name)
-                                .font(.system(size: 16, weight: .medium))
-                            Spacer()
-                            Slider(
-                                value: Binding(
-                                    get: { viewModel.classTargets[cls.id] ?? 0 },
-                                    set: { viewModel.classTargets[cls.id] = $0 }
-                                ),
-                                in: 0...100,
-                                step: 5
-                            )
-                            TextField(
-                                "",
-                                value: Binding(
-                                    get: { viewModel.classTargets[cls.id] ?? 0 },
-                                    set: { viewModel.classTargets[cls.id] = $0 }
-                                ),
-                                formatter: viewModel.numberFormatter
-                            )
-                            .frame(width: 40)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-            }
-            HStack(spacing: 12) {
-                Text(String(format: "Total: %.0f%%", total))
-                    .foregroundColor(abs(total - 100) < 0.01 ? .secondary : .red)
-                if abs(total - 100) > 0.01 {
-                    Text("\u{26A0}\u{FE0F} Total is \(Int(total))% (not 100%)")
-                        .foregroundColor(.orange)
-                }
-                if !subClassTotalsValid {
-                    Text("\u{26A0}\u{FE0F} Sub-class totals mismatch")
-                        .foregroundColor(.orange)
-                }
-                Spacer()
-            }
-            .padding([.top, .horizontal])
+            classList
+            totalsRow
         }
+        .padding(24)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var classList: some View {
+        List {
+            ForEach(viewModel.sortedClasses) { cls in
+                classDisclosure(for: cls)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private var totalsRow: some View {
+        HStack(spacing: 12) {
+            Text(String(format: "Total: %.0f%%", total))
+                .foregroundColor(abs(total - 100) < 0.01 ? .secondary : .red)
+            if abs(total - 100) > 0.01 {
+                Text("\u{26A0}\u{FE0F} Total is \(Int(total))% (not 100%)")
+                    .foregroundColor(.orange)
+            }
+            if !subClassTotalsValid {
+                Text("\u{26A0}\u{FE0F} Sub-class totals mismatch")
+                    .foregroundColor(.orange)
+            }
+            Spacer()
+        }
+        .padding([.top, .horizontal])
+    }
+
+    private func classDisclosure(for cls: DatabaseManager.AssetClassData) -> some View {
+        let expanded = Binding<Bool>(
+            get: { viewModel.expandedClasses[cls.id] ?? false },
+            set: { viewModel.expandedClasses[cls.id] = $0 }
+        )
+        let label = classDisclosureLabel(for: cls)
+        return DisclosureGroup(isExpanded: expanded) {
+            ForEach(viewModel.subAssetClasses(for: cls.id), id: \.id) { sub in
+                subClassRow(for: sub, classId: cls.id)
+            }
+            let sum = viewModel.totalSubClassPct(for: cls.id)
+            if abs(sum - 100) > 0.01 {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.warning)
+                        .accessibilityLabel("Sub-class totals mismatch")
+                    Text("Sub-class totals: \(Int(sum))% (should be 100%)")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+        } label: { label }
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private func classDisclosureLabel(for cls: DatabaseManager.AssetClassData) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(viewModel.chartColor(for: cls.id))
+                .frame(width: 10, height: 10)
+            Text(cls.name)
+                .font(.system(size: 16, weight: viewModel.classTargets[cls.id, default: 0] > 0 ? .semibold : .regular))
+            if abs(viewModel.totalSubClassPct(for: cls.id) - 100) > 0.01 {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.warning)
+                    .accessibilityLabel("Sub-class totals mismatch")
+                    .onTapGesture { viewModel.expandedClasses[cls.id] = true }
+            }
+            Spacer()
+            Slider(
+                value: classTargetBinding(for: cls.id),
+                in: 0...100,
+                step: 5
+            )
+            .focusable()
+            TextField(
+                "",
+                value: classTargetBinding(for: cls.id),
+                formatter: viewModel.numberFormatter
+            )
+            .frame(width: 40)
+            .focusable()
+        }
+    }
+
+    private func subClassRow(for sub: DatabaseManager.SubClassTarget, classId: Int) -> some View {
+        HStack {
+            Text(sub.name)
+                .font(.system(size: 14))
+            Spacer()
+            Slider(
+                value: subClassTargetBinding(for: sub.id),
+                in: 0...100,
+                step: 5
+            )
+            .focusable()
+            TextField(
+                "",
+                value: subClassTargetBinding(for: sub.id),
+                formatter: viewModel.numberFormatter
+            )
+            .frame(width: 40)
+            .focusable()
+        }
+        .padding(.vertical, 4)
+        .disabled(viewModel.classTargets[classId] == 0)
+        .opacity(viewModel.classTargets[classId] == 0 ? 0.5 : 1.0)
+    }
+
+    private func classTargetBinding(for id: Int) -> Binding<Double> {
+        Binding(
+            get: { viewModel.classTargets[id] ?? 0 },
+            set: { viewModel.classTargets[id] = $0 }
+        )
+    }
+
+    private func subClassTargetBinding(for id: Int) -> Binding<Double> {
+        Binding(
+            get: { viewModel.subClassTargets[id] ?? 0 },
+            set: { viewModel.subClassTargets[id] = $0 }
+        )
     }
 
     private var chartSegments: [(name: String, percent: Double)] {

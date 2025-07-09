@@ -6,6 +6,28 @@ enum Theme {
     static let textPrimary = Color(red: 33/255, green: 33/255, blue: 33/255)
 }
 
+enum AssetClassCode: String {
+    case liquidity = "LIQ"
+    case equity = "EQ"
+    case fixedIncome = "FI"
+    case realAssets = "REAL"
+    case alternatives = "ALT"
+    case derivatives = "DERIV"
+    case other = "OTHER"
+}
+
+extension Theme {
+    static let assetClassColors: [AssetClassCode: Color] = [
+        .liquidity: .blue,
+        .equity: .green,
+        .fixedIncome: .orange,
+        .realAssets: .purple,
+        .alternatives: .red,
+        .derivatives: .teal,
+        .other: .gray
+    ]
+}
+
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
