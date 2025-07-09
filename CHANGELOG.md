@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error in Target Allocation maintenance view
 - Expand target allocation screen with dynamic class and sub-class editing
 - Improve target allocation editor with modal sub-class panel and slider tweaks
+- Fix build errors from ForEach bindings in target allocation view
 - Fix deprecated isoRegionCodes warning in Institutions view
 - Add sample institutions dataset for testing
 - Replace Institutions seed data with new dataset

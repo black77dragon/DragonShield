@@ -64,7 +64,7 @@ struct TargetAllocationMaintenanceView: View {
     private var leftPane: some View {
         VStack(alignment: .leading) {
             List {
-                ForEach($classTargets) { $cls in
+                ForEach($classTargets, id: \.id) { $cls in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text(cls.name)
@@ -177,7 +177,7 @@ private struct SubClassEditor: View {
         NavigationView {
             VStack(alignment: .leading) {
                 List {
-                    ForEach($classTarget.subTargets) { $sub in
+                    ForEach($classTarget.subTargets, id: \.id) { $sub in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text(sub.name)
