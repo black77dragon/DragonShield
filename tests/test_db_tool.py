@@ -32,10 +32,18 @@ def test_db_tool_copies(monkeypatch, tmp_path):
     monkeypatch.setattr(db_tool.deploy_db, 'parse_version', lambda p: 'test')
     monkeypatch.setattr(db_tool, 'create_empty_db', lambda *a, **k: 0)
     monkeypatch.setattr(db_tool, 'load_seed_data', lambda *a, **k: 0)
+    stopped = []
+    monkeypatch.setattr(db_tool, 'stop_apps', lambda: stopped.append(True))
     monkeypatch.setattr('builtins.input', lambda _: 'y')
+
+    old_file = tmp_path / 'old.sqlite'
+    old_file.write_text('old')
 
     db_tool.main(['--target-dir', str(tmp_path)])
 
     assert copied['src'].endswith('dragonshield.sqlite')
     assert copied['dst'] == os.path.join(str(tmp_path), 'dragonshield.sqlite')
     assert copied['dir'] == str(tmp_path)
+    assert not old_file.exists()
+    assert stopped == [True]
+
