@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 from pathlib import Path
 import sqlite3
 
@@ -79,6 +80,17 @@ def load_seed_data(seed_sql: str, db_path: str, version: str) -> int:
     return rows
 
 
+def stop_apps() -> None:
+    """Quit DragonShield and Xcode using osascript if available."""
+    for app in ("DragonShield", "Xcode"):
+        subprocess.run(
+            ["osascript", "-e", f'tell application "{app}" to quit'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Build and deploy Dragon Shield database")
     parser.add_argument(
@@ -93,6 +105,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     logger = _setup_logger()
+    stop_apps()
 
     project_root = Path(__file__).resolve().parents[1]
     source_path = project_root / 'dragonshield.sqlite'

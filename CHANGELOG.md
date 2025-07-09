@@ -111,3 +111,5 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in Target Allocation maintenance view on macOS by removing
   number-pad keyboard modifier
 - Delete existing files in target directory before deploying database
+- Stop DragonShield and Xcode when running the database tool
+
