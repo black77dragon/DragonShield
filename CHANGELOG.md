@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
+- Fix compilation errors in Positions view after CRUD refactor
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane

@@ -165,6 +165,7 @@ struct PositionsView: View {
         .padding(24)
         .background(Theme.surface)
         .cornerRadius(8)
+    }
 
     private var modernTableHeader: some View {
         HStack {
