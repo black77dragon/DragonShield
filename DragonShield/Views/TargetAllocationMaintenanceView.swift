@@ -5,14 +5,25 @@ struct TargetAllocationMaintenanceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @Environment(\.presentationMode) private var presentation
 
-    @State private var targets: [DatabaseManager.AllocationTarget] = []
-    @State private var originalTargets: [DatabaseManager.AllocationTarget] = []
+    @State private var classTargets: [DatabaseManager.ClassTarget] = []
+    @State private var originalTargets: [DatabaseManager.ClassTarget] = []
+    @State private var expandedClasses: Set<Int> = []
 
     private var total: Double {
-        targets.map(\.targetPercent).reduce(0, +)
+        classTargets.map(\.targetPercent).reduce(0, +)
     }
-    private var isValid: Bool { abs(total - 100) < 0.01 }
-    private var hasChanges: Bool { targets != originalTargets }
+    private var subClassTotalsValid: Bool {
+        for cls in classTargets {
+            if !cls.subTargets.isEmpty {
+                let total = cls.subTargets.map(\.targetPercent).reduce(0, +)
+                if abs(total - 100) > 0.01 { return false }
+            }
+        }
+        return true
+    }
+
+    private var isValid: Bool { abs(total - 100) < 0.01 && subClassTotalsValid }
+    private var hasChanges: Bool { classTargets != originalTargets }
 
     private var percentFormatter: NumberFormatter {
         let f = NumberFormatter()
@@ -37,7 +48,7 @@ struct TargetAllocationMaintenanceView: View {
                     .modifier(ModernPrimaryButton(color: .blue, isDisabled: !isValid || !hasChanges))
             }
             ToolbarItemGroup(placement: .cancellationAction) {
-                Button("Reset") { targets = originalTargets }
+                Button("Reset") { classTargets = originalTargets }
                     .modifier(ModernPrimaryButton(color: .orange, isDisabled: !hasChanges))
                 Button("Cancel") { presentation.wrappedValue.dismiss() }
                     .modifier(ModernSubtleButton())
@@ -48,16 +59,56 @@ struct TargetAllocationMaintenanceView: View {
     private var leftPane: some View {
         VStack(alignment: .leading) {
             List {
-                ForEach($targets) { $entry in
+                ForEach($classTargets) { $cls in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text(entry.assetClassName)
+                            Text(cls.name)
+                            if cls.subTargets.contains(where: { $0.targetPercent > 0 }) {
+                                Image(systemName: "rectangle.split.3x3")
+                                    .foregroundColor(.blue)
+                                    .help("Using sub-class targets")
+                            }
                             Spacer()
-                            TextField("", value: $entry.targetPercent, formatter: percentFormatter)
+                            TextField("", value: $cls.targetPercent, formatter: percentFormatter)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
                         }
-                        Slider(value: $entry.targetPercent, in: 0...100, step: 1)
+                        Slider(value: $cls.targetPercent, in: 0...100, step: 1)
+
+                        if !cls.subTargets.isEmpty {
+                            DisclosureGroup(isExpanded: Binding(
+                                get: { expandedClasses.contains(cls.id) },
+                                set: { val in
+                                    if val { expandedClasses.insert(cls.id) } else { expandedClasses.remove(cls.id) }
+                                }
+                            )) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    ForEach($cls.subTargets) { $sub in
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            HStack {
+                                                Text(sub.name)
+                                                Spacer()
+                                                TextField("", value: $sub.targetPercent, formatter: percentFormatter)
+                                                    .frame(width: 50)
+                                                    .textFieldStyle(.roundedBorder)
+                                            }
+                                            Slider(value: $sub.targetPercent, in: 0...100, step: 1)
+                                        }
+                                    }
+                                    let subtotal = cls.subTargets.map(\.targetPercent).reduce(0, +)
+                                    HStack {
+                                        Text(String(format: "Sub total: %.0f%%", subtotal))
+                                            .foregroundColor(abs(subtotal - 100) < 0.01 ? .secondary : .red)
+                                        Spacer()
+                                    }
+                                }
+                                .padding(.top, 8)
+                            } label: {
+                                Text("Sub-Classes")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                     .padding(24)
                     .background(Color.white.opacity(0.8))
@@ -66,23 +117,33 @@ struct TargetAllocationMaintenanceView: View {
             }
             HStack {
                 Text(String(format: "Total: %.0f%%", total))
-                    .foregroundColor(isValid ? .secondary : .red)
+                    .foregroundColor(abs(total - 100) < 0.01 ? .secondary : .red)
                 Spacer()
             }
             .padding([.top, .horizontal])
         }
     }
 
+    private var chartSegments: [(name: String, percent: Double)] {
+        classTargets.flatMap { cls in
+            if expandedClasses.contains(cls.id) && !cls.subTargets.isEmpty {
+                return cls.subTargets.map { ($0.name, $0.targetPercent) }
+            } else {
+                return [(cls.name, cls.targetPercent)]
+            }
+        }
+    }
+
     private var rightPane: some View {
-        Chart(targets) { item in
+        Chart(chartSegments, id: \.name) { item in
             SectorMark(
-                angle: .value("Target", item.targetPercent),
+                angle: .value("Target", item.percent),
                 innerRadius: .ratio(0.5)
             )
-            .foregroundStyle(by: .value("Class", item.assetClassName))
+            .foregroundStyle(by: .value("Class", item.name))
             .annotation(position: .overlay) {
-                if item.targetPercent > 4 {
-                    Text("\(Int(item.targetPercent))%")
+                if item.percent > 4 {
+                    Text("\(Int(item.percent))%")
                         .font(.caption2)
                         .foregroundColor(.white)
                 }
@@ -93,13 +154,13 @@ struct TargetAllocationMaintenanceView: View {
     }
 
     private func loadData() {
-        targets = dbManager.fetchPortfolioTargets()
-        originalTargets = targets
+        classTargets = dbManager.fetchPortfolioClassTargets()
+        originalTargets = classTargets
     }
 
     private func save() {
-        dbManager.savePortfolioTargets(targets)
-        originalTargets = targets
+        dbManager.savePortfolioClassTargets(classTargets)
+        originalTargets = classTargets
     }
 }
 

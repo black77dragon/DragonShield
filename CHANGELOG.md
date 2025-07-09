@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Extend Institutions with contact info, currency and country fields
 - Add Target Allocation maintenance screen for editing portfolio targets
 - Fix compile error in Target Allocation maintenance view
+- Expand target allocation screen with dynamic class and sub-class editing
 - Fix deprecated isoRegionCodes warning in Institutions view
 - Add sample institutions dataset for testing
 - Replace Institutions seed data with new dataset
