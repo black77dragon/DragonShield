@@ -33,6 +33,15 @@ struct OptionHoldingItem: Identifiable {
     let type: String // Call or Put
 }
 
+struct AssetAllocationVarianceItem: Identifiable {
+    let id: String
+    let assetClassName: String
+    let currentPercent: Double
+    let targetPercent: Double
+    let currentValue: Double
+    let lastRebalance: Date?
+}
+
 extension DatabaseManager {
 
     func fetchLargestPositions(count: Int = 5) -> [LargestPositionItem] {
@@ -75,5 +84,18 @@ extension DatabaseManager {
             OptionHoldingItem(id: "AAPL2512C150", name: "AAPL DEC 2025 150C", quantity: 10, currentPrice: 5.50, expiryDate: oneMonthFromNow, strikePrice: 150.00, underlyingAsset: "AAPL", type: "Call"),
             OptionHoldingItem(id: "SPY2509P400", name: "SPY SEP 2025 400P", quantity: 5, currentPrice: 8.20, expiryDate: threeMonthsFromNow, strikePrice: 400.00, underlyingAsset: "SPY", type: "Put"),
         ]
+    }
+
+    func fetchAssetAllocationVariance() -> (items: [AssetAllocationVarianceItem], portfolioValue: Double) {
+        print("ℹ️ fetchAssetAllocationVariance() called - returning sample data.")
+
+        let portfolioValue = 56000.0
+        let allocations = [
+            AssetAllocationVarianceItem(id: "Equity", assetClassName: "Equities", currentPercent: (35500/portfolioValue)*100, targetPercent: 60, currentValue: 35500, lastRebalance: Date(timeIntervalSinceNow: -60*60*24*30)),
+            AssetAllocationVarianceItem(id: "ETF", assetClassName: "ETFs", currentPercent: (11000/portfolioValue)*100, targetPercent: 25, currentValue: 11000, lastRebalance: Date(timeIntervalSinceNow: -60*60*24*60)),
+            AssetAllocationVarianceItem(id: "Crypto", assetClassName: "Cryptocurrencies", currentPercent: (9500/portfolioValue)*100, targetPercent: 10, currentValue: 9500, lastRebalance: Date(timeIntervalSinceNow: -60*60*24*10))
+        ]
+
+        return (allocations, portfolioValue)
     }
 }
