@@ -5,9 +5,17 @@ class TargetAllocationViewModel: ObservableObject {
     @Published var classTargets: [Int: Double] = [:]
     @Published var subClassTargets: [Int: Double] = [:]
     @Published var assetClasses: [DatabaseManager.AssetClassData] = []
+    @Published var expandedClasses: [Int: Bool] = [:]
 
     private let dbManager: DatabaseManager
     private let portfolioId: Int
+
+    let numberFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        return f
+    }()
 
     init(dbManager: DatabaseManager, portfolioId: Int) {
         self.dbManager = dbManager
@@ -32,7 +40,13 @@ class TargetAllocationViewModel: ObservableObject {
         dbManager.subAssetClasses(for: classId)
     }
 
-    func saveTargets() {
+    func totalSubClassPct(for classId: Int) -> Double {
+        subAssetClasses(for: classId)
+            .map { subClassTargets[$0.id] ?? 0 }
+            .reduce(0, +)
+    }
+
+    func saveAllTargets() {
         for (classId, pct) in classTargets {
             dbManager.upsertClassTarget(portfolioId: portfolioId, classId: classId, percent: pct)
         }
