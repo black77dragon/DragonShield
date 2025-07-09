@@ -5,25 +5,36 @@ struct TargetAllocationMaintenanceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @Environment(\.presentationMode) private var presentation
 
-    @State private var classTargets: [DatabaseManager.ClassTarget] = []
-    @State private var originalTargets: [DatabaseManager.ClassTarget] = []
+    @StateObject private var viewModel: TargetAllocationViewModel
     @State private var editingIndex: Int?
-    @State private var selectedClass: DatabaseManager.ClassTarget?
+    @State private var selectedClass: DatabaseManager.AssetClassData?
+
+    init(viewModel: TargetAllocationViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     private var total: Double {
-        classTargets.map(\.targetPercent).reduce(0, +)
+        viewModel.classTargets.values.reduce(0, +)
     }
+
     private var subClassTotalsValid: Bool {
-        for cls in classTargets {
-            if !cls.subTargets.isEmpty {
-                let total = cls.subTargets.map(\.targetPercent).reduce(0, +)
-                if abs(total - 100) > 0.01 { return false }
+        for cls in viewModel.assetClasses {
+            let subs = viewModel.subAssetClasses(for: cls.id)
+            if !subs.isEmpty {
+                let subtotal = subs.map { viewModel.subClassTargets[$0.id] ?? 0 }.reduce(0, +)
+                if abs(subtotal - 100) > 0.01 { return false }
             }
         }
         return true
     }
 
-    private var hasChanges: Bool { classTargets != originalTargets }
+    private var hasChanges: Bool {
+        // Simple change detection by comparing dictionaries to initial load
+        viewModel.classTargets != originalClassTargets || viewModel.subClassTargets != originalSubTargets
+    }
+
+    @State private var originalClassTargets: [Int: Double] = [:]
+    @State private var originalSubTargets: [Int: Double] = [:]
 
     private var percentFormatter: NumberFormatter {
         let f = NumberFormatter()
@@ -48,29 +59,35 @@ struct TargetAllocationMaintenanceView: View {
                     .modifier(ModernPrimaryButton(color: .blue, isDisabled: !hasChanges))
             }
             ToolbarItemGroup(placement: .cancellationAction) {
-                Button("Reset") { classTargets = originalTargets }
+                Button("Reset") {
+                    viewModel.classTargets = originalClassTargets
+                    viewModel.subClassTargets = originalSubTargets
+                }
                     .modifier(ModernPrimaryButton(color: .orange, isDisabled: !hasChanges))
                 Button("Cancel") { presentation.wrappedValue.dismiss() }
                     .modifier(ModernSubtleButton())
             }
         }
         .sheet(item: $selectedClass, onDismiss: { editingIndex = nil }) { cls in
-            if let index = classTargets.firstIndex(where: { $0.id == cls.id }) {
-                SubClassAllocationView(classTarget: $classTargets[index])
-            }
+            SubClassAllocationView(assetClass: cls, viewModel: viewModel)
         }
     }
 
     private var leftPane: some View {
         VStack(alignment: .leading) {
             List {
-                ForEach($classTargets) { $cls in
+                ForEach(viewModel.assetClasses) { cls in
                     ClassRow(
-                        classTarget: $cls,
+                        assetClass: cls,
+                        target: Binding(
+                            get: { viewModel.classTargets[cls.id] ?? 0 },
+                            set: { viewModel.classTargets[cls.id] = $0 }
+                        ),
+                        hasSubClasses: !viewModel.subAssetClasses(for: cls.id).isEmpty,
                         percentFormatter: percentFormatter,
                         openSubClasses: {
                             selectedClass = cls
-                            editingIndex = classTargets.firstIndex(where: { $0.id == cls.id })
+                            editingIndex = viewModel.assetClasses.firstIndex(where: { $0.id == cls.id })
                         }
                     )
                 }
@@ -94,14 +111,16 @@ struct TargetAllocationMaintenanceView: View {
 
     private var chartSegments: [(name: String, percent: Double)] {
         guard let editingIndex = editingIndex else {
-            return classTargets.map { ($0.name, $0.targetPercent) }
+            return viewModel.assetClasses.map { ($0.name, viewModel.classTargets[$0.id] ?? 0) }
         }
-        return classTargets.enumerated().flatMap { idx, cls in
-            if idx == editingIndex && !cls.subTargets.isEmpty {
-                return cls.subTargets.map { ($0.name, $0.targetPercent) }
-            } else {
-                return [(cls.name, cls.targetPercent)]
+        return viewModel.assetClasses.enumerated().flatMap { idx, cls in
+            if idx == editingIndex {
+                let subs = viewModel.subAssetClasses(for: cls.id)
+                if !subs.isEmpty {
+                    return subs.map { ($0.name, viewModel.subClassTargets[$0.id] ?? 0) }
+                }
             }
+            return [(cls.name, viewModel.classTargets[cls.id] ?? 0)]
         }
     }
 
@@ -125,49 +144,54 @@ struct TargetAllocationMaintenanceView: View {
     }
 
     private func loadData() {
-        classTargets = dbManager.fetchPortfolioClassTargets()
-        originalTargets = classTargets
+        originalClassTargets = viewModel.classTargets
+        originalSubTargets = viewModel.subClassTargets
     }
 
     private func save() {
-        dbManager.savePortfolioClassTargets(classTargets)
-        originalTargets = classTargets
+        viewModel.saveTargets()
+        originalClassTargets = viewModel.classTargets
+        originalSubTargets = viewModel.subClassTargets
     }
 }
 
 struct TargetAllocationMaintenanceView_Previews: PreviewProvider {
     static var previews: some View {
-        TargetAllocationMaintenanceView()
-            .environmentObject(DatabaseManager())
+        let db = DatabaseManager()
+        let vm = TargetAllocationViewModel(dbManager: db, portfolioId: 1)
+        TargetAllocationMaintenanceView(viewModel: vm)
+            .environmentObject(db)
     }
 }
 
 private struct ClassRow: View {
-    @Binding var classTarget: DatabaseManager.ClassTarget
+    let assetClass: DatabaseManager.AssetClassData
+    @Binding var target: Double
+    let hasSubClasses: Bool
     let percentFormatter: NumberFormatter
     var openSubClasses: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(classTarget.name)
-                if classTarget.subTargets.contains(where: { $0.targetPercent > 0 }) {
+                Text(assetClass.name)
+                if hasSubClasses && (target > 0) {
                     Image(systemName: "rectangle.split.3x3")
                         .foregroundColor(.blue)
                         .help("Using sub-class targets")
                 }
                 Spacer()
-                TextField("", value: $classTarget.targetPercent, formatter: percentFormatter)
+                TextField("", value: $target, formatter: percentFormatter)
                     .frame(width: 50)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: classTarget.targetPercent) { _, newVal in
-                        classTarget.targetPercent = min(100, max(0, newVal))
+                    .onChange(of: target) { _, newVal in
+                        target = min(100, max(0, newVal))
                     }
             }
-            Slider(value: $classTarget.targetPercent, in: 0...100, step: 5)
-                .accessibilityLabel(Text("Target for \(classTarget.name)"))
+            Slider(value: $target, in: 0...100, step: 5)
+                .accessibilityLabel(Text("Target for \(assetClass.name)"))
 
-            if !classTarget.subTargets.isEmpty {
+            if hasSubClasses {
                 Button("Sub-Classes") {
                     openSubClasses()
                 }
@@ -183,9 +207,9 @@ private struct ClassRow: View {
 }
 
 private struct SubClassAllocationView: View {
-    @Binding var classTarget: DatabaseManager.ClassTarget
+    let assetClass: DatabaseManager.AssetClassData
+    @ObservedObject var viewModel: TargetAllocationViewModel
     @Environment(\.presentationMode) private var presentationMode
-    @EnvironmentObject private var dbManager: DatabaseManager
 
     private var percentFormatter: NumberFormatter {
         let f = NumberFormatter()
@@ -195,20 +219,30 @@ private struct SubClassAllocationView: View {
     }
 
     private var subtotal: Double {
-        classTarget.subTargets.map(\.targetPercent).reduce(0, +)
+        viewModel.subAssetClasses(for: assetClass.id)
+            .map { viewModel.subClassTargets[$0.id] ?? 0 }
+            .reduce(0, +)
     }
 
     var body: some View {
         NavigationView {
             VStack(alignment: .leading) {
-                if classTarget.subTargets.isEmpty {
-                    Text("No sub-classes defined for \(classTarget.name)")
+                let subs = viewModel.subAssetClasses(for: assetClass.id)
+                if subs.isEmpty {
+                    Text("No sub-classes for \(assetClass.name)")
                         .foregroundColor(.secondary)
                         .padding()
                 } else {
                     List {
-                        ForEach($classTarget.subTargets) { $sub in
-                            SubClassRow(subTarget: $sub, percentFormatter: percentFormatter)
+                        ForEach(subs, id: \.id) { sub in
+                            SubClassRow(
+                                sub: sub,
+                                target: Binding(
+                                    get: { viewModel.subClassTargets[sub.id] ?? 0 },
+                                    set: { viewModel.subClassTargets[sub.id] = $0 }
+                                ),
+                                percentFormatter: percentFormatter
+                            )
                         }
                     }
                 }
@@ -224,7 +258,7 @@ private struct SubClassAllocationView: View {
                 .padding()
             }
             .padding(24)
-            .navigationTitle("\(classTarget.name) Sub-Classes")
+            .navigationTitle("\(assetClass.name) Sub-Classes")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -236,36 +270,32 @@ private struct SubClassAllocationView: View {
                 }
             }
         }
-        .onAppear {
-            if classTarget.subTargets.isEmpty {
-                classTarget.subTargets = dbManager.subAssetClasses(for: classTarget.id)
-            }
-        }
     }
 }
 
 private struct SubClassRow: View {
-    @Binding var subTarget: DatabaseManager.SubClassTarget
+    let sub: DatabaseManager.SubClassTarget
+    @Binding var target: Double
     let percentFormatter: NumberFormatter
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(subTarget.name)
+                Text(sub.name)
                     .font(.system(size: 14))
                 Spacer()
-                TextField("", value: $subTarget.targetPercent, formatter: percentFormatter)
+                TextField("", value: $target, formatter: percentFormatter)
                     .frame(width: 50)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: subTarget.targetPercent) { _, newVal in
-                        subTarget.targetPercent = min(100, max(0, newVal))
+                    .onChange(of: target) { _, newVal in
+                        target = min(100, max(0, newVal))
                     }
             }
             Slider(value: Binding(
-                get: { subTarget.targetPercent },
-                set: { subTarget.targetPercent = min(100, max(0, $0)) }
+                get: { target },
+                set: { target = min(100, max(0, $0)) }
             ), in: 0...100, step: 5)
-                .accessibilityLabel(Text("Target for \(subTarget.name)"))
+                .accessibilityLabel(Text("Target for \(sub.name)"))
         }
         .padding(.vertical, 4)
     }
