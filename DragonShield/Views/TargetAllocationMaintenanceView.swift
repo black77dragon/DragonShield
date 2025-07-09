@@ -153,7 +153,7 @@ private struct ClassRow: View {
                 TextField("", value: $classTarget.targetPercent, formatter: percentFormatter)
                     .frame(width: 50)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: classTarget.targetPercent) { newVal in
+                    .onChange(of: classTarget.targetPercent) { _, newVal in
                         classTarget.targetPercent = min(100, max(0, newVal))
                     }
             }
@@ -248,7 +248,7 @@ private struct SubClassRow: View {
                 TextField("", value: $subTarget.targetPercent, formatter: percentFormatter)
                     .frame(width: 50)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: subTarget.targetPercent) { newVal in
+                    .onChange(of: subTarget.targetPercent) { _, newVal in
                         subTarget.targetPercent = min(100, max(0, newVal))
                     }
             }
