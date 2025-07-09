@@ -8,6 +8,7 @@ struct TargetAllocationMaintenanceView: View {
     @State private var classTargets: [DatabaseManager.ClassTarget] = []
     @State private var originalTargets: [DatabaseManager.ClassTarget] = []
     @State private var editingIndex: Int?
+    @State private var selectedClass: DatabaseManager.ClassTarget?
 
     private var total: Double {
         classTargets.map(\.targetPercent).reduce(0, +)
@@ -54,9 +55,9 @@ struct TargetAllocationMaintenanceView: View {
                     .modifier(ModernSubtleButton())
             }
         }
-        .sheet(isPresented: Binding(get: { editingIndex != nil }, set: { if !$0 { editingIndex = nil } })) {
-            if let index = editingIndex {
-                SubClassEditor(classTarget: $classTargets[index])
+        .sheet(item: $selectedClass, onDismiss: { editingIndex = nil }) { cls in
+            if let index = classTargets.firstIndex(where: { $0.id == cls.id }) {
+                SubClassAllocationView(classTarget: $classTargets[index])
             }
         }
     }
@@ -69,6 +70,7 @@ struct TargetAllocationMaintenanceView: View {
                         classTarget: $cls,
                         percentFormatter: percentFormatter,
                         openSubClasses: {
+                            selectedClass = cls
                             editingIndex = classTargets.firstIndex(where: { $0.id == cls.id })
                         }
                     )
@@ -173,9 +175,10 @@ private struct ClassRow: View {
     }
 }
 
-private struct SubClassEditor: View {
+private struct SubClassAllocationView: View {
     @Binding var classTarget: DatabaseManager.ClassTarget
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var dbManager: DatabaseManager
 
     private var percentFormatter: NumberFormatter {
         let f = NumberFormatter()
@@ -191,9 +194,15 @@ private struct SubClassEditor: View {
     var body: some View {
         NavigationView {
             VStack(alignment: .leading) {
-                List {
-                    ForEach($classTarget.subTargets) { $sub in
-                        SubClassRow(subTarget: $sub, percentFormatter: percentFormatter)
+                if classTarget.subTargets.isEmpty {
+                    Text("No sub-classes defined for \(classTarget.name)")
+                        .foregroundColor(.secondary)
+                        .padding()
+                } else {
+                    List {
+                        ForEach($classTarget.subTargets) { $sub in
+                            SubClassRow(subTarget: $sub, percentFormatter: percentFormatter)
+                        }
                     }
                 }
                 HStack {
@@ -211,9 +220,16 @@ private struct SubClassEditor: View {
             .navigationTitle("\(classTarget.name) Sub-Classes")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        if abs(subtotal - 100) < 0.01 { dismiss() }
+                    }
                         .keyboardShortcut(.defaultAction)
                 }
+            }
+        }
+        .onAppear {
+            if classTarget.subTargets.isEmpty {
+                classTarget.subTargets = dbManager.subAssetClasses(for: classTarget.id)
             }
         }
     }
@@ -227,6 +243,7 @@ private struct SubClassRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(subTarget.name)
+                    .font(.system(size: 14))
                 Spacer()
                 TextField("", value: $subTarget.targetPercent, formatter: percentFormatter)
                     .frame(width: 50)
@@ -235,7 +252,10 @@ private struct SubClassRow: View {
                         subTarget.targetPercent = min(100, max(0, newVal))
                     }
             }
-            Slider(value: $subTarget.targetPercent, in: 0...100, step: 5)
+            Slider(value: Binding(
+                get: { subTarget.targetPercent },
+                set: { subTarget.targetPercent = min(100, max(0, $0)) }
+            ), in: 0...100, step: 5)
                 .accessibilityLabel(Text("Target for \(subTarget.name)"))
         }
         .padding(.vertical, 4)

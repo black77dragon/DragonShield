@@ -91,6 +91,17 @@ extension DatabaseManager {
         // Actual SQL update omitted in sample code base
     }
 
+    /// Returns all sub-classes for a given asset class.
+    /// Target values default to 0 and should be bound by the caller.
+    func subAssetClasses(for classId: Int) -> [SubClassTarget] {
+        fetchSubClasses(for: classId).map { row in
+            SubClassTarget(id: row.id,
+                           name: row.name,
+                           targetPercent: 0,
+                           currentPercent: 0)
+        }
+    }
+
     private func fetchSubClasses(for classId: Int) -> [(id: Int, name: String)] {
         var subClasses: [(id: Int, name: String)] = []
         let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses WHERE class_id = ? ORDER BY sort_order, sub_class_name"
