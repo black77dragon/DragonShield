@@ -64,14 +64,14 @@ struct TargetAllocationMaintenanceView: View {
     private var leftPane: some View {
         VStack(alignment: .leading) {
             List {
-                ForEach(viewModel.assetClasses) { cls in
+                ForEach(viewModel.sortedClasses) { cls in
                     DisclosureGroup(
                         isExpanded: Binding(
                             get: { viewModel.expandedClasses[cls.id] ?? false },
                             set: { viewModel.expandedClasses[cls.id] = $0 }
                         )
                     ) {
-                        ForEach(viewModel.subAssetClasses(for: cls.id), id: \.id) { sub in
+                        ForEach(viewModel.subAssetClasses(for: cls.id), id: .id) { sub in
                             HStack {
                                 Text(sub.name)
                                     .font(.system(size: 14))
@@ -84,6 +84,7 @@ struct TargetAllocationMaintenanceView: View {
                                     in: 0...100,
                                     step: 5
                                 )
+                                .focusable()
                                 TextField(
                                     "",
                                     value: Binding(
@@ -93,19 +94,34 @@ struct TargetAllocationMaintenanceView: View {
                                     formatter: viewModel.numberFormatter
                                 )
                                 .frame(width: 40)
+                                .focusable()
                             }
                             .padding(.vertical, 4)
                         }
                         let sum = viewModel.totalSubClassPct(for: cls.id)
                         if abs(sum - 100) > 0.01 {
-                            Text("\u{26A0}\u{FE0F} Sub-class totals: \(Int(sum))% (should be 100%)")
-                                .font(.caption)
-                                .foregroundColor(.orange)
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.warning)
+                                    .accessibilityLabel("Sub-class totals mismatch")
+                                Text("Sub-class totals: \(Int(sum))% (should be 100%)")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
                         }
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(viewModel.chartColor(for: cls.id))
+                                .frame(width: 10, height: 10)
                             Text(cls.name)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: 16, weight: viewModel.classTargets[cls.id, default: 0] > 0 ? .semibold : .regular))
+                            if abs(viewModel.totalSubClassPct(for: cls.id) - 100) > 0.01 {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.warning)
+                                    .accessibilityLabel("Sub-class totals mismatch")
+                                    .onTapGesture { viewModel.expandedClasses[cls.id] = true }
+                            }
                             Spacer()
                             Slider(
                                 value: Binding(
@@ -115,6 +131,7 @@ struct TargetAllocationMaintenanceView: View {
                                 in: 0...100,
                                 step: 5
                             )
+                            .focusable()
                             TextField(
                                 "",
                                 value: Binding(
@@ -124,11 +141,13 @@ struct TargetAllocationMaintenanceView: View {
                                 formatter: viewModel.numberFormatter
                             )
                             .frame(width: 40)
+                            .focusable()
                         }
                     }
                     .padding(.vertical, 8)
                 }
             }
+            .listStyle(.plain)
             HStack(spacing: 12) {
                 Text(String(format: "Total: %.0f%%", total))
                     .foregroundColor(abs(total - 100) < 0.01 ? .secondary : .red)
@@ -144,6 +163,9 @@ struct TargetAllocationMaintenanceView: View {
             }
             .padding([.top, .horizontal])
         }
+        .padding(24)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var chartSegments: [(name: String, percent: Double)] {

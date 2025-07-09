@@ -46,6 +46,20 @@ class TargetAllocationViewModel: ObservableObject {
             .reduce(0, +)
     }
 
+    var sortedClasses: [DatabaseManager.AssetClassData] {
+        let active = assetClasses
+            .filter { (classTargets[$0.id] ?? 0) > 0 }
+            .sorted { (classTargets[$0.id] ?? 0) > (classTargets[$1.id] ?? 0) }
+        let inactive = assetClasses.filter { (classTargets[$0.id] ?? 0) == 0 }
+        return active + inactive
+    }
+
+    func chartColor(for classId: Int) -> Color {
+        guard let codeString = assetClasses.first(where: { $0.id == classId })?.code,
+              let code = AssetClassCode(rawValue: codeString) else { return .gray }
+        return Theme.assetClassColors[code] ?? .gray
+    }
+
     func saveAllTargets() {
         for (classId, pct) in classTargets {
             dbManager.upsertClassTarget(portfolioId: portfolioId, classId: classId, percent: pct)

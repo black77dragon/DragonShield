@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Delete position reports for any institution directly from the Positions view
+- Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Added GPT shell with OpenAI function calling and JSON schema validation
 - Remove duplicate Python package initializer to resolve Xcode resource error
 - Extend institution seed data with contact info and default currencies
