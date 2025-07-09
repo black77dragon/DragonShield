@@ -108,3 +108,5 @@ All notable changes to this project will be documented in this file.
 - Display instrument currency in Positions view
 - Toggle parsing checkpoints to suppress import popups and show inline summary
 - Make import summary panel scrollable and arrange import view in two columns
+- Fix compile errors in Target Allocation maintenance view on macOS by removing
+  number-pad keyboard modifier
