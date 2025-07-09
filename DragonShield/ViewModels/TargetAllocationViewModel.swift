@@ -2,7 +2,17 @@ import Foundation
 import SwiftUI
 
 class TargetAllocationViewModel: ObservableObject {
-    @Published var classTargets: [Int: Double] = [:]
+    @Published var classTargets: [Int: Double] = [:] {
+        didSet {
+            for (classID, pct) in classTargets {
+                if pct == 0 {
+                    for sub in subAssetClasses(for: classID) {
+                        subClassTargets[sub.id] = 0
+                    }
+                }
+            }
+        }
+    }
     @Published var subClassTargets: [Int: Double] = [:]
     @Published var assetClasses: [DatabaseManager.AssetClassData] = []
     @Published var expandedClasses: [Int: Bool] = [:]
@@ -26,14 +36,18 @@ class TargetAllocationViewModel: ObservableObject {
     private func loadTargets() {
         assetClasses = dbManager.fetchAssetClassesDetailed()
         let rows = dbManager.fetchPortfolioTargetRecords(portfolioId: portfolioId)
+        var classMap: [Int: Double] = [:]
+        var subMap: [Int: Double] = [:]
         for row in rows {
             if let classId = row.classId {
-                classTargets[classId] = row.percent
+                classMap[classId] = row.percent
             }
             if let subId = row.subClassId {
-                subClassTargets[subId] = row.percent
+                subMap[subId] = row.percent
             }
         }
+        subClassTargets = subMap
+        classTargets = classMap
     }
 
     func subAssetClasses(for classId: Int) -> [DatabaseManager.SubClassTarget] {

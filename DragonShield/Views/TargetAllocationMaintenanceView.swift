@@ -105,7 +105,7 @@ struct TargetAllocationMaintenanceView: View {
         let label = classDisclosureLabel(for: cls)
         return DisclosureGroup(isExpanded: expanded) {
             ForEach(viewModel.subAssetClasses(for: cls.id), id: \.id) { sub in
-                subClassRow(for: sub)
+                subClassRow(for: sub, classId: cls.id)
             }
             let sum = viewModel.totalSubClassPct(for: cls.id)
             if abs(sum - 100) > 0.01 {
@@ -153,7 +153,7 @@ struct TargetAllocationMaintenanceView: View {
         }
     }
 
-    private func subClassRow(for sub: DatabaseManager.SubClassTarget) -> some View {
+    private func subClassRow(for sub: DatabaseManager.SubClassTarget, classId: Int) -> some View {
         HStack {
             Text(sub.name)
                 .font(.system(size: 14))
@@ -173,6 +173,8 @@ struct TargetAllocationMaintenanceView: View {
             .focusable()
         }
         .padding(.vertical, 4)
+        .disabled(viewModel.classTargets[classId] == 0)
+        .opacity(viewModel.classTargets[classId] == 0 ? 0.5 : 1.0)
     }
 
     private func classTargetBinding(for id: Int) -> Binding<Double> {
