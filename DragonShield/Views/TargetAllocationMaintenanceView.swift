@@ -8,7 +8,9 @@ struct TargetAllocationMaintenanceView: View {
     @State private var targets: [DatabaseManager.AllocationTarget] = []
     @State private var originalTargets: [DatabaseManager.AllocationTarget] = []
 
-    private var total: Double { targets.map(\.$0.targetPercent).reduce(0, +) }
+    private var total: Double {
+        targets.map(\.targetPercent).reduce(0, +)
+    }
     private var isValid: Bool { abs(total - 100) < 0.01 }
     private var hasChanges: Bool { targets != originalTargets }
 
