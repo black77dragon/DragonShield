@@ -7,7 +7,7 @@ struct TargetAllocationMaintenanceView: View {
 
     @State private var classTargets: [DatabaseManager.ClassTarget] = []
     @State private var originalTargets: [DatabaseManager.ClassTarget] = []
-    @State private var expandedClasses: Set<Int> = []
+    @State private var editingIndex: Int?
 
     private var total: Double {
         classTargets.map(\.targetPercent).reduce(0, +)
@@ -54,6 +54,11 @@ struct TargetAllocationMaintenanceView: View {
                     .modifier(ModernSubtleButton())
             }
         }
+        .sheet(isPresented: Binding(get: { editingIndex != nil }, set: { if !$0 { editingIndex = nil } })) {
+            if let index = editingIndex {
+                SubClassEditor(classTarget: $classTargets[index])
+            }
+        }
     }
 
     private var leftPane: some View {
@@ -72,42 +77,21 @@ struct TargetAllocationMaintenanceView: View {
                             TextField("", value: $cls.targetPercent, formatter: percentFormatter)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
+                                .keyboardType(.numberPad)
+                                .onChange(of: cls.targetPercent) { newVal in
+                                    cls.targetPercent = min(100, max(0, newVal))
+                                }
                         }
-                        Slider(value: $cls.targetPercent, in: 0...100, step: 1)
+                        Slider(value: $cls.targetPercent, in: 0...100, step: 5)
+                            .accessibilityLabel(Text("Target for \(cls.name)"))
 
                         if !cls.subTargets.isEmpty {
-                            DisclosureGroup(isExpanded: Binding(
-                                get: { expandedClasses.contains(cls.id) },
-                                set: { val in
-                                    if val { expandedClasses.insert(cls.id) } else { expandedClasses.remove(cls.id) }
-                                }
-                            )) {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    ForEach($cls.subTargets) { $sub in
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Text(sub.name)
-                                                Spacer()
-                                                TextField("", value: $sub.targetPercent, formatter: percentFormatter)
-                                                    .frame(width: 50)
-                                                    .textFieldStyle(.roundedBorder)
-                                            }
-                                            Slider(value: $sub.targetPercent, in: 0...100, step: 1)
-                                        }
-                                    }
-                                    let subtotal = cls.subTargets.map(\.targetPercent).reduce(0, +)
-                                    HStack {
-                                        Text(String(format: "Sub total: %.0f%%", subtotal))
-                                            .foregroundColor(abs(subtotal - 100) < 0.01 ? .secondary : .red)
-                                        Spacer()
-                                    }
-                                }
-                                .padding(.top, 8)
-                            } label: {
-                                Text("Sub-Classes")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                            Button("Sub-Classes") {
+                                editingIndex = classTargets.firstIndex(where: { $0.id == cls.id })
                             }
+                            .buttonStyle(.borderless)
+                            .keyboardShortcut(.defaultAction)
+                            .accessibilityLabel(Text("Edit sub-classes for \(cls.name)"))
                         }
                     }
                     .padding(24)
@@ -125,8 +109,11 @@ struct TargetAllocationMaintenanceView: View {
     }
 
     private var chartSegments: [(name: String, percent: Double)] {
-        classTargets.flatMap { cls in
-            if expandedClasses.contains(cls.id) && !cls.subTargets.isEmpty {
+        guard let editingIndex = editingIndex else {
+            return classTargets.map { ($0.name, $0.targetPercent) }
+        }
+        return classTargets.enumerated().flatMap { idx, cls in
+            if idx == editingIndex && !cls.subTargets.isEmpty {
                 return cls.subTargets.map { ($0.name, $0.targetPercent) }
             } else {
                 return [(cls.name, cls.targetPercent)]
@@ -168,5 +155,66 @@ struct TargetAllocationMaintenanceView_Previews: PreviewProvider {
     static var previews: some View {
         TargetAllocationMaintenanceView()
             .environmentObject(DatabaseManager())
+    }
+}
+
+private struct SubClassEditor: View {
+    @Binding var classTarget: DatabaseManager.ClassTarget
+    @Environment(\.dismiss) private var dismiss
+
+    private var percentFormatter: NumberFormatter {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        return f
+    }
+
+    private var subtotal: Double {
+        classTarget.subTargets.map(\.targetPercent).reduce(0, +)
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading) {
+                List {
+                    ForEach($classTarget.subTargets) { $sub in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(sub.name)
+                                Spacer()
+                                TextField("", value: $sub.targetPercent, formatter: percentFormatter)
+                                    .frame(width: 50)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.numberPad)
+                                    .onChange(of: sub.targetPercent) { newVal in
+                                        sub.targetPercent = min(100, max(0, newVal))
+                                    }
+                            }
+                            Slider(value: $sub.targetPercent, in: 0...100, step: 5)
+                                .accessibilityLabel(Text("Target for \(sub.name)"))
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                HStack {
+                    if abs(subtotal - 100) > 0.01 {
+                        Label("Totals should equal 100%", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                    }
+                    Spacer()
+                    Text(String(format: "Subtotal: %.0f%%", subtotal))
+                        .foregroundColor(abs(subtotal - 100) < 0.01 ? .secondary : .red)
+                }
+                .padding()
+            }
+            .padding(24)
+            .navigationTitle("\(classTarget.name) Sub-Classes")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
     }
 }
