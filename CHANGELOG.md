@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Restyle Currency Maintenance window and update title to "Currency Maintenance"
 - Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
 - Populate sub-class allocation sheet with editable sliders and totals check
+- Display sub-class rows correctly and allow saving with totals other than 100%
 - Fix deprecated onChange warning in Target Allocation view
 - Add asset allocation variance heatmap tile to dashboard
 - Fix overlapping labels and gesture issues in allocation heatmap

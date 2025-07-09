@@ -23,7 +23,6 @@ struct TargetAllocationMaintenanceView: View {
         return true
     }
 
-    private var isValid: Bool { abs(total - 100) < 0.01 && subClassTotalsValid }
     private var hasChanges: Bool { classTargets != originalTargets }
 
     private var percentFormatter: NumberFormatter {
@@ -46,7 +45,7 @@ struct TargetAllocationMaintenanceView: View {
             ToolbarItemGroup(placement: .confirmationAction) {
                 Button("Save") { save() }
                     .keyboardShortcut("s", modifiers: [.command])
-                    .modifier(ModernPrimaryButton(color: .blue, isDisabled: !isValid || !hasChanges))
+                    .modifier(ModernPrimaryButton(color: .blue, isDisabled: !hasChanges))
             }
             ToolbarItemGroup(placement: .cancellationAction) {
                 Button("Reset") { classTargets = originalTargets }
@@ -76,9 +75,17 @@ struct TargetAllocationMaintenanceView: View {
                     )
                 }
             }
-            HStack {
+            HStack(spacing: 12) {
                 Text(String(format: "Total: %.0f%%", total))
                     .foregroundColor(abs(total - 100) < 0.01 ? .secondary : .red)
+                if abs(total - 100) > 0.01 {
+                    Text("\u{26A0}\u{FE0F} Total is \(Int(total))% (not 100%)")
+                        .foregroundColor(.orange)
+                }
+                if !subClassTotalsValid {
+                    Text("\u{26A0}\u{FE0F} Sub-class totals mismatch")
+                        .foregroundColor(.orange)
+                }
                 Spacer()
             }
             .padding([.top, .horizontal])
@@ -177,7 +184,7 @@ private struct ClassRow: View {
 
 private struct SubClassAllocationView: View {
     @Binding var classTarget: DatabaseManager.ClassTarget
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject private var dbManager: DatabaseManager
 
     private var percentFormatter: NumberFormatter {
@@ -221,7 +228,9 @@ private struct SubClassAllocationView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        if abs(subtotal - 100) < 0.01 { dismiss() }
+                        if abs(subtotal - 100) < 0.01 {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                         .keyboardShortcut(.defaultAction)
                 }
