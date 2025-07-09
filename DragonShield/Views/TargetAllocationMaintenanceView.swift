@@ -197,7 +197,7 @@ private struct ClassRow: View {
                 }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(.defaultAction)
-                .accessibilityLabel(Text("Edit sub-classes for \(classTarget.name)"))
+                .accessibilityLabel(Text("Edit sub-classes for \(assetClass.name)"))
             }
         }
         .padding(24)
