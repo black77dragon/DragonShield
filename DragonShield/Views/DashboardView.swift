@@ -13,6 +13,8 @@ struct DashboardView: View {
     @State private var largestPositions: [LargestPositionItem] = []
     @State private var assetAllocations: [AssetClassAllocationItem] = []
     @State private var optionHoldings: [OptionHoldingItem] = []
+    @State private var allocationVariance: [AssetAllocationVarianceItem] = []
+    @State private var portfolioValue: Double = 0
     
     // For styling, reuse defined paddings if possible
     private let sectionSpacing: CGFloat = 20
@@ -24,6 +26,11 @@ struct DashboardView: View {
                 Text("Dashboard")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .padding(.bottom, 10)
+
+                DashboardTileView(title: "Allocation Drift", iconName: "rectangle.split.3x3.fill", iconColor: .blue) {
+                    AllocationHeatMapTile(items: allocationVariance, portfolioValue: portfolioValue)
+                        .padding(8)
+                }
 
                 // Section: Top 5 Positions
                 DashboardTileView(title: "Largest Positions", iconName: "star.fill", iconColor: .yellow) {
@@ -137,6 +144,9 @@ struct DashboardView: View {
         self.largestPositions = dbManager.fetchLargestPositions()
         self.assetAllocations = dbManager.fetchAssetClassAllocation()
         self.optionHoldings = dbManager.fetchOptionHoldings()
+        let variance = dbManager.fetchAssetAllocationVariance()
+        self.allocationVariance = variance.items
+        self.portfolioValue = variance.portfolioValue
     }
 }
 

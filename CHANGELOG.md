@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Store import sessions by institution and value date, tracking duplicate rows
 - Restyle Currency Maintenance window and update title to "Currency Maintenance"
 - Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
+- Add asset allocation variance heatmap tile to dashboard
 - Allow editing Asset Class in Asset SubClass popup
 - Create cash accounts during position import and record deposits
 - Extend Institutions with contact info, currency and country fields
