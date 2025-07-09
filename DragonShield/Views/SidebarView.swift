@@ -15,6 +15,8 @@ import AppKit
 private let importManager = ImportManager.shared
 
 struct SidebarView: View {
+    @EnvironmentObject var dbManager: DatabaseManager
+
     var body: some View {
         List {
             // MARK: - Key Features Section
@@ -76,7 +78,7 @@ struct SidebarView: View {
                     Label("Edit Asset SubClasses", systemImage: "folder.fill")
                 }
 
-                NavigationLink(destination: TargetAllocationMaintenanceView()) {
+                NavigationLink(destination: TargetAllocationMaintenanceView(viewModel: TargetAllocationViewModel(dbManager: dbManager, portfolioId: 1))) {
                     Label("Edit Target Allocation", systemImage: "chart.pie")
                 }
                 
