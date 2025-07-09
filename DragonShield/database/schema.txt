@@ -10,6 +10,7 @@
 -- - v4.6 -> v4.7: Added db_version configuration entry
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses
 -- - v4.10 -> v4.11: Added extended institution details
+-- - v4.11 -> v4.12: Added notes column to PositionReports table
 -- - v4.7 -> v4.7.1: Removed duplicate db_version row causing UNIQUE constraint failure
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
@@ -27,8 +28,8 @@ INSERT INTO Configuration (key, value, data_type, description) VALUES
 ('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
 ('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)'),
 -- Removed duplicate db_version entry causing UNIQUE constraint failure
--- Version 4.11
-('db_version', '4.11', 'string', 'Database schema version');
+-- Version 4.12
+('db_version', '4.12', 'string', 'Database schema version');
 INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
 ('CHF', 'Swiss Franc', 'CHF', 0),
 ('EUR', 'Euro', '€', 1),
@@ -261,15 +262,16 @@ INSERT INTO PositionReports (
     quantity,
     purchase_price,
     current_price,
+    notes,
     report_date,
     uploaded_at
 ) VALUES
-    (1, 1, 1, 1, 8, 108.50, 110.00, '2024-12-31', '2025-01-01 08:00:10'),
-    (1, 1, 1, 2, 12, 95.20, 97.00, '2024-12-31', '2025-01-01 08:00:10'),
-    (4, 3, 3, 5, 4, 185.25, 190.00, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 3, 6, 2, 415.75, 420.00, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 3, 9, 40, 87.45, 90.00, '2024-12-31', '2025-01-02 09:00:15'),
-    (7, 4, 4, 13, 0.05, 45000.00, 46000.00, '2024-12-31', '2025-01-02 10:00:10'),
-    (7, 4, 4, 14, 1.0, 2800.00, 3000.00, '2024-12-31', '2025-01-02 10:00:10'),
-    (11, 7, 8, 1, 25, 108.50, 110.00, '2025-07-01', '2025-07-02 09:00:15'),
-    (11, 7, 8, 2, 30, 95.20, 97.00, '2025-07-01', '2025-07-02 09:00:15');
+    (1, 1, 1, 1, 8, 108.50, 110.00, NULL, '2024-12-31', '2025-01-01 08:00:10'),
+    (1, 1, 1, 2, 12, 95.20, 97.00, NULL, '2024-12-31', '2025-01-01 08:00:10'),
+    (4, 3, 3, 5, 4, 185.25, 190.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
+    (4, 3, 3, 6, 2, 415.75, 420.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
+    (4, 3, 3, 9, 40, 87.45, 90.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
+    (7, 4, 4, 13, 0.05, 45000.00, 46000.00, NULL, '2024-12-31', '2025-01-02 10:00:10'),
+    (7, 4, 4, 14, 1.0, 2800.00, 3000.00, NULL, '2024-12-31', '2025-01-02 10:00:10'),
+    (11, 7, 8, 1, 25, 108.50, 110.00, NULL, '2025-07-01', '2025-07-02 09:00:15'),
+    (11, 7, 8, 2, 30, 95.20, 97.00, NULL, '2025-07-01', '2025-07-02 09:00:15');

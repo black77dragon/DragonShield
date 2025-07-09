@@ -17,6 +17,11 @@ struct PositionsView: View {
     @State private var institutions: [DatabaseManager.InstitutionData] = []
     @State private var selectedInstitutionId: Int? = nil
     @State private var showingDeleteAlert = false
+    @State private var showAddSheet = false
+    @State private var showEditSheet = false
+    @State private var positionToEdit: PositionReportData? = nil
+    @State private var positionToDelete: PositionReportData? = nil
+    @State private var showDeleteSingleAlert = false
     @State private var buttonsOpacity: Double = 0
 
     @State private var headerOpacity: Double = 0
@@ -47,8 +52,9 @@ struct PositionsView: View {
 
             VStack(spacing: 0) {
                 modernHeader
+                addButtonBar
                 positionsContent
-                modernActionBar
+                dangerZone
             }
         }
         .onAppear {
@@ -69,6 +75,31 @@ struct PositionsView: View {
                let name = institutions.first(where: { $0.id == id })?.name {
                 Text("Are you sure you want to delete all positions for \(name)? This action cannot be undone.")
             }
+        }
+        .alert("Delete Position", isPresented: $showDeleteSingleAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let p = positionToDelete {
+                    _ = dbManager.deletePositionReport(id: p.id)
+                    loadPositions()
+                }
+            }
+        } message: {
+            if let p = positionToDelete {
+                Text("Delete position #\(p.id)?")
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            PositionFormView(position: nil) {
+                loadPositions()
+            }
+            .environmentObject(dbManager)
+        }
+        .sheet(item: $positionToEdit) { item in
+            PositionFormView(position: item) {
+                loadPositions()
+            }
+            .environmentObject(dbManager)
         }
     }
 
@@ -98,6 +129,21 @@ struct PositionsView: View {
         .offset(y: contentOffset)
     }
 
+    private var addButtonBar: some View {
+        HStack {
+            Button {
+                showAddSheet = true
+            } label: {
+                Label("Add Position", systemImage: "plus")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
+        .opacity(buttonsOpacity)
+    }
+
     private var positionsContent: some View {
         VStack(spacing: 0) {
             modernTableHeader
@@ -108,23 +154,17 @@ struct PositionsView: View {
                             position: position,
                             isSelected: selectedPosition?.id == position.id,
                             rowPadding: CGFloat(dbManager.tableRowPadding),
-                            onTap: { selectedPosition = position }
+                            onTap: { selectedPosition = position },
+                            onEdit: { positionToEdit = position },
+                            onDelete: { positionToDelete = position; showDeleteSingleAlert = true }
                         )
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         }
-    }
+        .padding(24)
+        .background(Theme.surface)
+        .cornerRadius(8)
 
     private var modernTableHeader: some View {
         HStack {
@@ -176,7 +216,7 @@ struct PositionsView: View {
         .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
     }
 
-    private var modernActionBar: some View {
+    private var dangerZone: some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Color.gray.opacity(0.2))
@@ -210,26 +250,17 @@ struct PositionsView: View {
                 }
                 .buttonStyle(ScaleButtonStyle())
 
-                if selectedInstitutionId != nil {
+                if let id = selectedInstitutionId,
+                   let inst = institutions.first(where: { $0.id == id }) {
                     Button {
                         showingDeleteAlert = true
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
-                            Text("Delete Positions")
+                            Text("Wipe All Positions for \(inst.name)")
                         }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                        )
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(DestructiveButtonStyle())
                 }
 
                 Spacer()
@@ -252,7 +283,7 @@ struct PositionsView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
-            .background(.regularMaterial)
+            .background(Theme.surface)
         }
         .opacity(buttonsOpacity)
     }
@@ -277,6 +308,10 @@ struct ModernPositionRowView: View {
     let isSelected: Bool
     let rowPadding: CGFloat
     let onTap: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    @State private var hovering = false
 
     private static var dateFormatter: DateFormatter = DateFormatter.iso8601DateOnly
     private static var dateTimeFormatter: DateFormatter = DateFormatter.iso8601DateTime
@@ -352,6 +387,15 @@ struct ModernPositionRowView: View {
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .frame(width: 110, alignment: .center)
+
+            HStack(spacing: 8) {
+                Button(action: onEdit) { Image(systemName: "pencil") }
+                    .buttonStyle(PlainButtonStyle())
+                Button(action: onDelete) { Image(systemName: "trash") }
+                    .buttonStyle(PlainButtonStyle())
+            }
+            .opacity(hovering ? 1 : 0)
+            .frame(width: 50)
         }
         .padding(.horizontal, rowPadding)
         .padding(.vertical, rowPadding / 1.8)
@@ -365,6 +409,7 @@ struct ModernPositionRowView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+        .onHover { hovering = $0 }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 
