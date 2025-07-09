@@ -174,6 +174,7 @@ extension DatabaseManager {
             return nil
         }
         defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_int(stmt, 1, Int32(accountId))
         sqlite3_bind_int(stmt, 2, Int32(institutionId))
         sqlite3_bind_int(stmt, 3, Int32(instrumentId))
@@ -197,6 +198,7 @@ extension DatabaseManager {
             return false
         }
         defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_int(stmt, 1, Int32(accountId))
         sqlite3_bind_int(stmt, 2, Int32(institutionId))
         sqlite3_bind_int(stmt, 3, Int32(instrumentId))
