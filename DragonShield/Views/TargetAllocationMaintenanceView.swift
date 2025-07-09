@@ -64,39 +64,14 @@ struct TargetAllocationMaintenanceView: View {
     private var leftPane: some View {
         VStack(alignment: .leading) {
             List {
-                ForEach($classTargets, id: \.id) { $cls in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text(cls.name)
-                            if cls.subTargets.contains(where: { $0.targetPercent > 0 }) {
-                                Image(systemName: "rectangle.split.3x3")
-                                    .foregroundColor(.blue)
-                                    .help("Using sub-class targets")
-                            }
-                            Spacer()
-                            TextField("", value: $cls.targetPercent, formatter: percentFormatter)
-                                .frame(width: 50)
-                                .textFieldStyle(.roundedBorder)
-                                .keyboardType(.numberPad)
-                                .onChange(of: cls.targetPercent) { newVal in
-                                    cls.targetPercent = min(100, max(0, newVal))
-                                }
+                ForEach($classTargets) { $cls in
+                    ClassRow(
+                        classTarget: $cls,
+                        percentFormatter: percentFormatter,
+                        openSubClasses: {
+                            editingIndex = classTargets.firstIndex(where: { $0.id == cls.id })
                         }
-                        Slider(value: $cls.targetPercent, in: 0...100, step: 5)
-                            .accessibilityLabel(Text("Target for \(cls.name)"))
-
-                        if !cls.subTargets.isEmpty {
-                            Button("Sub-Classes") {
-                                editingIndex = classTargets.firstIndex(where: { $0.id == cls.id })
-                            }
-                            .buttonStyle(.borderless)
-                            .keyboardShortcut(.defaultAction)
-                            .accessibilityLabel(Text("Edit sub-classes for \(cls.name)"))
-                        }
-                    }
-                    .padding(24)
-                    .background(Color.white.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    )
                 }
             }
             HStack {
@@ -158,6 +133,47 @@ struct TargetAllocationMaintenanceView_Previews: PreviewProvider {
     }
 }
 
+private struct ClassRow: View {
+    @Binding var classTarget: DatabaseManager.ClassTarget
+    let percentFormatter: NumberFormatter
+    var openSubClasses: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(classTarget.name)
+                if classTarget.subTargets.contains(where: { $0.targetPercent > 0 }) {
+                    Image(systemName: "rectangle.split.3x3")
+                        .foregroundColor(.blue)
+                        .help("Using sub-class targets")
+                }
+                Spacer()
+                TextField("", value: $classTarget.targetPercent, formatter: percentFormatter)
+                    .frame(width: 50)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.numberPad)
+                    .onChange(of: classTarget.targetPercent) { newVal in
+                        classTarget.targetPercent = min(100, max(0, newVal))
+                    }
+            }
+            Slider(value: $classTarget.targetPercent, in: 0...100, step: 5)
+                .accessibilityLabel(Text("Target for \(classTarget.name)"))
+
+            if !classTarget.subTargets.isEmpty {
+                Button("Sub-Classes") {
+                    openSubClasses()
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityLabel(Text("Edit sub-classes for \(classTarget.name)"))
+            }
+        }
+        .padding(24)
+        .background(Color.white.opacity(0.8))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
 private struct SubClassEditor: View {
     @Binding var classTarget: DatabaseManager.ClassTarget
     @Environment(\.dismiss) private var dismiss
@@ -177,23 +193,8 @@ private struct SubClassEditor: View {
         NavigationView {
             VStack(alignment: .leading) {
                 List {
-                    ForEach($classTarget.subTargets, id: \.id) { $sub in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(sub.name)
-                                Spacer()
-                                TextField("", value: $sub.targetPercent, formatter: percentFormatter)
-                                    .frame(width: 50)
-                                    .textFieldStyle(.roundedBorder)
-                                    .keyboardType(.numberPad)
-                                    .onChange(of: sub.targetPercent) { newVal in
-                                        sub.targetPercent = min(100, max(0, newVal))
-                                    }
-                            }
-                            Slider(value: $sub.targetPercent, in: 0...100, step: 5)
-                                .accessibilityLabel(Text("Target for \(sub.name)"))
-                        }
-                        .padding(.vertical, 4)
+                    ForEach($classTarget.subTargets) { $sub in
+                        SubClassRow(subTarget: $sub, percentFormatter: percentFormatter)
                     }
                 }
                 HStack {
@@ -216,5 +217,29 @@ private struct SubClassEditor: View {
                 }
             }
         }
+    }
+}
+
+private struct SubClassRow: View {
+    @Binding var subTarget: DatabaseManager.SubClassTarget
+    let percentFormatter: NumberFormatter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(subTarget.name)
+                Spacer()
+                TextField("", value: $subTarget.targetPercent, formatter: percentFormatter)
+                    .frame(width: 50)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.numberPad)
+                    .onChange(of: subTarget.targetPercent) { newVal in
+                        subTarget.targetPercent = min(100, max(0, newVal))
+                    }
+            }
+            Slider(value: $subTarget.targetPercent, in: 0...100, step: 5)
+                .accessibilityLabel(Text("Target for \(subTarget.name)"))
+        }
+        .padding(.vertical, 4)
     }
 }
