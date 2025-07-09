@@ -123,6 +123,9 @@ def main(argv=None):
         logger.info(json.dumps({"phase": 3, "status": "start"}))
         dest_dir = Path(args.target_dir).expanduser()
         os.makedirs(dest_dir, exist_ok=True)
+        for item in dest_dir.iterdir():
+            if item.is_file():
+                item.unlink()
         dest_path = dest_dir / 'dragonshield.sqlite'
         shutil.copy2(source_path, dest_path)
         logger.info(json.dumps({"phase": 3, "status": "done", "dest": str(dest_path)}))
