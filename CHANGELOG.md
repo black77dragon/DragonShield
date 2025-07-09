@@ -18,6 +18,12 @@ All notable changes to this project will be documented in this file.
 - Allow editing Asset Class in Asset SubClass popup
 - Create cash accounts during position import and record deposits
 - Extend Institutions with contact info, currency and country fields
+- Add Target Allocation maintenance screen for editing portfolio targets
+- Fix compile error in Target Allocation maintenance view
+- Expand target allocation screen with dynamic class and sub-class editing
+- Improve target allocation editor with modal sub-class panel and slider tweaks
+- Fix build errors from ForEach bindings in target allocation view
+- Refactor Target Allocation maintenance view to avoid type-checking timeouts
 - Fix deprecated isoRegionCodes warning in Institutions view
 - Add sample institutions dataset for testing
 - Replace Institutions seed data with new dataset
@@ -102,3 +108,5 @@ All notable changes to this project will be documented in this file.
 - Display instrument currency in Positions view
 - Toggle parsing checkpoints to suppress import popups and show inline summary
 - Make import summary panel scrollable and arrange import view in two columns
+- Fix compile errors in Target Allocation maintenance view on macOS by removing
+  number-pad keyboard modifier

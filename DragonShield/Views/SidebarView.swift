@@ -75,6 +75,10 @@ struct SidebarView: View {
                 NavigationLink(destination: AssetSubClassesView()) {
                     Label("Edit Asset SubClasses", systemImage: "folder.fill")
                 }
+
+                NavigationLink(destination: TargetAllocationMaintenanceView()) {
+                    Label("Edit Target Allocation", systemImage: "chart.pie")
+                }
                 
                 NavigationLink(destination: TransactionTypesView()) {
                     Label("Edit Transaction Types", systemImage: "tag.circle.fill")
