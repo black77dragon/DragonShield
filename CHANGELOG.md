@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane
+- Fix compile error referencing missing AssetSubClassData type
 - Added GPT shell with OpenAI function calling and JSON schema validation
 - Remove duplicate Python package initializer to resolve Xcode resource error
 - Extend institution seed data with contact info and default currencies

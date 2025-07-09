@@ -153,7 +153,7 @@ struct TargetAllocationMaintenanceView: View {
         }
     }
 
-    private func subClassRow(for sub: DatabaseManager.AssetSubClassData) -> some View {
+    private func subClassRow(for sub: DatabaseManager.SubClassTarget) -> some View {
         HStack {
             Text(sub.name)
                 .font(.system(size: 14))
