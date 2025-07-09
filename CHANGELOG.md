@@ -112,3 +112,4 @@ All notable changes to this project will be documented in this file.
   number-pad keyboard modifier
 - Delete existing files in target directory before deploying database
 - Stop DragonShield and Xcode when running the database tool
+

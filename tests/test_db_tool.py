@@ -46,3 +46,4 @@ def test_db_tool_copies(monkeypatch, tmp_path):
     assert copied['dir'] == str(tmp_path)
     assert not old_file.exists()
     assert stopped == [True]
+
