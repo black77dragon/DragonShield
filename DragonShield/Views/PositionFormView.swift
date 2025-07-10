@@ -61,6 +61,7 @@ struct PositionFormView: View {
                 .accessibilityLabel("Import Session")
 
             Picker("Account", selection: $accountId) {
+                Text("Select Account").tag(Optional<Int>(nil))
                 ForEach(accounts, id: \.id) {
                     Text($0.accountName).tag(Optional($0.id))
                 }
@@ -68,6 +69,7 @@ struct PositionFormView: View {
             .accessibilityLabel("Account")
 
             Picker("Institution", selection: $institutionId) {
+                Text("Select Institution").tag(Optional<Int>(nil))
                 ForEach(institutions) { inst in
                     Text(inst.name).tag(Optional(inst.id))
                 }
@@ -75,6 +77,7 @@ struct PositionFormView: View {
             .accessibilityLabel("Institution")
 
             Picker("Instrument", selection: $instrumentId) {
+                Text("Select Instrument").tag(Optional<Int>(nil))
                 ForEach(instruments, id: \.id) {
                     Text($0.name).tag(Optional($0.id))
                 }
@@ -82,6 +85,7 @@ struct PositionFormView: View {
             .accessibilityLabel("Instrument")
 
             Picker("Currency", selection: $currencyCode) {
+                Text("Select Currency").tag("")
                 ForEach(currencies, id: \.code) { curr in
                     Text(curr.code).tag(curr.code)
                 }
@@ -117,7 +121,6 @@ struct PositionFormView: View {
     }
 
     private var isValid: Bool {
-        Int(sessionId) != nil &&
         accountId != nil &&
         institutionId != nil &&
         instrumentId != nil &&
@@ -153,9 +156,10 @@ struct PositionFormView: View {
             let accId = accountId,
             let instId = institutionId,
             let instrId = instrumentId,
-            let qty = Double(quantity),
-            let sess = Int(sessionId)
+            let qty = Double(quantity)
         else { return }
+
+        let sess = Int(sessionId)
 
         let price = Double(purchasePrice)
         let currPrice = Double(currentPrice)
