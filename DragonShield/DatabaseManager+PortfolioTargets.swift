@@ -128,17 +128,23 @@ extension DatabaseManager {
 
     // MARK: - New persistence helpers
 
-    /// Returns all stored target percentages for the given portfolio.
-    /// Results may include either `asset_class_id` or `asset_sub_class_id`.
+    /// Returns stored target percentages aggregated by asset class or sub-class.
     func fetchPortfolioTargetRecords(portfolioId: Int) -> [(classId: Int?, subClassId: Int?, percent: Double)] {
         var results: [(classId: Int?, subClassId: Int?, percent: Double)] = []
-        let query = "SELECT asset_class_id, asset_sub_class_id, target_allocation_percent FROM PortfolioInstruments WHERE portfolio_id = ?"
+        let query = """
+            SELECT ac.class_id, asc.sub_class_id, pi.target_allocation_percent
+              FROM PortfolioInstruments pi
+              JOIN Instruments i  ON pi.instrument_id = i.instrument_id
+              JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+              JOIN AssetClasses ac ON asc.class_id = ac.class_id
+             WHERE pi.portfolio_id = ?
+        """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(portfolioId))
             while sqlite3_step(statement) == SQLITE_ROW {
-                let classId = sqlite3_column_type(statement, 0) != SQLITE_NULL ? Int(sqlite3_column_int(statement, 0)) : nil
-                let subId = sqlite3_column_type(statement, 1) != SQLITE_NULL ? Int(sqlite3_column_int(statement, 1)) : nil
+                let classId = Int(sqlite3_column_int(statement, 0))
+                let subId = Int(sqlite3_column_int(statement, 1))
                 let pct = sqlite3_column_double(statement, 2)
                 results.append((classId: classId, subClassId: subId, percent: pct))
             }
@@ -152,17 +158,20 @@ extension DatabaseManager {
     /// Upsert a class-level target percentage.
     func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double) {
         let query = """
-            INSERT INTO PortfolioInstruments (portfolio_id, asset_class_id, target_allocation_percent)
-            VALUES (?, ?, ?)
-            ON CONFLICT(portfolio_id, asset_class_id) DO UPDATE SET
-                target_allocation_percent = excluded.target_allocation_percent,
-                updated_at = CURRENT_TIMESTAMP;
+            UPDATE PortfolioInstruments
+               SET target_allocation_percent = ?
+             WHERE portfolio_id = ?
+               AND instrument_id IN (
+                     SELECT instrument_id FROM Instruments i
+                      JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+                      WHERE asc.class_id = ?
+               );
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(portfolioId))
-            sqlite3_bind_int(statement, 2, Int32(classId))
-            sqlite3_bind_double(statement, 3, percent)
+            sqlite3_bind_double(statement, 1, percent)
+            sqlite3_bind_int(statement, 2, Int32(portfolioId))
+            sqlite3_bind_int(statement, 3, Int32(classId))
             if sqlite3_step(statement) != SQLITE_DONE {
                 LoggingService.shared.log("Failed to upsert class target: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
@@ -175,17 +184,18 @@ extension DatabaseManager {
     /// Upsert a sub-class-level target percentage.
     func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double) {
         let query = """
-            INSERT INTO PortfolioInstruments (portfolio_id, asset_sub_class_id, target_allocation_percent)
-            VALUES (?, ?, ?)
-            ON CONFLICT(portfolio_id, asset_sub_class_id) DO UPDATE SET
-                target_allocation_percent = excluded.target_allocation_percent,
-                updated_at = CURRENT_TIMESTAMP;
+            UPDATE PortfolioInstruments
+               SET target_allocation_percent = ?
+             WHERE portfolio_id = ?
+               AND instrument_id IN (
+                     SELECT instrument_id FROM Instruments WHERE sub_class_id = ?
+               );
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(portfolioId))
-            sqlite3_bind_int(statement, 2, Int32(subClassId))
-            sqlite3_bind_double(statement, 3, percent)
+            sqlite3_bind_double(statement, 1, percent)
+            sqlite3_bind_int(statement, 2, Int32(portfolioId))
+            sqlite3_bind_int(statement, 3, Int32(subClassId))
             if sqlite3_step(statement) != SQLITE_DONE {
                 LoggingService.shared.log("Failed to upsert sub-class target: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
