@@ -166,8 +166,8 @@ extension DatabaseManager {
 
     // MARK: - Single Position CRUD
 
-    func addPositionReport(accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Int? {
-        let sql = "INSERT INTO PositionReports (account_id, institution_id, instrument_id, quantity, purchase_price, current_price, notes, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+    func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Int? {
+        let sql = "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, purchase_price, current_price, notes, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare insert position: \(String(cString: sqlite3_errmsg(db)))")
@@ -175,14 +175,15 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_int(stmt, 1, Int32(accountId))
-        sqlite3_bind_int(stmt, 2, Int32(institutionId))
-        sqlite3_bind_int(stmt, 3, Int32(instrumentId))
-        sqlite3_bind_double(stmt, 4, quantity)
-        if let p = purchasePrice { sqlite3_bind_double(stmt, 5, p) } else { sqlite3_bind_null(stmt, 5) }
-        if let c = currentPrice { sqlite3_bind_double(stmt, 6, c) } else { sqlite3_bind_null(stmt, 6) }
-        if let n = notes { sqlite3_bind_text(stmt, 7, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 7) }
-        sqlite3_bind_text(stmt, 8, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
+        if let s = importSessionId { sqlite3_bind_int(stmt, 1, Int32(s)) } else { sqlite3_bind_null(stmt, 1) }
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        sqlite3_bind_int(stmt, 3, Int32(institutionId))
+        sqlite3_bind_int(stmt, 4, Int32(instrumentId))
+        sqlite3_bind_double(stmt, 5, quantity)
+        if let p = purchasePrice { sqlite3_bind_double(stmt, 6, p) } else { sqlite3_bind_null(stmt, 6) }
+        if let c = currentPrice { sqlite3_bind_double(stmt, 7, c) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes { sqlite3_bind_text(stmt, 8, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_text(stmt, 9, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             print("❌ Insert position failed: \(String(cString: sqlite3_errmsg(db)))")
             return nil
@@ -190,8 +191,8 @@ extension DatabaseManager {
         return Int(sqlite3_last_insert_rowid(db))
     }
 
-    func updatePositionReport(id: Int, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Bool {
-        let sql = "UPDATE PositionReports SET account_id = ?, institution_id = ?, instrument_id = ?, quantity = ?, purchase_price = ?, current_price = ?, notes = ?, report_date = ?, uploaded_at = CURRENT_TIMESTAMP WHERE position_id = ?;"
+    func updatePositionReport(id: Int, importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Bool {
+        let sql = "UPDATE PositionReports SET import_session_id = ?, account_id = ?, institution_id = ?, instrument_id = ?, quantity = ?, purchase_price = ?, current_price = ?, notes = ?, report_date = ?, uploaded_at = CURRENT_TIMESTAMP WHERE position_id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare update position: \(String(cString: sqlite3_errmsg(db)))")
@@ -199,15 +200,16 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_int(stmt, 1, Int32(accountId))
-        sqlite3_bind_int(stmt, 2, Int32(institutionId))
-        sqlite3_bind_int(stmt, 3, Int32(instrumentId))
-        sqlite3_bind_double(stmt, 4, quantity)
-        if let p = purchasePrice { sqlite3_bind_double(stmt, 5, p) } else { sqlite3_bind_null(stmt, 5) }
-        if let c = currentPrice { sqlite3_bind_double(stmt, 6, c) } else { sqlite3_bind_null(stmt, 6) }
-        if let n = notes { sqlite3_bind_text(stmt, 7, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 7) }
-        sqlite3_bind_text(stmt, 8, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 9, Int32(id))
+        if let s = importSessionId { sqlite3_bind_int(stmt, 1, Int32(s)) } else { sqlite3_bind_null(stmt, 1) }
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        sqlite3_bind_int(stmt, 3, Int32(institutionId))
+        sqlite3_bind_int(stmt, 4, Int32(instrumentId))
+        sqlite3_bind_double(stmt, 5, quantity)
+        if let p = purchasePrice { sqlite3_bind_double(stmt, 6, p) } else { sqlite3_bind_null(stmt, 6) }
+        if let c = currentPrice { sqlite3_bind_double(stmt, 7, c) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes { sqlite3_bind_text(stmt, 8, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_text(stmt, 9, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 10, Int32(id))
         let result = sqlite3_step(stmt) == SQLITE_DONE
         if !result { print("❌ Update position failed: \(String(cString: sqlite3_errmsg(db)))") }
         return result

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
+- Include all position fields in the add/edit position form
 - Fix compilation errors in Positions view after CRUD refactor
 - Fix SQLITE_TRANSIENT not found when binding position report text fields
 - Refactor Target Allocation list with per-class mismatch warnings and color legend

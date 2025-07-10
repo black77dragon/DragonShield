@@ -8,14 +8,31 @@ struct PositionFormView: View {
     var onSave: () -> Void
 
     @State private var accounts: [DatabaseManager.AccountData] = []
+    @State private var institutions: [DatabaseManager.InstitutionData] = []
     @State private var instruments: [(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?)] = []
+    @State private var currencies: [(code: String, name: String, symbol: String)] = []
 
+    @State private var sessionId = ""
     @State private var accountId: Int? = nil
+    @State private var institutionId: Int? = nil
     @State private var instrumentId: Int? = nil
+    @State private var currencyCode = ""
     @State private var quantity = ""
     @State private var purchasePrice = ""
+    @State private var currentPrice = ""
+    @State private var valueDate = Date()
+    @State private var uploadedAt = Date()
     @State private var reportDate = Date()
     @State private var notes = ""
+
+    private static let numberFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 2
+        return f
+    }()
+
+    private static let dateFormatter = DateFormatter.swissDate
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -39,50 +56,135 @@ struct PositionFormView: View {
 
     private var formFields: some View {
         Group {
+            TextField("Session", text: $sessionId)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Import Session")
+
             Picker("Account", selection: $accountId) {
-                ForEach(accounts, id: \.id) { Text($0.accountName).tag(Optional($0.id)) }
+                ForEach(accounts, id: \.id) {
+                    Text($0.accountName).tag(Optional($0.id))
+                }
             }
+            .accessibilityLabel("Account")
+
+            Picker("Institution", selection: $institutionId) {
+                ForEach(institutions) { inst in
+                    Text(inst.name).tag(Optional(inst.id))
+                }
+            }
+            .accessibilityLabel("Institution")
+
             Picker("Instrument", selection: $instrumentId) {
-                ForEach(instruments, id: \.id) { Text($0.name).tag(Optional($0.id)) }
+                ForEach(instruments, id: \.id) {
+                    Text($0.name).tag(Optional($0.id))
+                }
             }
+            .accessibilityLabel("Instrument")
+
+            Picker("Currency", selection: $currencyCode) {
+                ForEach(currencies, id: \.code) { curr in
+                    Text(curr.code).tag(curr.code)
+                }
+            }
+            .accessibilityLabel("Currency")
+
             TextField("Quantity", text: $quantity)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .textFieldStyle(.roundedBorder)
+
             TextField("Purchase Price", text: $purchasePrice)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            DatePicker("Value Date", selection: $reportDate, displayedComponents: .date)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Current Price", text: $currentPrice)
+                .textFieldStyle(.roundedBorder)
+
+            DatePicker("Value Date", selection: $valueDate, displayedComponents: .date)
+                .datePickerStyle(.field)
+
+            DatePicker("Uploaded At", selection: $uploadedAt, displayedComponents: .date)
+                .datePickerStyle(.field)
+
+            DatePicker("Report Date", selection: $reportDate, displayedComponents: .date)
+                .datePickerStyle(.field)
+
             TextEditor(text: $notes)
                 .frame(height: 60)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.3)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.gray.opacity(0.3))
+                )
+                .accessibilityLabel("Notes")
         }
     }
 
     private var isValid: Bool {
-        accountId != nil && instrumentId != nil && Double(quantity) != nil
+        Int(sessionId) != nil &&
+        accountId != nil &&
+        institutionId != nil &&
+        instrumentId != nil &&
+        !currencyCode.isEmpty &&
+        Double(quantity) != nil
     }
 
     private func loadData() {
         accounts = dbManager.fetchAccounts()
+        institutions = dbManager.fetchInstitutions()
         instruments = dbManager.fetchAssets()
+        currencies = dbManager.fetchActiveCurrencies()
     }
 
     private func populate() {
         guard let p = position else { return }
+        sessionId = p.importSessionId.map { String($0) } ?? ""
         accountId = accounts.first(where: { $0.accountName == p.accountName })?.id
+        institutionId = institutions.first(where: { $0.name == p.institutionName })?.id
         instrumentId = instruments.first(where: { $0.name == p.instrumentName })?.id
+        currencyCode = p.instrumentCurrency
         quantity = String(p.quantity)
         if let pp = p.purchasePrice { purchasePrice = String(pp) }
+        if let cp = p.currentPrice { currentPrice = String(cp) }
+        valueDate = p.reportDate
+        uploadedAt = p.uploadedAt
         reportDate = p.reportDate
         notes = p.notes ?? ""
     }
 
     private func save() {
-        guard let accId = accountId, let instId = instrumentId, let qty = Double(quantity) else { return }
+        guard
+            let accId = accountId,
+            let instId = institutionId,
+            let instrId = instrumentId,
+            let qty = Double(quantity),
+            let sess = Int(sessionId)
+        else { return }
+
         let price = Double(purchasePrice)
-        let institutionId = accounts.first(where: { $0.id == accId })?.institutionId ?? 0
+        let currPrice = Double(currentPrice)
+
         if let edit = position {
-            _ = dbManager.updatePositionReport(id: edit.id, accountId: accId, institutionId: institutionId, instrumentId: instId, quantity: qty, purchasePrice: price, currentPrice: nil, notes: notes.isEmpty ? nil : notes, reportDate: reportDate)
+            _ = dbManager.updatePositionReport(
+                id: edit.id,
+                importSessionId: sess,
+                accountId: accId,
+                institutionId: instId,
+                instrumentId: instrId,
+                quantity: qty,
+                purchasePrice: price,
+                currentPrice: currPrice,
+                notes: notes.isEmpty ? nil : notes,
+                reportDate: reportDate
+            )
         } else {
-            _ = dbManager.addPositionReport(accountId: accId, institutionId: institutionId, instrumentId: instId, quantity: qty, purchasePrice: price, currentPrice: nil, notes: notes.isEmpty ? nil : notes, reportDate: reportDate)
+            _ = dbManager.addPositionReport(
+                importSessionId: sess,
+                accountId: accId,
+                institutionId: instId,
+                instrumentId: instrId,
+                quantity: qty,
+                purchasePrice: price,
+                currentPrice: currPrice,
+                notes: notes.isEmpty ? nil : notes,
+                reportDate: reportDate
+            )
         }
         onSave()
         presentationMode.wrappedValue.dismiss()
