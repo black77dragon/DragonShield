@@ -12,7 +12,7 @@ struct DatabaseManagementView: View {
     @State private var showRestoreConfirm = false
     @State private var errorMessage: String?
 
-    var body: some View {
+    private var managementContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Database Management")
                 .font(.system(size: 18, weight: .semibold))
@@ -86,37 +86,41 @@ struct DatabaseManagementView: View {
         .background(Theme.surface)
         .cornerRadius(8)
         .padding()
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: [UTType(filenameExtension: "db")!]
-        ) { result in
-            switch result {
-            case .success(let url):
-                restoreURL = url
-                showRestoreConfirm = true
-            case .failure(let error):
-                errorMessage = error.localizedDescription
+    }
+
+    var body: some View {
+        managementContent
+            .fileImporter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [UTType(filenameExtension: "db")!]
+            ) { result in
+                switch result {
+                case .success(let url):
+                    restoreURL = url
+                    showRestoreConfirm = true
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
             }
-        }
-        .alert("Error", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "Unknown Error")
-        }
-        .alert("Restore Database", isPresented: $showRestoreConfirm) {
-            Button("Restore", role: .destructive) {
-                if let url = restoreURL { restoreDatabase(url: url) }
+            .alert("Error", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "Unknown Error")
             }
-            Button("Cancel", role: .cancel) { restoreURL = nil }
-        } message: {
-            Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
-            backupNow()
-        }
+            .alert("Restore Database", isPresented: $showRestoreConfirm) {
+                Button("Restore", role: .destructive) {
+                    if let url = restoreURL { restoreDatabase(url: url) }
+                }
+                Button("Cancel", role: .cancel) { restoreURL = nil }
+            } message: {
+                Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
+                backupNow()
+            }
     }
 
     private func backupNow() {
