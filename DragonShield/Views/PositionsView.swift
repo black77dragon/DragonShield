@@ -176,7 +176,8 @@ struct PositionsView: View {
     }
 
     private var positionsContent: some View {
-        Table(sortedPositions, selection: $selectedRows) {
+        let data = sortedPositions
+        return Table(data, selection: $selectedRows) {
             TableColumn("") { (position: PositionReportData) in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
