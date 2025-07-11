@@ -158,102 +158,106 @@ struct PositionsView: View {
                 }
             }
 
-            TableColumn("ID") { position in
-                Text(String(position.id))
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .frame(minWidth: 50, idealWidth: 50, maxWidth: 100, alignment: .leading)
-            }
+            Group {
+                TableColumn("ID") { position in
+                    Text(String(position.id))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .frame(minWidth: 50, idealWidth: 50, maxWidth: 100, alignment: .leading)
+                }
 
-            TableColumn("Session") { position in
-                Text(position.importSessionId.map { String($0) } ?? "-")
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 70, idealWidth: 70, maxWidth: 120, alignment: .leading)
-            }
-
-            TableColumn("Account") { position in
-                Text(position.accountName)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-            }
-
-            TableColumn("Institution") { position in
-                Text(position.institutionName)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-            }
-
-            TableColumn("Instrument") { position in
-                Text(position.instrumentName)
-                    .font(.system(size: 14))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            TableColumn("Currency") { position in
-                Text(position.instrumentCurrency)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(colorForCurrency(position.instrumentCurrency))
-                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
-            }
-
-            TableColumn("Qty") { position in
-                Text(String(format: "%.2f", position.quantity))
-                    .font(.system(size: 14, design: .monospaced))
-                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
-            }
-
-            TableColumn("Purchase") { position in
-                if let p = position.purchasePrice {
-                    Text(String(format: "%.2f", p))
-                        .font(.system(size: 14, design: .monospaced))
-                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                } else {
-                    Text("-")
-                        .font(.system(size: 14, design: .monospaced))
+                TableColumn("Session") { position in
+                    Text(position.importSessionId.map { String($0) } ?? "-")
+                        .font(.system(size: 13, design: .monospaced))
                         .foregroundColor(.secondary)
-                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: 120, alignment: .leading)
                 }
-            }
 
-            TableColumn("Current") { position in
-                if let cp = position.currentPrice {
-                    Text(String(format: "%.2f", cp))
-                        .font(.system(size: 14, design: .monospaced))
-                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                } else {
-                    Text("-")
-                        .font(.system(size: 14, design: .monospaced))
+                TableColumn("Account") { position in
+                    Text(position.accountName)
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
-                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+                }
+
+                TableColumn("Institution") { position in
+                    Text(position.institutionName)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+                }
+
+                TableColumn("Instrument") { position in
+                    Text(position.instrumentName)
+                        .font(.system(size: 14))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                TableColumn("Currency") { position in
+                    Text(position.instrumentCurrency)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
+                }
+
+                TableColumn("Qty") { position in
+                    Text(String(format: "%.2f", position.quantity))
+                        .font(.system(size: 14, design: .monospaced))
+                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
+                }
+
+                TableColumn("Purchase") { position in
+                    if let p = position.purchasePrice {
+                        Text(String(format: "%.2f", p))
+                            .font(.system(size: 14, design: .monospaced))
+                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Text("-")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+
+                TableColumn("Current") { position in
+                    if let cp = position.currentPrice {
+                        Text(String(format: "%.2f", cp))
+                            .font(.system(size: 14, design: .monospaced))
+                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Text("-")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
             }
 
-            TableColumn("Uploaded") { position in
-                Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
-            }
-
-            TableColumn("Report") { position in
-                Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
-            }
-
-            TableColumn("Actions") { position in
-                HStack(spacing: 8) {
-                    Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-                        .buttonStyle(PlainButtonStyle())
-                    Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
-                        .buttonStyle(PlainButtonStyle())
+            Group {
+                TableColumn("Uploaded") { position in
+                    Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
                 }
-                .frame(width: 50)
+
+                TableColumn("Report") { position in
+                    Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
+                }
+
+                TableColumn("Actions") { position in
+                    HStack(spacing: 8) {
+                        Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
+                            .buttonStyle(PlainButtonStyle())
+                        Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
+                            .buttonStyle(PlainButtonStyle())
+                    }
+                    .frame(width: 50)
+                }
             }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
