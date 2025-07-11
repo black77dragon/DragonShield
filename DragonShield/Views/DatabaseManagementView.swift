@@ -12,111 +12,130 @@ struct DatabaseManagementView: View {
     @State private var showRestoreConfirm = false
     @State private var errorMessage: String?
 
-    var body: some View {
+    private var metadataView: some View {
+        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
+            GridRow {
+                Text("Database Path:")
+                Text(dbManager.dbFilePath)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .font(.caption)
+            }
+            GridRow {
+                Text("File Size:")
+                Text(fileSizeString)
+            }
+            GridRow {
+                Text("Schema Version:")
+                Text(dbManager.dbVersion)
+            }
+        }
+    }
+
+    private var actionsView: some View {
+        HStack(spacing: 12) {
+            Button(action: backupNow) {
+                if processing { ProgressView() } else { Text("Backup Database") }
+            }
+            .keyboardShortcut("b", modifiers: [.command])
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(processing)
+            .accessibilityLabel("Backup Database")
+            .focusable()
+            .help("Create a backup copy of the current database")
+
+            Button("Restore from Backup") { showingFileImporter = true }
+                .keyboardShortcut("r", modifiers: [.command])
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityLabel("Restore from Backup")
+                .focusable()
+
+            Button("Switch Mode") { confirmSwitchMode() }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityLabel("Switch Mode")
+                .focusable()
+
+            Button("Migrate Database") { migrateDatabase() }
+                .keyboardShortcut("m", modifiers: [.command])
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityLabel("Migrate Database")
+                .focusable()
+        }
+    }
+
+    private var logView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
+                    Text(entry)
+                        .font(.system(.caption2, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(maxHeight: 200)
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.gray.opacity(0.2))
+        )
+    }
+
+    private var managementContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Database Management")
                 .font(.system(size: 18, weight: .semibold))
 
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
-                GridRow {
-                    Text("Database Path:")
-                    Text(dbManager.dbFilePath)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .font(.caption)
-                }
-                GridRow {
-                    Text("File Size:")
-                    Text(fileSizeString)
-                }
-                GridRow {
-                    Text("Schema Version:")
-                    Text(dbManager.dbVersion)
-                }
-            }
+            metadataView
 
-            HStack(spacing: 12) {
-                Button(action: backupNow) {
-                    if processing { ProgressView() } else { Text("Backup Database") }
-                }
-                .keyboardShortcut("b", modifiers: [.command])
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(processing)
-                .accessibilityLabel("Backup Database")
-                .focusable()
-                .help("Create a backup copy of the current database")
-
-                Button("Restore from Backup") { showingFileImporter = true }
-                    .keyboardShortcut("r", modifiers: [.command])
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityLabel("Restore from Backup")
-                    .focusable()
-
-                Button("Switch Mode") { confirmSwitchMode() }
-                    .keyboardShortcut("m", modifiers: [.command, .shift])
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityLabel("Switch Mode")
-                    .focusable()
-
-                Button("Migrate Database") { migrateDatabase() }
-                    .keyboardShortcut("m", modifiers: [.command])
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityLabel("Migrate Database")
-                    .focusable()
-            }
+            actionsView
 
             Text("Last Backup: \(formattedDate(backupService.lastBackup))")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
-                        Text(entry)
-                            .font(.system(.caption2, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            }
-            .frame(maxHeight: 200)
-            .padding(4)
-            .background(RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.2)))
+            logView
         }
         .padding(24)
         .background(Theme.surface)
         .cornerRadius(8)
         .padding()
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: [UTType(filenameExtension: "db")!]
-        ) { result in
-            switch result {
-            case .success(let url):
-                restoreURL = url
-                showRestoreConfirm = true
-            case .failure(let error):
-                errorMessage = error.localizedDescription
+    }
+
+    var body: some View {
+        managementContent
+            .fileImporter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [UTType(filenameExtension: "db")!]
+            ) { result in
+                switch result {
+                case .success(let url):
+                    restoreURL = url
+                    showRestoreConfirm = true
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
             }
-        }
-        .alert("Error", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "Unknown Error")
-        }
-        .alert("Restore Database", isPresented: $showRestoreConfirm) {
-            Button("Restore", role: .destructive) {
-                if let url = restoreURL { restoreDatabase(url: url) }
+            .alert("Error", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "Unknown Error")
             }
-            Button("Cancel", role: .cancel) { restoreURL = nil }
-        } message: {
-            Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
-            backupNow()
-        }
+            .alert("Restore Database", isPresented: $showRestoreConfirm) {
+                Button("Restore", role: .destructive) {
+                    if let url = restoreURL { restoreDatabase(url: url) }
+                }
+                Button("Cancel", role: .cancel) { restoreURL = nil }
+            } message: {
+                Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
+                backupNow()
+            }
     }
 
     private func backupNow() {
