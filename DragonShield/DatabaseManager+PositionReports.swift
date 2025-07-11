@@ -17,6 +17,7 @@ struct PositionReportData: Identifiable {
         var quantity: Double
         var purchasePrice: Double?
         var currentPrice: Double?
+        var notes: String?
         var reportDate: Date
         var uploadedAt: Date
 }
@@ -29,6 +30,7 @@ extension DatabaseManager {
             SELECT pr.position_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
                    pr.quantity, pr.purchase_price, pr.current_price,
+                   pr.notes,
                    pr.report_date, pr.uploaded_at
             FROM PositionReports pr
             JOIN Accounts a ON pr.account_id = a.account_id
@@ -59,8 +61,9 @@ extension DatabaseManager {
                 if sqlite3_column_type(statement, 8) != SQLITE_NULL {
                     currentPrice = sqlite3_column_double(statement, 8)
                 }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 9))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 10))
+                let notes: String? = sqlite3_column_text(statement, 9).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 10))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 11))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -73,6 +76,7 @@ extension DatabaseManager {
                     quantity: quantity,
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,
+                    notes: notes,
                     reportDate: reportDate,
                     uploadedAt: uploadedAt
                 ))
@@ -158,5 +162,70 @@ extension DatabaseManager {
         }
         print("🗑️ Deleting positions for \(institutionName) institutions with ids: \(ids)")
         return deletePositionReports(institutionIds: ids)
+    }
+
+    // MARK: - Single Position CRUD
+
+    func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Int? {
+        let sql = "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, purchase_price, current_price, notes, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare insert position: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        if let s = importSessionId { sqlite3_bind_int(stmt, 1, Int32(s)) } else { sqlite3_bind_null(stmt, 1) }
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        sqlite3_bind_int(stmt, 3, Int32(institutionId))
+        sqlite3_bind_int(stmt, 4, Int32(instrumentId))
+        sqlite3_bind_double(stmt, 5, quantity)
+        if let p = purchasePrice { sqlite3_bind_double(stmt, 6, p) } else { sqlite3_bind_null(stmt, 6) }
+        if let c = currentPrice { sqlite3_bind_double(stmt, 7, c) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes { sqlite3_bind_text(stmt, 8, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_text(stmt, 9, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            print("❌ Insert position failed: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        return Int(sqlite3_last_insert_rowid(db))
+    }
+
+    func updatePositionReport(id: Int, importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, notes: String?, reportDate: Date) -> Bool {
+        let sql = "UPDATE PositionReports SET import_session_id = ?, account_id = ?, institution_id = ?, instrument_id = ?, quantity = ?, purchase_price = ?, current_price = ?, notes = ?, report_date = ?, uploaded_at = CURRENT_TIMESTAMP WHERE position_id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare update position: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        if let s = importSessionId { sqlite3_bind_int(stmt, 1, Int32(s)) } else { sqlite3_bind_null(stmt, 1) }
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        sqlite3_bind_int(stmt, 3, Int32(institutionId))
+        sqlite3_bind_int(stmt, 4, Int32(instrumentId))
+        sqlite3_bind_double(stmt, 5, quantity)
+        if let p = purchasePrice { sqlite3_bind_double(stmt, 6, p) } else { sqlite3_bind_null(stmt, 6) }
+        if let c = currentPrice { sqlite3_bind_double(stmt, 7, c) } else { sqlite3_bind_null(stmt, 7) }
+        if let n = notes { sqlite3_bind_text(stmt, 8, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
+        sqlite3_bind_text(stmt, 9, DateFormatter.iso8601DateOnly.string(from: reportDate), -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 10, Int32(id))
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        if !result { print("❌ Update position failed: \(String(cString: sqlite3_errmsg(db)))") }
+        return result
+    }
+
+    func deletePositionReport(id: Int) -> Bool {
+        let sql = "DELETE FROM PositionReports WHERE position_id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare delete position: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        if !result { print("❌ Delete position failed: \(String(cString: sqlite3_errmsg(db)))") }
+        return result
     }
 }

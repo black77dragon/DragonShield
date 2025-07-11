@@ -4,11 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Delete position reports for any institution directly from the Positions view
+- Enable manual add, edit and delete of positions with notes field
+- Include all position fields in the add/edit position form
+- Fix compilation errors in Positions view after CRUD refactor
+- Fix SQLITE_TRANSIENT not found when binding position report text fields
+- Allow optional import session when saving positions and add picker placeholders
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Reset sub-class targets to zero when their class target is set to zero
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane
 - Fix compile error referencing missing AssetSubClassData type
+- Correct portfolio target SQL queries to use instrument-based columns
 - Added GPT shell with OpenAI function calling and JSON schema validation
 - Remove duplicate Python package initializer to resolve Xcode resource error
 - Extend institution seed data with contact info and default currencies
