@@ -27,35 +27,10 @@ struct PositionsView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
-    enum SortKey { case account, institution, instrument, currency, quantity, purchasePrice, currentPrice, uploadedAt, reportDate }
-    @State private var sortDescriptor: (key: SortKey, ascending: Bool) = (.account, true)
+    @State private var sortOrder = [KeyPathComparator(\PositionReportData.accountName)]
 
     var sortedPositions: [PositionReportData] {
-        filteredPositions.sorted { lhs, rhs in
-            func compare<T: Comparable>(_ a: T, _ b: T) -> Bool {
-                sortDescriptor.ascending ? a < b : a > b
-            }
-            switch sortDescriptor.key {
-            case .account:
-                return compare(lhs.accountName, rhs.accountName)
-            case .institution:
-                return compare(lhs.institutionName, rhs.institutionName)
-            case .instrument:
-                return compare(lhs.instrumentName, rhs.instrumentName)
-            case .currency:
-                return compare(lhs.instrumentCurrency, rhs.instrumentCurrency)
-            case .quantity:
-                return compare(lhs.quantity, rhs.quantity)
-            case .purchasePrice:
-                return compare(lhs.purchasePrice ?? 0, rhs.purchasePrice ?? 0)
-            case .currentPrice:
-                return compare(lhs.currentPrice ?? 0, rhs.currentPrice ?? 0)
-            case .uploadedAt:
-                return compare(lhs.uploadedAt, rhs.uploadedAt)
-            case .reportDate:
-                return compare(lhs.reportDate, rhs.reportDate)
-            }
-        }
+        filteredPositions.sorted(using: sortOrder)
     }
 
     var filteredPositions: [PositionReportData] {
@@ -177,7 +152,7 @@ struct PositionsView: View {
 
     private var positionsContent: some View {
         let data = sortedPositions
-        return Table(data, selection: $selectedRows) {
+        return Table(data, sortOrder: $sortOrder, selection: $selectedRows) {
             positionColumns
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
@@ -201,7 +176,7 @@ struct PositionsView: View {
         }
 
         Group {
-            TableColumn(header: { headerLabel("Account", key: .account) }) { (position: PositionReportData) in
+            TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
                 Text(position.accountName)
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
@@ -210,7 +185,7 @@ struct PositionsView: View {
                     .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
             }
 
-            TableColumn(header: { headerLabel("Institution", key: .institution) }) { (position: PositionReportData) in
+            TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
                 Text(position.institutionName)
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
@@ -219,7 +194,7 @@ struct PositionsView: View {
                     .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
             }
 
-            TableColumn(header: { headerLabel("Instrument", key: .instrument) }) { (position: PositionReportData) in
+            TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
                 Text(position.instrumentName)
                     .font(.system(size: 14))
                     .foregroundColor(.primary)
@@ -228,7 +203,7 @@ struct PositionsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            TableColumn(header: { headerLabel("Currency", key: .currency) }) { (position: PositionReportData) in
+            TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
                 Text(position.instrumentCurrency)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(colorForCurrency(position.instrumentCurrency))
@@ -237,7 +212,7 @@ struct PositionsView: View {
                     .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
             }
 
-            TableColumn(header: { headerLabel("Qty", key: .quantity) }) { (position: PositionReportData) in
+            TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
                 Text(String(format: "%.2f", position.quantity))
                     .font(.system(size: 14, design: .monospaced))
                     .lineLimit(2)
@@ -245,7 +220,7 @@ struct PositionsView: View {
                     .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
             }
 
-            TableColumn(header: { headerLabel("Purchase", key: .purchasePrice) }) { (position: PositionReportData) in
+            TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
                 if let p = position.purchasePrice {
                     Text(String(format: "%.2f", p))
                         .font(.system(size: 14, design: .monospaced))
@@ -262,7 +237,7 @@ struct PositionsView: View {
                 }
             }
 
-            TableColumn(header: { headerLabel("Current", key: .currentPrice) }) { (position: PositionReportData) in
+            TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
                 if let cp = position.currentPrice {
                     Text(String(format: "%.2f", cp))
                         .font(.system(size: 14, design: .monospaced))
@@ -281,7 +256,7 @@ struct PositionsView: View {
         }
 
         Group {
-            TableColumn(header: { headerLabel("Dates", key: .uploadedAt) }) { (position: PositionReportData) in
+            TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
                 VStack {
                     Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                     Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
@@ -417,21 +392,6 @@ struct PositionsView: View {
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
     }
 
-    private func headerLabel(_ title: String, key: SortKey) -> some View {
-        HStack(spacing: 2) {
-            Text(title)
-            if sortDescriptor.key == key {
-                Image(systemName: sortDescriptor.ascending ? "chevron.up" : "chevron.down")
-            }
-        }
-        .onTapGesture {
-            if sortDescriptor.key == key {
-                sortDescriptor.ascending.toggle()
-            } else {
-                sortDescriptor = (key, true)
-            }
-        }
-    }
 
     private func colorForCurrency(_ code: String) -> Color {
         switch code.uppercased() {
