@@ -159,19 +159,6 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("ID") { position in
-                    Text(String(position.id))
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .frame(minWidth: 50, idealWidth: 50, maxWidth: 100, alignment: .leading)
-                }
-
-                TableColumn("Session") { position in
-                    Text(position.importSessionId.map { String($0) } ?? "-")
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(minWidth: 70, idealWidth: 70, maxWidth: 120, alignment: .leading)
-                }
-
                 TableColumn("Account") { position in
                     Text(position.accountName)
                         .font(.system(size: 13))
@@ -235,18 +222,14 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("Uploaded") { position in
-                    Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
-                }
-
-                TableColumn("Report") { position in
-                    Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
+                TableColumn("Dates") { position in
+                    VStack {
+                        Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
+                        Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
                 }
 
                 TableColumn("Actions") { position in
