@@ -12,9 +12,18 @@
 import SQLite3
 import Foundation
 
+enum DatabaseMode: String {
+    case production
+    case test
+}
+
 class DatabaseManager: ObservableObject {
     var db: OpaquePointer?
     private var dbPath: String
+    private let appDir: URL
+
+    @Published var dbMode: DatabaseMode
+    @Published var dbFileSize: Int64 = 0
     
     // Existing @Published properties
     @Published var baseCurrency: String = "CHF"
@@ -34,13 +43,16 @@ class DatabaseManager: ObservableObject {
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
     init() {
-        // ... (init logic remains the same as v1.3) ...
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("DragonShield")
-        
+        self.appDir = appSupport.appendingPathComponent("DragonShield")
+
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
-        
-        self.dbPath = appDir.appendingPathComponent("dragonshield.sqlite").path
+
+        let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
+        let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
+        self.dbMode = mode
+        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+
         
         #if DEBUG
         let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
@@ -75,7 +87,7 @@ class DatabaseManager: ObservableObject {
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
     
-    private func openDatabase() {
+    func openDatabase() {
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
         if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
             print("✅ Database opened: \(dbPath)")
@@ -98,12 +110,52 @@ class DatabaseManager: ObservableObject {
             let attrs = try FileManager.default.attributesOfItem(atPath: dbPath)
             DispatchQueue.main.async {
                 self.dbFilePath = self.dbPath
+                if let size = attrs[.size] as? NSNumber {
+                    self.dbFileSize = size.int64Value
+                }
                 self.dbCreated = attrs[.creationDate] as? Date
                 self.dbModified = attrs[.modificationDate] as? Date
             }
         } catch {
             print("⚠️ Failed to read DB file attributes: \(error)")
         }
+    }
+
+    func closeConnection() {
+        if let pointer = db {
+            sqlite3_close(pointer)
+            db = nil
+            print("✅ Database connection closed")
+        }
+    }
+
+    func reopenDatabase() {
+        closeConnection()
+        openDatabase()
+        loadConfiguration()
+        updateFileMetadata()
+    }
+
+    func switchMode() {
+        dbMode = dbMode == .production ? .test : .production
+        UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
+        dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+
+        if !FileManager.default.fileExists(atPath: dbPath) {
+            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+                try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
+            }
+        }
+        reopenDatabase()
+    }
+
+    func runMigrations() {
+        // Placeholder for future migration logic
+        print("ℹ️ runMigrations called - no migrations to apply")
+    }
+
+    private static func fileName(for mode: DatabaseMode) -> String {
+        mode == .production ? "dragonshield.sqlite" : "dragonshield_test.sqlite"
     }
     
     deinit {
