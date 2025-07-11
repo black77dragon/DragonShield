@@ -11,7 +11,7 @@ struct PositionsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
     @State private var positions: [PositionReportData] = []
-    @State private var selectedPosition: PositionReportData? = nil
+    @State private var selectedRows = Set<PositionReportData.ID>()
     @State private var searchText = ""
 
     @State private var institutions: [DatabaseManager.InstitutionData] = []
@@ -145,7 +145,7 @@ struct PositionsView: View {
     }
 
     private var positionsContent: some View {
-        Table(filteredPositions, selection: $selectedPosition) {
+        Table(filteredPositions, selection: $selectedRows) {
             TableColumn("") { position in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
