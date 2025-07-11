@@ -49,8 +49,10 @@ class DatabaseManager: ObservableObject {
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
-        self.dbMode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
-        self.dbPath = appDir.appendingPathComponent(fileName(for: dbMode)).path
+        let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
+        self.dbMode = mode
+        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+
         
         #if DEBUG
         let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
@@ -137,7 +139,8 @@ class DatabaseManager: ObservableObject {
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-        dbPath = appDir.appendingPathComponent(fileName(for: dbMode)).path
+        dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
                 try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
@@ -151,7 +154,7 @@ class DatabaseManager: ObservableObject {
         print("ℹ️ runMigrations called - no migrations to apply")
     }
 
-    private func fileName(for mode: DatabaseMode) -> String {
+    private static func fileName(for mode: DatabaseMode) -> String {
         mode == .production ? "dragonshield.sqlite" : "dragonshield_test.sqlite"
     }
     
