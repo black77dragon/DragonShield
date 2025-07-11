@@ -16,6 +16,12 @@ struct DragonShieldApp: App {
             }
             .environmentObject(assetManager) // Your existing one
             .environmentObject(databaseManager) // <<<< ADD THIS LINE
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ModeBadge()
+                        .environmentObject(databaseManager)
+                }
+            }
         }
     }
 }
