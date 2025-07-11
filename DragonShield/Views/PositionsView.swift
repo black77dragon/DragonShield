@@ -178,124 +178,129 @@ struct PositionsView: View {
     private var positionsContent: some View {
         let data = sortedPositions
         return Table(data, selection: $selectedRows) {
-            TableColumn("") { (position: PositionReportData) in
-                if let notes = position.notes, !notes.isEmpty {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
-                        .help("Contains notes")
-                        .accessibilityLabel("Contains notes")
-                        .frame(width: 20)
-                } else {
-                    Color.clear.frame(width: 20)
-                }
-            }
-
-            Group {
-                TableColumn(header: { headerLabel("Account", key: .account) }) { (position: PositionReportData) in
-                    Text(position.accountName)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn(header: { headerLabel("Institution", key: .institution) }) { (position: PositionReportData) in
-                    Text(position.institutionName)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn(header: { headerLabel("Instrument", key: .instrument) }) { (position: PositionReportData) in
-                    Text(position.instrumentName)
-                        .font(.system(size: 14))
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn(header: { headerLabel("Currency", key: .currency) }) { (position: PositionReportData) in
-                    Text(position.instrumentCurrency)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundColor(colorForCurrency(position.instrumentCurrency))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
-                }
-
-                TableColumn(header: { headerLabel("Qty", key: .quantity) }) { (position: PositionReportData) in
-                    Text(String(format: "%.2f", position.quantity))
-                        .font(.system(size: 14, design: .monospaced))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
-                }
-
-                TableColumn(header: { headerLabel("Purchase", key: .purchasePrice) }) { (position: PositionReportData) in
-                    if let p = position.purchasePrice {
-                        Text(String(format: "%.2f", p))
-                            .font(.system(size: 14, design: .monospaced))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-
-                TableColumn(header: { headerLabel("Current", key: .currentPrice) }) { (position: PositionReportData) in
-                    if let cp = position.currentPrice {
-                        Text(String(format: "%.2f", cp))
-                            .font(.system(size: 14, design: .monospaced))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-            }
-
-            Group {
-                TableColumn(header: { headerLabel("Dates", key: .uploadedAt) }) { (position: PositionReportData) in
-                    VStack {
-                        Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
-                        Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
-                }
-
-                TableColumn("Actions") { (position: PositionReportData) in
-                    HStack(spacing: 8) {
-                        Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-                            .buttonStyle(PlainButtonStyle())
-                        Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
-                            .buttonStyle(PlainButtonStyle())
-                    }
-                    .frame(width: 50)
-                }
-            }
+            positionColumns
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .padding(24)
         .background(Theme.surface)
         .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    private var positionColumns: some View {
+        TableColumn("") { (position: PositionReportData) in
+            if let notes = position.notes, !notes.isEmpty {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.blue)
+                    .help("Contains notes")
+                    .accessibilityLabel("Contains notes")
+                    .frame(width: 20)
+            } else {
+                Color.clear.frame(width: 20)
+            }
+        }
+
+        Group {
+            TableColumn(header: { headerLabel("Account", key: .account) }) { (position: PositionReportData) in
+                Text(position.accountName)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+            }
+
+            TableColumn(header: { headerLabel("Institution", key: .institution) }) { (position: PositionReportData) in
+                Text(position.institutionName)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+            }
+
+            TableColumn(header: { headerLabel("Instrument", key: .instrument) }) { (position: PositionReportData) in
+                Text(position.instrumentName)
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            TableColumn(header: { headerLabel("Currency", key: .currency) }) { (position: PositionReportData) in
+                Text(position.instrumentCurrency)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
+            }
+
+            TableColumn(header: { headerLabel("Qty", key: .quantity) }) { (position: PositionReportData) in
+                Text(String(format: "%.2f", position.quantity))
+                    .font(.system(size: 14, design: .monospaced))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
+            }
+
+            TableColumn(header: { headerLabel("Purchase", key: .purchasePrice) }) { (position: PositionReportData) in
+                if let p = position.purchasePrice {
+                    Text(String(format: "%.2f", p))
+                        .font(.system(size: 14, design: .monospaced))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                } else {
+                    Text("-")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+
+            TableColumn(header: { headerLabel("Current", key: .currentPrice) }) { (position: PositionReportData) in
+                if let cp = position.currentPrice {
+                    Text(String(format: "%.2f", cp))
+                        .font(.system(size: 14, design: .monospaced))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                } else {
+                    Text("-")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+        }
+
+        Group {
+            TableColumn(header: { headerLabel("Dates", key: .uploadedAt) }) { (position: PositionReportData) in
+                VStack {
+                    Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
+                    Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
+                }
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
+            }
+
+            TableColumn("Actions") { (position: PositionReportData) in
+                HStack(spacing: 8) {
+                    Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
+                        .buttonStyle(PlainButtonStyle())
+                    Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
+                        .buttonStyle(PlainButtonStyle())
+                }
+                .frame(width: 50)
+            }
+        }
     }
 
 
