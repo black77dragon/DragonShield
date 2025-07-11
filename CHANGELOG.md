@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Fix compile error on macOS by using `.navigation` toolbar placement
-- Break out Database Management view into smaller parts to avoid type-check timeout
+- Refactor Database Management screen into subviews to resolve type-check timeout
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
 - Include all position fields in the add/edit position form
