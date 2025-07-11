@@ -27,6 +27,37 @@ struct PositionsView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
+    enum SortKey { case account, institution, instrument, currency, quantity, purchasePrice, currentPrice, uploadedAt, reportDate }
+    @State private var sortDescriptor: (key: SortKey, ascending: Bool) = (.account, true)
+
+    var sortedPositions: [PositionReportData] {
+        filteredPositions.sorted { lhs, rhs in
+            func compare<T: Comparable>(_ a: T, _ b: T) -> Bool {
+                sortDescriptor.ascending ? a < b : a > b
+            }
+            switch sortDescriptor.key {
+            case .account:
+                return compare(lhs.accountName, rhs.accountName)
+            case .institution:
+                return compare(lhs.institutionName, rhs.institutionName)
+            case .instrument:
+                return compare(lhs.instrumentName, rhs.instrumentName)
+            case .currency:
+                return compare(lhs.instrumentCurrency, rhs.instrumentCurrency)
+            case .quantity:
+                return compare(lhs.quantity, rhs.quantity)
+            case .purchasePrice:
+                return compare(lhs.purchasePrice ?? 0, rhs.purchasePrice ?? 0)
+            case .currentPrice:
+                return compare(lhs.currentPrice ?? 0, rhs.currentPrice ?? 0)
+            case .uploadedAt:
+                return compare(lhs.uploadedAt, rhs.uploadedAt)
+            case .reportDate:
+                return compare(lhs.reportDate, rhs.reportDate)
+            }
+        }
+    }
+
     var filteredPositions: [PositionReportData] {
         if searchText.isEmpty { return positions }
         return positions.filter { position in
@@ -145,7 +176,7 @@ struct PositionsView: View {
     }
 
     private var positionsContent: some View {
-        Table(filteredPositions, selection: $selectedRows) {
+        Table(sortedPositions, selection: $selectedRows) {
             TableColumn("") { (position: PositionReportData) in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
@@ -159,70 +190,87 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("Account") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Account", key: .account) }) { (position: PositionReportData) in
                     Text(position.accountName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Institution") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Institution", key: .institution) }) { (position: PositionReportData) in
                     Text(position.institutionName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Instrument") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Instrument", key: .instrument) }) { (position: PositionReportData) in
                     Text(position.instrumentName)
                         .font(.system(size: 14))
                         .foregroundColor(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Currency") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Currency", key: .currency) }) { (position: PositionReportData) in
                     Text(position.instrumentCurrency)
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
                 }
 
-                TableColumn("Qty") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Qty", key: .quantity) }) { (position: PositionReportData) in
                     Text(String(format: "%.2f", position.quantity))
                         .font(.system(size: 14, design: .monospaced))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
                 }
 
-                TableColumn("Purchase") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Purchase", key: .purchasePrice) }) { (position: PositionReportData) in
                     if let p = position.purchasePrice {
                         Text(String(format: "%.2f", p))
                             .font(.system(size: 14, design: .monospaced))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
 
-                TableColumn("Current") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Current", key: .currentPrice) }) { (position: PositionReportData) in
                     if let cp = position.currentPrice {
                         Text(String(format: "%.2f", cp))
                             .font(.system(size: 14, design: .monospaced))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
             }
 
             Group {
-                TableColumn("Dates") { (position: PositionReportData) in
+                TableColumn(header: { headerLabel("Dates", key: .uploadedAt) }) { (position: PositionReportData) in
                     VStack {
                         Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                         Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
@@ -361,6 +409,22 @@ struct PositionsView: View {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
+    }
+
+    private func headerLabel(_ title: String, key: SortKey) -> some View {
+        HStack(spacing: 2) {
+            Text(title)
+            if sortDescriptor.key == key {
+                Image(systemName: sortDescriptor.ascending ? "chevron.up" : "chevron.down")
+            }
+        }
+        .onTapGesture {
+            if sortDescriptor.key == key {
+                sortDescriptor.ascending.toggle()
+            } else {
+                sortDescriptor = (key, true)
+            }
+        }
     }
 
     private func colorForCurrency(_ code: String) -> Color {
