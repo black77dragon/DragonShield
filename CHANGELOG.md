@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Improve Positions table with resizable columns and notes indicator
 - Fix compile error in Positions table selection binding
 - Fix compile error when setting table column widths
+- Add Database Management screen with backup and restore options
+- Show database metadata and allow switching between production and test modes
 - Fix table column width helper that broke compilation
 - Fix compile error when exceeding the column limit in the positions table
 - Reduce positions table to 10 columns so SwiftUI compiles

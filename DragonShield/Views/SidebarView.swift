@@ -112,16 +112,9 @@ struct SidebarView: View {
                 }
                 .onTapGesture {}
                 
-                HStack {
-                    Label("Backup & Restore", systemImage: "externaldrive.badge.timemachine")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("(coming soon)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .italic()
+                NavigationLink(destination: DatabaseManagementView()) {
+                    Label("Database Management", systemImage: "externaldrive.badge.timemachine")
                 }
-                .onTapGesture {}
             }
         }
         .listStyle(.sidebar)
