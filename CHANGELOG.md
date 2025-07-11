@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 - Include all position fields in the add/edit position form
 - Fix compilation errors in Positions view after CRUD refactor
 - Fix SQLITE_TRANSIENT not found when binding position report text fields
+- Allow sorting columns and wrap long text in the Positions table
+- Fix compile error from type-checking the Positions table after adding sorting
+- Resolve compile timeout in Positions table by extracting column views
+- Use built-in table sortOrder to fix header sorting compile errors
+- Fix compile errors in positions table by inlining columns and ordering arguments correctly
 - Allow optional import session when saving positions and add picker placeholders
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Improve Positions table with resizable columns and notes indicator

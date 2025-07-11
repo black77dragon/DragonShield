@@ -27,6 +27,12 @@ struct PositionsView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
+    @State private var sortOrder = [KeyPathComparator(\PositionReportData.accountName)]
+
+    var sortedPositions: [PositionReportData] {
+        filteredPositions.sorted(using: sortOrder)
+    }
+
     var filteredPositions: [PositionReportData] {
         if searchText.isEmpty { return positions }
         return positions.filter { position in
@@ -144,8 +150,10 @@ struct PositionsView: View {
         .opacity(buttonsOpacity)
     }
 
+
     private var positionsContent: some View {
-        Table(filteredPositions, selection: $selectedRows) {
+        let data = sortedPositions
+        return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
             TableColumn("") { (position: PositionReportData) in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
@@ -159,70 +167,87 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("Account") { (position: PositionReportData) in
+                TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
                     Text(position.accountName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Institution") { (position: PositionReportData) in
+                TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
                     Text(position.institutionName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Instrument") { (position: PositionReportData) in
+                TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
                     Text(position.instrumentName)
                         .font(.system(size: 14))
                         .foregroundColor(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Currency") { (position: PositionReportData) in
+                TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
                     Text(position.instrumentCurrency)
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
                 }
 
-                TableColumn("Qty") { (position: PositionReportData) in
+                TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
                     Text(String(format: "%.2f", position.quantity))
                         .font(.system(size: 14, design: .monospaced))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
                 }
 
-                TableColumn("Purchase") { (position: PositionReportData) in
+                TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
                     if let p = position.purchasePrice {
                         Text(String(format: "%.2f", p))
                             .font(.system(size: 14, design: .monospaced))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
 
-                TableColumn("Current") { (position: PositionReportData) in
+                TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
                     if let cp = position.currentPrice {
                         Text(String(format: "%.2f", cp))
                             .font(.system(size: 14, design: .monospaced))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
             }
 
             Group {
-                TableColumn("Dates") { (position: PositionReportData) in
+                TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
                     VStack {
                         Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                         Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
@@ -362,6 +387,7 @@ struct PositionsView: View {
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
     }
+
 
     private func colorForCurrency(_ code: String) -> Color {
         switch code.uppercased() {
