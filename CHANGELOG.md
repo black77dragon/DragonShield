@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Improve Positions table with resizable columns and notes indicator
 - Fix compile error in Positions table selection binding
+- Fix compile error when setting table column widths
 - Reset sub-class targets to zero when their class target is set to zero
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane
