@@ -152,40 +152,38 @@ struct PositionsView: View {
                         .foregroundColor(.blue)
                         .help("Contains notes")
                         .accessibilityLabel("Contains notes")
+                        .frame(width: 20)
+                } else {
+                    Color.clear.frame(width: 20)
                 }
             }
-            .width(20)
 
             TableColumn("ID") { position in
                 Text(String(position.id))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 50, idealWidth: 50, maxWidth: 100, alignment: .leading)
             }
-            .width(min: 50, ideal: 50, max: 100)
 
             TableColumn("Session") { position in
                 Text(position.importSessionId.map { String($0) } ?? "-")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 70, idealWidth: 70, maxWidth: 120, alignment: .leading)
             }
-            .width(min: 70, ideal: 70, max: 120)
 
             TableColumn("Account") { position in
                 Text(position.accountName)
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 150, ideal: 150)
 
             TableColumn("Institution") { position in
                 Text(position.institutionName)
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 150, ideal: 150)
 
             TableColumn("Instrument") { position in
                 Text(position.instrumentName)
@@ -199,60 +197,54 @@ struct PositionsView: View {
                 Text(position.instrumentCurrency)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(colorForCurrency(position.instrumentCurrency))
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
             }
-            .width(min: 60, ideal: 60)
 
             TableColumn("Qty") { position in
                 Text(String(format: "%.2f", position.quantity))
                     .font(.system(size: 14, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
             }
-            .width(min: 60, ideal: 60)
 
             TableColumn("Purchase") { position in
                 if let p = position.purchasePrice {
                     Text(String(format: "%.2f", p))
                         .font(.system(size: 14, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                 } else {
                     Text("-")
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                 }
             }
-            .width(min: 70, ideal: 70)
 
             TableColumn("Current") { position in
                 if let cp = position.currentPrice {
                     Text(String(format: "%.2f", cp))
                         .font(.system(size: 14, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                 } else {
                     Text("-")
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                 }
             }
-            .width(min: 70, ideal: 70)
 
             TableColumn("Uploaded") { position in
                 Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
             }
-            .width(min: 110, ideal: 110)
 
             TableColumn("Report") { position in
                 Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
             }
-            .width(min: 110, ideal: 110)
 
             TableColumn("Actions") { position in
                 HStack(spacing: 8) {
@@ -261,8 +253,8 @@ struct PositionsView: View {
                     Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
                         .buttonStyle(PlainButtonStyle())
                 }
+                .frame(width: 50)
             }
-            .width(50)
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .padding(24)

@@ -15,14 +15,4 @@ struct ScaleButtonStyle: ButtonStyle {
 
 // You can add other common ButtonStyles, ViewModifiers, etc., here in the future.
 
-extension View {
-    /// Convenience wrapper around `frame` for specifying a column width.
-    func width(_ value: CGFloat) -> some View {
-        frame(width: value)
-    }
 
-    /// Convenience wrapper around `frame` for resizable column widths.
-    func width(min: CGFloat? = nil, ideal: CGFloat? = nil, max: CGFloat? = nil) -> some View {
-        frame(minWidth: min, idealWidth: ideal, maxWidth: max)
-    }
-}
