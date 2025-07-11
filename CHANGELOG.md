@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Fix table column width helper that broke compilation
 - Fix compile error when exceeding the column limit in the positions table
 - Reduce positions table to 10 columns so SwiftUI compiles
+- Fix type inference issue in Positions table column closures
 - Reset sub-class targets to zero when their class target is set to zero
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane

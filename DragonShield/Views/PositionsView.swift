@@ -146,7 +146,7 @@ struct PositionsView: View {
 
     private var positionsContent: some View {
         Table(filteredPositions, selection: $selectedRows) {
-            TableColumn("") { position in
+            TableColumn("") { (position: PositionReportData) in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(.blue)
@@ -159,21 +159,21 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("Account") { position in
+                TableColumn("Account") { (position: PositionReportData) in
                     Text(position.accountName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Institution") { position in
+                TableColumn("Institution") { (position: PositionReportData) in
                     Text(position.institutionName)
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Instrument") { position in
+                TableColumn("Instrument") { (position: PositionReportData) in
                     Text(position.instrumentName)
                         .font(.system(size: 14))
                         .foregroundColor(.primary)
@@ -181,20 +181,20 @@ struct PositionsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Currency") { position in
+                TableColumn("Currency") { (position: PositionReportData) in
                     Text(position.instrumentCurrency)
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundColor(colorForCurrency(position.instrumentCurrency))
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
                 }
 
-                TableColumn("Qty") { position in
+                TableColumn("Qty") { (position: PositionReportData) in
                     Text(String(format: "%.2f", position.quantity))
                         .font(.system(size: 14, design: .monospaced))
                         .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
                 }
 
-                TableColumn("Purchase") { position in
+                TableColumn("Purchase") { (position: PositionReportData) in
                     if let p = position.purchasePrice {
                         Text(String(format: "%.2f", p))
                             .font(.system(size: 14, design: .monospaced))
@@ -207,7 +207,7 @@ struct PositionsView: View {
                     }
                 }
 
-                TableColumn("Current") { position in
+                TableColumn("Current") { (position: PositionReportData) in
                     if let cp = position.currentPrice {
                         Text(String(format: "%.2f", cp))
                             .font(.system(size: 14, design: .monospaced))
@@ -222,7 +222,7 @@ struct PositionsView: View {
             }
 
             Group {
-                TableColumn("Dates") { position in
+                TableColumn("Dates") { (position: PositionReportData) in
                     VStack {
                         Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                         Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
@@ -232,7 +232,7 @@ struct PositionsView: View {
                     .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
                 }
 
-                TableColumn("Actions") { position in
+                TableColumn("Actions") { (position: PositionReportData) in
                     HStack(spacing: 8) {
                         Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
                             .buttonStyle(PlainButtonStyle())
