@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 - Fix SQLITE_TRANSIENT not found when binding position report text fields
 - Allow optional import session when saving positions and add picker placeholders
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
+- Improve Positions table with resizable columns and notes indicator
+- Fix compile error in Positions table selection binding
+- Fix compile error when setting table column widths
+- Fix table column width helper that broke compilation
+- Fix compile error when exceeding the column limit in the positions table
+- Reduce positions table to 10 columns so SwiftUI compiles
+- Fix type inference issue in Positions table column closures
 - Reset sub-class targets to zero when their class target is set to zero
 - Fix build issue in Target Allocation view by breaking out subviews
 - Resolve compile timeout in Target Allocation view by splitting left pane
