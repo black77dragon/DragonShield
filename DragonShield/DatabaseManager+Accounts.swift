@@ -263,11 +263,32 @@ extension DatabaseManager {
         return result
     }
 
-    // deleteAccount and canDeleteAccount remain unchanged as they don't directly use account_type
-    func deleteAccount(id: Int) -> Bool {
-        let query = "UPDATE accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?;"
+    /// Marks an account inactive without removing it from the database.
+    func disableAccount(id: Int) -> Bool {
+        let query = "UPDATE Accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?;"
         var statement: OpaquePointer?
-        
+
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare disableAccount (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        sqlite3_bind_int(statement, 1, Int32(id))
+        let result = sqlite3_step(statement) == SQLITE_DONE
+        sqlite3_finalize(statement)
+
+        if result {
+            print("✅ Disabled account (ID: \(id))")
+        } else {
+            print("❌ Disable account failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return result
+    }
+
+    /// Permanently removes an account if no dependent records exist.
+    func deleteAccount(id: Int) -> Bool {
+        let query = "DELETE FROM Accounts WHERE account_id = ?;"
+        var statement: OpaquePointer?
+
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deleteAccount (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
             return false
@@ -275,17 +296,41 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 1, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
+
         if result {
-            print("✅ Soft deleted account (ID: \(id))")
+            print("✅ Deleted account (ID: \(id))")
         } else {
-            print("❌ Soft delete account failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            print("❌ Delete account failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
         }
         return result
     }
 
+    /// Checks whether an account can be deleted or disabled.
+    /// Returns false if any transactions or position reports reference it.
     func canDeleteAccount(id: Int) -> (canDelete: Bool, dependencyCount: Int, message: String) {
-        return (canDelete: true, dependencyCount: 0, message: "Soft delete allowed. No dependency check implemented yet.")
+        let query = """
+            SELECT (SELECT COUNT(*) FROM Transactions WHERE account_id = ?) +
+                   (SELECT COUNT(*) FROM PositionReports WHERE account_id = ?);
+            """
+        var statement: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            sqlite3_bind_int(statement, 2, Int32(id))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                count = Int(sqlite3_column_int(statement, 0))
+            }
+        } else {
+            print("❌ Failed to prepare canDeleteAccount: \(String(cString: sqlite3_errmsg(db)))")
+            sqlite3_finalize(statement)
+            return (false, 0, "Error checking account dependencies.")
+        }
+        sqlite3_finalize(statement)
+
+        if count > 0 {
+            return (false, count, "Account is linked to \(count) record(s) and cannot be modified.")
+        }
+        return (true, 0, "Account can be deleted or disabled.")
     }
 
     /// Returns the account_id for a given account number, optionally matching

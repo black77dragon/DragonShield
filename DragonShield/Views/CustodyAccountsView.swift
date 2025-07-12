@@ -72,16 +72,17 @@ struct CustodyAccountsView: View {
                 EditCustodyAccountView(accountId: account.id).environmentObject(dbManager)
             }
         }
-        .alert("Delete Account", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                if let account = accountToDelete {
-                    confirmDelete(account)
-                }
+        .confirmationDialog("Account Action", isPresented: $showingDeleteAlert, titleVisibility: .visible) {
+            Button("Disable Account", role: .destructive) {
+                if let account = accountToDelete { confirmDisable(account) }
             }
+            Button("Delete Account", role: .destructive) {
+                if let account = accountToDelete { confirmDelete(account) }
+            }
+            Button("Cancel", role: .cancel) { }
         } message: {
             if let account = accountToDelete {
-                Text("Are you sure you want to delete account '\(account.accountName)' (\(account.accountNumber))? This will mark it as inactive.")
+                Text("Choose whether to disable or permanently delete '\(account.accountName)' (\(account.accountNumber)). Accounts can only be modified if no instruments are linked.")
             }
         }
     }
@@ -225,12 +226,56 @@ struct CustodyAccountsView: View {
     func loadAccounts() {
         accounts = self.dbManager.fetchAccounts()
     }
-    
+
+    func confirmDisable(_ account: DatabaseManager.AccountData) {
+        let result = dbManager.canDeleteAccount(id: account.id)
+        if result.canDelete {
+            let alert = NSAlert()
+            alert.messageText = "Disable Account"
+            alert.informativeText = "Are you sure you want to disable '\(account.accountName)'?"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Disable")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn {
+                if dbManager.disableAccount(id: account.id) {
+                    loadAccounts()
+                    selectedAccount = nil
+                    accountToDelete = nil
+                }
+            }
+        } else {
+            let alert = NSAlert()
+            alert.messageText = "Cannot Disable Account"
+            alert.informativeText = result.message
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
     func confirmDelete(_ account: DatabaseManager.AccountData) {
-        if self.dbManager.deleteAccount(id: account.id) {
-            loadAccounts()
-            selectedAccount = nil
-            accountToDelete = nil
+        let result = dbManager.canDeleteAccount(id: account.id)
+        if result.canDelete {
+            let alert = NSAlert()
+            alert.messageText = "Delete Account"
+            alert.informativeText = "Are you sure you want to permanently delete '\(account.accountName)'?"
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "Delete")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn {
+                if dbManager.deleteAccount(id: account.id) {
+                    loadAccounts()
+                    selectedAccount = nil
+                    accountToDelete = nil
+                }
+            }
+        } else {
+            let alert = NSAlert()
+            alert.messageText = "Cannot Delete Account"
+            alert.informativeText = result.message
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
 }
