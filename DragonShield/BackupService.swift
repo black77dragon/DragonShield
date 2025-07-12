@@ -310,4 +310,26 @@ class BackupService: ObservableObject {
         }
 
     }
+
+    private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        return rowCounts(db: db, tables: tables)
+    }
+
+    private func rowCounts(db: OpaquePointer, tables: [String]) -> [(String, Int)] {
+        var result: [(String, Int)] = []
+        var stmt: OpaquePointer?
+        for table in tables {
+            if sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    result.append((table, Int(sqlite3_column_int(stmt, 0))))
+                }
+            }
+            sqlite3_finalize(stmt)
+            stmt = nil
+        }
+        return result
+    }
 }
