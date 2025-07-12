@@ -153,4 +153,5 @@ All notable changes to this project will be documented in this file.
 - Extract log lists into subviews to resolve type-check timeout
 - Remove unused subviews from Database Management view to keep compile times fast
 - Close edit asset class sheet when save succeeds
+- Add risk-adjusted performance dashboard powered by Python analytics
 
