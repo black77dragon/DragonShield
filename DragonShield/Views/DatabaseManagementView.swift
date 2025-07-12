@@ -63,6 +63,18 @@ struct DatabaseManagementView: View {
                     .keyboardShortcut("r", modifiers: [.command])
                     .buttonStyle(SecondaryButtonStyle())
                     .help("Replace current database with a backup file")
+                    .fileImporter(
+                        isPresented: $showingFileImporter,
+                        allowedContentTypes: [UTType(filenameExtension: "db")!]
+                    ) { result in
+                        switch result {
+                        case .success(let url):
+                            restoreURL = url
+                            showRestoreConfirm = true
+                        case .failure(let error):
+                            errorMessage = error.localizedDescription
+                        }
+                    }
             }
             Text("Last Full Backup: \(formattedDate(backupService.lastBackup))")
                 .font(.caption)
@@ -85,6 +97,18 @@ struct DatabaseManagementView: View {
                 Button("Restore Reference Data…") { showingReferenceImporter = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .help("Apply a reference data backup to the current database")
+                    .fileImporter(
+                        isPresented: $showingReferenceImporter,
+                        allowedContentTypes: [UTType(filenameExtension: "sql")!]
+                    ) { result in
+                        switch result {
+                        case .success(let url):
+                            restoreReferenceURL = url
+                            showReferenceRestoreConfirm = true
+                        case .failure(let error):
+                            errorMessage = error.localizedDescription
+                        }
+                    }
             }
             Text("Last Reference Backup: \(formattedDate(backupService.lastReferenceBackup))")
                 .font(.caption)
@@ -192,30 +216,6 @@ struct DatabaseManagementView: View {
 
     var body: some View {
         managementContent
-            .fileImporter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [UTType(filenameExtension: "db")!]
-            ) { result in
-                switch result {
-                case .success(let url):
-                    restoreURL = url
-                    showRestoreConfirm = true
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
-                }
-            }
-            .fileImporter(
-                isPresented: $showingReferenceImporter,
-                allowedContentTypes: [UTType(filenameExtension: "sql")!]
-            ) { result in
-                switch result {
-                case .success(let url):
-                    restoreReferenceURL = url
-                    showReferenceRestoreConfirm = true
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
-                }
-            }
             .alert("Error", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -267,7 +267,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performBackup(dbPath: dbManager.dbFilePath, to: url)
+                _ = try backupService.performBackup(dbManager: dbManager, dbPath: dbManager.dbFilePath, to: url, tables: backupService.fullTables, label: "Full")
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -298,7 +298,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.backupReferenceData(dbPath: dbManager.dbFilePath, to: url)
+                _ = try backupService.backupReferenceData(dbManager: dbManager, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -313,7 +313,7 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                try backupService.performRestore(dbManager: dbManager, from: url)
+                try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
