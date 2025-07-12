@@ -76,13 +76,13 @@ struct DatabaseManagementView: View {
                 .font(.headline)
             HStack(spacing: 12) {
                 Button(action: backupReferenceNow) {
-                    if processing { ProgressView() } else { Text("Backup Reference") }
+                    if processing { ProgressView() } else { Text("Backup Reference Data…") }
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(processing)
                 .help("Export reference tables to a SQL file")
 
-                Button("Restore Reference") { showingReferenceImporter = true }
+                Button("Restore Reference Data…") { showingReferenceImporter = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .help("Apply a reference data backup to the current database")
             }
@@ -298,7 +298,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performReferenceBackup(dbPath: dbManager.dbFilePath, to: url)
+                _ = try backupService.backupReferenceData(dbPath: dbManager.dbFilePath, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -329,7 +329,7 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                try backupService.performReferenceRestore(dbManager: dbManager, from: url)
+                try backupService.restoreReferenceData(dbManager: dbManager, from: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
