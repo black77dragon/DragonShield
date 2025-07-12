@@ -136,6 +136,18 @@ class DatabaseManager: ObservableObject {
         updateFileMetadata()
     }
 
+    func rowCount(table: String) throws -> Int {
+        guard let db else { return 0 }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        let sql = "SELECT COUNT(*) FROM \(table);"
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(db))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        return sqlite3_step(stmt) == SQLITE_ROW ? Int(sqlite3_column_int(stmt, 0)) : 0
+    }
+
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
