@@ -203,12 +203,9 @@ class BackupService: ObservableObject {
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in referenceTables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Backed up Reference data — " + counts.joined(separator: ", "))
+            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
         }
 
@@ -278,12 +275,9 @@ class BackupService: ObservableObject {
         let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
-        var counts = [String]()
-        for tbl in referenceTables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored Reference data — " + counts.joined(separator: ", "))
+            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
         }
 

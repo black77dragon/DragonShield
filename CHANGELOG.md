@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
+- Fix redeclaration of `counts` in BackupService
 - Backup reference data separately via new UI button and CLI flag
 - Restore reference data from SQL or JSON with dedicated button
 - Export reference tables as SQL with CREATE and INSERT statements
