@@ -29,6 +29,17 @@ struct DatabaseManagementView: View {
                 Text("Schema Version:")
                 Text(dbManager.dbVersion)
             }
+            GridRow {
+                Text("Backup Directory:")
+                HStack {
+                    Text(backupService.backupDirectory.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.caption)
+                    Button("Change…") { chooseBackupDirectory() }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
         }
     }
 
@@ -143,10 +154,20 @@ struct DatabaseManagementView: View {
     }
 
     private func backupNow() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedFileTypes = ["db"]
+        panel.directoryURL = backupService.backupDirectory
+        panel.nameFieldStringValue = BackupService.defaultFileName(
+            mode: dbManager.dbMode,
+            version: dbManager.dbVersion
+        )
+        guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
         DispatchQueue.global().async {
             do {
-                _ = try backupService.performBackup(dbPath: dbManager.dbFilePath)
+                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
+                _ = try backupService.performBackup(dbPath: dbManager.dbFilePath, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -168,6 +189,22 @@ struct DatabaseManagementView: View {
                     processing = false
                     errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func chooseBackupDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = backupService.backupDirectory
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                try backupService.updateBackupDirectory(to: url)
+            } catch {
+                errorMessage = error.localizedDescription
             }
         }
     }
