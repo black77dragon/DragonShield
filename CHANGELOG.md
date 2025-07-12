@@ -3,9 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Replace Load Documents with Data Import/Export view and statement log
+- Enable file picker and drag-and-drop on Data Import/Export screen
+- Document Data Import/Export screen spec with Statement Loading Log and wireframe
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService
+- Fix compile error when restoring reference data due to undefined `counts`
 - Backup reference data separately via new UI button and CLI flag
 - Restore reference data from SQL or JSON with dedicated button
 - Export reference tables as SQL with CREATE and INSERT statements

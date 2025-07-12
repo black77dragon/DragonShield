@@ -6,13 +6,11 @@
 // - 1.6 -> 1.7: Added "Positions" navigation link.
 // - 1.7 -> 1.8: Added "Edit Institutions" navigation link.
 // - 1.8 -> 1.9: Converted Load Documents action back to NavigationLink with error alert support.
+// - 1.9 -> 2.0: Replaced Load Documents with Data Import/Export view.
 // - (Previous history)
 
 import SwiftUI
 import AppKit
-
-// Access to the import parser
-private let importManager = ImportManager.shared
 
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -43,9 +41,6 @@ struct SidebarView: View {
             
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
-                NavigationLink(destination: ImportStatementView()) {
-                    Label("Load Documents", systemImage: "doc.text.fill")
-                }
                 
                 NavigationLink(destination: CurrenciesView()) {
                     Label("Edit Currencies", systemImage: "dollarsign.circle.fill")
@@ -101,16 +96,9 @@ struct SidebarView: View {
                     Label("Settings", systemImage: "gear")
                 }
                 
-                HStack {
+                NavigationLink(destination: DataImportExportView()) {
                     Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("(coming soon)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .italic()
                 }
-                .onTapGesture {}
                 
                 NavigationLink(destination: DatabaseManagementView()) {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
