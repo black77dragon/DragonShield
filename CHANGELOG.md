@@ -168,3 +168,4 @@ All notable changes to this project will be documented in this file.
 - Fix duplicate reference restore function to resolve compilation error
 - Fix missing SQLITE_TRANSIENT constant in reference data backup
 
+- Fix nested transaction error during reference data restore

@@ -208,21 +208,27 @@ class BackupService: ObservableObject {
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
         guard let db = dbManager.db else { return }
-        let sql = try String(contentsOf: url, encoding: .utf8)
-        try execute("PRAGMA foreign_keys=OFF;", on: db)
-        try execute("BEGIN TRANSACTION;", on: db)
+        let rawSQL = try String(contentsOf: url, encoding: .utf8)
+
+        // Remove transaction wrappers to avoid nested transactions
+        let cleanedSQL = rawSQL
+            .replacingOccurrences(of: "PRAGMA foreign_keys=OFF;", with: "")
+            .replacingOccurrences(of: "BEGIN TRANSACTION;", with: "")
+            .replacingOccurrences(of: "COMMIT;", with: "")
+            .replacingOccurrences(of: "PRAGMA foreign_keys=ON;", with: "")
+
+        // Drop existing reference tables before importing
         for table in referenceTables {
             try execute("DROP TABLE IF EXISTS \(table);", on: db)
         }
-        if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
+
+        // Execute dump in autocommit mode
+        if sqlite3_exec(db, cleanedSQL, nil, nil, nil) != SQLITE_OK {
             let msg = String(cString: sqlite3_errmsg(db))
-            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
-            sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
             appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
             throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
-        try execute("COMMIT;", on: db)
-        try execute("PRAGMA foreign_keys=ON;", on: db)
+
         dbManager.loadConfiguration()
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
