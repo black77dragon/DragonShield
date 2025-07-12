@@ -17,6 +17,7 @@ struct ImportStatementView: View {
     @State private var showingFileImporter = false
     @State private var errorMessage: String?
     @State private var logMessages: [String] = []
+    @StateObject private var importLog = ImportLogService.shared
     @State private var importSummary: PositionImportSummary?
     @State private var showSummaryPanel = false
 
@@ -85,6 +86,8 @@ struct ImportStatementView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal)
+
+                statementLogView
             }
         }
         .fileImporter(
@@ -258,6 +261,29 @@ struct ImportStatementView: View {
                 .padding(.top, 10)
             }
         }
+    }
+
+    private var statementLogView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Statement Loading Log")
+                .font(.headline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(importLog.logMessages, id: \.self) { entry in
+                        Text(entry)
+                            .font(.system(.caption2, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .frame(maxHeight: 160)
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2))
+            )
+        }
+        .padding(.top, 24)
     }
 
     // MARK: - Logic Handlers

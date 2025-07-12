@@ -192,12 +192,18 @@ class ImportManager {
                 DispatchQueue.main.async {
                     completion(.success(json))
                 }
+                ImportLogService.shared.appendLog(fileName: url.lastPathComponent,
+                                                  success: true,
+                                                  details: "\(records.count) records.")
                 LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
+                ImportLogService.shared.appendLog(fileName: url.lastPathComponent,
+                                                  success: false,
+                                                  details: error.localizedDescription)
             }
         }
     }
@@ -468,12 +474,18 @@ class ImportManager {
                 DispatchQueue.main.async {
                     completion(.success(summary))
                 }
+                ImportLogService.shared.appendLog(fileName: url.lastPathComponent,
+                                                  success: true,
+                                                  details: "\(summary.parsedRows) records.")
                 LoggingService.shared.log("Position import complete", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Position import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
+                ImportLogService.shared.appendLog(fileName: url.lastPathComponent,
+                                                  success: false,
+                                                  details: error.localizedDescription)
             }
         }
     }

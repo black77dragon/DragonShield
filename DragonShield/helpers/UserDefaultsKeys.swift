@@ -11,6 +11,7 @@ struct UserDefaultsKeys {
     static let automaticBackupsEnabled = "automaticBackupsEnabled"
     static let automaticBackupTime = "automaticBackupTime"
     static let backupLog = "backupLog"
+    static let statementLog = "statementLog"
     static let lastBackupTimestamp = "lastBackupTimestamp"
     static let lastReferenceBackupTimestamp = "lastReferenceBackupTimestamp"
     static let databaseMode = "databaseMode"
