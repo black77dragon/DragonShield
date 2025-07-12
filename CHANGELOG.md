@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Document Data Import/Export screen spec with Statement Loading Log
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService
