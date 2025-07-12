@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Refactor Database Management screen into subviews to resolve type-check timeout
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
+- Offer disable or delete option for custody accounts with dependency check
 - Include all position fields in the add/edit position form
 - Fix compilation errors in Positions view after CRUD refactor
 - Move database info panel from Settings to Database Management view
