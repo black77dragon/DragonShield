@@ -44,8 +44,8 @@ REFERENCE_TABLES = [
 
 def default_ref_filename(mode: str, version: str) -> str:
     from datetime import datetime
-    ts = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    return f"DragonShield-REF-{mode}-v{version}-{ts}.sql"
+    ts = datetime.now().strftime("%Y%m%d")
+    return f"DragonShield_Reference_{mode}_v{version}_{ts}.sql"
 
 import deploy_db
 

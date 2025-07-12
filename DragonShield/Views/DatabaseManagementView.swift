@@ -10,6 +10,9 @@ struct DatabaseManagementView: View {
     @State private var showingFileImporter = false
     @State private var restoreURL: URL?
     @State private var showRestoreConfirm = false
+    @State private var showingReferenceImporter = false
+    @State private var referenceRestoreURL: URL?
+    @State private var showReferenceConfirm = false
     @State private var errorMessage: String?
 
     private var metadataView: some View {
@@ -43,44 +46,51 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private var actionsView: some View {
-        HStack(spacing: 12) {
-            Button(action: backupNow) {
-                if processing { ProgressView() } else { Text("Backup Database") }
+    private var fullDatabaseSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Full Database").font(.headline)
+            HStack(spacing: 12) {
+                Button(action: backupNow) {
+                    if processing { ProgressView() } else { Text("Backup Database") }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(processing)
+
+                Button("Restore Database") { showingFileImporter = true }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(processing)
             }
-            .keyboardShortcut("b", modifiers: [.command])
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(processing)
-            .accessibilityLabel("Backup Database")
-            .focusable()
-            .help("Create a backup copy of the current database")
+        }
+    }
 
-            Button(action: backupReferenceNow) {
-                if processing { ProgressView() } else { Text("Backup Reference Data") }
+    private var referenceDataSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Reference Data").font(.headline)
+            HStack(spacing: 12) {
+                Button(action: backupReferenceNow) {
+                    if processing { ProgressView() } else { Text("Backup Reference Data") }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(processing)
+
+                Button("Restore Reference Data") { showingReferenceImporter = true }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(processing)
             }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(processing)
-            .accessibilityLabel("Backup Reference Data")
-            .focusable()
-            .help("Export only reference tables to a SQL file")
+        }
+    }
 
-            Button("Restore from Backup") { showingFileImporter = true }
-                .keyboardShortcut("r", modifiers: [.command])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Restore from Backup")
-                .focusable()
-
-            Button("Switch Mode") { confirmSwitchMode() }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Switch Mode")
-                .focusable()
-
-            Button("Migrate Database") { migrateDatabase() }
-                .keyboardShortcut("m", modifiers: [.command])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Migrate Database")
-                .focusable()
+    private var transitionSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Transition Data").font(.headline)
+            HStack(spacing: 12) {
+                Button("Backup Transition Data") {}
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(true)
+                Button("Restore Transition Data") {}
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(true)
+            }
         }
     }
 
@@ -146,7 +156,16 @@ struct DatabaseManagementView: View {
 
             metadataView
 
-            actionsView
+            fullDatabaseSection
+            referenceDataSection
+            transitionSection
+
+            HStack(spacing: 12) {
+                Button("Switch Mode") { confirmSwitchMode() }
+                    .buttonStyle(SecondaryButtonStyle())
+                Button("Migrate Database") { migrateDatabase() }
+                    .buttonStyle(SecondaryButtonStyle())
+            }
 
             databaseInfoView
 
@@ -178,6 +197,18 @@ struct DatabaseManagementView: View {
                     errorMessage = error.localizedDescription
                 }
             }
+            .fileImporter(
+                isPresented: $showingReferenceImporter,
+                allowedContentTypes: [UTType(filenameExtension: "sql")!, .json]
+            ) { result in
+                switch result {
+                case .success(let url):
+                    referenceRestoreURL = url
+                    showReferenceConfirm = true
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
             .alert("Error", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -193,6 +224,14 @@ struct DatabaseManagementView: View {
                 Button("Cancel", role: .cancel) { restoreURL = nil }
             } message: {
                 Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
+            }
+            .alert("Restore Reference Data", isPresented: $showReferenceConfirm) {
+                Button("Restore", role: .destructive) {
+                    if let url = referenceRestoreURL { restoreReferenceData(url: url) }
+                }
+                Button("Cancel", role: .cancel) { referenceRestoreURL = nil }
+            } message: {
+                Text("This will overwrite your current reference tables. Continue?")
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
                 backupNow()
@@ -266,6 +305,21 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try backupService.performRestore(dbManager: dbManager, from: url)
+                DispatchQueue.main.async { processing = false }
+            } catch {
+                DispatchQueue.main.async {
+                    processing = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func restoreReferenceData(url: URL) {
+        processing = true
+        DispatchQueue.global().async {
+            do {
+                try backupService.performReferenceRestore(dbManager: dbManager, from: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
