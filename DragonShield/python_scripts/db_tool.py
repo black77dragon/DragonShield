@@ -40,6 +40,8 @@ REFERENCE_TABLES = [
     "TransactionTypes",
     "AssetClasses",
     "AssetSubClasses",
+    "Instruments",
+    "Accounts",
 ]
 
 def default_ref_filename(mode: str, version: str) -> str:
