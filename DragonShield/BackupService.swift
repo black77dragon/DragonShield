@@ -127,12 +127,32 @@ class BackupService: ObservableObject {
         "Accounts",
     ]
 
+    private let allTables = [
+        "Configuration",
+        "Currencies",
+        "ExchangeRates",
+        "FxRateUpdates",
+        "AssetClasses",
+        "AssetSubClasses",
+        "Instruments",
+        "Portfolios",
+        "PortfolioInstruments",
+        "AccountTypes",
+        "Institutions",
+        "Accounts",
+        "TransactionTypes",
+        "Transactions",
+        "ImportSessions",
+        "PositionReports",
+    ]
+
     func performBackup(dbPath: String, to destination: URL) throws -> URL {
+        let counts = rowCounts(dbPath: dbPath, tables: allTables)
         let fm = FileManager.default
         try fm.copyItem(atPath: dbPath, toPath: destination.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-        appendLog(action: "Backup", file: destination.path, success: true)
+        appendLog(action: "Backup Full DB", file: destination.lastPathComponent, success: true, counts: counts)
         return destination
     }
 
@@ -183,9 +203,10 @@ class BackupService: ObservableObject {
 
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
+        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
-        appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
+        appendLog(action: "Backup Reference Data", file: destination.lastPathComponent, success: true, counts: counts)
         return destination
     }
 
@@ -199,10 +220,11 @@ class BackupService: ObservableObject {
         do {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
-            appendLog(action: "Restore", file: url.lastPathComponent, success: true)
+            let counts = rowCounts(dbPath: dbPath, tables: allTables)
+            appendLog(action: "Restore Full DB", file: url.lastPathComponent, success: true, counts: counts)
         } catch {
             try? fm.moveItem(atPath: temp, toPath: dbPath)
-            appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
+            appendLog(action: "Restore Full DB", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             throw error
         }
         try? fm.removeItem(atPath: temp)
@@ -239,9 +261,10 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.loadConfiguration()
+        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
-        appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
+        appendLog(action: "Restore Reference Data", file: url.lastPathComponent, success: true, counts: counts)
     }
 
     private func execute(_ sql: String, on db: OpaquePointer) throws {
@@ -255,11 +278,46 @@ class BackupService: ObservableObject {
         value.replacingOccurrences(of: "'", with: "''")
     }
 
-    private func appendLog(action: String, file: String, success: Bool, message: String? = nil) {
-        var entry = "[\(isoFormatter.string(from: Date()))] \(action) \(file) \(success ? "Success" : "Error")"
-        if let message = message { entry += " - \(message)" }
-        logMessages.insert(entry, at: 0)
-        if logMessages.count > 10 { logMessages = Array(logMessages.prefix(10)) }
-        UserDefaults.standard.set(logMessages, forKey: UserDefaultsKeys.backupLog)
+    private func appendLog(action: String, file: String, success: Bool,
+                           message: String? = nil, counts: [(String, Int)] = []) {
+        var entry = "[\(isoFormatter.string(from: Date()))] "
+        entry += success ? "✅" : "❌"
+        entry += " \(action)"
+        if !counts.isEmpty {
+            let summary = counts.map { "\($0.0): \($0.1) rows" }.joined(separator: ", ")
+            entry += " — \(summary)"
+        } else {
+            entry += " \(file)"
+            if let message = message { entry += " - \(message)" }
+        }
+        DispatchQueue.main.async {
+            self.logMessages.insert(entry, at: 0)
+            if self.logMessages.count > 10 {
+                self.logMessages = Array(self.logMessages.prefix(10))
+            }
+            UserDefaults.standard.set(self.logMessages, forKey: UserDefaultsKeys.backupLog)
+        }
+    }
+
+    private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        return rowCounts(db: db, tables: tables)
+    }
+
+    private func rowCounts(db: OpaquePointer, tables: [String]) -> [(String, Int)] {
+        var result: [(String, Int)] = []
+        var stmt: OpaquePointer?
+        for table in tables {
+            if sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    result.append((table, Int(sqlite3_column_int(stmt, 0))))
+                }
+            }
+            sqlite3_finalize(stmt)
+            stmt = nil
+        }
+        return result
     }
 }

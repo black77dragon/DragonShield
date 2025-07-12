@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Allow choosing a writable backup directory with defaults in Documents
+- Display per-table row counts in Backup & Restore log with header
 - Prompt for save location when backing up and include mode/version in filename
 - Refactor Database Management screen into subviews to resolve type-check timeout
 - Delete position reports for any institution directly from the Positions view
