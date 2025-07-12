@@ -328,6 +328,8 @@ struct DatabaseManagementView: View {
     private func restoreReference(url: URL) {
         processing = true
         DispatchQueue.global().async {
+            let accessGranted = url.startAccessingSecurityScopedResource()
+            defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 try backupService.restoreReferenceData(dbManager: dbManager, from: url)
                 DispatchQueue.main.async { processing = false }
