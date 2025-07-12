@@ -168,7 +168,13 @@ struct DatabaseManagementView: View {
     private func backupNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        panel.allowedFileTypes = ["db"]
+        if #available(macOS 12.0, *) {
+            if let dbType = UTType(filenameExtension: "db") {
+                panel.allowedContentTypes = [dbType]
+            }
+        } else {
+            panel.allowedFileTypes = ["db"]
+        }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultFileName(
             mode: dbManager.dbMode,
@@ -193,7 +199,13 @@ struct DatabaseManagementView: View {
     private func backupReferenceNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        panel.allowedFileTypes = ["sql"]
+        if #available(macOS 12.0, *) {
+            if let sqlType = UTType(filenameExtension: "sql") {
+                panel.allowedContentTypes = [sqlType]
+            }
+        } else {
+            panel.allowedFileTypes = ["sql"]
+        }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultReferenceFileName(
             mode: dbManager.dbMode,
