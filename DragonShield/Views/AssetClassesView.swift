@@ -700,7 +700,7 @@ struct ModernClassRowView: View {
 }
 
 struct EditAssetClassView: View {
-    @Environment(\.presentationMode) private var presentationMode
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dbManager: DatabaseManager
     let classId: Int
 
@@ -864,12 +864,12 @@ struct EditAssetClassView: View {
                                             sortOrder: Int(sortOrder) ?? 0)
         isLoading = false
         if ok {
-            alertMessage = "✅ Updated asset class"
             NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetClasses"), object: nil)
+            animateExit()
         } else {
             alertMessage = "❌ Failed to update asset class"
+            showingAlert = true
         }
-        showingAlert = true
     }
 
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
@@ -924,7 +924,7 @@ struct EditAssetClassView: View {
             sectionsOffset = 50
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
     }
 }
