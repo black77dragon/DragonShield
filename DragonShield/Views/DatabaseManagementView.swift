@@ -65,9 +65,10 @@ struct DatabaseManagementView: View {
     }
 
     private var logView: some View {
-        ScrollView {
+        let entries = Array(backupService.logMessages.prefix(10))
+        return ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
+                ForEach(entries, id: \.self) { entry in
                     Text(entry)
                         .font(.system(.caption2, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -250,9 +251,10 @@ struct DatabaseManagementView: View {
     }
 
     private var backupLogView: some View {
-        ScrollView {
+        let entries = Array(backupService.logMessages.prefix(10))
+        return ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
+                ForEach(entries, id: \.self) { entry in
                     Text(entry)
                         .font(.system(.caption2, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .leading)
