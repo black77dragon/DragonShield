@@ -64,16 +64,20 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private var logView: some View {
+    private var logList: some View {
         let entries = Array(backupService.logMessages.prefix(10))
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(entries, id: \.self) { entry in
-                    Text(entry)
-                        .font(.system(.caption2, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+        return VStack(alignment: .leading, spacing: 2) {
+            ForEach(entries, id: \.self) { entry in
+                Text(entry)
+                    .font(.system(.caption2, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    private var logView: some View {
+        ScrollView {
+            logList
         }
         .frame(maxHeight: 200)
         .padding(4)
@@ -250,16 +254,20 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private var backupLogView: some View {
+    private var backupLogList: some View {
         let entries = Array(backupService.logMessages.prefix(10))
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(entries, id: \.self) { entry in
-                    Text(entry)
-                        .font(.system(.caption2, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+        return VStack(alignment: .leading, spacing: 2) {
+            ForEach(entries, id: \.self) { entry in
+                Text(entry)
+                    .font(.system(.caption2, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    private var backupLogView: some View {
+        ScrollView {
+            backupLogList
         }
         .frame(maxHeight: 200)
         .padding(4)
