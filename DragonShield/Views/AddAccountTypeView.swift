@@ -114,7 +114,7 @@ struct AddAccountTypeView: View {
             sectionHeader(title: "Type Details", icon: "doc.text.image.fill", color: .indigo)
             
             VStack(spacing: 16) {
-                modernTextField(title: "Type Name*", text: $typeName, placeholder: "e.g., Custody Account", icon: "textformat.abc", isRequired: true)
+                modernTextField(title: "Type Name*", text: $typeName, placeholder: "e.g., Account", icon: "textformat.abc", isRequired: true)
                 modernTextField(title: "Type Code*", text: $typeCode, placeholder: "e.g., CUSTODY (all caps, no spaces)", icon: "number.square", isRequired: true, autoUppercase: true)
                 
                 VStack(alignment: .leading, spacing: 8) {

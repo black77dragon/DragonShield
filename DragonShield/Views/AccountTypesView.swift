@@ -110,7 +110,7 @@ struct AccountTypesView: View {
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom))
                 }
-                Text("Manage types for your custody and bank accounts")
+                Text("Manage types for your accounts")
                     .font(.subheadline).foregroundColor(.gray)
             }
             Spacer()

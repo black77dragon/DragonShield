@@ -62,7 +62,7 @@ The Dragon Shield database schema is designed to support comprehensive personal 
 - Support for ISIN, ticker symbols, and exchanges
 
 #### 5. Account Management ✅
-**Requirement**: Track multiple accounts (banks, custody, crypto, pension)
+**Requirement**: Track multiple accounts (bank, crypto, pension)
 **Implementation**:
 - `Accounts` table with comprehensive account types
 - Institution metadata and BIC codes
@@ -122,7 +122,7 @@ Asset Management Layer
 └── PortfolioInstruments (portfolio assignments)
 
 Account & Transaction Layer
-├── Accounts (bank/custody accounts)
+├── Accounts (bank accounts)
 ├── TransactionTypes (transaction categories)
 ├── Transactions (core transaction data)
 ├── PositionReports (uploaded positions)
@@ -276,7 +276,7 @@ Analysis Layer
 
 **Account Types**:
 - BANK: Regular bank account
-- CUSTODY: Securities custody account
+- CUSTODY: Securities account
 - CRYPTO: Cryptocurrency wallet
 - PENSION: Retirement account
 - CASH: Cash management account

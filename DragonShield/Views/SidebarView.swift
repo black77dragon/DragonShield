@@ -90,8 +90,8 @@ struct SidebarView: View {
                     Label("Edit Instruments", systemImage: "pencil.and.list.clipboard")
                 }
                 
-                NavigationLink(destination: CustodyAccountsView()) {
-                    Label("Edit Custody Accounts", systemImage: "building.columns.fill")
+                NavigationLink(destination: AccountsView()) {
+                    Label("Edit Accounts", systemImage: "building.columns.fill")
                 }
             }
             

@@ -40,7 +40,7 @@ struct ImportSummaryView: View {
                     Section {
                         infoRow(title: "File", value: fileName, icon: "doc")
                         if let account = accountNumber {
-                            infoRow(title: "Custody Account", value: account, icon: "number")
+                            infoRow(title: "Account", value: account, icon: "number")
                         }
                         if let date = valueDate {
                             infoRow(title: "Value Date", value: DateFormatter.swissDate.string(from: date), icon: "calendar")

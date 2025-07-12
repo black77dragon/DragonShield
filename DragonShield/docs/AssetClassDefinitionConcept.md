@@ -131,7 +131,7 @@ Each instrument record includes:
 
 Below is a concrete illustration of how a Credit-Suisse setup would look in your unified model. We show three tables—​Accounts, Instruments, and Positions—​with sample data for:
 	•	Two cash accounts at Credit-Suisse (CHF and USD)
-	•	One Credit-Suisse custody account
+	•	One Credit-Suisse account
 	•	Cash instruments & two equities
 
 # Credit-Suisse Example in DragonShield Model
@@ -142,7 +142,7 @@ Below is a concrete illustration of how a Credit-Suisse setup would look in your
 |-----------:|--------------------------|--------------|------|
 | 101        | Credit-Suisse CHF Cash Account     | CASH         | Credit-Suisse  |
 | 102        | Credit-Suisse USD Cash Account     | CASH         | Credit-Suisse  |
-| 201        | Credit-Suisse Custody Account      | CUSTODY      | Credit-Suisse  |
+| 201        | Credit-Suisse Account      | CUSTODY      | Credit-Suisse  |
 
 ## 2. Instruments
 
@@ -159,10 +159,10 @@ Below is a concrete illustration of how a Credit-Suisse setup would look in your
 |-----------:|--------------:|---------:|----------------------------------------|
 | 101        | 1             | 50 000   | CHF cash in CHF Cash Account           |
 | 102        | 2             | 30 000   | USD cash in USD Cash Account           |
-| 201        | 10            | 100      | Apple shares in Custody Account        |
-| 201        | 20            | 50       | Nestlé shares in Custody Account       |
-| 201        | 1             | 10 000   | CHF cash _within_ Custody Account      |
-| 201        | 2             | 5 000    | USD cash _within_ Custody Account      |
+| 201        | 10            | 100      | Apple shares in Account        |
+| 201        | 20            | 50       | Nestlé shares in Account       |
+| 201        | 1             | 10 000   | CHF cash _within_ Account      |
+| 201        | 2             | 5 000    | USD cash _within_ Account      |
 
 ---
 
@@ -172,7 +172,7 @@ Below is a concrete illustration of how a Credit-Suisse setup would look in your
   - Each is its own “CASH” account.  
   - Only holds its corresponding cash instrument.
 
-- **Custody Account (201)**  
+- **Account (201)**  
   - Holds both securities (AAPL_US, NESN_SW) and cash instruments (CHF_CASH, USD_CASH).  
 
 - **Unified Treatment**  

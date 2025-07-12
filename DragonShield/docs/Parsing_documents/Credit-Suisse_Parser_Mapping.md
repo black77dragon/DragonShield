@@ -7,7 +7,7 @@ This document outlines the mapping logic for parsing the Zürcher Kantonalbank (
 | Source | Credit-Suisse XLS Data Example | Dragon Shield Database Target | Transformation / Logic / Notes |
 | :--- | :--- | :--- | :--- |
 | **File Name** | `Position List Mar 26 2025` | `Transactions.transaction_date` | The date ("2025-03-26") is parsed from the filename and used as the "as-of" date for all imported positions. |
-| **Line 6 Content** | "Portfolio-Nr. S 398424-05" | `Accounts.account_number` | The number ("S 398424-05") is extracted. This is used to find or create the main **Custody Account** that holds all security positions. |
+| **Line 6 Content** | "Portfolio-Nr. S 398424-05" | `Accounts.account_number` | The number ("S 398424-05") is extracted. This is used to find or create the main **Account** that holds all security positions. |
 
 ---
 

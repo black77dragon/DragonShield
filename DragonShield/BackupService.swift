@@ -213,12 +213,9 @@ class BackupService: ObservableObject {
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in referenceTables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Backed up Reference data — " + counts.joined(separator: ", "))
+            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
             self.lastActionSummaries = self.referenceTables.map { tbl in
                 TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
@@ -293,12 +290,9 @@ class BackupService: ObservableObject {
         dbManager.loadConfiguration()
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
-        var counts = [String]()
-        for tbl in referenceTables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored Reference data — " + counts.joined(separator: ", "))
+            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = self.referenceTables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
@@ -428,5 +422,27 @@ class BackupService: ObservableObject {
             UserDefaults.standard.set(self.logMessages, forKey: UserDefaultsKeys.backupLog)
         }
 
+    }
+
+    private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        return rowCounts(db: db, tables: tables)
+    }
+
+    private func rowCounts(db: OpaquePointer, tables: [String]) -> [(String, Int)] {
+        var result: [(String, Int)] = []
+        var stmt: OpaquePointer?
+        for table in tables {
+            if sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    result.append((table, Int(sqlite3_column_int(stmt, 0))))
+                }
+            }
+            sqlite3_finalize(stmt)
+            stmt = nil
+        }
+        return result
     }
 }

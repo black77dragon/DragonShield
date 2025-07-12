@@ -197,7 +197,7 @@ CREATE INDEX idx_portfolio_instruments_instrument ON PortfolioInstruments(instru
 CREATE TABLE AccountTypes (
     account_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
     type_code TEXT NOT NULL UNIQUE, -- e.g., 'BANK', 'CUSTODY'
-    type_name TEXT NOT NULL,        -- e.g., 'Bank Account', 'Custody Account'
+    type_name TEXT NOT NULL,        -- e.g., 'Bank Account', 'Account'
     type_description TEXT,
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
