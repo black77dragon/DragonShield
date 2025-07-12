@@ -33,6 +33,20 @@ DEFAULT_TARGET_DIR = (
     "com.rene.DragonShield/Data/Library/Application Support/DragonShield"
 )
 
+REFERENCE_TABLES = [
+    "Currencies",
+    "Institutions",
+    "AccountTypes",
+    "TransactionTypes",
+    "AssetClasses",
+    "AssetSubClasses",
+]
+
+def default_ref_filename(mode: str, version: str) -> str:
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    return f"DragonShield-REF-{mode}-v{version}-{ts}.sql"
+
 import deploy_db
 
 
@@ -81,6 +95,15 @@ def load_seed_data(seed_sql: str, db_path: str, version: str) -> int:
     return rows
 
 
+def backup_reference_data(db_path: str, out_path: str) -> None:
+    cmd = ["/usr/bin/sqlite3", db_path, ".dump", *REFERENCE_TABLES]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(result.stdout)
+
+
 def stop_apps() -> None:
     """Quit DragonShield and Xcode using osascript if available."""
     for app in ("DragonShield", "Xcode"):
@@ -120,6 +143,8 @@ def main(argv=None) -> int:
     )
     group.add_argument("--deploy-only", action="store_true", help="Deploy existing database only")
 
+    parser.add_argument("-r", "--backup-ref", action="store_true", help="Backup reference tables and exit")
+
     args = parser.parse_args(argv)
 
     logger = _setup_logger()
@@ -135,6 +160,23 @@ def main(argv=None) -> int:
 
     version = deploy_db.parse_version(args.schema)
     logger.info(json.dumps({"event": "start", "version": version}))
+
+    if args.backup_ref:
+        dest_dir = Path(args.target_dir).expanduser()
+        os.makedirs(dest_dir, exist_ok=True)
+        db_path = dest_dir / "dragonshield.sqlite"
+        mode = "PROD"
+        if not db_path.exists():
+            db_path = dest_dir / "dragonshield_test.sqlite"
+            mode = "TEST"
+        out_path = dest_dir / default_ref_filename(mode, version)
+        try:
+            backup_reference_data(str(db_path), str(out_path))
+        except Exception as exc:
+            logger.error(json.dumps({"error": str(exc)}))
+            return 1
+        print(str(out_path))
+        return 0
 
     # Determine execution mode
     interactive = False

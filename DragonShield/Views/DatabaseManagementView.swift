@@ -55,6 +55,15 @@ struct DatabaseManagementView: View {
             .focusable()
             .help("Create a backup copy of the current database")
 
+            Button(action: backupReferenceNow) {
+                if processing { ProgressView() } else { Text("Backup Reference Data") }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(processing)
+            .accessibilityLabel("Backup Reference Data")
+            .focusable()
+            .help("Export only reference tables to a SQL file")
+
             Button("Restore from Backup") { showingFileImporter = true }
                 .keyboardShortcut("r", modifiers: [.command])
                 .buttonStyle(SecondaryButtonStyle())
@@ -108,6 +117,9 @@ struct DatabaseManagementView: View {
             actionsView
 
             Text("Last Backup: \(formattedDate(backupService.lastBackup))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("Last Reference Backup: \(formattedDate(backupService.lastReferenceBackup))")
                 .font(.caption)
                 .foregroundColor(.secondary)
             logView
@@ -168,6 +180,31 @@ struct DatabaseManagementView: View {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
                 _ = try backupService.performBackup(dbPath: dbManager.dbFilePath, to: url)
+                DispatchQueue.main.async { processing = false }
+            } catch {
+                DispatchQueue.main.async {
+                    processing = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func backupReferenceNow() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedFileTypes = ["sql"]
+        panel.directoryURL = backupService.backupDirectory
+        panel.nameFieldStringValue = BackupService.defaultReferenceFileName(
+            mode: dbManager.dbMode,
+            version: dbManager.dbVersion
+        )
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        processing = true
+        DispatchQueue.global().async {
+            do {
+                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
+                _ = try backupService.performReferenceBackup(dbPath: dbManager.dbFilePath, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
