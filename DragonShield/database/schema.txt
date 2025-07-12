@@ -140,7 +140,7 @@ INSERT INTO Institutions (institution_id, institution_name, institution_type, bi
     contact_info, default_currency, country_code, notes, is_active,
     created_at, updated_at
 ) VALUES
- (1, 'ZKB', 'BANK', 'ZKBKCHZZ80A', 'https://www.zkb.ch',
+ (1, 'Credit-Suisse', 'BANK', 'Credit-SuisseKCHZZ80A', 'https://www.zkb.ch',
     '0844 848 848', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
  (2, 'Credit Suisse', 'BANK', 'CRESCHZZ80A', 'https://www.credit-suisse.com',
     '0848 880 084', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
@@ -167,7 +167,7 @@ INSERT INTO Accounts (account_number, account_name, institution_id, account_type
 ('COINBASE-PRO-001', 'Coinbase Pro Account', 4, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
 ('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 5, 3, 'BTC', '2024-01-01', 1, 1, NULL),
 ('VIAC-3A-12345', 'VIAC 3a Account', 6, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.'),
-('S 398424-05', 'ZKB Custody Account', 8, 2, 'CHF', '2024-06-01', 1, 1, 'Test ZKB account.');
+('S 398424-05', 'Credit-Suisse Custody Account', 8, 2, 'CHF', '2024-06-01', 1, 1, 'Test Credit-Suisse account.');
 INSERT INTO TransactionTypes (type_code, type_name, type_description, affects_position, affects_cash, is_income, sort_order) VALUES
 ('BUY', 'Purchase', 'Buy securities or assets', 1, 1, 0, 1),
 ('SELL', 'Sale', 'Sell securities or assets', 1, 1, 0, 2),
@@ -250,8 +250,8 @@ INSERT INTO ImportSessions (
         '/uploads/UBS_Positions_2025-06-30.csv', 'CSV', 2060, 'HASH010', 1,
         'COMPLETED', 2, 2, 0, 0, 'Quarter end',
         '2025-07-01 08:00:00', '2025-07-01 08:00:10'),
-    (11, 'ZKB Positions 2025-07-01', 'ZKB_Positions_2025-07-01.xlsx',
-        '/uploads/ZKB_Positions_2025-07-01.xlsx', 'XLSX', 3072, 'HASH011', 8,
+    (11, 'Credit-Suisse Positions 2025-07-01', 'Credit-Suisse_Positions_2025-07-01.xlsx',
+        '/uploads/Credit-Suisse_Positions_2025-07-01.xlsx', 'XLSX', 3072, 'HASH011', 8,
         'COMPLETED', 3, 3, 0, 0, 'Initial import',
         '2025-07-02 09:00:00', '2025-07-02 09:00:15');
 INSERT INTO PositionReports (

@@ -7,7 +7,7 @@
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
 // - 2.0.0.2 -> 2.0.0.3: Surface detailed file format errors from XLSXProcessor.
 // - 2.0.0.3 -> 2.0.1.0: Expect XLSX files and use XLSXProcessor.
-// - 2.0.1.0 -> 2.0.2.0: Integrate ZKBXLSXProcessor for ZKB statements.
+// - 2.0.1.0 -> 2.0.2.0: Integrate CreditSuisseXLSXProcessor for Credit-Suisse statements.
 // - 2.0.2.0 -> 2.0.2.1: Provide progress logging via callback.
 // - 2.0.2.1 -> 2.0.2.2: Hold DB connection to avoid invalid pointer errors.
 // - 2.0.2.2 -> 2.0.2.3: Propagate detailed repository errors.
@@ -23,8 +23,8 @@ import UniformTypeIdentifiers
 /// Manages document imports using the native XLSX processing pipeline.
 class ImportManager {
     static let shared = ImportManager()
-    private let xlsxProcessor = ZKBXLSXProcessor()
-    private let positionParser = ZKBPositionParser()
+    private let xlsxProcessor = CreditSuisseXLSXProcessor()
+    private let positionParser = CreditSuissePositionParser()
     private let dbManager = DatabaseManager()
     private lazy var repository: BankRecordRepository = {
         BankRecordRepository(dbManager: dbManager)
@@ -88,9 +88,9 @@ class ImportManager {
                                   currency: String,
                                   accountTypeCode: String = "CUSTODY") -> AccountPromptResult {
         var result: AccountPromptResult = .cancel
-        let instId = dbManager.findInstitutionId(name: "ZKB") ?? 1
+        let instId = dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
         let typeId = dbManager.findAccountTypeId(code: accountTypeCode) ?? 1
-        let defaultName = accountTypeCode == "CASH" ? "ZKB Cash Account" : "ZKB Custody Account"
+        let defaultName = accountTypeCode == "CASH" ? "Credit-Suisse Cash Account" : "Credit-Suisse Custody Account"
         let view = AccountPromptView(accountName: defaultName,
                                      accountNumber: number,
                                      institutionId: instId,
@@ -202,7 +202,7 @@ class ImportManager {
         }
     }
 
-    /// Parses a ZKB statement and saves position reports.
+    /// Parses a Credit-Suisse statement and saves position reports.
     func importPositions(at url: URL, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
@@ -214,8 +214,8 @@ class ImportManager {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             if deleteExisting {
-                let removed = self.deleteZKBPositions()
-                LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+                let removed = self.deleteCreditSuissePositions()
+                LoggingService.shared.log("Existing Credit-Suisse positions removed: \(removed)", type: .info, logger: .database)
             }
             do {
                 let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
@@ -231,7 +231,7 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                let valueDate = rows.first?.reportDate ?? Date()
-               let baseSessionName = "ZKB Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let baseSessionName = "Credit-Suisse Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
 
@@ -239,7 +239,7 @@ class ImportManager {
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                 LoggingService.shared.log("Lookup account for \(custodyNumber) -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 if accountId == nil {
-                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "Credit-Suisse")
                     LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 }
                 while accountId == nil {
@@ -265,7 +265,7 @@ class ImportManager {
                         accountId = self.dbManager.findAccountId(accountNumber: number)
                         LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
-                            accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "ZKB")
+                            accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "Credit-Suisse")
                             LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId != nil {
@@ -275,7 +275,7 @@ class ImportManager {
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                         LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
-                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "ZKB")
+                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "Credit-Suisse")
                             LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId == nil {
@@ -290,9 +290,9 @@ class ImportManager {
                         throw ImportError.aborted
                     }
                     } else {
-                        let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                        let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
                         let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-                        _ = self.dbManager.addAccount(accountName: "ZKB Custody Account",
+                        _ = self.dbManager.addAccount(accountName: "Credit-Suisse Custody Account",
                                                        institutionId: instId,
                                                        accountNumber: custodyNumber,
                                                        accountTypeId: typeId,
@@ -307,7 +307,7 @@ class ImportManager {
                 }
                 let accId = accountId!
                 let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
-                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
 
                 let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
@@ -334,7 +334,7 @@ class ImportManager {
                                 }
                             }
                             if proceed {
-                                let instId = self.dbManager.findInstitutionId(name: "ZKB") ?? 1
+                                let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
                                 let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
                                 _ = self.dbManager.addAccount(accountName: parsed.accountName,
                                                            institutionId: instId,
@@ -478,16 +478,16 @@ class ImportManager {
         }
     }
 
-    /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
+    /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
     /// - Returns: The number of deleted records.
-    func deleteZKBPositions() -> Int {
-        let accounts = dbManager.fetchAccounts(institutionName: "ZKB")
+    func deleteCreditSuissePositions() -> Int {
+        let accounts = dbManager.fetchAccounts(institutionName: "Credit-Suisse")
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
-            LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
+            LoggingService.shared.log("Deleting position reports for Credit-Suisse accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        return dbManager.deletePositionReports(institutionName: "ZKB")
+        return dbManager.deletePositionReports(institutionName: "Credit-Suisse")
     }
 
     /// Presents an open panel and processes the selected XLSX file.

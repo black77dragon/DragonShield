@@ -27,10 +27,10 @@ def setup_db():
         )
     """)
     # Insert institutions
-    conn.execute("INSERT INTO Institutions VALUES (1, 'ZKB')")
+    conn.execute("INSERT INTO Institutions VALUES (1, 'Credit-Suisse')")
     conn.execute("INSERT INTO Institutions VALUES (2, 'OtherBank')")
     # Insert accounts
-    conn.execute("INSERT INTO Accounts VALUES (1, 'ZKB-ACC', 1)")
+    conn.execute("INSERT INTO Accounts VALUES (1, 'Credit-Suisse-ACC', 1)")
     conn.execute("INSERT INTO Accounts VALUES (2, 'OTHER-ACC', 2)")
     # Insert position reports - some with correct institution_id, some with wrong
     conn.execute("INSERT INTO PositionReports VALUES (1, 1, 1, 1, 10, '2024-01-01')")
@@ -66,8 +66,8 @@ def test_delete_query_with_missing_param():
 
 def test_delete_multiple_ids():
     conn = setup_db()
-    conn.execute("INSERT INTO Institutions VALUES (3, 'ZKB')")
-    conn.execute("INSERT INTO Accounts VALUES (3, 'ZKB2', 3)")
+    conn.execute("INSERT INTO Institutions VALUES (3, 'Credit-Suisse')")
+    conn.execute("INSERT INTO Accounts VALUES (3, 'Credit-Suisse2', 3)")
     conn.execute("INSERT INTO PositionReports VALUES (4, 3, 3, 1, 40, '2024-01-01')")
     query = build_delete_query(2)
     ids = (1, 3, 1, 3)

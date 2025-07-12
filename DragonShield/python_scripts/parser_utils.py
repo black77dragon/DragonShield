@@ -21,7 +21,7 @@ class DefaultFileManager:
 
 def findParserScript(file_manager: FileManagerProtocol = DefaultFileManager()) -> Tuple[str, List[str]]:
     """Return the path to the bundled parser script and list of checked paths."""
-    script_name = "zkb_parser.py"
+    script_name = "credit_suisse_parser.py"
     module_dir = Path(__file__).resolve().parent
     project_dir = module_dir.parents[2]
     candidates = [

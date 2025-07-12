@@ -23,7 +23,7 @@ class DummyFM:
 
 
 def test_find_parser_first_candidate():
-    expected = str(Path(parser_utils.__file__).resolve().parent / "zkb_parser.py")
+    expected = str(Path(parser_utils.__file__).resolve().parent / "credit_suisse_parser.py")
     fm = DummyFM(existing_path=expected)
 
     path, checked = parser_utils.findParserScript(fm)
@@ -33,8 +33,8 @@ def test_find_parser_first_candidate():
 
 
 def test_find_parser_second_candidate():
-    first = str(Path(parser_utils.__file__).resolve().parent / "zkb_parser.py")
-    second = str(Path(parser_utils.__file__).resolve().parents[3] / "python_scripts" / "zkb_parser.py")
+    first = str(Path(parser_utils.__file__).resolve().parent / "credit_suisse_parser.py")
+    second = str(Path(parser_utils.__file__).resolve().parents[3] / "python_scripts" / "credit_suisse_parser.py")
     fm = DummyFM(existing_path=second)
 
     path, checked = parser_utils.findParserScript(fm)

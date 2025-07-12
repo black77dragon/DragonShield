@@ -1,11 +1,11 @@
-// DragonShield/ZKBXLSXProcessor.swift
+// DragonShield/CreditSuisseXLSXProcessor.swift
 // MARK: - Version 1.0.7.0
 // MARK: - History
-// - 0.0.0.0 -> 1.0.0.0: Initial implementation applying zkb_parser logic in Swift.
+// - 0.0.0.0 -> 1.0.0.0: Initial implementation applying credit_suisse_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 // - 1.0.1.0 -> 1.0.1.1: Fix conditional binding when reading cell value.
 // - 1.0.1.1 -> 1.0.1.2: Correct regex pattern for statement date parsing.
-// - 1.0.1.2 -> 1.0.2.0: Parse positions according to ZKB_Parser_Mapping documentation.
+// - 1.0.1.2 -> 1.0.2.0: Parse positions according to Credit-Suisse_Parser_Mapping documentation.
 // - 1.0.2.0 -> 1.0.2.1: Add detailed progress messages for each row.
 // - 1.0.2.1 -> 1.0.3.0: Emit OSLog entries for parsing progress.
 // - 1.0.3.0 -> 1.0.4.0: Log messages via LoggingService and improve number parsing.
@@ -16,7 +16,7 @@
 import Foundation
 import OSLog
 
-struct ZKBXLSXProcessor {
+struct CreditSuisseXLSXProcessor {
     private let parser: XLSXParsingService
     private let log = Logger.parser
     private let logging = LoggingService.shared

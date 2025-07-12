@@ -38,13 +38,13 @@ All notable changes to this project will be documented in this file.
 - Added GPT shell with OpenAI function calling and JSON schema validation
 - Remove duplicate Python package initializer to resolve Xcode resource error
 - Extend institution seed data with contact info and default currencies
-- Delete existing ZKB position reports for all ZKB accounts before importing new positions
+- Delete existing Credit-Suisse position reports for all Credit-Suisse accounts before importing new positions
 - Replace `account_id` with `institution_id` in `ImportSessions` table
 - Add CLI flags for db_tool to run phases non-interactively
 - Fix incorrect parameter label when starting import sessions
 - Store import sessions by institution and value date, tracking duplicate rows
 - Restyle Currency Maintenance window and update title to "Currency Maintenance"
-- Log mapped Asset-Unterkategorie values to AssetSubClass during ZKB import
+- Log mapped Asset-Unterkategorie values to AssetSubClass during Credit-Suisse import
 - Populate sub-class allocation sheet with editable sliders and totals check
 - Display sub-class rows correctly and allow saving with totals other than 100%
 - Fix deprecated onChange warning in Target Allocation view
@@ -73,13 +73,13 @@ All notable changes to this project will be documented in this file.
 - Modernize Asset Class add/edit windows with standard design and logging
 - Modernize Asset Class list view with search, animations and action bar
 - Fix missing modernStatCard helper in Asset Classes view
-- Add ZKB position import with progress logging and summary alert
-- Fix quantity extraction for ZKB position import and document Excel column mapping
+- Add Credit-Suisse position import with progress logging and summary alert
+- Fix quantity extraction for Credit-Suisse position import and document Excel column mapping
 - Parse ticker symbol from Valor and build instrument names including institution and currency
-- Default quantity to zero for "ZKB Call Account USD" when cell is blank
+- Default quantity to zero for "Credit-Suisse Call Account USD" when cell is blank
 - Prompt for instrument details when new securities are imported
-- Automatically create ZKB custody and cash accounts when missing and save position reports
-- Fix unused variable warning when auto-creating ZKB cash accounts
+- Automatically create Credit-Suisse custody and cash accounts when missing and save position reports
+- Fix unused variable warning when auto-creating Credit-Suisse cash accounts
 - Exclude cash instruments from performance and allocation views
 - Fix missing instrument popup and save newly added instruments
 - Fix instrument lookup to prompt when new securities are parsed
@@ -87,20 +87,20 @@ All notable changes to this project will be documented in this file.
 - Provide instrument add dialog with Save/Ignore/Abort when new ISINs are encountered
 - Restyle import popups using instrument maintenance window design
 - Fix compile errors in position review and import views
-- Prompt to delete existing ZKB positions before importing and show count
-- Parse value date from ZKB sheets, show import details summary and improve instrument popups
+- Prompt to delete existing Credit-Suisse positions before importing and show count
+- Parse value date from Credit-Suisse sheets, show import details summary and improve instrument popups
 - Correct custody account number detection from cell B6 and extend new instrument prompt with dropdowns
 - Fix compile error in instrument prompt view when selecting subclass or currency
-- Record ZKB import sessions and link position reports
+- Record Credit-Suisse import sessions and link position reports
 - Eliminate QoS warnings by presenting modals synchronously
 - Condense instrument popups and rename review dialog title
 - Show import summary in modern styled popup
 - Condense import details popup row spacing
-- Default custody positions to "ZKB Custody Account" name
+- Default custody positions to "Credit-Suisse Custody Account" name
 - Fix saving position reports when no import session is created
-- Map ZKB categories to AssetSubClasses using documented table and treat cash
+- Map Credit-Suisse categories to AssetSubClasses using documented table and treat cash
   rows as accounts instead of instruments
-- Fix sub-class mapping using the defined ZKB keywords
+- Fix sub-class mapping using the defined Credit-Suisse keywords
 - Search existing instruments by ticker symbol before prompting
 - Use single custody account for all parsed positions
 - Display a status alert after each position save attempt
@@ -108,39 +108,39 @@ All notable changes to this project will be documented in this file.
 - Prompt to create new accounts when account number is missing and retry if insertion fails
 - Fix compile errors in AccountPromptView due to incorrect parameter labels
 - Improve account lookup when importing positions to match numbers with spaces
-  and require account name containing "ZKB" to prevent repeated prompts
+  and require account name containing "Credit-Suisse" to prevent repeated prompts
 - Append numbers to import session names when duplicates exist
-- Fallback to account lookup by number only to use existing ZKB Custody Account
+- Fallback to account lookup by number only to use existing Credit-Suisse Custody Account
 - Fix account lookup to ignore non-breaking spaces in numbers
 - Retry import session creation when file_hash is unique in older databases
 - Improve custody account search by ignoring hyphens and case
-- Restrict ZKB position deletions to accounts linked to the ZKB institution
-- Add ZKB institution to seed data script for tests
+- Restrict Credit-Suisse position deletions to accounts linked to the Credit-Suisse institution
+- Add Credit-Suisse institution to seed data script for tests
 - Add debug logs for custody account lookups to help diagnose duplicates
-- Strip all non-alphanumeric characters when searching account numbers so the ZKB custody account is detected
+- Strip all non-alphanumeric characters when searching account numbers so the Credit-Suisse custody account is detected
 - Clarify that `Instruments.isin` is optional rather than mandatory
-- Add ZKB Custody Test Account with sample position reports to seed data
+- Add Credit-Suisse Custody Test Account with sample position reports to seed data
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
-- Store institution_id from the linked account when saving PositionReports and prompt before removing existing ZKB positions
-- Track purchase and current price in PositionReports when importing ZKB files
+- Store institution_id from the linked account when saving PositionReports and prompt before removing existing Credit-Suisse positions
+- Track purchase and current price in PositionReports when importing Credit-Suisse files
 - Display institution name in Positions view
 - Fix Positions view table headers for quantity and price columns
-- Remove OLD-BANK-007 from seed data and rename ZKB Custody test account
+- Remove OLD-BANK-007 from seed data and rename Credit-Suisse Custody test account
 - Populate purchase and current price in seed position reports
 - Fix argument order when constructing PositionReportData to resolve compile error
 - Enlarge the import details popup so all information is visible
-- Delete ZKB position reports using institution_id so all matching entries are removed
+- Delete Credit-Suisse position reports using institution_id so all matching entries are removed
 - Use IN query when deleting by institution so duplicates with the same name are fully removed
 - Ensure seed PositionReports contain only one entry per account and instrument
-- Remove ZKB position reports even when old rows lack an institution_id by joining through Accounts
-- Bind deletion query parameters correctly so ZKB records are removed
-- Delete ZKB positions by institution_id with a single query for reliability
-- Delete ZKB positions by building a dynamic IN clause for all matching institution IDs and log the IDs removed
-- Automatically start ZKB position import when a file is chosen without asking to delete existing rows
+- Remove Credit-Suisse position reports even when old rows lack an institution_id by joining through Accounts
+- Bind deletion query parameters correctly so Credit-Suisse records are removed
+- Delete Credit-Suisse positions by institution_id with a single query for reliability
+- Delete Credit-Suisse positions by building a dynamic IN clause for all matching institution IDs and log the IDs removed
+- Automatically start Credit-Suisse position import when a file is chosen without asking to delete existing rows
 - Condense import popups, enlarge windows and use smaller fonts for better readability
 - Guess asset sub-class from statement categories when adding new instruments
 - Fix asset sub-class dropdown defaulting to Cash when prompting for new instruments
-- Document asset class concept version 2.1 with ZKB mapping
+- Document asset class concept version 2.1 with Credit-Suisse mapping
 - Reduce vertical spacing in import dialogs so all fields fit without scrolling
 - Display instrument currency in Positions view
 - Toggle parsing checkpoints to suppress import popups and show inline summary
@@ -158,4 +158,5 @@ All notable changes to this project will be documented in this file.
 - Add risk-adjusted performance dashboard powered by Python analytics
 - Embed risk scorecard into Portfolio Overview
 - Introduce interactive Asset Dashboard grouped by asset class
+- Swap ZKB and Credit-Suisse references across code and docs
 

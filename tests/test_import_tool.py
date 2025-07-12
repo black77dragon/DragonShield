@@ -106,7 +106,7 @@ def test_parse_file(monkeypatch, tmp_path):
     def fake_process_file(path):
         print(json.dumps(sample))
 
-    monkeypatch.setattr(import_tool, 'zkb_parser', type('M', (), {'process_file': fake_process_file}))
+    monkeypatch.setattr(import_tool, 'credit_suisse_parser', type('M', (), {'process_file': fake_process_file}))
 
     f = tmp_path / 'doc.csv'
     f.write_text('x')
