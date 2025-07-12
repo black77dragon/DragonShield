@@ -49,3 +49,31 @@ Below the summary bar is a framed log listing recent uploads. This mirrors the D
 ## Responsive Behaviour
 - Below 600 px width, import cards stack vertically (100% width) with 16 px spacing
 - The Statement Loading Log spans the full width at all sizes
+
+## Final Wireframe (Desktop)
+```
+──────────────────────────────────────────────────────────
+| Data Import / Export                                  |
+| Upload bank or custody statements (CSV, XLSX, PDF)   |
+──────────────────────────────────────────────────────────
+| ┌──────────────┐  ┌───────────────┐                    |
+| │[CS Icon]     │  │[ZKB Icon]     │                    |
+| │Import CS     │  │Import ZKB     │                    |
+| │┌──────────┐  │  │┌───────────┐  │                    |
+| ││ Drag &   │  │  ││ Drag &    │  │                    |
+| ││ Drop CS  │  │  ││ Drop ZKB  │  │                    |
+| │└──────────┘  │  │└───────────┘  │                    |
+| │    or        │  │    or        │                    |
+| │[Select CS]   │  │[Select ZKB]  │                    |
+| └──────────────┘  └───────────────┘                    |
+──────────────────────────────────────────────────────────
+| ✔ Last import: Credit-Suisse – 45 records parsed      |
+──────────────────────────────────────────────────────────
+| Statement Loading Log                                 |
+| ┌──────────────────────────────────────────────────┐   |
+| │[2025-07-12 08:35:42] CS_Positions_…csv → Success…│   |
+| │[2025-07-12 08:37:10] ZKB_Positions_…xlsx → Failed │   |
+| │…                                                │   |
+| └──────────────────────────────────────────────────┘   |
+──────────────────────────────────────────────────────────
+```
