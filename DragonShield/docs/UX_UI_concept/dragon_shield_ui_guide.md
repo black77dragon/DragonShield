@@ -152,6 +152,13 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 
 ---
 
+## Database Management & Backups
+- Use **Backup Database** and **Restore Database** for full file copies.
+- **Backup Reference** exports only the core reference tables.
+- Use **Restore Reference** to load such a backup without affecting user data.
+
+---
+
 ## 👥 Contributor Guide
 - All contributors must follow this guide when implementing new views
 - Before submitting PRs, verify alignment with typography, spacing, color usage, and interaction models

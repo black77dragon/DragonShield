@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add dedicated reference data backup and restore with grouped buttons
 - Backup reference data separately via new UI button and CLI flag
+- Restore reference data from SQL or JSON with dedicated button
 - Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Allow choosing a writable backup directory with defaults in Documents
@@ -13,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Enable manual add, edit and delete of positions with notes field
 - Include all position fields in the add/edit position form
 - Fix compilation errors in Positions view after CRUD refactor
+- Move database info panel from Settings to Database Management view
 - Fix SQLITE_TRANSIENT not found when binding position report text fields
 - Allow sorting columns and wrap long text in the Positions table
 - Fix compile error from type-checking the Positions table after adding sorting
@@ -48,6 +51,7 @@ All notable changes to this project will be documented in this file.
 - Populate sub-class allocation sheet with editable sliders and totals check
 - Display sub-class rows correctly and allow saving with totals other than 100%
 - Fix deprecated onChange warning in Target Allocation view
+- Fix deprecated onChange warning in Risk Scorecard view
 - Persist portfolio class and sub-class targets using dictionaries
 - Refactor target allocation view to edit sub-class targets inline with DisclosureGroups
 - Add asset allocation variance heatmap tile to dashboard

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SQLite3
 
 class BackupService: ObservableObject {
     @Published var lastBackup: Date?
@@ -108,18 +109,20 @@ class BackupService: ObservableObject {
 
     static func defaultReferenceFileName(mode: DatabaseMode, version: String) -> String {
         let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd-HHmmss"
+        df.dateFormat = "yyyyMMdd_HHmm"
         let modeTag = mode == .production ? "PROD" : "TEST"
-        return "DragonShield-REF-\(modeTag)-v\(version)-\(df.string(from: Date())).sql"
+        return "DragonShield_Reference_\(modeTag)_v\(version)_\(df.string(from: Date())).sql"
     }
 
     private let referenceTables = [
+        "Configuration",
         "Currencies",
-        "Institutions",
-        "AccountTypes",
-        "TransactionTypes",
+        "ExchangeRates",
         "AssetClasses",
         "AssetSubClasses",
+        "AccountTypes",
+        "Institutions",
+        "TransactionTypes",
     ]
 
     func performBackup(dbPath: String, to destination: URL) throws -> URL {
@@ -152,6 +155,31 @@ class BackupService: ObservableObject {
         return destination
     }
 
+    func performReferenceRestore(dbManager: DatabaseManager, from url: URL) throws {
+        dbManager.closeConnection()
+        var conn: OpaquePointer?
+        if sqlite3_open(dbManager.dbFilePath, &conn) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(conn))
+            sqlite3_close(conn)
+            throw NSError(domain: "RefRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(conn); dbManager.reopenDatabase() }
+        let script = try String(contentsOf: url, encoding: .utf8)
+        let wrapped = """
+        PRAGMA foreign_keys = OFF;
+        BEGIN TRANSACTION;
+        \(script)
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        """
+        if sqlite3_exec(conn, wrapped, nil, nil, nil) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(conn))
+            appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
+            throw NSError(domain: "RefRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
+    }
+
     func performRestore(dbManager: DatabaseManager, from url: URL) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
@@ -168,6 +196,36 @@ class BackupService: ObservableObject {
             throw error
         }
         try? fm.removeItem(atPath: temp)
+    }
+
+    func performReferenceRestore(dbManager: DatabaseManager, from url: URL) throws {
+        guard let db = dbManager.db else { return }
+        let sql = try String(contentsOf: url, encoding: .utf8)
+        try execute("PRAGMA foreign_keys=OFF;", on: db)
+        try execute("BEGIN TRANSACTION;", on: db)
+        for table in referenceTables {
+            try execute("DROP TABLE IF EXISTS \(table);", on: db)
+        }
+        if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(db))
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
+            appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
+            throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        try execute("COMMIT;", on: db)
+        try execute("PRAGMA foreign_keys=ON;", on: db)
+        dbManager.loadConfiguration()
+        lastReferenceBackup = Date()
+        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
+    }
+
+    private func execute(_ sql: String, on db: OpaquePointer) throws {
+        if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(db))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
     }
 
     private func appendLog(action: String, file: String, success: Bool, message: String? = nil) {
