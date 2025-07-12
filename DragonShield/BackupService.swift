@@ -2,6 +2,13 @@ import Foundation
 import SwiftUI
 import SQLite3
 
+struct TableActionSummary: Identifiable {
+    let id = UUID()
+    let table: String
+    let action: String
+    let count: Int
+}
+
 class BackupService: ObservableObject {
     @Published var lastBackup: Date?
     @Published var lastReferenceBackup: Date?
@@ -9,6 +16,7 @@ class BackupService: ObservableObject {
     @Published var scheduleEnabled: Bool
     @Published var scheduledTime: Date
     @Published var backupDirectory: URL
+    @Published var lastActionSummaries: [TableActionSummary] = []
 
     private var timer: Timer?
     private var isAccessing = false
@@ -147,6 +155,9 @@ class BackupService: ObservableObject {
         DispatchQueue.main.async {
             self.logMessages.append("✅ Backed up \(label) data — " + counts.joined(separator: ", "))
             self.appendLog(action: "Backup", file: destination.path, success: true)
+            self.lastActionSummaries = tables.map { tbl in
+                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+            }
         }
         return destination
     }
@@ -209,6 +220,9 @@ class BackupService: ObservableObject {
         DispatchQueue.main.async {
             self.logMessages.append("✅ Backed up Reference data — " + counts.joined(separator: ", "))
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
+            self.lastActionSummaries = self.referenceTables.map { tbl in
+                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+            }
         }
 
         return destination
@@ -232,6 +246,9 @@ class BackupService: ObservableObject {
             DispatchQueue.main.async {
                 self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
+                self.lastActionSummaries = tables.map { tbl in
+                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+                }
             }
         } catch {
             try? fm.moveItem(atPath: temp, toPath: dbPath)
@@ -283,8 +300,112 @@ class BackupService: ObservableObject {
         DispatchQueue.main.async {
             self.logMessages.append("✅ Restored Reference data — " + counts.joined(separator: ", "))
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
+            self.lastActionSummaries = self.referenceTables.map { table in
+                TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
+            }
         }
 
+    }
+
+    // MARK: – Transaction Data Backup/Restore
+
+    func backupTransactionData(dbManager: DatabaseManager, to destination: URL) throws -> URL {
+        let dbPath = dbManager.dbFilePath
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else {
+            let msg = String(cString: sqlite3_errmsg(db))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(db) }
+
+        var dump = "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\n"
+        for table in transactionTables {
+            var stmt: OpaquePointer?
+            let sqlQuery = "SELECT sql FROM sqlite_master WHERE type='table' AND name='\(table)';"
+            if sqlite3_prepare_v2(db, sqlQuery, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) {
+                    dump += String(cString: cStr) + ";\n"
+                }
+            }
+            sqlite3_finalize(stmt)
+
+            let query = "SELECT * FROM \(table);"
+            if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+                let columns = Int(sqlite3_column_count(stmt))
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    var values: [String] = []
+                    for i in 0..<columns {
+                        if let text = sqlite3_column_text(stmt, Int32(i)) {
+                            let val = escape(String(cString: text))
+                            values.append("'\(val)'")
+                        } else {
+                            values.append("NULL")
+                        }
+                    }
+                    dump += "INSERT INTO \(table) VALUES (\(values.joined(separator: ", ")));\n"
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        dump += "COMMIT;\nPRAGMA foreign_keys=ON;\n"
+
+        try dump.write(to: destination, atomically: true, encoding: .utf8)
+
+        var counts = [String]()
+        for tbl in transactionTables {
+            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+        }
+        DispatchQueue.main.async {
+            self.logMessages.append("✅ Backed up Transaction data — " + counts.joined(separator: ", "))
+            self.appendLog(action: "TxnBackup", file: destination.lastPathComponent, success: true)
+            self.lastActionSummaries = self.transactionTables.map { table in
+                TableActionSummary(table: table, action: "Backed up", count: (try? dbManager.rowCount(table: table)) ?? 0)
+            }
+        }
+
+        return destination
+    }
+
+    func restoreTransactionData(dbManager: DatabaseManager, from url: URL) throws {
+        guard let db = dbManager.db else { return }
+        let rawSQL = try String(contentsOf: url, encoding: .utf8)
+
+        let cleanedSQL = rawSQL
+            .replacingOccurrences(of: "PRAGMA foreign_keys=OFF;", with: "")
+            .replacingOccurrences(of: "BEGIN TRANSACTION;", with: "")
+            .replacingOccurrences(of: "COMMIT;", with: "")
+            .replacingOccurrences(of: "PRAGMA foreign_keys=ON;", with: "")
+
+        try execute("PRAGMA foreign_keys=OFF;", on: db)
+        try execute("BEGIN TRANSACTION;", on: db)
+
+        for table in transactionTables {
+            try execute("DROP TABLE IF EXISTS \(table);", on: db)
+        }
+
+        if sqlite3_exec(db, cleanedSQL, nil, nil, nil) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(db))
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
+            appendLog(action: "TxnRestore", file: url.lastPathComponent, success: false, message: msg)
+            throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        try execute("COMMIT;", on: db)
+        try execute("PRAGMA foreign_keys=ON;", on: db)
+
+        var counts = [String]()
+        for tbl in transactionTables {
+            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+        }
+        DispatchQueue.main.async {
+            self.logMessages.append("✅ Restored Transaction data — " + counts.joined(separator: ", "))
+            self.appendLog(action: "TxnRestore", file: url.lastPathComponent, success: true)
+            self.lastActionSummaries = self.transactionTables.map { table in
+                TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
+            }
+        }
     }
 
     private func execute(_ sql: String, on db: OpaquePointer) throws {
