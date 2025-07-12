@@ -155,30 +155,6 @@ class BackupService: ObservableObject {
         return destination
     }
 
-    func performReferenceRestore(dbManager: DatabaseManager, from url: URL) throws {
-        dbManager.closeConnection()
-        var conn: OpaquePointer?
-        if sqlite3_open(dbManager.dbFilePath, &conn) != SQLITE_OK {
-            let msg = String(cString: sqlite3_errmsg(conn))
-            sqlite3_close(conn)
-            throw NSError(domain: "RefRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
-        }
-        defer { sqlite3_close(conn); dbManager.reopenDatabase() }
-        let script = try String(contentsOf: url, encoding: .utf8)
-        let wrapped = """
-        PRAGMA foreign_keys = OFF;
-        BEGIN TRANSACTION;
-        \(script)
-        COMMIT;
-        PRAGMA foreign_keys = ON;
-        """
-        if sqlite3_exec(conn, wrapped, nil, nil, nil) != SQLITE_OK {
-            let msg = String(cString: sqlite3_errmsg(conn))
-            appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
-            throw NSError(domain: "RefRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
-        }
-        appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
-    }
 
     func performRestore(dbManager: DatabaseManager, from url: URL) throws {
         let fm = FileManager.default

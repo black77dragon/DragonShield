@@ -163,4 +163,5 @@ All notable changes to this project will be documented in this file.
 - Embed risk scorecard into Portfolio Overview
 - Introduce interactive Asset Dashboard grouped by asset class
 - Swap ZKB and Credit-Suisse references across code and docs
+- Fix duplicate reference restore function to resolve compilation error
 
