@@ -123,6 +123,8 @@ class BackupService: ObservableObject {
         "AccountTypes",
         "Institutions",
         "TransactionTypes",
+        "Instruments",
+        "Accounts",
     ]
 
     func performBackup(dbPath: String, to destination: URL) throws -> URL {
