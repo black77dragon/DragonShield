@@ -199,7 +199,6 @@ class BackupService: ObservableObject {
 
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
-        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
@@ -275,7 +274,6 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.loadConfiguration()
-        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         var counts = [String]()
