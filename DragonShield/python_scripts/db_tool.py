@@ -26,6 +26,7 @@ import shutil
 import subprocess
 from pathlib import Path
 import sqlite3
+import sys
 
 DEFAULT_TARGET_DIR = (
     "/Users/renekeller/Library/Containers/"
@@ -91,24 +92,41 @@ def stop_apps() -> None:
         )
 
 
-def main(argv=None):
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Build and deploy Dragon Shield database")
     parser.add_argument(
-        '--target-dir',
+        "--target-dir",
         default=DEFAULT_TARGET_DIR,
-        help='Destination directory for dragonshield.sqlite'
+        help="Destination directory for dragonshield.sqlite",
     )
-    parser.add_argument('--schema', default=str(Path(__file__).resolve().parents[1] / 'database' / 'schema.sql'),
-                        help='Path to schema.sql')
-    parser.add_argument('--seed', default=str(Path(__file__).resolve().parents[1] / 'database' / 'schema.txt'),
-                        help='Path to schema.txt')
+    parser.add_argument(
+        "--schema",
+        default=str(Path(__file__).resolve().parents[1] / "database" / "schema.sql"),
+        help="Path to schema.sql",
+    )
+    parser.add_argument(
+        "--seed",
+        default=str(Path(__file__).resolve().parents[1] / "database" / "schema.txt"),
+        help="Path to schema.txt",
+    )
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--all", action="store_true", help="Run all steps")
+    group.add_argument("--create-db", action="store_true", help="Create database only")
+    group.add_argument(
+        "--populate-test",
+        action="store_true",
+        help="Create database and load test data",
+    )
+    group.add_argument("--deploy-only", action="store_true", help="Deploy existing database only")
+
     args = parser.parse_args(argv)
 
     logger = _setup_logger()
     stop_apps()
 
     project_root = Path(__file__).resolve().parents[1]
-    source_path = project_root / 'dragonshield.sqlite'
+    source_path = project_root / "dragonshield.sqlite"
 
     if not Path(args.schema).exists():
         raise FileNotFoundError(f"Schema file not found: {args.schema}")
@@ -118,33 +136,72 @@ def main(argv=None):
     version = deploy_db.parse_version(args.schema)
     logger.info(json.dumps({"event": "start", "version": version}))
 
-    if _confirm("Phase 1: create a new empty database"):
-        logger.info(json.dumps({"phase": 1, "status": "start"}))
-        table_count = create_empty_db(args.schema, str(source_path))
-        logger.info(json.dumps({"phase": 1, "status": "done", "tables": table_count}))
-    else:
-        logger.info(json.dumps({"phase": 1, "status": "skipped"}))
+    # Determine execution mode
+    interactive = False
+    if not any([args.all, args.create_db, args.populate_test, args.deploy_only]):
+        if sys.stdin.isatty():
+            interactive = True
+        else:
+            args.all = True
 
-    if _confirm("Phase 2: load fresh set of test data"):
-        logger.info(json.dumps({"phase": 2, "status": "start"}))
-        seed_rows = load_seed_data(args.seed, str(source_path), version)
-        logger.info(json.dumps({"phase": 2, "status": "done", "rows": seed_rows}))
-    else:
-        logger.info(json.dumps({"phase": 2, "status": "skipped"}))
+    success = True
 
-    if _confirm("Phase 3: deploy the database to the Production Location"):
-        logger.info(json.dumps({"phase": 3, "status": "start"}))
-        dest_dir = Path(args.target_dir).expanduser()
-        os.makedirs(dest_dir, exist_ok=True)
-        for item in dest_dir.iterdir():
-            if item.is_file():
-                item.unlink()
-        dest_path = dest_dir / 'dragonshield.sqlite'
-        shutil.copy2(source_path, dest_path)
-        logger.info(json.dumps({"phase": 3, "status": "done", "dest": str(dest_path)}))
-    else:
-        logger.info(json.dumps({"phase": 3, "status": "skipped"}))
+    try:
+        if interactive:
+            if _confirm("Phase 1: create a new empty database"):
+                logger.info(json.dumps({"phase": 1, "status": "start"}))
+                table_count = create_empty_db(args.schema, str(source_path))
+                logger.info(json.dumps({"phase": 1, "status": "done", "tables": table_count}))
+            else:
+                logger.info(json.dumps({"phase": 1, "status": "skipped"}))
+
+            if _confirm("Phase 2: load fresh set of test data"):
+                logger.info(json.dumps({"phase": 2, "status": "start"}))
+                seed_rows = load_seed_data(args.seed, str(source_path), version)
+                logger.info(json.dumps({"phase": 2, "status": "done", "rows": seed_rows}))
+            else:
+                logger.info(json.dumps({"phase": 2, "status": "skipped"}))
+
+            if _confirm("Phase 3: deploy the database to the Production Location"):
+                logger.info(json.dumps({"phase": 3, "status": "start"}))
+                dest_dir = Path(args.target_dir).expanduser()
+                os.makedirs(dest_dir, exist_ok=True)
+                for item in dest_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                dest_path = dest_dir / "dragonshield.sqlite"
+                shutil.copy2(source_path, dest_path)
+                logger.info(json.dumps({"phase": 3, "status": "done", "dest": str(dest_path)}))
+            else:
+                logger.info(json.dumps({"phase": 3, "status": "skipped"}))
+        else:
+            # Non-interactive execution based on flags
+            if args.all or args.create_db or args.populate_test:
+                logger.info(json.dumps({"phase": 1, "status": "start"}))
+                table_count = create_empty_db(args.schema, str(source_path))
+                logger.info(json.dumps({"phase": 1, "status": "done", "tables": table_count}))
+
+            if args.all or args.populate_test:
+                logger.info(json.dumps({"phase": 2, "status": "start"}))
+                seed_rows = load_seed_data(args.seed, str(source_path), version)
+                logger.info(json.dumps({"phase": 2, "status": "done", "rows": seed_rows}))
+
+            if args.all or args.deploy_only or args.populate_test:
+                logger.info(json.dumps({"phase": 3, "status": "start"}))
+                dest_dir = Path(args.target_dir).expanduser()
+                os.makedirs(dest_dir, exist_ok=True)
+                for item in dest_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                dest_path = dest_dir / "dragonshield.sqlite"
+                shutil.copy2(source_path, dest_path)
+                logger.info(json.dumps({"phase": 3, "status": "done", "dest": str(dest_path)}))
+    except Exception as exc:  # pragma: no cover - unforeseen errors
+        logger.error(json.dumps({"error": str(exc)}))
+        success = False
+
+    return 0 if success else 1
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    raise SystemExit(main())
