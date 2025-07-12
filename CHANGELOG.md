@@ -179,3 +179,4 @@ All notable changes to this project will be documented in this file.
 - Fix missing SQLITE_TRANSIENT constant in reference data backup
 
 - Fix nested transaction error during reference data restore
+- Fix missing `rowCounts` call in BackupService causing compilation failure
