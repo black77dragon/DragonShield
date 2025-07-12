@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Extend institution seed data with contact info and default currencies
 - Delete existing ZKB position reports for all ZKB accounts before importing new positions
 - Replace `account_id` with `institution_id` in `ImportSessions` table
+- Add CLI flags for db_tool to run phases non-interactively
 - Fix incorrect parameter label when starting import sessions
 - Store import sessions by institution and value date, tracking duplicate rows
 - Restyle Currency Maintenance window and update title to "Currency Maintenance"
