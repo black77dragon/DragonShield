@@ -165,7 +165,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 - 2.11: Improved Institutions maintenance UI with edit and delete actions.
 - 2.10: Institutions screen now supports add, edit and delete with dependency checks.
 - 2.9: Added Hashable conformance for InstitutionData.
-- 2.8: Fixed compile issue in CustodyAccountsView.
+- 2.8: Fixed compile issue in AccountsView.
 - 2.7: Added Institutions table and management view.
 - 2.6: Updated default database path to container directory.
 - 2.5: Settings view shows database info and added `db_tool.py` utility.

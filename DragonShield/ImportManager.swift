@@ -90,7 +90,7 @@ class ImportManager {
         var result: AccountPromptResult = .cancel
         let instId = dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
         let typeId = dbManager.findAccountTypeId(code: accountTypeCode) ?? 1
-        let defaultName = accountTypeCode == "CASH" ? "Credit-Suisse Cash Account" : "Credit-Suisse Custody Account"
+        let defaultName = accountTypeCode == "CASH" ? "Credit-Suisse Cash Account" : "Credit-Suisse Account"
         let view = AccountPromptView(accountName: defaultName,
                                      accountNumber: number,
                                      institutionId: instId,
@@ -292,7 +292,7 @@ class ImportManager {
                     } else {
                         let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
                         let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-                        _ = self.dbManager.addAccount(accountName: "Credit-Suisse Custody Account",
+                        _ = self.dbManager.addAccount(accountName: "Credit-Suisse Account",
                                                        institutionId: instId,
                                                        accountNumber: custodyNumber,
                                                        accountTypeId: typeId,

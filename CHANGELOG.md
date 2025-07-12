@@ -23,7 +23,7 @@ All notable changes to this project will be documented in this file.
 - Fix Full Database restore button not showing file picker
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
-- Offer disable or delete option for custody accounts with dependency check
+- Offer disable or delete option for accounts with dependency check
 - Include all position fields in the add/edit position form
 - Fix compilation errors in Positions view after CRUD refactor
 - Move database info panel from Settings to Database Management view
@@ -82,7 +82,7 @@ All notable changes to this project will be documented in this file.
 - Replace Institutions seed data with new dataset
 - Rename cash account names using institution and currency codes
 - Restyled Institutions maintenance window for consistent look and feel
-- Retry account prompt until a custody account is created during position import
+- Retry account prompt until a account is created during position import
 - Fix compile error in Institutions view due to missing empty state component
 - Added Asset Class maintenance screens with create, update and delete
 - Fix compile errors in Asset Class maintenance view on macOS
@@ -94,7 +94,7 @@ All notable changes to this project will be documented in this file.
 - Parse ticker symbol from Valor and build instrument names including institution and currency
 - Default quantity to zero for "Credit-Suisse Call Account USD" when cell is blank
 - Prompt for instrument details when new securities are imported
-- Automatically create Credit-Suisse custody and cash accounts when missing and save position reports
+- Automatically create Credit-Suisse accounts when missing and save position reports
 - Fix unused variable warning when auto-creating Credit-Suisse cash accounts
 - Exclude cash instruments from performance and allocation views
 - Fix missing instrument popup and save newly added instruments
@@ -105,20 +105,20 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in position review and import views
 - Prompt to delete existing Credit-Suisse positions before importing and show count
 - Parse value date from Credit-Suisse sheets, show import details summary and improve instrument popups
-- Correct custody account number detection from cell B6 and extend new instrument prompt with dropdowns
+- Correct account number detection from cell B6 and extend new instrument prompt with dropdowns
 - Fix compile error in instrument prompt view when selecting subclass or currency
 - Record Credit-Suisse import sessions and link position reports
 - Eliminate QoS warnings by presenting modals synchronously
 - Condense instrument popups and rename review dialog title
 - Show import summary in modern styled popup
 - Condense import details popup row spacing
-- Default custody positions to "Credit-Suisse Custody Account" name
+- Default positions to "Credit-Suisse account" name
 - Fix saving position reports when no import session is created
 - Map Credit-Suisse categories to AssetSubClasses using documented table and treat cash
   rows as accounts instead of instruments
 - Fix sub-class mapping using the defined Credit-Suisse keywords
 - Search existing instruments by ticker symbol before prompting
-- Use single custody account for all parsed positions
+- Use single account for all parsed positions
 - Display a status alert after each position save attempt
 - Allow reimporting the same file by removing unique constraint on file hash
 - Prompt to create new accounts when account number is missing and retry if insertion fails
@@ -126,22 +126,22 @@ All notable changes to this project will be documented in this file.
 - Improve account lookup when importing positions to match numbers with spaces
   and require account name containing "Credit-Suisse" to prevent repeated prompts
 - Append numbers to import session names when duplicates exist
-- Fallback to account lookup by number only to use existing Credit-Suisse Custody Account
+- Fallback to account lookup by number only to use existing Credit-Suisse account
 - Fix account lookup to ignore non-breaking spaces in numbers
 - Retry import session creation when file_hash is unique in older databases
-- Improve custody account search by ignoring hyphens and case
+- Improve account search by ignoring hyphens and case
 - Restrict Credit-Suisse position deletions to accounts linked to the Credit-Suisse institution
 - Add Credit-Suisse institution to seed data script for tests
-- Add debug logs for custody account lookups to help diagnose duplicates
-- Strip all non-alphanumeric characters when searching account numbers so the Credit-Suisse custody account is detected
+- Add debug logs for account lookups to help diagnose duplicates
+- Strip all non-alphanumeric characters when searching account numbers so the Credit-Suisse account is detected
 - Clarify that `Instruments.isin` is optional rather than mandatory
-- Add Credit-Suisse Custody Test Account with sample position reports to seed data
+- Add Credit-Suisse Test Account with sample position reports to seed data
 - Look up instruments by ISIN ignoring spaces and case so existing records are detected
 - Store institution_id from the linked account when saving PositionReports and prompt before removing existing Credit-Suisse positions
 - Track purchase and current price in PositionReports when importing Credit-Suisse files
 - Display institution name in Positions view
 - Fix Positions view table headers for quantity and price columns
-- Remove OLD-BANK-007 from seed data and rename Credit-Suisse Custody test account
+- Remove OLD-BANK-007 from seed data and rename Credit-Suisse test account
 - Populate purchase and current price in seed position reports
 - Fix argument order when constructing PositionReportData to resolve compile error
 - Enlarge the import details popup so all information is visible
@@ -178,4 +178,5 @@ All notable changes to this project will be documented in this file.
 - Fix duplicate reference restore function to resolve compilation error
 - Fix missing SQLITE_TRANSIENT constant in reference data backup
 
+- Replace "Custody Accounts" wording with "Accounts" across the app and docs
 - Fix nested transaction error during reference data restore

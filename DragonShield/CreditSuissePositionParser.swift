@@ -84,7 +84,7 @@ struct CreditSuissePositionParser {
             let accountName = isCash ? Self.renameCashAccount(description: descr,
                                                              currency: currency,
                                                              institution: "Credit-Suisse")
-                                      : "Credit-Suisse Custody Account"
+                                     : "Credit-Suisse Account"
             let record = ParsedPositionRecord(accountNumber: accountNumber,
                                                accountName: accountName,
                                                instrumentName: instrumentName,

@@ -189,7 +189,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 parsed_data["main_custody_account_nr"] = main_custody_account_nr_internal
                 break
         if not main_custody_account_nr_internal:
-            print(f"Warning: Could not parse Custody Account Nr from Line {LINE_6_PORTFOLIO_NR_LINE_NUMBER}.\n")
+            print(f"Warning: Could not parse Account Nr from Line {LINE_6_PORTFOLIO_NR_LINE_NUMBER}.\n")
 
 
         if sheet is None:

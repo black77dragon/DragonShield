@@ -116,7 +116,7 @@ struct ImportStatementView: View {
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom))
                 }
-                Text("Upload bank or custody account statements (CSV, XLSX, PDF)")
+                Text("Upload bank or account statements (CSV, XLSX, PDF)")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }

@@ -1,18 +1,18 @@
-// DragonShield/Views/CustodyAccountsView.swift
+// DragonShield/Views/AccountsView.swift
 // MARK: - Version 1.6
 // MARK: - History
 // - 1.4 -> 1.5: Accounts now reference Institutions. Added picker fields.
 // - 1.5 -> 1.6: Added institution picker to Edit view to resolve compile error.
 // - 1.3 -> 1.4: Updated deprecated onChange modifiers to new syntax for macOS 14.0+.
 // - 1.2 -> 1.3: Updated Add/Edit views to use Picker for AccountType based on normalized schema.
-// - 1.2 (Corrected - Full): Ensured all helper views like accountsContent, emptyStateView, accountsTable are fully defined within CustodyAccountsView. Provided full implementations for helper functions in Add/Edit views and fixed animation function signatures.
+// - 1.2 (Corrected - Full): Ensured all helper views like accountsContent, emptyStateView, accountsTable are fully defined within AccountsView. Provided full implementations for helper functions in Add/Edit views and fixed animation function signatures.
 // - 1.1 -> 1.2: Updated Add/Edit views to include institutionBic, optional openingDate, and optional closingDate.
-// - 1.0 -> 1.1: Fixed EditCustodyAccountView initializer access level and incorrect String.trim() calls. Corrected onChange usage in text fields.
+// - 1.0 -> 1.1: Fixed EditAccountView initializer access level and incorrect String.trim() calls. Corrected onChange usage in text fields.
 
 import SwiftUI
 
-// Main View for Custody Accounts
-struct CustodyAccountsView: View {
+// Main View for Accounts
+struct AccountsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
     @State private var accounts: [DatabaseManager.AccountData] = []
@@ -59,17 +59,17 @@ struct CustodyAccountsView: View {
             loadAccounts()
             animateEntrance()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCustodyAccounts"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshAccounts"))) { _ in
             loadAccounts()
         }
         .onChange(of: dbManager.tableRowSpacing) { _, _ in }
         .onChange(of: dbManager.tableRowPadding) { _, _ in }
         .sheet(isPresented: $showAddAccountSheet) {
-            AddCustodyAccountView().environmentObject(dbManager)
+            AddAccountView().environmentObject(dbManager)
         }
         .sheet(isPresented: $showEditAccountSheet) {
             if let account = selectedAccount {
-                EditCustodyAccountView(accountId: account.id).environmentObject(dbManager)
+                EditAccountView(accountId: account.id).environmentObject(dbManager)
             }
         }
         .confirmationDialog("Account Action", isPresented: $showingDeleteAlert, titleVisibility: .visible) {
@@ -92,7 +92,7 @@ struct CustodyAccountsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 12) {
                     Image(systemName: "building.columns.fill").font(.system(size: 32)).foregroundColor(.blue)
-                    Text("Custody Accounts").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom))
+                    Text("Accounts").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom))
                 }
                 Text("Manage your brokerage, bank, and exchange accounts").font(.subheadline).foregroundColor(.gray)
             }
@@ -141,9 +141,9 @@ struct CustodyAccountsView: View {
                     .font(.system(size: 64))
                     .foregroundStyle(LinearGradient(colors: [.gray.opacity(0.5), .gray.opacity(0.3)], startPoint: .top, endPoint: .bottom))
                 VStack(spacing: 8) {
-                    Text(searchText.isEmpty && accounts.isEmpty ? "No custody accounts yet" : "No matching accounts")
+                    Text(searchText.isEmpty && accounts.isEmpty ? "No accounts yet" : "No matching accounts")
                         .font(.title2).fontWeight(.semibold).foregroundColor(.gray)
-                    Text(searchText.isEmpty && accounts.isEmpty ? "Add your first custody account to get started." : "Try adjusting your search terms.")
+                    Text(searchText.isEmpty && accounts.isEmpty ? "Add your first account to get started." : "Try adjusting your search terms.")
                         .font(.body).foregroundColor(.gray).multilineTextAlignment(.center)
                 }
                 if searchText.isEmpty && accounts.isEmpty {
@@ -168,7 +168,7 @@ struct CustodyAccountsView: View {
             ScrollView {
                 LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) {
                     ForEach(filteredAccounts) { account in
-                        ModernCustodyAccountRowView(
+                        ModernAccountRowView(
                             account: account,
                             isSelected: selectedAccount?.id == account.id,
                             rowPadding: CGFloat(dbManager.tableRowPadding),
@@ -280,7 +280,7 @@ struct CustodyAccountsView: View {
     }
 }
 
-struct ModernCustodyAccountRowView: View {
+struct ModernAccountRowView: View {
     let account: DatabaseManager.AccountData // No change needed here as accountType is already the name
     let isSelected: Bool
     let rowPadding: CGFloat
@@ -320,8 +320,8 @@ struct ModernCustodyAccountRowView: View {
     }
 }
 
-// Add Custody Account View - MODIFIED
-struct AddCustodyAccountView: View {
+// Add Account View - MODIFIED
+struct AddAccountView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
     
@@ -370,7 +370,7 @@ struct AddCustodyAccountView: View {
     private var addModernHeader: some View {
         HStack {
             Button { animateAddExit() } label: { Image(systemName: "xmark").modifier(ModernSubtleButton()) }; Spacer()
-            HStack(spacing: 12) { Image(systemName: "plus.circle.fill").font(.system(size: 24)).foregroundColor(.blue); Text("Add Custody Account").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)) }; Spacer()
+            HStack(spacing: 12) { Image(systemName: "plus.circle.fill").font(.system(size: 24)).foregroundColor(.blue); Text("Add Account").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)) }; Spacer()
             Button { saveAccount() } label: { HStack(spacing: 8) { if isLoading { ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.8) } else { Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)) }; Text(isLoading ? "Saving..." : "Save") .font(.system(size: 14, weight: .semibold)) }.modifier(ModernPrimaryButton(color: .blue, isDisabled: isLoading || !isValid)) }
         }.padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
@@ -552,14 +552,14 @@ private var accountTypePickerField: some View {
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         isLoading = false
-        if success { alertMessage = "✅ Account '\(accountName)' added successfully!"; NotificationCenter.default.post(name: NSNotification.Name("RefreshCustodyAccounts"), object: nil);
+        if success { alertMessage = "✅ Account '\(accountName)' added successfully!"; NotificationCenter.default.post(name: NSNotification.Name("RefreshAccounts"), object: nil);
         } else { alertMessage = "❌ Failed to add account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to add account: Account Number must be unique."} }
         showingAlert = true
     }
 }
 
-// Edit Custody Account View - MODIFIED
-struct EditCustodyAccountView: View {
+// Edit Account View - MODIFIED
+struct EditAccountView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
     let accountId: Int
@@ -622,7 +622,7 @@ struct EditCustodyAccountView: View {
     private var editModernHeader: some View {
         HStack {
             Button { if hasChanges { showUnsavedChangesAlert() } else { animateEditExit() } } label: { Image(systemName: "xmark").modifier(ModernSubtleButton()) }; Spacer()
-            HStack(spacing: 12) { Image(systemName: "pencil.line").font(.system(size: 24)).foregroundColor(.orange); Text("Edit Custody Account").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)) }; Spacer()
+            HStack(spacing: 12) { Image(systemName: "pencil.line").font(.system(size: 24)).foregroundColor(.orange); Text("Edit Account").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)) }; Spacer()
             Button { saveAccountChanges() } label: { HStack(spacing: 8) { if isLoading { ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.8) } else { Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark").font(.system(size: 14, weight: .bold)) }; Text(isLoading ? "Saving..." : "Save Changes").font(.system(size: 14, weight: .semibold)) }.modifier(ModernPrimaryButton(color: .orange, isDisabled: isLoading || !isValid || !hasChanges)) }
         }.padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
@@ -830,7 +830,7 @@ struct EditCustodyAccountView: View {
                 if let cDate = currentDetails.closingDate { originalClosingDateInput = cDate; originalSetClosingDate = true } else { originalSetClosingDate = false }
             }
             detectChanges() // Re-evaluate hasChanges, should be false now
-            NotificationCenter.default.post(name: NSNotification.Name("RefreshCustodyAccounts"), object: nil)
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshAccounts"), object: nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { animateEditExit() }
         } else { alertMessage = "❌ Failed to update account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to update account: Account Number must be unique."}; showingAlert = true }
     }
