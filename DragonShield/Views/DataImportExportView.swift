@@ -102,10 +102,27 @@ struct DataImportExportView: View {
 
     private func handleImport(urls: [URL], type: StatementType) {
         guard let url = urls.first else { return }
-        let name = url.lastPathComponent
-        importSummary = "✔ \(displayName(type)) import succeeded: 45 records parsed, 2 errors."
-        let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
-        logMessages.insert("[\(stamp)] \(name) → Success: 45 records.", at: 0)
+        logMessages.removeAll()
+        importSummary = nil
+
+        ImportManager.shared.importPositions(at: url, progress: { message in
+            DispatchQueue.main.async {
+                self.logMessages.append(message)
+            }
+        }) { result in
+            DispatchQueue.main.async {
+                let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+                switch result {
+                case .success(let summary):
+                    let errors = summary.totalRows - summary.parsedRows
+                    self.importSummary = "✔ \(self.displayName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
+                    self.logMessages.insert("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records", at: 0)
+                case .failure(let error):
+                    self.importSummary = nil
+                    self.logMessages.insert("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)", at: 0)
+                }
+            }
+        }
     }
 
     private func displayName(_ type: StatementType) -> String {
