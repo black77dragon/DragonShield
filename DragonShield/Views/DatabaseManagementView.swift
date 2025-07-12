@@ -76,13 +76,13 @@ struct DatabaseManagementView: View {
                 .font(.headline)
             HStack(spacing: 12) {
                 Button(action: backupReferenceNow) {
-                    if processing { ProgressView() } else { Text("Backup Reference") }
+                    if processing { ProgressView() } else { Text("Backup Reference Data…") }
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(processing)
                 .help("Export reference tables to a SQL file")
 
-                Button("Restore Reference") { showingReferenceImporter = true }
+                Button("Restore Reference Data…") { showingReferenceImporter = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .help("Apply a reference data backup to the current database")
             }
@@ -103,6 +103,38 @@ struct DatabaseManagementView: View {
                 Button("Restore Transition") {}
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(true)
+            }
+        }
+    }
+
+    private var databaseInfoView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Database Info")
+                .font(.system(size: 18, weight: .semibold))
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                GridRow {
+                    Text("Path:")
+                    Text(dbManager.dbFilePath)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.caption)
+                }
+                GridRow {
+                    Text("Created:")
+                    Text(formattedDate(dbManager.dbCreated))
+                }
+                GridRow {
+                    Text("Last Updated:")
+                    Text(formattedDate(dbManager.dbModified))
+                }
+                GridRow {
+                    Text("Mode:")
+                    Text(dbManager.dbMode.rawValue.uppercased())
+                }
+                GridRow {
+                    Text("Schema Version:")
+                    Text(dbManager.dbVersion)
+                }
             }
         }
     }
@@ -266,7 +298,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performReferenceBackup(dbPath: dbManager.dbFilePath, to: url)
+                _ = try backupService.backupReferenceData(dbPath: dbManager.dbFilePath, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -296,8 +328,10 @@ struct DatabaseManagementView: View {
     private func restoreReference(url: URL) {
         processing = true
         DispatchQueue.global().async {
+            let accessGranted = url.startAccessingSecurityScopedResource()
+            defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
-                try backupService.performReferenceRestore(dbManager: dbManager, from: url)
+                try backupService.restoreReferenceData(dbManager: dbManager, from: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {

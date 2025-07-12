@@ -123,6 +123,8 @@ class BackupService: ObservableObject {
         "AccountTypes",
         "Institutions",
         "TransactionTypes",
+        "Instruments",
+        "Accounts",
     ]
 
     func performBackup(dbPath: String, to destination: URL) throws -> URL {
@@ -134,51 +136,59 @@ class BackupService: ObservableObject {
         return destination
     }
 
-    func performReferenceBackup(dbPath: String, to destination: URL) throws -> URL {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = [dbPath, ".dump"] + referenceTables
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if process.terminationStatus != 0 {
-            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
-            appendLog(action: "RefBackup", file: destination.lastPathComponent, success: false, message: msg)
-            throw NSError(domain: "Backup", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: msg])
+    // MARK: – Reference Data Backup/Restore
+
+    func backupReferenceData(dbPath: String, to destination: URL) throws -> URL {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else {
+            let msg = String(cString: sqlite3_errmsg(db))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
-        try data.write(to: destination)
+        defer { sqlite3_close(db) }
+
+        var dump = "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\n"
+
+        for table in referenceTables {
+            // capture CREATE TABLE statement
+            var stmt: OpaquePointer?
+            let sqlQuery = "SELECT sql FROM sqlite_master WHERE type='table' AND name='\(table)';"
+            if sqlite3_prepare_v2(db, sqlQuery, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) {
+                    dump += String(cString: cStr) + ";\n"
+                }
+            }
+            sqlite3_finalize(stmt)
+
+            // emit INSERT statements for each row
+            let query = "SELECT * FROM \(table);"
+            if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+                let columns = Int(sqlite3_column_count(stmt))
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    var values: [String] = []
+                    for i in 0..<columns {
+                        if let text = sqlite3_column_text(stmt, Int32(i)) {
+                            let val = escape(String(cString: text))
+                            values.append("'\(val)'")
+                        } else {
+                            values.append("NULL")
+                        }
+                    }
+                    dump += "INSERT INTO \(table) VALUES (\(values.joined(separator: ", ")));\n"
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        dump += "COMMIT;\nPRAGMA foreign_keys=ON;\n"
+
+        try dump.write(to: destination, atomically: true, encoding: .utf8)
+
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
         return destination
     }
 
-    func performReferenceRestore(dbManager: DatabaseManager, from url: URL) throws {
-        dbManager.closeConnection()
-        var conn: OpaquePointer?
-        if sqlite3_open(dbManager.dbFilePath, &conn) != SQLITE_OK {
-            let msg = String(cString: sqlite3_errmsg(conn))
-            sqlite3_close(conn)
-            throw NSError(domain: "RefRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
-        }
-        defer { sqlite3_close(conn); dbManager.reopenDatabase() }
-        let script = try String(contentsOf: url, encoding: .utf8)
-        let wrapped = """
-        PRAGMA foreign_keys = OFF;
-        BEGIN TRANSACTION;
-        \(script)
-        COMMIT;
-        PRAGMA foreign_keys = ON;
-        """
-        if sqlite3_exec(conn, wrapped, nil, nil, nil) != SQLITE_OK {
-            let msg = String(cString: sqlite3_errmsg(conn))
-            appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
-            throw NSError(domain: "RefRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
-        }
-        appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
-    }
 
     func performRestore(dbManager: DatabaseManager, from url: URL) throws {
         let fm = FileManager.default
@@ -198,23 +208,36 @@ class BackupService: ObservableObject {
         try? fm.removeItem(atPath: temp)
     }
 
-    func performReferenceRestore(dbManager: DatabaseManager, from url: URL) throws {
+    func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
         guard let db = dbManager.db else { return }
-        let sql = try String(contentsOf: url, encoding: .utf8)
+        let rawSQL = try String(contentsOf: url, encoding: .utf8)
+
+        // Remove transaction wrappers to avoid nested transactions
+        let cleanedSQL = rawSQL
+            .replacingOccurrences(of: "PRAGMA foreign_keys=OFF;", with: "")
+            .replacingOccurrences(of: "BEGIN TRANSACTION;", with: "")
+            .replacingOccurrences(of: "COMMIT;", with: "")
+            .replacingOccurrences(of: "PRAGMA foreign_keys=ON;", with: "")
+
+        // Drop tables and import data inside one transaction with foreign keys disabled
         try execute("PRAGMA foreign_keys=OFF;", on: db)
         try execute("BEGIN TRANSACTION;", on: db)
+
         for table in referenceTables {
             try execute("DROP TABLE IF EXISTS \(table);", on: db)
         }
-        if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
+
+        if sqlite3_exec(db, cleanedSQL, nil, nil, nil) != SQLITE_OK {
             let msg = String(cString: sqlite3_errmsg(db))
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
             sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
             appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: msg)
             throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
+
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
+
         dbManager.loadConfiguration()
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
@@ -226,6 +249,10 @@ class BackupService: ObservableObject {
             let msg = String(cString: sqlite3_errmsg(db))
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
+    }
+
+    private func escape(_ value: String) -> String {
+        value.replacingOccurrences(of: "'", with: "''")
     }
 
     private func appendLog(action: String, file: String, success: Bool, message: String? = nil) {

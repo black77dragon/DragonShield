@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 - Add dedicated reference data backup and restore with grouped buttons
 - Backup reference data separately via new UI button and CLI flag
 - Restore reference data from SQL or JSON with dedicated button
+- Export reference tables as SQL with CREATE and INSERT statements
+- Disable foreign key checks during reference restore to avoid constraint failures
+- Include Instruments and Accounts in reference data backup/restore
+- Fix permission error when restoring reference data by using security-scoped access
 - Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Allow choosing a writable backup directory with defaults in Documents
@@ -23,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - Use built-in table sortOrder to fix header sorting compile errors
 - Fix compile errors in positions table by inlining columns and ordering arguments correctly
 - Allow optional import session when saving positions and add picker placeholders
+- Fix compile error in Database Management view due to missing `databaseInfoView`
 - Refactor Target Allocation list with per-class mismatch warnings and color legend
 - Improve Positions table with resizable columns and notes indicator
 - Fix compile error in Positions table selection binding
@@ -163,4 +168,7 @@ All notable changes to this project will be documented in this file.
 - Embed risk scorecard into Portfolio Overview
 - Introduce interactive Asset Dashboard grouped by asset class
 - Swap ZKB and Credit-Suisse references across code and docs
+- Fix duplicate reference restore function to resolve compilation error
+- Fix missing SQLITE_TRANSIENT constant in reference data backup
 
+- Fix nested transaction error during reference data restore

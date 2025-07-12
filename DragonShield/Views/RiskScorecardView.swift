@@ -21,7 +21,7 @@ struct RiskScorecardView: View {
                 Text("5Y").tag("5Y")
             }
             .pickerStyle(.segmented)
-            .onChange(of: period) { loadMetrics() }
+            .onChange(of: period) { _, _ in loadMetrics() }
             .padding()
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 2), spacing: 16) {
