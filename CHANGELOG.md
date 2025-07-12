@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Replace Load Documents with Data Import/Export view and statement log
 - Document Data Import/Export screen spec with Statement Loading Log and wireframe
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
