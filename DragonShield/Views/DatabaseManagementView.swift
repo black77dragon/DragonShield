@@ -36,12 +36,12 @@ struct DatabaseManagementView: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(Theme.primaryAccent)
 
-            infoRow("Database Path:", dbManager.dbFilePath, mono: true)
-            infoRow("File Size:", fileSizeString, mono: true)
-            infoRow("Schema Version:", dbManager.dbVersion)
-            infoRow("Created:", formattedDate(dbManager.dbCreated))
-            infoRow("Last Updated:", formattedDate(dbManager.dbModified))
-            infoRow("Mode:", dbManager.dbMode.rawValue.uppercased())
+            infoRow("Database Path:", value: dbManager.dbFilePath, mono: true)
+            infoRow("File Size:", value: fileSizeString, mono: true)
+            infoRow("Schema Version:", value: dbManager.dbVersion)
+            infoRow("Created:", value: formattedDate(dbManager.dbCreated))
+            infoRow("Last Updated:", value: formattedDate(dbManager.dbModified))
+            infoRow("Mode:", value: dbManager.dbMode.rawValue.uppercased())
         }
         .padding(24)
         .background(Theme.surface)

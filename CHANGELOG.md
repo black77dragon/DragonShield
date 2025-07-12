@@ -181,3 +181,4 @@ All notable changes to this project will be documented in this file.
 
 - Fix nested transaction error during reference data restore
 - Fix missing `rowCounts` call in BackupService causing compilation failure
+- Fix compile error in Database Management view due to missing `value:` label
