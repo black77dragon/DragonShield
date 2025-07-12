@@ -54,6 +54,7 @@ The system must track the version of the database schema in use. This allows com
 - Show timestamp of the last reference backup.
  - Only the Configuration, Currencies, ExchangeRates, AssetClasses, AssetSubClasses,
    AccountTypes, Institutions, TransactionTypes, Instruments and Accounts tables are included.
+ - When restoring, run `schema.sql` first so these tables exist before applying the dump.
 
 ### Step 2: Backup & Restore via UI
 - Add "Create Backup" button that saves the current database file.

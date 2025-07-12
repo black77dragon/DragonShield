@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Export reference tables as SQL with CREATE and INSERT statements
 - Disable foreign key checks during reference restore to avoid constraint failures
 - Include Instruments and Accounts in reference data backup/restore
+- Sync full reference SQL dump for tests and clarify restore instructions
 - Fix permission error when restoring reference data by using security-scoped access
 - Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
