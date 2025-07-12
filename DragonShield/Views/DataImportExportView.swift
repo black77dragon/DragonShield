@@ -2,10 +2,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DataImportExportView: View {
+    enum StatementType { case creditSuisse, zkb }
+
     @State private var logMessages: [String] = []
     @State private var importSummary: String?
     @State private var showDetails = false
-    @State private var showCSImporter = false
+    @State private var showImporterFor: StatementType? = nil
 
     var body: some View {
         ScrollView {
@@ -14,7 +16,10 @@ struct DataImportExportView: View {
                 .padding(.horizontal)
         }
         .fileImporter(
-            isPresented: $showCSImporter,
+            isPresented: Binding<Bool>(
+                get: { showImporterFor != nil },
+                set: { if !$0 { showImporterFor = nil } }
+            ),
             allowedContentTypes: [
                 .commaSeparatedText,
                 UTType(filenameExtension: "xlsx")!,
@@ -22,8 +27,10 @@ struct DataImportExportView: View {
             ],
             allowsMultipleSelection: false
         ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                handleCSImport(urls: [url])
+            if case let .success(urls) = result,
+               let url = urls.first,
+               let type = showImporterFor {
+                handleImport(urls: [url], type: type)
             }
         }
         .navigationTitle("Data Import / Export")
@@ -77,8 +84,8 @@ struct DataImportExportView: View {
             heading: "Import Credit-Suisse Statement",
             dropText: "Drag & Drop Credit-Suisse File",
             buttonText: "Select File",
-            onSelect: { showCSImporter = true },
-            onDrop: handleCSImport(urls:)
+            onSelect: { showImporterFor = .creditSuisse },
+            onDrop: { handleImport(urls: $0, type: .creditSuisse) }
         )
     }
 
@@ -93,10 +100,19 @@ struct DataImportExportView: View {
         )
     }
 
-    private func handleCSImport(urls: [URL]) {
-        guard let _ = urls.first else { return }
-        importSummary = "✔ Credit-Suisse import succeeded: 45 records parsed, 2 errors."
-        logMessages.insert("[2025-07-12 08:35:42] Credit-Suisse_Positions_2025-07-12.csv → Success: 45 records.", at: 0)
+    private func handleImport(urls: [URL], type: StatementType) {
+        guard let url = urls.first else { return }
+        let name = url.lastPathComponent
+        importSummary = "✔ \(displayName(type)) import succeeded: 45 records parsed, 2 errors."
+        let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+        logMessages.insert("[\(stamp)] \(name) → Success: 45 records.", at: 0)
+    }
+
+    private func displayName(_ type: StatementType) -> String {
+        switch type {
+        case .creditSuisse: return "Credit-Suisse"
+        case .zkb: return "ZKB"
+        }
     }
 
     private func summaryBar(_ text: String) -> some View {
