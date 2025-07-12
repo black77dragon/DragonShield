@@ -17,7 +17,7 @@
 | 1.0     | 2025-06-30 | System                   | Initial creation of the asset class conceptual document.                                     |
 | 1.1     | 2025-06-30 | System                   | Added brief introductory description at the top.                                            |
 | 2.0     | 2025-07-08 | DragonShield Maintainers | Merged hierarchical and unified model; added crypto subclass; consolidated benefits.        |
-| 2.1     | 2025-07-08 | DragonShield Maintainers | Added ZKB Mapping section.                                                                  |
+| 2.1     | 2025-07-08 | DragonShield Maintainers | Added Credit-Suisse Mapping section.                                                                  |
 
 ---
 
@@ -109,9 +109,9 @@ Each instrument record includes:
 
 ---
 
-## 7. ZKB Mapping
+## 7. Credit-Suisse Mapping
 
-| ZKB Group               | AssetClass Code | AssetSubClass Code | Notes                         |
+| Credit-Suisse Group               | AssetClass Code | AssetSubClass Code | Notes                         |
 |-------------------------|-----------------|--------------------|-------------------------------|
 | Cash                    | LIQ             | CASH               | Bank deposit cash balances.   |
 | Money Market Funds      | LIQ             | MMKT               | Money market instruments.     |
@@ -129,20 +129,20 @@ Each instrument record includes:
 
 ---
 
-Below is a concrete illustration of how a ZKB setup would look in your unified model. We show three tables—​Accounts, Instruments, and Positions—​with sample data for:
-	•	Two cash accounts at ZKB (CHF and USD)
-	•	One ZKB custody account
+Below is a concrete illustration of how a Credit-Suisse setup would look in your unified model. We show three tables—​Accounts, Instruments, and Positions—​with sample data for:
+	•	Two cash accounts at Credit-Suisse (CHF and USD)
+	•	One Credit-Suisse custody account
 	•	Cash instruments & two equities
 
-# ZKB Example in DragonShield Model
+# Credit-Suisse Example in DragonShield Model
 
 ## 1. Accounts
 
 | account_id | account_name             | account_type | bank |
 |-----------:|--------------------------|--------------|------|
-| 101        | ZKB CHF Cash Account     | CASH         | ZKB  |
-| 102        | ZKB USD Cash Account     | CASH         | ZKB  |
-| 201        | ZKB Custody Account      | CUSTODY      | ZKB  |
+| 101        | Credit-Suisse CHF Cash Account     | CASH         | Credit-Suisse  |
+| 102        | Credit-Suisse USD Cash Account     | CASH         | Credit-Suisse  |
+| 201        | Credit-Suisse Custody Account      | CUSTODY      | Credit-Suisse  |
 
 ## 2. Instruments
 
@@ -179,5 +179,5 @@ Below is a concrete illustration of how a ZKB setup would look in your unified m
   - Deposits/withdrawals and buy/sell operations all reference an `instrument_id`.  
   - Single Positions view aggregates cash and securities identically.  
 
-*End of Asset Class Definition Concept (v2.1 with ZKB mapping)*
+*End of Asset Class Definition Concept (v2.1 with Credit-Suisse mapping)*
 

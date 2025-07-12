@@ -1,6 +1,6 @@
-// DragonShield/ZKBPositionParser.swift
+// DragonShield/CreditSuissePositionParser.swift
 // MARK: - Version 1.0.0
-// Parses ZKB position statements using XLSXParsingService.
+// Parses Credit-Suisse position statements using XLSXParsingService.
 
 import Foundation
 import OSLog
@@ -27,15 +27,15 @@ struct ParsedPositionRecord {
     var subClassIdGuess: Int?
 }
 
-struct ZKBPositionParser {
+struct CreditSuissePositionParser {
     private let parser = XLSXParsingService()
     private let log = Logger.parser
     private let logging = LoggingService.shared
 
     func parse(url: URL, progress: ((String) -> Void)? = nil) throws -> (PositionImportSummary, [ParsedPositionRecord]) {
-        logging.log("Starting ZKB position parse", type: .info, logger: log)
+        logging.log("Starting Credit-Suisse position parse", type: .info, logger: log)
         progress?("Opening \(url.lastPathComponent)")
-        let statementDate = ZKBXLSXProcessor.statementDate(from: url.lastPathComponent) ?? Date()
+        let statementDate = CreditSuisseXLSXProcessor.statementDate(from: url.lastPathComponent) ?? Date()
         let dateMsg = "Statement date: \(ISO8601DateFormatter().string(from: statementDate))"
         logging.log(dateMsg, type: .info, logger: log)
         progress?(dateMsg)
@@ -45,7 +45,7 @@ struct ZKBPositionParser {
         logging.log(valMsg, type: .info, logger: log)
         progress?(valMsg)
         let portfolioCell = try? parser.cellValue(from: url, cell: "B6")
-        let accountNumber = ZKBXLSXProcessor.portfolioNumber(from: portfolioCell) ?? ""
+        let accountNumber = CreditSuisseXLSXProcessor.portfolioNumber(from: portfolioCell) ?? ""
         logging.log("Portfolio number: \(accountNumber)", type: .info, logger: log)
         progress?("Portfolio \(accountNumber)")
 
@@ -65,12 +65,12 @@ struct ZKBPositionParser {
             let descr = row["Beschreibung"] ?? ""
             let isin = row["ISIN"]
             let ticker = row["Valor"]
-            let instrumentName = "ZKB \(descr) \(currency)"
+            let instrumentName = "Credit-Suisse \(descr) \(currency)"
             let qtyStr = row["Anzahl / Nominal"]
             var quantity: Double
-            if let str = qtyStr, let q = ZKBXLSXProcessor.parseNumber(str) {
+            if let str = qtyStr, let q = CreditSuisseXLSXProcessor.parseNumber(str) {
                 quantity = q
-            } else if instrumentName == "ZKB Call Account USD" {
+            } else if instrumentName == "Credit-Suisse Call Account USD" {
                 quantity = 0
                 logging.log("Row \(idx+1) missing quantity - defaulting to 0 for Call Account USD", type: .debug, logger: log)
             } else {
@@ -78,13 +78,13 @@ struct ZKBPositionParser {
                 progress?("Row \(idx+1) skipped")
                 continue
             }
-           let purchasePrice = row["Einstandskurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
-           let currentPrice = row["Kurs"].flatMap { ZKBXLSXProcessor.parseNumber($0) }
+           let purchasePrice = row["Einstandskurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
+           let currentPrice = row["Kurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
             let guess = Self.guessSubClassId(category: category, subCategory: subCategory, isCash: isCash)
             let accountName = isCash ? Self.renameCashAccount(description: descr,
                                                              currency: currency,
-                                                             institution: "ZKB")
-                                      : "ZKB Custody Account"
+                                                             institution: "Credit-Suisse")
+                                      : "Credit-Suisse Custody Account"
             let record = ParsedPositionRecord(accountNumber: accountNumber,
                                                accountName: accountName,
                                                instrumentName: instrumentName,
@@ -127,11 +127,11 @@ struct ZKBPositionParser {
         return parts.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
-    /// Maps the ZKB "Anlagekategorie" and "Asset-Unterkategorie" strings to an
+    /// Maps the Credit-Suisse "Anlagekategorie" and "Asset-Unterkategorie" strings to an
     /// `AssetSubClasses.sub_class_id` based on the table in
     /// `docs/AssetClassDefinitionConcept.md`.
     private static func guessSubClassId(category: String, subCategory: String, isCash: Bool) -> Int? {
-        // Mapping based on the "ZKB Parsing" column in
+        // Mapping based on the "Credit-Suisse Parsing" column in
         // docs/AssetClassDefinitionConcept.md. Keys are matched
         // case-insensitively and may represent prefixes.
 

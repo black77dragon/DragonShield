@@ -16,7 +16,7 @@ import io
 import contextlib
 from typing import Any, Dict, Tuple, Optional
 
-import zkb_parser  # existing parser in the same folder
+import credit_suisse_parser  # existing parser in the same folder
 
 DB_PATH = os.path.join(
     "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
@@ -112,7 +112,7 @@ def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
 def parse_file(path: str) -> Dict[str, Any]:
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        zkb_parser.process_file(path)
+        credit_suisse_parser.process_file(path)
     return json.loads(buf.getvalue())
 
 

@@ -13,7 +13,7 @@ INSERT INTO Institutions (
     created_at,
     updated_at
 ) VALUES
-    (1, 'ZKB', 'BANK', 'ZKBKCHZZ80A', 'https://www.zkb.ch', '0844 848 848', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
+    (1, 'Credit-Suisse', 'BANK', 'Credit-SuisseKCHZZ80A', 'https://www.zkb.ch', '0844 848 848', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
     (2, 'Credit Suisse', 'BANK', 'CRESCHZZ80A', 'https://www.credit-suisse.com', '0848 880 084', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
     (3, 'Sygnum Bank', 'BANK', 'SYGNCHZZ', 'https://www.sygnum.com', 'info@sygnum.com', 'CHF', 'CH', 'Digital asset bank', 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),
     (4, 'Graubündner Kantonalbank', 'BANK', 'GRKBCH2270A', 'https://www.gkb.ch', 'info@gkb.ch', 'CHF', 'CH', 'Regional cantonal bank', 1, '2025-07-08 00:00:00', '2025-07-08 00:00:00'),

@@ -2,7 +2,7 @@
 // MARK: - Version 1.4.0.0
 // MARK: - History
 // - 1.0 -> 1.1: Corrected use of .foregroundColor to .foregroundStyle for hierarchical styles.
-// - 1.1 -> 1.2: Added ZKB upload section and integrated ImportManager parsing.
+// - 1.1 -> 1.2: Added Credit-Suisse upload section and integrated ImportManager parsing.
 // - 1.2 -> 1.3: Present alert pop-ups when import errors occur.
 // - 1.3 -> 1.4.0.0: Display progress log messages during import.
 
@@ -53,7 +53,7 @@ struct ImportStatementView: View {
                                 }
                                 Divider()
                                 VStack {
-                                    Text("Upload ZKB Statement")
+                                    Text("Upload Credit-Suisse Statement")
                                         .font(.headline)
                                     zkbDropZoneView
                                 }
@@ -180,7 +180,7 @@ struct ImportStatementView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(isTargeted ? Color.accentColor : .gray.opacity(0.4))
 
-            Text("Drag & Drop ZKB File")
+            Text("Drag & Drop Credit-Suisse File")
                 .font(.title2).bold()
                 .foregroundStyle(.secondary)
 
@@ -194,7 +194,7 @@ struct ImportStatementView: View {
             } label: {
                 HStack {
                     Image(systemName: "folder.fill")
-                    Text("Select ZKB File")
+                    Text("Select Credit-Suisse File")
                 }
                 .font(.headline)
             }

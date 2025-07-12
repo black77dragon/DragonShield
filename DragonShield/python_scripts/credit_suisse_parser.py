@@ -1,4 +1,4 @@
-# python_scripts/zkb_parser.py
+# python_scripts/credit_suisse_parser.py
 
 # MARK: - Version 0.11
 # MARK: - History
@@ -146,7 +146,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
     # (Initialization of parsed_data and stats variables remains the same)
     parsed_data = {
         "main_custody_account_nr": None,
-        "institution_name": "ZKB",
+        "institution_name": "Credit-Suisse",
         "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]), # Pass only filename
         "summary": {
             "processed_file": filepath, "total_data_rows_attempted": 0, 
@@ -240,7 +240,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
 
             parsed_data["summary"]["data_rows_successfully_parsed"] += 1
             record_data: Dict[str, Any] = {}
-            record_data["institution_name"] = "ZKB"
+            record_data["institution_name"] = "Credit-Suisse"
             record_data["main_custody_account_nr_from_file"] = main_custody_account_nr_internal
             asset_unterkategorie_str = get_str_val_from_tuple(COL_ASSET_UNTERKATEGORIE)
             mapped_group = get_mapped_instrument_group(anlagekategorie_str, asset_unterkategorie_str, unmapped_category_pairs_internal)
@@ -311,6 +311,6 @@ if __name__ == "__main__":
         code = process_file(filepath_arg)
         sys.exit(code)
     else:
-        print(json.dumps({"error": "Please provide the XLSX file path as an argument.", "usage": "python zkb_parser.py <path_to_your_ZKB_file.xlsx>"}))
+        print(json.dumps({"error": "Please provide the XLSX file path as an argument.", "usage": "python credit_suisse_parser.py <path_to_your_Credit-Suisse_file.xlsx>"}))
         sys.exit(1)
 
