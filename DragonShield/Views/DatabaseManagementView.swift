@@ -64,15 +64,20 @@ struct DatabaseManagementView: View {
         }
     }
 
+    private var logList: some View {
+        let entries = Array(backupService.logMessages.prefix(10))
+        return VStack(alignment: .leading, spacing: 2) {
+            ForEach(entries, id: \.self) { entry in
+                Text(entry)
+                    .font(.system(.caption2, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
     private var logView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
-                    Text(entry)
-                        .font(.system(.caption2, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
+            logList
         }
         .frame(maxHeight: 200)
         .padding(4)
@@ -196,75 +201,6 @@ struct DatabaseManagementView: View {
         ByteCountFormatter.string(fromByteCount: dbManager.dbFileSize, countStyle: .file)
     }
 
-    // MARK: - Subviews
-    private var databaseInfoGrid: some View {
-        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
-            GridRow {
-                Text("Database Path:")
-                Text(dbManager.dbFilePath)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .font(.caption)
-            }
-            GridRow {
-                Text("File Size:")
-                Text(fileSizeString)
-            }
-            GridRow {
-                Text("Schema Version:")
-                Text(dbManager.dbVersion)
-            }
-        }
-    }
-
-    private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button(action: backupNow) {
-                if processing { ProgressView() } else { Text("Backup Database") }
-            }
-            .keyboardShortcut("b", modifiers: [.command])
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(processing)
-            .accessibilityLabel("Backup Database")
-            .focusable()
-            .help("Create a backup copy of the current database")
-
-            Button("Restore from Backup") { showingFileImporter = true }
-                .keyboardShortcut("r", modifiers: [.command])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Restore from Backup")
-                .focusable()
-
-            Button("Switch Mode") { confirmSwitchMode() }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Switch Mode")
-                .focusable()
-
-            Button("Migrate Database") { migrateDatabase() }
-                .keyboardShortcut("m", modifiers: [.command])
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel("Migrate Database")
-                .focusable()
-        }
-    }
-
-    private var backupLogView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(backupService.logMessages.prefix(10), id: .self) { entry in
-                    Text(entry)
-                        .font(.system(.caption2, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-        .frame(maxHeight: 200)
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.2))
-        )
-    }
 }
 
 struct DatabaseManagementView_Previews: PreviewProvider {

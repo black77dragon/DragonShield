@@ -146,4 +146,7 @@ All notable changes to this project will be documented in this file.
 - Stop DragonShield and Xcode when running the database tool
 - Fix initialization of database path when detecting the active mode
 - Break out Database Management view subcomponents to resolve compile timeout
+- Fix compile errors in Database Management view log lists by splitting `ForEach` expressions
+- Extract log lists into subviews to resolve type-check timeout
+- Remove unused subviews from Database Management view to keep compile times fast
 
