@@ -97,18 +97,20 @@ class BackupService: ObservableObject {
         scheduleTimer()
     }
 
-    func performBackup(dbPath: String) throws -> URL {
-        let fm = FileManager.default
-        try fm.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+    static func defaultFileName(mode: DatabaseMode, version: String) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd-HHmmss"
-        let name = "backup-\(df.string(from: Date())).db"
-        let dest = backupDirectory.appendingPathComponent(name)
-        try fm.copyItem(atPath: dbPath, toPath: dest.path)
+        let modeTag = mode == .production ? "PROD" : "TEST"
+        return "DragonShield-\(modeTag)-v\(version)-\(df.string(from: Date())).db"
+    }
+
+    func performBackup(dbPath: String, to destination: URL) throws -> URL {
+        let fm = FileManager.default
+        try fm.copyItem(atPath: dbPath, toPath: destination.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-        appendLog(action: "Backup", file: dest.path, success: true)
-        return dest
+        appendLog(action: "Backup", file: destination.path, success: true)
+        return destination
     }
 
     func performRestore(dbManager: DatabaseManager, from url: URL) throws {

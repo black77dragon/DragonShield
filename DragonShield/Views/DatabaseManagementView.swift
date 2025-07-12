@@ -154,10 +154,20 @@ struct DatabaseManagementView: View {
     }
 
     private func backupNow() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedFileTypes = ["db"]
+        panel.directoryURL = backupService.backupDirectory
+        panel.nameFieldStringValue = BackupService.defaultFileName(
+            mode: dbManager.dbMode,
+            version: dbManager.dbVersion
+        )
+        guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
         DispatchQueue.global().async {
             do {
-                _ = try backupService.performBackup(dbPath: dbManager.dbFilePath)
+                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
+                _ = try backupService.performBackup(dbPath: dbManager.dbFilePath, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
