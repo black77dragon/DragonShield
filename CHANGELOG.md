@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Allow choosing a writable backup directory with defaults in Documents
 - Prompt for save location when backing up and include mode/version in filename
 - Refactor Database Management screen into subviews to resolve type-check timeout
+- Update test seed data with extended asset classes and institutions
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field
 - Offer disable or delete option for custody accounts with dependency check
