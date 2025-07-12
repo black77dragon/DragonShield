@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 - Fix compilation errors in Positions view after CRUD refactor
 - Move database info panel from Settings to Database Management view
 - Fix SQLITE_TRANSIENT not found when binding position report text fields
+- Redesigned Database Management screen with card layout and detailed backup log
 - Allow sorting columns and wrap long text in the Positions table
 - Fix compile error from type-checking the Positions table after adding sorting
 - Resolve compile timeout in Positions table by extracting column views
