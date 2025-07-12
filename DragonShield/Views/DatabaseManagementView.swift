@@ -84,6 +84,38 @@ struct DatabaseManagementView: View {
         }
     }
 
+    private var databaseInfoView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Database Info")
+                .font(.system(size: 18, weight: .semibold))
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                GridRow {
+                    Text("Path:")
+                    Text(dbManager.dbFilePath)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.caption)
+                }
+                GridRow {
+                    Text("Created:")
+                    Text(formattedDate(dbManager.dbCreated))
+                }
+                GridRow {
+                    Text("Last Updated:")
+                    Text(formattedDate(dbManager.dbModified))
+                }
+                GridRow {
+                    Text("Mode:")
+                    Text(dbManager.dbMode.rawValue.uppercased())
+                }
+                GridRow {
+                    Text("Schema Version:")
+                    Text(dbManager.dbVersion)
+                }
+            }
+        }
+    }
+
     private var logList: some View {
         let entries = Array(backupService.logMessages.prefix(10))
         return VStack(alignment: .leading, spacing: 2) {
@@ -115,6 +147,8 @@ struct DatabaseManagementView: View {
             metadataView
 
             actionsView
+
+            databaseInfoView
 
             Text("Last Backup: \(formattedDate(backupService.lastBackup))")
                 .font(.caption)
