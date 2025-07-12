@@ -166,4 +166,5 @@ All notable changes to this project will be documented in this file.
 - Introduce interactive Asset Dashboard grouped by asset class
 - Swap ZKB and Credit-Suisse references across code and docs
 - Fix duplicate reference restore function to resolve compilation error
+- Fix missing SQLITE_TRANSIENT constant in reference data backup
 

@@ -149,8 +149,8 @@ class BackupService: ObservableObject {
         for table in referenceTables {
             // capture CREATE TABLE statement
             var stmt: OpaquePointer?
-            if sqlite3_prepare_v2(db, "SELECT sql FROM sqlite_master WHERE type='table' AND name=?;", -1, &stmt, nil) == SQLITE_OK {
-                sqlite3_bind_text(stmt, 1, table, -1, SQLITE_TRANSIENT)
+            let sqlQuery = "SELECT sql FROM sqlite_master WHERE type='table' AND name='\(table)';"
+            if sqlite3_prepare_v2(db, sqlQuery, -1, &stmt, nil) == SQLITE_OK {
                 if sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) {
                     dump += String(cString: cStr) + ";\n"
                 }
