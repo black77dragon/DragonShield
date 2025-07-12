@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Show row counts after each backup or restore operation in the log panel
 - Allow choosing a writable backup directory with defaults in Documents
+- Display per-table row counts in Backup & Restore log with header
 - Prompt for save location when backing up and include mode/version in filename
 - Refactor Database Management screen into subviews to resolve type-check timeout
 - Update test seed data with extended asset classes and institutions

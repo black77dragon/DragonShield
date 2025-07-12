@@ -175,15 +175,19 @@ struct DatabaseManagementView: View {
     }
 
     private var logView: some View {
-        ScrollView {
-            logList
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Backup & Restore Log")
+                .font(.headline)
+            ScrollView {
+                logList
+            }
+            .frame(maxHeight: 200)
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.gray.opacity(0.2))
+            )
         }
-        .frame(maxHeight: 200)
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.gray.opacity(0.2))
-        )
     }
 
     private var managementContent: some View {

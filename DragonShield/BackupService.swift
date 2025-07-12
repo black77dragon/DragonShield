@@ -133,11 +133,13 @@ class BackupService: ObservableObject {
     }
 
 
+
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
         let fm = FileManager.default
         try fm.copyItem(atPath: dbPath, toPath: destination.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+
         var counts = [String]()
         for tbl in tables {
             if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
@@ -197,8 +199,10 @@ class BackupService: ObservableObject {
 
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
+        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+
         var counts = [String]()
         for tbl in referenceTables {
             if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
@@ -207,6 +211,7 @@ class BackupService: ObservableObject {
             self.logMessages.append("✅ Backed up Reference data — " + counts.joined(separator: ", "))
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
         }
+
         return destination
     }
 
@@ -220,6 +225,7 @@ class BackupService: ObservableObject {
         do {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
+
             var counts = [String]()
             for tbl in tables {
                 if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
@@ -269,6 +275,7 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.loadConfiguration()
+        let counts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         var counts = [String]()
@@ -279,6 +286,7 @@ class BackupService: ObservableObject {
             self.logMessages.append("✅ Restored Reference data — " + counts.joined(separator: ", "))
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
         }
+
     }
 
     private func execute(_ sql: String, on db: OpaquePointer) throws {
@@ -300,5 +308,6 @@ class BackupService: ObservableObject {
             if self.logMessages.count > 10 { self.logMessages = Array(self.logMessages.prefix(10)) }
             UserDefaults.standard.set(self.logMessages, forKey: UserDefaultsKeys.backupLog)
         }
+
     }
 }
