@@ -3,6 +3,7 @@ import SwiftUI
 
 class BackupService: ObservableObject {
     @Published var lastBackup: Date?
+    @Published var lastReferenceBackup: Date?
     @Published var logMessages: [String]
     @Published var scheduleEnabled: Bool
     @Published var scheduledTime: Date
@@ -24,6 +25,7 @@ class BackupService: ObservableObject {
             self.scheduledTime = Calendar.current.date(bySettingHour: 2, minute: 0, second: 0, of: Date()) ?? Date()
         }
         self.lastBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastBackupTimestamp) as? Date
+        self.lastReferenceBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastReferenceBackupTimestamp) as? Date
         self.logMessages = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.backupLog) ?? []
         self.backupDirectory = BackupService.loadBackupDirectory()
         if let bookmark = UserDefaults.standard.data(forKey: UserDefaultsKeys.backupDirectoryBookmark) {
@@ -104,12 +106,49 @@ class BackupService: ObservableObject {
         return "DragonShield-\(modeTag)-v\(version)-\(df.string(from: Date())).db"
     }
 
+    static func defaultReferenceFileName(mode: DatabaseMode, version: String) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd-HHmmss"
+        let modeTag = mode == .production ? "PROD" : "TEST"
+        return "DragonShield-REF-\(modeTag)-v\(version)-\(df.string(from: Date())).sql"
+    }
+
+    private let referenceTables = [
+        "Currencies",
+        "Institutions",
+        "AccountTypes",
+        "TransactionTypes",
+        "AssetClasses",
+        "AssetSubClasses",
+    ]
+
     func performBackup(dbPath: String, to destination: URL) throws -> URL {
         let fm = FileManager.default
         try fm.copyItem(atPath: dbPath, toPath: destination.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
         appendLog(action: "Backup", file: destination.path, success: true)
+        return destination
+    }
+
+    func performReferenceBackup(dbPath: String, to destination: URL) throws -> URL {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [dbPath, ".dump"] + referenceTables
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if process.terminationStatus != 0 {
+            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            appendLog(action: "RefBackup", file: destination.lastPathComponent, success: false, message: msg)
+            throw NSError(domain: "Backup", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        try data.write(to: destination)
+        lastReferenceBackup = Date()
+        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
         return destination
     }
 

@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Backup reference data separately via new UI button and CLI flag
+- Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Allow choosing a writable backup directory with defaults in Documents
 - Prompt for save location when backing up and include mode/version in filename

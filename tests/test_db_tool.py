@@ -47,3 +47,31 @@ def test_db_tool_copies(monkeypatch, tmp_path):
     assert stopped == [True]
     assert result == 0
 
+
+def test_backup_reference(monkeypatch, tmp_path):
+    run_args = {}
+
+    class Result:
+        def __init__(self):
+            self.returncode = 0
+            self.stdout = 'SQL'
+
+    def fake_run(cmd, capture_output=True, text=True):
+        run_args['cmd'] = cmd
+        return Result()
+
+    monkeypatch.setattr(db_tool.subprocess, 'run', fake_run)
+    monkeypatch.setattr(db_tool.deploy_db, 'parse_version', lambda p: '1.0')
+    monkeypatch.setattr(db_tool, 'DEFAULT_TARGET_DIR', str(tmp_path))
+    monkeypatch.setattr(db_tool, 'stop_apps', lambda: None)
+
+    db_file = tmp_path / 'dragonshield.sqlite'
+    db_file.write_text('data')
+
+    result = db_tool.main(['--target-dir', str(tmp_path), '--backup-ref'])
+
+    assert run_args['cmd'][0] == '/usr/bin/sqlite3'
+    assert run_args['cmd'][1] == str(db_file)
+    assert '.dump' in run_args['cmd']
+    assert result == 0
+
