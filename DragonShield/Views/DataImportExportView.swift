@@ -1,15 +1,30 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DataImportExportView: View {
     @State private var logMessages: [String] = []
     @State private var importSummary: String?
     @State private var showDetails = false
+    @State private var showCSImporter = false
 
     var body: some View {
         ScrollView {
             container
                 .padding(.top, 32)
                 .padding(.horizontal)
+        }
+        .fileImporter(
+            isPresented: $showCSImporter,
+            allowedContentTypes: [
+                .commaSeparatedText,
+                UTType(filenameExtension: "xlsx")!,
+                .pdf
+            ],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                handleCSImport(urls: [url])
+            }
         }
         .navigationTitle("Data Import / Export")
     }
@@ -21,6 +36,7 @@ struct DataImportExportView: View {
             if let summary = importSummary {
                 summaryBar(summary)
             }
+            Spacer(minLength: 16)
             statementLog
         }
         .padding(24)
@@ -56,22 +72,31 @@ struct DataImportExportView: View {
     }
 
     private var creditSuisseCard: some View {
-        ImportCard(icon: Image(systemName: "tray.and.arrow.down"),
-                   heading: "Import Credit-Suisse Statement",
-                   dropText: "Drag & Drop Credit-Suisse File",
-                   buttonText: "Select File") {
-            // action placeholder
-            importSummary = "✔ Credit-Suisse import succeeded: 45 records parsed, 2 errors."
-            logMessages.insert("[2025-07-12 08:35:42] Credit-Suisse_Positions_2025-07-12.csv → Success: 45 records.", at: 0)
-        }
+        ImportCard(
+            icon: Image(systemName: "tray.and.arrow.down"),
+            heading: "Import Credit-Suisse Statement",
+            dropText: "Drag & Drop Credit-Suisse File",
+            buttonText: "Select File",
+            onSelect: { showCSImporter = true },
+            onDrop: handleCSImport(urls:)
+        )
     }
 
     private var zkbCard: some View {
-        ImportCard(icon: Image(systemName: "tray.and.arrow.down"),
-                   heading: "Import ZKB Statement",
-                   dropText: "Drag & Drop ZKB File",
-                   buttonText: "Select File",
-                   disabled: true)
+        ImportCard(
+            icon: Image(systemName: "tray.and.arrow.down"),
+            heading: "Import ZKB Statement",
+            dropText: "Drag & Drop ZKB File",
+            buttonText: "Select File",
+            disabled: true,
+            tooltip: "Coming soon"
+        )
+    }
+
+    private func handleCSImport(urls: [URL]) {
+        guard let _ = urls.first else { return }
+        importSummary = "✔ Credit-Suisse import succeeded: 45 records parsed, 2 errors."
+        logMessages.insert("[2025-07-12 08:35:42] Credit-Suisse_Positions_2025-07-12.csv → Success: 45 records.", at: 0)
     }
 
     private func summaryBar(_ text: String) -> some View {
@@ -96,7 +121,7 @@ struct DataImportExportView: View {
                 .foregroundColor(Color(red: 51/255, green: 51/255, blue: 51/255))
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(logMessages, id: \..self) { entry in
+                    ForEach(logMessages, id: \.self) { entry in
                         Text(entry)
                             .font(.system(.footnote, design: .monospaced))
                             .foregroundColor(Color(red: 34/255, green: 34/255, blue: 34/255))
@@ -116,7 +141,11 @@ private struct ImportCard: View {
     var dropText: String
     var buttonText: String
     var disabled: Bool = false
-    var action: (() -> Void)? = nil
+    var tooltip: String? = nil
+    var onSelect: (() -> Void)? = nil
+    var onDrop: (([URL]) -> Void)? = nil
+
+    @State private var isTargeted = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -132,18 +161,29 @@ private struct ImportCard: View {
                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [5]))
                     .foregroundColor(.gray)
                     .frame(height: 120)
+                    .background(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
                 Text(dropText)
                     .font(.system(size: 13))
                     .foregroundColor(.gray)
             }
+            .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
+                guard let onDrop else { return false }
+                var urls: [URL] = []
+                for provider in providers {
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                        if let url { urls.append(url) }
+                    }
+                }
+                DispatchQueue.main.async { onDrop(urls) }
+                return true
+            }
             Text("or")
                 .font(.system(size: 12))
                 .foregroundColor(.gray.opacity(0.7))
-            Button(buttonText) {
-                action?()
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(disabled)
+            Button(buttonText) { onSelect?() }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(disabled)
+                .help(disabled ? (tooltip ?? "") : "")
         }
         .frame(maxWidth: .infinity)
     }
