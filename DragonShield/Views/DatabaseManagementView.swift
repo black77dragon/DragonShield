@@ -148,6 +148,8 @@ struct DatabaseManagementView: View {
                     .buttonStyle(SecondaryButtonStyle())
             }
 
+            databaseInfoView
+
             logView
         }
         .padding(24)
@@ -289,6 +291,7 @@ struct DatabaseManagementView: View {
             }
         }
     }
+
 
     private func restoreReference(url: URL) {
         processing = true
