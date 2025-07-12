@@ -29,6 +29,17 @@ struct DatabaseManagementView: View {
                 Text("Schema Version:")
                 Text(dbManager.dbVersion)
             }
+            GridRow {
+                Text("Backup Directory:")
+                HStack {
+                    Text(backupService.backupDirectory.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.caption)
+                    Button("Change…") { chooseBackupDirectory() }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
         }
     }
 
@@ -168,6 +179,22 @@ struct DatabaseManagementView: View {
                     processing = false
                     errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func chooseBackupDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = backupService.backupDirectory
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                try backupService.updateBackupDirectory(to: url)
+            } catch {
+                errorMessage = error.localizedDescription
             }
         }
     }

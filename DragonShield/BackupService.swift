@@ -6,8 +6,10 @@ class BackupService: ObservableObject {
     @Published var logMessages: [String]
     @Published var scheduleEnabled: Bool
     @Published var scheduledTime: Date
+    @Published var backupDirectory: URL
 
     private var timer: Timer?
+    private var isAccessing = false
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
 
@@ -23,7 +25,50 @@ class BackupService: ObservableObject {
         }
         self.lastBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastBackupTimestamp) as? Date
         self.logMessages = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.backupLog) ?? []
+        self.backupDirectory = BackupService.loadBackupDirectory()
+        if let bookmark = UserDefaults.standard.data(forKey: UserDefaultsKeys.backupDirectoryBookmark) {
+            var stale = false
+            if let url = try? URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], bookmarkDataIsStale: &stale) {
+                if url.startAccessingSecurityScopedResource() { isAccessing = true }
+                if stale {
+                    if let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                        UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
+                    }
+                }
+                self.backupDirectory = url
+            }
+        }
         scheduleTimer()
+    }
+
+    deinit {
+        if isAccessing { backupDirectory.stopAccessingSecurityScopedResource() }
+    }
+
+    private static func defaultDirectory() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/DragonShieldBackups")
+    }
+
+    private static func loadBackupDirectory() -> URL {
+        if let url = UserDefaults.standard.url(forKey: UserDefaultsKeys.backupDirectoryURL) {
+            return url
+        }
+        let dir = defaultDirectory()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        UserDefaults.standard.set(dir, forKey: UserDefaultsKeys.backupDirectoryURL)
+        return dir
+    }
+
+    func updateBackupDirectory(to url: URL) throws {
+        if isAccessing { backupDirectory.stopAccessingSecurityScopedResource(); isAccessing = false }
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        backupDirectory = url
+        UserDefaults.standard.set(url, forKey: UserDefaultsKeys.backupDirectoryURL)
+        if let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
+            if url.startAccessingSecurityScopedResource() { isAccessing = true }
+        }
     }
 
     private func scheduleTimer() {
@@ -54,17 +99,15 @@ class BackupService: ObservableObject {
 
     func performBackup(dbPath: String) throws -> URL {
         let fm = FileManager.default
-        let backupDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("DragonShield/Backups")
-        try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+        try fm.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd-HHmmss"
         let name = "backup-\(df.string(from: Date())).db"
-        let dest = backupDir.appendingPathComponent(name)
+        let dest = backupDirectory.appendingPathComponent(name)
         try fm.copyItem(atPath: dbPath, toPath: dest.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-        appendLog(action: "Backup", file: name, success: true)
+        appendLog(action: "Backup", file: dest.path, success: true)
         return dest
     }
 
