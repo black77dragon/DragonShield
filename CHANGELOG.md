@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Backup reference data separately via new UI button and CLI flag
 - Restore reference data from SQL or JSON with dedicated button
 - Export reference tables as SQL with CREATE and INSERT statements
+- Disable foreign key checks during reference restore to avoid constraint failures
 - Replace deprecated allowedFileTypes API in Database Management view
 - Fix compile error on macOS by using `.navigation` toolbar placement
 - Allow choosing a writable backup directory with defaults in Documents
