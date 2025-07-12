@@ -11,8 +11,8 @@ struct DatabaseManagementView: View {
     @State private var restoreURL: URL?
     @State private var showRestoreConfirm = false
     @State private var showingReferenceImporter = false
-    @State private var referenceRestoreURL: URL?
-    @State private var showReferenceConfirm = false
+    @State private var restoreReferenceURL: URL?
+    @State private var showReferenceRestoreConfirm = false
     @State private var errorMessage: String?
 
     private var metadataView: some View {
@@ -46,82 +46,63 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private var fullDatabaseSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Full Database").font(.headline)
+    private var fullDatabaseGroup: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Full Database")
+                .font(.headline)
             HStack(spacing: 12) {
                 Button(action: backupNow) {
                     if processing { ProgressView() } else { Text("Backup Database") }
                 }
+                .keyboardShortcut("b", modifiers: [.command])
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(processing)
+                .help("Create a backup copy of the current database")
 
                 Button("Restore Database") { showingFileImporter = true }
+                    .keyboardShortcut("r", modifiers: [.command])
                     .buttonStyle(SecondaryButtonStyle())
-                    .disabled(processing)
+                    .help("Replace current database with a backup file")
             }
+            Text("Last Full Backup: \(formattedDate(backupService.lastBackup))")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
-    private var referenceDataSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Reference Data").font(.headline)
+    private var referenceGroup: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Reference Data")
+                .font(.headline)
             HStack(spacing: 12) {
                 Button(action: backupReferenceNow) {
-                    if processing { ProgressView() } else { Text("Backup Reference Data") }
+                    if processing { ProgressView() } else { Text("Backup Reference") }
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(SecondaryButtonStyle())
                 .disabled(processing)
+                .help("Export reference tables to a SQL file")
 
-                Button("Restore Reference Data") { showingReferenceImporter = true }
+                Button("Restore Reference") { showingReferenceImporter = true }
                     .buttonStyle(SecondaryButtonStyle())
-                    .disabled(processing)
+                    .help("Apply a reference data backup to the current database")
             }
+            Text("Last Reference Backup: \(formattedDate(backupService.lastReferenceBackup))")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
-    private var transitionSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Transition Data").font(.headline)
-            HStack(spacing: 12) {
-                Button("Backup Transition Data") {}
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(true)
-                Button("Restore Transition Data") {}
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(true)
-            }
-        }
-    }
-
-    private var databaseInfoView: some View {
+    private var transitionGroup: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Database Info")
-                .font(.system(size: 18, weight: .semibold))
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    Text("Path:")
-                    Text(dbManager.dbFilePath)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .font(.caption)
-                }
-                GridRow {
-                    Text("Created:")
-                    Text(formattedDate(dbManager.dbCreated))
-                }
-                GridRow {
-                    Text("Last Updated:")
-                    Text(formattedDate(dbManager.dbModified))
-                }
-                GridRow {
-                    Text("Mode:")
-                    Text(dbManager.dbMode.rawValue.uppercased())
-                }
-                GridRow {
-                    Text("Schema Version:")
-                    Text(dbManager.dbVersion)
-                }
+            Text("Transition Data")
+                .font(.headline)
+            HStack(spacing: 12) {
+                Button("Backup Transition") {}
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(true)
+                Button("Restore Transition") {}
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(true)
             }
         }
     }
@@ -156,9 +137,9 @@ struct DatabaseManagementView: View {
 
             metadataView
 
-            fullDatabaseSection
-            referenceDataSection
-            transitionSection
+            fullDatabaseGroup
+            referenceGroup
+            transitionGroup
 
             HStack(spacing: 12) {
                 Button("Switch Mode") { confirmSwitchMode() }
@@ -169,12 +150,6 @@ struct DatabaseManagementView: View {
 
             databaseInfoView
 
-            Text("Last Backup: \(formattedDate(backupService.lastBackup))")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text("Last Reference Backup: \(formattedDate(backupService.lastReferenceBackup))")
-                .font(.caption)
-                .foregroundColor(.secondary)
             logView
         }
         .padding(24)
@@ -199,12 +174,12 @@ struct DatabaseManagementView: View {
             }
             .fileImporter(
                 isPresented: $showingReferenceImporter,
-                allowedContentTypes: [UTType(filenameExtension: "sql")!, .json]
+                allowedContentTypes: [UTType(filenameExtension: "sql")!]
             ) { result in
                 switch result {
                 case .success(let url):
-                    referenceRestoreURL = url
-                    showReferenceConfirm = true
+                    restoreReferenceURL = url
+                    showReferenceRestoreConfirm = true
                 case .failure(let error):
                     errorMessage = error.localizedDescription
                 }
@@ -225,13 +200,13 @@ struct DatabaseManagementView: View {
             } message: {
                 Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
             }
-            .alert("Restore Reference Data", isPresented: $showReferenceConfirm) {
+            .alert("Restore Reference", isPresented: $showReferenceRestoreConfirm) {
                 Button("Restore", role: .destructive) {
-                    if let url = referenceRestoreURL { restoreReferenceData(url: url) }
+                    if let url = restoreReferenceURL { restoreReference(url: url) }
                 }
-                Button("Cancel", role: .cancel) { referenceRestoreURL = nil }
+                Button("Cancel", role: .cancel) { restoreReferenceURL = nil }
             } message: {
-                Text("This will overwrite your current reference tables. Continue?")
+                Text("Import reference data from '\(restoreReferenceURL?.lastPathComponent ?? "")'? This will overwrite existing reference tables.")
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
                 backupNow()
@@ -248,7 +223,9 @@ struct DatabaseManagementView: View {
         } else {
             panel.allowedFileTypes = ["db"]
         }
-        panel.directoryURL = backupService.backupDirectory
+        let refDir = backupService.backupDirectory.appendingPathComponent("Reference", isDirectory: true)
+        try? FileManager.default.createDirectory(at: refDir, withIntermediateDirectories: true)
+        panel.directoryURL = refDir
         panel.nameFieldStringValue = BackupService.defaultFileName(
             mode: dbManager.dbMode,
             version: dbManager.dbVersion
@@ -315,7 +292,8 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private func restoreReferenceData(url: URL) {
+
+    private func restoreReference(url: URL) {
         processing = true
         DispatchQueue.global().async {
             do {

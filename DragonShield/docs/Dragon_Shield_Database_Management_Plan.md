@@ -49,6 +49,12 @@ The system must track the version of the database schema in use. This allows com
 - Add buttons for Backup, Restore, Switch Mode, and Migrate.
 - Clearly display current mode (e.g., TEST or PRODUCTION).
 
+### Step 1b: Reference Data Backup & Restore
+- Provide separate "Backup Reference" and "Restore Reference" actions.
+- Show timestamp of the last reference backup.
+- Only the Configuration, Currencies, ExchangeRates, AssetClasses, AssetSubClasses,
+  AccountTypes, Institutions and TransactionTypes tables are included.
+
 ### Step 2: Backup & Restore via UI
 - Add "Create Backup" button that saves the current database file.
 - Provide a restore picker to load a selected backup.
