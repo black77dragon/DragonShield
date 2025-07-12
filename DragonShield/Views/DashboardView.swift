@@ -119,6 +119,12 @@ struct DashboardView: View {
                         .padding()
                 }
 
+                // Risk Scorecard Section
+                DashboardTileView(title: "Risk Scorecard", iconName: "shield.lefthalf.fill", iconColor: .purple) {
+                    RiskScorecardView()
+                        .frame(minHeight: 200)
+                }
+
 
             }
             .padding()

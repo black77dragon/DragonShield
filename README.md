@@ -14,11 +14,7 @@ The app follows Apple's best-in-class UX conventions while embracing ZEN-minimal
 - **Document Parsing**: Import monthly statements in CSV, XLSX or PDF (German & English) with automatic ISIN/symbol, quantity, price and fee extraction.
 
 ### Asset Dashboard
-Four drill-down tiles:
-- **Tile 1** – Portfolio allocation vs. target (pie/treemap)
-- **Tile 2** – Actual vs. target per asset class (bar chart)
-- **Tile 3** – Top-5 positions list (delta to target, P&L, user-selectable scope)
-- **Tile 4** – Alerts & actions list (e.g., stale prices > 30 days)
+A graphical overview of all holdings grouped by asset class. Assets are sorted by market value within their class and displayed in interactive bar charts. Hover to reveal values and double-click to drill down for details.
 
 ### Additional Features
 - **Target Allocation & Alerts**: Define goals per class/instrument; automatic gap calculation and alerting
