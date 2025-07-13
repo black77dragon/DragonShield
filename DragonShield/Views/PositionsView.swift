@@ -153,7 +153,12 @@ struct PositionsView: View {
 
     private var positionsContent: some View {
         let data = sortedPositions
-        return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
+        return positionsTable(data)
+    }
+
+    @ViewBuilder
+    private func positionsTable(_ data: [PositionReportData]) -> some View {
+        Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
             TableColumn("") { (position: PositionReportData) in
                 if let notes = position.notes, !notes.isEmpty {
                     Image(systemName: "info.circle.fill")
