@@ -5,7 +5,7 @@ struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
-    @State private var statusMessage: String = "Status: \u{2B24} Idle \u2022 No file loaded"
+    @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
     @State private var showImporterFor: StatementType?
 
     var body: some View {
