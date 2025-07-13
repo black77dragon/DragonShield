@@ -20,6 +20,7 @@ struct PositionFormView: View {
     @State private var quantity = ""
     @State private var purchasePrice = ""
     @State private var currentPrice = ""
+    @State private var instrumentUpdatedAt = Date()
     @State private var valueDate = Date()
     @State private var uploadedAt = Date()
     @State private var reportDate = Date()
@@ -101,6 +102,9 @@ struct PositionFormView: View {
             TextField("Current Price", text: $currentPrice)
                 .textFieldStyle(.roundedBorder)
 
+            DatePicker("Instrument Updated", selection: $instrumentUpdatedAt, displayedComponents: .date)
+                .datePickerStyle(.field)
+
             DatePicker("Value Date", selection: $valueDate, displayedComponents: .date)
                 .datePickerStyle(.field)
 
@@ -145,6 +149,7 @@ struct PositionFormView: View {
         quantity = String(p.quantity)
         if let pp = p.purchasePrice { purchasePrice = String(pp) }
         if let cp = p.currentPrice { currentPrice = String(cp) }
+        if let iu = p.instrumentUpdatedAt { instrumentUpdatedAt = iu }
         valueDate = p.reportDate
         uploadedAt = p.uploadedAt
         reportDate = p.reportDate
@@ -174,6 +179,7 @@ struct PositionFormView: View {
                 quantity: qty,
                 purchasePrice: price,
                 currentPrice: currPrice,
+                instrumentUpdatedAt: instrumentUpdatedAt,
                 notes: notes.isEmpty ? nil : notes,
                 reportDate: reportDate
             )
@@ -186,6 +192,7 @@ struct PositionFormView: View {
                 quantity: qty,
                 purchasePrice: price,
                 currentPrice: currPrice,
+                instrumentUpdatedAt: instrumentUpdatedAt,
                 notes: notes.isEmpty ? nil : notes,
                 reportDate: reportDate
             )
