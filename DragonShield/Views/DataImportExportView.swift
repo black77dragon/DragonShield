@@ -2,12 +2,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DataImportExportView: View {
-    enum StatementType { case creditSuisse, zkb }
+    enum StatementType { case creditSuisse }
 
-    @State private var logMessages: [String] = []
-    @State private var importSummary: String?
-    @State private var showDetails = false
-    @State private var showImporterFor: StatementType? = nil
+    @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
+    @State private var statusText: String = "Idle \u2022 No file loaded"
     @State private var showImporter = false
 
     var body: some View {
@@ -25,12 +23,8 @@ struct DataImportExportView: View {
             ],
             allowsMultipleSelection: false
         ) { result in
-            let type = showImporterFor
-            showImporterFor = nil
-            if case let .success(urls) = result,
-               let url = urls.first,
-               let type = type {
-                handleImport(urls: [url], type: type)
+            if case let .success(urls) = result, let url = urls.first {
+                handleImport(url: url)
             }
         }
         .navigationTitle("Data Import / Export")
@@ -39,13 +33,9 @@ struct DataImportExportView: View {
     private var container: some View {
         VStack(alignment: .leading, spacing: 24) {
             header
-            importCards
-            if let summary = importSummary {
-                summaryBar(summary)
-            }
-            if showDetails || !logMessages.isEmpty {
-                statementLog
-            }
+            uploadControls
+            statusBar
+            statementLog
         }
         .padding(24)
         .background(Color(red: 0.976, green: 0.98, blue: 0.984))
@@ -67,49 +57,25 @@ struct DataImportExportView: View {
         }
     }
 
-    private var importCards: some View {
-        GeometryReader { geo in
-            let vertical = geo.size.width <= 600
-            let layout = vertical ? AnyLayout(VStackLayout(spacing: 16)) : AnyLayout(HStackLayout(spacing: 16))
-            layout {
-                creditSuisseCard
-                zkbCard
+    private var uploadControls: some View {
+        HStack(spacing: 16) {
+            DropZone { urls in
+                if let url = urls.first { handleImport(url: url) }
             }
+            .frame(height: 120)
+
+            Button("Select File") { showImporter = true }
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(width: 140, height: 32)
         }
     }
 
-    private var creditSuisseCard: some View {
-        ImportCard(
-            icon: Image(systemName: "tray.and.arrow.down"),
-            heading: "Import Credit-Suisse Statement",
-            dropText: "Drag & Drop Credit-Suisse File",
-            buttonText: "Select File",
-            onSelect: {
-                showImporterFor = .creditSuisse
-                showImporter = true
-            },
-            onDrop: { handleImport(urls: $0, type: .creditSuisse) }
-        )
-    }
-
-    private var zkbCard: some View {
-        ImportCard(
-            icon: Image(systemName: "tray.and.arrow.down"),
-            heading: "Import ZKB Statement",
-            dropText: "Drag & Drop ZKB File",
-            buttonText: "Select File",
-            disabled: true,
-            tooltip: "Coming soon"
-        )
-    }
-
-    private func handleImport(urls: [URL], type: StatementType) {
-        guard let url = urls.first else { return }
-        importSummary = nil
+    private func handleImport(url: URL) {
+        statusText = "Importing \(url.lastPathComponent)…"
 
         ImportManager.shared.importPositions(at: url, progress: { message in
             DispatchQueue.main.async {
-                self.logMessages.append(message)
+                self.appendLog(message)
             }
         }) { result in
             DispatchQueue.main.async {
@@ -117,36 +83,30 @@ struct DataImportExportView: View {
                 switch result {
                 case .success(let summary):
                     let errors = summary.totalRows - summary.parsedRows
-                    self.importSummary = "✔ \(self.displayName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
-                    self.logMessages.insert("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records", at: 0)
+                    self.statusText = "✔ Import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
+                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records")
                 case .failure(let error):
-                    self.importSummary = nil
-                    self.logMessages.insert("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)", at: 0)
+                    self.statusText = "Error: \(error.localizedDescription)"
+                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
                 }
             }
         }
     }
 
-    private func displayName(_ type: StatementType) -> String {
-        switch type {
-        case .creditSuisse: return "Credit-Suisse"
-        case .zkb: return "ZKB"
-        }
+    private func appendLog(_ entry: String) {
+        logMessages.insert(entry, at: 0)
+        if logMessages.count > 100 { logMessages.removeLast(logMessages.count - 100) }
+        UserDefaults.standard.set(logMessages, forKey: UserDefaultsKeys.statementImportLog)
     }
 
-    private func summaryBar(_ text: String) -> some View {
-        HStack {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
-            Text(text)
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            Text("Status:")
+                .font(.system(size: 14, weight: .semibold))
+            Text(statusText)
+                .font(.system(size: 14))
             Spacer()
-            Button(showDetails ? "Hide Details" : "View Details…") {
-                withAnimation { showDetails.toggle() }
-            }
-                .font(.system(size: 12))
         }
-        .font(.system(size: 14))
-        .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
     }
 
     private var statementLog: some View {
@@ -176,61 +136,37 @@ struct DataImportExportView: View {
     }
 }
 
-private struct ImportCard: View {
-    var icon: Image
-    var heading: String
-    var dropText: String
-    var buttonText: String
-    var disabled: Bool = false
-    var tooltip: String? = nil
-    var onSelect: (() -> Void)? = nil
-    var onDrop: (([URL]) -> Void)? = nil
-
-    @State private var isTargeted = false
-
-    var body: some View {
-        VStack(spacing: 8) {
-            icon
-                .resizable()
-                .scaledToFit()
-                .frame(width: 48, height: 48)
-                .padding(.bottom, 4)
-            Text(heading)
-                .font(.system(size: 16, weight: .bold))
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(style: StrokeStyle(lineWidth: 1, dash: [5]))
-                    .foregroundColor(.gray)
-                    .frame(height: 120)
-                    .background(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
-                Text(dropText)
-                    .font(.system(size: 13))
-                    .foregroundColor(.gray)
-            }
-            .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
-                guard let onDrop else { return false }
-                var urls: [URL] = []
-                for provider in providers {
-                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                        if let url { urls.append(url) }
-                    }
-                }
-                DispatchQueue.main.async { onDrop(urls) }
-                return true
-            }
-            Text("or")
-                .font(.system(size: 12))
-                .foregroundColor(.gray.opacity(0.7))
-            Button(buttonText) { onSelect?() }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(disabled)
-                .help(disabled ? (tooltip ?? "") : "")
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 #Preview {
     DataImportExportView()
         .environmentObject(DatabaseManager())
+}
+
+private struct DropZone: View {
+    var onDrop: ([URL]) -> Void
+    @State private var isTargeted = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(style: StrokeStyle(lineWidth: 1, dash: [5]))
+                .foregroundColor(.gray)
+                .background(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
+            VStack {
+                Image(systemName: "tray.and.arrow.down")
+                Text("Drag & Drop File")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+            }
+        }
+        .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
+            var urls: [URL] = []
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    if let url { urls.append(url) }
+                }
+            }
+            DispatchQueue.main.async { onDrop(urls) }
+            return true
+        }
+    }
 }
