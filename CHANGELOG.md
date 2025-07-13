@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts
+- Test migrations for instrument update columns
 - Display instrument updated date in Positions view and form
 - Display earliest instrument updated date in Accounts view and forms
 - Replace Load Documents with Data Import/Export view and statement log
