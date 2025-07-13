@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 - Allow configuring production and test database paths via Database Management screen
 - Respect stored production_db_path and test_db_path when opening the database
 - Fix database location picker so selected paths persist and display correctly
+- Fix missing SQLITE_TRANSIENT constant when updating DB paths
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing

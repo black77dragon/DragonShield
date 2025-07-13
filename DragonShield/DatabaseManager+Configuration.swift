@@ -8,6 +8,8 @@
 import SQLite3
 import Foundation
 
+fileprivate let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 extension DatabaseManager {
     
     func loadConfiguration() {
@@ -79,7 +81,6 @@ extension DatabaseManager {
             return false
         }
         
-        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
         
