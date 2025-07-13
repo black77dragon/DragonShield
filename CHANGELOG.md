@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Refactor Database Management screen into subviews to resolve type-check timeout
 - Update test seed data with extended asset classes and institutions
 - Display per-table summary counts in log panel
+- Refine Data Import/Export layout with separate Import, Status and Log panels
 - Fix Full Database restore button not showing file picker
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field

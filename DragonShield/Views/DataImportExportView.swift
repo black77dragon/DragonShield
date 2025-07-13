@@ -10,10 +10,14 @@ struct DataImportExportView: View {
 
     var body: some View {
         ScrollView {
-            container
-                .frame(minWidth: 1600, minHeight: 1200)
-                .padding(.top, 32)
-                .padding(.horizontal)
+            VStack(alignment: .leading, spacing: 16) {
+                importPanel
+                statusPanel
+                logPanel
+            }
+            .frame(minWidth: 1600, minHeight: 1200)
+            .padding(.top, 32)
+            .padding(.horizontal)
         }
         .fileImporter(
             isPresented: Binding<Bool>(
@@ -36,21 +40,15 @@ struct DataImportExportView: View {
         .navigationTitle("Data Import / Export")
     }
 
-    private var container: some View {
-        VStack(alignment: .leading, spacing: 24) {
+    private var importPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
             header
             cardsSection
-            statusBar
-            Spacer(minLength: 24)
-            statementLog
         }
         .padding(24)
-        .background(Color(red: 0.976, green: 0.98, blue: 0.984))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(red: 224/255, green: 224/255, blue: 224/255))
-        )
+        .background(Theme.surface)
         .cornerRadius(8)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 
     private var header: some View {
@@ -157,13 +155,17 @@ struct DataImportExportView: View {
         UserDefaults.standard.set(logMessages, forKey: UserDefaultsKeys.statementImportLog)
     }
 
-    private var statusBar: some View {
+    private var statusPanel: some View {
         Text(statusMessage)
             .font(.system(size: 14))
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Theme.surface)
+            .cornerRadius(8)
+            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 
-    private var statementLog: some View {
+    private var logPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Statement Loading Log")
                 .font(.system(size: 14, weight: .bold))
@@ -181,12 +183,16 @@ struct DataImportExportView: View {
             .frame(height: 160)
         }
         .padding(16)
-        .background(Color.white)
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(red: 224/255, green: 224/255, blue: 224/255), lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white)
         )
-        .cornerRadius(6)
+        .overlay(
+            Rectangle()
+                .fill(Theme.primaryAccent)
+                .frame(height: 2), alignment: .top
+        )
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 
     private func typeName(_ type: StatementType) -> String {
