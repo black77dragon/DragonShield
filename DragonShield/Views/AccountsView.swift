@@ -23,6 +23,10 @@ struct AccountsView: View {
     @State private var accountToDelete: DatabaseManager.AccountData? = nil
     @State private var searchText = ""
 
+    @State private var isRefreshing = false
+    @State private var refreshMessage = ""
+    @State private var showRefreshAlert = false
+
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
@@ -84,6 +88,11 @@ struct AccountsView: View {
             if let account = accountToDelete {
                 Text("Choose whether to disable or permanently delete '\(account.accountName)' (\(account.accountNumber)). Accounts can only be modified if no instruments are linked.")
             }
+        }
+        .alert("Refresh", isPresented: $showRefreshAlert) {
+            Button("OK") { showRefreshAlert = false }
+        } message: {
+            Text(refreshMessage)
         }
     }
 
@@ -201,6 +210,31 @@ struct AccountsView: View {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
                 Button { showAddAccountSheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Account") }.font(.system(size: 16, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 20).padding(.vertical, 12).background(Color.blue).clipShape(Capsule()) .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3) }.buttonStyle(ScaleButtonStyle())
+                Button {
+                    isRefreshing = true
+                    dbManager.refreshEarliestInstrumentTimestamps { result in
+                        isRefreshing = false
+                        switch result {
+                        case .success(let n):
+                            refreshMessage = "✅ Updated earliest timestamps for \(n) accounts."
+                        case .failure:
+                            refreshMessage = "❌ Failed to refresh timestamps."
+                        }
+                        showRefreshAlert = true
+                        loadAccounts()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isRefreshing { ProgressView().scaleEffect(0.7) } else { Image(systemName: "arrow.clockwise") }
+                        Text("Refresh Instrument Timestamps")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.purple)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Color.purple.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.purple.opacity(0.3), lineWidth: 1))
+                }.buttonStyle(ScaleButtonStyle()).disabled(isRefreshing)
                 if selectedAccount != nil {
                     Button { showEditAccountSheet = true } label: { HStack(spacing: 6) { Image(systemName: "pencil"); Text("Edit") }.font(.system(size: 14, weight: .medium)).foregroundColor(.orange) .padding(.horizontal, 16).padding(.vertical, 10).background(Color.orange.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.orange.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
                     Button { if let acc = selectedAccount { accountToDelete = acc; showingDeleteAlert = true } } label: { HStack(spacing: 6) { Image(systemName: "trash"); Text("Delete") }.font(.system(size: 14, weight: .medium)).foregroundColor(.red).padding(.horizontal, 16).padding(.vertical, 10).background(Color.red.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1)) }.buttonStyle(ScaleButtonStyle())
