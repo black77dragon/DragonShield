@@ -434,3 +434,6 @@ extension DatabaseManager {
             print("❌ Failed to update earliest instrument date: \(String(cString: sqlite3_errmsg(db)))")
         }
     }
+}
+
+
