@@ -17,6 +17,4 @@ struct UserDefaultsKeys {
     static let databaseMode = "databaseMode"
     static let backupDirectoryURL = "backupDirectoryURL"
     static let backupDirectoryBookmark = "backupDirectoryBookmark"
-    static let productionDBBookmark = "productionDBBookmark"
-    static let testDBBookmark = "testDBBookmark"
 }

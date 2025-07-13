@@ -43,9 +43,6 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var productionDBPath: String = ""
     @Published var testDBPath: String = ""
-
-    private var productionAccessing = false
-    private var testAccessing = false
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -92,26 +89,6 @@ class DatabaseManager: ObservableObject {
         openDatabase()
         loadConfiguration()
 
-        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark) {
-            var stale = false
-            if let url = try? URL(resolvingBookmarkData: data,
-                                   options: [.withSecurityScope],
-                                   relativeTo: nil,
-                                   bookmarkDataIsStale: &stale) {
-                if productionDBPath.isEmpty { productionDBPath = url.path }
-                if url.startAccessingSecurityScopedResource() { productionAccessing = true }
-            }
-        }
-        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark) {
-            var stale = false
-            if let url = try? URL(resolvingBookmarkData: data,
-                                   options: [.withSecurityScope],
-                                   relativeTo: nil,
-                                   bookmarkDataIsStale: &stale) {
-                if testDBPath.isEmpty { testDBPath = url.path }
-                if url.startAccessingSecurityScopedResource() { testAccessing = true }
-            }
-        }
 
         // Reopen at configured location if different
         if dbMode == .production {
@@ -170,13 +147,7 @@ class DatabaseManager: ObservableObject {
             db = nil
             print("✅ Database connection closed")
         }
-        if productionAccessing && dbMode == .production {
-            URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource()
-            productionAccessing = false
-        } else if testAccessing && dbMode == .test {
-            URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource()
-            testAccessing = false
-        }
+        // no additional cleanup needed
     }
 
     func reopenDatabase() {
@@ -188,54 +159,21 @@ class DatabaseManager: ObservableObject {
 
     func reopenDatabase(atPath path: String) {
         dbPath = path
-        if dbMode == .production {
-            if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
-            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark) {
-                var stale = false
-                if let url = try? URL(resolvingBookmarkData: data,
-                                       options: [.withSecurityScope],
-                                       relativeTo: nil,
-                                       bookmarkDataIsStale: &stale) {
-                    if url.startAccessingSecurityScopedResource() { productionAccessing = true }
-                }
-            }
-        } else {
-            if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
-            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark) {
-                var stale = false
-                if let url = try? URL(resolvingBookmarkData: data,
-                                       options: [.withSecurityScope],
-                                       relativeTo: nil,
-                                       bookmarkDataIsStale: &stale) {
-                    if url.startAccessingSecurityScopedResource() { testAccessing = true }
-                }
-            }
-        }
         reopenDatabase()
     }
 
     func updateDBPath(_ path: String, isProduction: Bool) {
         if isProduction {
-            if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
             productionDBPath = path
             if !updateConfiguration(key: "production_db_path", value: path) {
                 sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('production_db_path', '', 'string');", nil, nil, nil)
                 _ = updateConfiguration(key: "production_db_path", value: path)
             }
-            if let data = try? URL(fileURLWithPath: path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
-                UserDefaults.standard.set(data, forKey: UserDefaultsKeys.productionDBBookmark)
-                if URL(fileURLWithPath: path).startAccessingSecurityScopedResource() { productionAccessing = true }
-            }
         } else {
-            if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
             testDBPath = path
             if !updateConfiguration(key: "test_db_path", value: path) {
                 sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('test_db_path', '', 'string');", nil, nil, nil)
                 _ = updateConfiguration(key: "test_db_path", value: path)
-            }
-            if let data = try? URL(fileURLWithPath: path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
-                UserDefaults.standard.set(data, forKey: UserDefaultsKeys.testDBBookmark)
-                if URL(fileURLWithPath: path).startAccessingSecurityScopedResource() { testAccessing = true }
             }
         }
     }
@@ -286,7 +224,6 @@ class DatabaseManager: ObservableObject {
         } else {
             print("ℹ️ Database connection was already nil in deinit.")
         }
-        if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
-        if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
+        // nothing else to clean up
     }
 }
