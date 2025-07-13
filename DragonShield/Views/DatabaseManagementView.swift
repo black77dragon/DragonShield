@@ -130,6 +130,18 @@ struct DatabaseManagementView: View {
                         }
                 }
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Environment")
+                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 12) {
+                    Button("Switch to \(dbManager.dbMode == .production ? "Test" : "Production")") {
+                        confirmSwitchMode()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(processing)
+                }
+            }
         }
         .padding(24)
         .background(Theme.surface)
@@ -391,6 +403,18 @@ struct DatabaseManagementView: View {
                     errorMessage = error.localizedDescription
                 }
             }
+        }
+    }
+
+    private func confirmSwitchMode() {
+        let newMode = dbManager.dbMode == .production ? "TEST" : "PRODUCTION"
+        let alert = NSAlert()
+        alert.messageText = "Switch to \(newMode) mode? Unsaved data may be lost."
+        alert.addButton(withTitle: "Switch")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        if alert.runModal() == .alertFirstButtonReturn {
+            dbManager.switchMode()
         }
     }
 
