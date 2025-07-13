@@ -92,15 +92,25 @@ class DatabaseManager: ObservableObject {
         openDatabase()
         loadConfiguration()
 
-        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark),
-           let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
-            if productionDBPath.isEmpty { productionDBPath = url.path }
-            if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark) {
+            var stale = false
+            if let url = try? URL(resolvingBookmarkData: data,
+                                   options: [.withSecurityScope],
+                                   relativeTo: nil,
+                                   bookmarkDataIsStale: &stale) {
+                if productionDBPath.isEmpty { productionDBPath = url.path }
+                if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+            }
         }
-        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark),
-           let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
-            if testDBPath.isEmpty { testDBPath = url.path }
-            if url.startAccessingSecurityScopedResource() { testAccessing = true }
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark) {
+            var stale = false
+            if let url = try? URL(resolvingBookmarkData: data,
+                                   options: [.withSecurityScope],
+                                   relativeTo: nil,
+                                   bookmarkDataIsStale: &stale) {
+                if testDBPath.isEmpty { testDBPath = url.path }
+                if url.startAccessingSecurityScopedResource() { testAccessing = true }
+            }
         }
 
         // Reopen at configured location if different
@@ -180,15 +190,25 @@ class DatabaseManager: ObservableObject {
         dbPath = path
         if dbMode == .production {
             if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
-            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark),
-               let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
-                if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark) {
+                var stale = false
+                if let url = try? URL(resolvingBookmarkData: data,
+                                       options: [.withSecurityScope],
+                                       relativeTo: nil,
+                                       bookmarkDataIsStale: &stale) {
+                    if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+                }
             }
         } else {
             if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
-            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark),
-               let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
-                if url.startAccessingSecurityScopedResource() { testAccessing = true }
+            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark) {
+                var stale = false
+                if let url = try? URL(resolvingBookmarkData: data,
+                                       options: [.withSecurityScope],
+                                       relativeTo: nil,
+                                       bookmarkDataIsStale: &stale) {
+                    if url.startAccessingSecurityScopedResource() { testAccessing = true }
+                }
             }
         }
         reopenDatabase()
