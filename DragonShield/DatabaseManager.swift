@@ -53,7 +53,10 @@ class DatabaseManager: ObservableObject {
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
-        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+
+        // Fallback path inside Application Support
+        let defaultPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+        self.dbPath = defaultPath
 
         
         #if DEBUG
@@ -79,12 +82,26 @@ class DatabaseManager: ObservableObject {
             } else {
                 print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
             }
-        } else {
-             print("✅ Using existing database at: \(dbPath)")
         }
-        
+
         openDatabase()
         loadConfiguration()
+
+        // Use configured path if available
+        let configuredFolder = dbMode == .production ? productionDBPath : testDBPath
+        if !configuredFolder.isEmpty {
+            let path = URL(fileURLWithPath: configuredFolder)
+                .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+            if path != dbPath {
+                dbPath = path
+                reopenDatabase()
+            } else {
+                print("✅ Using existing database at: \(dbPath)")
+            }
+        } else {
+            print("✅ Using existing database at: \(dbPath)")
+        }
+
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
@@ -138,6 +155,12 @@ class DatabaseManager: ObservableObject {
         updateFileMetadata()
     }
 
+    func reopenDatabase(at folder: String) {
+        dbPath = URL(fileURLWithPath: folder)
+            .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+        reopenDatabase()
+    }
+
     func rowCount(table: String) throws -> Int {
         guard let db else { return 0 }
         var stmt: OpaquePointer?
@@ -153,13 +176,20 @@ class DatabaseManager: ObservableObject {
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-        dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
 
-        if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-            }
+        let fallback = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+        let configuredFolder = dbMode == .production ? productionDBPath : testDBPath
+        if configuredFolder.isEmpty {
+            dbPath = fallback
+        } else {
+            dbPath = URL(fileURLWithPath: configuredFolder)
+                .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
         }
+
+        if !FileManager.default.fileExists(atPath: dbPath), let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+            try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
+        }
+
         reopenDatabase()
     }
 

@@ -459,10 +459,12 @@ struct DatabaseManagementView: View {
             if isProduction {
                 if dbManager.updatePathConfiguration(key: "production_db_path", value: path) {
                     productionPath = path
+                    if dbManager.dbMode == .production { dbManager.reopenDatabase(at: path) }
                 }
             } else {
                 if dbManager.updatePathConfiguration(key: "test_db_path", value: path) {
                     testPath = path
+                    if dbManager.dbMode == .test { dbManager.reopenDatabase(at: path) }
                 }
             }
         }
