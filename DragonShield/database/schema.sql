@@ -1,8 +1,8 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.12 - PositionReports support notes field
+-- Version 4.13 - Track instrument last updated timestamps
 -- Created: 2025-05-24
--- Updated: 2025-06-19
+-- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
@@ -234,6 +234,7 @@ CREATE TABLE Accounts (
     include_in_portfolio BOOLEAN DEFAULT 1,
     opening_date DATE,
     closing_date DATE,
+    earliest_instrument_last_updated_at DATE,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -337,6 +338,7 @@ CREATE TABLE PositionReports (
     quantity REAL NOT NULL,
     purchase_price REAL,
     current_price REAL,
+    instrument_updated_at DATE,
     notes TEXT,
     report_date DATE NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,

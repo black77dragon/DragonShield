@@ -249,8 +249,11 @@ struct PositionsView: View {
             Group {
                 TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
                     VStack {
-                        Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
+                        if let iu = position.instrumentUpdatedAt {
+                            Text(iu, formatter: DateFormatter.iso8601DateOnly)
+                        }
                         Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
+                        Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                     }
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)

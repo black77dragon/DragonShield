@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Fix unicode bullet escape in Data Import/Export status message causing build error
+- Track last instrument update timestamp on PositionReports
+- Track earliest instrument update timestamp on Accounts
+- Display instrument updated date in Positions view and form
+- Display earliest instrument updated date in Accounts view and forms
 - Replace Load Documents with Data Import/Export view and statement log
 - Enable file picker and drag-and-drop on Data Import/Export screen
 - Unify drag-and-drop and file picker handling in Data Import/Export view
