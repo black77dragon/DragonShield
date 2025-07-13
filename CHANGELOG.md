@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService
 - Fix compile error when restoring reference data due to undefined `counts`
+- Increase Data Import/Export canvas size and anchor Statement Loading Log at the page bottom
 - Backup reference data separately via new UI button and CLI flag
 - Enforce three-zone layout on Data Import/Export screen with persistent status line
 - Resolve variable scoping issue in BackupService restore function

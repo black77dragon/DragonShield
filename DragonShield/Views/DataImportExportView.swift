@@ -11,6 +11,7 @@ struct DataImportExportView: View {
     var body: some View {
         ScrollView {
             container
+                .frame(minWidth: 800, minHeight: 600)
                 .padding(.top, 32)
                 .padding(.horizontal)
         }
@@ -40,6 +41,7 @@ struct DataImportExportView: View {
             header
             cardsSection
             statusBar
+            Spacer(minLength: 24)
             statementLog
         }
         .padding(24)
