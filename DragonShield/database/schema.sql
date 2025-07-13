@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.13 - Track instrument last updated timestamps
+-- Version 4.14 - Configurable production and test DB paths
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --

@@ -18,6 +18,8 @@ struct DatabaseManagementView: View {
     @State private var showTransactionRestoreConfirm = false
     @State private var errorMessage: String?
     @State private var showLogDetails = false
+    @State private var productionPath: String = ""
+    @State private var testPath: String = ""
 
     // MARK: - Info Card
     private func infoRow(_ label: String, value: String, mono: Bool = false) -> some View {
@@ -217,15 +219,48 @@ struct DatabaseManagementView: View {
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 
+    private var pathCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Database File Locations")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Theme.primaryAccent)
+
+            HStack {
+                Text("Production DB Location")
+                Spacer()
+                TextField("Not configured", text: $productionPath)
+                    .frame(minWidth: 300)
+                Button("Select…") { selectFolder(isProduction: true) }
+            }
+
+            HStack {
+                Text("Test DB Location")
+                Spacer()
+                TextField("Not configured", text: $testPath)
+                    .frame(minWidth: 300)
+                Button("Select…") { selectFolder(isProduction: false) }
+            }
+        }
+        .padding(24)
+        .background(Theme.surface)
+        .cornerRadius(8)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+    }
+
     // MARK: - Layout
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 infoCard
+                pathCard
                 actionsCard
                 logCard
             }
             .padding(32)
+        }
+        .onAppear {
+            productionPath = dbManager.productionDBPath
+            testPath = dbManager.testDBPath
         }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
@@ -401,6 +436,33 @@ struct DatabaseManagementView: View {
                 DispatchQueue.main.async {
                     processing = false
                     errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func containsSQLite(at url: URL) -> Bool {
+        (try? FileManager.default.contentsOfDirectory(atPath: url.path))?.contains { $0.hasSuffix(".sqlite") } ?? false
+    }
+
+    private func selectFolder(isProduction: Bool) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            guard containsSQLite(at: url) else {
+                errorMessage = "Selected folder must contain a .sqlite file"
+                return
+            }
+            let path = url.path
+            if isProduction {
+                if dbManager.updatePathConfiguration(key: "production_db_path", value: path) {
+                    productionPath = path
+                }
+            } else {
+                if dbManager.updatePathConfiguration(key: "test_db_path", value: path) {
+                    testPath = path
                 }
             }
         }

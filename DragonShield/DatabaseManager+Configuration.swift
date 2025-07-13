@@ -16,7 +16,8 @@ extension DatabaseManager {
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
-                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version'
+                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version',
+                'production_db_path', 'test_db_path'
             );
         """
         var statement: OpaquePointer?
@@ -53,6 +54,10 @@ extension DatabaseManager {
                     case "db_version":
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
+                    case "production_db_path":
+                        self.productionDBPath = value
+                    case "test_db_path":
+                        self.testDBPath = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -90,6 +95,42 @@ extension DatabaseManager {
             print("❌ Failed to update configuration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
         }
         return success
+    }
+
+    func updatePathConfiguration(key: String, value: String) -> Bool {
+        guard sqlite3_exec(db, "BEGIN TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
+            print("❌ Failed to begin transaction: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+
+        let query = "UPDATE Configuration SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare path update for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            return false
+        }
+
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+
+        let stepResult = sqlite3_step(statement)
+        sqlite3_finalize(statement)
+        guard stepResult == SQLITE_DONE else {
+            print("❌ Failed to update path for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            return false
+        }
+
+        if sqlite3_exec(db, "COMMIT;", nil, nil, nil) == SQLITE_OK {
+            loadConfiguration()
+            return true
+        } else {
+            print("❌ Failed to commit path update for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            return false
+        }
     }
 
     func forceReloadData() { // This mainly reloads configuration currently
