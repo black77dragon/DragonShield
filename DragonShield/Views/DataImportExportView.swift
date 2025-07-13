@@ -22,7 +22,7 @@ struct DataImportExportView: View {
         .fileImporter(
             isPresented: Binding(
                 get: { showImporterFor != nil },
-                set: { if !$0 { showImporterFor = nil } }
+                set: { _ in }
             ),
             allowedContentTypes: [
                 .commaSeparatedText,
