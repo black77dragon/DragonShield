@@ -262,6 +262,8 @@ struct DatabaseManagementView: View {
             productionPath = dbManager.productionDBPath
             testPath = dbManager.testDBPath
         }
+        .onReceive(dbManager.$productionDBPath) { productionPath = $0 }
+        .onReceive(dbManager.$testDBPath) { testPath = $0 }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }

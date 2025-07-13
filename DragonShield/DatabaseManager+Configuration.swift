@@ -103,6 +103,16 @@ extension DatabaseManager {
             return false
         }
 
+        // Ensure a row exists for this configuration key
+        var insert: OpaquePointer?
+        let desc = key == "production_db_path" ? "Filesystem path for production DB" : "Filesystem path for test DB"
+        if sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO Configuration (key, value, data_type, description) VALUES (?, '', 'string', ?);", -1, &insert, nil) == SQLITE_OK {
+            sqlite3_bind_text(insert, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(insert, 2, (desc as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_step(insert)
+        }
+        sqlite3_finalize(insert)
+
         let query = "UPDATE Configuration SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
@@ -111,7 +121,6 @@ extension DatabaseManager {
             return false
         }
 
-        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
 
