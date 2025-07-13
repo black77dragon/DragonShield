@@ -152,18 +152,25 @@ struct PositionsView: View {
 
 
     private var positionsContent: some View {
-        let data = sortedPositions
-        return positionsTable(data)
+        PositionsTable(
+            data: sortedPositions,
+            selectedRows: $selectedRows,
+            sortOrder: $sortOrder
+        )
     }
 
-    @ViewBuilder
-    private func positionsTable(_ data: [PositionReportData]) -> some View {
-        Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
-            TableColumn("") { (position: PositionReportData) in
-                if let notes = position.notes, !notes.isEmpty {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
-                        .help("Contains notes")
+    private struct PositionsTable: View {
+        let data: [PositionReportData]
+        @Binding var selectedRows: Set<PositionReportData.ID>
+        @Binding var sortOrder: [KeyPathComparator<PositionReportData>]
+
+        var body: some View {
+            Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
+                TableColumn("") { (position: PositionReportData) in
+                    if let notes = position.notes, !notes.isEmpty {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                            .help("Contains notes")
                         .accessibilityLabel("Contains notes")
                         .frame(width: 20)
                 } else {
@@ -282,13 +289,14 @@ struct PositionsView: View {
                             .buttonStyle(PlainButtonStyle())
                     }
                     .frame(width: 50)
+                    }
                 }
             }
+            .tableStyle(.inset(alternatesRowBackgrounds: true))
+            .padding(24)
+            .background(Theme.surface)
+            .cornerRadius(8)
         }
-        .tableStyle(.inset(alternatesRowBackgrounds: true))
-        .padding(24)
-        .background(Theme.surface)
-        .cornerRadius(8)
     }
 
 

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Track instrument update timestamps per account during Credit-Suisse import
 - Display instrument last update date in Positions view
+- Refactor Positions table into standalone view to resolve compile-time error
 - Fix compile timeout in Positions view by extracting table builder
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Replace Load Documents with Data Import/Export view and statement log
