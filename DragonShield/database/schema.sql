@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.12 - PositionReports support notes field
+-- Version 4.13 - Track instrument update timestamps
 -- Created: 2025-05-24
 -- Updated: 2025-06-19
 --
@@ -15,6 +15,7 @@
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses tables.
 -- - v4.10 -> v4.11: Expanded Institutions with contact info and currency fields.
 -- - v4.11 -> v4.12: Added notes column to PositionReports table.
+-- - v4.12 -> v4.13: Added instrument_updated_at to PositionReports and earliest_instrument_last_updated_at to Accounts.
 -- - (Previous history for v4.3 and earlier...)
 --
 
@@ -235,6 +236,7 @@ CREATE TABLE Accounts (
     opening_date DATE,
     closing_date DATE,
     notes TEXT,
+    earliest_instrument_last_updated_at DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
@@ -338,6 +340,7 @@ CREATE TABLE PositionReports (
     purchase_price REAL,
     current_price REAL,
     notes TEXT,
+    instrument_updated_at DATE,
     report_date DATE NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),

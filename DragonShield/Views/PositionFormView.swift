@@ -175,6 +175,7 @@ struct PositionFormView: View {
                 purchasePrice: price,
                 currentPrice: currPrice,
                 notes: notes.isEmpty ? nil : notes,
+                instrumentUpdatedAt: reportDate,
                 reportDate: reportDate
             )
         } else {
@@ -187,6 +188,7 @@ struct PositionFormView: View {
                 purchasePrice: price,
                 currentPrice: currPrice,
                 notes: notes.isEmpty ? nil : notes,
+                instrumentUpdatedAt: reportDate,
                 reportDate: reportDate
             )
         }

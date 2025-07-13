@@ -14,6 +14,7 @@ struct PositionReport {
     let purchasePrice: Double?
     let currentPrice: Double?
     let reportDate: Date
+    let instrumentUpdatedAt: Date?
 }
 
 enum PositionReportRepositoryError: LocalizedError {
@@ -53,6 +54,7 @@ final class PositionReportRepository {
                 quantity REAL NOT NULL,
                 purchase_price REAL,
                 current_price REAL,
+                instrument_updated_at DATE,
                 report_date DATE NOT NULL,
                 uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
@@ -67,7 +69,7 @@ final class PositionReportRepository {
     }
 
     func saveReports(_ reports: [PositionReport]) throws {
-        let sql = "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, purchase_price, current_price, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        let sql = "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, purchase_price, current_price, instrument_updated_at, report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         var stmt: OpaquePointer?
         guard let db = dbManager.db else {
             throw PositionReportRepositoryError.connectionUnavailable
@@ -98,7 +100,12 @@ final class PositionReportRepository {
             } else {
                 sqlite3_bind_null(stmt, 7)
             }
-            sqlite3_bind_text(stmt, 8, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
+            if let updated = rpt.instrumentUpdatedAt {
+                sqlite3_bind_text(stmt, 8, dateFormatter.string(from: updated), -1, Self.sqliteTransient)
+            } else {
+                sqlite3_bind_null(stmt, 8)
+            }
+            sqlite3_bind_text(stmt, 9, dateFormatter.string(from: rpt.reportDate), -1, Self.sqliteTransient)
             if sqlite3_step(stmt) != SQLITE_DONE {
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw PositionReportRepositoryError.insertFailed(msg)

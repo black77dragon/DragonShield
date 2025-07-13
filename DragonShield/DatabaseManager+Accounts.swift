@@ -383,7 +383,7 @@ extension DatabaseManager {
     }
 
     /// Returns IDs and numbers of all accounts belonging to the given institution name.
-    func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
+func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
         let sql = """
             SELECT a.account_id, a.account_number
               FROM Accounts a
@@ -406,3 +406,30 @@ extension DatabaseManager {
         return results
     }
 }
+
+    /// Recalculates the earliest instrument update timestamp for the given account
+    /// by aggregating PositionReports.instrument_updated_at. Stores the minimum
+    /// value in Accounts.earliest_instrument_last_updated_at.
+    func refreshEarliestInstrumentUpdatedAt(accountId: Int) {
+        let sql = """
+            UPDATE Accounts
+               SET earliest_instrument_last_updated_at = (
+                       SELECT MIN(instrument_updated_at)
+                         FROM PositionReports
+                        WHERE account_id = ?
+                   ),
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE account_id = ?;
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare refreshEarliestInstrumentUpdatedAt: \(String(cString: sqlite3_errmsg(db)))")
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(accountId))
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        if sqlite3_step(stmt) != SQLITE_DONE {
+            print("❌ Failed to update earliest instrument date: \(String(cString: sqlite3_errmsg(db)))")
+        }
+    }

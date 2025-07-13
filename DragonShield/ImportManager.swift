@@ -234,6 +234,7 @@ class ImportManager {
                let baseSessionName = "Credit-Suisse Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
+                var updatedAccounts = Set<Int>()
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
@@ -358,10 +359,12 @@ class ImportManager {
                                                      quantity: parsed.quantity,
                                                      purchasePrice: nil,
                                                      currentPrice: nil,
-                                                     reportDate: parsed.reportDate)
+                                                     reportDate: parsed.reportDate,
+                                                     instrumentUpdatedAt: parsed.reportDate)
                             do {
                                 try self.positionRepository.saveReports([rpt])
                                 success += 1
+                                updatedAccounts.insert(aId)
                             } catch {
                                 failure += 1
                             }
@@ -437,10 +440,12 @@ class ImportManager {
                                                 quantity: row.quantity,
                                                 purchasePrice: row.purchasePrice,
                                                 currentPrice: row.currentPrice,
-                                                reportDate: row.reportDate)
+                                                reportDate: row.reportDate,
+                                                instrumentUpdatedAt: row.reportDate)
                     do {
                         try self.positionRepository.saveReports([report])
                         success += 1
+                        updatedAccounts.insert(accId)
                         if self.checkpointsEnabled {
                             DispatchQueue.main.sync {
                                 self.showStatusAlert(title: "Position Saved",
@@ -456,6 +461,9 @@ class ImportManager {
                             }
                         }
                     }
+                }
+                for acc in updatedAccounts {
+                    self.dbManager.refreshEarliestInstrumentUpdatedAt(accountId: acc)
                 }
                 if let sid = sessionId {
                     self.dbManager.completeImportSession(id: sid,
