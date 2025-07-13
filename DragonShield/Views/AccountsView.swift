@@ -192,6 +192,7 @@ struct AccountsView: View {
             Text("Currency").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 80, alignment: .center)
             Text("In Portfolio").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 80, alignment: .center)
             Text("Status").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 80, alignment: .center)
+            Text("Earliest Updated").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 110, alignment: .center)
         }.padding(.horizontal, CGFloat(dbManager.tableRowPadding)).padding(.vertical, 12).background(RoundedRectangle(cornerRadius: 12).fill(Color.gray.opacity(0.1))).padding(.bottom, 1)
     }
 
@@ -311,6 +312,12 @@ struct ModernAccountRowView: View {
                 Circle().fill(account.isActive ? Color.green : Color.orange).frame(width: 8, height: 8)
                 Text(account.isActive ? "Active" : "Inactive").font(.system(size: 12, weight: .medium)).foregroundColor(account.isActive ? .green : .orange)
             }.frame(width: 80, alignment: .center)
+            Text(
+                account.earliestInstrumentLastUpdatedAt.map { Self.displayDateFormatter.string(from: $0) } ?? "—"
+            )
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .frame(width: 110, alignment: .center)
         }
         .padding(.horizontal, 16).padding(.vertical, rowPadding)
         .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Color.blue.opacity(0.1) : Color.clear).overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)))
@@ -338,6 +345,7 @@ struct AddAccountView: View {
     @State private var openingDateInput: Date = Date()
     @State private var setClosingDate: Bool = false
     @State private var closingDateInput: Date = Date()
+    @State private var earliestInstrumentDate: Date? = nil
     @State private var includeInPortfolio: Bool = true
     @State private var isActive: Bool = true
     @State private var notes: String = ""
@@ -498,6 +506,24 @@ private var accountTypePickerField: some View {
                         .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                         if setOpeningDate && closingDateInput < openingDateInput && setClosingDate { Text("Closing date must be on or after opening date.").font(.caption).foregroundColor(.red).padding(.leading, 16) }
                     }
+                    HStack {
+                        Image(systemName: "clock.badge.checkmark").foregroundColor(.gray)
+                        Text("Earliest Instrument Update")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                        Spacer()
+                        if let d = earliestInstrumentDate {
+                            Text(DateFormatter.swissDate.string(from: d))
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("N/A").foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }.modifier(ModernFormSection(color: .green))
                 VStack(alignment: .leading, spacing: 20) {
                     sectionHeader(title: "Settings & Notes", icon: "gearshape.fill", color: .purple)
@@ -531,6 +557,7 @@ private var accountTypePickerField: some View {
         // Optionally set a default account type if desired, e.g., the first one
         // if !availableAccountTypes.isEmpty { selectedAccountTypeId = availableAccountTypes[0].id }
         setOpeningDate = false; openingDateInput = Date(); setClosingDate = false; closingDateInput = Date();
+        earliestInstrumentDate = nil
     }
     private func saveAccount() {
         guard isValid, let typeId = selectedAccountTypeId, let instId = selectedInstitutionId else {
@@ -574,6 +601,7 @@ struct EditAccountView: View {
     
     @State private var currencyCode: String = "";
     @State private var setOpeningDate: Bool = false; @State private var openingDateInput: Date = Date(); @State private var setClosingDate: Bool = false; @State private var closingDateInput: Date = Date();
+    @State private var earliestInstrumentDate: Date? = nil
     @State private var includeInPortfolio: Bool = true; @State private var isActive: Bool = true; @State private var notes: String = "";
     @State private var originalData: DatabaseManager.AccountData? = nil; @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = [];
     @State private var originalSetOpeningDate: Bool = false; @State private var originalOpeningDateInput: Date = Date(); @State private var originalSetClosingDate: Bool = false; @State private var originalClosingDateInput: Date = Date();
@@ -751,6 +779,24 @@ struct EditAccountView: View {
                         .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                         if setOpeningDate && closingDateInput < openingDateInput && setClosingDate { Text("Closing date must be on or after opening date.").font(.caption).foregroundColor(.red).padding(.leading, 16) }
                     }
+                    HStack {
+                        Image(systemName: "clock.badge.checkmark").foregroundColor(.gray)
+                        Text("Earliest Instrument Update")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                        Spacer()
+                        if let d = earliestInstrumentDate {
+                            Text(DateFormatter.swissDate.string(from: d))
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("N/A").foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }.modifier(ModernFormSection(color: .green))
                 VStack(alignment: .leading, spacing: 20) {
                     sectionHeader(title: "Settings & Notes", icon: "gearshape.fill", color: .purple)
@@ -788,6 +834,7 @@ struct EditAccountView: View {
             currencyCode = details.currencyCode;
             if let oDate = details.openingDate { openingDateInput = oDate; setOpeningDate = true } else { setOpeningDate = false; openingDateInput = Date() }
             if let cDate = details.closingDate { closingDateInput = cDate; setClosingDate = true } else { setClosingDate = false; closingDateInput = Date() }
+            earliestInstrumentDate = details.earliestInstrumentLastUpdatedAt
             includeInPortfolio = details.includeInPortfolio; isActive = details.isActive; notes = details.notes ?? "";
             originalData = details; originalSetOpeningDate = setOpeningDate; originalOpeningDateInput = openingDateInput; originalSetClosingDate = setClosingDate; originalClosingDateInput = closingDateInput;
             detectChanges() // Initial check after loading

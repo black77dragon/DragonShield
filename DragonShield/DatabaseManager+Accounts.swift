@@ -28,6 +28,7 @@ extension DatabaseManager {
         var currencyCode: String
         var openingDate: Date?
         var closingDate: Date?
+        var earliestInstrumentLastUpdatedAt: Date?
         var includeInPortfolio: Bool
         var isActive: Bool
         var notes: String?
@@ -40,7 +41,8 @@ extension DatabaseManager {
             SELECT a.account_id, a.account_name,
                    i.institution_name, i.bic,
                    a.account_number, at.type_name AS account_type_name, a.currency_code,
-                   a.opening_date, a.closing_date, a.include_in_portfolio, a.is_active, a.notes,
+                   a.opening_date, a.closing_date, a.earliest_instrument_last_updated_at,
+                   a.include_in_portfolio, a.is_active, a.notes,
                    a.account_type_id, a.institution_id
             FROM Accounts a
             JOIN AccountTypes at ON a.account_type_id = at.account_type_id
@@ -63,12 +65,13 @@ extension DatabaseManager {
 
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
 
-                let includeInPortfolio = sqlite3_column_int(statement, 9) == 1
-                let isActive = sqlite3_column_int(statement, 10) == 1
-                let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
-                let accountTypeId = Int(sqlite3_column_int(statement, 12))
-                let institutionId = Int(sqlite3_column_int(statement, 13))
+                let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
+                let isActive = sqlite3_column_int(statement, 11) == 1
+                let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
+                let accountTypeId = Int(sqlite3_column_int(statement, 13))
+                let institutionId = Int(sqlite3_column_int(statement, 14))
                 
                 accounts.append(AccountData(
                     id: id,
@@ -82,6 +85,7 @@ extension DatabaseManager {
                     currencyCode: currencyCode,
                     openingDate: openingDate,
                     closingDate: closingDate,
+                    earliestInstrumentLastUpdatedAt: earliestDate,
                     includeInPortfolio: includeInPortfolio,
                     isActive: isActive,
                     notes: notes
@@ -100,7 +104,8 @@ extension DatabaseManager {
             SELECT a.account_id, a.account_name,
                    i.institution_name, i.bic,
                    a.account_number, at.type_name AS account_type_name, a.currency_code,
-                   a.opening_date, a.closing_date, a.include_in_portfolio, a.is_active, a.notes,
+                   a.opening_date, a.closing_date, a.earliest_instrument_last_updated_at,
+                   a.include_in_portfolio, a.is_active, a.notes,
                    a.account_type_id, a.institution_id
             FROM Accounts a
             JOIN AccountTypes at ON a.account_type_id = at.account_type_id
@@ -122,11 +127,12 @@ extension DatabaseManager {
                 let currencyCode = String(cString: sqlite3_column_text(statement, 6))
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                let includeInPortfolio = sqlite3_column_int(statement, 9) == 1
-                let isActive = sqlite3_column_int(statement, 10) == 1
-                let notes: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
-                let accountTypeId = Int(sqlite3_column_int(statement, 12))
-                let institutionId = Int(sqlite3_column_int(statement, 13))
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
+                let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
+                let isActive = sqlite3_column_int(statement, 11) == 1
+                let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
+                let accountTypeId = Int(sqlite3_column_int(statement, 13))
+                let institutionId = Int(sqlite3_column_int(statement, 14))
 
                 sqlite3_finalize(statement)
                 return AccountData(
@@ -134,7 +140,8 @@ extension DatabaseManager {
                     institutionName: institutionName, institutionBic: institutionBic,
                     accountNumber: accountNumber, accountType: accountTypeName,
                     accountTypeId: accountTypeId, currencyCode: currencyCode, openingDate: openingDate,
-                    closingDate: closingDate, includeInPortfolio: includeInPortfolio, isActive: isActive, notes: notes
+                    closingDate: closingDate, earliestInstrumentLastUpdatedAt: earliestDate,
+                    includeInPortfolio: includeInPortfolio, isActive: isActive, notes: notes
                 )
             } else {
                 print("ℹ️ No account details found for ID: \(id)")
