@@ -1,12 +1,10 @@
 // DragonShield/Views/SidebarView.swift
 // MARK: - Version 1.9
 // MARK: - History
-// - 1.5 -> 1.6: Enabled "Load Documents" navigation link to point to new ImportStatementView.
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
-// - 1.6 -> 1.7: Added "Positions" navigation link.
-// - 1.7 -> 1.8: Added "Edit Institutions" navigation link.
-// - 1.8 -> 1.9: Converted Load Documents action back to NavigationLink with error alert support.
-// - 1.9 -> 2.0: Replaced Load Documents with Data Import/Export view.
+// - 1.5 -> 1.6: Added "Positions" navigation link.
+// - 1.6 -> 1.7: Added "Edit Institutions" navigation link.
+// - 1.7 -> 1.8: Added Data Import/Export view to replace the old document loader.
 // - (Previous history)
 
 import SwiftUI

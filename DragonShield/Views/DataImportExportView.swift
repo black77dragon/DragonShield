@@ -43,8 +43,9 @@ struct DataImportExportView: View {
             if let summary = importSummary {
                 summaryBar(summary)
             }
-            Spacer(minLength: 16)
-            statementLog
+            if showDetails {
+                statementLog
+            }
         }
         .padding(24)
         .background(Color(red: 0.976, green: 0.98, blue: 0.984))
@@ -159,15 +160,21 @@ struct DataImportExportView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(logMessages, id: \.self) { entry in
                         Text(entry)
-                            .font(.system(.footnote, design: .monospaced))
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(Color(red: 34/255, green: 34/255, blue: 34/255))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
             .frame(height: 160)
-            .border(Color(red: 224/255, green: 224/255, blue: 224/255))
         }
+        .padding(16)
+        .background(Color.white)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color(red: 224/255, green: 224/255, blue: 224/255), lineWidth: 1)
+        )
+        .cornerRadius(6)
     }
 }
 

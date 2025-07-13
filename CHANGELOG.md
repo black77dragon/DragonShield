@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Document Data Import/Export screen spec with Statement Loading Log and wireframe
 - Display import progress and update log when importing Credit-Suisse statements
 - Fix file importer not triggering Credit-Suisse import when a file is selected
+- Restyle Statement Loading Log with padded white frame and remove extra spacer
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService
