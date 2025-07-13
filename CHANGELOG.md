@@ -3,10 +3,28 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix unicode bullet escape in Data Import/Export status message causing build error
+- Replace Load Documents with Data Import/Export view and statement log
+- Enable file picker and drag-and-drop on Data Import/Export screen
+- Unify drag-and-drop and file picker handling in Data Import/Export view
+- Document Data Import/Export screen spec with Statement Loading Log and wireframe
+- Redesign Data Import/Export view with import cards, summary bar and persistent log
+- Display import progress and update log when importing Credit-Suisse statements
+- Simplify Data Import/Export layout with separate status bar and persistent log
+- Fix Data Import/Export layout so Select File button and log panel are visible
+- Fix file importer losing selected statement type so imports run after choosing a file
+- Fix Data Import/Export file picker not starting import after choosing a file
+- Fix Select File button to start import by retaining chosen statement type until completion
+- Restyle Statement Loading Log with padded white frame and remove extra spacer
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService
+- Fix compile error when restoring reference data due to undefined `counts`
+- Increase Data Import/Export canvas size and anchor Statement Loading Log at the page bottom
+- Double Data Import/Export canvas to 1600×1200 and keep log pinned to the bottom
 - Backup reference data separately via new UI button and CLI flag
+- Enforce three-zone layout on Data Import/Export screen with persistent status line
+- Resolve variable scoping issue in BackupService restore function
 - Restore reference data from SQL or JSON with dedicated button
 - Export reference tables as SQL with CREATE and INSERT statements
 - Disable foreign key checks during reference restore to avoid constraint failures
@@ -22,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - Refactor Database Management screen into subviews to resolve type-check timeout
 - Update test seed data with extended asset classes and institutions
 - Display per-table summary counts in log panel
+- Refine Data Import/Export layout with separate Import, Status and Log panels
 - Fix Full Database restore button not showing file picker
 - Delete position reports for any institution directly from the Positions view
 - Enable manual add, edit and delete of positions with notes field

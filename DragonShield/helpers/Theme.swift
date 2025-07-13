@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Theme {
-    static let primaryAccent = Color(red: 42/255, green: 125/255, blue: 225/255)
+    static let primaryAccent = Color(red: 26/255, green: 115/255, blue: 232/255)
     static let surface = Color(red: 248/255, green: 249/255, blue: 250/255)
     static let textPrimary = Color(red: 33/255, green: 33/255, blue: 33/255)
 }
