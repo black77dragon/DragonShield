@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Document Data Import/Export screen spec with Statement Loading Log and wireframe
 - Redesign Data Import/Export view with import cards, summary bar and persistent log
 - Display import progress and update log when importing Credit-Suisse statements
+- Assign report date to instrument updated timestamp for Credit-Suisse imports
 - Simplify Data Import/Export layout with separate status bar and persistent log
 - Fix Data Import/Export layout so Select File button and log panel are visible
 - Fix file importer losing selected statement type so imports run after choosing a file

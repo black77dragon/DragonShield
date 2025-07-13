@@ -351,20 +351,19 @@ class ImportManager {
                         }
                         if let aId = accId,
                            let instrId = self.dbManager.findInstrumentId(ticker: "\(parsed.currency.uppercased())_CASH") {
-                            let rpt = PositionReport(importSessionId: sessionId,
-                                                     accountId: aId,
-                                                     institutionId: institutionId,
-                                                     instrumentId: instrId,
-                                                     quantity: parsed.quantity,
-                                                     purchasePrice: nil,
-                                                     currentPrice: nil,
-                                                     reportDate: parsed.reportDate)
-                            do {
-                                try self.positionRepository.saveReports([rpt])
-                                success += 1
-                            } catch {
-                                failure += 1
-                            }
+                            _ = self.dbManager.addPositionReport(
+                                importSessionId: sessionId,
+                                accountId: aId,
+                                institutionId: institutionId,
+                                instrumentId: instrId,
+                                quantity: parsed.quantity,
+                                purchasePrice: nil,
+                                currentPrice: nil,
+                                instrumentUpdatedAt: parsed.reportDate,
+                                notes: nil,
+                                reportDate: parsed.reportDate
+                            )
+                            success += 1
                         }
                         continue
                     }
@@ -430,30 +429,23 @@ class ImportManager {
                         LoggingService.shared.log("Instrument missing for \(row.instrumentName)", type: .error, logger: .database)
                         continue
                     }
-                    let report = PositionReport(importSessionId: sessionId,
-                                                accountId: accId,
-                                                institutionId: institutionId,
-                                                instrumentId: insId,
-                                                quantity: row.quantity,
-                                                purchasePrice: row.purchasePrice,
-                                                currentPrice: row.currentPrice,
-                                                reportDate: row.reportDate)
-                    do {
-                        try self.positionRepository.saveReports([report])
-                        success += 1
-                        if self.checkpointsEnabled {
-                            DispatchQueue.main.sync {
-                                self.showStatusAlert(title: "Position Saved",
-                                                      message: "Saved \(row.instrumentName)")
-                            }
-                        }
-                    } catch {
-                        failure += 1
-                        if self.checkpointsEnabled {
-                            DispatchQueue.main.sync {
-                                self.showStatusAlert(title: "Save Failed",
-                                                      message: error.localizedDescription)
-                            }
+                    _ = self.dbManager.addPositionReport(
+                        importSessionId: sessionId,
+                        accountId: accId,
+                        institutionId: institutionId,
+                        instrumentId: insId,
+                        quantity: row.quantity,
+                        purchasePrice: row.purchasePrice,
+                        currentPrice: row.currentPrice,
+                        instrumentUpdatedAt: row.reportDate,
+                        notes: nil,
+                        reportDate: row.reportDate
+                    )
+                    success += 1
+                    if self.checkpointsEnabled {
+                        DispatchQueue.main.sync {
+                            self.showStatusAlert(title: "Position Saved",
+                                                  message: "Saved \(row.instrumentName)")
                         }
                     }
                 }
