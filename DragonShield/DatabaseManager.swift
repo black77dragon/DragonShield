@@ -21,6 +21,8 @@ class DatabaseManager: ObservableObject {
     var db: OpaquePointer?
     private var dbPath: String
     private let appDir: URL
+    private let defaultProdPath: String
+    private let defaultTestPath: String
 
     @Published var dbMode: DatabaseMode
     @Published var dbFileSize: Int64 = 0
@@ -42,32 +44,8 @@ class DatabaseManager: ObservableObject {
     @Published var productionDBPath: String = ""
     @Published var testDBPath: String = ""
 
-    private let configURL: URL
-
-struct DBPaths: Codable {
-    var production_db_path: String
-    var test_db_path: String
-}
-
-private var dbConfig: DBPaths
-
-    private static func loadConfig(at url: URL, defaultProd: String, defaultTest: String) -> DBPaths {
-        if let data = try? Data(contentsOf: url),
-           let cfg = try? JSONDecoder().decode(DBPaths.self, from: data) {
-            return cfg
-        }
-        let cfg = DBPaths(production_db_path: defaultProd, test_db_path: defaultTest)
-        if let data = try? JSONEncoder().encode(cfg) {
-            try? data.write(to: url, options: .atomic)
-        }
-        return cfg
-    }
-
-    private func saveConfig() {
-        if let data = try? JSONEncoder().encode(dbConfig) {
-            try? data.write(to: configURL, options: .atomic)
-        }
-    }
+    private var productionAccessing = false
+    private var testAccessing = false
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -77,19 +55,13 @@ private var dbConfig: DBPaths
 
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
-        self.configURL = appDir.appendingPathComponent("config.json")
-
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
 
-        let defaultProd = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
-        let defaultTest = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
-        self.dbConfig = DatabaseManager.loadConfig(at: configURL, defaultProd: defaultProd, defaultTest: defaultTest)
-        self.productionDBPath = dbConfig.production_db_path
-        self.testDBPath = dbConfig.test_db_path
-
-        self.dbPath = mode == .production ? dbConfig.production_db_path : dbConfig.test_db_path
+        self.defaultProdPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
+        self.dbPath = mode == .production ? defaultProdPath : defaultTestPath
 
         
         #if DEBUG
@@ -118,8 +90,29 @@ private var dbConfig: DBPaths
         }
 
         openDatabase()
-        migrateLegacyPathConfig()
         loadConfiguration()
+
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark),
+           let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
+            if productionDBPath.isEmpty { productionDBPath = url.path }
+            if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+        }
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark),
+           let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
+            if testDBPath.isEmpty { testDBPath = url.path }
+            if url.startAccessingSecurityScopedResource() { testAccessing = true }
+        }
+
+        // Reopen at configured location if different
+        if dbMode == .production {
+            if !productionDBPath.isEmpty && productionDBPath != dbPath {
+                reopenDatabase(atPath: productionDBPath)
+            }
+        } else {
+            if !testDBPath.isEmpty && testDBPath != dbPath {
+                reopenDatabase(atPath: testDBPath)
+            }
+        }
 
         print("✅ Using database at: \(dbPath)")
 
@@ -167,6 +160,13 @@ private var dbConfig: DBPaths
             db = nil
             print("✅ Database connection closed")
         }
+        if productionAccessing && dbMode == .production {
+            URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource()
+            productionAccessing = false
+        } else if testAccessing && dbMode == .test {
+            URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource()
+            testAccessing = false
+        }
     }
 
     func reopenDatabase() {
@@ -178,18 +178,46 @@ private var dbConfig: DBPaths
 
     func reopenDatabase(atPath path: String) {
         dbPath = path
+        if dbMode == .production {
+            if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
+            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.productionDBBookmark),
+               let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
+                if url.startAccessingSecurityScopedResource() { productionAccessing = true }
+            }
+        } else {
+            if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
+            if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.testDBBookmark),
+               let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], bookmarkDataIsStale: nil) {
+                if url.startAccessingSecurityScopedResource() { testAccessing = true }
+            }
+        }
         reopenDatabase()
     }
 
     func updateDBPath(_ path: String, isProduction: Bool) {
         if isProduction {
+            if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
             productionDBPath = path
-            dbConfig.production_db_path = path
+            if !updateConfiguration(key: "production_db_path", value: path) {
+                sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('production_db_path', '', 'string');", nil, nil, nil)
+                _ = updateConfiguration(key: "production_db_path", value: path)
+            }
+            if let data = try? URL(fileURLWithPath: path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                UserDefaults.standard.set(data, forKey: UserDefaultsKeys.productionDBBookmark)
+                if URL(fileURLWithPath: path).startAccessingSecurityScopedResource() { productionAccessing = true }
+            }
         } else {
+            if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
             testDBPath = path
-            dbConfig.test_db_path = path
+            if !updateConfiguration(key: "test_db_path", value: path) {
+                sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('test_db_path', '', 'string');", nil, nil, nil)
+                _ = updateConfiguration(key: "test_db_path", value: path)
+            }
+            if let data = try? URL(fileURLWithPath: path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                UserDefaults.standard.set(data, forKey: UserDefaultsKeys.testDBBookmark)
+                if URL(fileURLWithPath: path).startAccessingSecurityScopedResource() { testAccessing = true }
+            }
         }
-        saveConfig()
     }
 
     func rowCount(table: String) throws -> Int {
@@ -207,7 +235,11 @@ private var dbConfig: DBPaths
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-        dbPath = dbMode == .production ? productionDBPath : testDBPath
+        if dbMode == .production {
+            dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath
+        } else {
+            dbPath = testDBPath.isEmpty ? defaultTestPath : testDBPath
+        }
         if !FileManager.default.fileExists(atPath: dbPath), let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
             try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
         }
@@ -215,39 +247,6 @@ private var dbConfig: DBPaths
         reopenDatabase()
     }
 
-    private func migrateLegacyPathConfig() {
-        var statement: OpaquePointer?
-        let sql = "SELECT key, value FROM Configuration WHERE key IN ('production_db_path','test_db_path');"
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            return
-        }
-
-        var migrated = false
-        while sqlite3_step(statement) == SQLITE_ROW {
-            if let keyPtr = sqlite3_column_text(statement, 0),
-               let valuePtr = sqlite3_column_text(statement, 1) {
-                let key = String(cString: keyPtr)
-                let value = String(cString: valuePtr)
-                if !value.isEmpty {
-                    if key == "production_db_path" {
-                        productionDBPath = value
-                        dbConfig.production_db_path = value
-                    } else if key == "test_db_path" {
-                        testDBPath = value
-                        dbConfig.test_db_path = value
-                    }
-                    migrated = true
-                }
-            }
-        }
-        sqlite3_finalize(statement)
-
-        if migrated {
-            saveConfig()
-            sqlite3_exec(db, "DELETE FROM Configuration WHERE key IN ('production_db_path','test_db_path');", nil, nil, nil)
-            print("ℹ️ Migrated legacy database paths to config file")
-        }
-    }
 
     func runMigrations() {
         // Placeholder for future migration logic
@@ -267,5 +266,7 @@ private var dbConfig: DBPaths
         } else {
             print("ℹ️ Database connection was already nil in deinit.")
         }
+        if productionAccessing { URL(fileURLWithPath: productionDBPath).stopAccessingSecurityScopedResource() }
+        if testAccessing { URL(fileURLWithPath: testDBPath).stopAccessingSecurityScopedResource() }
     }
 }

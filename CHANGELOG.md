@@ -3,9 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Store production and test database file paths in Application Support `config.json`
-- Prompt to select a database file if the configured path is missing
-- Browse buttons now select `.sqlite` files and persist paths
+- Store `production_db_path` and `test_db_path` in the Configuration table
+- Load the database from these paths on startup with security-scoped access
+- Selecting a new `.sqlite` file updates the Configuration table and reopens the DB
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
