@@ -43,7 +43,7 @@ struct DataImportExportView: View {
             if let summary = importSummary {
                 summaryBar(summary)
             }
-            if showDetails {
+            if showDetails || !logMessages.isEmpty {
                 statementLog
             }
         }
@@ -76,7 +76,6 @@ struct DataImportExportView: View {
                 zkbCard
             }
         }
-        .frame(height: 200)
     }
 
     private var creditSuisseCard: some View {
@@ -106,7 +105,6 @@ struct DataImportExportView: View {
 
     private func handleImport(urls: [URL], type: StatementType) {
         guard let url = urls.first else { return }
-        logMessages.removeAll()
         importSummary = nil
 
         ImportManager.shared.importPositions(at: url, progress: { message in
