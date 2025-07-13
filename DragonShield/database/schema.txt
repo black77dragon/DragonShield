@@ -1,7 +1,7 @@
 -- DragonShield/docs/schema.txt
 -- Dragon Shield Seed Data
 -- Created: 2025-05-24
--- Updated: 2025-06-19
+-- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
 -- - v4.7 -> v4.8: Added Institutions table and updated Accounts seed data.
@@ -16,288 +16,162 @@
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
 -- - (Previous history for v4.3 and earlier...)
 --
-INSERT INTO Configuration (key, value, data_type, description) VALUES
-('base_currency', 'CHF', 'string', 'Base reporting currency'),
-('as_of_date', '2025-05-24', 'date', 'Portfolio cut-off date for calculations'),
-('decimal_precision', '4', 'number', 'Decimal precision for financial calculations'),
-('auto_fx_update', 'true', 'boolean', 'Enable automatic FX rate updates'),
-('fx_api_provider', 'exchangerate-api', 'string', 'FX rate API provider'),
-('fx_update_frequency', 'daily', 'string', 'FX rate update frequency'),
-('default_timezone', 'Europe/Zurich', 'string', 'Default timezone for the application'),
-('table_row_spacing', '1.0', 'number', 'Spacing between table rows in points'),
-('table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points'),
-('table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)'),
--- Removed duplicate db_version entry causing UNIQUE constraint failure
--- Version 4.12
-('db_version', '4.12', 'string', 'Database schema version');
-INSERT INTO Currencies (currency_code, currency_name, currency_symbol, api_supported) VALUES
-('CHF', 'Swiss Franc', 'CHF', 0),
-('EUR', 'Euro', '€', 1),
-('USD', 'US Dollar', '$', 1),
-('GBP', 'British Pound', '£', 1),
-('JPY', 'Japanese Yen', '¥', 1),
-('CAD', 'Canadian Dollar', 'C$', 1),
-('AUD', 'Australian Dollar', 'A$', 1),
-('SEK', 'Swedish Krona', 'SEK', 1),
-('NOK', 'Norwegian Krone', 'NOK', 1),
-('DKK', 'Danish Krone', 'DKK', 1),
-('CNY', 'Chinese Yuan', '¥', 1),
-('HKD', 'Hong Kong Dollar', 'HK$', 1),
-('SGD', 'Singapore Dollar', 'S$', 1),
-('BTC', 'Bitcoin', '₿', 1),
-('ETH', 'Ethereum', 'Ξ', 1);
-INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, is_latest) VALUES
-('CHF', '2025-05-24', 1.0000, 'manual', 1),
-('EUR', '2025-05-24', 0.9200, 'api', 1),
-('USD', '2025-05-24', 0.8800, 'api', 1),
-('GBP', '2025-05-24', 0.7850, 'api', 1),
-('JPY', '2025-05-24', 0.0058, 'api', 1),
-('BTC', '2025-05-24', 59280.00, 'api', 1),
-('ETH', '2025-05-24', 2890.50, 'api', 1);
-INSERT INTO AssetClasses (class_code, class_name, class_description, sort_order) VALUES
-('LIQ', 'Liquidity', 'Cash and money market instruments', 1),
-('EQ', 'Equity', 'Publicly traded equities', 2),
-('FI', 'Fixed Income', 'Government and corporate bonds', 3),
-('REAL', 'Real Assets', 'Physical real estate and commodities', 4),
-('ALT', 'Alternatives', 'Hedge funds and private equity', 5),
-('DERIV', 'Derivatives', 'Options and futures', 6),
-('CRYP', 'Crypto Currency', 'Digital Assets Bitcoin, L1, L2, L3', 7),
-('COMM', 'Commodity', 'Physical goods traded on exchange (metals, energy, agriculture)', 8),
-('OTHER', 'Other', 'Other investment instruments', 9);
-
-INSERT INTO AssetSubClasses (class_id, sub_class_code, sub_class_name, sort_order) VALUES
-(1, 'CASH', 'Cash', 1),
-(1, 'MM_INST', 'Money Market Instruments', 2),
-(2, 'STOCK', 'Single Stock', 1),
-(2, 'EQUITY_ETF', 'Equity ETF', 2),
-(2, 'EQUITY_FUND', 'Equity Fund', 3),
-(2, 'EQUITY_REIT', 'Equity REIT', 4),
-(3, 'GOV_BOND', 'Government Bond', 1),
-(3, 'CORP_BOND', 'Corporate Bond', 2),
-(3, 'BOND_ETF', 'Bond ETF', 3),
-(3, 'BOND_FUND', 'Bond Fund', 4),
-(4, 'DIRECT_RE', 'Direct Real Estate', 1),
-(4, 'MORT_REIT', 'Mortgage REIT', 2),
-(4, 'COMMOD', 'Commodities', 3),
-(4, 'INFRA', 'Infrastructure', 4),
-(5, 'HEDGE_FUND', 'Hedge Fund', 1),
-(5, 'PRIVATE', 'Private Equity / Debt', 2),
-(5, 'STRUCTURED', 'Structured Product', 3),
-(5, 'CRYPTO', 'Cryptocurrency', 4),
-(6, 'OPTION', 'Options', 1),
-(6, 'FUTURE', 'Futures', 2),
-(7, 'OTHER', 'Other', 1);
-INSERT INTO Instruments (isin, ticker_symbol, instrument_name, sub_class_id, currency, country_code, exchange_code, sector) VALUES
-('CH0438959477', 'EICE', 'ENETIA Energy Infrastructure Fund -IA', 5, 'EUR', 'CH', 'SWX', 'Energy'),
-('CH1108457701', 'EICRFAK', 'ENETIA Energy Transition Fund -I CHF-', 5, 'CHF', 'CH', 'SWX', 'Energy'),
-('US37954Y8710', 'URA', 'Global X Uranium ETF', 4, 'USD', 'US', 'ARCA', 'Materials'),
-('US85208P3038', 'URNM', 'Sprott Uranium Miners ETF', 4, 'USD', 'US', 'ARCA', 'Materials'),
-('BTC', 'BTC', 'Bitcoin', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('US19260Q1076', 'COIN', 'Coinbase Global Inc', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('DEEPVALUEETF', 'DEEP', 'Deep Value ETF', 3, 'USD', 'US', 'NYSE', 'Mixed'),
-('ETH', 'ETH', 'Ethereum', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-(NULL, 'tbd', 'Libertas (Hyperion Decimus)', 17, 'USD', '', '', ' '),
-('LINK', 'LINK', 'Chainlink', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('LTC', 'LTC', 'Litecoin', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('MATIC', 'MATIC', 'Polygon', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('PORTFOLIO', 'PORTFOLIO', 'Portfolio Overview', 21, 'CHF', 'CH', '', 'Mixed'),
-(NULL, 'tbd', 'Solana', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('UNI', 'UNI', 'Uniswap', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('USDCOIN', 'USDC', 'USD Coin', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-('XRP', 'XRP', 'Ripple', 18, 'USD', 'BT', 'CRYPTO', 'Cryptocurrency'),
-(NULL, 'tbd', '0.25% Axpo Holding 2022/04-Feb-2025', 8, 'CHF', 'CH', 'OTC', 'Utilities'),
-(NULL, 'tbd', '3.25% Credit Suisse 2024', 8, 'CHF', 'CH', 'OTC', 'Financials'),
-(NULL, 'tbd', '7.1% Reverse Convertible Vontobel', 17, 'CHF', 'CH', 'OTC', 'Financials'),
-(NULL, 'tbd', 'Float Mezz 2023-1', 17, 'CHF', 'CH', 'OTC', 'Financials'),
-('IE00B2NPKV68', 'SEMB', 'iShares JPM Emerging Markets Bond ETF', 4, 'USD', 'IE', 'SWX', 'Mixed'),
-('IE00BZ0G8977', 'DTLA', 'iShares USD Treasury Bond 20+ ETF', 4, 'USD', 'IE', 'SWX', 'Mixed'),
-(NULL, 'tbd', 'Sygnum Yield Core', 5, 'CHF', 'CH', '', 'Mixed'),
-('KYG8651H1267', '', 'Synergy Asia Market Neutral Fund', 5, 'USD', 'KY', 'OTC', 'Financials'),
-('KYG8652B1023', '', 'Synergy Global Market Neutral Feeder', 5, 'USD', 'KY', 'OTC', 'Financials'),
-('US04635Q1085', 'ALAB', 'Astera Labs Inc', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US0079031078', 'AMD', 'Advanced Micro Devices', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US02082P1084', 'AOSL', 'Alpha & Omega Semiconductor', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US11135F1012', 'AVGO', 'Broadcom Inc', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US19247X1000', 'COHR', 'Coherent Corp', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US2252233042', 'CRDO', 'Credo Technology Group', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US24703L2025', 'DELL', 'Dell Technologies', 3, 'USD', 'US', 'NYSE', 'Technology'),
-('US56585A1025', 'MARA', 'Marathon Digital Holdings', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('BMG5876H1051', 'MRVL', 'Marvell Technology', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US67066G1040', 'NVDA', 'NVIDIA Corp', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US7672921050', 'RIOT', 'Riot Platforms', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('US8740391003', 'TSM', 'Taiwan Semiconductor (ADR)', 3, 'USD', 'US', 'NYSE', 'Technology'),
-('US92556V1061', 'VRT', 'Vertiv Holdings', 3, 'USD', 'US', 'NYSE', 'Industrials'),
-('IE00BYM11L02', 'CNDX', 'iShares NASDAQ 100 UCITS ETF', 4, 'USD', 'IE', 'LSE', 'Mixed'),
-('US5949724083', 'MSTR', 'MicroStrategy Inc', 3, 'USD', 'US', 'NASDAQ', 'Technology'),
-('GB0002875804', 'BATS', 'British American Tobacco', 3, 'GBP', 'GB', 'LSE', 'Consumer Staples'),
-('US88160R1014', 'TSLA', 'Tesla Inc', 3, 'USD', 'US', 'NASDAQ', 'Consumer Disc.'),
-('CH0043238366', 'ARYZTA', 'Aryzta AG', 3, 'CHF', 'CH', 'SIX', 'Consumer Staples'),
-('CH0012214059', 'HOLN', 'Holcim Ltd', 3, 'CHF', 'CH', 'SIX', 'Materials'),
-('IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', 4, 'USD', 'IE', 'LSE', 'Mixed'),
-('CH0038863350', 'NESN', 'Nestlé SA', 3, 'CHF', 'CH', 'SIX', 'Consumer Staples'),
-('CH0012032048', 'ROG', 'Roche Holding AG', 3, 'CHF', 'CH', 'SIX', 'Health Care'),
-(NULL, '', 'UBS SMIM CHF A-dis', 5, 'CHF', 'CH', '', 'Mixed'),
-(NULL, '', 'Epic Suisse Fund', 5, 'CHF', 'CH', '', 'Mixed');
-INSERT INTO Portfolios (portfolio_code, portfolio_name, portfolio_description, is_default, sort_order) VALUES
-('MAIN', 'Main Portfolio', 'Primary investment portfolio', 1, 1),
-('PENSION', 'Pension Portfolio', '3rd pillar and pension investments', 0, 2),
-('TRADING', 'Trading Portfolio', 'Short-term trading and speculation', 0, 3),
-('CRYPTO', 'Crypto Portfolio', 'Cryptocurrency investments', 0, 4),
-('CASH', 'Cash Management', 'Cash holdings and money market', 0, 5);
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 1, instrument_id FROM Instruments;
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 4, instrument_id FROM Instruments WHERE sub_class_id = 18;
-INSERT INTO PortfolioInstruments (portfolio_id, instrument_id)
-SELECT 5, instrument_id FROM Instruments WHERE sub_class_id = 1;
-INSERT INTO AccountTypes (account_type_id, type_code, type_name, type_description) VALUES
-(1, 'BANK', 'Bank Account', 'Standard bank checking or savings account'),
-(2, 'CUSTODY', 'Custody Account', 'Brokerage or custody account for securities'),
-(3, 'CRYPTO', 'Crypto Wallet/Account', 'Account for holding cryptocurrencies'),
-(4, 'PENSION', 'Pension Account', 'Retirement or pension savings account'),
-(5, 'CASH', 'Cash Account', 'Physical cash or simple cash holdings'),
-(6, 'REAL_ESTATE', 'Real Estate', 'Physical real estate owned by the Keller Family');
-INSERT INTO Institutions (institution_id, institution_name, institution_type, bic, website,
-    contact_info, default_currency, country_code, notes, is_active,
-    created_at, updated_at
-) VALUES
-(1, 'Equate Plus (to be replaced)', 'Deferred Compensation', 'n/a', NULL,
-    'to be enhanced', 'GBP', 'GB', 'Deferred Compensation Standard Chartered', 1,
-    '2025-07-08 00:00:00', '2025-07-12 14:26:44'),
-(2, 'Credit Suisse', 'Bank', 'CRESCHZZ80A', 'https://www.credit-suisse.com',
-    'Christoph Birrer', 'CHF', 'CH', NULL, 1, '2025-07-08 00:00:00', '2025-07-12 14:17:57'),
-(3, 'Sygnum Bank', 'Bank', 'SYGNCHZZ', 'https://www.sygnum.com',
-    'info@sygnum.com', 'CHF', 'CH', 'Digital asset bank', 1, '2025-07-08 00:00:00', '2025-07-12 14:24:32'),
-(4, 'Graubündner Kantonalbank', 'Bank', 'GRKBCH2270A', 'https://www.gkb.ch',
-    'info@gkb.ch', 'CHF', 'CH', 'Regional cantonal bank', 1, '2025-07-08 00:00:00', '2025-07-12 14:24:13'),
-(5, 'Standard Chartered Bank Singapore', 'Bank', 'SCBLSGSG', 'https://www.sc.com/sg',
-    'contactus.sg@sc.com', 'SGD', 'SG', 'International bank', 1, '2025-07-08 00:00:00', '2025-07-12 14:24:21'),
-(6, 'Bitbox (Switzerland)', 'Crypto Hardware Wallet Producer', 'n/a', 'https://bitbox.swiss/',
-    'web support', 'BTC', 'CH', 'Self-custody hardware wallet provider', 1, '2025-07-08 00:00:00', '2025-07-12 14:19:05'),
-(7, 'Ledger SAS', 'Crypto Hardware Wallet Producer', 'n/a', 'https://www.ledger.com',
-    'support@ledger.com', 'BTC', 'FR', 'Self-custody hardware wallet', 1, '2025-07-08 00:00:00', '2025-07-12 14:20:47'),
-(8, 'Swisspeers', 'Peer2Peer Marketplace', 'n/a', 'https://www.swisspeers.ch',
-    'info@swisspeers.ch', 'CHF', 'CH', 'P2P lending marketplace', 1, '2025-07-08 00:00:00', '2025-07-12 14:31:01'),
-(9, 'Crypto.com Crypto Exchange', 'Crypto Exchange', 'n/a', 'https://crypto.com',
-    'contact@crypto.com', 'USD', 'SG', 'Crypto exchange\n\nAccount Holder Name:\nRene Walter Keller\nIBAN: MT37CFTE28004000000000004267296\nBIC/SWIFT Code: CFTEMTM1\nBank Name: OpenPayd\nBank Address: Level 3, 137 Spinola Road St. Julian’s STJ 3011\nBank Institution Country: Malta MT\n', 1, '2025-07-08 00:00:00', '2025-07-12 14:31:11'),
-(10, 'Coinkite Inc', 'Crypto Hardware Wallet Producer', 'n/a', 'https://coldcard.com',
-    'support@coinkite.com', 'BTC', 'CA', 'Self-custody hardware wallet', 1, '2025-07-08 00:00:00', '2025-07-12 14:20:37'),
-(11, 'Libertas Fund LLC', 'Hedge Fund', 'n/a', 'https://www.hyperiondecimus.com/',
-    'Chris Sullivan', 'USD', 'KY', 'Hyperion Decimus, LLC (DE foreign LLC; HQ: Maitland, FL) \nDelaware-registered LLC (Foreign in Florida)', 1, '2025-07-12 14:25:32', '2025-07-12 14:30:39'),
-(12, 'Züricher Kantonal Bank ZKB', 'Bank', 'ZKBKCHZZ80A', 'www.zkb.ch',
-    'Oliver Lanz', 'CHF', 'CH', NULL, 1, '2025-07-12 14:27:50', '2025-07-12 14:27:50');
-INSERT INTO Accounts (account_number, account_name, institution_id, account_type_id, currency_code, opening_date, is_active, include_in_portfolio, notes) VALUES
-('CH12-3456-7890-1234-5', 'UBS Custody Account', 1, 2, 'CHF', '2024-01-15', 1, 1, 'Main custody account for Swiss equities.'),
-('CH98-7654-3210-9876-5', 'Credit Suisse Private Banking', 2, 1, 'CHF', '2023-06-10', 1, 1, NULL),
-('US-IBKR-987654321', 'Interactive Brokers Account', 3, 2, 'USD', '2024-03-01', 1, 1, 'For US stocks and ETFs.'),
-('COINBASE-PRO-001', 'Coinbase Pro Account', 4, 3, 'USD', '2024-02-15', 1, 0, 'Trading account, not part of main portfolio value.'),
-('LEDGER-WALLET-001', 'Ledger Hardware Wallet', 5, 3, 'BTC', '2024-01-01', 1, 1, NULL),
-('VIAC-3A-12345', 'VIAC 3a Account', 6, 4, 'CHF', '2023-01-01', 0, 1, 'Old pension, currently inactive.'),
-('S 398424-05', 'Credit-Suisse Custody Account', 8, 2, 'CHF', '2024-06-01', 1, 1, 'Test Credit-Suisse account.');
-INSERT INTO TransactionTypes (type_code, type_name, type_description, affects_position, affects_cash, is_income, sort_order) VALUES
-('BUY', 'Purchase', 'Buy securities or assets', 1, 1, 0, 1),
-('SELL', 'Sale', 'Sell securities or assets', 1, 1, 0, 2),
-('DIVIDEND', 'Dividend', 'Dividend payment received', 0, 1, 1, 3),
-('INTEREST', 'Interest', 'Interest payment received', 0, 1, 1, 4),
-('FEE', 'Fee', 'Transaction or management fee', 0, 1, 0, 5),
-('TAX', 'Tax', 'Withholding tax or other taxes', 0, 1, 0, 6),
-('DEPOSIT', 'Cash Deposit', 'Cash deposit to account', 0, 1, 0, 7),
-('WITHDRAWAL', 'Cash Withdrawal', 'Cash withdrawal from account', 0, 1, 0, 8),
-('TRANSFER_IN', 'Transfer In', 'Securities transferred into account', 1, 0, 0, 9),
-('TRANSFER_OUT', 'Transfer Out', 'Securities transferred out of account', 1, 0, 0, 10);
-INSERT INTO Transactions (account_id, instrument_id, transaction_type_id, portfolio_id, transaction_date, quantity, price, gross_amount, fee, net_amount, transaction_currency, description) VALUES
-(1, 1, 1, 1, '2024-01-20', 10, 108.50, 1085.00, 9.95, -1094.95, 'CHF', 'Buy 10 Nestlé shares'),
-(1, 2, 1, 1, '2024-01-25', 15, 95.20, 1428.00, 9.95, -1437.95, 'CHF', 'Buy 15 Novartis shares'),
-(3, 5, 1, 1, '2024-02-01', 5, 185.25, 926.25, 1.00, -927.25, 'USD', 'Buy 5 Apple shares'),
-(3, 6, 1, 1, '2024-02-05', 3, 415.75, 1247.25, 1.00, -1248.25, 'USD', 'Buy 3 Microsoft shares'),
-(3, 9, 1, 1, '2024-02-10', 50, 87.45, 4372.50, 1.00, -4373.50, 'USD', 'Buy 50 IWDA ETF shares'),
-(4, 13, 1, 4, '2024-02-15', 0.1, 45000, 4500, 25.00, -4525.00, 'USD', 'Buy 0.1 Bitcoin'),
-(4, 14, 1, 4, '2024-03-01', 2, 2800, 5600, 20.00, -5620.00, 'USD', 'Buy 2 Ethereum'),
-(1, 1, 3, 1, '2024-03-15', 0, 0, 27.50, 0, 27.50, 'CHF', 'Nestlé dividend payment'),
-(1, 2, 3, 1, '2024-04-10', 0, 0, 42.75, 0, 42.75, 'CHF', 'Novartis dividend payment'),
-(1, NULL, 7, NULL, '2024-01-15', 0, 0, 50000, 0, 50000, 'CHF', 'Initial cash deposit'),
-(3, NULL, 7, NULL, '2024-01-30', 0, 0, 25000, 0, 25000, 'USD', 'Cash transfer to USD account'),
-(1, NULL, 5, NULL, '2024-12-31', 0, 0, 120, 0, -120, 'CHF', 'Annual custody fee');
-INSERT INTO ImportSessions (
-    import_session_id,
-    session_name,
-    file_name,
-    file_path,
-    file_type,
-    file_size,
-    file_hash,
-    institution_id,
-    import_status,
-    total_rows,
-    successful_rows,
-    failed_rows,
-    duplicate_rows,
-    processing_notes,
-    started_at,
-    completed_at
-) VALUES
-    (1, 'UBS Positions 2024-12-31', 'UBS_Positions_2024-12-31.csv',
-        '/uploads/UBS_Positions_2024-12-31.csv', 'CSV', 2048, 'HASH001', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-01 08:00:00', '2025-01-01 08:00:10'),
-    (2, 'UBS Positions 2025-03-26', 'UBS_Positions_2025-03-26.csv',
-        '/uploads/UBS_Positions_2025-03-26.csv', 'CSV', 2050, 'HASH002', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 08:00:00', '2025-03-27 08:00:10'),
-    (3, 'UBS Positions 2025-05-24', 'UBS_Positions_2025-05-24.csv',
-        '/uploads/UBS_Positions_2025-05-24.csv', 'CSV', 2055, 'HASH003', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 08:00:00', '2025-05-25 08:00:10'),
-    (4, 'IBKR Positions 2024-12-31', 'IBKR_Positions_2024-12-31.csv',
-        '/uploads/IBKR_Positions_2024-12-31.csv', 'CSV', 3150, 'HASH004', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Initial import',
-        '2025-01-02 09:00:00', '2025-01-02 09:00:15'),
-    (5, 'IBKR Positions 2025-03-26', 'IBKR_Positions_2025-03-26.csv',
-        '/uploads/IBKR_Positions_2025-03-26.csv', 'CSV', 3200, 'HASH005', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-03-27 09:00:00', '2025-03-27 09:00:15'),
-    (6, 'IBKR Positions 2025-05-24', 'IBKR_Positions_2025-05-24.csv',
-        '/uploads/IBKR_Positions_2025-05-24.csv', 'CSV', 3250, 'HASH006', 3,
-        'COMPLETED', 3, 3, 0, 0, 'Monthly import',
-        '2025-05-25 09:00:00', '2025-05-25 09:00:15'),
-    (7, 'Coinbase Positions 2024-12-31', 'Coinbase_Positions_2024-12-31.csv',
-        '/uploads/Coinbase_Positions_2024-12-31.csv', 'CSV', 1024, 'HASH007', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Initial import',
-        '2025-01-02 10:00:00', '2025-01-02 10:00:10'),
-    (8, 'Coinbase Positions 2025-03-26', 'Coinbase_Positions_2025-03-26.csv',
-        '/uploads/Coinbase_Positions_2025-03-26.csv', 'CSV', 1030, 'HASH008', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-03-27 10:00:00', '2025-03-27 10:00:10'),
-    (9, 'Coinbase Positions 2025-05-24', 'Coinbase_Positions_2025-05-24.csv',
-        '/uploads/Coinbase_Positions_2025-05-24.csv', 'CSV', 1040, 'HASH009', 4,
-        'COMPLETED', 2, 2, 0, 0, 'Monthly import',
-        '2025-05-25 10:00:00', '2025-05-25 10:00:10'),
-    (10, 'UBS Positions 2025-06-30', 'UBS_Positions_2025-06-30.csv',
-        '/uploads/UBS_Positions_2025-06-30.csv', 'CSV', 2060, 'HASH010', 1,
-        'COMPLETED', 2, 2, 0, 0, 'Quarter end',
-        '2025-07-01 08:00:00', '2025-07-01 08:00:10'),
-    (11, 'Credit-Suisse Positions 2025-07-01', 'Credit-Suisse_Positions_2025-07-01.xlsx',
-        '/uploads/Credit-Suisse_Positions_2025-07-01.xlsx', 'XLSX', 3072, 'HASH011', 8,
-        'COMPLETED', 3, 3, 0, 0, 'Initial import',
-        '2025-07-02 09:00:00', '2025-07-02 09:00:15');
-INSERT INTO PositionReports (
-    import_session_id,
-    account_id,
-    institution_id,
-    instrument_id,
-    quantity,
-    purchase_price,
-    current_price,
-    notes,
-    report_date,
-    uploaded_at
-) VALUES
-    (1, 1, 1, 1, 8, 108.50, 110.00, NULL, '2024-12-31', '2025-01-01 08:00:10'),
-    (1, 1, 1, 2, 12, 95.20, 97.00, NULL, '2024-12-31', '2025-01-01 08:00:10'),
-    (4, 3, 3, 5, 4, 185.25, 190.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 3, 6, 2, 415.75, 420.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
-    (4, 3, 3, 9, 40, 87.45, 90.00, NULL, '2024-12-31', '2025-01-02 09:00:15'),
-    (7, 4, 4, 13, 0.05, 45000.00, 46000.00, NULL, '2024-12-31', '2025-01-02 10:00:10'),
-    (7, 4, 4, 14, 1.0, 2800.00, 3000.00, NULL, '2024-12-31', '2025-01-02 10:00:10'),
-    (11, 7, 8, 1, 25, 108.50, 110.00, NULL, '2025-07-01', '2025-07-02 09:00:15'),
-    (11, 7, 8, 2, 30, 95.20, 97.00, NULL, '2025-07-01', '2025-07-02 09:00:15');
+INSERT INTO Configuration VALUES ('1', 'base_currency', 'CHF', 'string', 'Base reporting currency', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('2', 'as_of_date', '2025-05-24', 'date', 'Portfolio cut-off date for calculations', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('3', 'decimal_precision', '4', 'number', 'Decimal precision for financial calculations', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('4', 'auto_fx_update', 'true', 'boolean', 'Enable automatic FX rate updates', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('5', 'fx_api_provider', 'exchangerate-api', 'string', 'FX rate API provider', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('6', 'fx_update_frequency', 'daily', 'string', 'FX rate update frequency', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('7', 'default_timezone', 'Europe/Zurich', 'string', 'Default timezone for the application', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('8', 'table_row_spacing', '1.0', 'number', 'Spacing between table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('12', 'db_version', '4.12', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('CHF', 'Swiss Franc', 'CHF', '1', '0', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('EUR', 'Euro', '€', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('USD', 'US Dollar', '$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('GBP', 'British Pound', '£', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('JPY', 'Japanese Yen', '¥', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('CAD', 'Canadian Dollar', 'C$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('AUD', 'Australian Dollar', 'A$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('SEK', 'Swedish Krona', 'SEK', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('NOK', 'Norwegian Krone', 'NOK', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('DKK', 'Danish Krone', 'DKK', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('CNY', 'Chinese Yuan', '¥', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('HKD', 'Hong Kong Dollar', 'HK$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('SGD', 'Singapore Dollar', 'S$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('BTC', 'Bitcoin', '₿', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Currencies VALUES ('ETH', 'Ethereum', 'Ξ', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('1', 'LIQ', 'Liquidity', 'Cash and money market instruments', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('2', 'EQ', 'Equity', 'Publicly traded equities', '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('3', 'FI', 'Fixed Income', 'Government and corporate bonds', '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('4', 'REAL', 'Real Assets', 'Physical real estate and commodities', '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('5', 'ALT', 'Alternatives', 'Hedge funds and private equity', '5', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('6', 'DERIV', 'Derivatives', 'Options and futures', '6', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('7', 'CRYP', 'Crypto Currency', 'Digital Assets Bitcoin, L1, L2, L3', '7', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('8', 'COMM', 'Commodity', 'Physical goods traded on exchange (metals, energy, agriculture)', '8', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('9', 'OTHER', 'Other', 'Other investment instruments', '9', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('1', '1', 'CASH', 'Cash', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('2', '1', 'MM_INST', 'Money Market Instruments', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('3', '2', 'STOCK', 'Single Stock', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('4', '2', 'EQUITY_ETF', 'Equity ETF', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('5', '2', 'EQUITY_FUND', 'Equity Fund', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('6', '2', 'EQUITY_REIT', 'Equity REIT', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('7', '3', 'GOV_BOND', 'Government Bond', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('8', '3', 'CORP_BOND', 'Corporate Bond', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('9', '3', 'BOND_ETF', 'Bond ETF', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('10', '3', 'BOND_FUND', 'Bond Fund', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('11', '4', 'DIRECT_RE', 'Direct Real Estate', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('12', '4', 'MORT_REIT', 'Mortgage REIT', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('13', '4', 'COMMOD', 'Commodities', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('14', '4', 'INFRA', 'Infrastructure', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('15', '5', 'HEDGE_FUND', 'Hedge Fund', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('16', '5', 'PRIVATE', 'Private Equity / Debt', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('17', '5', 'STRUCTURED', 'Structured Product', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('18', '5', 'CRYPTO', 'Cryptocurrency', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('19', '6', 'OPTION', 'Options', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('20', '6', 'FUTURE', 'Futures', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('21', '7', 'OTHER', 'Other', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO TransactionTypes VALUES ('1', 'BUY', 'Purchase', 'Buy securities or assets', '1', '1', '0', '1');
+INSERT INTO TransactionTypes VALUES ('2', 'SELL', 'Sale', 'Sell securities or assets', '1', '1', '0', '2');
+INSERT INTO TransactionTypes VALUES ('3', 'DIVIDEND', 'Dividend', 'Dividend payment received', '0', '1', '1', '3');
+INSERT INTO TransactionTypes VALUES ('4', 'INTEREST', 'Interest', 'Interest payment received', '0', '1', '1', '4');
+INSERT INTO TransactionTypes VALUES ('5', 'FEE', 'Fee', 'Transaction or management fee', '0', '1', '0', '5');
+INSERT INTO TransactionTypes VALUES ('6', 'TAX', 'Tax', 'Withholding tax or other taxes', '0', '1', '0', '6');
+INSERT INTO TransactionTypes VALUES ('7', 'DEPOSIT', 'Cash Deposit', 'Cash deposit to account', '0', '1', '0', '7');
+INSERT INTO TransactionTypes VALUES ('8', 'WITHDRAWAL', 'Cash Withdrawal', 'Cash withdrawal from account', '0', '1', '0', '8');
+INSERT INTO TransactionTypes VALUES ('9', 'TRANSFER_IN', 'Transfer In', 'Securities transferred into account', '1', '0', '0', '9');
+INSERT INTO TransactionTypes VALUES ('10', 'TRANSFER_OUT', 'Transfer Out', 'Securities transferred out of account', '1', '0', '0', '10');
+INSERT INTO AccountTypes VALUES ('1', 'BANK', 'Bank Account', 'Standard bank checking or savings account', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AccountTypes VALUES ('2', 'CUSTODY', 'Custody Account', 'Brokerage or custody account for securities', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AccountTypes VALUES ('3', 'CRYPTO', 'Crypto Wallet/Account', 'Account for holding cryptocurrencies', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AccountTypes VALUES ('4', 'PENSION', 'Pension Account', 'Retirement or pension savings account', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AccountTypes VALUES ('6', 'REAL_ESTATE', 'Real Estate', 'Physical real estate owned by the Keller Family', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AccountTypes VALUES ('7', 'P2P_LENDING', 'P2P Lending', 'Peer to Peer Portfolio Account', '1', '2025-07-13 09:53:14', '2025-07-13 09:53:14');
+INSERT INTO Institutions VALUES ('1', 'Equate Plus (to be replaced)', 'Deferred Compensation', 'n/a', NULL, 'to be enhanced', 'GBP', 'GB', 'Deferred Compensation Standard Chartered', '1', '2025-07-08 00:00:00', '2025-07-12 14:26:44');
+INSERT INTO Institutions VALUES ('2', 'Credit Suisse', 'Bank', 'CRESCHZZ80A', 'https://www.credit-suisse.com', 'Christoph Birrer', 'CHF', 'CH', NULL, '1', '2025-07-08 00:00:00', '2025-07-12 14:17:57');
+INSERT INTO Institutions VALUES ('3', 'Sygnum Bank', 'Bank', 'SYGNCHZZ', 'https://www.sygnum.com', 'info@sygnum.com', 'CHF', 'CH', 'Digital asset bank', '1', '2025-07-08 00:00:00', '2025-07-12 14:24:32');
+INSERT INTO Institutions VALUES ('4', 'Graubündner Kantonalbank', 'Bank', 'GRKBCH2270A', 'https://www.gkb.ch', 'info@gkb.ch', 'CHF', 'CH', 'Regional cantonal bank', '1', '2025-07-08 00:00:00', '2025-07-12 14:24:13');
+INSERT INTO Institutions VALUES ('5', 'Standard Chartered Bank Singapore', 'Bank', 'SCBLSGSG', 'https://www.sc.com/sg', 'contactus.sg@sc.com', 'SGD', 'SG', 'International bank', '1', '2025-07-08 00:00:00', '2025-07-12 14:24:21');
+INSERT INTO Institutions VALUES ('6', 'Bitbox (Switzerland)', 'Crypto Hardware Wallet Producer', 'n/a', 'https://bitbox.swiss/', 'web support', 'BTC', 'CH', 'Self-custody hardware wallet provider', '1', '2025-07-08 00:00:00', '2025-07-12 14:19:05');
+INSERT INTO Institutions VALUES ('7', 'Ledger SAS', 'Crypto Hardware Wallet Producer', 'n/a', 'https://www.ledger.com', 'support@ledger.com', 'BTC', 'FR', 'Self-custody hardware wallet', '1', '2025-07-08 00:00:00', '2025-07-12 14:20:47');
+INSERT INTO Institutions VALUES ('8', 'Swisspeers', 'Peer2Peer Marketplace', 'n/a', 'https://www.swisspeers.ch', 'info@swisspeers.ch', 'CHF', 'CH', 'P2P lending marketplace', '1', '2025-07-08 00:00:00', '2025-07-12 14:31:01');
+INSERT INTO Institutions VALUES ('9', 'Crypto.com Crypto Exchange', 'Crypto Exchange', 'n/a', 'https://crypto.com', 'contact@crypto.com', 'USD', 'SG', 'Crypto exchange\n\nAccount Holder Name:\nRene Walter Keller\nIBAN: MT37CFTE28004000000000004267296\nBIC/SWIFT Code: CFTEMTM1\nBank Name: OpenPayd\nBank Address: Level 3, 137 Spinola Road St. Julian’s STJ 3011\nBank Institution Country: Malta MT\n', '1', '2025-07-08 00:00:00', '2025-07-12 14:31:11');
+INSERT INTO Institutions VALUES ('10', 'Coinkite Inc', 'Crypto Hardware Wallet Producer', 'n/a', 'https://coldcard.com', 'support@coinkite.com', 'BTC', 'CA', 'Self-custody hardware wallet', '1', '2025-07-08 00:00:00', '2025-07-12 14:20:37');
+INSERT INTO Institutions VALUES ('11', 'Libertas Fund LLC', 'Hedge Fund', 'n/a', 'https://www.hyperiondecimus.com/', 'Chris Sullivan', 'USD', 'KY', 'Hyperion Decimus, LLC (DE foreign LLC; HQ: Maitland, FL) \nDelaware-registered LLC (Foreign in Florida)', '1', '2025-07-12 14:25:32', '2025-07-12 14:30:39');
+INSERT INTO Institutions VALUES ('12', 'Züricher Kantonal Bank ZKB', 'Bank', 'ZKBKCHZZ80A', 'www.zkb.ch', 'Oliver Lanz', 'CHF', 'CH', NULL, '1', '2025-07-12 14:27:50', '2025-07-12 14:27:50');
+INSERT INTO Instruments VALUES ('1', 'CH0438959477', 'EICE', 'ENETIA Energy Infrastructure Fund -IA', '5', 'EUR', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('2', 'CH1108457701', 'EICRFAK', 'ENETIA Energy Transition Fund -I CHF-', '5', 'CHF', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('3', 'US37954Y8710', 'URA', 'Global X Uranium ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('4', 'US85208P3038', 'URNM', 'Sprott Uranium Miners ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('5', 'BTC', 'BTC', 'Bitcoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('6', 'US19260Q1076', 'COIN', 'Coinbase Global Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('7', 'DEEPVALUEETF', 'DEEP', 'Deep Value ETF', '3', 'USD', 'US', 'NYSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('8', 'ETH', 'ETH', 'Ethereum', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('9', NULL, 'tbd', 'Libertas (Hyperion Decimus)', '17', 'USD', '', '', ' ', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('10', 'LINK', 'LINK', 'Chainlink', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('11', 'LTC', 'LTC', 'Litecoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('12', 'MATIC', 'MATIC', 'Polygon', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('13', 'PORTFOLIO', 'PORTFOLIO', 'Portfolio Overview', '21', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('14', NULL, 'tbd', 'Solana', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('15', 'UNI', 'UNI', 'Uniswap', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('16', 'USDCOIN', 'USDC', 'USD Coin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('17', 'XRP', 'XRP', 'Ripple', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('18', NULL, 'tbd', '0.25% Axpo Holding 2022/04-Feb-2025', '8', 'CHF', 'CH', 'OTC', 'Utilities', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('19', NULL, 'tbd', '3.25% Credit Suisse 2024', '8', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('20', NULL, 'tbd', '7.1% Reverse Convertible Vontobel', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('21', NULL, 'tbd', 'Float Mezz 2023-1', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('22', 'IE00B2NPKV68', 'SEMB', 'iShares JPM Emerging Markets Bond ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('23', 'IE00BZ0G8977', 'DTLA', 'iShares USD Treasury Bond 20+ ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('24', NULL, 'tbd', 'Sygnum Yield Core', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('25', 'KYG8651H1267', '', 'Synergy Asia Market Neutral Fund', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('26', 'KYG8652B1023', '', 'Synergy Global Market Neutral Feeder', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('27', 'US04635Q1085', 'ALAB', 'Astera Labs Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('28', 'US0079031078', 'AMD', 'Advanced Micro Devices', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('29', 'US02082P1084', 'AOSL', 'Alpha & Omega Semiconductor', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('30', 'US11135F1012', 'AVGO', 'Broadcom Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('31', 'US19247X1000', 'COHR', 'Coherent Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('32', 'US2252233042', 'CRDO', 'Credo Technology Group', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('33', 'US24703L2025', 'DELL', 'Dell Technologies', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('34', 'US56585A1025', 'MARA', 'Marathon Digital Holdings', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('35', 'BMG5876H1051', 'MRVL', 'Marvell Technology', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('36', 'US67066G1040', 'NVDA', 'NVIDIA Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('37', 'US7672921050', 'RIOT', 'Riot Platforms', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('38', 'US8740391003', 'TSM', 'Taiwan Semiconductor (ADR)', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('39', 'US92556V1061', 'VRT', 'Vertiv Holdings', '3', 'USD', 'US', 'NYSE', 'Industrials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('40', 'IE00BYM11L02', 'CNDX', 'iShares NASDAQ 100 UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('41', 'US5949724083', 'MSTR', 'MicroStrategy Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('42', 'GB0002875804', 'BATS', 'British American Tobacco', '3', 'GBP', 'GB', 'LSE', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('43', 'US88160R1014', 'TSLA', 'Tesla Inc', '3', 'USD', 'US', 'NASDAQ', 'Consumer Disc.', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('44', 'CH0043238366', 'ARYZTA', 'Aryzta AG', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('45', 'CH0012214059', 'HOLN', 'Holcim Ltd', '3', 'CHF', 'CH', 'SIX', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('46', 'IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('47', 'CH0038863350', 'NESN', 'Nestlé SA', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('48', 'CH0012032048', 'ROG', 'Roche Holding AG', '3', 'CHF', 'CH', 'SIX', 'Health Care', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('49', NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('50', NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Accounts VALUES ('1', 'EQUATE', 'Equate Plus Deferred compensation', '1', '1', 'GBP', '1', '1', '2024-01-15', NULL, 'Deferred Compensation', '2025-07-13 09:04:29', '2025-07-13 09:46:51');
+INSERT INTO Accounts VALUES ('2', '398424-01', 'Credit Suisse Cash Account (Separat) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', '2023-06-10', NULL, 'CH45 0483 5039 8424 0100 0', '2025-07-13 09:04:29', '2025-07-13 09:37:30');
+INSERT INTO Accounts VALUES ('3', '84.008.724.202.9', 'Sygnum Cash Account 🇨🇭CHF', '3', '1', 'CHF', '1', '1', '2021-03-01', NULL, 'CH44 8301 4840 0872 4202 9', '2025-07-13 09:04:29', '2025-07-13 09:50:55');
+INSERT INTO Accounts VALUES ('4', 'CH1800774110445559200', 'GKB Privatkonto 🇨🇭 CHF', '4', '1', 'CHF', '1', '1', '2024-02-15', NULL, 'GKB Cash Account in relation to the Mortgages', '2025-07-13 09:04:29', '2025-07-13 09:51:04');
+INSERT INTO Accounts VALUES ('5', '62099360010', 'SCB Current Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:04:29', '2025-07-13 09:28:31');
+INSERT INTO Accounts VALUES ('6', 'BB02', 'BitBox 02', '6', '3', 'CHF', '1', '1', '2021-01-31', NULL, 'Crypto Wallet for BTC', '2025-07-13 09:04:29', '2025-07-13 09:17:54');
+INSERT INTO Accounts VALUES ('7', 'S 398424-05', 'Credit-Suisse Custody Account 📈', '2', '2', 'CHF', '1', '1', '2024-06-01', NULL, 'Main custody account', '2025-07-13 09:04:29', '2025-07-13 09:44:58');
+INSERT INTO Accounts VALUES ('8', 'LNX', 'Ledger Nano X', '7', '3', 'CHF', '1', '1', '2021-07-13', NULL, 'Crypto Wallet for Alt Coins', '2025-07-13 09:16:53', '2025-07-13 09:16:53');
+INSERT INTO Accounts VALUES ('9', '84.008.724.203.7', 'Sygnum Cash Account 🇺🇸 USD', '3', '1', 'USD', '1', '1', '2021-07-13', NULL, 'CH22 8301 4840 0872 4203 7', '2025-07-13 09:22:04', '2025-07-13 09:50:42');
+INSERT INTO Accounts VALUES ('10', '84.008.724.827.2', 'Sygnum Traditional Asset Custody Account', '3', '2', 'CHF', '1', '1', '2021-07-13', NULL, NULL, '2025-07-13 09:24:18', '2025-07-13 09:46:04');
+INSERT INTO Accounts VALUES ('11', '84.008.724.853.1', 'Sygnum Digital Asset Wallet (Trading)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, NULL, '2025-07-13 09:25:29', '2025-07-13 09:25:29');
+INSERT INTO Accounts VALUES ('12', '84.008.724.902.3', 'Sygnum Digital Assets Vault (Storage)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, 'storage for digital assets', '2025-07-13 09:26:28', '2025-07-13 09:26:28');
+INSERT INTO Accounts VALUES ('13', '0127962719', 'SCB Savings Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:29:24', '2025-07-13 09:30:05');
+INSERT INTO Accounts VALUES ('14', '6209115679', 'SCB Current Account 🇨🇭CHF', '5', '1', 'CHF', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:30:44', '2025-07-13 09:30:44');
+INSERT INTO Accounts VALUES ('15', '6229911713', 'SCB Current Account Tax 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:31:52', '2025-07-13 09:31:52');
+INSERT INTO Accounts VALUES ('16', '398424-01-9', 'Credit Suisse Cash Account (Wertschriften) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH93 0483 5039 8424 0100 9', '2025-07-13 09:36:59', '2025-07-13 09:36:59');
+INSERT INTO Accounts VALUES ('17', '398424-01-12', 'Credit Suisse Cash Account (Wettingen) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH12 0483 5039 8424 0101 2', '2025-07-13 09:38:29', '2025-07-13 09:38:29');
+INSERT INTO Accounts VALUES ('18', '398424-02', 'Credit Suisse Cash Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, NULL, '2025-07-13 09:39:37', '2025-07-13 09:39:37');
+INSERT INTO Accounts VALUES ('19', '398424-02-1', 'Credit Suisse Cash Account 🇪🇺 EUR', '2', '1', 'EUR', '1', '1', NULL, NULL, 'CH81 0483 5039 8424 0200 1', '2025-07-13 09:40:53', '2025-07-13 09:40:53');
+INSERT INTO Accounts VALUES ('20', '398424-02-2CH54 0483 5039 8424 0200 2', 'Credit Suisse Cash Account 🇬🇧 GBP', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH54 0483 5039 8424 0200 2', '2025-07-13 09:42:02', '2025-07-13 09:42:02');
+INSERT INTO Accounts VALUES ('21', '398424-02-3', 'Credit Suisse Call Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, 'CH27 0483 5039 8424 0200 3', '2025-07-13 09:43:04', '2025-07-13 09:43:04');
+INSERT INTO Accounts VALUES ('22', 'HD1034', 'Hyperion Decimus Hedge Fund Account', '11', '1', 'USD', '1', '1', NULL, NULL, NULL, '2025-07-13 09:48:30', '2025-07-13 09:48:30');
+INSERT INTO Accounts VALUES ('23', 'CCMK4', 'ColdCard MK4 Cold Wallet BTC', '10', '3', 'CHF', '1', '1', NULL, NULL, NULL, '2025-07-13 09:50:28', '2025-07-13 09:50:28');
+INSERT INTO Accounts VALUES ('24', 'SP', 'Swisspeers Portfolio', '8', '7', 'CHF', '1', '1', NULL, NULL, NULL, '2025-07-13 09:52:35', '2025-07-13 09:53:31');
+INSERT INTO Accounts VALUES ('25', 'CC', 'Crypto.Com Crypto Hot Wallet', '9', '3', 'EUR', '1', '1', NULL, NULL, NULL, '2025-07-13 09:54:21', '2025-07-13 09:54:21');
