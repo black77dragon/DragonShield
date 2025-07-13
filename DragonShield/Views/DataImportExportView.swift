@@ -11,7 +11,7 @@ struct DataImportExportView: View {
     var body: some View {
         ScrollView {
             container
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(minWidth: 1600, minHeight: 1200)
                 .padding(.top, 32)
                 .padding(.horizontal)
         }
