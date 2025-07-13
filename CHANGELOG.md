@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
+- Expand PositionReports with diverse sample entries for testing
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Replace Load Documents with Data Import/Export view and statement log
 - Enable file picker and drag-and-drop on Data Import/Export screen
