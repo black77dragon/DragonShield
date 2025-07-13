@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Unify drag-and-drop and file picker handling in Data Import/Export view
 - Document Data Import/Export screen spec with Statement Loading Log and wireframe
 - Display import progress and update log when importing Credit-Suisse statements
+- Fix file importer not triggering Credit-Suisse import when a file is selected
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
 - Fix redeclaration of `counts` in BackupService

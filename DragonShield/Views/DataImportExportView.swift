@@ -8,6 +8,7 @@ struct DataImportExportView: View {
     @State private var importSummary: String?
     @State private var showDetails = false
     @State private var showImporterFor: StatementType? = nil
+    @State private var showImporter = false
 
     var body: some View {
         ScrollView {
@@ -16,10 +17,7 @@ struct DataImportExportView: View {
                 .padding(.horizontal)
         }
         .fileImporter(
-            isPresented: Binding<Bool>(
-                get: { showImporterFor != nil },
-                set: { if !$0 { showImporterFor = nil } }
-            ),
+            isPresented: $showImporter,
             allowedContentTypes: [
                 .commaSeparatedText,
                 UTType(filenameExtension: "xlsx")!,
@@ -27,9 +25,11 @@ struct DataImportExportView: View {
             ],
             allowsMultipleSelection: false
         ) { result in
+            let type = showImporterFor
+            showImporterFor = nil
             if case let .success(urls) = result,
                let url = urls.first,
-               let type = showImporterFor {
+               let type = type {
                 handleImport(urls: [url], type: type)
             }
         }
@@ -84,7 +84,10 @@ struct DataImportExportView: View {
             heading: "Import Credit-Suisse Statement",
             dropText: "Drag & Drop Credit-Suisse File",
             buttonText: "Select File",
-            onSelect: { showImporterFor = .creditSuisse },
+            onSelect: {
+                showImporterFor = .creditSuisse
+                showImporter = true
+            },
             onDrop: { handleImport(urls: $0, type: .creditSuisse) }
         )
     }
