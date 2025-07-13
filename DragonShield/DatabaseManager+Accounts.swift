@@ -412,4 +412,39 @@ extension DatabaseManager {
         }
         return results
     }
+
+    /// Recalculates the earliest instrument update date for all accounts.
+    /// - Parameter completion: Called on the main thread with the number of
+    ///   rows updated or an error.
+    func refreshEarliestInstrumentTimestamps(completion: @escaping (Result<Int, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let sql = """
+                UPDATE Accounts
+                   SET earliest_instrument_last_updated_at = (
+                        SELECT MIN(instrument_updated_at)
+                          FROM PositionReports pr
+                         WHERE pr.account_id = Accounts.account_id
+                   );
+                """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(self.db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                let msg = String(cString: sqlite3_errmsg(self.db))
+                DispatchQueue.main.async {
+                    completion(.failure(NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])))
+                }
+                return
+            }
+            let step = sqlite3_step(stmt)
+            let changed = sqlite3_changes(self.db)
+            sqlite3_finalize(stmt)
+            DispatchQueue.main.async {
+                if step == SQLITE_DONE {
+                    completion(.success(Int(changed)))
+                } else {
+                    let msg = String(cString: sqlite3_errmsg(self.db))
+                    completion(.failure(NSError(domain: "SQLite", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])))
+                }
+            }
+        }
+    }
 }
