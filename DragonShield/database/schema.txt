@@ -11,6 +11,7 @@
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses
 -- - v4.10 -> v4.11: Added extended institution details
 -- - v4.11 -> v4.12: Added notes column to PositionReports table
+-- - v4.12 -> v4.13: Track instrument last updated timestamps
 -- - v4.7 -> v4.7.1: Removed duplicate db_version row causing UNIQUE constraint failure
 -- - v4.4 -> v4.5: Added PositionReports table, renamed CurrentHoldings view to Positions, updated PortfolioSummary and AccountSummary views.
 -- - v4.3 -> v4.4: Normalized AccountTypes into a separate table. Updated Accounts table and AccountSummary view.
@@ -26,7 +27,7 @@ INSERT INTO Configuration VALUES ('7', 'default_timezone', 'Europe/Zurich', 'str
 INSERT INTO Configuration VALUES ('8', 'table_row_spacing', '1.0', 'number', 'Spacing between table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('12', 'db_version', '4.12', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('12', 'db_version', '4.13', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('CHF', 'Swiss Franc', 'CHF', '1', '0', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('EUR', 'Euro', '€', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('USD', 'US Dollar', '$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
@@ -150,28 +151,28 @@ INSERT INTO Instruments VALUES ('47', 'CH0038863350', 'NESN', 'Nestlé SA', '3',
 INSERT INTO Instruments VALUES ('48', 'CH0012032048', 'ROG', 'Roche Holding AG', '3', 'CHF', 'CH', 'SIX', 'Health Care', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('49', NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('50', NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Accounts VALUES ('1', 'EQUATE', 'Equate Plus Deferred compensation', '1', '1', 'GBP', '1', '1', '2024-01-15', NULL, 'Deferred Compensation', '2025-07-13 09:04:29', '2025-07-13 09:46:51');
-INSERT INTO Accounts VALUES ('2', '398424-01', 'Credit Suisse Cash Account (Separat) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', '2023-06-10', NULL, 'CH45 0483 5039 8424 0100 0', '2025-07-13 09:04:29', '2025-07-13 09:37:30');
-INSERT INTO Accounts VALUES ('3', '84.008.724.202.9', 'Sygnum Cash Account 🇨🇭CHF', '3', '1', 'CHF', '1', '1', '2021-03-01', NULL, 'CH44 8301 4840 0872 4202 9', '2025-07-13 09:04:29', '2025-07-13 09:50:55');
-INSERT INTO Accounts VALUES ('4', 'CH1800774110445559200', 'GKB Privatkonto 🇨🇭 CHF', '4', '1', 'CHF', '1', '1', '2024-02-15', NULL, 'GKB Cash Account in relation to the Mortgages', '2025-07-13 09:04:29', '2025-07-13 09:51:04');
-INSERT INTO Accounts VALUES ('5', '62099360010', 'SCB Current Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:04:29', '2025-07-13 09:28:31');
-INSERT INTO Accounts VALUES ('6', 'BB02', 'BitBox 02', '6', '3', 'CHF', '1', '1', '2021-01-31', NULL, 'Crypto Wallet for BTC', '2025-07-13 09:04:29', '2025-07-13 09:17:54');
-INSERT INTO Accounts VALUES ('7', 'S 398424-05', 'Credit-Suisse Custody Account 📈', '2', '2', 'CHF', '1', '1', '2024-06-01', NULL, 'Main custody account', '2025-07-13 09:04:29', '2025-07-13 09:44:58');
-INSERT INTO Accounts VALUES ('8', 'LNX', 'Ledger Nano X', '7', '3', 'CHF', '1', '1', '2021-07-13', NULL, 'Crypto Wallet for Alt Coins', '2025-07-13 09:16:53', '2025-07-13 09:16:53');
-INSERT INTO Accounts VALUES ('9', '84.008.724.203.7', 'Sygnum Cash Account 🇺🇸 USD', '3', '1', 'USD', '1', '1', '2021-07-13', NULL, 'CH22 8301 4840 0872 4203 7', '2025-07-13 09:22:04', '2025-07-13 09:50:42');
-INSERT INTO Accounts VALUES ('10', '84.008.724.827.2', 'Sygnum Traditional Asset Custody Account', '3', '2', 'CHF', '1', '1', '2021-07-13', NULL, NULL, '2025-07-13 09:24:18', '2025-07-13 09:46:04');
-INSERT INTO Accounts VALUES ('11', '84.008.724.853.1', 'Sygnum Digital Asset Wallet (Trading)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, NULL, '2025-07-13 09:25:29', '2025-07-13 09:25:29');
-INSERT INTO Accounts VALUES ('12', '84.008.724.902.3', 'Sygnum Digital Assets Vault (Storage)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, 'storage for digital assets', '2025-07-13 09:26:28', '2025-07-13 09:26:28');
-INSERT INTO Accounts VALUES ('13', '0127962719', 'SCB Savings Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:29:24', '2025-07-13 09:30:05');
-INSERT INTO Accounts VALUES ('14', '6209115679', 'SCB Current Account 🇨🇭CHF', '5', '1', 'CHF', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:30:44', '2025-07-13 09:30:44');
-INSERT INTO Accounts VALUES ('15', '6229911713', 'SCB Current Account Tax 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, '2025-07-13 09:31:52', '2025-07-13 09:31:52');
-INSERT INTO Accounts VALUES ('16', '398424-01-9', 'Credit Suisse Cash Account (Wertschriften) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH93 0483 5039 8424 0100 9', '2025-07-13 09:36:59', '2025-07-13 09:36:59');
-INSERT INTO Accounts VALUES ('17', '398424-01-12', 'Credit Suisse Cash Account (Wettingen) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH12 0483 5039 8424 0101 2', '2025-07-13 09:38:29', '2025-07-13 09:38:29');
-INSERT INTO Accounts VALUES ('18', '398424-02', 'Credit Suisse Cash Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, NULL, '2025-07-13 09:39:37', '2025-07-13 09:39:37');
-INSERT INTO Accounts VALUES ('19', '398424-02-1', 'Credit Suisse Cash Account 🇪🇺 EUR', '2', '1', 'EUR', '1', '1', NULL, NULL, 'CH81 0483 5039 8424 0200 1', '2025-07-13 09:40:53', '2025-07-13 09:40:53');
-INSERT INTO Accounts VALUES ('20', '398424-02-2CH54 0483 5039 8424 0200 2', 'Credit Suisse Cash Account 🇬🇧 GBP', '2', '1', 'CHF', '1', '1', NULL, NULL, 'CH54 0483 5039 8424 0200 2', '2025-07-13 09:42:02', '2025-07-13 09:42:02');
-INSERT INTO Accounts VALUES ('21', '398424-02-3', 'Credit Suisse Call Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, 'CH27 0483 5039 8424 0200 3', '2025-07-13 09:43:04', '2025-07-13 09:43:04');
-INSERT INTO Accounts VALUES ('22', 'HD1034', 'Hyperion Decimus Hedge Fund Account', '11', '1', 'USD', '1', '1', NULL, NULL, NULL, '2025-07-13 09:48:30', '2025-07-13 09:48:30');
-INSERT INTO Accounts VALUES ('23', 'CCMK4', 'ColdCard MK4 Cold Wallet BTC', '10', '3', 'CHF', '1', '1', NULL, NULL, NULL, '2025-07-13 09:50:28', '2025-07-13 09:50:28');
-INSERT INTO Accounts VALUES ('24', 'SP', 'Swisspeers Portfolio', '8', '7', 'CHF', '1', '1', NULL, NULL, NULL, '2025-07-13 09:52:35', '2025-07-13 09:53:31');
-INSERT INTO Accounts VALUES ('25', 'CC', 'Crypto.Com Crypto Hot Wallet', '9', '3', 'EUR', '1', '1', NULL, NULL, NULL, '2025-07-13 09:54:21', '2025-07-13 09:54:21');
+INSERT INTO Accounts VALUES ('1', 'EQUATE', 'Equate Plus Deferred compensation', '1', '1', 'GBP', '1', '1', '2024-01-15', NULL, NULL, 'Deferred Compensation', '2025-07-13 09:04:29', '2025-07-13 09:46:51');
+INSERT INTO Accounts VALUES ('2', '398424-01', 'Credit Suisse Cash Account (Separat) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', '2023-06-10', NULL, NULL, 'CH45 0483 5039 8424 0100 0', '2025-07-13 09:04:29', '2025-07-13 09:37:30');
+INSERT INTO Accounts VALUES ('3', '84.008.724.202.9', 'Sygnum Cash Account 🇨🇭CHF', '3', '1', 'CHF', '1', '1', '2021-03-01', NULL, NULL, 'CH44 8301 4840 0872 4202 9', '2025-07-13 09:04:29', '2025-07-13 09:50:55');
+INSERT INTO Accounts VALUES ('4', 'CH1800774110445559200', 'GKB Privatkonto 🇨🇭 CHF', '4', '1', 'CHF', '1', '1', '2024-02-15', NULL, NULL, 'GKB Cash Account in relation to the Mortgages', '2025-07-13 09:04:29', '2025-07-13 09:51:04');
+INSERT INTO Accounts VALUES ('5', '62099360010', 'SCB Current Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, NULL, '2025-07-13 09:04:29', '2025-07-13 09:28:31');
+INSERT INTO Accounts VALUES ('6', 'BB02', 'BitBox 02', '6', '3', 'CHF', '1', '1', '2021-01-31', NULL, NULL, 'Crypto Wallet for BTC', '2025-07-13 09:04:29', '2025-07-13 09:17:54');
+INSERT INTO Accounts VALUES ('7', 'S 398424-05', 'Credit-Suisse Custody Account 📈', '2', '2', 'CHF', '1', '1', '2024-06-01', NULL, NULL, 'Main custody account', '2025-07-13 09:04:29', '2025-07-13 09:44:58');
+INSERT INTO Accounts VALUES ('8', 'LNX', 'Ledger Nano X', '7', '3', 'CHF', '1', '1', '2021-07-13', NULL, NULL, 'Crypto Wallet for Alt Coins', '2025-07-13 09:16:53', '2025-07-13 09:16:53');
+INSERT INTO Accounts VALUES ('9', '84.008.724.203.7', 'Sygnum Cash Account 🇺🇸 USD', '3', '1', 'USD', '1', '1', '2021-07-13', NULL, NULL, 'CH22 8301 4840 0872 4203 7', '2025-07-13 09:22:04', '2025-07-13 09:50:42');
+INSERT INTO Accounts VALUES ('10', '84.008.724.827.2', 'Sygnum Traditional Asset Custody Account', '3', '2', 'CHF', '1', '1', '2021-07-13', NULL, NULL, NULL, '2025-07-13 09:24:18', '2025-07-13 09:46:04');
+INSERT INTO Accounts VALUES ('11', '84.008.724.853.1', 'Sygnum Digital Asset Wallet (Trading)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, NULL, NULL, '2025-07-13 09:25:29', '2025-07-13 09:25:29');
+INSERT INTO Accounts VALUES ('12', '84.008.724.902.3', 'Sygnum Digital Assets Vault (Storage)', '3', '3', 'CHF', '1', '1', '2021-07-13', NULL, NULL, 'storage for digital assets', '2025-07-13 09:26:28', '2025-07-13 09:26:28');
+INSERT INTO Accounts VALUES ('13', '0127962719', 'SCB Savings Account 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, NULL, '2025-07-13 09:29:24', '2025-07-13 09:30:05');
+INSERT INTO Accounts VALUES ('14', '6209115679', 'SCB Current Account 🇨🇭CHF', '5', '1', 'CHF', '1', '1', '2020-01-01', NULL, NULL, NULL, '2025-07-13 09:30:44', '2025-07-13 09:30:44');
+INSERT INTO Accounts VALUES ('15', '6229911713', 'SCB Current Account Tax 🇸🇬 SGD', '5', '1', 'SGD', '1', '1', '2020-01-01', NULL, NULL, NULL, '2025-07-13 09:31:52', '2025-07-13 09:31:52');
+INSERT INTO Accounts VALUES ('16', '398424-01-9', 'Credit Suisse Cash Account (Wertschriften) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, NULL, 'CH93 0483 5039 8424 0100 9', '2025-07-13 09:36:59', '2025-07-13 09:36:59');
+INSERT INTO Accounts VALUES ('17', '398424-01-12', 'Credit Suisse Cash Account (Wettingen) 🇨🇭CHF', '2', '1', 'CHF', '1', '1', NULL, NULL, NULL, 'CH12 0483 5039 8424 0101 2', '2025-07-13 09:38:29', '2025-07-13 09:38:29');
+INSERT INTO Accounts VALUES ('18', '398424-02', 'Credit Suisse Cash Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:39:37', '2025-07-13 09:39:37');
+INSERT INTO Accounts VALUES ('19', '398424-02-1', 'Credit Suisse Cash Account 🇪🇺 EUR', '2', '1', 'EUR', '1', '1', NULL, NULL, NULL, 'CH81 0483 5039 8424 0200 1', '2025-07-13 09:40:53', '2025-07-13 09:40:53');
+INSERT INTO Accounts VALUES ('20', '398424-02-2CH54 0483 5039 8424 0200 2', 'Credit Suisse Cash Account 🇬🇧 GBP', '2', '1', 'CHF', '1', '1', NULL, NULL, NULL, 'CH54 0483 5039 8424 0200 2', '2025-07-13 09:42:02', '2025-07-13 09:42:02');
+INSERT INTO Accounts VALUES ('21', '398424-02-3', 'Credit Suisse Call Account 🇺🇸 USD', '2', '1', 'USD', '1', '1', NULL, NULL, NULL, 'CH27 0483 5039 8424 0200 3', '2025-07-13 09:43:04', '2025-07-13 09:43:04');
+INSERT INTO Accounts VALUES ('22', 'HD1034', 'Hyperion Decimus Hedge Fund Account', '11', '1', 'USD', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:48:30', '2025-07-13 09:48:30');
+INSERT INTO Accounts VALUES ('23', 'CCMK4', 'ColdCard MK4 Cold Wallet BTC', '10', '3', 'CHF', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:50:28', '2025-07-13 09:50:28');
+INSERT INTO Accounts VALUES ('24', 'SP', 'Swisspeers Portfolio', '8', '7', 'CHF', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:52:35', '2025-07-13 09:53:31');
+INSERT INTO Accounts VALUES ('25', 'CC', 'Crypto.Com Crypto Hot Wallet', '9', '3', 'EUR', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:54:21', '2025-07-13 09:54:21');
