@@ -5,7 +5,7 @@ struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
-    @State private var summaryMessage: String?
+    @State private var statusMessage: String = "Status: \u{2B24} Idle \u2022 No file loaded"
     @State private var showImporterFor: StatementType?
 
     var body: some View {
@@ -39,9 +39,7 @@ struct DataImportExportView: View {
         VStack(alignment: .leading, spacing: 24) {
             header
             cardsSection
-            if let message = summaryMessage {
-                summaryBar(message)
-            }
+            statusBar
             statementLog
         }
         .padding(24)
@@ -131,7 +129,7 @@ struct DataImportExportView: View {
     }
 
     private func importStatement(from url: URL, type: StatementType) {
-        summaryMessage = nil
+        statusMessage = "Status: Importing \(url.lastPathComponent) …"
 
         ImportManager.shared.importPositions(at: url, progress: { message in
             DispatchQueue.main.async { self.appendLog(message) }
@@ -141,10 +139,10 @@ struct DataImportExportView: View {
                 switch result {
                 case .success(let summary):
                     let errors = summary.totalRows - summary.parsedRows
-                    self.summaryMessage = "\u{2714} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
+                    self.statusMessage = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
                     self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
                 case .failure(let error):
-                    self.summaryMessage = "\u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
+                    self.statusMessage = "Status: \u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
                     self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
                 }
             }
@@ -157,17 +155,10 @@ struct DataImportExportView: View {
         UserDefaults.standard.set(logMessages, forKey: UserDefaultsKeys.statementImportLog)
     }
 
-    private func summaryBar(_ text: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
-            Text(text)
-                .font(.system(size: 14))
-                .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
-            Spacer()
-            Button("View Details…") {}
-                .font(.system(size: 12))
-        }
+    private var statusBar: some View {
+        Text(statusMessage)
+            .font(.system(size: 14))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var statementLog: some View {

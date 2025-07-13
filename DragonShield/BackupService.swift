@@ -210,12 +210,12 @@ class BackupService: ObservableObject {
 
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
-        let counts = rowCounts(db: db, tables: referenceTables)
+        let tableCounts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
         DispatchQueue.main.async {
-            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
             self.lastActionSummaries = self.referenceTables.map { tbl in
@@ -289,11 +289,11 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.loadConfiguration()
-        let counts = rowCounts(db: db, tables: referenceTables)
+        let tableCounts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         DispatchQueue.main.async {
-            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
+            let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = self.referenceTables.map { table in

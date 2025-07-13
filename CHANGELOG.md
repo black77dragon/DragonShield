@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Fix redeclaration of `counts` in BackupService
 - Fix compile error when restoring reference data due to undefined `counts`
 - Backup reference data separately via new UI button and CLI flag
+- Enforce three-zone layout on Data Import/Export screen with persistent status line
+- Resolve variable scoping issue in BackupService restore function
 - Restore reference data from SQL or JSON with dedicated button
 - Export reference tables as SQL with CREATE and INSERT statements
 - Disable foreign key checks during reference restore to avoid constraint failures
