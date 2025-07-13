@@ -41,6 +41,33 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var productionDBPath: String = ""
     @Published var testDBPath: String = ""
+
+    private let configURL: URL
+
+struct DBPaths: Codable {
+    var production_db_path: String
+    var test_db_path: String
+}
+
+private var dbConfig: DBPaths
+
+    private static func loadConfig(at url: URL, defaultProd: String, defaultTest: String) -> DBPaths {
+        if let data = try? Data(contentsOf: url),
+           let cfg = try? JSONDecoder().decode(DBPaths.self, from: data) {
+            return cfg
+        }
+        let cfg = DBPaths(production_db_path: defaultProd, test_db_path: defaultTest)
+        if let data = try? JSONEncoder().encode(cfg) {
+            try? data.write(to: url, options: .atomic)
+        }
+        return cfg
+    }
+
+    private func saveConfig() {
+        if let data = try? JSONEncoder().encode(dbConfig) {
+            try? data.write(to: configURL, options: .atomic)
+        }
+    }
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -50,13 +77,19 @@ class DatabaseManager: ObservableObject {
 
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
+        self.configURL = appDir.appendingPathComponent("config.json")
+
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
 
-        // Fallback path inside Application Support
-        let defaultPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
-        self.dbPath = defaultPath
+        let defaultProd = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        let defaultTest = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
+        self.dbConfig = DatabaseManager.loadConfig(at: configURL, defaultProd: defaultProd, defaultTest: defaultTest)
+        self.productionDBPath = dbConfig.production_db_path
+        self.testDBPath = dbConfig.test_db_path
+
+        self.dbPath = mode == .production ? dbConfig.production_db_path : dbConfig.test_db_path
 
         
         #if DEBUG
@@ -85,22 +118,10 @@ class DatabaseManager: ObservableObject {
         }
 
         openDatabase()
+        migrateLegacyPathConfig()
         loadConfiguration()
 
-        // Use configured path if available
-        let configuredFolder = dbMode == .production ? productionDBPath : testDBPath
-        if !configuredFolder.isEmpty {
-            let path = URL(fileURLWithPath: configuredFolder)
-                .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
-            if path != dbPath {
-                dbPath = path
-                reopenDatabase()
-            } else {
-                print("✅ Using existing database at: \(dbPath)")
-            }
-        } else {
-            print("✅ Using existing database at: \(dbPath)")
-        }
+        print("✅ Using database at: \(dbPath)")
 
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
@@ -155,10 +176,20 @@ class DatabaseManager: ObservableObject {
         updateFileMetadata()
     }
 
-    func reopenDatabase(at folder: String) {
-        dbPath = URL(fileURLWithPath: folder)
-            .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
+    func reopenDatabase(atPath path: String) {
+        dbPath = path
         reopenDatabase()
+    }
+
+    func updateDBPath(_ path: String, isProduction: Bool) {
+        if isProduction {
+            productionDBPath = path
+            dbConfig.production_db_path = path
+        } else {
+            testDBPath = path
+            dbConfig.test_db_path = path
+        }
+        saveConfig()
     }
 
     func rowCount(table: String) throws -> Int {
@@ -176,21 +207,46 @@ class DatabaseManager: ObservableObject {
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-
-        let fallback = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
-        let configuredFolder = dbMode == .production ? productionDBPath : testDBPath
-        if configuredFolder.isEmpty {
-            dbPath = fallback
-        } else {
-            dbPath = URL(fileURLWithPath: configuredFolder)
-                .appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
-        }
-
+        dbPath = dbMode == .production ? productionDBPath : testDBPath
         if !FileManager.default.fileExists(atPath: dbPath), let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
             try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
         }
 
         reopenDatabase()
+    }
+
+    private func migrateLegacyPathConfig() {
+        var statement: OpaquePointer?
+        let sql = "SELECT key, value FROM Configuration WHERE key IN ('production_db_path','test_db_path');"
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            return
+        }
+
+        var migrated = false
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let keyPtr = sqlite3_column_text(statement, 0),
+               let valuePtr = sqlite3_column_text(statement, 1) {
+                let key = String(cString: keyPtr)
+                let value = String(cString: valuePtr)
+                if !value.isEmpty {
+                    if key == "production_db_path" {
+                        productionDBPath = value
+                        dbConfig.production_db_path = value
+                    } else if key == "test_db_path" {
+                        testDBPath = value
+                        dbConfig.test_db_path = value
+                    }
+                    migrated = true
+                }
+            }
+        }
+        sqlite3_finalize(statement)
+
+        if migrated {
+            saveConfig()
+            sqlite3_exec(db, "DELETE FROM Configuration WHERE key IN ('production_db_path','test_db_path');", nil, nil, nil)
+            print("ℹ️ Migrated legacy database paths to config file")
+        }
     }
 
     func runMigrations() {

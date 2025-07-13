@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
+import SQLite3
 
 struct DatabaseManagementView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -226,19 +227,21 @@ struct DatabaseManagementView: View {
                 .foregroundColor(Theme.primaryAccent)
 
             HStack {
-                Text("Production DB Location")
+                Text("Production DB File")
                 Spacer()
-                TextField("Not configured", text: $productionPath)
-                    .frame(minWidth: 300)
-                Button("Select…") { selectFolder(isProduction: true) }
+                Text(productionPath.isEmpty ? "Not configured" : productionPath)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 300, alignment: .leading)
+                Button("Browse…") { selectFile(isProduction: true) }
             }
 
             HStack {
-                Text("Test DB Location")
+                Text("Test DB File")
                 Spacer()
-                TextField("Not configured", text: $testPath)
-                    .frame(minWidth: 300)
-                Button("Select…") { selectFolder(isProduction: false) }
+                Text(testPath.isEmpty ? "Not configured" : testPath)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 300, alignment: .leading)
+                Button("Browse…") { selectFile(isProduction: false) }
             }
         }
         .padding(24)
@@ -443,31 +446,31 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private func containsSQLite(at url: URL) -> Bool {
-        (try? FileManager.default.contentsOfDirectory(atPath: url.path))?.contains { $0.hasSuffix(".sqlite") } ?? false
+    private func isValidSQLite(_ url: URL) -> Bool {
+        var db: OpaquePointer?
+        defer { if db != nil { sqlite3_close(db) } }
+        return sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK
     }
 
-    private func selectFolder(isProduction: Bool) {
+    private func selectFile(isProduction: Bool) {
         let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowedFileTypes = ["sqlite"]
+        panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
-            guard containsSQLite(at: url) else {
-                errorMessage = "Selected folder must contain a .sqlite file"
+            guard isValidSQLite(url) else {
+                errorMessage = "Selected file is not a valid SQLite database"
                 return
             }
             let path = url.path
+            dbManager.updateDBPath(path, isProduction: isProduction)
             if isProduction {
-                if dbManager.updatePathConfiguration(key: "production_db_path", value: path) {
-                    productionPath = path
-                    if dbManager.dbMode == .production { dbManager.reopenDatabase(at: path) }
-                }
+                productionPath = path
+                if dbManager.dbMode == .production { dbManager.reopenDatabase(atPath: path) }
             } else {
-                if dbManager.updatePathConfiguration(key: "test_db_path", value: path) {
-                    testPath = path
-                    if dbManager.dbMode == .test { dbManager.reopenDatabase(at: path) }
-                }
+                testPath = path
+                if dbManager.dbMode == .test { dbManager.reopenDatabase(atPath: path) }
             }
         }
     }

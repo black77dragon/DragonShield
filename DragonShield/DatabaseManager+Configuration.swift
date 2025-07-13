@@ -18,8 +18,7 @@ extension DatabaseManager {
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
-                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version',
-                'production_db_path', 'test_db_path'
+                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version'
             );
         """
         var statement: OpaquePointer?
@@ -56,10 +55,6 @@ extension DatabaseManager {
                     case "db_version":
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
-                    case "production_db_path":
-                        self.productionDBPath = value
-                    case "test_db_path":
-                        self.testDBPath = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -98,50 +93,6 @@ extension DatabaseManager {
         return success
     }
 
-    func updatePathConfiguration(key: String, value: String) -> Bool {
-        guard sqlite3_exec(db, "BEGIN TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
-            print("❌ Failed to begin transaction: \(String(cString: sqlite3_errmsg(db)))")
-            return false
-        }
-
-        // Ensure a row exists for this configuration key
-        var insert: OpaquePointer?
-        let desc = key == "production_db_path" ? "Filesystem path for production DB" : "Filesystem path for test DB"
-        if sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO Configuration (key, value, data_type, description) VALUES (?, '', 'string', ?);", -1, &insert, nil) == SQLITE_OK {
-            sqlite3_bind_text(insert, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(insert, 2, (desc as NSString).utf8String, -1, SQLITE_TRANSIENT)
-            sqlite3_step(insert)
-        }
-        sqlite3_finalize(insert)
-
-        let query = "UPDATE Configuration SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?;"
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare path update for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
-            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
-            return false
-        }
-
-        sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-
-        let stepResult = sqlite3_step(statement)
-        sqlite3_finalize(statement)
-        guard stepResult == SQLITE_DONE else {
-            print("❌ Failed to update path for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
-            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
-            return false
-        }
-
-        if sqlite3_exec(db, "COMMIT;", nil, nil, nil) == SQLITE_OK {
-            loadConfiguration()
-            return true
-        } else {
-            print("❌ Failed to commit path update for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
-            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
-            return false
-        }
-    }
 
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")
