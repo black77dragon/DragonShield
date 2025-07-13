@@ -2,11 +2,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DataImportExportView: View {
-    enum StatementType { case creditSuisse }
+    enum StatementType { case creditSuisse, zkb }
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
-    @State private var statusText: String = "Idle \u2022 No file loaded"
-    @State private var showImporter = false
+    @State private var summaryMessage: String?
+    @State private var showImporterFor: StatementType?
 
     var body: some View {
         ScrollView {
@@ -15,7 +15,10 @@ struct DataImportExportView: View {
                 .padding(.horizontal)
         }
         .fileImporter(
-            isPresented: $showImporter,
+            isPresented: Binding<Bool>(
+                get: { showImporterFor != nil },
+                set: { if !$0 { showImporterFor = nil } }
+            ),
             allowedContentTypes: [
                 .commaSeparatedText,
                 UTType(filenameExtension: "xlsx")!,
@@ -23,8 +26,10 @@ struct DataImportExportView: View {
             ],
             allowsMultipleSelection: false
         ) { result in
-            if case let .success(urls) = result, let url = urls.first {
-                handleImport(url: url)
+            if case let .success(urls) = result,
+               let url = urls.first,
+               let type = showImporterFor {
+                importStatement(from: url, type: type)
             }
         }
         .navigationTitle("Data Import / Export")
@@ -33,8 +38,10 @@ struct DataImportExportView: View {
     private var container: some View {
         VStack(alignment: .leading, spacing: 24) {
             header
-            uploadControls
-            statusBar
+            cardsSection
+            if let message = summaryMessage {
+                summaryBar(message)
+            }
             statementLog
         }
         .padding(24)
@@ -57,36 +64,87 @@ struct DataImportExportView: View {
         }
     }
 
-    private var uploadControls: some View {
-        HStack(spacing: 16) {
-            DropZone { urls in
-                if let url = urls.first { handleImport(url: url) }
+    private var cardsSection: some View {
+        GeometryReader { geometry in
+            let compact = geometry.size.width < 600
+            Group {
+                if compact {
+                    VStack(spacing: 16) {
+                        creditSuisseCard
+                        zkbCard
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: 16) {
+                        creditSuisseCard
+                        zkbCard
+                    }
+                }
             }
-            .frame(height: 120)
-
-            Button("Select File") { showImporter = true }
-                .buttonStyle(SecondaryButtonStyle())
-                .frame(width: 140, height: 32)
         }
+        .frame(maxWidth: .infinity)
     }
 
-    private func handleImport(url: URL) {
-        statusText = "Importing \(url.lastPathComponent)…"
+    private var creditSuisseCard: some View {
+        importCard(title: "Import Credit-Suisse Statement", type: .creditSuisse, enabled: true)
+    }
+
+    private var zkbCard: some View {
+        importCard(title: "Import ZKB Statement", type: .zkb, enabled: false)
+    }
+
+    private func importCard(title: String, type: StatementType, enabled: Bool) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray.and.arrow.down")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 48, height: 48)
+                .foregroundColor(enabled ? .primary : .gray)
+            Text(title)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(enabled ? .primary : .gray)
+            DropZone { urls in
+                guard enabled, let url = urls.first else { return }
+                importStatement(from: url, type: type)
+            }
+            .frame(height: 120)
+            .opacity(enabled ? 1 : 0.5)
+
+            Text("or")
+                .font(.system(size: 12))
+                .foregroundColor(Color(red: 170/255, green: 170/255, blue: 170/255))
+
+            Button("Select File") {
+                guard enabled else { return }
+                showImporterFor = type
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .frame(height: 32)
+            .disabled(!enabled)
+            .help(enabled ? "" : "coming soon")
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.gray.opacity(0.3))
+        )
+    }
+
+    private func importStatement(from url: URL, type: StatementType) {
+        summaryMessage = nil
 
         ImportManager.shared.importPositions(at: url, progress: { message in
-            DispatchQueue.main.async {
-                self.appendLog(message)
-            }
+            DispatchQueue.main.async { self.appendLog(message) }
         }) { result in
             DispatchQueue.main.async {
                 let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
                 switch result {
                 case .success(let summary):
                     let errors = summary.totalRows - summary.parsedRows
-                    self.statusText = "✔ Import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
-                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records")
+                    self.summaryMessage = "\u{2714} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors."
+                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
                 case .failure(let error):
-                    self.statusText = "Error: \(error.localizedDescription)"
+                    self.summaryMessage = "\u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
                     self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
                 }
             }
@@ -99,13 +157,16 @@ struct DataImportExportView: View {
         UserDefaults.standard.set(logMessages, forKey: UserDefaultsKeys.statementImportLog)
     }
 
-    private var statusBar: some View {
+    private func summaryBar(_ text: String) -> some View {
         HStack(spacing: 8) {
-            Text("Status:")
-                .font(.system(size: 14, weight: .semibold))
-            Text(statusText)
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
+            Text(text)
                 .font(.system(size: 14))
+                .foregroundColor(Color(red: 46/255, green: 125/255, blue: 50/255))
             Spacer()
+            Button("View Details…") {}
+                .font(.system(size: 12))
         }
     }
 
@@ -133,6 +194,13 @@ struct DataImportExportView: View {
                 .stroke(Color(red: 224/255, green: 224/255, blue: 224/255), lineWidth: 1)
         )
         .cornerRadius(6)
+    }
+
+    private func typeName(_ type: StatementType) -> String {
+        switch type {
+        case .creditSuisse: return "Credit-Suisse"
+        case .zkb: return "ZKB"
+        }
     }
 }
 

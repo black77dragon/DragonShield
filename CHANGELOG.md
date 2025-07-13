@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Enable file picker and drag-and-drop on Data Import/Export screen
 - Unify drag-and-drop and file picker handling in Data Import/Export view
 - Document Data Import/Export screen spec with Statement Loading Log and wireframe
+- Redesign Data Import/Export view with import cards, summary bar and persistent log
 - Display import progress and update log when importing Credit-Suisse statements
 - Simplify Data Import/Export layout with separate status bar and persistent log
 - Fix Data Import/Export layout so Select File button and log panel are visible
