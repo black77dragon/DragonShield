@@ -6,8 +6,7 @@ struct DataImportExportView: View {
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
-    @State private var showImporter = false
-    @State private var importerType: StatementType?
+    @State private var showImporterFor: StatementType?
 
     var body: some View {
         ScrollView {
@@ -21,19 +20,20 @@ struct DataImportExportView: View {
             .padding(.horizontal)
         }
         .fileImporter(
-            isPresented: $showImporter,
+            isPresented: Binding(
+                get: { showImporterFor != nil },
+                set: { if !$0 { showImporterFor = nil } }
+            ),
             allowedContentTypes: [
                 .commaSeparatedText,
-                UTType(filenameExtension: "xlsx")!,
+                UTType(filenameExtension: "xlsx") ?? .data,
                 .pdf
             ],
             allowsMultipleSelection: false
         ) { result in
-            showImporter = false
-            defer { importerType = nil }
-            if case let .success(urls) = result,
-               let url = urls.first,
-               let type = importerType {
+            guard let type = showImporterFor else { return }
+            showImporterFor = nil
+            if case let .success(urls) = result, let url = urls.first {
                 importStatement(from: url, type: type)
             }
         }
@@ -113,8 +113,7 @@ struct DataImportExportView: View {
 
             Button("Select File") {
                 guard enabled else { return }
-                importerType = type
-                showImporter = true
+                showImporterFor = type
             }
             .buttonStyle(SecondaryButtonStyle())
             .frame(height: 32)

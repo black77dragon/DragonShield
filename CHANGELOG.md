@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Simplify Data Import/Export layout with separate status bar and persistent log
 - Fix Data Import/Export layout so Select File button and log panel are visible
 - Fix file importer losing selected statement type so imports run after choosing a file
+- Fix Data Import/Export file picker not starting import after choosing a file
 - Restyle Statement Loading Log with padded white frame and remove extra spacer
 - Add dedicated reference data backup and restore with grouped buttons
 - Fix compile error from missing `rowCounts` helper
