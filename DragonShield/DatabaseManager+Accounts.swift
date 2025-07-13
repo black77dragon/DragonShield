@@ -383,7 +383,7 @@ extension DatabaseManager {
     }
 
     /// Returns IDs and numbers of all accounts belonging to the given institution name.
-func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
+    func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
         let sql = """
             SELECT a.account_id, a.account_number
               FROM Accounts a
@@ -407,9 +407,10 @@ func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
     }
 }
 
+extension DatabaseManager {
     /// Recalculates the earliest instrument update timestamp for the given account
-    /// by aggregating PositionReports.instrument_updated_at. Stores the minimum
-    /// value in Accounts.earliest_instrument_last_updated_at.
+    /// by aggregating `PositionReports.instrument_updated_at`. Stores the minimum
+    /// value in `Accounts.earliest_instrument_last_updated_at`.
     func refreshEarliestInstrumentUpdatedAt(accountId: Int) {
         let sql = """
             UPDATE Accounts

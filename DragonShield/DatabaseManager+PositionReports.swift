@@ -18,6 +18,7 @@ struct PositionReportData: Identifiable {
         var purchasePrice: Double?
         var currentPrice: Double?
         var notes: String?
+        var instrumentUpdatedAt: Date?
         var reportDate: Date
         var uploadedAt: Date
 }
@@ -30,7 +31,7 @@ extension DatabaseManager {
             SELECT pr.position_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
                    pr.quantity, pr.purchase_price, pr.current_price,
-                   pr.notes,
+                   pr.notes, pr.instrument_updated_at,
                    pr.report_date, pr.uploaded_at
             FROM PositionReports pr
             JOIN Accounts a ON pr.account_id = a.account_id
@@ -62,8 +63,13 @@ extension DatabaseManager {
                     currentPrice = sqlite3_column_double(statement, 8)
                 }
                 let notes: String? = sqlite3_column_text(statement, 9).map { String(cString: $0) }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 10))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 11))
+                var instrumentUpdatedAt: Date?
+                if sqlite3_column_type(statement, 10) != SQLITE_NULL {
+                    let instrStr = String(cString: sqlite3_column_text(statement, 10))
+                    instrumentUpdatedAt = DateFormatter.iso8601DateOnly.date(from: instrStr)
+                }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 11))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 12))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -77,6 +83,7 @@ extension DatabaseManager {
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,
                     notes: notes,
+                    instrumentUpdatedAt: instrumentUpdatedAt,
                     reportDate: reportDate,
                     uploadedAt: uploadedAt
                 ))

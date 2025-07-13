@@ -244,6 +244,18 @@ struct PositionsView: View {
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+
+                TableColumn("Updated", sortUsing: KeyPathComparator(\PositionReportData.instrumentUpdatedAt)) { (position: PositionReportData) in
+                    if let date = position.instrumentUpdatedAt {
+                        Text(date, formatter: DateFormatter.iso8601DateOnly)
+                            .font(.system(size: 12))
+                    } else {
+                        Text("-")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minWidth: 80, idealWidth: 80, maxWidth: .infinity, alignment: .center)
+                }
             }
 
             Group {
