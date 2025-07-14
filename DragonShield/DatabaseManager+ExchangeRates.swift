@@ -35,6 +35,7 @@ extension DatabaseManager {
         query += " ORDER BY rate_date DESC;"
 
         var statement: OpaquePointer?
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             var index: Int32 = 1
             if let code = currencyCode {
@@ -70,6 +71,7 @@ extension DatabaseManager {
         if isLatest {
             let clear = "UPDATE ExchangeRates SET is_latest = 0 WHERE currency_code = ?;"
             var s: OpaquePointer?
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
             if sqlite3_prepare_v2(db, clear, -1, &s, nil) == SQLITE_OK {
                 sqlite3_bind_text(s, 1, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
                 _ = sqlite3_step(s)
@@ -81,6 +83,7 @@ extension DatabaseManager {
             VALUES (?, ?, ?, ?, ?, ?);
         """
         var statement: OpaquePointer?
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare insertExchangeRate: \(String(cString: sqlite3_errmsg(db)))")
             return false
@@ -117,6 +120,7 @@ extension DatabaseManager {
              WHERE rate_id = ?;
         """
         var statement: OpaquePointer?
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare updateExchangeRate: \(String(cString: sqlite3_errmsg(db)))")
             return false
