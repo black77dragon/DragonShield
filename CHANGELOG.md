@@ -217,3 +217,4 @@ All notable changes to this project will be documented in this file.
 - Add manual Refresh Instrument Timestamps button to recalculate earliest instrument dates
 - Introduce configurable dashboard with tile picker and persistent layout
 - Fix dashboard compilation errors by renaming MetricTile and using `any` keyword
+- Fix build warnings for dashboard onChange and unused variable

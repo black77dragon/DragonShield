@@ -37,7 +37,9 @@ struct DashboardView: View {
                 .onDisappear { saveLayout() }
         }
         .onAppear(perform: loadLayout)
-        .onChange(of: tileIDs) { _ in saveLayout() }
+        .onChange(of: tileIDs) {
+            saveLayout()
+        }
     }
 
     private func loadLayout() {
