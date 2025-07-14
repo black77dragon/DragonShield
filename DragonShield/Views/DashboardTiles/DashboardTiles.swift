@@ -82,6 +82,55 @@ struct MetricTile: DashboardTile {
     }
 }
 
+struct TotalValueTile: DashboardTile {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var total: Double = 0
+    @State private var loading = false
+
+    init() {}
+    static let tileID = "total_value"
+    static let tileName = "Total Asset Value (CHF)"
+    static let iconName = "francsign.circle"
+
+    var body: some View {
+        DashboardCard(title: Self.tileName) {
+            if loading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                Text(String(format: "%.2f CHF", total))
+                    .font(.system(size: 48, weight: .bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundColor(Theme.primaryAccent)
+            }
+        }
+        .onAppear(perform: calculate)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func calculate() {
+        loading = true
+        DispatchQueue.global().async {
+            let positions = dbManager.fetchPositionReports()
+            var sum: Double = 0
+            for p in positions {
+                guard let price = p.currentPrice else { continue }
+                var value = p.quantity * price
+                if p.instrumentCurrency.uppercased() != "CHF" {
+                    let rates = dbManager.fetchExchangeRates(currencyCode: p.instrumentCurrency, upTo: nil)
+                    guard let rate = rates.first?.rateToChf else { continue }
+                    value *= rate
+                }
+                sum += value
+            }
+            DispatchQueue.main.async {
+                total = sum
+                loading = false
+            }
+        }
+    }
+}
+
 struct TextTile: DashboardTile {
     init() {}
     static let tileID = "text"
@@ -148,6 +197,7 @@ enum TileRegistry {
         TileInfo(id: ChartTile.tileID, name: ChartTile.tileName, icon: ChartTile.iconName) { AnyView(ChartTile()) },
         TileInfo(id: ListTile.tileID, name: ListTile.tileName, icon: ListTile.iconName) { AnyView(ListTile()) },
         TileInfo(id: MetricTile.tileID, name: MetricTile.tileName, icon: MetricTile.iconName) { AnyView(MetricTile()) },
+        TileInfo(id: TotalValueTile.tileID, name: TotalValueTile.tileName, icon: TotalValueTile.iconName) { AnyView(TotalValueTile()) },
         TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
         TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
         TileInfo(id: MapTile.tileID, name: MapTile.tileName, icon: MapTile.iconName) { AnyView(MapTile()) }
