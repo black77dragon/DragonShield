@@ -10,12 +10,14 @@ struct RiskMetrics: Decodable {
     let sortino: Double
     let max_drawdown: Double
     let varValue: Double
+    let concentration: Double
 
     private enum CodingKeys: String, CodingKey {
         case sharpe
         case sortino
         case max_drawdown
         case varValue = "var"
+        case concentration
     }
 }
 

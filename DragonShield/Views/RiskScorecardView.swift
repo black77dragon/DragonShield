@@ -29,6 +29,7 @@ struct RiskScorecardView: View {
                 RiskMetricTile(title: "Sortino Ratio", value: metrics?.sortino ?? 0)
                 RiskMetricTile(title: "Max Drawdown", value: metrics?.max_drawdown ?? 0)
                 RiskMetricTile(title: "VaR 95%", value: metrics?.varValue ?? 0)
+                RiskMetricTile(title: "Risk Concentration", value: metrics?.concentration ?? 0, range: 0...1)
             }
         }
         .onAppear(perform: loadMetrics)
@@ -45,12 +46,13 @@ struct RiskScorecardView: View {
 struct RiskMetricTile: View {
     let title: String
     let value: Double
+    var range: ClosedRange<Double> = -1...2
     @State private var hovering = false
     @State private var showDetail = false
 
     var body: some View {
         VStack {
-            Gauge(value: value, in: -1...2) {
+            Gauge(value: value, in: range) {
                 Text(title)
             }
             .gaugeStyle(.accessoryCircularCapacity)
