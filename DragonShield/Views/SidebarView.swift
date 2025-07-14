@@ -40,24 +40,17 @@ struct SidebarView: View {
             // MARK: - Maintenance Functions Section
             Section("Maintenance Functions") {
                 
-                NavigationLink(destination: CurrenciesView()) {
-                    Label("Edit Currencies", systemImage: "dollarsign.circle.fill")
-                }
-
                 NavigationLink(destination: InstitutionsView()) {
                     Label("Edit Institutions", systemImage: "building.2.fill")
                 }
-                
-                HStack {
-                    Label("Edit FX History", systemImage: "chart.line.uptrend.xyaxis")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("(coming soon)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .italic()
+
+                NavigationLink(destination: CurrenciesView()) {
+                    Label("Currency Maintenance", systemImage: "dollarsign.circle.fill")
                 }
-                .onTapGesture {}
+
+                NavigationLink(destination: ExchangeRatesView()) {
+                    Label("Edit FX History", systemImage: "chart.line.uptrend.xyaxis")
+                }
 
                 NavigationLink(destination: AccountTypesView()) {
                     Label("Edit Account Types", systemImage: "creditcard.circle.fill")
