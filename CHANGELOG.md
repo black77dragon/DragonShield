@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Display Currency Maintenance and FX History links in sidebar
 - Display instrument updated date in Positions view and form
 - Display earliest instrument updated date in Accounts view and forms
+- Show total asset value in CHF on Positions view with refresh button
 - Replace Load Documents with Data Import/Export view and statement log
 - Enable file picker and drag-and-drop on Data Import/Export screen
 - Unify drag-and-drop and file picker handling in Data Import/Export view
