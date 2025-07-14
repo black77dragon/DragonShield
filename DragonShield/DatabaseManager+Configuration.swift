@@ -18,8 +18,7 @@ extension DatabaseManager {
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
-                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version',
-                'production_db_path', 'test_db_path'
+                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version'
             );
         """
         var statement: OpaquePointer?
@@ -56,10 +55,6 @@ extension DatabaseManager {
                     case "db_version":
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
-                    case "production_db_path":
-                        self.productionDBPath = value
-                    case "test_db_path":
-                        self.testDBPath = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }

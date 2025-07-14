@@ -23,6 +23,7 @@ class DatabaseManager: ObservableObject {
     private let appDir: URL
     private let defaultProdPath: String
     private let defaultTestPath: String
+    private let configURL: URL
 
     @Published var dbMode: DatabaseMode
     @Published var dbFileSize: Int64 = 0
@@ -58,7 +59,11 @@ class DatabaseManager: ObservableObject {
 
         self.defaultProdPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
         self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
-        self.dbPath = mode == .production ? defaultProdPath : defaultTestPath
+        self.configURL = appDir.appendingPathComponent("config.json")
+
+        loadConfigFile()
+
+        self.dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath
 
         
         #if DEBUG
@@ -88,18 +93,6 @@ class DatabaseManager: ObservableObject {
 
         openDatabase()
         loadConfiguration()
-
-
-        // Reopen at configured location if different
-        if dbMode == .production {
-            if !productionDBPath.isEmpty && productionDBPath != dbPath {
-                reopenDatabase(atPath: productionDBPath)
-            }
-        } else {
-            if !testDBPath.isEmpty && testDBPath != dbPath {
-                reopenDatabase(atPath: testDBPath)
-            }
-        }
 
         print("✅ Using database at: \(dbPath)")
 
@@ -162,20 +155,43 @@ class DatabaseManager: ObservableObject {
         reopenDatabase()
     }
 
+    private func loadConfigFile() {
+        if !FileManager.default.fileExists(atPath: configURL.path) {
+            productionDBPath = defaultProdPath
+            testDBPath = defaultTestPath
+            saveConfigFile()
+            return
+        }
+        do {
+            let data = try Data(contentsOf: configURL)
+            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] {
+                productionDBPath = dict["production_db_path"] ?? defaultProdPath
+                testDBPath = dict["test_db_path"] ?? defaultTestPath
+            }
+        } catch {
+            print("⚠️ Failed to read config file: \(error)")
+            productionDBPath = defaultProdPath
+            testDBPath = defaultTestPath
+        }
+    }
+
+    private func saveConfigFile() {
+        let dict = [
+            "production_db_path": productionDBPath,
+            "test_db_path": testDBPath
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted]) {
+            try? data.write(to: configURL)
+        }
+    }
+
     func updateDBPath(_ path: String, isProduction: Bool) {
         if isProduction {
             productionDBPath = path
-            if !updateConfiguration(key: "production_db_path", value: path) {
-                sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('production_db_path', '', 'string');", nil, nil, nil)
-                _ = updateConfiguration(key: "production_db_path", value: path)
-            }
         } else {
             testDBPath = path
-            if !updateConfiguration(key: "test_db_path", value: path) {
-                sqlite3_exec(db, "INSERT INTO Configuration (key, value, data_type) VALUES ('test_db_path', '', 'string');", nil, nil, nil)
-                _ = updateConfiguration(key: "test_db_path", value: path)
-            }
         }
+        saveConfigFile()
     }
 
     func rowCount(table: String) throws -> Int {

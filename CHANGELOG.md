@@ -3,10 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Store `production_db_path` and `test_db_path` in the Configuration table
-- Disable the App Sandbox so databases outside the container can be accessed
-- Open the database using these paths on startup
-- Persist selected `.sqlite` files and refresh the connection immediately
+ - Load production and test database paths from `config.json` on startup
+ - Disable the App Sandbox so databases outside the container can be accessed
+ - Open the database using the production path from this config file
+ - Persist selected `.sqlite` files and refresh the connection immediately
 - Drop security-scoped bookmark handling
 - Fix build error resolving bookmark URLs by passing an inout staleness flag
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
