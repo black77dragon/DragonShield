@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Test migrations for instrument update columns
 - Add exchange_rates.sql script with sample FX rates for all currencies
 - Fix transaction error in exchange_rates.sql script
+- Add ExchangeRates maintenance view for CRUD FX rate management
 - Display instrument updated date in Positions view and form
 - Display earliest instrument updated date in Accounts view and forms
 - Replace Load Documents with Data Import/Export view and statement log
