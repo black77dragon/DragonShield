@@ -31,6 +31,14 @@ struct PositionsView: View {
 
     @StateObject private var viewModel = PositionsViewModel()
 
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        f.groupingSeparator = "'"
+        return f
+    }()
+
     var sortedPositions: [PositionReportData] {
         filteredPositions.sorted(using: sortOrder)
     }
@@ -133,7 +141,7 @@ struct PositionsView: View {
                 modernStatCard(title: "Total", value: "\(positions.count)", icon: "number.circle.fill", color: .blue)
                 ZStack {
                     modernStatCard(title: "Total Asset Value (CHF)",
-                                   value: String(format: "%.2f CHF", viewModel.totalAssetValueCHF),
+                                   value: Self.chfFormatter.string(from: NSNumber(value: viewModel.totalAssetValueCHF)) ?? "0",
                                    icon: "sum", color: .blue)
                     if viewModel.calculating {
                         RoundedRectangle(cornerRadius: 8)
