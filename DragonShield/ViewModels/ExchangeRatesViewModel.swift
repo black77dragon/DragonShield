@@ -17,7 +17,9 @@ class ExchangeRatesViewModel: ObservableObject {
     }
 
     func loadCurrencies() {
-        currencies = db.fetchActiveCurrencies().map { (code: $0.code, name: $0.name, symbol: $0.symbol) }
+        currencies = db.fetchActiveCurrencies().map {
+            DatabaseManager.CurrencyData(code: $0.code, name: $0.name, symbol: $0.symbol)
+        }
     }
 
     func loadRates() {
