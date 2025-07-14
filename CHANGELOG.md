@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add dashboard tile showing Top 10 Positions by Asset Value in CHF
+- Fix compile issues in Top Positions tile
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
