@@ -52,19 +52,19 @@ class DatabaseManager: ObservableObject {
 
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
-        let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
-        let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
-        self.dbMode = mode
+        // Start in production mode and load database paths from config.json if present
+        self.dbMode = .production
 
-        self.defaultProdPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
-        self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
+        let paths = DatabaseManager.loadPathsFromConfig()
+        self.defaultProdPath = paths.prod ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        self.defaultTestPath = paths.test ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
 
-        // use local `mode` to avoid accessing property wrapper before init completes
-        self.dbPath = mode == .production ? defaultProdPath : defaultTestPath
+        // Determine initial database path based on the selected mode
+        self.dbPath = dbMode == .production ? defaultProdPath : defaultTestPath
 
         // Open default database first to read configuration paths
 
-        print("📂 Configured DB path for \(mode): \(dbPath)")
+        print("📂 Configured DB path for \(dbMode): \(dbPath)")
 
         
         #if DEBUG
@@ -206,6 +206,21 @@ class DatabaseManager: ObservableObject {
     func runMigrations() {
         // Placeholder for future migration logic
         print("ℹ️ runMigrations called - no migrations to apply")
+    }
+
+    private static func loadPathsFromConfig() -> (prod: String?, test: String?) {
+        struct Config: Decodable {
+            let production_db_path: String?
+            let test_db_path: String?
+        }
+        let fm = FileManager.default
+        if let url = Bundle.main.url(forResource: "config", withExtension: "json") ??
+            URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent("config.json"),
+           let data = try? Data(contentsOf: url),
+           let config = try? JSONDecoder().decode(Config.self, from: data) {
+            return (config.production_db_path, config.test_db_path)
+        }
+        return (nil, nil)
     }
 
     private static func fileName(for mode: DatabaseMode) -> String {
