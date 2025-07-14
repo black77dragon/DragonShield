@@ -87,6 +87,14 @@ struct TotalValueTile: DashboardTile {
     @State private var total: Double = 0
     @State private var loading = false
 
+    private static let formatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        f.groupingSeparator = "'"
+        return f
+    }()
+
     init() {}
     static let tileID = "total_value"
     static let tileName = "Total Asset Value (CHF)"
@@ -98,7 +106,7 @@ struct TotalValueTile: DashboardTile {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
-                Text(String(format: "%.2f CHF", total))
+                Text(Self.formatter.string(from: NSNumber(value: total)) ?? "0")
                     .font(.system(size: 48, weight: .bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .foregroundColor(Theme.primaryAccent)
