@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Define production and test database paths in `config.json`
+- Load database paths from `config.json` at startup and default to production mode
 - Persist selected database paths in the `Configuration` table and reopen the correct file on startup
 - Remove outdated config file storage for database paths
 - Use modern `allowedContentTypes` API for file pickers
