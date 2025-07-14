@@ -4,6 +4,7 @@ import SwiftUI
 // MARK: - History: Initial creation - transaction types management with CRUD operations
 
 struct TransactionTypesView: View {
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var transactionTypes: [(id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)] = []
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
@@ -67,6 +68,11 @@ struct TransactionTypesView: View {
         .sheet(isPresented: $showEditTypeSheet) {
             if let type = selectedType {
                 EditTransactionTypeView(typeId: type.id)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Reload") { loadTransactionTypes() }
             }
         }
         .alert("Delete Transaction Type", isPresented: $showingDeleteAlert) {
@@ -483,8 +489,11 @@ struct TransactionTypesView: View {
     
     // MARK: - Functions
     func loadTransactionTypes() {
-        let dbManager = DatabaseManager()
-        transactionTypes = dbManager.fetchTransactionTypes()
+        let rows = dbManager.fetchTransactionTypes()
+        print("🔄 Loaded \(rows.count) transaction types")
+        DispatchQueue.main.async {
+            self.transactionTypes = rows
+        }
     }
     
     func confirmDelete(_ type: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)) {
@@ -1931,4 +1940,9 @@ struct TransactionTypesParticle {
     var position: CGPoint
     var size: CGFloat
     var opacity: Double
+}
+
+#Preview {
+    TransactionTypesView()
+        .environmentObject(DatabaseManager())
 }
