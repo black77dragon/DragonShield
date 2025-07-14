@@ -36,6 +36,8 @@ struct PositionsView: View {
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
         f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        f.roundingMode = .down
         return f
     }()
 

@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - Show total asset value in CHF on Dashboard via metric tile
 - Display total asset value without decimals on the dashboard tile using Swiss thousands separator
 - Format total asset value in Positions view using Swiss thousands separator
+- Truncate decimals when displaying total asset value in Positions view
 - Replace Load Documents with Data Import/Export view and statement log
 - Enable file picker and drag-and-drop on Data Import/Export screen
 - Unify drag-and-drop and file picker handling in Data Import/Export view
