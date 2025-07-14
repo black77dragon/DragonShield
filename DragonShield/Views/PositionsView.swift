@@ -68,7 +68,7 @@ struct PositionsView: View {
         .onAppear {
             loadPositions()
             loadInstitutions()
-            viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
+            viewModel.calculateValues(positions: positions, db: dbManager)
             animateEntrance()
         }
         .alert("Delete Positions", isPresented: $showingDeleteAlert) {
@@ -142,7 +142,7 @@ struct PositionsView: View {
                     }
                 }
                 Button {
-                    viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
+                    viewModel.calculateValues(positions: positions, db: dbManager)
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .padding(6)
@@ -267,6 +267,50 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+
+                TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
+                    if let value = viewModel.positionValueOriginal[position.id] {
+                        let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
+                        Text(String(format: "%.2f %@", value, symbol))
+                            .font(.system(size: 14, design: .monospaced))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Text("-")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+
+                TableColumn("Position Value (CHF)") { (position: PositionReportData) in
+                    if let opt = viewModel.positionValueCHF[position.id] {
+                        if let value = opt {
+                            Text(String(format: "%.2f CHF", value))
+                                .font(.system(size: 14, design: .monospaced))
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                        } else {
+                            Text("-")
+                                .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                        }
+                    } else {
+                        Text("-")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
                     }
                 }
             }
@@ -404,7 +448,7 @@ struct PositionsView: View {
 
     private func loadPositions() {
         positions = dbManager.fetchPositionReports()
-        viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
+        viewModel.calculateValues(positions: positions, db: dbManager)
     }
 
     private func loadInstitutions() {

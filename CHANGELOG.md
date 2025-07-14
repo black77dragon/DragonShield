@@ -228,3 +228,4 @@ All notable changes to this project will be documented in this file.
 - Resolve Swift compiler crash in TilePickerView by refactoring TileRegistry
 - Enlarge dashboard tile picker window and add "OK" button to close
 - Remove Asset Dashboard view in favor of Portfolio Overview
+- Display position value columns in original currency and CHF on Positions screen
