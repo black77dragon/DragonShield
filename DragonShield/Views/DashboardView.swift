@@ -44,9 +44,9 @@ struct DashboardView: View {
 
     private func loadLayout() {
         if let saved = UserDefaults.standard.array(forKey: layoutKey) as? [String], !saved.isEmpty {
-            tileIDs = saved.filter { id in TileRegistry.all.contains { $0.tileID == id } }
+            tileIDs = saved.filter { id in TileRegistry.all.contains { $0.id == id } }
         } else {
-            tileIDs = TileRegistry.all.map { $0.tileID }
+            tileIDs = TileRegistry.all.map { $0.id }
         }
     }
 

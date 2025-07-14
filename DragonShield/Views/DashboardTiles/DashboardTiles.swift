@@ -136,24 +136,30 @@ struct MapTile: DashboardTile {
     }
 }
 
+struct TileInfo {
+    let id: String
+    let name: String
+    let icon: String
+    let viewBuilder: () -> AnyView
+}
+
 enum TileRegistry {
-    static let all: [any DashboardTile.Type] = [
-        ChartTile.self,
-        ListTile.self,
-        MetricTile.self,
-        TextTile.self,
-        ImageTile.self,
-        MapTile.self
+    static let all: [TileInfo] = [
+        TileInfo(id: ChartTile.tileID, name: ChartTile.tileName, icon: ChartTile.iconName) { AnyView(ChartTile()) },
+        TileInfo(id: ListTile.tileID, name: ListTile.tileName, icon: ListTile.iconName) { AnyView(ListTile()) },
+        TileInfo(id: MetricTile.tileID, name: MetricTile.tileName, icon: MetricTile.iconName) { AnyView(MetricTile()) },
+        TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
+        TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
+        TileInfo(id: MapTile.tileID, name: MapTile.tileName, icon: MapTile.iconName) { AnyView(MapTile()) }
     ]
 
     static func view(for id: String) -> AnyView? {
-        guard let tile = all.first(where: { $0.tileID == id }) else { return nil }
-        return AnyView(tile.init())
+        all.first(where: { $0.id == id })?.viewBuilder()
     }
 
     static func info(for id: String) -> (name: String, icon: String) {
-        if let tile = all.first(where: { $0.tileID == id }) {
-            return (tile.tileName, tile.iconName)
+        if let tile = all.first(where: { $0.id == id }) {
+            return (tile.name, tile.icon)
         }
         return ("", "")
     }

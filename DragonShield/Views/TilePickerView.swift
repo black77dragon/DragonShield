@@ -6,9 +6,9 @@ struct TilePickerView: View {
     var body: some View {
         NavigationView {
             List {
-                ForEach(TileRegistry.all, id: \.tileID) { tile in
-                    Toggle(isOn: binding(for: tile.tileID)) {
-                        Label(tile.tileName, systemImage: tile.iconName)
+                ForEach(TileRegistry.all, id: \.id) { tile in
+                    Toggle(isOn: binding(for: tile.id)) {
+                        Label(tile.name, systemImage: tile.icon)
                     }
                 }
             }

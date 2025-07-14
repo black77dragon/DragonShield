@@ -218,3 +218,4 @@ All notable changes to this project will be documented in this file.
 - Introduce configurable dashboard with tile picker and persistent layout
 - Fix dashboard compilation errors by renaming MetricTile and using `any` keyword
 - Fix build warnings for dashboard onChange and unused variable
+- Resolve Swift compiler crash in TilePickerView by refactoring TileRegistry
