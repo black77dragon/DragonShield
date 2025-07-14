@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers
 - Fix compile error mapping active currencies in ExchangeRates view model
+- Add "Accounts Needing Update" dashboard tile showing top 10 stale accounts
+- Fix ambiguous `fetchAccounts` call causing compilation failure in StaleAccountsViewModel
 - Display Currency Maintenance and FX History links in sidebar
 - Display instrument updated date in Positions view and form
 - Display earliest instrument updated date in Accounts view and forms
