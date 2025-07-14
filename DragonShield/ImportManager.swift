@@ -318,7 +318,7 @@ class ImportManager {
                                                                   institutionId: institutionId)
 
                 var success = 0
-                var failure = 0
+                let failure = 0
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""

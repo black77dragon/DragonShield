@@ -215,3 +215,7 @@ All notable changes to this project will be documented in this file.
 - Fix missing `rowCounts` call in BackupService causing compilation failure
 - Fix compile error in Database Management view due to missing `value:` label
 - Add manual Refresh Instrument Timestamps button to recalculate earliest instrument dates
+- Introduce configurable dashboard with tile picker and persistent layout
+- Fix dashboard compilation errors by renaming MetricTile and using `any` keyword
+- Fix build warnings for dashboard onChange and unused variable
+- Resolve Swift compiler crash in TilePickerView by refactoring TileRegistry
