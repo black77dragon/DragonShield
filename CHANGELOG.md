@@ -219,3 +219,4 @@ All notable changes to this project will be documented in this file.
 - Fix dashboard compilation errors by renaming MetricTile and using `any` keyword
 - Fix build warnings for dashboard onChange and unused variable
 - Resolve Swift compiler crash in TilePickerView by refactoring TileRegistry
+- Enlarge dashboard tile picker window and add "OK" button to close

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TilePickerView: View {
     @Binding var tileIDs: [String]
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationView {
@@ -13,9 +14,14 @@ struct TilePickerView: View {
                 }
             }
             .navigationTitle("Configure Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("OK") { dismiss() }
+                }
+            }
             .padding()
         }
-        .frame(minWidth: 250)
+        .frame(minWidth: 400, minHeight: 400)
     }
 
     private func binding(for id: String) -> Binding<Bool> {
