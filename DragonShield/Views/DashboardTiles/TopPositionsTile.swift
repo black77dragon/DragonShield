@@ -16,7 +16,7 @@ struct TopPositionsTile: DashboardTile {
             header
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(vm.top10PositionsCHF.indices, id: \..self) { idx in
+                    ForEach(vm.top10PositionsCHF.indices, id: \.self) { idx in
                         let item = vm.top10PositionsCHF[idx]
                         row(item: item, highlight: idx == 0)
                     }
@@ -31,21 +31,23 @@ struct TopPositionsTile: DashboardTile {
     }
 
     private var header: some View {
-        HStack {
-            Text("Instrument")
-                .font(.footnote.weight(.medium))
-            Spacer()
-            Text("Value (CHF)")
-                .font(.footnote.weight(.medium))
-            Text("Curr")
-                .font(.footnote.weight(.medium))
-                .frame(width: 40, alignment: .trailing)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Instrument")
+                    .font(.footnote.weight(.medium))
+                Spacer()
+                Text("Value (CHF)")
+                    .font(.footnote.weight(.medium))
+                Text("Curr")
+                    .font(.footnote.weight(.medium))
+                    .frame(width: 40, alignment: .trailing)
+            }
+            .foregroundColor(Color(red: 107/255, green: 114/255, blue: 128/255))
+            .padding(.bottom, 4)
+            Rectangle()
+                .fill(Color(red: 229/255, green: 231/255, blue: 235/255))
+                .frame(height: 1)
         }
-        .foregroundColor(Color(red: 107/255, green: 114/255, blue: 128/255))
-        .padding(.bottom, 4)
-        Rectangle()
-            .fill(Color(red: 229/255, green: 231/255, blue: 235/255))
-            .frame(height: 1)
     }
 
     private func row(item: PositionsViewModel.TopPositionCHF, highlight: Bool) -> some View {

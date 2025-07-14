@@ -23,10 +23,10 @@ extension DatabaseManager {
             query += " WHERE"
         }
         var conditions: [String] = []
-        if let code = currencyCode {
+        if currencyCode != nil {
             conditions.append("currency_code = ?")
         }
-        if let d = date {
+        if date != nil {
             conditions.append("rate_date <= ?")
         }
         if !conditions.isEmpty {
