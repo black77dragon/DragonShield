@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts
 - Test migrations for instrument update columns
+- Add exchange_rates.sql script with sample FX rates for all currencies
 - Display instrument updated date in Positions view and form
 - Display earliest instrument updated date in Accounts view and forms
 - Replace Load Documents with Data Import/Export view and statement log
