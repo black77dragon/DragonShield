@@ -216,3 +216,4 @@ All notable changes to this project will be documented in this file.
 - Fix compile error in Database Management view due to missing `value:` label
 - Add manual Refresh Instrument Timestamps button to recalculate earliest instrument dates
 - Introduce configurable dashboard with tile picker and persistent layout
+- Fix dashboard compilation errors by renaming MetricTile and using `any` keyword

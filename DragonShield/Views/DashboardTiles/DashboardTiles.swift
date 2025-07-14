@@ -137,7 +137,7 @@ struct MapTile: DashboardTile {
 }
 
 enum TileRegistry {
-    static let all: [DashboardTile.Type] = [
+    static let all: [any DashboardTile.Type] = [
         ChartTile.self,
         ListTile.self,
         MetricTile.self,

@@ -25,10 +25,10 @@ struct RiskScorecardView: View {
             .padding()
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 2), spacing: 16) {
-                MetricTile(title: "Sharpe Ratio", value: metrics?.sharpe ?? 0)
-                MetricTile(title: "Sortino Ratio", value: metrics?.sortino ?? 0)
-                MetricTile(title: "Max Drawdown", value: metrics?.max_drawdown ?? 0)
-                MetricTile(title: "VaR 95%", value: metrics?.varValue ?? 0)
+                RiskMetricTile(title: "Sharpe Ratio", value: metrics?.sharpe ?? 0)
+                RiskMetricTile(title: "Sortino Ratio", value: metrics?.sortino ?? 0)
+                RiskMetricTile(title: "Max Drawdown", value: metrics?.max_drawdown ?? 0)
+                RiskMetricTile(title: "VaR 95%", value: metrics?.varValue ?? 0)
             }
         }
         .onAppear(perform: loadMetrics)
@@ -42,7 +42,7 @@ struct RiskScorecardView: View {
     }
 }
 
-struct MetricTile: View {
+struct RiskMetricTile: View {
     let title: String
     let value: Double
     @State private var hovering = false
