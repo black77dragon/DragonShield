@@ -40,9 +40,4 @@ extension DatabaseManager {
         return []
     }
     
-    // Placeholder, to be implemented
-    func fetchAccounts() -> [(id: Int, name: String, type: String, currency: String)] {
-        print("⚠️ fetchAccounts() - Not yet implemented")
-        return []
-    }
 }
