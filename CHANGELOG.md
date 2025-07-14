@@ -3,13 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Load production and test database paths from `config.json` on startup
-- Use the configured path for each mode when opening the database on startup
-- Fix initialization error when loading config before properties were assigned
-- Disable the App Sandbox so databases outside the container can be accessed
- - Open the database using the production path from this config file
- - Persist selected `.sqlite` files and refresh the connection immediately
-- Drop security-scoped bookmark handling
+- Persist selected database paths in the `Configuration` table and reopen the correct file on startup
+- Remove outdated config file storage for database paths
+- Use modern `allowedContentTypes` API for file pickers
 - Fix build error resolving bookmark URLs by passing an inout staleness flag
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data

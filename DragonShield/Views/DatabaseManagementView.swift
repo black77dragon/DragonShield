@@ -308,12 +308,8 @@ struct DatabaseManagementView: View {
     private func backupNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let dbType = UTType(filenameExtension: "db") {
-                panel.allowedContentTypes = [dbType]
-            }
-        } else {
-            panel.allowedFileTypes = ["db"]
+        if let dbType = UTType(filenameExtension: "db") {
+            panel.allowedContentTypes = [dbType]
         }
         let refDir = backupService.backupDirectory.appendingPathComponent("Reference", isDirectory: true)
         try? FileManager.default.createDirectory(at: refDir, withIntermediateDirectories: true)
@@ -341,12 +337,8 @@ struct DatabaseManagementView: View {
     private func backupReferenceNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
+        if let sqlType = UTType(filenameExtension: "sql") {
+            panel.allowedContentTypes = [sqlType]
         }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultReferenceFileName(
@@ -372,12 +364,8 @@ struct DatabaseManagementView: View {
     private func backupTransactionNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
+        if let sqlType = UTType(filenameExtension: "sql") {
+            panel.allowedContentTypes = [sqlType]
         }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = "DragonShield_Transaction.sql"
@@ -455,7 +443,9 @@ struct DatabaseManagementView: View {
     private func selectFile(isProduction: Bool) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
-        panel.allowedFileTypes = ["sqlite"]
+        if let sqliteType = UTType(filenameExtension: "sqlite") {
+            panel.allowedContentTypes = [sqliteType]
+        }
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
