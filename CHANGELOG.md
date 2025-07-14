@@ -222,3 +222,4 @@ All notable changes to this project will be documented in this file.
 - Fix missing `rowCounts` call in BackupService causing compilation failure
 - Fix compile error in Database Management view due to missing `value:` label
 - Add manual Refresh Instrument Timestamps button to recalculate earliest instrument dates
+- Fix compile error when loading config paths from config.json

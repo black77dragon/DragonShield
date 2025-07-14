@@ -214,9 +214,9 @@ class DatabaseManager: ObservableObject {
             let test_db_path: String?
         }
         let fm = FileManager.default
-        if let url = Bundle.main.url(forResource: "config", withExtension: "json") ??
-            URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent("config.json"),
-           let data = try? Data(contentsOf: url),
+        let url = Bundle.main.url(forResource: "config", withExtension: "json") ??
+            URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent("config.json")
+        if let data = try? Data(contentsOf: url),
            let config = try? JSONDecoder().decode(Config.self, from: data) {
             return (config.production_db_path, config.test_db_path)
         }
