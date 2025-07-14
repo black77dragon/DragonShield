@@ -1,5 +1,4 @@
 PRAGMA foreign_keys=OFF;
-BEGIN TRANSACTION;
 
 -- Sample Exchange Rates for testing
 -- Five consecutive dates: 2025-07-09 to 2025-07-13
@@ -94,5 +93,3 @@ INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, i
 INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, is_latest) VALUES ('ETH', '2025-07-12', 2575.0000, 'api', 0);
 INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, is_latest) VALUES ('ETH', '2025-07-13', 2600.0000, 'api', 1);
 
-COMMIT;
-PRAGMA foreign_keys=ON;
