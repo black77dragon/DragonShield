@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Load production and test database paths from `config.json` on startup
+- Use the configured path for each mode when opening the database on startup
 - Fix initialization error when loading config before properties were assigned
 - Disable the App Sandbox so databases outside the container can be accessed
  - Open the database using the production path from this config file

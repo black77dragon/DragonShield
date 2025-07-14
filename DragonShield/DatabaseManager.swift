@@ -65,7 +65,14 @@ class DatabaseManager: ObservableObject {
 
         loadConfigFile()
 
-        self.dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath
+        switch dbMode {
+        case .production:
+            self.dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath
+        case .test:
+            self.dbPath = testDBPath.isEmpty ? defaultTestPath : testDBPath
+        }
+
+        print("📂 Configured DB path for \(dbMode): \(dbPath)")
 
         
         #if DEBUG
