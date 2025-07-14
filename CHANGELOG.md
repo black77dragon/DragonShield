@@ -220,3 +220,4 @@ All notable changes to this project will be documented in this file.
 - Fix build warnings for dashboard onChange and unused variable
 - Resolve Swift compiler crash in TilePickerView by refactoring TileRegistry
 - Enlarge dashboard tile picker window and add "OK" button to close
+- Remove Asset Dashboard view in favor of Portfolio Overview
