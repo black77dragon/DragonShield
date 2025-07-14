@@ -21,10 +21,6 @@ struct SidebarView: View {
                     Label("Portfolio Overview", systemImage: "chart.pie.fill")
                 }
                 
-                NavigationLink(destination: AssetDashboardView()) {
-                    Label("Asset Dashboard", systemImage: "chart.bar.fill")
-                }
-                
                 NavigationLink(destination: TransactionsView()) {
                     Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
                 }

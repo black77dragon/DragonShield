@@ -42,17 +42,6 @@ struct AssetAllocationVarianceItem: Identifiable {
     let lastRebalance: Date?
 }
 
-struct AssetDashboardClass: Identifiable {
-    let id = UUID()
-    let name: String
-    let assets: [AssetDashboardItem]
-}
-
-struct AssetDashboardItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let value: Double
-}
 
 extension DatabaseManager {
 
@@ -111,20 +100,4 @@ extension DatabaseManager {
         return (allocations, portfolioValue)
     }
 
-    func fetchAssetDashboardData() -> [AssetDashboardClass] {
-        // Placeholder groups ordered by total value
-        return [
-            AssetDashboardClass(name: "Equities", assets: [
-                AssetDashboardItem(name: "Apple Inc.", value: 15000),
-                AssetDashboardItem(name: "Microsoft Corp.", value: 12500),
-                AssetDashboardItem(name: "Roche Holding AG", value: 8000)
-            ]),
-            AssetDashboardClass(name: "ETFs", assets: [
-                AssetDashboardItem(name: "iShares MSCI World", value: 11000)
-            ]),
-            AssetDashboardClass(name: "Crypto", assets: [
-                AssetDashboardItem(name: "Bitcoin", value: 9500)
-            ])
-        ]
-    }
 }

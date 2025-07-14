@@ -13,9 +13,6 @@ The app follows Apple's best-in-class UX conventions while embracing ZEN-minimal
 - **Diverse Asset Tracking**: Stocks, ETFs, Bonds, Real Estate, Crypto, Options, Structured Products, Cash/Bank Accounts.
 - **Document Parsing**: Import monthly statements in CSV, XLSX or PDF (German & English) with automatic ISIN/symbol, quantity, price and fee extraction.
 
-### Asset Dashboard
-A graphical overview of all holdings grouped by asset class. Assets are sorted by market value within their class and displayed in interactive bar charts. Hover to reveal values and double-click to drill down for details.
-
 ### Additional Features
 - **Target Allocation & Alerts**: Define goals per class/instrument; automatic gap calculation and alerting
 - **Transaction History**: Chronological log with rich filter & sort, CSV export
