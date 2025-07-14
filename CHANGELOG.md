@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Store `production_db_path` and `test_db_path` in the Configuration table
+- Disable the App Sandbox so databases outside the container can be accessed
 - Open the database using these paths on startup
 - Persist selected `.sqlite` files and refresh the connection immediately
 - Drop security-scoped bookmark handling
