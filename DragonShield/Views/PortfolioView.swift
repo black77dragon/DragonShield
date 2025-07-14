@@ -77,6 +77,11 @@ struct PortfolioView: View {
                     }
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Reload") { assetManager.loadAssets() }
+            }
+        }
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -645,9 +650,7 @@ struct InstrumentParticle {
 // Note: ScaleButtonStyle is defined in AddInstrumentView.swift
 
 // MARK: - Preview
-struct PortfolioView_Previews: PreviewProvider {
-    static var previews: some View {
-        PortfolioView()
-            .environmentObject(AssetManager())
-    }
+#Preview {
+    PortfolioView()
+        .environmentObject(AssetManager())
 }
