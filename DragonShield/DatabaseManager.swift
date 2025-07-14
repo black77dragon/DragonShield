@@ -48,19 +48,25 @@ class DatabaseManager: ObservableObject {
 
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        self.appDir = appSupport.appendingPathComponent("DragonShield")
+        let appDir = appSupport.appendingPathComponent("DragonShield")
 
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
         // Start in production mode and load database paths from config.json if present
-        self.dbMode = .production
+        let initialMode: DatabaseMode = .production
 
         let paths = DatabaseManager.loadPathsFromConfig()
-        self.defaultProdPath = paths.prod ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
-        self.defaultTestPath = paths.test ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
+        let prodPath = paths.prod ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        let testPath = paths.test ?? appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
 
         // Determine initial database path based on the selected mode
-        self.dbPath = dbMode == .production ? defaultProdPath : defaultTestPath
+        let initialPath = initialMode == .production ? prodPath : testPath
+
+        self.appDir = appDir
+        self.defaultProdPath = prodPath
+        self.defaultTestPath = testPath
+        self.dbMode = initialMode
+        self.dbPath = initialPath
 
         // Open default database first to read configuration paths
 
