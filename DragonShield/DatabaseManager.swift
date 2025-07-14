@@ -59,11 +59,12 @@ class DatabaseManager: ObservableObject {
         self.defaultProdPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
         self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
 
-        self.dbPath = dbMode == .production ? defaultProdPath : defaultTestPath
+        // use local `mode` to avoid accessing property wrapper before init completes
+        self.dbPath = mode == .production ? defaultProdPath : defaultTestPath
 
         // Open default database first to read configuration paths
 
-        print("📂 Configured DB path for \(dbMode): \(dbPath)")
+        print("📂 Configured DB path for \(mode): \(dbPath)")
 
         
         #if DEBUG
