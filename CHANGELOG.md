@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Persist selected database paths in the `Configuration` table and reopen the correct file on startup
+- Remove outdated config file storage for database paths
+- Use modern `allowedContentTypes` API for file pickers
+- Fix build error resolving bookmark URLs by passing an inout staleness flag
+- Fix compile error when initializing DatabaseManager due to referencing `dbMode` before all properties were set
+- Fix compile error when closing the database due to optional binding mismatch
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing

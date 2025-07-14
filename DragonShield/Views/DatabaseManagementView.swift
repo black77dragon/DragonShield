@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
+import SQLite3
 
 struct DatabaseManagementView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -18,6 +19,8 @@ struct DatabaseManagementView: View {
     @State private var showTransactionRestoreConfirm = false
     @State private var errorMessage: String?
     @State private var showLogDetails = false
+    @State private var productionPath: String = ""
+    @State private var testPath: String = ""
 
     // MARK: - Info Card
     private func infoRow(_ label: String, value: String, mono: Bool = false) -> some View {
@@ -217,16 +220,53 @@ struct DatabaseManagementView: View {
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
 
+    private var pathCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Database File Locations")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Theme.primaryAccent)
+
+            HStack {
+                Text("Production DB File")
+                Spacer()
+                Text(productionPath.isEmpty ? "Not configured" : productionPath)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 300, alignment: .leading)
+                Button("Browse…") { selectFile(isProduction: true) }
+            }
+
+            HStack {
+                Text("Test DB File")
+                Spacer()
+                Text(testPath.isEmpty ? "Not configured" : testPath)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minWidth: 300, alignment: .leading)
+                Button("Browse…") { selectFile(isProduction: false) }
+            }
+        }
+        .padding(24)
+        .background(Theme.surface)
+        .cornerRadius(8)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+    }
+
     // MARK: - Layout
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 infoCard
+                pathCard
                 actionsCard
                 logCard
             }
             .padding(32)
         }
+        .onAppear {
+            productionPath = dbManager.productionDBPath
+            testPath = dbManager.testDBPath
+        }
+        .onReceive(dbManager.$productionDBPath) { productionPath = $0 }
+        .onReceive(dbManager.$testDBPath) { testPath = $0 }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
@@ -268,12 +308,8 @@ struct DatabaseManagementView: View {
     private func backupNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let dbType = UTType(filenameExtension: "db") {
-                panel.allowedContentTypes = [dbType]
-            }
-        } else {
-            panel.allowedFileTypes = ["db"]
+        if let dbType = UTType(filenameExtension: "db") {
+            panel.allowedContentTypes = [dbType]
         }
         let refDir = backupService.backupDirectory.appendingPathComponent("Reference", isDirectory: true)
         try? FileManager.default.createDirectory(at: refDir, withIntermediateDirectories: true)
@@ -301,12 +337,8 @@ struct DatabaseManagementView: View {
     private func backupReferenceNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
+        if let sqlType = UTType(filenameExtension: "sql") {
+            panel.allowedContentTypes = [sqlType]
         }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultReferenceFileName(
@@ -332,12 +364,8 @@ struct DatabaseManagementView: View {
     private func backupTransactionNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
+        if let sqlType = UTType(filenameExtension: "sql") {
+            panel.allowedContentTypes = [sqlType]
         }
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = "DragonShield_Transaction.sql"
@@ -402,6 +430,37 @@ struct DatabaseManagementView: View {
                     processing = false
                     errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func isValidSQLite(_ url: URL) -> Bool {
+        var db: OpaquePointer?
+        defer { if db != nil { sqlite3_close(db) } }
+        return sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK
+    }
+
+    private func selectFile(isProduction: Bool) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        if let sqliteType = UTType(filenameExtension: "sqlite") {
+            panel.allowedContentTypes = [sqliteType]
+        }
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            guard isValidSQLite(url) else {
+                errorMessage = "Selected file is not a valid SQLite database"
+                return
+            }
+            let path = url.path
+            dbManager.updateDBPath(path, isProduction: isProduction)
+            if isProduction {
+                productionPath = path
+                if dbManager.dbMode == .production { dbManager.reopenDatabase(atPath: path) }
+            } else {
+                testPath = path
+                if dbManager.dbMode == .test { dbManager.reopenDatabase(atPath: path) }
             }
         }
     }

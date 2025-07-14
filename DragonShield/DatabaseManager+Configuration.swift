@@ -8,6 +8,8 @@
 import SQLite3
 import Foundation
 
+fileprivate let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 extension DatabaseManager {
     
     func loadConfiguration() {
@@ -16,7 +18,8 @@ extension DatabaseManager {
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
-                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version'
+                'default_timezone', 'table_row_spacing', 'table_row_padding', 'db_version',
+                'production_db_path', 'test_db_path'
             );
         """
         var statement: OpaquePointer?
@@ -50,9 +53,13 @@ extension DatabaseManager {
                         self.tableRowSpacing = Double(value) ?? 1.0
                     case "table_row_padding":
                         self.tableRowPadding = Double(value) ?? 12.0
-                    case "db_version":
-                        self.dbVersion = value
-                        print("📦 Database version loaded: \(value)")
+                   case "db_version":
+                       self.dbVersion = value
+                       print("📦 Database version loaded: \(value)")
+                    case "production_db_path":
+                        self.productionDBPath = value
+                    case "test_db_path":
+                        self.testDBPath = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -74,7 +81,6 @@ extension DatabaseManager {
             return false
         }
         
-        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
         
@@ -91,6 +97,7 @@ extension DatabaseManager {
         }
         return success
     }
+
 
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")

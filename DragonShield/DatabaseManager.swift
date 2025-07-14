@@ -21,6 +21,8 @@ class DatabaseManager: ObservableObject {
     var db: OpaquePointer?
     private var dbPath: String
     private let appDir: URL
+    private let defaultProdPath: String
+    private let defaultTestPath: String
 
     @Published var dbMode: DatabaseMode
     @Published var dbFileSize: Int64 = 0
@@ -39,6 +41,8 @@ class DatabaseManager: ObservableObject {
     @Published var dbFilePath: String = ""
     @Published var dbCreated: Date?
     @Published var dbModified: Date?
+    @Published var productionDBPath: String = ""
+    @Published var testDBPath: String = ""
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
@@ -51,7 +55,16 @@ class DatabaseManager: ObservableObject {
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
-        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+
+        self.defaultProdPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
+
+        // use local `mode` to avoid accessing property wrapper before init completes
+        self.dbPath = mode == .production ? defaultProdPath : defaultTestPath
+
+        // Open default database first to read configuration paths
+
+        print("📂 Configured DB path for \(mode): \(dbPath)")
 
         
         #if DEBUG
@@ -77,12 +90,20 @@ class DatabaseManager: ObservableObject {
             } else {
                 print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
             }
-        } else {
-             print("✅ Using existing database at: \(dbPath)")
         }
-        
+
         openDatabase()
         loadConfiguration()
+
+        let configuredPath = (dbMode == .production
+            ? (productionDBPath.isEmpty ? defaultProdPath : productionDBPath)
+            : (testDBPath.isEmpty ? defaultTestPath : testDBPath))
+        if configuredPath != dbPath {
+            reopenDatabase(atPath: configuredPath)
+        }
+
+        print("✅ Using database at: \(dbPath)")
+
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
@@ -127,6 +148,7 @@ class DatabaseManager: ObservableObject {
             db = nil
             print("✅ Database connection closed")
         }
+        // no additional cleanup needed
     }
 
     func reopenDatabase() {
@@ -134,6 +156,23 @@ class DatabaseManager: ObservableObject {
         openDatabase()
         loadConfiguration()
         updateFileMetadata()
+    }
+
+    func reopenDatabase(atPath path: String) {
+        dbPath = path
+        reopenDatabase()
+    }
+
+
+    func updateDBPath(_ path: String, isProduction: Bool) {
+        let key = isProduction ? "production_db_path" : "test_db_path"
+        if updateConfiguration(key: key, value: path) {
+            if isProduction {
+                productionDBPath = path
+            } else {
+                testDBPath = path
+            }
+        }
     }
 
     func rowCount(table: String) throws -> Int {
@@ -151,15 +190,18 @@ class DatabaseManager: ObservableObject {
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-        dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
-
-        if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-            }
+        if dbMode == .production {
+            dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath
+        } else {
+            dbPath = testDBPath.isEmpty ? defaultTestPath : testDBPath
         }
+        if !FileManager.default.fileExists(atPath: dbPath), let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+            try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
+        }
+
         reopenDatabase()
     }
+
 
     func runMigrations() {
         // Placeholder for future migration logic
@@ -172,12 +214,13 @@ class DatabaseManager: ObservableObject {
     
     deinit {
         // ... (deinit logic remains the same as v1.3) ...
-        if let dbPointer = db {
-            sqlite3_close(dbPointer)
+        if let pointer = db {
+            sqlite3_close(pointer)
             print("✅ Database connection closed in deinit.")
-            self.db = nil
+            db = nil
         } else {
             print("ℹ️ Database connection was already nil in deinit.")
         }
+        // nothing else to clean up
     }
 }
