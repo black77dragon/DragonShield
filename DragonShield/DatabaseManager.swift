@@ -61,6 +61,8 @@ class DatabaseManager: ObservableObject {
         self.defaultTestPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .test)).path
         self.configURL = appDir.appendingPathComponent("config.json")
 
+        self.dbPath = defaultProdPath
+
         loadConfigFile()
 
         self.dbPath = productionDBPath.isEmpty ? defaultProdPath : productionDBPath

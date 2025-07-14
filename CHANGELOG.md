@@ -3,8 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
- - Load production and test database paths from `config.json` on startup
- - Disable the App Sandbox so databases outside the container can be accessed
+- Load production and test database paths from `config.json` on startup
+- Fix initialization error when loading config before properties were assigned
+- Disable the App Sandbox so databases outside the container can be accessed
  - Open the database using the production path from this config file
  - Persist selected `.sqlite` files and refresh the connection immediately
 - Drop security-scoped bookmark handling
