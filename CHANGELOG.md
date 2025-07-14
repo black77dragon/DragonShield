@@ -231,3 +231,4 @@ All notable changes to this project will be documented in this file.
 - Enlarge dashboard tile picker window and add "OK" button to close
 - Remove Asset Dashboard view in favor of Portfolio Overview
 - Display position value columns in original currency and CHF on Positions screen
+- Show Top 10 Positions by Asset Value (CHF) on Dashboard
