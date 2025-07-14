@@ -29,6 +29,8 @@ struct PositionsView: View {
 
     @State private var sortOrder = [KeyPathComparator(\PositionReportData.accountName)]
 
+    @StateObject private var viewModel = PositionsViewModel()
+
     var sortedPositions: [PositionReportData] {
         filteredPositions.sorted(using: sortOrder)
     }
@@ -66,6 +68,7 @@ struct PositionsView: View {
         .onAppear {
             loadPositions()
             loadInstitutions()
+            viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
             animateEntrance()
         }
         .alert("Delete Positions", isPresented: $showingDeleteAlert) {
@@ -107,6 +110,7 @@ struct PositionsView: View {
             }
             .environmentObject(dbManager)
         }
+        .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
     }
 
     // MARK: - Modern Header
@@ -127,6 +131,27 @@ struct PositionsView: View {
             Spacer()
             HStack(spacing: 16) {
                 modernStatCard(title: "Total", value: "\(positions.count)", icon: "number.circle.fill", color: .blue)
+                ZStack {
+                    modernStatCard(title: "Total Asset Value (CHF)",
+                                   value: String(format: "%.2f CHF", viewModel.totalAssetValueCHF),
+                                   icon: "sum", color: .blue)
+                    if viewModel.calculating {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.black.opacity(0.1))
+                        ProgressView()
+                    }
+                }
+                Button {
+                    viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .padding(6)
+                }
+                .background(Color.blue.opacity(0.1))
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1))
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(viewModel.calculating)
             }
         }
         .padding(.horizontal, 24)
@@ -379,6 +404,7 @@ struct PositionsView: View {
 
     private func loadPositions() {
         positions = dbManager.fetchPositionReports()
+        viewModel.calculateTotalAssetValue(positions: positions, db: dbManager)
     }
 
     private func loadInstitutions() {
