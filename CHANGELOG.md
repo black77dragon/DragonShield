@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Add risk concentration dashboard tile showing top 5 groups by value
 - Support asset class grouping and display CHF values in Risk Buckets tile
 - Improve Position form with labeled numeric fields and aligned date pickers
+- Refine Position form typography and enforce minimum sheet size
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts

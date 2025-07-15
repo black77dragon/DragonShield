@@ -51,7 +51,7 @@ struct PositionFormView: View {
             }
         }
         .padding(24)
-        .frame(width: 480)
+        .frame(minWidth: 520, minHeight: 620)
         .onAppear { loadData(); populate() }
     }
 
@@ -115,17 +115,20 @@ struct PositionFormView: View {
                     .accessibilityLabel("Notes")
             }
         }
+        .formStyle(.grouped)
     }
 
     private func numericField(label: String, text: Binding<String>) -> some View {
         HStack {
             Text(label)
+                .font(.headline)
             Spacer()
             TextField("", text: text)
                 .multilineTextAlignment(.trailing)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
                 .accessibilityLabel(label)
+                .font(.body)
         }
     }
 
@@ -146,10 +149,12 @@ struct PositionFormView: View {
         HStack {
             Text(label)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
             DatePicker("", selection: date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.field)
                 .frame(maxWidth: .infinity, alignment: .trailing)
+                .font(.body)
         }
     }
 
