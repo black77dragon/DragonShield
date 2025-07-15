@@ -49,8 +49,8 @@ struct PositionsView: View {
         }
 
         func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
-            let left = viewModel.positionValueOriginal[lhs.id]
-            let right = viewModel.positionValueOriginal[rhs.id]
+            let left = viewModel.positionValueOriginal[lhs.id] ?? nil
+            let right = viewModel.positionValueOriginal[rhs.id] ?? nil
             return compareOptional(left, right)
         }
 
@@ -91,8 +91,8 @@ struct PositionsView: View {
         }
 
         func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
-            let left = viewModel.positionValueCHF[lhs.id]
-            let right = viewModel.positionValueCHF[rhs.id]
+            let left = viewModel.positionValueCHF[lhs.id] ?? nil
+            let right = viewModel.positionValueCHF[rhs.id] ?? nil
             return compareOptional(left, right)
         }
 
@@ -401,7 +401,7 @@ struct PositionsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
             }
-        }
+        },
 
         TableColumn(
             "Position Value (CHF)",
