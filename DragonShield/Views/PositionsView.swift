@@ -197,9 +197,17 @@ struct PositionsView: View {
     private func buildPositionsTable(data: [PositionReportData]) -> some View {
         Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
             noteColumn()
-            basicInfoColumns()
-            valueColumns()
-            dateAndActionColumns()
+            accountColumn()
+            institutionColumn()
+            instrumentColumn()
+            currencyColumn()
+            quantityColumn()
+            purchaseColumn()
+            currentColumn()
+            originalValueColumn()
+            chfValueColumn()
+            datesColumn()
+            actionsColumn()
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .padding(24)
@@ -207,15 +215,13 @@ struct PositionsView: View {
         .cornerRadius(8)
     }
 
-    @TableBuilder
-    private func noteColumn() -> some View {
+    private func noteColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Note") { (position: PositionReportData) in
             noteCell(note: position.notes)
         }
     }
 
-    @TableBuilder
-    private func basicInfoColumns() -> some View {
+    private func accountColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
             Text(position.accountName)
                 .font(.system(size: 13))
@@ -224,7 +230,9 @@ struct PositionsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
         }
+    }
 
+    private func institutionColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
             Text(position.institutionName)
                 .font(.system(size: 13))
@@ -233,7 +241,9 @@ struct PositionsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
         }
+    }
 
+    private func instrumentColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
             Text(position.instrumentName)
                 .font(.system(size: 14))
@@ -242,7 +252,9 @@ struct PositionsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
 
+    private func currencyColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
             Text(position.instrumentCurrency)
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -251,7 +263,9 @@ struct PositionsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
         }
+    }
 
+    private func quantityColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
             Text(String(format: "%.2f", position.quantity))
                 .font(.system(size: 14, design: .monospaced))
@@ -259,7 +273,9 @@ struct PositionsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
         }
+    }
 
+    private func purchaseColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
             if let p = position.purchasePrice {
                 Text(String(format: "%.2f", p))
@@ -276,7 +292,9 @@ struct PositionsView: View {
                     .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
             }
         }
+    }
 
+    private func currentColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
             if let cp = position.currentPrice {
                 Text(String(format: "%.2f", cp))
@@ -295,15 +313,16 @@ struct PositionsView: View {
         }
     }
 
-    @TableBuilder
-    private func valueColumns() -> some View {
+    private func originalValueColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn(
             "Position Value (Original Currency)",
             sortUsing: ValueComparator(kind: .original, viewModel: viewModel)
         ) { (position: PositionReportData) in
             originalValueCell(for: position)
         }
+    }
 
+    private func chfValueColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn(
             "Position Value (CHF)",
             sortUsing: ValueComparator(kind: .chf, viewModel: viewModel)
@@ -312,8 +331,7 @@ struct PositionsView: View {
         }
     }
 
-    @TableBuilder
-    private func dateAndActionColumns() -> some View {
+    private func datesColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
             VStack {
                 if let iu = position.instrumentUpdatedAt {
@@ -326,7 +344,9 @@ struct PositionsView: View {
             .foregroundColor(.secondary)
             .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
         }
+    }
 
+    private func actionsColumn() -> TableColumn<PositionReportData, some View, Text> {
         TableColumn("Actions") { (position: PositionReportData) in
             HStack(spacing: 8) {
                 Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
