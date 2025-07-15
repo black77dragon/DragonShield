@@ -60,7 +60,11 @@ struct PositionsView: View {
     @AppStorage(UserDefaultsKeys.positionsVisibleColumns)
     private var persistedColumnsData: Data = Data()
 
+    @AppStorage(UserDefaultsKeys.positionsFontSize)
+    private var fontSize: Double = 13
+
     @State private var visibleColumns: Set<Column> = Set(Column.allCases)
+    @State private var showSettingsPopover = false
 
     init() {
         if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.positionsVisibleColumns),
@@ -207,20 +211,8 @@ struct PositionsView: View {
                 .buttonStyle(ScaleButtonStyle())
                 .disabled(viewModel.calculating)
 
-                Menu {
-                    ForEach(Column.allCases) { column in
-                        Toggle(column.title, isOn: Binding(
-                            get: { visibleColumns.contains(column) },
-                            set: { newValue in
-                                if newValue {
-                                    visibleColumns.insert(column)
-                                } else if !Self.requiredColumns.contains(column) {
-                                    visibleColumns.remove(column)
-                                }
-                            }
-                        ))
-                        .disabled(Self.requiredColumns.contains(column))
-                    }
+                Button {
+                    showSettingsPopover.toggle()
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                         .padding(6)
@@ -229,6 +221,33 @@ struct PositionsView: View {
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1))
                 .buttonStyle(ScaleButtonStyle())
+                .popover(isPresented: $showSettingsPopover, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Columns")
+                            .font(.headline)
+                        ForEach(Column.allCases) { column in
+                            Toggle(column.title, isOn: Binding(
+                                get: { visibleColumns.contains(column) },
+                                set: { newValue in
+                                    if newValue {
+                                        visibleColumns.insert(column)
+                                    } else if !Self.requiredColumns.contains(column) {
+                                        visibleColumns.remove(column)
+                                    }
+                                }
+                            ))
+                            .disabled(Self.requiredColumns.contains(column))
+                        }
+                        Divider()
+                        VStack(alignment: .leading) {
+                            Text("Font Size: \(Int(fontSize)) pt")
+                            Slider(value: $fontSize, in: 7...14, step: 1)
+                                .frame(width: 160)
+                        }
+                    }
+                    .padding()
+                    .frame(width: 220)
+                }
             }
         }
         .padding(.horizontal, 24)
@@ -275,7 +294,7 @@ struct PositionsView: View {
                 if visibleColumns.contains(.account) {
                     TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
                         Text(position.accountName)
-                            .font(.system(size: 13))
+                            .font(.system(size: fontSize))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +306,7 @@ struct PositionsView: View {
                 if visibleColumns.contains(.institution) {
                     TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
                         Text(position.institutionName)
-                            .font(.system(size: 13))
+                            .font(.system(size: fontSize))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -299,7 +318,7 @@ struct PositionsView: View {
                 if visibleColumns.contains(.instrument) {
                     TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
                         Text(position.instrumentName)
-                            .font(.system(size: 14))
+                            .font(.system(size: fontSize))
                             .foregroundColor(.primary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -311,7 +330,7 @@ struct PositionsView: View {
                 if visibleColumns.contains(.currency) {
                     TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
                         Text(position.instrumentCurrency)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
                             .foregroundColor(colorForCurrency(position.instrumentCurrency))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -323,7 +342,7 @@ struct PositionsView: View {
                 if visibleColumns.contains(.quantity) {
                     TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
                         Text(String(format: "%.2f", position.quantity))
-                            .font(.system(size: 14, design: .monospaced))
+                            .font(.system(size: fontSize, design: .monospaced))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -335,13 +354,13 @@ struct PositionsView: View {
                     TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
                         if let p = position.purchasePrice {
                             Text(String(format: "%.2f", p))
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         } else {
                             Text("-")
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -355,13 +374,13 @@ struct PositionsView: View {
                     TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
                         if let cp = position.currentPrice {
                             Text(String(format: "%.2f", cp))
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         } else {
                             Text("-")
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -376,13 +395,13 @@ struct PositionsView: View {
                         if let value = viewModel.positionValueOriginal[position.id] {
                             let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
                             Text(String(format: "%.2f %@", value, symbol))
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         } else {
                             Text("-")
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -397,13 +416,13 @@ struct PositionsView: View {
                         if let opt = viewModel.positionValueCHF[position.id] {
                             if let value = opt {
                                 Text(String(format: "%.2f CHF", value))
-                                    .font(.system(size: 14, design: .monospaced))
+                                    .font(.system(size: fontSize, design: .monospaced))
                                     .lineLimit(2)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                             } else {
                                 Text("-")
-                                    .font(.system(size: 14, design: .monospaced))
+                                    .font(.system(size: fontSize, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .lineLimit(2)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -411,7 +430,7 @@ struct PositionsView: View {
                             }
                         } else {
                             Text("-")
-                                .font(.system(size: 14, design: .monospaced))
+                                .font(.system(size: fontSize, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -432,7 +451,7 @@ struct PositionsView: View {
                             Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
                             Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
                         }
-                        .font(.system(size: 12))
+                        .font(.system(size: fontSize))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                     }
@@ -454,6 +473,7 @@ struct PositionsView: View {
             }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .font(.system(size: fontSize))
         .padding(24)
         .background(Theme.surface)
         .cornerRadius(8)
