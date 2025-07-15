@@ -200,6 +200,7 @@ struct PositionsView: View {
                     Color.clear.frame(width: 20)
                 }
             }
+            .width(min: 24, ideal: 24)
 
             Group {
                 TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
@@ -208,8 +209,9 @@ struct PositionsView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .width(min: 160, ideal: 180)
 
                 TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
                     Text(position.institutionName)
@@ -217,8 +219,9 @@ struct PositionsView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .width(min: 160, ideal: 180)
 
                 TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
                     Text(position.instrumentName)
@@ -228,6 +231,7 @@ struct PositionsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .width(min: 160, ideal: 200)
 
                 TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
                     Text(position.instrumentCurrency)
@@ -235,16 +239,18 @@ struct PositionsView: View {
                         .foregroundColor(colorForCurrency(position.instrumentCurrency))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
+                .width(min: 60, ideal: 70)
 
                 TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
                     Text(String(format: "%.2f", position.quantity))
                         .font(.system(size: 14, design: .monospaced))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                .width(min: 70, ideal: 80)
 
                 TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
                     if let p = position.purchasePrice {
@@ -252,16 +258,17 @@ struct PositionsView: View {
                             .font(.system(size: 14, design: .monospaced))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+                .width(min: 80, ideal: 90)
 
                 TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
                     if let cp = position.currentPrice {
@@ -269,16 +276,17 @@ struct PositionsView: View {
                             .font(.system(size: 14, design: .monospaced))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+                .width(min: 80, ideal: 90)
 
                 TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
                     if let value = viewModel.positionValueOriginal[position.id] {
@@ -287,16 +295,17 @@ struct PositionsView: View {
                             .font(.system(size: 14, design: .monospaced))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     } else {
                         Text("-")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+                .width(min: 180, ideal: 200)
 
                 TableColumn("Position Value (CHF)") { (position: PositionReportData) in
                     if let opt = viewModel.positionValueCHF[position.id] {
@@ -305,14 +314,14 @@ struct PositionsView: View {
                                 .font(.system(size: 14, design: .monospaced))
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                         } else {
                             Text("-")
                                 .font(.system(size: 14, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                         }
                     } else {
                         Text("-")
@@ -320,9 +329,10 @@ struct PositionsView: View {
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+                .width(min: 150, ideal: 170)
             }
 
             Group {
@@ -336,8 +346,9 @@ struct PositionsView: View {
                     }
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
+                .width(min: 120, ideal: 140)
 
                 TableColumn("Actions") { (position: PositionReportData) in
                     HStack(spacing: 8) {
@@ -346,8 +357,9 @@ struct PositionsView: View {
                         Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
                             .buttonStyle(PlainButtonStyle())
                     }
-                    .frame(width: 50)
+                    .frame(maxWidth: .infinity)
                 }
+                .width(min: 60, ideal: 60)
             }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
