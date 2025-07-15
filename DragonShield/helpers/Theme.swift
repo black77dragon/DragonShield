@@ -26,6 +26,13 @@ extension Theme {
         .derivatives: .teal,
         .other: .gray
     ]
+
+    static let currencyColors: [String: Color] = [
+        "CHF": .blue,
+        "USD": .green,
+        "EUR": .purple,
+        "BTC": .orange
+    ]
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
