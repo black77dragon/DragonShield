@@ -31,9 +31,22 @@ struct PositionsView: View {
 
     @StateObject private var viewModel = PositionsViewModel()
 
-    struct PositionValueOriginalComparator: SortComparator {
+    struct PositionValueOriginalComparator: SortComparator, Hashable {
         let viewModel: PositionsViewModel
         var order: SortOrder = .forward
+
+        static func == (
+            lhs: PositionValueOriginalComparator,
+            rhs: PositionValueOriginalComparator
+        ) -> Bool {
+            ObjectIdentifier(lhs.viewModel) == ObjectIdentifier(rhs.viewModel) &&
+                lhs.order == rhs.order
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(viewModel))
+            hasher.combine(order)
+        }
 
         func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
             let left = viewModel.positionValueOriginal[lhs.id]
@@ -60,9 +73,22 @@ struct PositionsView: View {
         }
     }
 
-    struct PositionValueCHFComparator: SortComparator {
+    struct PositionValueCHFComparator: SortComparator, Hashable {
         let viewModel: PositionsViewModel
         var order: SortOrder = .forward
+
+        static func == (
+            lhs: PositionValueCHFComparator,
+            rhs: PositionValueCHFComparator
+        ) -> Bool {
+            ObjectIdentifier(lhs.viewModel) == ObjectIdentifier(rhs.viewModel) &&
+                lhs.order == rhs.order
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(viewModel))
+            hasher.combine(order)
+        }
 
         func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
             let left = viewModel.positionValueCHF[lhs.id] ?? nil
