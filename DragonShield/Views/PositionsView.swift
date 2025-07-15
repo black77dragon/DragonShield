@@ -91,8 +91,8 @@ struct PositionsView: View {
         }
 
         func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
-            let left = viewModel.positionValueCHF[lhs.id] ?? nil
-            let right = viewModel.positionValueCHF[rhs.id] ?? nil
+            let left = viewModel.positionValueCHF[lhs.id]
+            let right = viewModel.positionValueCHF[rhs.id]
             return compareOptional(left, right)
         }
 
