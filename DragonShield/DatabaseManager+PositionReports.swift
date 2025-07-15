@@ -16,6 +16,7 @@ struct PositionReportData: Identifiable {
         var instrumentCurrency: String
         var instrumentCountry: String?
         var instrumentSector: String?
+        var assetClass: String?
         var quantity: Double
         var purchasePrice: Double?
         var currentPrice: Double?
@@ -32,7 +33,7 @@ extension DatabaseManager {
         let query = """
             SELECT pr.position_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
-                   i.country_code, i.sector,
+                   i.country_code, i.sector, ac.class_name,
                    pr.quantity, pr.purchase_price, pr.current_price,
                    pr.instrument_updated_at,
                    pr.notes,
@@ -41,6 +42,8 @@ extension DatabaseManager {
             JOIN Accounts a ON pr.account_id = a.account_id
             JOIN Institutions ins ON pr.institution_id = ins.institution_id
             JOIN Instruments i ON pr.instrument_id = i.instrument_id
+            JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+            JOIN AssetClasses ac ON asc.class_id = ac.class_id
             ORDER BY pr.position_id;
         """
         var statement: OpaquePointer?
@@ -59,23 +62,24 @@ extension DatabaseManager {
                 let instrumentCurrency = String(cString: sqlite3_column_text(statement, 5))
                 let instrumentCountry = sqlite3_column_text(statement, 6).map { String(cString: $0) }
                 let instrumentSector = sqlite3_column_text(statement, 7).map { String(cString: $0) }
-                let quantity = sqlite3_column_double(statement, 8)
+                let assetClass = sqlite3_column_text(statement, 8).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(statement, 9)
                 var purchasePrice: Double?
-                if sqlite3_column_type(statement, 9) != SQLITE_NULL {
-                    purchasePrice = sqlite3_column_double(statement, 9)
+                if sqlite3_column_type(statement, 10) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 10)
                 }
                 var currentPrice: Double?
-                if sqlite3_column_type(statement, 10) != SQLITE_NULL {
-                    currentPrice = sqlite3_column_double(statement, 10)
+                if sqlite3_column_type(statement, 11) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 11)
                 }
                 var instrumentUpdatedAt: Date?
-                if sqlite3_column_type(statement, 11) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(statement, 11))
+                if sqlite3_column_type(statement, 12) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(statement, 12))
                     instrumentUpdatedAt = DateFormatter.iso8601DateOnly.date(from: str)
                 }
-                let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 13))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 14))
+                let notes: String? = sqlite3_column_text(statement, 13).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 14))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 15))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -87,6 +91,7 @@ extension DatabaseManager {
                     instrumentCurrency: instrumentCurrency,
                     instrumentCountry: instrumentCountry,
                     instrumentSector: instrumentSector,
+                    assetClass: assetClass,
                     quantity: quantity,
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,

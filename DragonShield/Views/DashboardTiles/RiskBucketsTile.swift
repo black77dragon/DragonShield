@@ -27,23 +27,32 @@ struct RiskBucketsTile: DashboardTile {
                 Text("No data to display")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                Chart(viewModel.topRiskBuckets) { bucket in
-                    SectorMark(
-                        angle: .value("Value", bucket.exposurePct)
-                    )
-                    .foregroundStyle(bucket.isOverconcentrated ? Color.error : Theme.primaryAccent)
-                    .annotation(position: .overlay) {
-                        VStack {
-                            Text(bucket.label)
-                                .font(.caption2)
-                            Text(String(format: "%.1f%%", bucket.exposurePct * 100))
-                                .font(.caption2)
-                        }
-                        .foregroundColor(.white)
+                HStack(alignment: .top) {
+                    Chart(viewModel.topRiskBuckets) { bucket in
+                        SectorMark(
+                            angle: .value("Share", bucket.exposurePct),
+                            innerRadius: .ratio(0.6)
+                        )
+                        .foregroundStyle(bucket.isOverconcentrated ? Color.warning : Theme.primaryAccent)
                     }
+                    .chartLegend(.hidden)
+                    .frame(width: 100, height: 100)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(viewModel.topRiskBuckets) { bucket in
+                            HStack {
+                                Text(bucket.label)
+                                    .frame(width: 80, alignment: .leading)
+                                Text(String(format: "%.1f%%", bucket.exposurePct * 100))
+                                    .frame(width: 50, alignment: .trailing)
+                                Text(String(format: "%.0f CHF", bucket.valueCHF))
+                            }
+                            .foregroundColor(bucket.isOverconcentrated ? .orange : .primary)
+                        }
+                    }
+                    .font(.caption)
+                    Spacer()
                 }
-                .chartLegend(.hidden)
-                .frame(height: 180)
             }
         }
         .padding(16)

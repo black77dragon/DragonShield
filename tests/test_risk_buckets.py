@@ -17,3 +17,19 @@ def test_risk_buckets_grouping_and_highlight():
     assert abs(buckets[0]["value_chf"] - health_value) < 1e-6
     assert abs(buckets[0]["exposure_pct"] - health_value/total) < 1e-6
     assert buckets[0]["is_overconcentrated"] is True
+
+
+def test_risk_buckets_asset_class_dimension():
+    positions = [
+        {"quantity": 1, "current_price": 100.0, "currency": "CHF", "asset_class": "Equity"},
+        {"quantity": 2, "current_price": 50.0, "currency": "CHF", "asset_class": "Bond"},
+        {"quantity": 3, "current_price": 30.0, "currency": "CHF", "asset_class": "Equity"},
+    ]
+    rates = {}
+
+    buckets = top_risk_buckets(positions, rates, dimension="asset_class", top_n=2)
+    assert buckets[0]["label"] == "Equity"
+    total = 1*100.0 + 2*50.0 + 3*30.0
+    eq_value = 1*100.0 + 3*30.0
+    assert abs(buckets[0]["value_chf"] - eq_value) < 1e-6
+    assert abs(buckets[0]["exposure_pct"] - eq_value/total) < 1e-6
