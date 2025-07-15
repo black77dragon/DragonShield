@@ -245,3 +245,4 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in Positions view by restructuring table code and handling CHF optionals
 - Remove invalid TableBuilder attribute to restore builds
 - Break out positions table columns into helper views to aid compiler
+- Simplify column helper signatures to avoid generics compile error

@@ -215,13 +215,15 @@ struct PositionsView: View {
         .cornerRadius(8)
     }
 
-    private func noteColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func noteColumn() -> some View {
         TableColumn("Note") { (position: PositionReportData) in
             noteCell(note: position.notes)
         }
     }
 
-    private func accountColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func accountColumn() -> some View {
         TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
             Text(position.accountName)
                 .font(.system(size: 13))
@@ -232,7 +234,8 @@ struct PositionsView: View {
         }
     }
 
-    private func institutionColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func institutionColumn() -> some View {
         TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
             Text(position.institutionName)
                 .font(.system(size: 13))
@@ -243,7 +246,8 @@ struct PositionsView: View {
         }
     }
 
-    private func instrumentColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func instrumentColumn() -> some View {
         TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
             Text(position.instrumentName)
                 .font(.system(size: 14))
@@ -254,7 +258,8 @@ struct PositionsView: View {
         }
     }
 
-    private func currencyColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func currencyColumn() -> some View {
         TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
             Text(position.instrumentCurrency)
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -265,7 +270,8 @@ struct PositionsView: View {
         }
     }
 
-    private func quantityColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func quantityColumn() -> some View {
         TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
             Text(String(format: "%.2f", position.quantity))
                 .font(.system(size: 14, design: .monospaced))
@@ -275,7 +281,8 @@ struct PositionsView: View {
         }
     }
 
-    private func purchaseColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func purchaseColumn() -> some View {
         TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
             if let p = position.purchasePrice {
                 Text(String(format: "%.2f", p))
@@ -294,7 +301,8 @@ struct PositionsView: View {
         }
     }
 
-    private func currentColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func currentColumn() -> some View {
         TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
             if let cp = position.currentPrice {
                 Text(String(format: "%.2f", cp))
@@ -313,7 +321,8 @@ struct PositionsView: View {
         }
     }
 
-    private func originalValueColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func originalValueColumn() -> some View {
         TableColumn(
             "Position Value (Original Currency)",
             sortUsing: ValueComparator(kind: .original, viewModel: viewModel)
@@ -322,7 +331,8 @@ struct PositionsView: View {
         }
     }
 
-    private func chfValueColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func chfValueColumn() -> some View {
         TableColumn(
             "Position Value (CHF)",
             sortUsing: ValueComparator(kind: .chf, viewModel: viewModel)
@@ -331,7 +341,8 @@ struct PositionsView: View {
         }
     }
 
-    private func datesColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func datesColumn() -> some View {
         TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
             VStack {
                 if let iu = position.instrumentUpdatedAt {
@@ -346,7 +357,8 @@ struct PositionsView: View {
         }
     }
 
-    private func actionsColumn() -> TableColumn<PositionReportData, some View, Text> {
+    @ViewBuilder
+    private func actionsColumn() -> some View {
         TableColumn("Actions") { (position: PositionReportData) in
             HStack(spacing: 8) {
                 Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
