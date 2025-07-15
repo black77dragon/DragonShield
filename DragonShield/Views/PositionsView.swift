@@ -513,11 +513,13 @@ private struct HoverNote: Identifiable {
     let text: String
 }
 
-struct ValueComparator: SortComparator {
-    enum Kind { case original, chf }
+struct ValueComparator: SortComparator, Hashable {
+    enum Kind: Hashable { case original, chf }
+
     var kind: Kind
-    var viewModel: PositionsViewModel
+    unowned var viewModel: PositionsViewModel
     var order: SortOrder = .forward
+
     func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
         let l = value(for: lhs)
         let r = value(for: rhs)
@@ -525,6 +527,7 @@ struct ValueComparator: SortComparator {
         let result: ComparisonResult = l < r ? .orderedAscending : .orderedDescending
         return order == .forward ? result : (result == .orderedAscending ? .orderedDescending : .orderedAscending)
     }
+
     private func value(for item: PositionReportData) -> Double {
         switch kind {
         case .original:
@@ -532,6 +535,16 @@ struct ValueComparator: SortComparator {
         case .chf:
             return viewModel.positionValueCHF[item.id] ?? 0
         }
+    }
+
+    static func == (lhs: ValueComparator, rhs: ValueComparator) -> Bool {
+        lhs.kind == rhs.kind && lhs.order == rhs.order && lhs.viewModel === rhs.viewModel
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(kind)
+        hasher.combine(order)
+        hasher.combine(ObjectIdentifier(viewModel))
     }
 }
 
