@@ -246,3 +246,4 @@ All notable changes to this project will be documented in this file.
 - Allow hiding and showing columns in Positions table with persistent settings
 - Add adjustable font size (7-14pt) for Positions table in column settings
 - Resolve compile warnings in PositionsView and ExchangeRates helpers
+- Rename "Instrument Updated" label to "Last Update" in Position form

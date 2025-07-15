@@ -135,7 +135,7 @@ struct PositionFormView: View {
     private var datesGrid: some View {
         Grid(horizontalSpacing: 16, verticalSpacing: 8) {
             GridRow {
-                dateField(label: "Instrument Updated", date: $instrumentUpdatedAt)
+                dateField(label: "Last Update", date: $instrumentUpdatedAt)
                 dateField(label: "Value Date", date: $valueDate)
             }
             GridRow {
