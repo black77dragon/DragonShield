@@ -196,195 +196,223 @@ struct PositionsView: View {
 
     private func buildPositionsTable(data: [PositionReportData]) -> some View {
         Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
-            TableColumn("Note") { (position: PositionReportData) in
-                if let note = position.notes, !note.isEmpty {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
-                        .onHover { inside in
-                            hoverTask?.cancel()
-                            if inside {
-                                let item = HoverNote(text: note)
-                                let task = DispatchWorkItem { hoveredNote = item }
-                                hoverTask = task
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-                            } else {
-                                hoveredNote = nil
-                            }
-                        }
-                        .popover(item: $hoveredNote, arrowEdge: .top) { item in
-                            Text(item.text)
-                                .font(.system(size: 12))
-                                .foregroundColor(.primary)
-                                .padding(8)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(6)
-                                .frame(maxWidth: 250, alignment: .leading)
-                        }
-                        .frame(width: 20)
-                } else {
-                    Color.clear.frame(width: 20)
-                }
-            }
-
-            Group {
-                TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
-                    Text(position.accountName)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
-                    Text(position.institutionName)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
-                    Text(position.instrumentName)
-                        .font(.system(size: 14))
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
-                    Text(position.instrumentCurrency)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundColor(colorForCurrency(position.instrumentCurrency))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
-                }
-
-                TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
-                    Text(String(format: "%.2f", position.quantity))
-                        .font(.system(size: 14, design: .monospaced))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
-                }
-
-                TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
-                    if let p = position.purchasePrice {
-                        Text(String(format: "%.2f", p))
-                            .font(.system(size: 14, design: .monospaced))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-
-                TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
-                    if let cp = position.currentPrice {
-                        Text(String(format: "%.2f", cp))
-                            .font(.system(size: 14, design: .monospaced))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-
-                TableColumn(
-                    "Position Value (Original Currency)",
-                    sortUsing: ValueComparator(kind: .original, viewModel: viewModel)
-                ) { (position: PositionReportData) in
-                    if let value = viewModel.positionValueOriginal[position.id] {
-                        let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
-                        Text(String(format: "%.2f %@", value, symbol))
-                            .font(.system(size: 14, design: .monospaced))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-
-                TableColumn(
-                    "Position Value (CHF)",
-                    sortUsing: ValueComparator(kind: .chf, viewModel: viewModel)
-                ) { (position: PositionReportData) in
-                    if let opt = viewModel.positionValueCHF[position.id] {
-                        if let value = opt {
-                            Text(String(format: "%.2f CHF", value))
-                                .font(.system(size: 14, design: .monospaced))
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
-                        } else {
-                            Text("-")
-                                .font(.system(size: 14, design: .monospaced))
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
-                        }
-                    } else {
-                        Text("-")
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
-                    }
-                }
-            }
-
-            Group {
-                TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
-                    VStack {
-                        if let iu = position.instrumentUpdatedAt {
-                            Text(iu, formatter: DateFormatter.iso8601DateOnly)
-                        }
-                        Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
-                        Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
-                }
-
-                TableColumn("Actions") { (position: PositionReportData) in
-                    HStack(spacing: 8) {
-                        Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-                            .buttonStyle(PlainButtonStyle())
-                        Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
-                            .buttonStyle(PlainButtonStyle())
-                    }
-                    .frame(width: 50)
-                }
-            }
+            noteColumn()
+            basicInfoColumns()
+            valueColumns()
+            dateAndActionColumns()
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .padding(24)
         .background(Theme.surface)
         .cornerRadius(8)
+    }
+
+    @TableBuilder
+    private func noteColumn() -> some View {
+        TableColumn("Note") { (position: PositionReportData) in
+            noteCell(note: position.notes)
+        }
+    }
+
+    @TableBuilder
+    private func basicInfoColumns() -> some View {
+        TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
+            Text(position.accountName)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+        }
+
+        TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
+            Text(position.institutionName)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 150, idealWidth: 150, maxWidth: .infinity, alignment: .leading)
+        }
+
+        TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
+            Text(position.instrumentName)
+                .font(.system(size: 14))
+                .foregroundColor(.primary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
+            Text(position.instrumentCurrency)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundColor(colorForCurrency(position.instrumentCurrency))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .center)
+        }
+
+        TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
+            Text(String(format: "%.2f", position.quantity))
+                .font(.system(size: 14, design: .monospaced))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 60, idealWidth: 60, maxWidth: .infinity, alignment: .trailing)
+        }
+
+        TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
+            if let p = position.purchasePrice {
+                Text(String(format: "%.2f", p))
+                    .font(.system(size: 14, design: .monospaced))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+
+        TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
+            if let cp = position.currentPrice {
+                Text(String(format: "%.2f", cp))
+                    .font(.system(size: 14, design: .monospaced))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 70, idealWidth: 70, maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+    }
+
+    @TableBuilder
+    private func valueColumns() -> some View {
+        TableColumn(
+            "Position Value (Original Currency)",
+            sortUsing: ValueComparator(kind: .original, viewModel: viewModel)
+        ) { (position: PositionReportData) in
+            originalValueCell(for: position)
+        }
+
+        TableColumn(
+            "Position Value (CHF)",
+            sortUsing: ValueComparator(kind: .chf, viewModel: viewModel)
+        ) { (position: PositionReportData) in
+            chfValueCell(for: position)
+        }
+    }
+
+    @TableBuilder
+    private func dateAndActionColumns() -> some View {
+        TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
+            VStack {
+                if let iu = position.instrumentUpdatedAt {
+                    Text(iu, formatter: DateFormatter.iso8601DateOnly)
+                }
+                Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
+                Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
+            }
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .center)
+        }
+
+        TableColumn("Actions") { (position: PositionReportData) in
+            HStack(spacing: 8) {
+                Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
+                    .buttonStyle(PlainButtonStyle())
+                Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
+                    .buttonStyle(PlainButtonStyle())
+            }
+            .frame(width: 50)
+        }
+    }
+
+    @ViewBuilder
+    private func noteCell(note: String?) -> some View {
+        if let note = note, !note.isEmpty {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+                .onHover { inside in
+                    hoverTask?.cancel()
+                    if inside {
+                        let item = HoverNote(text: note)
+                        let task = DispatchWorkItem { hoveredNote = item }
+                        hoverTask = task
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
+                    } else {
+                        hoveredNote = nil
+                    }
+                }
+                .popover(item: $hoveredNote, arrowEdge: .top) { item in
+                    Text(item.text)
+                        .font(.system(size: 12))
+                        .foregroundColor(.primary)
+                        .padding(8)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(6)
+                        .frame(maxWidth: 250, alignment: .leading)
+                }
+                .frame(width: 20)
+        } else {
+            Color.clear.frame(width: 20)
+        }
+    }
+
+    @ViewBuilder
+    private func originalValueCell(for position: PositionReportData) -> some View {
+        if let value = viewModel.positionValueOriginal[position.id] {
+            let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
+            Text(String(format: "%.2f %@", value, symbol))
+                .font(.system(size: 14, design: .monospaced))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+        } else {
+            Text("-")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private func chfValueCell(for position: PositionReportData) -> some View {
+        if let opt = viewModel.positionValueCHF[position.id] {
+            if let value = opt {
+                Text(String(format: "%.2f CHF", value))
+                    .font(.system(size: 14, design: .monospaced))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+            } else {
+                Text("-")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            Text("-")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 110, idealWidth: 110, maxWidth: .infinity, alignment: .trailing)
+        }
     }
 
 
