@@ -259,6 +259,8 @@ enum TileRegistry {
         TileInfo(id: MetricTile.tileID, name: MetricTile.tileName, icon: MetricTile.iconName) { AnyView(MetricTile()) },
         TileInfo(id: TotalValueTile.tileID, name: TotalValueTile.tileName, icon: TotalValueTile.iconName) { AnyView(TotalValueTile()) },
         TileInfo(id: TopPositionsTile.tileID, name: TopPositionsTile.tileName, icon: TopPositionsTile.iconName) { AnyView(TopPositionsTile()) },
+
+        TileInfo(id: CurrencyExposureTile.tileID, name: CurrencyExposureTile.tileName, icon: CurrencyExposureTile.iconName) { AnyView(CurrencyExposureTile()) },
         TileInfo(id: RiskBucketsTile.tileID, name: RiskBucketsTile.tileName, icon: RiskBucketsTile.iconName) { AnyView(RiskBucketsTile()) },
         TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
         TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
