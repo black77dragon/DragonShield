@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
+- Add risk concentration dashboard tile showing top 5 groups by value
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts

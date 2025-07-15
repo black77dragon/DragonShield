@@ -14,6 +14,8 @@ struct PositionReportData: Identifiable {
         var institutionName: String
         var instrumentName: String
         var instrumentCurrency: String
+        var instrumentCountry: String?
+        var instrumentSector: String?
         var quantity: Double
         var purchasePrice: Double?
         var currentPrice: Double?
@@ -30,6 +32,7 @@ extension DatabaseManager {
         let query = """
             SELECT pr.position_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
+                   i.country_code, i.sector,
                    pr.quantity, pr.purchase_price, pr.current_price,
                    pr.instrument_updated_at,
                    pr.notes,
@@ -54,23 +57,25 @@ extension DatabaseManager {
                 let institutionName = String(cString: sqlite3_column_text(statement, 3))
                 let instrumentName = String(cString: sqlite3_column_text(statement, 4))
                 let instrumentCurrency = String(cString: sqlite3_column_text(statement, 5))
-                let quantity = sqlite3_column_double(statement, 6)
+                let instrumentCountry = sqlite3_column_text(statement, 6).map { String(cString: $0) }
+                let instrumentSector = sqlite3_column_text(statement, 7).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(statement, 8)
                 var purchasePrice: Double?
-                if sqlite3_column_type(statement, 7) != SQLITE_NULL {
-                    purchasePrice = sqlite3_column_double(statement, 7)
+                if sqlite3_column_type(statement, 9) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 9)
                 }
                 var currentPrice: Double?
-                if sqlite3_column_type(statement, 8) != SQLITE_NULL {
-                    currentPrice = sqlite3_column_double(statement, 8)
+                if sqlite3_column_type(statement, 10) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 10)
                 }
                 var instrumentUpdatedAt: Date?
-                if sqlite3_column_type(statement, 9) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(statement, 9))
+                if sqlite3_column_type(statement, 11) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(statement, 11))
                     instrumentUpdatedAt = DateFormatter.iso8601DateOnly.date(from: str)
                 }
-                let notes: String? = sqlite3_column_text(statement, 10).map { String(cString: $0) }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 11))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 12))
+                let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 13))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 14))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -80,6 +85,8 @@ extension DatabaseManager {
                     institutionName: institutionName,
                     instrumentName: instrumentName,
                     instrumentCurrency: instrumentCurrency,
+                    instrumentCountry: instrumentCountry,
+                    instrumentSector: instrumentSector,
                     quantity: quantity,
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,
