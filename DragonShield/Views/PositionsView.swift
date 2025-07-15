@@ -162,7 +162,7 @@ struct PositionsView: View {
             .environmentObject(dbManager)
         }
         .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
-        .onChange(of: visibleColumns) { _ in
+        .onChange(of: visibleColumns) {
             persistVisibleColumns()
         }
     }

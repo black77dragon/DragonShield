@@ -244,3 +244,4 @@ All notable changes to this project will be documented in this file.
 - Show Top 10 Positions by Asset Value (CHF) on Dashboard
 - Add Portfolio by Currency dashboard tile with CHF-based exposure
 - Allow hiding and showing columns in Positions table with persistent settings
+- Resolve compile warnings in PositionsView and ExchangeRates helpers
