@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Track earliest instrument update timestamp on Accounts
 - Test migrations for instrument update columns
 - Add exchange_rates.sql script with sample FX rates for all currencies
+- Enable sorting on Position Value columns in Positions view
 - Fix transaction error in exchange_rates.sql script
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers

@@ -31,6 +31,64 @@ struct PositionsView: View {
 
     @StateObject private var viewModel = PositionsViewModel()
 
+    struct PositionValueOriginalComparator: SortComparator {
+        let viewModel: PositionsViewModel
+        var order: SortOrder = .forward
+
+        func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
+            let left = viewModel.positionValueOriginal[lhs.id]
+            let right = viewModel.positionValueOriginal[rhs.id]
+            return compareOptional(left, right)
+        }
+
+        private func compareOptional(_ lhs: Double?, _ rhs: Double?) -> ComparisonResult {
+            switch (lhs, rhs) {
+            case let (l?, r?):
+                if l == r { return .orderedSame }
+                if order == .forward {
+                    return l < r ? .orderedAscending : .orderedDescending
+                } else {
+                    return l > r ? .orderedAscending : .orderedDescending
+                }
+            case (nil, nil):
+                return .orderedSame
+            case (nil, _):
+                return order == .forward ? .orderedAscending : .orderedDescending
+            case (_, nil):
+                return order == .forward ? .orderedDescending : .orderedAscending
+            }
+        }
+    }
+
+    struct PositionValueCHFComparator: SortComparator {
+        let viewModel: PositionsViewModel
+        var order: SortOrder = .forward
+
+        func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
+            let left = viewModel.positionValueCHF[lhs.id] ?? nil
+            let right = viewModel.positionValueCHF[rhs.id] ?? nil
+            return compareOptional(left, right)
+        }
+
+        private func compareOptional(_ lhs: Double?, _ rhs: Double?) -> ComparisonResult {
+            switch (lhs, rhs) {
+            case let (l?, r?):
+                if l == r { return .orderedSame }
+                if order == .forward {
+                    return l < r ? .orderedAscending : .orderedDescending
+                } else {
+                    return l > r ? .orderedAscending : .orderedDescending
+                }
+            case (nil, nil):
+                return .orderedSame
+            case (nil, _):
+                return order == .forward ? .orderedAscending : .orderedDescending
+            case (_, nil):
+                return order == .forward ? .orderedDescending : .orderedAscending
+            }
+        }
+    }
+
     private static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -280,7 +338,10 @@ struct PositionsView: View {
                     }
                 }
 
-                TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
+                TableColumn(
+                    "Position Value (Original Currency)",
+                    sortUsing: PositionValueOriginalComparator(viewModel: viewModel)
+                ) { (position: PositionReportData) in
                     if let value = viewModel.positionValueOriginal[position.id] {
                         let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
                         Text(String(format: "%.2f %@", value, symbol))
@@ -298,7 +359,10 @@ struct PositionsView: View {
                     }
                 }
 
-                TableColumn("Position Value (CHF)") { (position: PositionReportData) in
+                TableColumn(
+                    "Position Value (CHF)",
+                    sortUsing: PositionValueCHFComparator(viewModel: viewModel)
+                ) { (position: PositionReportData) in
                     if let opt = viewModel.positionValueCHF[position.id] {
                         if let value = opt {
                             Text(String(format: "%.2f CHF", value))
