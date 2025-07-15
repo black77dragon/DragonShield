@@ -1010,9 +1010,8 @@ struct AddAssetSubClassView: View {
             
             if success {
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.animateAddExit()
-                }
+                self.alertMessage = "✅ Asset SubClass added successfully."
+                self.showingAlert = true
             } else {
                 self.alertMessage = "❌ Failed to add asset subclass. Please try again."
                 self.showingAlert = true
