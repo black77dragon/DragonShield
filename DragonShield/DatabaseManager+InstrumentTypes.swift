@@ -129,14 +129,15 @@ extension DatabaseManager {
         
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         
-        _ = code.withCString { sqlite3_bind_text(statement, 1, $0, -1, SQLITE_TRANSIENT) }
-        _ = name.withCString { sqlite3_bind_text(statement, 2, $0, -1, SQLITE_TRANSIENT) }
+        sqlite3_bind_int(statement, 1, Int32(classId))
+        _ = code.withCString { sqlite3_bind_text(statement, 2, $0, -1, SQLITE_TRANSIENT) }
+        _ = name.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
         if !description.isEmpty {
-            _ = description.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
+            _ = description.withCString { sqlite3_bind_text(statement, 4, $0, -1, SQLITE_TRANSIENT) }
         } else {
-            sqlite3_bind_null(statement, 3)
+            sqlite3_bind_null(statement, 4)
         }
-        sqlite3_bind_int(statement, 4, Int32(sortOrder))
+        sqlite3_bind_int(statement, 5, Int32(sortOrder))
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
