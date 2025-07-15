@@ -18,4 +18,5 @@ struct UserDefaultsKeys {
     static let backupDirectoryURL = "backupDirectoryURL"
     static let backupDirectoryBookmark = "backupDirectoryBookmark"
     static let positionsVisibleColumns = "positionsVisibleColumns"
+    static let positionsFontSize = "positionsFontSize"
 }
