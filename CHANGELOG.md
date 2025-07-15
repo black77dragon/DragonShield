@@ -240,3 +240,4 @@ All notable changes to this project will be documented in this file.
 - Display position value columns in original currency and CHF on Positions screen
 - Show Top 10 Positions by Asset Value (CHF) on Dashboard
 - Add Portfolio by Currency dashboard tile with CHF-based exposure
+- Show note tooltips and sortable value columns in Positions view

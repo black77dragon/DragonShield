@@ -31,6 +31,9 @@ struct PositionsView: View {
 
     @StateObject private var viewModel = PositionsViewModel()
 
+    @State private var hoveredNote: HoverNote? = nil
+    @State private var hoverTask: DispatchWorkItem? = nil
+
     private static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -189,12 +192,30 @@ struct PositionsView: View {
     private var positionsContent: some View {
         let data = sortedPositions
         return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
-            TableColumn("") { (position: PositionReportData) in
-                if let notes = position.notes, !notes.isEmpty {
+            TableColumn("Note") { (position: PositionReportData) in
+                if let note = position.notes, !note.isEmpty {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(.blue)
-                        .help("Contains notes")
-                        .accessibilityLabel("Contains notes")
+                        .onHover { inside in
+                            hoverTask?.cancel()
+                            if inside {
+                                let item = HoverNote(text: note)
+                                let task = DispatchWorkItem { hoveredNote = item }
+                                hoverTask = task
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
+                            } else {
+                                hoveredNote = nil
+                            }
+                        }
+                        .popover(item: $hoveredNote, arrowEdge: .top) { item in
+                            Text(item.text)
+                                .font(.system(size: 12))
+                                .foregroundColor(.primary)
+                                .padding(8)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(6)
+                                .frame(maxWidth: 250, alignment: .leading)
+                        }
                         .frame(width: 20)
                 } else {
                     Color.clear.frame(width: 20)
@@ -280,7 +301,10 @@ struct PositionsView: View {
                     }
                 }
 
-                TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
+                TableColumn(
+                    "Position Value (Original Currency)",
+                    sortUsing: ValueComparator(kind: .original, viewModel: viewModel)
+                ) { (position: PositionReportData) in
                     if let value = viewModel.positionValueOriginal[position.id] {
                         let symbol = viewModel.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency
                         Text(String(format: "%.2f %@", value, symbol))
@@ -298,7 +322,10 @@ struct PositionsView: View {
                     }
                 }
 
-                TableColumn("Position Value (CHF)") { (position: PositionReportData) in
+                TableColumn(
+                    "Position Value (CHF)",
+                    sortUsing: ValueComparator(kind: .chf, viewModel: viewModel)
+                ) { (position: PositionReportData) in
                     if let opt = viewModel.positionValueCHF[position.id] {
                         if let value = opt {
                             Text(String(format: "%.2f CHF", value))
@@ -480,5 +507,33 @@ struct PositionsView: View {
         }
     }
 }
+
+private struct HoverNote: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+struct ValueComparator: SortComparator {
+    enum Kind { case original, chf }
+    var kind: Kind
+    var viewModel: PositionsViewModel
+    var order: SortOrder = .forward
+    func compare(_ lhs: PositionReportData, _ rhs: PositionReportData) -> ComparisonResult {
+        let l = value(for: lhs)
+        let r = value(for: rhs)
+        if l == r { return .orderedSame }
+        let result: ComparisonResult = l < r ? .orderedAscending : .orderedDescending
+        return order == .forward ? result : (result == .orderedAscending ? .orderedDescending : .orderedAscending)
+    }
+    private func value(for item: PositionReportData) -> Double {
+        switch kind {
+        case .original:
+            return viewModel.positionValueOriginal[item.id] ?? 0
+        case .chf:
+            return viewModel.positionValueCHF[item.id] ?? 0
+        }
+    }
+}
+
 
 
