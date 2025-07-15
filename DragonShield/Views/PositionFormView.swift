@@ -21,7 +21,6 @@ struct PositionFormView: View {
     @State private var purchasePrice = ""
     @State private var currentPrice = ""
     @State private var instrumentUpdatedAt = Date()
-    @State private var valueDate = Date()
     @State private var uploadedAt = Date()
     @State private var reportDate = Date()
     @State private var notes = ""
@@ -136,10 +135,9 @@ struct PositionFormView: View {
         Grid(horizontalSpacing: 16, verticalSpacing: 8) {
             GridRow {
                 dateField(label: "Last Update", date: $instrumentUpdatedAt)
-                dateField(label: "Value Date", date: $valueDate)
+                dateField(label: "Uploaded At", date: $uploadedAt)
             }
             GridRow {
-                dateField(label: "Uploaded At", date: $uploadedAt)
                 dateField(label: "Report Date", date: $reportDate)
             }
         }
@@ -184,7 +182,6 @@ struct PositionFormView: View {
         if let pp = p.purchasePrice { purchasePrice = String(pp) }
         if let cp = p.currentPrice { currentPrice = String(cp) }
         if let iu = p.instrumentUpdatedAt { instrumentUpdatedAt = iu }
-        valueDate = p.reportDate
         uploadedAt = p.uploadedAt
         reportDate = p.reportDate
         notes = p.notes ?? ""
