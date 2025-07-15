@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Add exchange_rates.sql script with sample FX rates for all currencies
 - Enable sorting on Position Value columns in Positions view
 - Fix comparator types for value column sorting to conform to Hashable
+- Refactor PositionsView table into smaller subviews to avoid compile-time errors
 - Fix transaction error in exchange_rates.sql script
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers
