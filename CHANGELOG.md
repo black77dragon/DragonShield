@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add ZKB CSV import support with new parser integrated into ImportManager
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing

@@ -24,6 +24,7 @@ import UniformTypeIdentifiers
 class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = CreditSuisseXLSXProcessor()
+    private let zkbProcessor = ZKBCSVProcessor()
     private let positionParser = CreditSuissePositionParser()
     private let dbManager = DatabaseManager()
     private lazy var repository: BankRecordRepository = {
@@ -181,7 +182,12 @@ class ImportManager {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
-                let records = try self.xlsxProcessor.process(url: url, progress: logger)
+                let records: [MyBankRecord]
+                if url.pathExtension.lowercased() == "csv" {
+                    records = try self.zkbProcessor.process(url: url, progress: logger)
+                } else {
+                    records = try self.xlsxProcessor.process(url: url, progress: logger)
+                }
                 LoggingService.shared.log("Parsed \(records.count) rows", type: .info, logger: .parser)
                 try self.repository.saveRecords(records)
                 LoggingService.shared.log("Saved records to database", type: .info, logger: .database)
