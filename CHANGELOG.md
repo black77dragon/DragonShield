@@ -242,3 +242,4 @@ All notable changes to this project will be documented in this file.
 - Add Portfolio by Currency dashboard tile with CHF-based exposure
 - Show note tooltips and sortable value columns in Positions view
 - Remove unused variables in exchange rate fetching to resolve build warnings
+- Fix compile errors in Positions view by restructuring table code and handling CHF optionals

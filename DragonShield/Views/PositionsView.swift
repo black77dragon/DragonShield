@@ -191,7 +191,11 @@ struct PositionsView: View {
 
     private var positionsContent: some View {
         let data = sortedPositions
-        return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
+        return buildPositionsTable(data: data)
+    }
+
+    private func buildPositionsTable(data: [PositionReportData]) -> some View {
+        Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
             TableColumn("Note") { (position: PositionReportData) in
                 if let note = position.notes, !note.isEmpty {
                     Image(systemName: "info.circle.fill")
@@ -533,7 +537,11 @@ struct ValueComparator: SortComparator, Hashable {
         case .original:
             return viewModel.positionValueOriginal[item.id] ?? 0
         case .chf:
-            return viewModel.positionValueCHF[item.id] ?? 0
+            if let nested = viewModel.positionValueCHF[item.id], let value = nested {
+                return value
+            } else {
+                return 0
+            }
         }
     }
 
