@@ -51,15 +51,16 @@ struct PositionFormView: View {
             }
         }
         .padding(24)
-        .frame(width: 400)
+        .frame(width: 480)
         .onAppear { loadData(); populate() }
     }
 
     private var formFields: some View {
-        Group {
-            TextField("Session", text: $sessionId)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Import Session")
+        Form {
+            Section {
+                TextField("Session", text: $sessionId)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Import Session")
 
             Picker("Account", selection: $accountId) {
                 Text("Select Account").tag(Optional<Int>(nil))
@@ -92,35 +93,63 @@ struct PositionFormView: View {
                 }
             }
             .accessibilityLabel("Currency")
+            }
 
-            TextField("Quantity", text: $quantity)
+            Section("Prices") {
+                numericField(label: "Quantity", text: $quantity)
+                numericField(label: "Purchase Price", text: $purchasePrice)
+                numericField(label: "Current Price", text: $currentPrice)
+            }
+
+            Section("Dates") {
+                datesGrid
+            }
+
+            Section("Notes") {
+                TextEditor(text: $notes)
+                    .frame(height: 60)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.gray.opacity(0.3))
+                    )
+                    .accessibilityLabel("Notes")
+            }
+        }
+    }
+
+    private func numericField(label: String, text: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("", text: text)
+                .multilineTextAlignment(.trailing)
                 .textFieldStyle(.roundedBorder)
+                .frame(width: 120)
+                .accessibilityLabel(label)
+        }
+    }
 
-            TextField("Purchase Price", text: $purchasePrice)
-                .textFieldStyle(.roundedBorder)
+    private var datesGrid: some View {
+        Grid(horizontalSpacing: 16, verticalSpacing: 8) {
+            GridRow {
+                dateField(label: "Instrument Updated", date: $instrumentUpdatedAt)
+                dateField(label: "Value Date", date: $valueDate)
+            }
+            GridRow {
+                dateField(label: "Uploaded At", date: $uploadedAt)
+                dateField(label: "Report Date", date: $reportDate)
+            }
+        }
+    }
 
-            TextField("Current Price", text: $currentPrice)
-                .textFieldStyle(.roundedBorder)
-
-            DatePicker("Instrument Updated", selection: $instrumentUpdatedAt, displayedComponents: .date)
+    private func dateField(label: String, date: Binding<Date>) -> some View {
+        HStack {
+            Text(label)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            DatePicker("", selection: date, displayedComponents: .date)
+                .labelsHidden()
                 .datePickerStyle(.field)
-
-            DatePicker("Value Date", selection: $valueDate, displayedComponents: .date)
-                .datePickerStyle(.field)
-
-            DatePicker("Uploaded At", selection: $uploadedAt, displayedComponents: .date)
-                .datePickerStyle(.field)
-
-            DatePicker("Report Date", selection: $reportDate, displayedComponents: .date)
-                .datePickerStyle(.field)
-
-            TextEditor(text: $notes)
-                .frame(height: 60)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.gray.opacity(0.3))
-                )
-                .accessibilityLabel("Notes")
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
