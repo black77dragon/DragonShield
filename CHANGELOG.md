@@ -246,3 +246,4 @@ All notable changes to this project will be documented in this file.
 - Remove invalid TableBuilder attribute to restore builds
 - Break out positions table columns into helper views to aid compiler
 - Simplify column helper signatures to avoid generics compile error
+- Inline positions table columns again to satisfy SwiftUI TableColumn constraints
