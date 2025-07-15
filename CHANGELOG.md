@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Enable sorting on Position Value columns in Positions view
 - Fix comparator types for value column sorting to conform to Hashable
 - Refactor PositionsView table into smaller subviews to avoid compile-time errors
+- Return extracted table columns as TableColumnContent for Table builder compatibility
 - Fix transaction error in exchange_rates.sql script
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers
