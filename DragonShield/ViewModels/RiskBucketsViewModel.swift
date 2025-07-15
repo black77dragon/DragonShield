@@ -5,6 +5,7 @@ enum RiskGroupingDimension: String, CaseIterable, Identifiable {
     case issuer
     case currency
     case country
+    case assetClass
 
     var id: String { rawValue }
 }
@@ -62,6 +63,8 @@ final class RiskBucketsViewModel: ObservableObject {
                 key = currency
             case .country:
                 key = p.instrumentCountry ?? "Unknown"
+            case .assetClass:
+                key = p.assetClass ?? "Unknown"
             }
             groups[key, default: 0] += value
         }
