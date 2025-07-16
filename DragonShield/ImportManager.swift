@@ -44,7 +44,7 @@ class ImportManager {
     }
 
     enum InstrumentPromptResult {
-        case save(name: String, subClassId: Int, currency: String, ticker: String?, isin: String?, sector: String?)
+        case save(name: String, subClassId: Int, currency: String, ticker: String?, isin: String?, valorNr: String?, sector: String?)
         case ignore
         case abort
     }
@@ -66,6 +66,7 @@ class ImportManager {
             name: record.instrumentName,
             ticker: record.tickerSymbol ?? "",
             isin: record.isin ?? "",
+            valorNr: record.valorNr ?? "",
             currency: record.currency,
             subClassId: record.subClassIdGuess
         ) { action in
@@ -400,13 +401,16 @@ class ImportManager {
                                                currency: row.currency,
                                                ticker: row.tickerSymbol,
                                                isin: row.isin,
+                                               valorNr: row.valorNr,
                                                sector: nil)
                         }
                         switch instAction {
-                        case let .save(name, subClassId, currency, ticker, isin, sector):
+                        case let .save(name, subClassId, currency, ticker, isin, valorNr, sector):
                             instrumentId = self.dbManager.addInstrumentReturningId(name: name,
                                                                                      subClassId: subClassId,
                                                                                      currency: currency,
+
+     valorNr: valorNr,
                                                                                      tickerSymbol: ticker,
                                                                                      isin: isin,
                                                                                      countryCode: nil,

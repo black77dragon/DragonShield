@@ -329,7 +329,12 @@ struct PortfolioView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
                 .frame(width: 100, alignment: .leading)
-            
+
+            Text("Valor")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 100, alignment: .leading)
+
             Text("ISIN")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
@@ -544,7 +549,12 @@ struct ModernAssetRowView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: 100, alignment: .leading)
-            
+
+            Text(asset.valorNr ?? "--")
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 100, alignment: .leading)
+
             Text(asset.isin ?? "--")
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundColor(.secondary)

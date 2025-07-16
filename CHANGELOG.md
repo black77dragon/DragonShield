@@ -3,11 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
 - Add risk concentration dashboard tile showing top 5 groups by value
 - Support asset class grouping and display CHF values in Risk Buckets tile
+- Add valor number field to instruments with database and UI support
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Refine Position form typography and enforce minimum sheet size
@@ -26,6 +28,7 @@ All notable changes to this project will be documented in this file.
 - Fix ambiguous `fetchAccounts` call causing compilation failure in StaleAccountsViewModel
 - Display Currency Maintenance and FX History links in sidebar
 - Display instrument updated date in Positions view and form
+- Fix instrument fetch tuple mismatch in PositionFormView
 - Display earliest instrument updated date in Accounts view and forms
 - Show total asset value in CHF on Positions view with refresh button
 - Show total asset value in CHF on Dashboard via metric tile

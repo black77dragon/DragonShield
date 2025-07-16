@@ -19,7 +19,7 @@ INSERT INTO Configuration VALUES ('7', 'default_timezone', 'Europe/Zurich', 'str
 INSERT INTO Configuration VALUES ('8', 'table_row_spacing', '1.0', 'number', 'Spacing between table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('12', 'db_version', '4.12', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('12', 'db_version', '4.14', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 CREATE TABLE Currencies (
     currency_code TEXT PRIMARY KEY,
     currency_name TEXT NOT NULL,
@@ -158,6 +158,7 @@ INSERT INTO Institutions VALUES ('12', 'Züricher Kantonal Bank ZKB', 'Bank', 'Z
 CREATE TABLE Instruments (
     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
     isin TEXT UNIQUE,
+    valor_nr TEXT UNIQUE,
     ticker_symbol TEXT,
     instrument_name TEXT NOT NULL,
     sub_class_id INTEGER NOT NULL,
@@ -173,56 +174,56 @@ CREATE TABLE Instruments (
     FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id),
     FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
 );
-INSERT INTO Instruments VALUES ('1', 'CH0438959477', 'EICE', 'ENETIA Energy Infrastructure Fund -IA', '5', 'EUR', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('2', 'CH1108457701', 'EICRFAK', 'ENETIA Energy Transition Fund -I CHF-', '5', 'CHF', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('3', 'US37954Y8710', 'URA', 'Global X Uranium ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('4', 'US85208P3038', 'URNM', 'Sprott Uranium Miners ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('5', 'BTC', 'BTC', 'Bitcoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('6', 'US19260Q1076', 'COIN', 'Coinbase Global Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('7', 'DEEPVALUEETF', 'DEEP', 'Deep Value ETF', '3', 'USD', 'US', 'NYSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('8', 'ETH', 'ETH', 'Ethereum', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('9', NULL, 'tbd', 'Libertas (Hyperion Decimus)', '17', 'USD', '', '', ' ', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('10', 'LINK', 'LINK', 'Chainlink', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('11', 'LTC', 'LTC', 'Litecoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('12', 'MATIC', 'MATIC', 'Polygon', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('13', 'PORTFOLIO', 'PORTFOLIO', 'Portfolio Overview', '21', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('14', NULL, 'tbd', 'Solana', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('15', 'UNI', 'UNI', 'Uniswap', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('16', 'USDCOIN', 'USDC', 'USD Coin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('17', 'XRP', 'XRP', 'Ripple', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('18', NULL, 'tbd', '0.25% Axpo Holding 2022/04-Feb-2025', '8', 'CHF', 'CH', 'OTC', 'Utilities', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('19', NULL, 'tbd', '3.25% Credit Suisse 2024', '8', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('20', NULL, 'tbd', '7.1% Reverse Convertible Vontobel', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('21', NULL, 'tbd', 'Float Mezz 2023-1', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('22', 'IE00B2NPKV68', 'SEMB', 'iShares JPM Emerging Markets Bond ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('23', 'IE00BZ0G8977', 'DTLA', 'iShares USD Treasury Bond 20+ ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('24', NULL, 'tbd', 'Sygnum Yield Core', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('25', 'KYG8651H1267', '', 'Synergy Asia Market Neutral Fund', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('26', 'KYG8652B1023', '', 'Synergy Global Market Neutral Feeder', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('27', 'US04635Q1085', 'ALAB', 'Astera Labs Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('28', 'US0079031078', 'AMD', 'Advanced Micro Devices', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('29', 'US02082P1084', 'AOSL', 'Alpha & Omega Semiconductor', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('30', 'US11135F1012', 'AVGO', 'Broadcom Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('31', 'US19247X1000', 'COHR', 'Coherent Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('32', 'US2252233042', 'CRDO', 'Credo Technology Group', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('33', 'US24703L2025', 'DELL', 'Dell Technologies', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('34', 'US56585A1025', 'MARA', 'Marathon Digital Holdings', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('35', 'BMG5876H1051', 'MRVL', 'Marvell Technology', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('36', 'US67066G1040', 'NVDA', 'NVIDIA Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('37', 'US7672921050', 'RIOT', 'Riot Platforms', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('38', 'US8740391003', 'TSM', 'Taiwan Semiconductor (ADR)', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('39', 'US92556V1061', 'VRT', 'Vertiv Holdings', '3', 'USD', 'US', 'NYSE', 'Industrials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('40', 'IE00BYM11L02', 'CNDX', 'iShares NASDAQ 100 UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('41', 'US5949724083', 'MSTR', 'MicroStrategy Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('42', 'GB0002875804', 'BATS', 'British American Tobacco', '3', 'GBP', 'GB', 'LSE', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('43', 'US88160R1014', 'TSLA', 'Tesla Inc', '3', 'USD', 'US', 'NASDAQ', 'Consumer Disc.', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('44', 'CH0043238366', 'ARYZTA', 'Aryzta AG', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('45', 'CH0012214059', 'HOLN', 'Holcim Ltd', '3', 'CHF', 'CH', 'SIX', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('46', 'IE00B4L5Y983', 'IWDA', 'iShares Core MSCI World UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('47', 'CH0038863350', 'NESN', 'Nestlé SA', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('48', 'CH0012032048', 'ROG', 'Roche Holding AG', '3', 'CHF', 'CH', 'SIX', 'Health Care', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('49', NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('50', NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('1', 'CH0438959477', NULL, 'EICE', 'ENETIA Energy Infrastructure Fund -IA', '5', 'EUR', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('2', 'CH1108457701', NULL, 'EICRFAK', 'ENETIA Energy Transition Fund -I CHF-', '5', 'CHF', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('3', 'US37954Y8710', NULL, 'URA', 'Global X Uranium ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('4', 'US85208P3038', NULL, 'URNM', 'Sprott Uranium Miners ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('5', 'BTC', NULL, 'BTC', 'Bitcoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('6', 'US19260Q1076', NULL, 'COIN', 'Coinbase Global Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('7', 'DEEPVALUEETF', NULL, 'DEEP', 'Deep Value ETF', '3', 'USD', 'US', 'NYSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('8', 'ETH', NULL, 'ETH', 'Ethereum', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('9', NULL, NULL, '', 'Libertas (Hyperion Decimus)', '17', 'USD', '', '', ' ', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('10', 'LINK', NULL, 'LINK', 'Chainlink', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('11', 'LTC', NULL, 'LTC', 'Litecoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('12', 'MATIC', NULL, 'MATIC', 'Polygon', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('13', 'PORTFOLIO', NULL, 'PORTFOLIO', 'Portfolio Overview', '21', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('14', NULL, NULL, 'SOL', 'Solana', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('15', 'UNI', NULL, 'UNI', 'Uniswap', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('16', 'USDCOIN', NULL, 'USDC', 'USD Coin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('17', 'XRP', NULL, 'XRP', 'Ripple', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('18', NULL, NULL, '', '0.25% Axpo Holding 2022/04-Feb-2025', '8', 'CHF', 'CH', 'OTC', 'Utilities', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('19', NULL, NULL, '', '3.25% Credit Suisse 2024', '8', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('20', NULL, NULL, '', '7.1% Reverse Convertible Vontobel', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('21', NULL, NULL, '', 'Float Mezz 2023-1', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('22', 'IE00B2NPKV68', NULL, 'SEMB', 'iShares JPM Emerging Markets Bond ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('23', 'IE00BZ0G8977', NULL, 'DTLA', 'iShares USD Treasury Bond 20+ ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('24', NULL, NULL, '', 'Sygnum Yield Core', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('25', 'KYG8651H1267', NULL, '', 'Synergy Asia Market Neutral Fund', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('26', 'KYG8652B1023', NULL, '', 'Synergy Global Market Neutral Feeder', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('27', 'US04635Q1085', NULL, 'ALAB', 'Astera Labs Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('28', 'US0079031078', NULL, 'AMD', 'Advanced Micro Devices', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('29', 'US02082P1084', NULL, 'AOSL', 'Alpha & Omega Semiconductor', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('30', 'US11135F1012', NULL, 'AVGO', 'Broadcom Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('31', 'US19247X1000', NULL, 'COHR', 'Coherent Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('32', 'US2252233042', NULL, 'CRDO', 'Credo Technology Group', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('33', 'US24703L2025', NULL, 'DELL', 'Dell Technologies', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('34', 'US56585A1025', NULL, 'MARA', 'Marathon Digital Holdings', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('35', 'BMG5876H1051', NULL, 'MRVL', 'Marvell Technology', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('36', 'US67066G1040', NULL, 'NVDA', 'NVIDIA Corp', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('37', 'US7672921050', NULL, 'RIOT', 'Riot Platforms', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('38', 'US8740391003', NULL, 'TSM', 'Taiwan Semiconductor (ADR)', '3', 'USD', 'US', 'NYSE', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('39', 'US92556V1061', NULL, 'VRT', 'Vertiv Holdings', '3', 'USD', 'US', 'NYSE', 'Industrials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('40', 'IE00BYM11L02', NULL, 'CNDX', 'iShares NASDAQ 100 UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('41', 'US5949724083', NULL, 'MSTR', 'MicroStrategy Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('42', 'GB0002875804', NULL, 'BATS', 'British American Tobacco', '3', 'GBP', 'GB', 'LSE', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('43', 'US88160R1014', NULL, 'TSLA', 'Tesla Inc', '3', 'USD', 'US', 'NASDAQ', 'Consumer Disc.', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('44', 'CH0043238366', NULL, 'ARYZTA', 'Aryzta AG', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('45', 'CH0012214059', NULL, 'HOLN', 'Holcim Ltd', '3', 'CHF', 'CH', 'SIX', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('46', 'IE00B4L5Y983', NULL, 'IWDA', 'iShares Core MSCI World UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('47', 'CH0038863350', NULL, 'NESN', 'Nestlé SA', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('48', 'CH0012032048', NULL, 'ROG', 'Roche Holding AG', '3', 'CHF', 'CH', 'SIX', 'Health Care', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('49', NULL, NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('50', NULL, NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 CREATE TABLE Accounts (
     account_id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_number TEXT UNIQUE,

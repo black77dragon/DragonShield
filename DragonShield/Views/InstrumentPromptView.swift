@@ -5,6 +5,7 @@ struct InstrumentPromptView: View {
     @State var name: String
     @State var ticker: String
     @State var isin: String
+    @State var valorNr: String = ""
     @State var currency: String
     @State var subClassId: Int = 1
     @State var sector: String = ""
@@ -12,10 +13,11 @@ struct InstrumentPromptView: View {
     @State private var currencies: [(code: String, name: String, symbol: String)] = []
     let completion: (ImportManager.InstrumentPromptResult) -> Void
 
-    init(name: String, ticker: String, isin: String, currency: String, subClassId: Int? = nil, completion: @escaping (ImportManager.InstrumentPromptResult) -> Void) {
+    init(name: String, ticker: String, isin: String, valorNr: String = "", currency: String, subClassId: Int? = nil, completion: @escaping (ImportManager.InstrumentPromptResult) -> Void) {
         _name = State(initialValue: name)
         _ticker = State(initialValue: ticker)
         _isin = State(initialValue: isin)
+        _valorNr = State(initialValue: valorNr)
         _currency = State(initialValue: currency)
         _subClassId = State(initialValue: subClassId ?? 1)
         self.completion = completion
@@ -58,6 +60,7 @@ struct InstrumentPromptView: View {
                         pickerField(title: "Currency", selection: $currency, options: currencies.map { ($0.code, $0.code) }, icon: "dollarsign.circle")
                         modernTextField(title: "Ticker", text: $ticker, placeholder: "Ticker", icon: "number", isRequired: false)
                         modernTextField(title: "ISIN", text: $isin, placeholder: "ISIN", icon: "barcode", isRequired: false)
+                        modernTextField(title: "Valor", text: $valorNr, placeholder: "Valor", icon: "number", isRequired: false)
                         modernTextField(title: "Sector", text: $sector, placeholder: "Sector", icon: "briefcase", isRequired: false)
                     }
                     .modifier(CompactFormSection(color: .pink))
@@ -81,6 +84,7 @@ struct InstrumentPromptView: View {
                                          currency: currency,
                                          ticker: ticker.isEmpty ? nil : ticker,
                                          isin: isin.isEmpty ? nil : isin,
+                                         valorNr: valorNr.isEmpty ? nil : valorNr,
                                          sector: sector.isEmpty ? nil : sector))
                     }
                     .buttonStyle(.borderedProminent)

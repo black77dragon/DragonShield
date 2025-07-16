@@ -18,6 +18,7 @@ struct ParsedPositionRecord {
     var instrumentName: String
     var tickerSymbol: String?
     var isin: String?
+    var valorNr: String?
     var currency: String
     var quantity: Double
     var purchasePrice: Double?
@@ -85,12 +86,13 @@ struct CreditSuissePositionParser {
                                                              currency: currency,
                                                              institution: "Credit-Suisse")
                                      : "Credit-Suisse Account"
-            let record = ParsedPositionRecord(accountNumber: accountNumber,
-                                               accountName: accountName,
-                                               instrumentName: instrumentName,
-                                               tickerSymbol: ticker,
-                                               isin: isin,
-                                               currency: currency,
+           let record = ParsedPositionRecord(accountNumber: accountNumber,
+                                              accountName: accountName,
+                                              instrumentName: instrumentName,
+                                              tickerSymbol: ticker,
+                                              isin: isin,
+                                              valorNr: nil,
+                                              currency: currency,
                                                quantity: quantity,
                                                purchasePrice: purchasePrice,
                                                currentPrice: currentPrice,
