@@ -30,47 +30,72 @@ struct AllocationRow: View {
         }
     }
 
+    private var targetValue: Double { (item.targetPercent / 100) * portfolioValue }
+    private var targetLabel: String {
+        String(format: "T: %.0f%% / %.1f kCHF", item.targetPercent, targetValue / 1000)
+    }
+    private var actualLabel: String {
+        String(format: "A: %.0f%% / %.1f kCHF", item.currentPercent, item.currentValue / 1000)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.assetClassName)
                 .font(.headline)
             GeometryReader { geo in
+                let width = geo.size.width
+                let targetX = width * CGFloat(item.targetPercent / 100)
+                let actualX = width * CGFloat(item.currentPercent / 100)
+                let startX = min(targetX, actualX)
+                let overlayWidth = abs(targetX - actualX)
+
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Color.gray.opacity(0.2))
                         .frame(height: 8)
+
                     Capsule()
                         .fill(Color.blue.opacity(0.4))
-                        .frame(width: geo.size.width * CGFloat(item.targetPercent/100), height: 8)
+                        .frame(width: targetX, height: 8)
+
                     Capsule()
                         .fill(Color.gray.opacity(0.6))
-                        .frame(width: geo.size.width * CGFloat(item.currentPercent/100), height: 8)
-                    if deviation > 0 {
-                        let start = min(item.currentPercent, item.targetPercent)
-                        let width = abs(item.currentPercent - item.targetPercent)
+                        .frame(width: actualX, height: 8)
+
+                    if overlayWidth > 0 {
                         Capsule()
                             .fill(deviationColor.opacity(0.5))
-                            .frame(width: geo.size.width * CGFloat(width/100), height: 8)
-                            .offset(x: geo.size.width * CGFloat(start/100))
+                            .frame(width: overlayWidth, height: 8)
+                            .offset(x: startX)
+                            .zIndex(1)
                     }
+
                     AllocationMarker()
                         .fill(Color.blue)
-                        .frame(width: 8, height: 8)
-                        .offset(x: geo.size.width * CGFloat(item.targetPercent/100) - 4, y: -4)
+                        .frame(width: 10, height: 10)
+                        .offset(x: targetX - 5, y: -6)
+                        .zIndex(2)
+
                     AllocationMarker()
                         .fill(Color.gray)
-                        .frame(width: 8, height: 8)
-                        .offset(x: geo.size.width * CGFloat(item.currentPercent/100) - 4, y: 4)
+                        .frame(width: 10, height: 10)
+                        .offset(x: actualX - 5, y: 6)
+                        .zIndex(2)
+
+                    Text(targetLabel)
+                        .font(.caption2)
+                        .foregroundColor(.primary)
+                        .offset(x: targetX + 6, y: -14)
+                        .zIndex(2)
+
+                    Text(actualLabel)
+                        .font(.caption2)
+                        .foregroundColor(.primary)
+                        .offset(x: actualX + 6, y: 10)
+                        .zIndex(2)
                 }
             }
-            .frame(height: 16)
-            HStack {
-                Text(String(format: "T: %.0f%% / %.1f kCHF", item.targetPercent, item.targetPercent/100 * portfolioValue / 1000))
-                Spacer()
-                Text(String(format: "A: %.0f%% / %.1f kCHF", item.currentPercent, item.currentValue / 1000))
-            }
-            .font(.caption)
-            .foregroundColor(deviationColor)
+            .frame(height: 24)
         }
         .padding(.vertical, 8)
     }
