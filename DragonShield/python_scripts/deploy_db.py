@@ -33,7 +33,23 @@ def build_database(schema_sql: str, seed_sql: str, out_path: str, version: str) 
     with open(schema_sql, 'r', encoding='utf-8') as f:
         conn.executescript(f.read())
     with open(seed_sql, 'r', encoding='utf-8') as f:
-        conn.executescript(f.read())
+        seed_script = f.read()
+    seed_script = seed_script.replace(
+        "INSERT INTO Instruments",
+        "INSERT OR IGNORE INTO Instruments",
+    )
+    fixed_lines = []
+    for line in seed_script.splitlines():
+        if line.strip().startswith("INSERT OR IGNORE INTO Instruments"):
+            prefix, values_part = line.split("VALUES", 1)
+            inside = values_part.strip()[1:-2]
+            parts = [p.strip() for p in re.split(r",(?=(?:[^']*'[^']*')*[^']*$)", inside)]
+            if len(parts) == 14:
+                parts.insert(2, "NULL")
+                line = f"{prefix}VALUES (" + ", ".join(parts) + ");"
+        fixed_lines.append(line)
+    seed_script = "\n".join(fixed_lines)
+    conn.executescript(seed_script)
     conn.execute(
         "INSERT OR REPLACE INTO Configuration (key, value, data_type, description) VALUES (?, ?, 'string', 'Database schema version');",
         ('db_version', version)
