@@ -182,22 +182,22 @@ INSERT INTO Instruments VALUES ('5', 'BTC', NULL, 'BTC', 'Bitcoin', '18', 'USD',
 INSERT INTO Instruments VALUES ('6', 'US19260Q1076', NULL, 'COIN', 'Coinbase Global Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('7', 'DEEPVALUEETF', NULL, 'DEEP', 'Deep Value ETF', '3', 'USD', 'US', 'NYSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('8', 'ETH', NULL, 'ETH', 'Ethereum', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('9', NULL, 'tbd', 'Libertas (Hyperion Decimus)', '17', 'USD', '', '', ' ', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('9', NULL, NULL, '', 'Libertas (Hyperion Decimus)', '17', 'USD', '', '', ' ', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('10', 'LINK', NULL, 'LINK', 'Chainlink', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('11', 'LTC', NULL, 'LTC', 'Litecoin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('12', 'MATIC', NULL, 'MATIC', 'Polygon', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('13', 'PORTFOLIO', NULL, 'PORTFOLIO', 'Portfolio Overview', '21', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('14', NULL, 'tbd', 'Solana', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('14', NULL, NULL, 'SOL', 'Solana', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('15', 'UNI', NULL, 'UNI', 'Uniswap', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('16', 'USDCOIN', NULL, 'USDC', 'USD Coin', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('17', 'XRP', NULL, 'XRP', 'Ripple', '18', 'USD', 'BT', 'CRYPTO', 'Cryptocurrency', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('18', NULL, 'tbd', '0.25% Axpo Holding 2022/04-Feb-2025', '8', 'CHF', 'CH', 'OTC', 'Utilities', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('19', NULL, 'tbd', '3.25% Credit Suisse 2024', '8', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('20', NULL, 'tbd', '7.1% Reverse Convertible Vontobel', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('21', NULL, 'tbd', 'Float Mezz 2023-1', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('18', NULL, NULL, '', '0.25% Axpo Holding 2022/04-Feb-2025', '8', 'CHF', 'CH', 'OTC', 'Utilities', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('19', NULL, NULL, '', '3.25% Credit Suisse 2024', '8', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('20', NULL, NULL, '', '7.1% Reverse Convertible Vontobel', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('21', NULL, NULL, '', 'Float Mezz 2023-1', '17', 'CHF', 'CH', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('22', 'IE00B2NPKV68', NULL, 'SEMB', 'iShares JPM Emerging Markets Bond ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('23', 'IE00BZ0G8977', NULL, 'DTLA', 'iShares USD Treasury Bond 20+ ETF', '4', 'USD', 'IE', 'SWX', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('24', NULL, 'tbd', 'Sygnum Yield Core', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('24', NULL, NULL, '', 'Sygnum Yield Core', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('25', 'KYG8651H1267', NULL, '', 'Synergy Asia Market Neutral Fund', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('26', 'KYG8652B1023', NULL, '', 'Synergy Global Market Neutral Feeder', '5', 'USD', 'KY', 'OTC', 'Financials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('27', 'US04635Q1085', NULL, 'ALAB', 'Astera Labs Inc', '3', 'USD', 'US', 'NASDAQ', 'Technology', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
@@ -222,8 +222,8 @@ INSERT INTO Instruments VALUES ('45', 'CH0012214059', NULL, 'HOLN', 'Holcim Ltd'
 INSERT INTO Instruments VALUES ('46', 'IE00B4L5Y983', NULL, 'IWDA', 'iShares Core MSCI World UCITS ETF', '4', 'USD', 'IE', 'LSE', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('47', 'CH0038863350', NULL, 'NESN', 'Nestlé SA', '3', 'CHF', 'CH', 'SIX', 'Consumer Staples', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('48', 'CH0012032048', NULL, 'ROG', 'Roche Holding AG', '3', 'CHF', 'CH', 'SIX', 'Health Care', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('49', NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Instruments VALUES ('50', NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('49', NULL, NULL, '', 'UBS SMIM CHF A-dis', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Instruments VALUES ('50', NULL, NULL, '', 'Epic Suisse Fund', '5', 'CHF', 'CH', '', 'Mixed', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 CREATE TABLE Accounts (
     account_id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_number TEXT UNIQUE,
