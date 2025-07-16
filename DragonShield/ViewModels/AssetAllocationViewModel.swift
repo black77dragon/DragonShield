@@ -29,10 +29,11 @@ final class AssetAllocationViewModel: ObservableObject {
         classIdMap = Dictionary(uniqueKeysWithValues: classes.map { ($0.name, $0.id) })
 
         let targets = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
-        let targetMap = Dictionary(uniqueKeysWithValues: targets.compactMap { record in
+        let targetPairs: [(Int, Double)] = targets.compactMap { record in
             guard let cid = record.classId, record.subClassId == nil else { return nil }
             return (cid, record.percent)
-        })
+        }
+        let targetMap: [Int: Double] = Dictionary(uniqueKeysWithValues: targetPairs)
 
         var actualTotals: [Int: Double] = [:]
         var totalValue: Double = 0
