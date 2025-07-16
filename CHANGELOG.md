@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Refine Position form typography and enforce minimum sheet size
+- Add toggle for Direct Real Estate with CHF amount and persist settings
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts

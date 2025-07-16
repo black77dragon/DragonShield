@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.14 - Add valor_nr column to Instruments
+-- Version 4.15 - Add direct real estate configuration
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --

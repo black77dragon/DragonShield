@@ -63,6 +63,9 @@ struct TargetAllocationMaintenanceView: View {
 
     private var leftPane: some View {
         VStack(alignment: .leading) {
+            Toggle("Include Direct Real Estate", isOn: $viewModel.includeDirectRealEstate)
+                .toggleStyle(SwitchToggleStyle())
+                .padding(.bottom, 8)
             classList
             totalsRow
         }
@@ -91,6 +94,10 @@ struct TargetAllocationMaintenanceView: View {
             if !subClassTotalsValid {
                 Text("\u{26A0}\u{FE0F} Sub-class totals mismatch")
                     .foregroundColor(.orange)
+            }
+            if viewModel.includeDirectRealEstate {
+                Spacer()
+                Text(viewModel.currencyFormatter.string(from: NSNumber(value: viewModel.directRealEstateTargetCHF)) ?? "")
             }
             Spacer()
         }
@@ -158,19 +165,28 @@ struct TargetAllocationMaintenanceView: View {
             Text(sub.name)
                 .font(.system(size: 14))
             Spacer()
-            Slider(
-                value: subClassTargetBinding(for: sub.id),
-                in: 0...100,
-                step: 5
-            )
-            .focusable()
-            TextField(
-                "",
-                value: subClassTargetBinding(for: sub.id),
-                formatter: viewModel.numberFormatter
-            )
-            .frame(width: 40)
-            .focusable()
+            if sub.name == "Direct Real Estate" {
+                TextField(
+                    "",
+                    value: $viewModel.directRealEstateTargetCHF,
+                    formatter: viewModel.currencyFormatter
+                )
+                .frame(width: 80)
+            } else {
+                Slider(
+                    value: subClassTargetBinding(for: sub.id),
+                    in: 0...100,
+                    step: 5
+                )
+                .focusable()
+                TextField(
+                    "",
+                    value: subClassTargetBinding(for: sub.id),
+                    formatter: viewModel.numberFormatter
+                )
+                .frame(width: 40)
+                .focusable()
+            }
         }
         .padding(.vertical, 4)
         .disabled(viewModel.classTargets[classId] == 0)
