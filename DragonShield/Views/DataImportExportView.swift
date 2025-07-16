@@ -87,7 +87,7 @@ struct DataImportExportView: View {
     }
 
     private var zkbCard: some View {
-        importCard(title: "Import ZKB Statement", type: .zkb, enabled: false)
+        importCard(title: "Import ZKB Statement", type: .zkb, enabled: true)
     }
 
     private func importCard(title: String, type: StatementType, enabled: Bool) -> some View {
