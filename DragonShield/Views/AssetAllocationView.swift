@@ -15,6 +15,12 @@ struct AssetAllocationView: View {
                               deviationColor: viewModel.deviationColor(for: item),
                               portfolioValue: viewModel.portfolioValue)
             }
+
+            Section {
+                AllocationTable(items: viewModel.items,
+                                currencyFormatter: viewModel.currencyFormatter,
+                                totalValue: viewModel.portfolioValue)
+            }
         }
         .listStyle(.plain)
         .navigationTitle("Asset Allocation")
@@ -106,6 +112,50 @@ private struct Triangle: Shape {
         p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
         p.closeSubpath()
         return p
+    }
+}
+
+private struct AllocationTable: View {
+    var items: [AllocationDisplayItem]
+    var currencyFormatter: NumberFormatter
+    var totalValue: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Asset Class")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("CHF")
+                    .frame(width: 80, alignment: .trailing)
+                Text("%")
+                    .frame(width: 50, alignment: .trailing)
+            }
+            .font(.caption)
+
+            ForEach(items) { item in
+                HStack {
+                    Text(item.assetClassName)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(currencyFormatter.string(from: NSNumber(value: item.currentValueCHF)) ?? "")
+                        .frame(width: 80, alignment: .trailing)
+                    Text(String(format: "%.0f%%", item.currentPercent))
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .font(.caption)
+            }
+
+            Divider()
+            HStack {
+                Text("Total")
+                    .fontWeight(.bold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(currencyFormatter.string(from: NSNumber(value: totalValue)) ?? "")
+                    .frame(width: 80, alignment: .trailing)
+                Text("100%")
+                    .frame(width: 50, alignment: .trailing)
+            }
+            .font(.caption)
+        }
     }
 }
 

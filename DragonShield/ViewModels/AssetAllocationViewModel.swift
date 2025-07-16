@@ -27,12 +27,20 @@ final class AssetAllocationViewModel: ObservableObject {
         self.db = dbManager
         let result = dbManager.fetchAssetAllocationVariance()
         portfolioValue = result.portfolioValue
-        items = result.items.map { AllocationDisplayItem(id: $0.id,
-                                                         assetClassName: $0.assetClassName,
-                                                         targetPercent: $0.targetPercent,
-                                                         currentPercent: $0.currentPercent,
-                                                         currentValueCHF: $0.currentValue) }
-        classIdMap = Dictionary(uniqueKeysWithValues: dbManager.fetchAssetClassesDetailed().map { ($0.name, $0.id) })
+        let classes = dbManager.fetchAssetClassesDetailed()
+
+        let varianceMap = Dictionary(uniqueKeysWithValues: result.items.map { ($0.assetClassName, $0) })
+
+        items = classes.map { cls in
+            let v = varianceMap[cls.name]
+            return AllocationDisplayItem(id: cls.name,
+                                         assetClassName: cls.name,
+                                         targetPercent: v?.targetPercent ?? 0,
+                                         currentPercent: v?.currentPercent ?? 0,
+                                         currentValueCHF: v?.currentValue ?? 0)
+        }
+
+        classIdMap = Dictionary(uniqueKeysWithValues: classes.map { ($0.name, $0.id) })
     }
 
     func updateTarget(for item: AllocationDisplayItem, to newValue: Double) {
