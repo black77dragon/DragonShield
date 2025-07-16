@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Fix compile error in Asset Allocation view model by specifying dictionary types
+- Fix crash from duplicate target records when viewing Asset Allocation
 - Add toggle for Direct Real Estate with CHF amount and persist settings
 - Persist target allocation percentages to new TargetAllocation table
 - Include FX History table in reference data backups
