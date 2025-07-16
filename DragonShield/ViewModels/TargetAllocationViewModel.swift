@@ -104,4 +104,10 @@ class TargetAllocationViewModel: ObservableObject {
             dbManager.upsertSubClassTarget(portfolioId: portfolioId, subClassId: subId, percent: pct)
         }
     }
+
+    func resetAllTargets() {
+        for key in classTargets.keys { classTargets[key] = 0 }
+        for key in subClassTargets.keys { subClassTargets[key] = 0 }
+        directRealEstateTargetCHF = 0
+    }
 }

@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Add exchange_rates.sql script with sample FX rates for all currencies
 - Fix transaction error in exchange_rates.sql script
 - Embed FX rate sample data in schema seed file
+- Auto-save allocation values on exit and simplify maintenance view UI
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix Asset SubClass creation failing due to missing class_id binding and show success alert on save
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers
