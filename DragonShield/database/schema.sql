@@ -137,6 +137,7 @@ CREATE TABLE AssetSubClasses (
 CREATE TABLE Instruments (
     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
     isin TEXT UNIQUE,
+    valor_nr TEXT UNIQUE,
     ticker_symbol TEXT,
     instrument_name TEXT NOT NULL,
     sub_class_id INTEGER NOT NULL,
