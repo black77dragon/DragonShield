@@ -22,9 +22,7 @@ Data begins on **row 2**. All rows where `Anlagekategorie` **≠ "Konten"** repr
 
 | ZKB CSV Column               | Dragon Shield Database Target           | Transformation / Logic / Notes                                                                    |
 |:-----------------------------|:----------------------------------------|:--------------------------------------------------------------------------------------------------|
-| `Anlagekategorie`            | `AssetSubClasses.sub_class_id`          | Mapped to an AssetSubClasses.sub_class_id via a configuration map in                              | 
-|                              |                                         | DragonShield/docs/AssetClassDefinitionConcept.md defined in the                                   | 
-|                              |                                         | column ZKB Parsing                                                                                |
+| `Anlagekategorie`            | `AssetSubClasses.sub_class_id`          | Mapped to an AssetSubClasses.sub_class_id via a configuration map in DragonShield/docs/AssetClassDefinitionConcept.md defined in the column ZKB Parsing                                                                                |
 | `Anz./Nom.` (first,column B) | `PositionReports.quantity`              | Number of units. Parse as float.                                                                  |
 | `Einstandskurs` (first)      | `PositionReports.purchase_price`        | Price paid when first bought. Strip separators (e.g. `.` thousands, `,` decimal) and parse float. |
 | `Marktkurs`                  | `PositionReports.current_price`         | Current price per unit. Strip separators (e.g. `.` thousands, `,` decimal) and parse float.       |
