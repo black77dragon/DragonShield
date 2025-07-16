@@ -85,10 +85,11 @@ struct DatabaseManagementView: View {
                 HStack(spacing: 4) {
                     Text("Reference Data")
                         .font(.system(size: 14, weight: .medium))
-                    Text("(i)")
+                    Image(systemName: "info.circle")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.gray)
-                        .help(backupService.referenceTables.joined(separator: ", "))
+                        .help(backupService.referenceTables.map { "\u2022 \($0)" }
+                                .joined(separator: "\n"))
                 }
                 HStack(spacing: 12) {
                     Button(action: backupReferenceNow) {
