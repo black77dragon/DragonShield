@@ -1,4 +1,4 @@
-// DragonShield/Views/AssetAllocationView.swift
+// DragonShield/Views/AssetClassAllocationView.swift
 // MARK: - Version 1.0
 // MARK: - History
 // - 1.0: Display actual vs target allocation on single slider.
@@ -76,7 +76,7 @@ struct AllocationRow: View {
     }
 }
 
-struct AssetAllocationView: View {
+struct AssetClassAllocationView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @State private var items: [AssetAllocationVarianceItem] = []
     @State private var portfolioValue: Double = 0
@@ -99,9 +99,9 @@ struct AssetAllocationView: View {
 }
 
 #if DEBUG
-struct AssetAllocationView_Previews: PreviewProvider {
+struct AssetClassAllocationView_Previews: PreviewProvider {
     static var previews: some View {
-        AssetAllocationView()
+        AssetClassAllocationView()
             .environmentObject(DatabaseManager())
     }
 }
