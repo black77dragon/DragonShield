@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 - Fix ambiguous `fetchAccounts` call causing compilation failure in StaleAccountsViewModel
 - Display Currency Maintenance and FX History links in sidebar
 - Display instrument updated date in Positions view and form
+- Fix instrument fetch tuple mismatch in PositionFormView
 - Display earliest instrument updated date in Accounts view and forms
 - Show total asset value in CHF on Positions view with refresh button
 - Show total asset value in CHF on Dashboard via metric tile

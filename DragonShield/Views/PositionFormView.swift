@@ -9,7 +9,7 @@ struct PositionFormView: View {
 
     @State private var accounts: [DatabaseManager.AccountData] = []
     @State private var institutions: [DatabaseManager.InstitutionData] = []
-    @State private var instruments: [(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?)] = []
+    @State private var instruments: [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] = []
     @State private var currencies: [(code: String, name: String, symbol: String)] = []
 
     @State private var sessionId = ""
