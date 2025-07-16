@@ -18,6 +18,7 @@ struct DatabaseManagementView: View {
     @State private var showTransactionRestoreConfirm = false
     @State private var errorMessage: String?
     @State private var showLogDetails = false
+    @State private var showReferenceInfo = false
 
     // MARK: - Info Card
     private func infoRow(_ label: String, value: String, mono: Bool = false) -> some View {
@@ -88,9 +89,16 @@ struct DatabaseManagementView: View {
                     Image(systemName: "info.circle")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.gray)
-                        .help(backupService.referenceTables
-                                .map { "\u{2022} \($0)" }
-                                .joined(separator: "\n"))
+                        .onHover { showReferenceInfo = $0 }
+                        .popover(isPresented: $showReferenceInfo, arrowEdge: .bottom) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(backupService.referenceTables, id: \.self) { table in
+                                    Text("\u{2022} \(table)")
+                                }
+                            }
+                            .padding(8)
+                            .onHover { showReferenceInfo = $0 }
+                        }
                 }
                 HStack(spacing: 12) {
                     Button(action: backupReferenceNow) {
