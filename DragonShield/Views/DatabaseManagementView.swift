@@ -82,8 +82,14 @@ struct DatabaseManagementView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Reference Data")
-                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 4) {
+                    Text("Reference Data")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("(i)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.gray)
+                        .help(backupService.referenceTables.joined(separator: ", "))
+                }
                 HStack(spacing: 12) {
                     Button(action: backupReferenceNow) {
                         if processing { ProgressView() } else { Text("Backup Reference Data") }

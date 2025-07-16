@@ -8,4 +8,4 @@ from deploy_db import parse_version
 
 def test_schema_version_updated():
     schema_path = Path(__file__).resolve().parents[1] / 'database' / 'schema.sql'
-    assert parse_version(str(schema_path)) == '4.15'
+    assert parse_version(str(schema_path)) == '4.16'

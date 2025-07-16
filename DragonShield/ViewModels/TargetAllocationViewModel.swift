@@ -51,11 +51,15 @@ class TargetAllocationViewModel: ObservableObject {
         var classMap: [Int: Double] = [:]
         var subMap: [Int: Double] = [:]
         for row in rows {
-            if let classId = row.classId {
+            if let classId = row.classId, row.subClassId == nil {
                 classMap[classId] = row.percent
             }
             if let subId = row.subClassId {
                 subMap[subId] = row.percent
+            }
+            if let amount = row.amountCHF, row.subClassId != nil {
+                // direct real estate stored via configuration separately
+                directRealEstateTargetCHF = amount
             }
         }
         subClassTargets = subMap

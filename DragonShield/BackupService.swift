@@ -31,9 +31,9 @@ class BackupService: ObservableObject {
     ]
 
     let referenceTables = [
-        "Configuration", "Currencies", "AssetClasses", "AssetSubClasses",
-        "TransactionTypes", "AccountTypes", "Institutions", "Instruments",
-        "Accounts"
+        "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
+        "AssetClasses", "AssetSubClasses", "TransactionTypes", "AccountTypes",
+        "Institutions", "Instruments", "Accounts"
     ]
 
     let transactionTables = [
