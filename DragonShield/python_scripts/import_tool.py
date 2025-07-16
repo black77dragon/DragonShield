@@ -14,6 +14,8 @@ import hashlib
 import json
 import io
 import contextlib
+import logging
+from pathlib import Path
 from typing import Any, Dict, Tuple, Optional
 
 import credit_suisse_parser  # existing parser in the same folder
@@ -23,6 +25,21 @@ DB_PATH = os.path.join(
     "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
     "dragonshield.sqlite",
 )
+
+LOG_FILE = Path(__file__).resolve().parents[2] / "import.log"
+
+
+def _setup_logger() -> logging.Logger:
+    logger = logging.getLogger("import_tool")
+    if not logger.handlers:
+        handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+        formatter = logging.Formatter(
+            "%(asctime)s %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    return logger
 
 
 def choose_institution(conn: sqlite3.Connection) -> int:
@@ -111,13 +128,19 @@ def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
 
 
 def parse_file(path: str) -> Dict[str, Any]:
+    logger = _setup_logger()
+    logger.info(f"Parsing file {path}")
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         if 'zkb' in os.path.basename(path).lower():
+            logger.info("Detected ZKB format")
             zkb_parser.process_file(path)
         else:
+            logger.info("Detected Credit-Suisse format")
             credit_suisse_parser.process_file(path)
-    return json.loads(buf.getvalue())
+    data = json.loads(buf.getvalue())
+    logger.info(f"Parse summary: {data.get('summary')}")
+    return data
 
 
 def preview_records(data: Dict[str, Any], limit: int = 3):
@@ -130,8 +153,10 @@ def preview_records(data: Dict[str, Any], limit: int = 3):
 
 
 def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: str) -> Dict[str, Any]:
+    logger = _setup_logger()
     if not os.path.isfile(file_path):
         print("File not found.")
+        logger.error(f"File not found: {file_path}")
         return {}
 
     file_type, size, file_hash = compute_metadata(file_path)
@@ -149,6 +174,7 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
         institution_id,
     )
     print("Import session", session_id, "created. Parsing...")
+    logger.info(f"Session {session_id} started for {file_path}")
     data = parse_file(file_path)
     preview_records(data)
     proceed = input("Commit import? [y/N]: ").strip().lower() == 'y'
@@ -165,9 +191,11 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
             None,
         )
         print("Import committed.")
+        logger.info(f"Session {session_id} committed")
     else:
         update_session(conn, session_id, 'CANCELLED', 0, 0, 0, 0, 'User cancelled')
         print("Import cancelled.")
+        logger.info(f"Session {session_id} cancelled")
     return data.get('summary', {})
 
 
@@ -191,12 +219,16 @@ def main():
 
     if summaries:
         print("\n===== Import Summary =====")
+        logger = _setup_logger()
         for path, summ in summaries:
             print(f"File: {os.path.basename(path)}")
             print(f"  Total rows: {summ.get('total_data_rows_attempted', 0)}")
             print(f"  Parsed successfully: {summ.get('data_rows_successfully_parsed', 0)}")
             print(f"  Cash records: {summ.get('cash_account_records', 0)}")
             print(f"  Security records: {summ.get('security_holding_records', 0)}")
+            logger.info(
+                f"Summary for {path}: {summ.get('data_rows_successfully_parsed', 0)} of {summ.get('total_data_rows_attempted', 0)} rows"
+            )
     else:
         print("No files were imported.")
 

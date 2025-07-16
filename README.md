@@ -132,6 +132,8 @@ Drag and drop a `Depotauszug ... ZKB.csv` file onto the Data Import screen or ru
 python3 python_scripts/import_tool.py
 ```
 The importer detects ZKB files by name and uses the new CSV parser.
+Progress details for each import are written to `import.log` in the project
+root.
 
 
 ### GPT Shell

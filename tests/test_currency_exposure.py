@@ -1,4 +1,10 @@
-from DragonShield.python_scripts.currency_exposure import currency_exposure
+from pathlib import Path
+import sys
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / 'DragonShield' / 'python_scripts'
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from currency_exposure import currency_exposure
 
 
 def test_grouping_and_conversion():
