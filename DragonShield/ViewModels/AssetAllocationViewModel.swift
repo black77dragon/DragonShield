@@ -25,22 +25,49 @@ final class AssetAllocationViewModel: ObservableObject {
 
     func load(using dbManager: DatabaseManager) {
         self.db = dbManager
-        let result = dbManager.fetchAssetAllocationVariance()
-        portfolioValue = result.portfolioValue
         let classes = dbManager.fetchAssetClassesDetailed()
+        classIdMap = Dictionary(uniqueKeysWithValues: classes.map { ($0.name, $0.id) })
 
-        let varianceMap = Dictionary(uniqueKeysWithValues: result.items.map { ($0.assetClassName, $0) })
+        let targets = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
+        let targetMap = Dictionary(uniqueKeysWithValues: targets.compactMap { record in
+            guard let cid = record.classId, record.subClassId == nil else { return nil }
+            return (cid, record.percent)
+        })
 
-        items = classes.map { cls in
-            let v = varianceMap[cls.name]
-            return AllocationDisplayItem(id: cls.name,
-                                         assetClassName: cls.name,
-                                         targetPercent: v?.targetPercent ?? 0,
-                                         currentPercent: v?.currentPercent ?? 0,
-                                         currentValueCHF: v?.currentValue ?? 0)
+        var actualTotals: [Int: Double] = [:]
+        var totalValue: Double = 0
+
+        let positions = dbManager.fetchPositionReports()
+        var rateCache: [String: Double] = [:]
+
+        for p in positions {
+            guard let price = p.currentPrice,
+                  let className = p.assetClass,
+                  let classId = classIdMap[className] else { continue }
+            var value = p.quantity * price
+            let currency = p.instrumentCurrency.uppercased()
+            if currency != "CHF" {
+                if rateCache[currency] == nil {
+                    rateCache[currency] = dbManager.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
+                }
+                guard let r = rateCache[currency] else { continue }
+                value *= r
+            }
+            actualTotals[classId, default: 0] += value
+            totalValue += value
         }
 
-        classIdMap = Dictionary(uniqueKeysWithValues: classes.map { ($0.name, $0.id) })
+        portfolioValue = totalValue
+
+        items = classes.map { cls in
+            let current = actualTotals[cls.id] ?? 0
+            let currentPct = totalValue > 0 ? current / totalValue * 100 : 0
+            return AllocationDisplayItem(id: cls.name,
+                                         assetClassName: cls.name,
+                                         targetPercent: targetMap[cls.id] ?? 0,
+                                         currentPercent: currentPct,
+                                         currentValueCHF: current)
+        }
     }
 
     func updateTarget(for item: AllocationDisplayItem, to newValue: Double) {

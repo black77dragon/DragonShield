@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Refine Position form typography and enforce minimum sheet size
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
+- Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Add toggle for Direct Real Estate with CHF amount and persist settings
 - Persist target allocation percentages to new TargetAllocation table
 - Include FX History table in reference data backups
