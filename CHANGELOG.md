@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Display actual vs target asset allocation on a single slider in new AssetClassAllocationView
+- Link Asset Allocation view from the sidebar navigation
 - Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data

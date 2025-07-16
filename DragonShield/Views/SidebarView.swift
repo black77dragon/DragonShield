@@ -31,6 +31,9 @@ struct SidebarView: View {
                 NavigationLink(destination: PositionsView()) {
                     Label("Positions", systemImage: "tablecells")
                 }
+                NavigationLink(destination: AssetClassAllocationView()) {
+                    Label("Asset Allocation", systemImage: "slider.horizontal.3")
+                }
             }
             
             // MARK: - Maintenance Functions Section
