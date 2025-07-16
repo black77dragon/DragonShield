@@ -87,7 +87,7 @@ struct DataImportExportView: View {
     }
 
     private var zkbCard: some View {
-        importCard(title: "Import ZKB Statement", type: .zkb, enabled: false)
+        importCard(title: "Import ZKB Statement", type: .zkb, enabled: true)
     }
 
     private func importCard(title: String, type: StatementType, enabled: Bool) -> some View {
@@ -95,7 +95,7 @@ struct DataImportExportView: View {
             Image(systemName: "tray.and.arrow.down")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 48, height: 48)
+                .frame(width: 32, height: 32)
                 .foregroundColor(enabled ? .primary : .gray)
             Text(title)
                 .font(.system(size: 16, weight: .bold))
@@ -104,7 +104,7 @@ struct DataImportExportView: View {
                 guard enabled, let url = urls.first else { return }
                 importStatement(from: url, type: type)
             }
-            .frame(height: 120)
+            .frame(height: 80)
             .opacity(enabled ? 1 : 0.5)
 
             Text("or")

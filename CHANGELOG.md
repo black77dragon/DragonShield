@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Add ZKB CSV parser and detect files by name
 - Log detailed ZKB import progress to `import.log`
+- Activate ZKB import card with drag-and-drop and Select File button; shrink drop zones
 - Fix Asset SubClass creation failing due to missing class_id binding and show success alert on save
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers
 - Fix compile error mapping active currencies in ExchangeRates view model

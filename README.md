@@ -126,7 +126,7 @@ python3 python_scripts/deploy_db.py
 ```
 
 ### Importing ZKB Statements
-Drag and drop a `Depotauszug ... ZKB.csv` file onto the Data Import screen or run the CLI:
+Use the Data Import/Export screen to drag and drop a `Depotauszug ... ZKB.csv` file or click **Select File**, or run the CLI:
 
 ```bash
 python3 python_scripts/import_tool.py
