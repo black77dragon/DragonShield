@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Include FX History table in reference data backups
 - Show info tooltip listing tables on Reference Data card
 - Fix unicode bullet escape in Data Import/Export status message causing build error
+- Fix compile error displaying Reference Data tooltip
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts
 - Test migrations for instrument update columns

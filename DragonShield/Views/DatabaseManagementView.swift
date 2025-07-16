@@ -88,7 +88,8 @@ struct DatabaseManagementView: View {
                     Image(systemName: "info.circle")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.gray)
-                        .help(backupService.referenceTables.map { "\u2022 \($0)" }
+                        .help(backupService.referenceTables
+                                .map { "\u{2022} \($0)" }
                                 .joined(separator: "\n"))
                 }
                 HStack(spacing: 12) {
