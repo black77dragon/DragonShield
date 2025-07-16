@@ -17,6 +17,7 @@ import contextlib
 from typing import Any, Dict, Tuple, Optional
 
 import credit_suisse_parser  # existing parser in the same folder
+import zkb_parser  # new ZKB CSV parser
 
 DB_PATH = os.path.join(
     "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
@@ -109,10 +110,14 @@ def update_session(conn: sqlite3.Connection, sess_id: int, status: str,
     conn.commit()
 
 
-def parse_file(path: str) -> Dict[str, Any]:
+def parse_file(path: str, institution: str = "Credit-Suisse") -> Dict[str, Any]:
+    """Dispatch to the correct parser based on the institution name."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        credit_suisse_parser.process_file(path)
+        if institution.lower().startswith("zkb"):
+            zkb_parser.process_file(path)
+        else:
+            credit_suisse_parser.process_file(path)
     return json.loads(buf.getvalue())
 
 
@@ -132,6 +137,12 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
 
     file_type, size, file_hash = compute_metadata(file_path)
 
+    inst_row = conn.execute(
+        "SELECT institution_name FROM Institutions WHERE institution_id=?",
+        (institution_id,),
+    ).fetchone()
+    institution_name = inst_row[0] if inst_row else "Credit-Suisse"
+
     base_name = f"Import {os.path.basename(file_path)}"
     sess_name = next_session_name(conn, base_name)
     session_id = insert_session(
@@ -145,7 +156,7 @@ def process_file_path(conn: sqlite3.Connection, institution_id: int, file_path: 
         institution_id,
     )
     print("Import session", session_id, "created. Parsing...")
-    data = parse_file(file_path)
+    data = parse_file(file_path, institution_name)
     preview_records(data)
     proceed = input("Commit import? [y/N]: ").strip().lower() == 'y'
     if proceed:

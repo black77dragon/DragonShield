@@ -113,3 +113,18 @@ def test_parse_file(monkeypatch, tmp_path):
     data = import_tool.parse_file(str(f))
 
     assert data == sample
+
+
+def test_parse_file_zkb(monkeypatch, tmp_path):
+    sample = {'records': ['a'], 'summary': {}}
+
+    def fake_process_file(path):
+        print(json.dumps(sample))
+
+    monkeypatch.setattr(import_tool, 'zkb_parser', type('M', (), {'process_file': fake_process_file}))
+
+    f = tmp_path / 'dep.csv'
+    f.write_text('x')
+    data = import_tool.parse_file(str(f), institution='ZKB')
+
+    assert data == sample
