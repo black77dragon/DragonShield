@@ -82,4 +82,9 @@ def test_apply_migrations_and_insert_dates():
     ).fetchone()[0]
     assert val == '2025-06-01'
 
+    # Apply third migration
+    conn.executescript(read_sql('003_add_target_allocation_table.sql'))
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='TargetAllocation'")]
+    assert 'TargetAllocation' in tables
+
     conn.close()

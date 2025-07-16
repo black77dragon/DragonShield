@@ -13,12 +13,18 @@ All notable changes to this project will be documented in this file.
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Refine Position form typography and enforce minimum sheet size
+- Add toggle for Direct Real Estate with CHF amount and persist settings
+- Persist target allocation percentages to new TargetAllocation table
+- Include FX History table in reference data backups
+- Show info tooltip listing tables on Reference Data card
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts
 - Test migrations for instrument update columns
 - Add exchange_rates.sql script with sample FX rates for all currencies
 - Fix transaction error in exchange_rates.sql script
+- Embed FX rate sample data in schema seed file
+- Auto-save allocation values on exit and simplify maintenance view UI
 - Add ExchangeRates maintenance view for CRUD FX rate management
 - Fix Asset SubClass creation failing due to missing class_id binding and show success alert on save
 - Fix SQLITE_TRANSIENT compile error in ExchangeRates database helpers

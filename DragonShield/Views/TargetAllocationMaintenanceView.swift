@@ -43,26 +43,27 @@ struct TargetAllocationMaintenanceView: View {
         .padding()
         .navigationTitle("Target Allocation")
         .onAppear(perform: loadData)
+        .onDisappear { viewModel.saveAllTargets() }
         .toolbar {
-            ToolbarItemGroup(placement: .confirmationAction) {
+            ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save() }
                     .keyboardShortcut("s", modifiers: [.command])
                     .modifier(ModernPrimaryButton(color: .blue, isDisabled: !hasChanges))
             }
-            ToolbarItemGroup(placement: .cancellationAction) {
+            ToolbarItem(placement: .cancellationAction) {
                 Button("Reset") {
-                    viewModel.classTargets = originalClassTargets
-                    viewModel.subClassTargets = originalSubTargets
+                    viewModel.resetAllTargets()
                 }
-                    .modifier(ModernPrimaryButton(color: .orange, isDisabled: !hasChanges))
-                Button("Cancel") { presentation.wrappedValue.dismiss() }
-                    .modifier(ModernSubtleButton())
+                    .modifier(ModernPrimaryButton(color: .orange, isDisabled: false))
             }
         }
     }
 
     private var leftPane: some View {
         VStack(alignment: .leading) {
+            Toggle("Include Direct Real Estate", isOn: $viewModel.includeDirectRealEstate)
+                .toggleStyle(SwitchToggleStyle())
+                .padding(.bottom, 8)
             classList
             totalsRow
         }
@@ -92,6 +93,10 @@ struct TargetAllocationMaintenanceView: View {
                 Text("\u{26A0}\u{FE0F} Sub-class totals mismatch")
                     .foregroundColor(.orange)
             }
+            if viewModel.includeDirectRealEstate {
+                Spacer()
+                Text(viewModel.currencyFormatter.string(from: NSNumber(value: viewModel.directRealEstateTargetCHF)) ?? "")
+            }
             Spacer()
         }
         .padding([.top, .horizontal])
@@ -108,7 +113,7 @@ struct TargetAllocationMaintenanceView: View {
                 subClassRow(for: sub, classId: cls.id)
             }
             let sum = viewModel.totalSubClassPct(for: cls.id)
-            if abs(sum - 100) > 0.01 {
+            if (viewModel.classTargets[cls.id] ?? 0) > 0 && abs(sum - 100) > 0.01 {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.warning)
@@ -130,7 +135,8 @@ struct TargetAllocationMaintenanceView: View {
                 .frame(width: 10, height: 10)
             Text(cls.name)
                 .font(.system(size: 16, weight: viewModel.classTargets[cls.id, default: 0] > 0 ? .semibold : .regular))
-            if abs(viewModel.totalSubClassPct(for: cls.id) - 100) > 0.01 {
+            let subTotal = viewModel.totalSubClassPct(for: cls.id)
+            if (viewModel.classTargets[cls.id] ?? 0) > 0 && abs(subTotal - 100) > 0.01 {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.warning)
                     .accessibilityLabel("Sub-class totals mismatch")
@@ -142,13 +148,14 @@ struct TargetAllocationMaintenanceView: View {
                 in: 0...100,
                 step: 5
             )
+            .frame(width: 140)
             .focusable()
             TextField(
                 "",
                 value: classTargetBinding(for: cls.id),
                 formatter: viewModel.numberFormatter
             )
-            .frame(width: 40)
+            .frame(width: 40, alignment: .trailing)
             .focusable()
         }
     }
@@ -158,19 +165,29 @@ struct TargetAllocationMaintenanceView: View {
             Text(sub.name)
                 .font(.system(size: 14))
             Spacer()
-            Slider(
-                value: subClassTargetBinding(for: sub.id),
-                in: 0...100,
-                step: 5
-            )
-            .focusable()
-            TextField(
-                "",
-                value: subClassTargetBinding(for: sub.id),
-                formatter: viewModel.numberFormatter
-            )
-            .frame(width: 40)
-            .focusable()
+            if sub.name == "Direct Real Estate" {
+                TextField(
+                    "",
+                    value: $viewModel.directRealEstateTargetCHF,
+                    formatter: viewModel.currencyFormatter
+                )
+                .frame(width: 80, alignment: .trailing)
+            } else {
+                Slider(
+                    value: subClassTargetBinding(for: sub.id),
+                    in: 0...100,
+                    step: 5
+                )
+                .frame(width: 140)
+                .focusable()
+                TextField(
+                    "",
+                    value: subClassTargetBinding(for: sub.id),
+                    formatter: viewModel.numberFormatter
+                )
+                .frame(width: 40, alignment: .trailing)
+                .focusable()
+            }
         }
         .padding(.vertical, 4)
         .disabled(viewModel.classTargets[classId] == 0)
@@ -211,9 +228,12 @@ struct TargetAllocationMaintenanceView: View {
             .foregroundStyle(by: .value("Class", item.name))
             .annotation(position: .overlay) {
                 if item.percent > 4 {
-                    Text("\(Int(item.percent))%")
-                        .font(.caption2)
-                        .foregroundColor(.white)
+                    VStack {
+                        Text(item.name)
+                        Text("\(Int(item.percent))%")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.white)
                 }
             }
         }

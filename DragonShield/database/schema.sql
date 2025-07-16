@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.14 - Add valor_nr column to Instruments
+-- Version 4.16 - Add TargetAllocation table
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
@@ -189,6 +189,17 @@ CREATE TABLE PortfolioInstruments (
 );
 
 CREATE INDEX idx_portfolio_instruments_instrument ON PortfolioInstruments(instrument_id);
+CREATE TABLE TargetAllocation (
+    allocation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_class_id INTEGER NOT NULL,
+    sub_class_id INTEGER,
+    target_percent REAL,
+    target_amount_chf REAL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(asset_class_id, sub_class_id),
+    FOREIGN KEY (asset_class_id) REFERENCES AssetClasses(class_id),
+    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id)
+);
 
 --=============================================================================
 -- ACCOUNT MANAGEMENT (MODIFIED)

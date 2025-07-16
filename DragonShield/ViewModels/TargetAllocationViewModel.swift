@@ -16,6 +16,8 @@ class TargetAllocationViewModel: ObservableObject {
     @Published var subClassTargets: [Int: Double] = [:]
     @Published var assetClasses: [DatabaseManager.AssetClassData] = []
     @Published var expandedClasses: [Int: Bool] = [:]
+    @Published var includeDirectRealEstate: Bool
+    @Published var directRealEstateTargetCHF: Double
 
     private let dbManager: DatabaseManager
     private let portfolioId: Int
@@ -27,9 +29,19 @@ class TargetAllocationViewModel: ObservableObject {
         return f
     }()
 
+    let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "CHF"
+        f.maximumFractionDigits = 0
+        return f
+    }()
+
     init(dbManager: DatabaseManager, portfolioId: Int) {
         self.dbManager = dbManager
         self.portfolioId = portfolioId
+        self.includeDirectRealEstate = dbManager.includeDirectRealEstate
+        self.directRealEstateTargetCHF = dbManager.directRealEstateTargetCHF
         loadTargets()
     }
 
@@ -39,11 +51,15 @@ class TargetAllocationViewModel: ObservableObject {
         var classMap: [Int: Double] = [:]
         var subMap: [Int: Double] = [:]
         for row in rows {
-            if let classId = row.classId {
+            if let classId = row.classId, row.subClassId == nil {
                 classMap[classId] = row.percent
             }
             if let subId = row.subClassId {
                 subMap[subId] = row.percent
+            }
+            if let amount = row.amountCHF, row.subClassId != nil {
+                // direct real estate stored via configuration separately
+                directRealEstateTargetCHF = amount
             }
         }
         subClassTargets = subMap
@@ -51,7 +67,11 @@ class TargetAllocationViewModel: ObservableObject {
     }
 
     func subAssetClasses(for classId: Int) -> [DatabaseManager.SubClassTarget] {
-        dbManager.subAssetClasses(for: classId)
+        var subs = dbManager.subAssetClasses(for: classId)
+        if !includeDirectRealEstate {
+            subs.removeAll { $0.name == "Direct Real Estate" }
+        }
+        return subs
     }
 
     func totalSubClassPct(for classId: Int) -> Double {
@@ -75,11 +95,19 @@ class TargetAllocationViewModel: ObservableObject {
     }
 
     func saveAllTargets() {
+        _ = dbManager.updateConfiguration(key: "include_direct_re", value: includeDirectRealEstate ? "true" : "false")
+        _ = dbManager.updateConfiguration(key: "direct_re_target_chf", value: String(directRealEstateTargetCHF))
         for (classId, pct) in classTargets {
             dbManager.upsertClassTarget(portfolioId: portfolioId, classId: classId, percent: pct)
         }
         for (subId, pct) in subClassTargets {
             dbManager.upsertSubClassTarget(portfolioId: portfolioId, subClassId: subId, percent: pct)
         }
+    }
+
+    func resetAllTargets() {
+        for key in classTargets.keys { classTargets[key] = 0 }
+        for key in subClassTargets.keys { subClassTargets[key] = 0 }
+        directRealEstateTargetCHF = 0
     }
 }
