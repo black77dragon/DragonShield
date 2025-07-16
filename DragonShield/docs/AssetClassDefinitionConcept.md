@@ -127,6 +127,17 @@ Each instrument record includes:
 | Hedge Funds             | ALT             | HF                 | Various strategies.           |
 | Cryptocurrencies        | ALT             | CRY                | BTC, ETH, etc.                |
 
+
+
+## 8. ZKB Mapping
+
+| ZKB               | AssetClass Code | AssetSubClass Code | Notes                         |
+|-------------------------|-----------------|--------------------|-------------------------------|
+| Obligationen und Ähnliches      | FI             | STOCK               | Money market instruments.     |
+| Sonstige Anlagen           | OTHER             | OTHER                | to be further refined            |
+| Equities (EU)           | EQT             | EGM                | European equities.            |
+
+
 ---
 
 Below is a concrete illustration of how a Credit-Suisse setup would look in your unified model. We show three tables—​Accounts, Instruments, and Positions—​with sample data for:
