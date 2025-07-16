@@ -9,6 +9,7 @@ struct InstrumentEditView: View {
     @State private var currency = "CHF"
     @State private var tickerSymbol = ""
     @State private var isin = ""
+    @State private var valorNr = ""
     @State private var sector = ""
     @State private var instrumentGroups: [(id: Int, name: String)] = []
     @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
@@ -28,6 +29,7 @@ struct InstrumentEditView: View {
     @State private var originalCurrency = ""
     @State private var originalTickerSymbol = ""
     @State private var originalIsin = ""
+    @State private var originalValorNr = ""
     @State private var originalSector = ""
     
     // MARK: - Validation
@@ -58,19 +60,21 @@ struct InstrumentEditView: View {
                     currency != originalCurrency ||
                     tickerSymbol != originalTickerSymbol ||
                     isin != originalIsin ||
+                    valorNr != originalValorNr ||
                     sector != originalSector
     }
     
     // MARK: - Computed Properties
     private var completionPercentage: Double {
         var completed = 0.0
-        let total = 6.0
+        let total = 7.0
         
         if !instrumentName.isEmpty { completed += 1 }
         if selectedGroupId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
         if !tickerSymbol.isEmpty { completed += 1 }
         if !isin.isEmpty { completed += 1 }
+        if !valorNr.isEmpty { completed += 1 }
         if !sector.isEmpty { completed += 1 }
         
         return completed / total
@@ -367,6 +371,16 @@ struct InstrumentEditView: View {
                     errorMessage: "ISIN must be 12 characters starting with 2 letters"
                 )
                 .onChange(of: isin) { oldValue, newValue in detectChanges() }
+
+                modernTextField(
+                    title: "Valor Number",
+                    text: $valorNr,
+                    placeholder: "e.g., 1234567",
+                    icon: "number.circle",
+                    isRequired: false,
+                    autoUppercase: false
+                )
+                .onChange(of: valorNr) { oldValue, newValue in detectChanges() }
                 
                 modernTextField(
                     title: "Sector",
@@ -681,6 +695,7 @@ struct InstrumentEditView: View {
             instrumentName = details.name
             selectedGroupId = details.subClassId
             currency = details.currency
+            valorNr = details.valorNr ?? ""
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
             sector = details.sector ?? ""
@@ -689,6 +704,7 @@ struct InstrumentEditView: View {
             originalName = instrumentName
             originalGroupId = selectedGroupId
             originalCurrency = currency
+            originalValorNr = valorNr
             originalTickerSymbol = tickerSymbol
             originalIsin = isin
             originalSector = sector
@@ -731,6 +747,7 @@ struct InstrumentEditView: View {
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
             subClassId: selectedGroupId,
             currency: currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+            valorNr: valorNr.isEmpty ? nil : valorNr,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),
             sector: sector.isEmpty ? nil : sector

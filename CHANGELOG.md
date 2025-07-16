@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Expand PositionReports with diverse sample entries for testing
 - Add risk concentration dashboard tile showing top 5 groups by value
 - Support asset class grouping and display CHF values in Risk Buckets tile
+- Add valor number field to instruments with database and UI support
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Refine Position form typography and enforce minimum sheet size

@@ -8,11 +8,11 @@ import Foundation
 
 extension DatabaseManager {
     
-    func fetchAssets() -> [(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?)] {
-        var instruments: [(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?)] = []
+    func fetchAssets() -> [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] {
+        var instruments: [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] = []
         
         let query = """
-            SELECT instrument_id, instrument_name, sub_class_id, currency, ticker_symbol, isin
+            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin
             FROM Instruments
             WHERE is_active = 1 AND instrument_name IS NOT NULL AND instrument_name != ''
             ORDER BY instrument_name
@@ -31,23 +31,31 @@ extension DatabaseManager {
                 guard let currencyPtr = sqlite3_column_text(statement, 3) else { continue }
                 let currency = String(cString: currencyPtr)
                 
+                let valorNr: String?
+                if let valorPtr = sqlite3_column_text(statement, 4) {
+                    let valorValue = String(cString: valorPtr)
+                    valorNr = valorValue.isEmpty ? nil : valorValue
+                } else {
+                    valorNr = nil
+                }
+
                 let tickerSymbol: String?
-                if let tickerPtr = sqlite3_column_text(statement, 4) {
+                if let tickerPtr = sqlite3_column_text(statement, 5) {
                     let tickerValue = String(cString: tickerPtr)
                     tickerSymbol = tickerValue.isEmpty ? nil : tickerValue
                 } else {
                     tickerSymbol = nil
                 }
-                
+
                 let isin: String?
-                if let isinPtr = sqlite3_column_text(statement, 5) {
+                if let isinPtr = sqlite3_column_text(statement, 6) {
                     let isinValue = String(cString: isinPtr)
                     isin = isinValue.isEmpty ? nil : isinValue
                 } else {
                     isin = nil
                 }
-                
-                instruments.append((id: id, name: name, subClassId: subClassId, currency: currency, tickerSymbol: tickerSymbol, isin: isin))
+
+                instruments.append((id: id, name: name, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin))
             }
         } else {
             print("❌ Failed to prepare fetchAssets: \(String(cString: sqlite3_errmsg(db)))")
@@ -56,10 +64,10 @@ extension DatabaseManager {
         return instruments
     }
     
-    func addInstrument(name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Bool {
+    func addInstrument(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Bool {
         let query = """
-            INSERT INTO Instruments (instrument_name, sub_class_id, currency, ticker_symbol, isin, sector, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         """
         
         var statement: OpaquePointer?
@@ -78,29 +86,37 @@ extension DatabaseManager {
         _ = currency.withCString { currencyPtr in
             sqlite3_bind_text(statement, 3, currencyPtr, -1, SQLITE_TRANSIENT)
         }
-        
-        if let ticker = tickerSymbol, !ticker.isEmpty {
-            _ = ticker.withCString { tickerPtr in
-                sqlite3_bind_text(statement, 4, tickerPtr, -1, SQLITE_TRANSIENT)
+
+        if let valor = valorNr, !valor.isEmpty {
+            _ = valor.withCString { valorPtr in
+                sqlite3_bind_text(statement, 4, valorPtr, -1, SQLITE_TRANSIENT)
             }
         } else {
             sqlite3_bind_null(statement, 4)
         }
-        
-        if let isinCode = isin, !isinCode.isEmpty {
-            _ = isinCode.withCString { isinPtr in
-                sqlite3_bind_text(statement, 5, isinPtr, -1, SQLITE_TRANSIENT)
+
+        if let ticker = tickerSymbol, !ticker.isEmpty {
+            _ = ticker.withCString { tickerPtr in
+                sqlite3_bind_text(statement, 5, tickerPtr, -1, SQLITE_TRANSIENT)
             }
         } else {
             sqlite3_bind_null(statement, 5)
         }
-        
-        if let sectorName = sector, !sectorName.isEmpty {
-            _ = sectorName.withCString { sectorPtr in
-                sqlite3_bind_text(statement, 6, sectorPtr, -1, SQLITE_TRANSIENT)
+
+        if let isinCode = isin, !isinCode.isEmpty {
+            _ = isinCode.withCString { isinPtr in
+                sqlite3_bind_text(statement, 6, isinPtr, -1, SQLITE_TRANSIENT)
             }
         } else {
             sqlite3_bind_null(statement, 6)
+        }
+
+        if let sectorName = sector, !sectorName.isEmpty {
+            _ = sectorName.withCString { sectorPtr in
+                sqlite3_bind_text(statement, 7, sectorPtr, -1, SQLITE_TRANSIENT)
+            }
+        } else {
+            sqlite3_bind_null(statement, 7)
         }
         
         let result = sqlite3_step(statement) == SQLITE_DONE
@@ -118,10 +134,10 @@ extension DatabaseManager {
     }
 
     /// Inserts a new instrument and returns the generated row ID on success.
-    func addInstrumentReturningId(name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Int? {
+    func addInstrumentReturningId(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Int? {
         let query = """
-            INSERT INTO Instruments (instrument_name, sub_class_id, currency, ticker_symbol, isin, sector, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         """
 
         var statement: OpaquePointer?
@@ -137,22 +153,28 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 2, Int32(subClassId))
         _ = currency.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
 
-        if let ticker = tickerSymbol, !ticker.isEmpty {
-            _ = ticker.withCString { sqlite3_bind_text(statement, 4, $0, -1, SQLITE_TRANSIENT) }
+        if let valor = valorNr, !valor.isEmpty {
+            _ = valor.withCString { sqlite3_bind_text(statement, 4, $0, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 4)
         }
 
-        if let isinCode = isin, !isinCode.isEmpty {
-            _ = isinCode.withCString { sqlite3_bind_text(statement, 5, $0, -1, SQLITE_TRANSIENT) }
+        if let ticker = tickerSymbol, !ticker.isEmpty {
+            _ = ticker.withCString { sqlite3_bind_text(statement, 5, $0, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 5)
         }
 
-        if let sectorName = sector, !sectorName.isEmpty {
-            _ = sectorName.withCString { sqlite3_bind_text(statement, 6, $0, -1, SQLITE_TRANSIENT) }
+        if let isinCode = isin, !isinCode.isEmpty {
+            _ = isinCode.withCString { sqlite3_bind_text(statement, 6, $0, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 6)
+        }
+
+        if let sectorName = sector, !sectorName.isEmpty {
+            _ = sectorName.withCString { sqlite3_bind_text(statement, 7, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 7)
         }
 
         let success = sqlite3_step(statement) == SQLITE_DONE
@@ -168,10 +190,10 @@ extension DatabaseManager {
         return insertedId
     }
     
-    func updateInstrument(id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, sector: String?) -> Bool {
+    func updateInstrument(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, sector: String?) -> Bool {
         let query = """
             UPDATE Instruments
-            SET instrument_name = ?, sub_class_id = ?, currency = ?, ticker_symbol = ?, isin = ?, sector = ?, updated_at = CURRENT_TIMESTAMP
+            SET instrument_name = ?, sub_class_id = ?, currency = ?, valor_nr = ?, ticker_symbol = ?, isin = ?, sector = ?, updated_at = CURRENT_TIMESTAMP
             WHERE instrument_id = ?
         """
         
@@ -187,26 +209,32 @@ extension DatabaseManager {
         _ = name.withCString { namePtr in sqlite3_bind_text(statement, 1, namePtr, -1, SQLITE_TRANSIENT) }
         sqlite3_bind_int(statement, 2, Int32(subClassId))
         _ = currency.withCString { currencyPtr in sqlite3_bind_text(statement, 3, currencyPtr, -1, SQLITE_TRANSIENT) }
-        
-        if let ticker = tickerSymbol, !ticker.isEmpty {
-            _ = ticker.withCString { tickerPtr in sqlite3_bind_text(statement, 4, tickerPtr, -1, SQLITE_TRANSIENT) }
+
+        if let valor = valorNr, !valor.isEmpty {
+            _ = valor.withCString { valorPtr in sqlite3_bind_text(statement, 4, valorPtr, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 4)
         }
-        
-        if let isinCode = isin, !isinCode.isEmpty {
-            _ = isinCode.withCString { isinPtr in sqlite3_bind_text(statement, 5, isinPtr, -1, SQLITE_TRANSIENT) }
+
+        if let ticker = tickerSymbol, !ticker.isEmpty {
+            _ = ticker.withCString { tickerPtr in sqlite3_bind_text(statement, 5, tickerPtr, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 5)
         }
-        
-        if let sectorName = sector, !sectorName.isEmpty {
-            _ = sectorName.withCString { sectorPtr in sqlite3_bind_text(statement, 6, sectorPtr, -1, SQLITE_TRANSIENT) }
+
+        if let isinCode = isin, !isinCode.isEmpty {
+            _ = isinCode.withCString { isinPtr in sqlite3_bind_text(statement, 6, isinPtr, -1, SQLITE_TRANSIENT) }
         } else {
             sqlite3_bind_null(statement, 6)
         }
-        
-        sqlite3_bind_int(statement, 7, Int32(id))
+
+        if let sectorName = sector, !sectorName.isEmpty {
+            _ = sectorName.withCString { sectorPtr in sqlite3_bind_text(statement, 7, sectorPtr, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 7)
+        }
+
+        sqlite3_bind_int(statement, 8, Int32(id))
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
@@ -241,9 +269,9 @@ extension DatabaseManager {
         return result
     }
     
-    func fetchInstrumentDetails(id: Int) -> (id: Int, name: String, subClassId: Int, currency: String, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?)? {
+    func fetchInstrumentDetails(id: Int) -> (id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?)? {
         let query = """
-            SELECT instrument_id, instrument_name, sub_class_id, currency, ticker_symbol, isin, sector
+            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector
             FROM Instruments
             WHERE instrument_id = ?
         """
@@ -257,13 +285,14 @@ extension DatabaseManager {
                 let instrumentName = String(cString: sqlite3_column_text(statement, 1))
                 let subClassId = Int(sqlite3_column_int(statement, 2))
                 let currency = String(cString: sqlite3_column_text(statement, 3))
-                
-                let tickerSymbol: String? = sqlite3_column_text(statement, 4).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
-                let isin: String? = sqlite3_column_text(statement, 5).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
-                let sector: String? = sqlite3_column_text(statement, 6).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
-                
+
+                let valorNr: String? = sqlite3_column_text(statement, 4).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+                let tickerSymbol: String? = sqlite3_column_text(statement, 5).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+                let isin: String? = sqlite3_column_text(statement, 6).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+                let sector: String? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+
                 sqlite3_finalize(statement)
-                return (id: instrumentId, name: instrumentName, subClassId: subClassId, currency: currency, tickerSymbol: tickerSymbol, isin: isin, countryCode: nil, exchangeCode: nil, sector: sector)
+                return (id: instrumentId, name: instrumentName, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin, countryCode: nil, exchangeCode: nil, sector: sector)
             } else {
                  print("ℹ️ No instrument details found for ID: \(id)")
             }

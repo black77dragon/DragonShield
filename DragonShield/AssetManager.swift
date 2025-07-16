@@ -5,6 +5,7 @@ struct DragonAsset: Identifiable {
     var name: String
     var type: String
     var currency: String
+    var valorNr: String?
     var tickerSymbol: String?
     var isin: String?
 }
@@ -32,8 +33,9 @@ class AssetManager: ObservableObject {
                 name: instrument.name,
                 type: typeName,
                 currency: instrument.currency,
-                tickerSymbol: instrument.tickerSymbol,  // ✅ Use actual data
-                isin: instrument.isin                   // ✅ Use actual data
+                valorNr: instrument.valorNr,
+                tickerSymbol: instrument.tickerSymbol,
+                isin: instrument.isin
             )
         }
         

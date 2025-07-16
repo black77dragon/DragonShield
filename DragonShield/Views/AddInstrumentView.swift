@@ -8,6 +8,7 @@ struct AddInstrumentView: View {
     @State private var currency = "CHF"
     @State private var tickerSymbol = ""
     @State private var isin = ""
+    @State private var valorNr = ""
     @State private var sector = ""
     @State private var instrumentGroups: [(id: Int, name: String)] = []
     @State private var showingAlert = false
@@ -47,13 +48,14 @@ struct AddInstrumentView: View {
     // MARK: - Computed Properties
     private var completionPercentage: Double {
         var completed = 0.0
-        let total = 6.0
+        let total = 7.0
         
         if !instrumentName.isEmpty { completed += 1 }
         if selectedGroupId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
         if !tickerSymbol.isEmpty { completed += 1 }
         if !isin.isEmpty { completed += 1 }
+        if !valorNr.isEmpty { completed += 1 }
         if !sector.isEmpty { completed += 1 }
         
         return completed / total
@@ -305,6 +307,15 @@ struct AddInstrumentView: View {
                     autoUppercase: true,
                     validation: isValidISIN,
                     errorMessage: "ISIN must be 12 characters starting with 2 letters"
+                )
+
+                modernTextField(
+                    title: "Valor Number",
+                    text: $valorNr,
+                    placeholder: "e.g., 1234567",
+                    icon: "number.circle",
+                    isRequired: false,
+                    autoUppercase: false
                 )
                 
                 modernTextField(
@@ -617,6 +628,7 @@ struct AddInstrumentView: View {
         currency = "CHF"
         tickerSymbol = ""
         isin = ""
+        valorNr = ""
         sector = ""
         if !instrumentGroups.isEmpty {
             selectedGroupId = instrumentGroups[0].id
@@ -641,6 +653,7 @@ struct AddInstrumentView: View {
             name: trimmedName,
             subClassId: selectedGroupId,
             currency: trimmedCurrency,
+            valorNr: valorNr.isEmpty ? nil : valorNr,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),
             countryCode: nil,
