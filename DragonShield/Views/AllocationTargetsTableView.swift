@@ -85,7 +85,7 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         List {
-            OutlineGroup(viewModel.assets, children: .children) { asset in
+            OutlineGroup(viewModel.assets, children: \.children) { asset in
                 HStack {
                     Text(asset.name)
                         .frame(width: 200, alignment: .leading)
