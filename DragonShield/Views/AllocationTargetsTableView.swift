@@ -32,6 +32,24 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
 
+    // MARK: - Totals
+    var targetPctTotal: Double {
+        assets.filter { !$0.id.hasPrefix("sub-") }.map(\.targetPct).reduce(0, +)
+    }
+    var targetChfTotal: Double {
+        assets.filter { !$0.id.hasPrefix("sub-") }.map(\.targetChf).reduce(0, +)
+    }
+    var actualPctTotal: Double {
+        assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualPct).reduce(0, +)
+    }
+    var actualChfTotal: Double {
+        assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualChf).reduce(0, +)
+    }
+
+    private var totalsValid: Bool {
+        abs(targetPctTotal - 100) < 0.01
+    }
+
     private static func key(for id: String) -> String { "allocMode-\(id)" }
     static func loadMode(id: String) -> AllocationInputMode {
         if let raw = UserDefaults.standard.string(forKey: key(for: id)),
@@ -136,7 +154,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             self.assets[index].targetPct = val
             let chf = val * self.portfolioValue / 100
             self.assets[index].targetChf = chf
-            self.updateDb(for: asset.id, pct: val, chf: chf)
+            self.tryPersist()
         })
     }
 
@@ -151,20 +169,28 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             self.assets[index].targetChf = val
             let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
             self.assets[index].targetPct = pct
-            self.updateDb(for: asset.id, pct: pct, chf: val)
+            self.tryPersist()
         })
     }
 
-    private func updateDb(for id: String, pct: Double, chf: Double) {
+    private func persistAll() {
         guard let db else { return }
-        if id.hasPrefix("class-") {
-            if let classId = Int(id.dropFirst(6)) {
-                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: pct, amountChf: chf)
+        for asset in assets {
+            if asset.id.hasPrefix("class-") {
+                if let classId = Int(asset.id.dropFirst(6)) {
+                    db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
+                }
+            } else if asset.id.hasPrefix("sub-") {
+                if let subId = Int(asset.id.dropFirst(4)) {
+                    db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
+                }
             }
-        } else if id.hasPrefix("sub-") {
-            if let subId = Int(id.dropFirst(4)) {
-                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: pct, amountChf: chf)
-            }
+        }
+    }
+
+    private func tryPersist() {
+        if totalsValid {
+            persistAll()
         }
     }
 }
@@ -190,6 +216,7 @@ struct AllocationTargetsTableView: View {
     var body: some View {
         List {
             headerRow
+            totalsRow
             OutlineGroup(viewModel.assets, children: \.children) { asset in
                 tableRow(for: asset)
             }
@@ -204,8 +231,10 @@ struct AllocationTargetsTableView: View {
                 .frame(width: 200, alignment: .leading)
             Text("Mode")
                 .frame(width: 80)
-            Text("Target")
+            Text("Target %")
                 .frame(width: 80)
+            Text("Target CHF")
+                .frame(width: 100)
             Text("Actual %")
                 .frame(width: 80)
             Text("Actual CHF")
@@ -218,6 +247,42 @@ struct AllocationTargetsTableView: View {
                 .frame(width: 60)
         }
         .font(.caption)
+    }
+
+    private var totalsRow: some View {
+        HStack {
+            Text("Totals")
+                .frame(width: 200, alignment: .leading)
+            Spacer()
+                .frame(width: 80)
+            totalCellPct
+                .frame(width: 80, alignment: .trailing)
+            Text(String(format: "%.0f", viewModel.targetChfTotal))
+                .frame(width: 100, alignment: .trailing)
+            Text(String(format: "%.1f%%", viewModel.actualPctTotal))
+                .frame(width: 80, alignment: .trailing)
+            Text(String(format: "%.0f", viewModel.actualChfTotal))
+                .frame(width: 100, alignment: .trailing)
+            Spacer()
+                .frame(width: 80)
+            Spacer()
+                .frame(width: 100)
+            Spacer()
+                .frame(width: 60)
+        }
+        .font(.subheadline)
+    }
+
+    private var totalCellPct: some View {
+        HStack(spacing: 2) {
+            Text(String(format: "%.1f%%", viewModel.targetPctTotal))
+                .fontWeight(viewModel.targetPctTotal == 100 ? .regular : .bold)
+                .foregroundColor(viewModel.targetPctTotal == 100 ? .primary : .red)
+            if viewModel.targetPctTotal != 100 {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.red)
+            }
+        }
     }
 
     @ViewBuilder
@@ -235,10 +300,14 @@ struct AllocationTargetsTableView: View {
                 TextField("", value: viewModel.percentBinding(for: asset), formatter: numberFormatter)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80, alignment: .trailing)
+                Text(String(format: "%.0f", asset.targetChf))
+                    .frame(width: 100, alignment: .trailing)
             } else {
+                Text(String(format: "%.1f", asset.targetPct))
+                    .frame(width: 80, alignment: .trailing)
                 TextField("", value: viewModel.chfBinding(for: asset), formatter: chfFormatter)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 80, alignment: .trailing)
+                    .frame(width: 100, alignment: .trailing)
             }
             Text(String(format: "%.1f%%", asset.actualPct))
                 .frame(width: 80, alignment: .trailing)
