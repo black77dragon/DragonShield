@@ -278,3 +278,4 @@ All notable changes to this project will be documented in this file.
 - Resolve onChange deprecation warning in AllocationTargetsTableView
 - Document requirements for Allocation Targets table sorting indicators and zero allocation grouping
 - Document Delta % column sorting and revised zero allocation criteria in Allocation Targets spec
+- Clarify macOS Table API assumptions and detail zero-allocation row handling in Allocation Targets spec

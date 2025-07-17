@@ -1,10 +1,16 @@
 # Allocation Targets Table View Refinement Specification
 
 ## Purpose
-Provide detailed requirements for improving the `AllocationTargetsTableView` in the macOS app so users can better understand sorting behaviour and quickly identify zero allocation assets. Each asset row exposes three percentage values: `targetPct`, `actualPct` and `deltaPct` (Δ %).
+Provide detailed requirements for improving the `AllocationTargetsTableView` in the macOS app so users can better understand sorting behaviour and quickly identify zero allocation assets. Each asset row exposes three percentage values: `targetPct`, `actualPct` and `deltaPct` (**Delta %**).
+
+## Assumptions & Context
+- Built with the SwiftUI **Table** API on macOS 13 or later.
+- Sorting uses a single `KeyPathComparator` stored in a `@State` property so only one column is sortable at a time.
+- Asset rows expose `targetPct`, `actualPct` and `deltaPct` percentage fields.
+- *Zero allocation* rows have all three percentages set to `0`.
 
 ## Sorting Indicators
-- The **Target %**, **Actual %** and **Δ %** column headers must always display a sort arrow.
+- The **Target %**, **Actual %** and **Delta %** (Δ) column headers must always display a sort arrow.
 - When a column is the active sort key, show a **filled arrow** in the system accent colour.
 - When a column is not active, show an **outlined arrow** coloured grey.
 - The arrow direction reflects ascending or descending order of the active comparator.
