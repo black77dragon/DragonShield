@@ -266,3 +266,4 @@ All notable changes to this project will be documented in this file.
 - Rename "Instrument Updated" label to "Last Update" in Position form
 - Remove obsolete Value Date field from Position form
 - Refine Asset Allocation rows with uniform bars and vibrant deviation colors
+- Polish Asset Allocation layout with larger markers and right-aligned bars

@@ -47,7 +47,7 @@ private struct AllocationRow: View {
             SliderWithMarkers(current: item.currentPercent,
                               target: $target,
                               deviationColor: deviationColor)
-                .frame(width: barWidth, height: 24)
+                .frame(width: barWidth, height: 24, alignment: .trailing)
                 .onChange(of: target) { _, newValue in
                     targetChanged(newValue)
                 }
@@ -70,7 +70,7 @@ private struct SliderWithMarkers: View {
     @Binding var target: Double
     var deviationColor: Color
 
-    private let trackHeight: CGFloat = 6
+    private let trackHeight: CGFloat = 8
     private let markerSize: CGFloat = 16
 
     var body: some View {
