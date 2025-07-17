@@ -131,6 +131,7 @@ All notable changes to this project will be documented in this file.
 - Display sub-class rows correctly and allow saving with totals other than 100%
 - Fix deprecated onChange warning in Target Allocation view
 - Fix deprecated onChange warning in Risk Scorecard view
+- Fix deprecated onChange warning in Asset Allocation view
 - Persist portfolio class and sub-class targets using dictionaries
 - Refactor target allocation view to edit sub-class targets inline with DisclosureGroups
 - Add asset allocation variance heatmap tile to dashboard
@@ -264,3 +265,4 @@ All notable changes to this project will be documented in this file.
 - Resolve compile warnings in PositionsView and ExchangeRates helpers
 - Rename "Instrument Updated" label to "Last Update" in Position form
 - Remove obsolete Value Date field from Position form
+- Refine Asset Allocation rows with uniform bars and vibrant deviation colors

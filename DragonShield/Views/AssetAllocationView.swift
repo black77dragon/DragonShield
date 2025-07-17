@@ -36,35 +36,32 @@ private struct AllocationRow: View {
     var portfolioValue: Double
 
     @State private var target: Double = 0
+    private let barWidth: CGFloat = 250
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(item.assetClassName)
-                Spacer()
-            }
-            .font(.subheadline)
+        HStack(alignment: .center, spacing: 8) {
+            Text(item.assetClassName)
+            Text(variationText())
+                .font(.caption)
+            Spacer()
             SliderWithMarkers(current: item.currentPercent,
                               target: $target,
                               deviationColor: deviationColor)
-                .frame(height: 24)
-                .onChange(of: target) { newValue in
+                .frame(width: barWidth, height: 24)
+                .onChange(of: target) { _, newValue in
                     targetChanged(newValue)
                 }
-            HStack {
-                Text(labelText(prefix: "T", pct: target, value: portfolioValue * target / 100))
-                    .font(.caption)
-                Spacer()
-                Text(labelText(prefix: "A", pct: item.currentPercent, value: item.currentValueCHF))
-                    .font(.caption)
-            }
         }
+        .font(.subheadline)
         .onAppear { target = item.targetPercent }
     }
 
-    private func labelText(prefix: String, pct: Double, value: Double) -> String {
-        let valueString = currencyFormatter.string(from: NSNumber(value: value)) ?? ""
-        return String(format: "%@: %.0f%% / %@", prefix, pct, valueString)
+    private func variationText() -> String {
+        let pctDiff = item.currentPercent - item.targetPercent
+        let valueDiff = item.currentValueCHF - (portfolioValue * item.targetPercent / 100)
+        let pctString = String(format: "%+.1f%%", pctDiff)
+        let valString = String(format: "%+.1f kCHF", valueDiff / 1000)
+        return "\(pctString) / \(valString)"
     }
 }
 
@@ -73,29 +70,37 @@ private struct SliderWithMarkers: View {
     @Binding var target: Double
     var deviationColor: Color
 
+    private let trackHeight: CGFloat = 6
+    private let markerSize: CGFloat = 16
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
+            let trackTop = (geo.size.height - trackHeight) / 2
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.gray.opacity(0.2)).frame(height: 6)
                 Capsule()
-                    .fill(deviationColor.opacity(0.4))
-                    .frame(width: width * CGFloat(abs(current - target) / 100), height: 6)
-                    .offset(x: width * CGFloat(min(current, target) / 100))
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: trackHeight)
+                    .offset(y: trackTop)
                 Capsule()
                     .fill(Color.gray.opacity(0.5))
-                    .frame(width: width * CGFloat(current / 100), height: 6)
+                    .frame(width: width * CGFloat(current / 100), height: trackHeight)
+                    .offset(y: trackTop)
+                Capsule()
+                    .fill(deviationColor)
+                    .frame(width: width * CGFloat(abs(current - target) / 100), height: trackHeight)
+                    .offset(x: width * CGFloat(min(current, target) / 100), y: trackTop)
                 Triangle()
                     .fill(Color.blue)
-                    .frame(width: 10, height: 6)
-                    .offset(x: width * CGFloat(target / 100) - 5, y: -4)
+                    .frame(width: markerSize, height: markerSize)
+                    .offset(x: width * CGFloat(target / 100) - markerSize / 2, y: trackTop - markerSize)
                 Triangle()
                     .rotation(Angle(degrees: 180))
                     .fill(Color.gray)
-                    .frame(width: 10, height: 6)
-                    .offset(x: width * CGFloat(current / 100) - 5, y: 6)
+                    .frame(width: markerSize, height: markerSize)
+                    .offset(x: width * CGFloat(current / 100) - markerSize / 2, y: trackTop + trackHeight)
             }
-            .frame(height: 6)
+            .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
                 let pct = min(max(0, value.location.x / width * 100), 100)
                 target = pct
