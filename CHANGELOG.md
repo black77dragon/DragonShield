@@ -10,8 +10,13 @@ All notable changes to this project will be documented in this file.
 - Add risk concentration dashboard tile showing top 5 groups by value
 - Support asset class grouping and display CHF values in Risk Buckets tile
 - Add valor number field to instruments with database and UI support
+- Allow editing allocation targets in CHF or percent with per-row mode toggle
+- Split Allocation Targets table into Target %/CHF columns with totals row warning
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
+- Add Allocation Targets table view with hierarchical editing
+- Fix compile error referencing children key path in AllocationTargetsTableView
+- Refine Allocation Targets table layout with RAG badges
 - Refine Position form typography and enforce minimum sheet size
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
@@ -266,3 +271,4 @@ All notable changes to this project will be documented in this file.
 - Rename "Instrument Updated" label to "Last Update" in Position form
 - Remove obsolete Value Date field from Position form
 - Refine Asset Allocation rows with uniform bars and vibrant deviation colors
+- Increase slider marker size and align allocation bars to the right edge

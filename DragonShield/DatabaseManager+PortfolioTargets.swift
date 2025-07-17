@@ -149,17 +149,24 @@ extension DatabaseManager {
     }
 
     /// Upsert a class-level target percentage.
-    func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double) {
+    func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil) {
         let query = """
-            INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, updated_at)
-            VALUES (?, NULL, ?, CURRENT_TIMESTAMP)
+            INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at)
+            VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(asset_class_id, sub_class_id)
-            DO UPDATE SET target_percent=excluded.target_percent, updated_at=CURRENT_TIMESTAMP;
+            DO UPDATE SET target_percent = excluded.target_percent,
+                         target_amount_chf = excluded.target_amount_chf,
+                         updated_at = CURRENT_TIMESTAMP;
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(classId))
             sqlite3_bind_double(statement, 2, percent)
+            if let amt = amountChf {
+                sqlite3_bind_double(statement, 3, amt)
+            } else {
+                sqlite3_bind_null(statement, 3)
+            }
             if sqlite3_step(statement) != SQLITE_DONE {
                 LoggingService.shared.log("Failed to upsert class target: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
@@ -170,18 +177,25 @@ extension DatabaseManager {
     }
 
     /// Upsert a sub-class-level target percentage.
-    func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double) {
+    func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double, amountChf: Double? = nil) {
         let query = """
-            INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, updated_at)
-            VALUES ((SELECT class_id FROM AssetSubClasses WHERE sub_class_id = ?), ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at)
+            VALUES ((SELECT class_id FROM AssetSubClasses WHERE sub_class_id = ?), ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(asset_class_id, sub_class_id)
-            DO UPDATE SET target_percent=excluded.target_percent, updated_at=CURRENT_TIMESTAMP;
+            DO UPDATE SET target_percent = excluded.target_percent,
+                         target_amount_chf = excluded.target_amount_chf,
+                         updated_at = CURRENT_TIMESTAMP;
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(subClassId))
             sqlite3_bind_int(statement, 2, Int32(subClassId))
             sqlite3_bind_double(statement, 3, percent)
+            if let amt = amountChf {
+                sqlite3_bind_double(statement, 4, amt)
+            } else {
+                sqlite3_bind_null(statement, 4)
+            }
             if sqlite3_step(statement) != SQLITE_DONE {
                 LoggingService.shared.log("Failed to upsert sub-class target: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }

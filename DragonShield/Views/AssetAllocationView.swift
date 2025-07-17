@@ -36,18 +36,19 @@ private struct AllocationRow: View {
     var portfolioValue: Double
 
     @State private var target: Double = 0
-    private let barWidth: CGFloat = 250
-
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(item.assetClassName)
+                .frame(width: 120, alignment: .leading)
             Text(variationText())
                 .font(.caption)
+                .frame(width: 120, alignment: .leading)
             Spacer()
             SliderWithMarkers(current: item.currentPercent,
                               target: $target,
                               deviationColor: deviationColor)
-                .frame(width: barWidth, height: 24)
+                .frame(width: 220, alignment: .trailing)
+                .frame(height: 24)
                 .onChange(of: target) { _, newValue in
                     targetChanged(newValue)
                 }
@@ -70,7 +71,7 @@ private struct SliderWithMarkers: View {
     @Binding var target: Double
     var deviationColor: Color
 
-    private let trackHeight: CGFloat = 6
+    private let trackHeight: CGFloat = 8
     private let markerSize: CGFloat = 16
 
     var body: some View {
@@ -79,11 +80,11 @@ private struct SliderWithMarkers: View {
             let trackTop = (geo.size.height - trackHeight) / 2
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color(red: 209/255, green: 209/255, blue: 214/255))
                     .frame(height: trackHeight)
                     .offset(y: trackTop)
                 Capsule()
-                    .fill(Color.gray.opacity(0.5))
+                    .fill(Color(red: 209/255, green: 209/255, blue: 214/255).opacity(0.5))
                     .frame(width: width * CGFloat(current / 100), height: trackHeight)
                     .offset(y: trackTop)
                 Capsule()
@@ -91,12 +92,12 @@ private struct SliderWithMarkers: View {
                     .frame(width: width * CGFloat(abs(current - target) / 100), height: trackHeight)
                     .offset(x: width * CGFloat(min(current, target) / 100), y: trackTop)
                 Triangle()
-                    .fill(Color.blue)
+                    .rotation(Angle(degrees: 180))
+                    .fill(Color(red: 10/255, green: 132/255, blue: 255/255))
                     .frame(width: markerSize, height: markerSize)
                     .offset(x: width * CGFloat(target / 100) - markerSize / 2, y: trackTop - markerSize)
                 Triangle()
-                    .rotation(Angle(degrees: 180))
-                    .fill(Color.gray)
+                    .fill(Color(red: 28/255, green: 28/255, blue: 30/255))
                     .frame(width: markerSize, height: markerSize)
                     .offset(x: width * CGFloat(current / 100) - markerSize / 2, y: trackTop + trackHeight)
             }
