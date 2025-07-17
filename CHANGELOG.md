@@ -277,3 +277,4 @@ All notable changes to this project will be documented in this file.
 - Increase slider marker size and align allocation bars to the right edge
 - Resolve onChange deprecation warning in AllocationTargetsTableView
 - Document requirements for Allocation Targets table sorting indicators and zero allocation grouping
+- Document Delta % column sorting and revised zero allocation criteria in Allocation Targets spec
