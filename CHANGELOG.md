@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Display popover listing reference tables when hovering info icon
 - Fix unicode bullet escape in Data Import/Export status message causing build error
 - Fix compile error displaying Reference Data tooltip
+- Document modern Asset Allocation panel specs in UI guide
 - Track last instrument update timestamp on PositionReports
 - Track earliest instrument update timestamp on Accounts
 - Test migrations for instrument update columns

@@ -92,6 +92,15 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
   - Alerts & Actions (list style)
 - Use animation sparingly (e.g., data loading, tooltip hover)
 
+#### Asset Allocation Panel
+- **Card container**: 360×auto px with 12 px corner radius and 20 px padding. Background `#FFFFFF` / `#1C1C1E` in dark mode.
+- **Title**: “Asset Allocation” in SF Pro Semibold 17 pt, `#1C1C1E` / `#EBEBF5`.
+- **Row layout**: 32 px height with 8 px between rows. Grid columns 100 px label, flexible bar track, 40 px value label.
+- **Label text**: SF Pro Regular 15 pt, `#3C3C4399` / `#EBEBF5CC`; truncate after 15 chars with tooltip.
+- **Bar track**: 8 px high, 4 px radius, `#D1D1D6` / `#3A3A3C` with filled bar `#0A84FF` / `#64D2FF`. On hover, height grows to 10 px with subtle shadow.
+- **Percentage label**: SF Pro Regular 13 pt, `#1C1C1E` / `#EBEBF5` showing e.g., `23%`. Hover tooltip reveals full precision.
+- **Legend & interaction**: Optional legend (actual vs target) in top-right. Clicking a row drills into details. Title hover shows sort toggle.
+
 ### 2. Portfolio Detail
 - Context panel (left) with instrument selection
 - Strategy note field: Freeform markdown-style block
