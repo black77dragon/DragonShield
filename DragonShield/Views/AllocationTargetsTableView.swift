@@ -141,6 +141,12 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             }
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
         }
+        assets.sort { lhs, rhs in
+            if lhs.targetPct == rhs.targetPct { return lhs.name < rhs.name }
+            if lhs.targetPct == 0 { return false }
+            if rhs.targetPct == 0 { return true }
+            return lhs.targetPct > rhs.targetPct
+        }
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
@@ -198,6 +204,8 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 struct AllocationTargetsTableView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationTargetsTableViewModel()
+    @State private var chfDrafts: [String: String] = [:]
+    @FocusState private var focusedChfField: String?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -235,6 +243,25 @@ struct AllocationTargetsTableView: View {
         return sign + (chfFormatter.string(from: NSNumber(value: abs(value))) ?? "")
     }
 
+    private func chfTextBinding(for asset: AllocationAsset) -> Binding<String> {
+        Binding(
+            get: {
+                chfDrafts[asset.id] ?? formatChf(asset.targetChf)
+            },
+            set: { newValue in
+                chfDrafts[asset.id] = newValue
+                let raw = newValue.replacingOccurrences(of: "'", with: "")
+                if let val = Double(raw) {
+                    viewModel.chfBinding(for: asset).wrappedValue = val
+                }
+            }
+        )
+    }
+
+    private func refreshDrafts() {
+        chfDrafts = Dictionary(uniqueKeysWithValues: viewModel.assets.map { ($0.id, formatChf($0.targetChf)) })
+    }
+
     var body: some View {
         List {
             headerRow
@@ -243,7 +270,10 @@ struct AllocationTargetsTableView: View {
                 tableRow(for: asset)
             }
         }
-        .onAppear { viewModel.load(using: dbManager) }
+        .onAppear {
+            viewModel.load(using: dbManager)
+            refreshDrafts()
+        }
         .onDisappear { viewModel.persistAll() }
         .navigationTitle("Allocation Targets")
     }
@@ -331,6 +361,7 @@ struct AllocationTargetsTableView: View {
     private func tableRow(for asset: AllocationAsset) -> some View {
         HStack(spacing: 0) {
             Text(asset.name)
+                .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
@@ -343,15 +374,25 @@ struct AllocationTargetsTableView: View {
                 if asset.mode == .percent {
                     TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
                         .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
                         .frame(width: 80, alignment: .trailing)
                     Text(formatChf(asset.targetChf))
                         .frame(width: 100, alignment: .trailing)
                 } else {
                     Text(formatPercent(asset.targetPct))
                         .frame(width: 80, alignment: .trailing)
-                    TextField("", value: viewModel.chfBinding(for: asset), formatter: chfFormatter)
+                    TextField("", text: chfTextBinding(for: asset))
                         .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focusedChfField, equals: asset.id)
                         .frame(width: 100, alignment: .trailing)
+                        .onChange(of: focusedChfField) { newValue in
+                            if newValue == asset.id {
+                                chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
+                            } else if chfDrafts[asset.id] != nil {
+                                chfDrafts[asset.id] = formatChf(asset.targetChf)
+                            }
+                        }
                 }
             }
             Divider()
