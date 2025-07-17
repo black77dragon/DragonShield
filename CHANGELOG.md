@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Add Allocation Targets table view with hierarchical editing
 - Fix compile error referencing children key path in AllocationTargetsTableView
+- Refine Allocation Targets table layout with RAG badges
 - Refine Position form typography and enforce minimum sheet size
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders

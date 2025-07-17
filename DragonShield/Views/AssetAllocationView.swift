@@ -39,13 +39,15 @@ private struct AllocationRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(item.assetClassName)
+                .frame(width: 120, alignment: .leading)
             Text(variationText())
                 .font(.caption)
+                .frame(width: 120, alignment: .leading)
             Spacer()
             SliderWithMarkers(current: item.currentPercent,
                               target: $target,
                               deviationColor: deviationColor)
-                .frame(minWidth: 220, maxWidth: .infinity, alignment: .trailing)
+                .frame(width: 220, alignment: .trailing)
                 .frame(height: 24)
                 .onChange(of: target) { _, newValue in
                     targetChanged(newValue)

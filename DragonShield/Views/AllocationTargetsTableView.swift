@@ -8,6 +8,17 @@ struct AllocationAsset: Identifiable {
     var targetPct: Double
     var targetChf: Double
     var children: [AllocationAsset]? = nil
+
+    var deviationPct: Double { actualPct - targetPct }
+    var deviationChf: Double { actualChf - targetChf }
+    var ragColor: Color {
+        let diff = abs(deviationPct)
+        switch diff {
+        case 0..<5: return .success
+        case 5..<15: return .warning
+        default: return .error
+        }
+    }
 }
 
 final class AllocationTargetsTableViewModel: ObservableObject {
@@ -85,21 +96,65 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         List {
+            headerRow
             OutlineGroup(viewModel.assets, children: \.children) { asset in
-                HStack {
-                    Text(asset.name)
-                        .frame(width: 200, alignment: .leading)
-                    TextField("", value: viewModel.binding(for: asset), formatter: numberFormatter)
-                        .frame(width: 80, alignment: .trailing)
-                    Text(String(format: "%.1f%%", asset.actualPct))
-                        .frame(width: 80, alignment: .trailing)
-                    Text(String(format: "%.0f", asset.actualChf))
-                        .frame(width: 100, alignment: .trailing)
-                }
+                tableRow(for: asset)
             }
         }
         .onAppear { viewModel.load(using: dbManager) }
         .navigationTitle("Allocation Targets")
+    }
+
+    private var headerRow: some View {
+        HStack {
+            Text("Asset")
+                .frame(width: 200, alignment: .leading)
+            Text("Target %")
+                .frame(width: 80)
+            Text("Actual %")
+                .frame(width: 80)
+            Text("Actual CHF")
+                .frame(width: 100)
+            Text("Δ %")
+                .frame(width: 80)
+            Text("Δ CHF")
+                .frame(width: 100)
+            Text("Status")
+                .frame(width: 60)
+        }
+        .font(.caption)
+    }
+
+    @ViewBuilder
+    private func tableRow(for asset: AllocationAsset) -> some View {
+        HStack {
+            Text(asset.name)
+                .frame(width: 200, alignment: .leading)
+            TextField("", value: viewModel.binding(for: asset), formatter: numberFormatter)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80, alignment: .trailing)
+            Text(String(format: "%.1f%%", asset.actualPct))
+                .frame(width: 80, alignment: .trailing)
+            Text(String(format: "%.0f", asset.actualChf))
+                .frame(width: 100, alignment: .trailing)
+            Text(String(format: "%+.1f%%", asset.deviationPct))
+                .frame(width: 80)
+                .padding(4)
+                .background(asset.ragColor)
+                .foregroundColor(.white)
+                .cornerRadius(6)
+            Text(String(format: "%+.0f", asset.deviationChf))
+                .frame(width: 100)
+                .padding(4)
+                .background(asset.ragColor)
+                .foregroundColor(.white)
+                .cornerRadius(6)
+            Circle()
+                .fill(asset.ragColor)
+                .frame(width: 16, height: 16)
+                .frame(width: 60, alignment: .center)
+        }
+        .frame(height: 48)
     }
 }
 
