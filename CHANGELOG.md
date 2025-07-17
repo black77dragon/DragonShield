@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - Refine AllocationTargetsTableView formatting and persistence
 - Refine AllocationTargetsTableView editing and ordering behaviour
 - Add sortable Target % and Actual % columns with default Actual % ordering in AllocationTargetsTableView
+- Always show sort arrows and group zero-allocation rows at reduced opacity in AllocationTargetsTableView
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Fix compile error in Asset Allocation view model by specifying dictionary types
@@ -276,3 +277,6 @@ All notable changes to this project will be documented in this file.
 - Refine Asset Allocation rows with uniform bars and vibrant deviation colors
 - Increase slider marker size and align allocation bars to the right edge
 - Resolve onChange deprecation warning in AllocationTargetsTableView
+- Document requirements for Allocation Targets table sorting indicators and zero allocation grouping
+- Document Delta % column sorting and revised zero allocation criteria in Allocation Targets spec
+- Clarify macOS Table API assumptions and detail zero-allocation row handling in Allocation Targets spec

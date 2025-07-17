@@ -8,6 +8,7 @@ enum AllocationInputMode: String {
 enum SortColumn {
     case targetPct
     case actualPct
+    case deltaPct
 }
 
 struct AllocationAsset: Identifiable {
@@ -74,14 +75,17 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if lhsZero != rhsZero { return !lhsZero }
             let lhsVal: Double
             let rhsVal: Double
-            switch sortColumn {
-            case .targetPct:
-                lhsVal = lhs.targetPct
-                rhsVal = rhs.targetPct
-            case .actualPct:
-                lhsVal = lhs.actualPct
-                rhsVal = rhs.actualPct
-            }
+           switch sortColumn {
+           case .targetPct:
+               lhsVal = lhs.targetPct
+               rhsVal = rhs.targetPct
+           case .actualPct:
+               lhsVal = lhs.actualPct
+               rhsVal = rhs.actualPct
+            case .deltaPct:
+                lhsVal = lhs.deviationPct
+                rhsVal = rhs.deviationPct
+           }
             if lhsVal == rhsVal { return lhs.name < rhs.name }
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
@@ -296,12 +300,33 @@ struct AllocationTargetsTableView: View {
         chfDrafts = Dictionary(uniqueKeysWithValues: viewModel.assets.map { ($0.id, formatChf($0.targetChf)) })
     }
 
+    private func isZeroAllocation(_ asset: AllocationAsset) -> Bool {
+        abs(asset.targetPct) < 0.0001 &&
+        abs(asset.actualPct) < 0.0001 &&
+        abs(asset.deviationPct) < 0.0001
+    }
+
+    private var nonZeroAssets: [AllocationAsset] {
+        viewModel.assets.filter { !isZeroAllocation($0) }
+    }
+
+    private var zeroAssets: [AllocationAsset] {
+        viewModel.assets.filter(isZeroAllocation)
+    }
+
     var body: some View {
         List {
             headerRow
             totalsRow
-            OutlineGroup(viewModel.assets, children: \.children) { asset in
+            OutlineGroup(nonZeroAssets, children: \.children) { asset in
                 tableRow(for: asset)
+            }
+            if !zeroAssets.isEmpty {
+                zeroHeader
+                OutlineGroup(zeroAssets, children: \.children) { asset in
+                    tableRow(for: asset)
+                        .opacity(0.6)
+                }
             }
         }
         .onAppear {
@@ -334,7 +359,7 @@ struct AllocationTargetsTableView: View {
             }
             Divider()
             HStack {
-                Text("Δ %")
+                sortHeader(title: "Δ %", column: .deltaPct)
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
@@ -378,6 +403,17 @@ struct AllocationTargetsTableView: View {
         .font(.subheadline)
     }
 
+    private var zeroHeader: some View {
+        HStack(spacing: 0) {
+            Text("Zero Allocation")
+                .fontWeight(.semibold)
+                .frame(width: 200, alignment: .leading)
+            Spacer()
+        }
+        .padding(.vertical, 2)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+
     private var totalCellPct: some View {
         HStack(spacing: 2) {
             Text("\(formatPercent(viewModel.targetPctTotal))%")
@@ -395,12 +431,13 @@ struct AllocationTargetsTableView: View {
         Button(action: { viewModel.toggleSort(column: column) }) {
             HStack(spacing: 2) {
                 Text(title)
-                if viewModel.sortColumn == column {
-                    Image(systemName: viewModel.sortAscending ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
-                        .resizable()
-                        .frame(width: 12, height: 12)
-                        .foregroundColor(Color(red: 10/255, green: 132/255, blue: 255/255))
-                }
+                Image(systemName: {
+                    let base = viewModel.sortAscending ? "arrowtriangle.up" : "arrowtriangle.down"
+                    return viewModel.sortColumn == column ? base + ".fill" : base
+                }())
+                .resizable()
+                .frame(width: 12, height: 12)
+                .foregroundColor(viewModel.sortColumn == column ? .accentColor : .gray)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 2)
