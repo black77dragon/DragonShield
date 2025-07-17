@@ -18,6 +18,9 @@ All notable changes to this project will be documented in this file.
 - Fix compile error referencing children key path in AllocationTargetsTableView
 - Refine Allocation Targets table layout with RAG badges
 - Refine Position form typography and enforce minimum sheet size
+- Refine AllocationTargetsTableView formatting and persistence
+- Refine AllocationTargetsTableView editing and ordering behaviour
+- Add sortable Target % and Actual % columns with default Actual % ordering in AllocationTargetsTableView
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Fix compile error in Asset Allocation view model by specifying dictionary types
@@ -272,3 +275,4 @@ All notable changes to this project will be documented in this file.
 - Remove obsolete Value Date field from Position form
 - Refine Asset Allocation rows with uniform bars and vibrant deviation colors
 - Increase slider marker size and align allocation bars to the right edge
+- Resolve onChange deprecation warning in AllocationTargetsTableView

@@ -5,6 +5,11 @@ enum AllocationInputMode: String {
     case chf
 }
 
+enum SortColumn {
+    case targetPct
+    case actualPct
+}
+
 struct AllocationAsset: Identifiable {
     let id: String
     var name: String
@@ -29,6 +34,8 @@ struct AllocationAsset: Identifiable {
 
 final class AllocationTargetsTableViewModel: ObservableObject {
     @Published var assets: [AllocationAsset] = []
+    @Published var sortColumn: SortColumn = .actualPct
+    @Published var sortAscending: Bool = false
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
 
@@ -47,7 +54,37 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     private var totalsValid: Bool {
-        abs(targetPctTotal - 100) < 0.01
+        targetPctTotal >= 99 && targetPctTotal <= 101
+    }
+
+    func toggleSort(column: SortColumn) {
+        if sortColumn == column {
+            sortAscending.toggle()
+        } else {
+            sortColumn = column
+            sortAscending = false
+        }
+        sortAssets()
+    }
+
+    func sortAssets() {
+        assets.sort { lhs, rhs in
+            let lhsZero = abs(lhs.targetPct) < 0.0001 && abs(lhs.targetChf) < 0.01
+            let rhsZero = abs(rhs.targetPct) < 0.0001 && abs(rhs.targetChf) < 0.01
+            if lhsZero != rhsZero { return !lhsZero }
+            let lhsVal: Double
+            let rhsVal: Double
+            switch sortColumn {
+            case .targetPct:
+                lhsVal = lhs.targetPct
+                rhsVal = rhs.targetPct
+            case .actualPct:
+                lhsVal = lhs.actualPct
+                rhsVal = rhs.actualPct
+            }
+            if lhsVal == rhsVal { return lhs.name < rhs.name }
+            return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
+        }
     }
 
     private static func key(for id: String) -> String { "allocMode-\(id)" }
@@ -141,6 +178,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             }
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
         }
+        sortAssets()
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
@@ -155,6 +193,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let chf = val * self.portfolioValue / 100
             self.assets[index].targetChf = chf
             self.tryPersist()
+            self.sortAssets()
         })
     }
 
@@ -170,10 +209,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
             self.assets[index].targetPct = pct
             self.tryPersist()
+            self.sortAssets()
         })
     }
 
-    private func persistAll() {
+    func persistAll() {
         guard let db else { return }
         for asset in assets {
             if asset.id.hasPrefix("class-") {
@@ -198,11 +238,15 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 struct AllocationTargetsTableView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationTargetsTableViewModel()
+    @State private var chfDrafts: [String: String] = [:]
+    @FocusState private var focusedChfField: String?
 
-    private let numberFormatter: NumberFormatter = {
+    private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 1
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
         return f
     }()
 
@@ -210,8 +254,47 @@ struct AllocationTargetsTableView: View {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
         return f
     }()
+
+    private func formatPercent(_ value: Double) -> String {
+        percentFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func formatChf(_ value: Double) -> String {
+        chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func formatSignedPercent(_ value: Double) -> String {
+        let sign = value >= 0 ? "+" : "-"
+        return sign + (percentFormatter.string(from: NSNumber(value: abs(value))) ?? "")
+    }
+
+    private func formatSignedChf(_ value: Double) -> String {
+        let sign = value >= 0 ? "+" : "-"
+        return sign + (chfFormatter.string(from: NSNumber(value: abs(value))) ?? "")
+    }
+
+    private func chfTextBinding(for asset: AllocationAsset) -> Binding<String> {
+        Binding(
+            get: {
+                chfDrafts[asset.id] ?? formatChf(asset.targetChf)
+            },
+            set: { newValue in
+                chfDrafts[asset.id] = newValue
+                let raw = newValue.replacingOccurrences(of: "'", with: "")
+                if let val = Double(raw) {
+                    viewModel.chfBinding(for: asset).wrappedValue = val
+                }
+            }
+        )
+    }
+
+    private func refreshDrafts() {
+        chfDrafts = Dictionary(uniqueKeysWithValues: viewModel.assets.map { ($0.id, formatChf($0.targetChf)) })
+    }
 
     var body: some View {
         List {
@@ -221,114 +304,175 @@ struct AllocationTargetsTableView: View {
                 tableRow(for: asset)
             }
         }
-        .onAppear { viewModel.load(using: dbManager) }
+        .onAppear {
+            viewModel.load(using: dbManager)
+            refreshDrafts()
+        }
+        .onDisappear { viewModel.persistAll() }
         .navigationTitle("Allocation Targets")
     }
 
     private var headerRow: some View {
-        HStack {
+        HStack(spacing: 0) {
             Text("Asset")
                 .frame(width: 200, alignment: .leading)
-            Text("Mode")
-                .frame(width: 80)
-            Text("Target %")
-                .frame(width: 80)
-            Text("Target CHF")
-                .frame(width: 100)
-            Text("Actual %")
-                .frame(width: 80)
-            Text("Actual CHF")
-                .frame(width: 100)
-            Text("Δ %")
-                .frame(width: 80)
-            Text("Δ CHF")
-                .frame(width: 100)
-            Text("Status")
-                .frame(width: 60)
+            Divider()
+            HStack {
+                Text("Mode")
+                    .frame(width: 80)
+                sortHeader(title: "Target %", column: .targetPct)
+                    .frame(width: 80)
+                Text("Target CHF")
+                    .frame(width: 100)
+            }
+            Divider()
+            HStack {
+                sortHeader(title: "Actual %", column: .actualPct)
+                    .frame(width: 80)
+                Text("Actual CHF")
+                    .frame(width: 100)
+            }
+            Divider()
+            HStack {
+                Text("Δ %")
+                    .frame(width: 80)
+                Text("Δ CHF")
+                    .frame(width: 100)
+                Text("Status")
+                    .frame(width: 60)
+            }
         }
         .font(.caption)
     }
 
     private var totalsRow: some View {
-        HStack {
+        HStack(spacing: 0) {
             Text("Totals")
                 .frame(width: 200, alignment: .leading)
-            Spacer()
-                .frame(width: 80)
-            totalCellPct
-                .frame(width: 80, alignment: .trailing)
-            Text(String(format: "%.0f", viewModel.targetChfTotal))
-                .frame(width: 100, alignment: .trailing)
-            Text(String(format: "%.1f%%", viewModel.actualPctTotal))
-                .frame(width: 80, alignment: .trailing)
-            Text(String(format: "%.0f", viewModel.actualChfTotal))
-                .frame(width: 100, alignment: .trailing)
-            Spacer()
-                .frame(width: 80)
-            Spacer()
-                .frame(width: 100)
-            Spacer()
-                .frame(width: 60)
+            Divider()
+            HStack {
+                Spacer()
+                    .frame(width: 80)
+                totalCellPct
+                    .frame(width: 80, alignment: .trailing)
+                Text(formatChf(viewModel.targetChfTotal))
+                    .frame(width: 100, alignment: .trailing)
+            }
+            Divider()
+            HStack {
+                Text("\(formatPercent(viewModel.actualPctTotal))%")
+                    .frame(width: 80, alignment: .trailing)
+                Text(formatChf(viewModel.actualChfTotal))
+                    .frame(width: 100, alignment: .trailing)
+            }
+            Divider()
+            HStack {
+                Spacer()
+                    .frame(width: 80)
+                Spacer()
+                    .frame(width: 100)
+                Spacer()
+                    .frame(width: 60)
+            }
         }
         .font(.subheadline)
     }
 
     private var totalCellPct: some View {
         HStack(spacing: 2) {
-            Text(String(format: "%.1f%%", viewModel.targetPctTotal))
-                .fontWeight(viewModel.targetPctTotal == 100 ? .regular : .bold)
-                .foregroundColor(viewModel.targetPctTotal == 100 ? .primary : .red)
-            if viewModel.targetPctTotal != 100 {
+            Text("\(formatPercent(viewModel.targetPctTotal))%")
+                .fontWeight((99...101).contains(viewModel.targetPctTotal) ? .regular : .bold)
+                .foregroundColor((99...101).contains(viewModel.targetPctTotal) ? .primary : .red)
+            if !(99...101).contains(viewModel.targetPctTotal) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.red)
+                    .help("Target % total must be between 99% and 101%")
             }
         }
     }
 
+    private func sortHeader(title: String, column: SortColumn) -> some View {
+        Button(action: { viewModel.toggleSort(column: column) }) {
+            HStack(spacing: 2) {
+                Text(title)
+                if viewModel.sortColumn == column {
+                    Image(systemName: viewModel.sortAscending ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                        .resizable()
+                        .frame(width: 12, height: 12)
+                        .foregroundColor(Color(red: 10/255, green: 132/255, blue: 255/255))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.plain)
+        .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
+    }
+
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {
-        HStack {
+        HStack(spacing: 0) {
             Text(asset.name)
+                .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
                 .frame(width: 200, alignment: .leading)
-            Picker("", selection: viewModel.modeBinding(for: asset)) {
-                Text("%" ).tag(AllocationInputMode.percent)
-                Text("CHF").tag(AllocationInputMode.chf)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 80)
-            if asset.mode == .percent {
-                TextField("", value: viewModel.percentBinding(for: asset), formatter: numberFormatter)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 80, alignment: .trailing)
-                Text(String(format: "%.0f", asset.targetChf))
-                    .frame(width: 100, alignment: .trailing)
-            } else {
-                Text(String(format: "%.1f", asset.targetPct))
-                    .frame(width: 80, alignment: .trailing)
-                TextField("", value: viewModel.chfBinding(for: asset), formatter: chfFormatter)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 100, alignment: .trailing)
-            }
-            Text(String(format: "%.1f%%", asset.actualPct))
-                .frame(width: 80, alignment: .trailing)
-            Text(String(format: "%.0f", asset.actualChf))
-                .frame(width: 100, alignment: .trailing)
-            Text(String(format: "%+.1f%%", asset.deviationPct))
+            Divider()
+            HStack {
+                Picker("", selection: viewModel.modeBinding(for: asset)) {
+                    Text("%" ).tag(AllocationInputMode.percent)
+                    Text("CHF").tag(AllocationInputMode.chf)
+                }
+                .pickerStyle(.segmented)
                 .frame(width: 80)
-                .padding(4)
-                .background(asset.ragColor)
-                .foregroundColor(.white)
-                .cornerRadius(6)
-            Text(String(format: "%+.0f", asset.deviationChf))
-                .frame(width: 100)
-                .padding(4)
-                .background(asset.ragColor)
-                .foregroundColor(.white)
-                .cornerRadius(6)
-            Circle()
-                .fill(asset.ragColor)
-                .frame(width: 16, height: 16)
-                .frame(width: 60, alignment: .center)
+                if asset.mode == .percent {
+                    TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80, alignment: .trailing)
+                    Text(formatChf(asset.targetChf))
+                        .frame(width: 100, alignment: .trailing)
+                } else {
+                    Text(formatPercent(asset.targetPct))
+                        .frame(width: 80, alignment: .trailing)
+                    TextField("", text: chfTextBinding(for: asset))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focusedChfField, equals: asset.id)
+                        .frame(width: 100, alignment: .trailing)
+                        .onChange(of: focusedChfField) { oldValue, newValue in
+                            if newValue == asset.id {
+                                chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
+                            } else if oldValue == asset.id && chfDrafts[asset.id] != nil {
+                                chfDrafts[asset.id] = formatChf(asset.targetChf)
+                            }
+                        }
+                }
+            }
+            Divider()
+            HStack {
+                Text("\(formatPercent(asset.actualPct))%")
+                    .frame(width: 80, alignment: .trailing)
+                Text(formatChf(asset.actualChf))
+                    .frame(width: 100, alignment: .trailing)
+            }
+            Divider()
+            HStack {
+                Text("\(formatSignedPercent(asset.deviationPct))%")
+                    .frame(width: 80, alignment: .trailing)
+                    .padding(4)
+                    .background(asset.ragColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                Text(formatSignedChf(asset.deviationChf))
+                    .frame(width: 100, alignment: .trailing)
+                    .padding(4)
+                    .background(asset.ragColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                Circle()
+                    .fill(asset.ragColor)
+                    .frame(width: 16, height: 16)
+                    .frame(width: 60, alignment: .center)
+            }
         }
         .frame(height: 48)
     }
