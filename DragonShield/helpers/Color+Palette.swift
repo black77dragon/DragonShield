@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension Color {
-    static let success = Color(red: 30/255, green: 142/255, blue: 62/255)
-    static let warning = Color(red: 224/255, green: 168/255, blue: 0/255)
-    static let error = Color(red: 211/255, green: 47/255, blue: 47/255)
+    static let success = Color(red: 40/255, green: 199/255, blue: 111/255)
+    static let warning = Color(red: 255/255, green: 159/255, blue: 67/255)
+    static let error = Color(red: 234/255, green: 84/255, blue: 85/255)
 }

@@ -264,3 +264,4 @@ All notable changes to this project will be documented in this file.
 - Resolve compile warnings in PositionsView and ExchangeRates helpers
 - Rename "Instrument Updated" label to "Last Update" in Position form
 - Remove obsolete Value Date field from Position form
+- Refine Asset Allocation rows with uniform bars and vibrant deviation colors
