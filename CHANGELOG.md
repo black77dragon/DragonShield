@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Refine Position form typography and enforce minimum sheet size
 - Refine AllocationTargetsTableView formatting and persistence
 - Refine AllocationTargetsTableView editing and ordering behaviour
+- Add sortable Target % and Actual % columns with default Actual % ordering in AllocationTargetsTableView
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Fix compile error in Asset Allocation view model by specifying dictionary types

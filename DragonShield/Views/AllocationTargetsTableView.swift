@@ -5,6 +5,11 @@ enum AllocationInputMode: String {
     case chf
 }
 
+enum SortColumn {
+    case targetPct
+    case actualPct
+}
+
 struct AllocationAsset: Identifiable {
     let id: String
     var name: String
@@ -29,6 +34,8 @@ struct AllocationAsset: Identifiable {
 
 final class AllocationTargetsTableViewModel: ObservableObject {
     @Published var assets: [AllocationAsset] = []
+    @Published var sortColumn: SortColumn = .actualPct
+    @Published var sortAscending: Bool = false
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
 
@@ -48,6 +55,36 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     private var totalsValid: Bool {
         targetPctTotal >= 99 && targetPctTotal <= 101
+    }
+
+    func toggleSort(column: SortColumn) {
+        if sortColumn == column {
+            sortAscending.toggle()
+        } else {
+            sortColumn = column
+            sortAscending = false
+        }
+        sortAssets()
+    }
+
+    func sortAssets() {
+        assets.sort { lhs, rhs in
+            let lhsZero = abs(lhs.targetPct) < 0.0001 && abs(lhs.targetChf) < 0.01
+            let rhsZero = abs(rhs.targetPct) < 0.0001 && abs(rhs.targetChf) < 0.01
+            if lhsZero != rhsZero { return !lhsZero }
+            let lhsVal: Double
+            let rhsVal: Double
+            switch sortColumn {
+            case .targetPct:
+                lhsVal = lhs.targetPct
+                rhsVal = rhs.targetPct
+            case .actualPct:
+                lhsVal = lhs.actualPct
+                rhsVal = rhs.actualPct
+            }
+            if lhsVal == rhsVal { return lhs.name < rhs.name }
+            return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
+        }
     }
 
     private static func key(for id: String) -> String { "allocMode-\(id)" }
@@ -141,12 +178,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             }
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
         }
-        assets.sort { lhs, rhs in
-            if lhs.targetPct == rhs.targetPct { return lhs.name < rhs.name }
-            if lhs.targetPct == 0 { return false }
-            if rhs.targetPct == 0 { return true }
-            return lhs.targetPct > rhs.targetPct
-        }
+        sortAssets()
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
@@ -161,6 +193,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let chf = val * self.portfolioValue / 100
             self.assets[index].targetChf = chf
             self.tryPersist()
+            self.sortAssets()
         })
     }
 
@@ -176,6 +209,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
             self.assets[index].targetPct = pct
             self.tryPersist()
+            self.sortAssets()
         })
     }
 
@@ -286,14 +320,14 @@ struct AllocationTargetsTableView: View {
             HStack {
                 Text("Mode")
                     .frame(width: 80)
-                Text("Target %")
+                sortHeader(title: "Target %", column: .targetPct)
                     .frame(width: 80)
                 Text("Target CHF")
                     .frame(width: 100)
             }
             Divider()
             HStack {
-                Text("Actual %")
+                sortHeader(title: "Actual %", column: .actualPct)
                     .frame(width: 80)
                 Text("Actual CHF")
                     .frame(width: 100)
@@ -355,6 +389,24 @@ struct AllocationTargetsTableView: View {
                     .help("Target % total must be between 99% and 101%")
             }
         }
+    }
+
+    private func sortHeader(title: String, column: SortColumn) -> some View {
+        Button(action: { viewModel.toggleSort(column: column) }) {
+            HStack(spacing: 2) {
+                Text(title)
+                if viewModel.sortColumn == column {
+                    Image(systemName: viewModel.sortAscending ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                        .resizable()
+                        .frame(width: 12, height: 12)
+                        .foregroundColor(Color(red: 10/255, green: 132/255, blue: 255/255))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.plain)
+        .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
     }
 
     @ViewBuilder
