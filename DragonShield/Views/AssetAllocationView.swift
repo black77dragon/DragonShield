@@ -48,7 +48,7 @@ private struct AllocationRow: View {
                               target: $target,
                               deviationColor: deviationColor)
                 .frame(width: barWidth, height: 24)
-                .onChange(of: target) { newValue in
+                .onChange(of: target) { _, newValue in
                     targetChanged(newValue)
                 }
         }
