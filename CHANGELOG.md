@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Add valor number field to instruments with database and UI support
 - Enforce minimum column widths in Positions table to prevent overlap
 - Improve Position form with labeled numeric fields and aligned date pickers
+- Add Allocation Targets table view with hierarchical editing
 - Refine Position form typography and enforce minimum sheet size
 - Add Asset Allocation view showing target vs actual with deviation slider and summary table
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
