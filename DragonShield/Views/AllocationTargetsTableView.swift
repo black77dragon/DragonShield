@@ -386,10 +386,10 @@ struct AllocationTargetsTableView: View {
                         .multilineTextAlignment(.trailing)
                         .focused($focusedChfField, equals: asset.id)
                         .frame(width: 100, alignment: .trailing)
-                        .onChange(of: focusedChfField) { newValue in
+                        .onChange(of: focusedChfField) { oldValue, newValue in
                             if newValue == asset.id {
                                 chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
-                            } else if chfDrafts[asset.id] != nil {
+                            } else if oldValue == asset.id && chfDrafts[asset.id] != nil {
                                 chfDrafts[asset.id] = formatChf(asset.targetChf)
                             }
                         }

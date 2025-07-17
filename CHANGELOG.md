@@ -274,3 +274,4 @@ All notable changes to this project will be documented in this file.
 - Remove obsolete Value Date field from Position form
 - Refine Asset Allocation rows with uniform bars and vibrant deviation colors
 - Increase slider marker size and align allocation bars to the right edge
+- Resolve onChange deprecation warning in AllocationTargetsTableView
