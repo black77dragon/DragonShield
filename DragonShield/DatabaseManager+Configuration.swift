@@ -9,8 +9,10 @@ import SQLite3
 import Foundation
 
 extension DatabaseManager {
-    
-    func loadConfiguration() {
+
+    /// Loads configuration values from the database and returns the db_version.
+    /// The db_version is also applied to the `dbVersion` property.
+    func loadConfiguration() -> String {
         // Added new keys to fetch
         let query = """
             SELECT key, value, data_type FROM Configuration
@@ -21,6 +23,7 @@ extension DatabaseManager {
             );
         """
         var statement: OpaquePointer?
+        var loadedVersion = ""
         
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -56,6 +59,7 @@ extension DatabaseManager {
                     case "direct_re_target_chf":
                         self.directRealEstateTargetCHF = Double(value) ?? 0
                     case "db_version":
+                        loadedVersion = value
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
                     default:
@@ -68,6 +72,7 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
         print("⚙️ Configuration loaded/reloaded.")
+        return loadedVersion
     }
     
     func updateConfiguration(key: String, value: String) -> Bool {
@@ -90,7 +95,7 @@ extension DatabaseManager {
             print("✅ Configuration updated for key '\(key)' to value '\(value)'")
             // Reload configuration to update @Published properties
             // This ensures that if one part of the app updates config, others see it if observing DatabaseManager
-            loadConfiguration()
+            self.dbVersion = loadConfiguration()
         } else {
             print("❌ Failed to update configuration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
         }
@@ -99,7 +104,7 @@ extension DatabaseManager {
 
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")
-        loadConfiguration()
+        self.dbVersion = loadConfiguration()
         NotificationCenter.default.post(name: NSNotification.Name("DatabaseForceReloaded"), object: nil)
     }
 }

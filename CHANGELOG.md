@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
 - Fix duplicate IDs in import summary logs to avoid SwiftUI warnings
 - Avoid duplicate IDs in backup and import logs
+- Show correct database version in startup log
 - Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
