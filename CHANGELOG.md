@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Enforce minimum column widths in Positions table to prevent overlap
 - Replace legacy target allocation editor with unified AllocationTargetsTableView
 - Polish Allocation Targets table visuals and group styling
+- Refine AllocationTargetsTableView with soft blue toggles and subclass backgrounds
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Add Allocation Targets table view with hierarchical editing
 - Fix compile error referencing children key path in AllocationTargetsTableView

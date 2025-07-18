@@ -10,4 +10,6 @@ extension Color {
     static let paleOrange = Color(red: 1.0, green: 244/255, blue: 229/255)
     /// Soft beige used to group asset classes.
     static let beige = Color(red: 250/255, green: 243/255, blue: 224/255)
+    /// Soft blue highlight used for segmented controls and headers.
+    static let softBlue = Color(red: 229/255, green: 241/255, blue: 255/255)
 }

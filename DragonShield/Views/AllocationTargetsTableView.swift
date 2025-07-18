@@ -214,6 +214,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         })
     }
 
+    func parentClassId(for assetId: String) -> Int? {
+        guard assetId.hasPrefix("sub-"), let subId = Int(assetId.dropFirst(4)) else { return nil }
+        return subToClass[subId]
+    }
+
     func load(using dbManager: DatabaseManager) {
         self.db = dbManager
         let classes = dbManager.fetchAssetClassesDetailed()
@@ -388,6 +393,7 @@ struct AllocationTargetsTableView: View {
     @StateObject private var viewModel = AllocationTargetsTableViewModel()
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
+    @FocusState private var focusedPctField: String?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -460,6 +466,7 @@ struct AllocationTargetsTableView: View {
                 tableRow(for: asset)
             }
             if !inactiveAssets.isEmpty {
+                Divider()
                 inactiveHeader
                 OutlineGroup(inactiveAssets, children: \.children) { asset in
                     tableRow(for: asset)
@@ -504,7 +511,7 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 60)
             }
         }
-        .font(.caption)
+        .font(.system(size: 12, weight: .semibold))
     }
 
     private var totalsRow: some View {
@@ -538,6 +545,7 @@ struct AllocationTargetsTableView: View {
             }
         }
         .font(.subheadline)
+        .background(viewModel.totalsValid ? Color.white : Color.paleRed)
     }
 
     private var inactiveHeader: some View {
@@ -590,6 +598,26 @@ struct AllocationTargetsTableView: View {
         return .gray
     }
 
+    private func rowBackground(for asset: AllocationAsset) -> Color {
+        if viewModel.rowHasWarning(asset) { return .paleRed }
+        if viewModel.rowNeedsOrange(asset) { return .paleOrange }
+        if asset.children != nil { return Color.beige.opacity(0.6) }
+        if let parentId = viewModel.parentClassId(for: asset.id),
+           viewModel.assets.first(where: { $0.id == "class-\(parentId)" }) != nil {
+            return Color.beige.opacity(0.6)
+        }
+        return .white
+    }
+
+    private func statusText(for asset: AllocationAsset) -> String {
+        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+            return "Sub-class totals mismatch"
+        }
+        if abs(asset.deviationPct) < 0.01 { return "OK" }
+        if abs(asset.deviationPct) > 5 { return "Large deviation" }
+        return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {
         HStack(spacing: 0) {
@@ -603,22 +631,34 @@ struct AllocationTargetsTableView: View {
                     Text("CHF").tag(AllocationInputMode.chf)
                 }
                 .pickerStyle(.segmented)
+                .tint(.softBlue)
                 .frame(width: 80)
                 if asset.mode == .percent {
                     TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
-                        .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
+                        .padding(4)
                         .frame(width: 80, alignment: .trailing)
+                        .background(Color(.systemGray6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                        .focused($focusedPctField, equals: asset.id)
                     Text(formatChf(asset.targetChf))
                         .frame(width: 100, alignment: .trailing)
                 } else {
                     Text(formatPercent(asset.targetPct))
                         .frame(width: 80, alignment: .trailing)
                     TextField("", text: chfTextBinding(for: asset))
-                        .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
-                        .focused($focusedChfField, equals: asset.id)
+                        .padding(4)
                         .frame(width: 100, alignment: .trailing)
+                        .background(Color(.systemGray6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                        .focused($focusedChfField, equals: asset.id)
                         .onChange(of: focusedChfField) { oldValue, newValue in
                             if newValue == asset.id {
                                 chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
@@ -657,19 +697,18 @@ struct AllocationTargetsTableView: View {
                         .foregroundColor(.red)
                         .frame(width: 16, height: 16)
                         .frame(width: 60, alignment: .center)
+                        .help(statusText(for: asset))
                 } else {
                     Circle()
                         .fill(dColor)
                         .frame(width: 16, height: 16)
                         .frame(width: 60, alignment: .center)
+                        .help(statusText(for: asset))
                 }
             }
         }
         .frame(height: 48)
-        .background(
-            viewModel.rowHasWarning(asset) ? Color.paleRed :
-                (viewModel.rowNeedsOrange(asset) ? Color.paleOrange : (asset.children != nil ? Color.beige.opacity(0.6) : Color.white))
-        )
+        .background(rowBackground(for: asset))
     }
 }
 
