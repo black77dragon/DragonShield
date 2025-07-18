@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
+- Remove outdated Asset Allocation view and sidebar link
 - Fix compile error in allocation charts by importing Charts framework
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
 - Fix seed data to include valor numbers in Instruments table
