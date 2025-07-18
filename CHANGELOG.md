@@ -283,3 +283,4 @@ All notable changes to this project will be documented in this file.
 - Validate AssetSubClass target sums and highlight mismatches in AllocationTargetsTableView
 - Persist AssetSubClass target edits immediately
 - Display AssetSubClass actual values and calculate targets relative to parent classes
+- Fix crash when closing Asset Class due to stale index paths in AllocationTargetsTableView

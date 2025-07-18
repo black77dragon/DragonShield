@@ -241,67 +241,74 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let path = indexPath(for: asset.id) else {
-            return .constant(asset.targetPct)
-        }
-        return Binding(get: {
-            if let child = path.childIndex {
-                return self.assets[path.classIndex].children?[child].targetPct ?? 0
-            } else {
-                return self.assets[path.classIndex].targetPct
-            }
-        }, set: { newVal in
-            let val = min(max(0, newVal), 100)
-            if let child = path.childIndex {
-                self.assets[path.classIndex].children?[child].targetPct = val
-                let parentChf = self.assets[path.classIndex].targetChf
-                let chf = parentChf * val / 100
-                self.assets[path.classIndex].children?[child].targetChf = chf
-                if let asset = self.assets[path.classIndex].children?[child] {
-                    self.persistAsset(asset)
+        Binding(
+            get: {
+                guard let path = self.indexPath(for: asset.id) else {
+                    return asset.targetPct
                 }
-            } else {
-                self.assets[path.classIndex].targetPct = val
-                let chf = val * self.portfolioValue / 100
-                self.assets[path.classIndex].targetChf = chf
-                self.persistAsset(self.assets[path.classIndex])
+                if let child = path.childIndex {
+                    return self.assets[path.classIndex].children?[child].targetPct ?? 0
+                } else {
+                    return self.assets[path.classIndex].targetPct
+                }
+            },
+            set: { newVal in
+                let val = min(max(0, newVal), 100)
+                guard let path = self.indexPath(for: asset.id) else { return }
+                if let child = path.childIndex {
+                    self.assets[path.classIndex].children?[child].targetPct = val
+                    let parentChf = self.assets[path.classIndex].targetChf
+                    let chf = parentChf * val / 100
+                    self.assets[path.classIndex].children?[child].targetChf = chf
+                    if let asset = self.assets[path.classIndex].children?[child] {
+                        self.persistAsset(asset)
+                    }
+                } else {
+                    self.assets[path.classIndex].targetPct = val
+                    let chf = val * self.portfolioValue / 100
+                    self.assets[path.classIndex].targetChf = chf
+                    self.persistAsset(self.assets[path.classIndex])
+                }
+                self.sortAssets()
             }
-            self.sortAssets()
-        })
+        )
     }
 
     func chfBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let path = indexPath(for: asset.id) else {
-            return .constant(asset.targetChf)
-        }
-        return Binding(get: {
-            if let child = path.childIndex {
-                return self.assets[path.classIndex].children?[child].targetChf ?? 0
-            } else {
-                return self.assets[path.classIndex].targetChf
-            }
-        }, set: { newVal in
-            let val = min(max(0, newVal), self.portfolioValue)
-            if let child = path.childIndex {
-                self.assets[path.classIndex].children?[child].targetChf = val
-                let parentChf = self.assets[path.classIndex].targetChf
-                let pct = parentChf > 0 ? val / parentChf * 100 : 0
-                self.assets[path.classIndex].children?[child].targetPct = pct
-                if let asset = self.assets[path.classIndex].children?[child] {
-                    self.persistAsset(asset)
+        Binding(
+            get: {
+                guard let path = self.indexPath(for: asset.id) else {
+                    return asset.targetChf
                 }
-            } else {
-                self.assets[path.classIndex].targetChf = val
-                let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
-                self.assets[path.classIndex].targetPct = pct
-                self.persistAsset(self.assets[path.classIndex])
+                if let child = path.childIndex {
+                    return self.assets[path.classIndex].children?[child].targetChf ?? 0
+                } else {
+                    return self.assets[path.classIndex].targetChf
+                }
+            },
+            set: { newVal in
+                let val = min(max(0, newVal), self.portfolioValue)
+                guard let path = self.indexPath(for: asset.id) else { return }
+                if let child = path.childIndex {
+                    self.assets[path.classIndex].children?[child].targetChf = val
+                    let parentChf = self.assets[path.classIndex].targetChf
+                    let pct = parentChf > 0 ? val / parentChf * 100 : 0
+                    self.assets[path.classIndex].children?[child].targetPct = pct
+                    if let asset = self.assets[path.classIndex].children?[child] {
+                        self.persistAsset(asset)
+                    }
+                } else {
+                    self.assets[path.classIndex].targetChf = val
+                    let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
+                    self.assets[path.classIndex].targetPct = pct
+                    self.persistAsset(self.assets[path.classIndex])
+                }
+                self.sortAssets()
             }
-            self.sortAssets()
-        })
+        )
     }
 
     func persistAll() {
-        guard let db else { return }
         for asset in assets {
             persistAsset(asset)
             if let children = asset.children {
