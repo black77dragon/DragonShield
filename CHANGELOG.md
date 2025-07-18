@@ -281,3 +281,4 @@ All notable changes to this project will be documented in this file.
 - Document Delta % column sorting and revised zero allocation criteria in Allocation Targets spec
 - Clarify macOS Table API assumptions and detail zero-allocation row handling in Allocation Targets spec
 - Validate AssetSubClass target sums and highlight mismatches in AllocationTargetsTableView
+- Persist AssetSubClass target edits immediately

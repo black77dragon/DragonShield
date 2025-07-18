@@ -46,6 +46,20 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     /// Asset class IDs that fail sub-class sum validation.
     @Published var invalidClassIds: Set<String> = []
 
+    /// Locate an asset within the top-level list and return the index path.
+    /// The second tuple element is the child index if the asset is a sub-class.
+    private func indexPath(for id: String) -> (classIndex: Int, childIndex: Int?)? {
+        if let idx = assets.firstIndex(where: { $0.id == id }) {
+            return (idx, nil)
+        }
+        for (classIdx, cls) in assets.enumerated() {
+            if let childIdx = cls.children?.firstIndex(where: { $0.id == id }) {
+                return (classIdx, childIdx)
+            }
+        }
+        return nil
+    }
+
     // MARK: - Totals
     var targetPctTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.targetPct).reduce(0, +)
@@ -135,8 +149,12 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
     func saveMode(_ mode: AllocationInputMode, for id: String) {
         UserDefaults.standard.set(mode.rawValue, forKey: Self.key(for: id))
-        if let idx = assets.firstIndex(where: { $0.id == id }) {
-            assets[idx].mode = mode
+        if let path = indexPath(for: id) {
+            if let child = path.childIndex {
+                assets[path.classIndex].children?[child].mode = mode
+            } else {
+                assets[path.classIndex].mode = mode
+            }
         }
     }
 
@@ -221,33 +239,59 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let index = assets.firstIndex(where: { $0.id == asset.id }) else {
+        guard let path = indexPath(for: asset.id) else {
             return .constant(asset.targetPct)
         }
         return Binding(get: {
-            self.assets[index].targetPct
+            if let child = path.childIndex {
+                return self.assets[path.classIndex].children?[child].targetPct ?? 0
+            } else {
+                return self.assets[path.classIndex].targetPct
+            }
         }, set: { newVal in
             let val = min(max(0, newVal), 100)
-            self.assets[index].targetPct = val
-            let chf = val * self.portfolioValue / 100
-            self.assets[index].targetChf = chf
-            self.persistAsset(self.assets[index])
+            if let child = path.childIndex {
+                self.assets[path.classIndex].children?[child].targetPct = val
+                let chf = val * self.portfolioValue / 100
+                self.assets[path.classIndex].children?[child].targetChf = chf
+                if let asset = self.assets[path.classIndex].children?[child] {
+                    self.persistAsset(asset)
+                }
+            } else {
+                self.assets[path.classIndex].targetPct = val
+                let chf = val * self.portfolioValue / 100
+                self.assets[path.classIndex].targetChf = chf
+                self.persistAsset(self.assets[path.classIndex])
+            }
             self.sortAssets()
         })
     }
 
     func chfBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let index = assets.firstIndex(where: { $0.id == asset.id }) else {
+        guard let path = indexPath(for: asset.id) else {
             return .constant(asset.targetChf)
         }
         return Binding(get: {
-            self.assets[index].targetChf
+            if let child = path.childIndex {
+                return self.assets[path.classIndex].children?[child].targetChf ?? 0
+            } else {
+                return self.assets[path.classIndex].targetChf
+            }
         }, set: { newVal in
             let val = min(max(0, newVal), self.portfolioValue)
-            self.assets[index].targetChf = val
-            let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
-            self.assets[index].targetPct = pct
-            self.persistAsset(self.assets[index])
+            if let child = path.childIndex {
+                self.assets[path.classIndex].children?[child].targetChf = val
+                let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
+                self.assets[path.classIndex].children?[child].targetPct = pct
+                if let asset = self.assets[path.classIndex].children?[child] {
+                    self.persistAsset(asset)
+                }
+            } else {
+                self.assets[path.classIndex].targetChf = val
+                let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
+                self.assets[path.classIndex].targetPct = pct
+                self.persistAsset(self.assets[path.classIndex])
+            }
             self.sortAssets()
         })
     }
@@ -256,6 +300,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         guard let db else { return }
         for asset in assets {
             persistAsset(asset)
+            if let children = asset.children {
+                for child in children {
+                    persistAsset(child)
+                }
+            }
         }
     }
 
