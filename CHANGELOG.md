@@ -289,3 +289,4 @@ All notable changes to this project will be documented in this file.
 - Fix crash when closing Asset Class due to stale index paths in AllocationTargetsTableView
 - Group Allocation Targets table into Active and Inactive sections with orange highlight for subclass-only activity
 - Show amber background instead of red when only subclasses have targets
+- Fix compile errors in AllocationTargetsTableView for totals visibility and system gray color

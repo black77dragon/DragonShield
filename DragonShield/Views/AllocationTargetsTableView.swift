@@ -74,7 +74,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualChf).reduce(0, +)
     }
 
-    private var totalsValid: Bool {
+    var totalsValid: Bool {
         targetPctTotal >= 99 && targetPctTotal <= 101
     }
 
@@ -638,7 +638,7 @@ struct AllocationTargetsTableView: View {
                         .multilineTextAlignment(.trailing)
                         .padding(4)
                         .frame(width: 80, alignment: .trailing)
-                        .background(Color(.systemGray6))
+                        .background(Color(NSColor.systemGray6))
                         .overlay(
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
@@ -653,7 +653,7 @@ struct AllocationTargetsTableView: View {
                         .multilineTextAlignment(.trailing)
                         .padding(4)
                         .frame(width: 100, alignment: .trailing)
-                        .background(Color(.systemGray6))
+                        .background(Color(NSColor.systemGray6))
                         .overlay(
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
