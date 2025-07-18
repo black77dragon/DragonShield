@@ -638,7 +638,7 @@ struct AllocationTargetsTableView: View {
                         .multilineTextAlignment(.trailing)
                         .padding(4)
                         .frame(width: 80, alignment: .trailing)
-                        .background(Color(NSColor.systemGray6))
+                        .background(Color.fieldGray)
                         .overlay(
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
@@ -653,7 +653,7 @@ struct AllocationTargetsTableView: View {
                         .multilineTextAlignment(.trailing)
                         .padding(4)
                         .frame(width: 100, alignment: .trailing)
-                        .background(Color(NSColor.systemGray6))
+                        .background(Color.fieldGray)
                         .overlay(
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
