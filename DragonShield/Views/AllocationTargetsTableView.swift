@@ -471,13 +471,13 @@ struct AllocationTargetsTableView: View {
     private var validationMessages: [String] {
         var issues: [String] = []
         if !viewModel.totalsValid {
-            issues.append(String(format: "Overall Target %% total is %.1f%%, which is outside the 99\u2013101%% tolerance", viewModel.targetPctTotal))
+            issues.append(String(format: "Overall Target %% total is %.1f%%, which is outside the 99\u{2013}101%% tolerance", viewModel.targetPctTotal))
         }
         for asset in viewModel.assets {
             if asset.id.hasPrefix("class-") {
                 if viewModel.rowHasWarning(asset) {
                     let sumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
-                    issues.append("Total Target % for Asset Class '\(asset.name)' is \(formatPercent(sumPct))%, which is outside the 99\u2013101% tolerance")
+                    issues.append("Total Target % for Asset Class '\(asset.name)' is \(formatPercent(sumPct))%, which is outside the 99\u{2013}101% tolerance")
                 } else if viewModel.rowNeedsOrange(asset) {
                     issues.append("No sub-asset class allocation defined for Asset Class '\(asset.name)'")
                 }
@@ -514,7 +514,7 @@ struct AllocationTargetsTableView: View {
                     if !validationMessages.isEmpty {
                         VStack(alignment: .leading, spacing: 2) {
                             ForEach(validationMessages, id: \.self) { msg in
-                                Text("\u2022 \(msg)")
+                                Text("• \(msg)")
                                     .font(.caption)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
