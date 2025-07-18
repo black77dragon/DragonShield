@@ -116,13 +116,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         var invalid: Set<String> = []
         for asset in assets where asset.id.hasPrefix("class-") {
             guard let children = asset.children else { continue }
+            let parentZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
+            if parentZero {
+                // When the parent has no target but subclasses do, don't flag as invalid
+                continue
+            }
+
             let sumPct = children.map(\.targetPct).reduce(0, +)
             // Sub-class target percentages are relative to their parent so totals must be ~100%
             let pctValid = abs(sumPct - 100) <= 1
             let sumChf = children.map(\.targetChf).reduce(0, +)
             // CHF targets should equal the parent target within ±1%
             let tol = abs(asset.targetChf) * 0.01
-            let chfValid = asset.targetChf == 0 ? abs(sumChf) <= 0.01 : abs(sumChf - asset.targetChf) <= tol
+            let chfValid = abs(sumChf - asset.targetChf) <= tol
             if !(pctValid && chfValid) {
                 invalid.insert(asset.id)
             }
@@ -309,7 +315,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                     self.assets[path.classIndex].targetChf = chf
                     self.persistAsset(self.assets[path.classIndex])
                 }
-                self.sortAssets()
+                DispatchQueue.main.async {
+                    self.sortAssets()
+                }
             }
         )
     }
@@ -343,7 +351,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                     self.assets[path.classIndex].targetPct = pct
                     self.persistAsset(self.assets[path.classIndex])
                 }
-                self.sortAssets()
+                DispatchQueue.main.async {
+                    self.sortAssets()
+                }
             }
         )
     }
