@@ -494,14 +494,13 @@ struct AllocationTargetsTableView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                List {
-                    headerRow
-                    totalsRow
-                    OutlineGroup(activeAssets, children: \.children) { asset in
-                        tableRow(for: asset)
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            List {
+                headerRow
+                totalsRow
+                OutlineGroup(activeAssets, children: \.children) { asset in
+                    tableRow(for: asset)
+                }
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
@@ -511,12 +510,16 @@ struct AllocationTargetsTableView: View {
                     }
                 }
 
-                DisclosureGroup(isExpanded: $showDetails) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        if validationMessages.isEmpty {
-                            Text("No issues")
-                                .font(.caption)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    DisclosureGroup(isExpanded: $showDetails) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if validationMessages.isEmpty {
+                                Text("No issues")
+                                    .font(.caption)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             ForEach(validationMessages, id: \.self) { msg in
                                 Text("• \(msg)")
@@ -526,30 +529,31 @@ struct AllocationTargetsTableView: View {
                         }
                     }
                     .padding(.top, 8)
-                } label: {
-                    Text("Asset Allocation")
-                        .font(.headline)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.softBlue)
-                }
-                .padding(.bottom, 16)
+                    } label: {
+                        Text("Asset Allocation Errors")
+                            .font(.headline)
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.softBlue)
+                    }
+                    .padding(.bottom, 16)
 
-                DisclosureGroup("Double Donut", isExpanded: $showDonut) {
-                    DualRingDonutChart(data: chartAllocations)
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(.bottom, 16)
-                .background(Color.softBlue)
+                    DisclosureGroup("Double Donut", isExpanded: $showDonut) {
+                        DualRingDonutChart(data: chartAllocations)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.bottom, 16)
+                    .background(Color.softBlue)
 
-                DisclosureGroup("Delta Bar", isExpanded: $showDelta) {
-                    DeltaBarLayout(data: chartAllocations)
-                        .frame(maxWidth: .infinity)
+                    DisclosureGroup("Delta Bar Asset Class", isExpanded: $showDelta) {
+                        DeltaBarLayout(data: chartAllocations)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .background(Color.softBlue)
                 }
-                .background(Color.softBlue)
+                .padding()
+                .frame(maxWidth: .infinity)
             }
-            .padding()
-            .frame(maxWidth: .infinity)
         }
         .onAppear {
             viewModel.load(using: dbManager)

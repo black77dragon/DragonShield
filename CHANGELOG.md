@@ -298,4 +298,4 @@ All notable changes to this project will be documented in this file.
 - Fix compile error referencing NSColor.systemGray6 by using cross-platform fieldGray color
 - Organize Target Asset Allocation view into collapsible sections with status details
 - Resolve Swift compile errors from invalid Unicode escapes in AllocationTargetsTableView
-- Keep Allocation Targets table visible while charts are in collapsible sections
+- Pin Allocation Targets table at top with collapsible error and chart sections
