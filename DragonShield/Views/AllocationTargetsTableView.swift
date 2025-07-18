@@ -21,8 +21,10 @@ struct AllocationAsset: Identifiable {
     var mode: AllocationInputMode
     var children: [AllocationAsset]? = nil
 
-    var deviationPct: Double { actualPct - targetPct }
-    var deviationChf: Double { actualChf - targetChf }
+    /// Difference between target and actual percentage.
+    var deviationPct: Double { targetPct - actualPct }
+    /// Difference between target and actual CHF amount.
+    var deviationChf: Double { targetChf - actualChf }
     var ragColor: Color {
         let diff = abs(deviationPct)
         switch diff {
@@ -39,6 +41,10 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     @Published var sortAscending: Bool = false
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
+    /// Mapping of sub-class IDs to their parent class IDs for validation.
+    private var subToClass: [Int: Int] = [:]
+    /// Asset class IDs that fail sub-class sum validation.
+    @Published var invalidClassIds: Set<String> = []
 
     // MARK: - Totals
     var targetPctTotal: Double {
@@ -89,6 +95,34 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if lhsVal == rhsVal { return lhs.name < rhs.name }
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
+        updateValidation()
+    }
+
+    private func updateValidation() {
+        var invalid: Set<String> = []
+        for asset in assets where asset.id.hasPrefix("class-") {
+            guard let children = asset.children else { continue }
+            let sumPct = children.map(\.targetPct).reduce(0, +)
+            let pctValid = abs(sumPct - asset.targetPct) <= 1
+            let sumChf = children.map(\.targetChf).reduce(0, +)
+            let tol = abs(asset.targetChf) * 0.01
+            let chfValid = asset.targetChf == 0 ? abs(sumChf) <= 0.01 : abs(sumChf - asset.targetChf) <= tol
+            if !(pctValid && chfValid) {
+                invalid.insert(asset.id)
+            }
+        }
+        invalidClassIds = invalid
+    }
+
+    func rowHasWarning(_ asset: AllocationAsset) -> Bool {
+        if asset.id.hasPrefix("class-") {
+            return invalidClassIds.contains(asset.id)
+        } else if asset.id.hasPrefix("sub-") {
+            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
+                return invalidClassIds.contains("class-\(parent)")
+            }
+        }
+        return false
     }
 
     private static func key(for id: String) -> String { "allocMode-\(id)" }
@@ -127,6 +161,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 subToClass[sub.id] = cls.id
             }
         }
+        self.subToClass = subToClass
 
         let targetRows = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
@@ -196,7 +231,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             self.assets[index].targetPct = val
             let chf = val * self.portfolioValue / 100
             self.assets[index].targetChf = chf
-            self.tryPersist()
+            self.persistAsset(self.assets[index])
             self.sortAssets()
         })
     }
@@ -212,7 +247,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             self.assets[index].targetChf = val
             let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
             self.assets[index].targetPct = pct
-            self.tryPersist()
+            self.persistAsset(self.assets[index])
             self.sortAssets()
         })
     }
@@ -220,21 +255,20 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     func persistAll() {
         guard let db else { return }
         for asset in assets {
-            if asset.id.hasPrefix("class-") {
-                if let classId = Int(asset.id.dropFirst(6)) {
-                    db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
-                }
-            } else if asset.id.hasPrefix("sub-") {
-                if let subId = Int(asset.id.dropFirst(4)) {
-                    db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
-                }
-            }
+            persistAsset(asset)
         }
     }
 
-    private func tryPersist() {
-        if totalsValid {
-            persistAll()
+    private func persistAsset(_ asset: AllocationAsset) {
+        guard let db else { return }
+        if asset.id.hasPrefix("class-") {
+            if let classId = Int(asset.id.dropFirst(6)) {
+                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
+            }
+        } else if asset.id.hasPrefix("sub-") {
+            if let subId = Int(asset.id.dropFirst(4)) {
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
+            }
         }
     }
 }
@@ -505,13 +539,21 @@ struct AllocationTargetsTableView: View {
                     .background(asset.ragColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                Circle()
-                    .fill(asset.ragColor)
-                    .frame(width: 16, height: 16)
-                    .frame(width: 60, alignment: .center)
+                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .frame(width: 16, height: 16)
+                        .frame(width: 60, alignment: .center)
+                } else {
+                    Circle()
+                        .fill(asset.ragColor)
+                        .frame(width: 16, height: 16)
+                        .frame(width: 60, alignment: .center)
+                }
             }
         }
         .frame(height: 48)
+        .background(viewModel.rowHasWarning(asset) ? Color.paleRed : Color.clear)
     }
 }
 
