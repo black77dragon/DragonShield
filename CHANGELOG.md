@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data

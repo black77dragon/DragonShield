@@ -458,20 +458,34 @@ struct AllocationTargetsTableView: View {
         viewModel.assets.filter { !viewModel.isActive($0) }
     }
 
+    private var chartAllocations: [AssetAllocation] {
+        viewModel.assets.filter { $0.id.hasPrefix("class-") }.map {
+            AssetAllocation(name: $0.name, targetPercent: $0.targetPct, actualPercent: $0.actualPct)
+        }
+    }
+
     var body: some View {
-        List {
-            headerRow
-            totalsRow
-            OutlineGroup(activeAssets, children: \.children) { asset in
-                tableRow(for: asset)
-            }
-            if !inactiveAssets.isEmpty {
-                Divider()
-                inactiveHeader
-                OutlineGroup(inactiveAssets, children: \.children) { asset in
+        VStack(alignment: .leading, spacing: 20) {
+            List {
+                headerRow
+                totalsRow
+                OutlineGroup(activeAssets, children: \.children) { asset in
                     tableRow(for: asset)
                 }
+                if !inactiveAssets.isEmpty {
+                    Divider()
+                    inactiveHeader
+                    OutlineGroup(inactiveAssets, children: \.children) { asset in
+                        tableRow(for: asset)
+                    }
+                }
             }
+
+            DualRingDonutChart(data: chartAllocations)
+                .frame(maxWidth: .infinity)
+
+            DeltaBarLayout(data: chartAllocations)
+                .frame(maxWidth: .infinity)
         }
         .onAppear {
             viewModel.load(using: dbManager)
@@ -716,5 +730,187 @@ struct AllocationTargetsTableView_Previews: PreviewProvider {
     static var previews: some View {
         AllocationTargetsTableView()
             .environmentObject(DatabaseManager())
+    }
+}
+
+// MARK: - Comparative Visual Components
+
+struct AssetAllocation: Identifiable {
+    var id: String { name }
+    let name: String
+    let targetPercent: Double
+    let actualPercent: Double
+    var delta: Double { actualPercent - targetPercent }
+}
+
+struct DualRingDonutChart: View {
+    let data: [AssetAllocation]
+    @State private var selected: AssetAllocation?
+
+    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .teal, .indigo]
+
+    private var targetTotal: Double { data.map(\.targetPercent).reduce(0, +) }
+
+    private func color(for name: String) -> Color {
+        if let idx = data.firstIndex(where: { $0.name == name }) {
+            return colors[idx % colors.count]
+        }
+        return .blue
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            ZStack {
+                Chart(data, id: \.name) { item in
+                    SectorMark(
+                        angle: .value("Actual", item.actualPercent),
+                        innerRadius: .ratio(0.55),
+                        outerRadius: .ratio(1.0)
+                    )
+                    .foregroundStyle(color(for: item.name))
+                    .shadow(color: abs(item.delta) > 2 ? .red : .clear, radius: 4)
+                    .onTapGesture { selected = item }
+                }
+                Chart(data, id: \.name) { item in
+                    SectorMark(
+                        angle: .value("Target", item.targetPercent),
+                        innerRadius: .ratio(0.35),
+                        outerRadius: .ratio(0.55)
+                    )
+                    .foregroundStyle(color(for: item.name).opacity(0.4))
+                    .onTapGesture { selected = item }
+                }
+
+                if abs(targetTotal - 100) > 0.1 {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                } else {
+                    Text("Target vs Actual")
+                        .font(.caption)
+                }
+            }
+            .frame(width: 200, height: 200)
+            .chartLegend(.hidden)
+            .popover(item: $selected) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.name).font(.headline)
+                    Text(String(format: "Target %.1f%%", item.targetPercent))
+                    Text(String(format: "Actual %.1f%%", item.actualPercent))
+                    Text(String(format: "Delta %+.1f%%", item.delta))
+                }
+                .padding()
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(data.indices, id: \.self) { idx in
+                    let item = data[idx]
+                    HStack(spacing: 6) {
+                        Rectangle()
+                            .fill(color(for: item.name))
+                            .frame(width: 12, height: 12)
+                        Text(item.name)
+                            .frame(width: 80, alignment: .leading)
+                        Text(String(format: "%.1f%%", item.targetPercent))
+                            .frame(width: 50, alignment: .trailing)
+                        Text(String(format: "%.1f%%", item.actualPercent))
+                            .frame(width: 50, alignment: .trailing)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+    }
+}
+
+struct DeltaBarLayout: View {
+    let data: [AssetAllocation]
+    var tolerance: Double = 2.0
+
+    @State private var sortByDelta = true
+    @State private var ascending = false
+
+    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .teal, .indigo]
+
+    private func color(for name: String) -> Color {
+        if let idx = data.firstIndex(where: { $0.name == name }) {
+            return colors[idx % colors.count]
+        }
+        return .blue
+    }
+
+    private var sortedData: [AssetAllocation] {
+        data.sorted { lhs, rhs in
+            if sortByDelta {
+                if lhs.delta == rhs.delta { return lhs.name < rhs.name }
+                return ascending ? lhs.delta < rhs.delta : lhs.delta > rhs.delta
+            } else {
+                return ascending ? lhs.name < rhs.name : lhs.name > rhs.name
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                headerButton(title: "Asset Class", delta: false)
+                    .frame(width: 120, alignment: .leading)
+                Spacer()
+                headerButton(title: "Δ %", delta: true)
+                    .frame(width: 50, alignment: .trailing)
+            }
+            ForEach(sortedData.indices, id: \.self) { idx in
+                let item = sortedData[idx]
+                HStack(alignment: .center) {
+                    Text(item.name)
+                        .frame(width: 120, alignment: .leading)
+                    GeometryReader { geo in
+                        let width = geo.size.width
+                        ZStack {
+                            HStack {
+                                Capsule()
+                                    .fill(color(for: item.name).opacity(0.4))
+                                    .frame(width: width * item.targetPercent / 100, height: 8)
+                                Spacer()
+                            }
+                            HStack {
+                                Spacer()
+                                Capsule()
+                                    .fill(color(for: item.name))
+                                    .frame(width: width * item.actualPercent / 100, height: 8)
+                                    .overlay(
+                                        Capsule().stroke(Color.red, lineWidth: abs(item.delta) > tolerance ? 2 : 0)
+                                    )
+                            }
+                        }
+                    }
+                    .frame(height: 8)
+                    Text(String(format: "%+.1f%%", item.delta))
+                        .padding(4)
+                        .background(abs(item.delta) <= tolerance ? Color.success : Color.error)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .frame(width: 60, alignment: .trailing)
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    private func headerButton(title: String, delta: Bool) -> some View {
+        Button {
+            if sortByDelta == delta {
+                ascending.toggle()
+            } else {
+                sortByDelta = delta
+                ascending = false
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(title)
+                Image(systemName: ascending && sortByDelta == delta ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                    .font(.caption2)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
