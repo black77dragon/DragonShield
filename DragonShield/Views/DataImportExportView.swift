@@ -172,7 +172,7 @@ struct DataImportExportView: View {
                 .foregroundColor(Color(red: 51/255, green: 51/255, blue: 51/255))
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(logMessages, id: \.self) { entry in
+                    ForEach(Array(logMessages.enumerated()), id: \.offset) { _, entry in
                         Text(entry)
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(Color(red: 34/255, green: 34/255, blue: 34/255))
