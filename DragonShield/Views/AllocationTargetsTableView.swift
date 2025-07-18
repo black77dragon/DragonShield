@@ -395,7 +395,7 @@ struct AllocationTargetsTableView: View {
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
-    @State private var showTable = true
+    @State private var showDetails = true
     @State private var showDonut = true
     @State private var showDelta = true
 
@@ -496,31 +496,36 @@ struct AllocationTargetsTableView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                DisclosureGroup(isExpanded: $showTable) {
-                    List {
-                        headerRow
-                        totalsRow
-                        OutlineGroup(activeAssets, children: \.children) { asset in
+                List {
+                    headerRow
+                    totalsRow
+                    OutlineGroup(activeAssets, children: \.children) { asset in
+                        tableRow(for: asset)
+                    }
+                    if !inactiveAssets.isEmpty {
+                        Divider()
+                        inactiveHeader
+                        OutlineGroup(inactiveAssets, children: \.children) { asset in
                             tableRow(for: asset)
                         }
-                        if !inactiveAssets.isEmpty {
-                            Divider()
-                            inactiveHeader
-                            OutlineGroup(inactiveAssets, children: \.children) { asset in
-                                tableRow(for: asset)
-                            }
-                        }
                     }
-                    if !validationMessages.isEmpty {
-                        VStack(alignment: .leading, spacing: 2) {
+                }
+
+                DisclosureGroup(isExpanded: $showDetails) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if validationMessages.isEmpty {
+                            Text("No issues")
+                                .font(.caption)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
                             ForEach(validationMessages, id: \.self) { msg in
                                 Text("• \(msg)")
                                     .font(.caption)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
-                        .padding(.top, 8)
                     }
+                    .padding(.top, 8)
                 } label: {
                     Text("Asset Allocation")
                         .font(.headline)
