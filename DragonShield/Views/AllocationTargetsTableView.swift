@@ -510,8 +510,6 @@ struct AllocationTargetsTableView: View {
                     }
                 }
 
-            }
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     DisclosureGroup(isExpanded: $showDetails) {
@@ -520,15 +518,14 @@ struct AllocationTargetsTableView: View {
                                 Text("No issues")
                                     .font(.caption)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                        } else {
-                            ForEach(validationMessages, id: \.self) { msg in
-                                Text("• \(msg)")
-                                    .font(.caption)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            } else {
+                                ForEach(validationMessages, id: \.self) { msg in
+                                    Text("• \(msg)")
+                                        .font(.caption)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                         }
-                    }
-                    .padding(.top, 8)
                     } label: {
                         Text("Asset Allocation Errors")
                             .font(.headline)
@@ -536,6 +533,7 @@ struct AllocationTargetsTableView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.softBlue)
                     }
+                    .padding(.top, 8)
                     .padding(.bottom, 16)
 
                     DisclosureGroup("Double Donut", isExpanded: $showDonut) {

@@ -299,3 +299,4 @@ All notable changes to this project will be documented in this file.
 - Organize Target Asset Allocation view into collapsible sections with status details
 - Resolve Swift compile errors from invalid Unicode escapes in AllocationTargetsTableView
 - Pin Allocation Targets table at top with collapsible error and chart sections
+- Fix unmatched braces causing compile errors in AllocationTargetsTableView
