@@ -74,7 +74,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualChf).reduce(0, +)
     }
 
-    private var totalsValid: Bool {
+    var totalsValid: Bool {
         targetPctTotal >= 99 && targetPctTotal <= 101
     }
 
@@ -212,6 +212,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         }, set: { newMode in
             self.saveMode(newMode, for: asset.id)
         })
+    }
+
+    func parentClassId(for assetId: String) -> Int? {
+        guard assetId.hasPrefix("sub-"), let subId = Int(assetId.dropFirst(4)) else { return nil }
+        return subToClass[subId]
     }
 
     func load(using dbManager: DatabaseManager) {
@@ -388,6 +393,7 @@ struct AllocationTargetsTableView: View {
     @StateObject private var viewModel = AllocationTargetsTableViewModel()
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
+    @FocusState private var focusedPctField: String?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -460,6 +466,7 @@ struct AllocationTargetsTableView: View {
                 tableRow(for: asset)
             }
             if !inactiveAssets.isEmpty {
+                Divider()
                 inactiveHeader
                 OutlineGroup(inactiveAssets, children: \.children) { asset in
                     tableRow(for: asset)
@@ -504,7 +511,7 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 60)
             }
         }
-        .font(.caption)
+        .font(.system(size: 12, weight: .semibold))
     }
 
     private var totalsRow: some View {
@@ -538,6 +545,7 @@ struct AllocationTargetsTableView: View {
             }
         }
         .font(.subheadline)
+        .background(viewModel.totalsValid ? Color.white : Color.paleRed)
     }
 
     private var inactiveHeader: some View {
@@ -583,6 +591,33 @@ struct AllocationTargetsTableView: View {
         .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
     }
 
+    private func deltaColor(_ value: Double) -> Color {
+        if abs(value) > 5 { return .warning }
+        if value > 0 { return .success }
+        if value < 0 { return .error }
+        return .gray
+    }
+
+    private func rowBackground(for asset: AllocationAsset) -> Color {
+        if viewModel.rowHasWarning(asset) { return .paleRed }
+        if viewModel.rowNeedsOrange(asset) { return .paleOrange }
+        if asset.children != nil { return Color.beige.opacity(0.6) }
+        if let parentId = viewModel.parentClassId(for: asset.id),
+           viewModel.assets.first(where: { $0.id == "class-\(parentId)" }) != nil {
+            return Color.beige.opacity(0.6)
+        }
+        return .white
+    }
+
+    private func statusText(for asset: AllocationAsset) -> String {
+        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+            return "Sub-class totals mismatch"
+        }
+        if abs(asset.deviationPct) < 0.01 { return "OK" }
+        if abs(asset.deviationPct) > 5 { return "Large deviation" }
+        return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {
         HStack(spacing: 0) {
@@ -596,22 +631,34 @@ struct AllocationTargetsTableView: View {
                     Text("CHF").tag(AllocationInputMode.chf)
                 }
                 .pickerStyle(.segmented)
+                .tint(.softBlue)
                 .frame(width: 80)
                 if asset.mode == .percent {
                     TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
-                        .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
+                        .padding(4)
                         .frame(width: 80, alignment: .trailing)
+                        .background(Color.fieldGray)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                        .focused($focusedPctField, equals: asset.id)
                     Text(formatChf(asset.targetChf))
                         .frame(width: 100, alignment: .trailing)
                 } else {
                     Text(formatPercent(asset.targetPct))
                         .frame(width: 80, alignment: .trailing)
                     TextField("", text: chfTextBinding(for: asset))
-                        .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
-                        .focused($focusedChfField, equals: asset.id)
+                        .padding(4)
                         .frame(width: 100, alignment: .trailing)
+                        .background(Color.fieldGray)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                        )
+                        .focused($focusedChfField, equals: asset.id)
                         .onChange(of: focusedChfField) { oldValue, newValue in
                             if newValue == asset.id {
                                 chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
@@ -625,21 +672,24 @@ struct AllocationTargetsTableView: View {
             HStack {
                 Text("\(formatPercent(asset.actualPct))%")
                     .frame(width: 80, alignment: .trailing)
+                    .foregroundColor(asset.actualPct == 0 ? .secondary : .primary)
                 Text(formatChf(asset.actualChf))
                     .frame(width: 100, alignment: .trailing)
+                    .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
             }
             Divider()
             HStack {
+                let dColor = deltaColor(asset.deviationPct)
                 Text("\(formatSignedPercent(asset.deviationPct))%")
                     .frame(width: 80, alignment: .trailing)
                     .padding(4)
-                    .background(asset.ragColor)
+                    .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                 Text(formatSignedChf(asset.deviationChf))
                     .frame(width: 100, alignment: .trailing)
                     .padding(4)
-                    .background(asset.ragColor)
+                    .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                 if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
@@ -647,19 +697,18 @@ struct AllocationTargetsTableView: View {
                         .foregroundColor(.red)
                         .frame(width: 16, height: 16)
                         .frame(width: 60, alignment: .center)
+                        .help(statusText(for: asset))
                 } else {
                     Circle()
-                        .fill(asset.ragColor)
+                        .fill(dColor)
                         .frame(width: 16, height: 16)
                         .frame(width: 60, alignment: .center)
+                        .help(statusText(for: asset))
                 }
             }
         }
         .frame(height: 48)
-        .background(
-            viewModel.rowHasWarning(asset) ? Color.paleRed :
-                (viewModel.rowNeedsOrange(asset) ? Color.paleOrange : Color.white)
-        )
+        .background(rowBackground(for: asset))
     }
 }
 

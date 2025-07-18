@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 - Allow editing allocation targets in CHF or percent with per-row mode toggle
 - Split Allocation Targets table into Target %/CHF columns with totals row warning
 - Enforce minimum column widths in Positions table to prevent overlap
+- Replace legacy target allocation editor with unified AllocationTargetsTableView
+- Polish Allocation Targets table visuals and group styling
+- Refine AllocationTargetsTableView with soft blue toggles and subclass backgrounds
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Add Allocation Targets table view with hierarchical editing
 - Fix compile error referencing children key path in AllocationTargetsTableView
@@ -286,3 +289,5 @@ All notable changes to this project will be documented in this file.
 - Fix crash when closing Asset Class due to stale index paths in AllocationTargetsTableView
 - Group Allocation Targets table into Active and Inactive sections with orange highlight for subclass-only activity
 - Show amber background instead of red when only subclasses have targets
+- Fix compile errors in AllocationTargetsTableView for totals visibility and system gray color
+- Fix compile error referencing NSColor.systemGray6 by using cross-platform fieldGray color

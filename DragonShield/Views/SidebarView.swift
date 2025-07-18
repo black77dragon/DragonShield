@@ -64,14 +64,10 @@ struct SidebarView: View {
                     Label("Edit Asset SubClasses", systemImage: "folder.fill")
                 }
 
-                NavigationLink(destination: TargetAllocationMaintenanceView(viewModel: TargetAllocationViewModel(dbManager: dbManager, portfolioId: 1))) {
+                NavigationLink(destination: TargetAllocationMaintenanceView()) {
                     Label("Edit Target Allocation", systemImage: "chart.pie")
                 }
 
-                NavigationLink(destination: AllocationTargetsTableView()) {
-                    Label("Allocation Targets Table", systemImage: "tablecells.fill")
-                }
-                
                 NavigationLink(destination: TransactionTypesView()) {
                     Label("Edit Transaction Types", systemImage: "tag.circle.fill")
                 }
