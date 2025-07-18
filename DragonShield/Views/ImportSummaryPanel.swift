@@ -28,7 +28,7 @@ struct ImportSummaryPanel: View {
                 if !logs.isEmpty {
                     Divider()
                     VStack(alignment: .leading, spacing: 2) {
-                        ForEach(logs, id: \.self) { msg in
+                        ForEach(Array(logs.enumerated()), id: \.offset) { _, msg in
                             Text(msg)
                                 .font(.caption2)
                                 .frame(maxWidth: .infinity, alignment: .leading)

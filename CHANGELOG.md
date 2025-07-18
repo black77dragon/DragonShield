@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Move Target Asset Allocation link to Key Features section
 - Fix compile error in allocation charts by importing Charts framework
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
+- Fix duplicate IDs in import summary logs to avoid SwiftUI warnings
 - Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Expand seed dataset with full production reference data
