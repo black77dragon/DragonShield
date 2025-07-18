@@ -759,6 +759,32 @@ struct DualRingDonutChart: View {
         return .blue
     }
 
+    private func item(at angle: Double) -> AssetAllocation? {
+        var cumulative = 0.0
+        for item in data {
+            let end = cumulative + item.actualPercent / 100 * 360
+            if angle >= cumulative && angle < end {
+                return item
+            }
+            cumulative = end
+        }
+        return nil
+    }
+
+    private func handleTap(_ location: CGPoint, in size: CGSize) {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let dx = location.x - center.x
+        let dy = location.y - center.y
+        let radius = sqrt(dx * dx + dy * dy)
+        let minRadius = min(size.width, size.height) / 2
+        guard radius >= minRadius * 0.35, radius <= minRadius else { return }
+        var angle = atan2(dy, dx) * 180 / .pi
+        if angle < 0 { angle += 360 }
+        if let item = item(at: angle) {
+            selected = item
+        }
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             ZStack {
@@ -770,7 +796,18 @@ struct DualRingDonutChart: View {
                     )
                     .foregroundStyle(color(for: item.name))
                     .shadow(color: abs(item.delta) > 2 ? .red : .clear, radius: 4)
-                    .onTapGesture { selected = item }
+                }
+                .chartOverlay { proxy in
+                    GeometryReader { geo in
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onEnded { value in
+                                        handleTap(value.location, in: geo.size)
+                                    }
+                            )
+                    }
                 }
                 Chart(data, id: \.name) { item in
                     SectorMark(
@@ -779,7 +816,6 @@ struct DualRingDonutChart: View {
                         outerRadius: .ratio(0.55)
                     )
                     .foregroundStyle(color(for: item.name).opacity(0.4))
-                    .onTapGesture { selected = item }
                 }
 
                 if abs(targetTotal - 100) > 0.1 {
