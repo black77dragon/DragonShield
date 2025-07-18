@@ -583,6 +583,13 @@ struct AllocationTargetsTableView: View {
         .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
     }
 
+    private func deltaColor(_ value: Double) -> Color {
+        if abs(value) > 5 { return .warning }
+        if value > 0 { return .success }
+        if value < 0 { return .error }
+        return .gray
+    }
+
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {
         HStack(spacing: 0) {
@@ -625,21 +632,24 @@ struct AllocationTargetsTableView: View {
             HStack {
                 Text("\(formatPercent(asset.actualPct))%")
                     .frame(width: 80, alignment: .trailing)
+                    .foregroundColor(asset.actualPct == 0 ? .secondary : .primary)
                 Text(formatChf(asset.actualChf))
                     .frame(width: 100, alignment: .trailing)
+                    .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
             }
             Divider()
             HStack {
+                let dColor = deltaColor(asset.deviationPct)
                 Text("\(formatSignedPercent(asset.deviationPct))%")
                     .frame(width: 80, alignment: .trailing)
                     .padding(4)
-                    .background(asset.ragColor)
+                    .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                 Text(formatSignedChf(asset.deviationChf))
                     .frame(width: 100, alignment: .trailing)
                     .padding(4)
-                    .background(asset.ragColor)
+                    .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                 if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
@@ -649,7 +659,7 @@ struct AllocationTargetsTableView: View {
                         .frame(width: 60, alignment: .center)
                 } else {
                     Circle()
-                        .fill(asset.ragColor)
+                        .fill(dColor)
                         .frame(width: 16, height: 16)
                         .frame(width: 60, alignment: .center)
                 }
@@ -658,7 +668,7 @@ struct AllocationTargetsTableView: View {
         .frame(height: 48)
         .background(
             viewModel.rowHasWarning(asset) ? Color.paleRed :
-                (viewModel.rowNeedsOrange(asset) ? Color.paleOrange : Color.white)
+                (viewModel.rowNeedsOrange(asset) ? Color.paleOrange : (asset.children != nil ? Color.beige.opacity(0.6) : Color.white))
         )
     }
 }

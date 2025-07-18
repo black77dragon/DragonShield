@@ -8,4 +8,6 @@ extension Color {
     static let paleRed = Color(red: 1.0, green: 236/255, blue: 236/255)
     /// Light orange used to highlight subclass-only activity.
     static let paleOrange = Color(red: 1.0, green: 244/255, blue: 229/255)
+    /// Soft beige used to group asset classes.
+    static let beige = Color(red: 250/255, green: 243/255, blue: 224/255)
 }
