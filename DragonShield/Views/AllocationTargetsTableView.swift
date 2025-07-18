@@ -21,8 +21,10 @@ struct AllocationAsset: Identifiable {
     var mode: AllocationInputMode
     var children: [AllocationAsset]? = nil
 
-    var deviationPct: Double { actualPct - targetPct }
-    var deviationChf: Double { actualChf - targetChf }
+    /// Difference between target and actual percentage.
+    var deviationPct: Double { targetPct - actualPct }
+    /// Difference between target and actual CHF amount.
+    var deviationChf: Double { targetChf - actualChf }
     var ragColor: Color {
         let diff = abs(deviationPct)
         switch diff {
@@ -39,6 +41,24 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     @Published var sortAscending: Bool = false
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
+    /// Mapping of sub-class IDs to their parent class IDs for validation.
+    private var subToClass: [Int: Int] = [:]
+    /// Asset class IDs that fail sub-class sum validation.
+    @Published var invalidClassIds: Set<String> = []
+
+    /// Locate an asset within the top-level list and return the index path.
+    /// The second tuple element is the child index if the asset is a sub-class.
+    private func indexPath(for id: String) -> (classIndex: Int, childIndex: Int?)? {
+        if let idx = assets.firstIndex(where: { $0.id == id }) {
+            return (idx, nil)
+        }
+        for (classIdx, cls) in assets.enumerated() {
+            if let childIdx = cls.children?.firstIndex(where: { $0.id == id }) {
+                return (classIdx, childIdx)
+            }
+        }
+        return nil
+    }
 
     // MARK: - Totals
     var targetPctTotal: Double {
@@ -89,6 +109,36 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if lhsVal == rhsVal { return lhs.name < rhs.name }
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
+        updateValidation()
+    }
+
+    private func updateValidation() {
+        var invalid: Set<String> = []
+        for asset in assets where asset.id.hasPrefix("class-") {
+            guard let children = asset.children else { continue }
+            let sumPct = children.map(\.targetPct).reduce(0, +)
+            // Sub-class target percentages are relative to their parent so totals must be ~100%
+            let pctValid = abs(sumPct - 100) <= 1
+            let sumChf = children.map(\.targetChf).reduce(0, +)
+            // CHF targets should equal the parent target within ±1%
+            let tol = abs(asset.targetChf) * 0.01
+            let chfValid = asset.targetChf == 0 ? abs(sumChf) <= 0.01 : abs(sumChf - asset.targetChf) <= tol
+            if !(pctValid && chfValid) {
+                invalid.insert(asset.id)
+            }
+        }
+        invalidClassIds = invalid
+    }
+
+    func rowHasWarning(_ asset: AllocationAsset) -> Bool {
+        if asset.id.hasPrefix("class-") {
+            return invalidClassIds.contains(asset.id)
+        } else if asset.id.hasPrefix("sub-") {
+            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
+                return invalidClassIds.contains("class-\(parent)")
+            }
+        }
+        return false
     }
 
     private static func key(for id: String) -> String { "allocMode-\(id)" }
@@ -101,8 +151,12 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
     func saveMode(_ mode: AllocationInputMode, for id: String) {
         UserDefaults.standard.set(mode.rawValue, forKey: Self.key(for: id))
-        if let idx = assets.firstIndex(where: { $0.id == id }) {
-            assets[idx].mode = mode
+        if let path = indexPath(for: id) {
+            if let child = path.childIndex {
+                assets[path.classIndex].children?[child].mode = mode
+            } else {
+                assets[path.classIndex].mode = mode
+            }
         }
     }
 
@@ -127,6 +181,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 subToClass[sub.id] = cls.id
             }
         }
+        self.subToClass = subToClass
 
         let targetRows = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
@@ -175,9 +230,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let tChf = classTargetChf[cls.id] ?? tPct * total / 100
             let children = dbManager.subAssetClasses(for: cls.id).map { sub in
                 let sChf = subActual[sub.id] ?? 0
-                let sPct = total > 0 ? sChf / total * 100 : 0
+                let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
-                let tc = subTargetChf[sub.id] ?? tp * total / 100
+                let tc = subTargetChf[sub.id] ?? tChf * tp / 100
                 return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
             }
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
@@ -186,55 +241,94 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let index = assets.firstIndex(where: { $0.id == asset.id }) else {
-            return .constant(asset.targetPct)
-        }
-        return Binding(get: {
-            self.assets[index].targetPct
-        }, set: { newVal in
-            let val = min(max(0, newVal), 100)
-            self.assets[index].targetPct = val
-            let chf = val * self.portfolioValue / 100
-            self.assets[index].targetChf = chf
-            self.tryPersist()
-            self.sortAssets()
-        })
+        Binding(
+            get: {
+                guard let path = self.indexPath(for: asset.id) else {
+                    return asset.targetPct
+                }
+                if let child = path.childIndex {
+                    return self.assets[path.classIndex].children?[child].targetPct ?? 0
+                } else {
+                    return self.assets[path.classIndex].targetPct
+                }
+            },
+            set: { newVal in
+                let val = min(max(0, newVal), 100)
+                guard let path = self.indexPath(for: asset.id) else { return }
+                if let child = path.childIndex {
+                    self.assets[path.classIndex].children?[child].targetPct = val
+                    let parentChf = self.assets[path.classIndex].targetChf
+                    let chf = parentChf * val / 100
+                    self.assets[path.classIndex].children?[child].targetChf = chf
+                    if let asset = self.assets[path.classIndex].children?[child] {
+                        self.persistAsset(asset)
+                    }
+                } else {
+                    self.assets[path.classIndex].targetPct = val
+                    let chf = val * self.portfolioValue / 100
+                    self.assets[path.classIndex].targetChf = chf
+                    self.persistAsset(self.assets[path.classIndex])
+                }
+                self.sortAssets()
+            }
+        )
     }
 
     func chfBinding(for asset: AllocationAsset) -> Binding<Double> {
-        guard let index = assets.firstIndex(where: { $0.id == asset.id }) else {
-            return .constant(asset.targetChf)
-        }
-        return Binding(get: {
-            self.assets[index].targetChf
-        }, set: { newVal in
-            let val = min(max(0, newVal), self.portfolioValue)
-            self.assets[index].targetChf = val
-            let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
-            self.assets[index].targetPct = pct
-            self.tryPersist()
-            self.sortAssets()
-        })
+        Binding(
+            get: {
+                guard let path = self.indexPath(for: asset.id) else {
+                    return asset.targetChf
+                }
+                if let child = path.childIndex {
+                    return self.assets[path.classIndex].children?[child].targetChf ?? 0
+                } else {
+                    return self.assets[path.classIndex].targetChf
+                }
+            },
+            set: { newVal in
+                let val = min(max(0, newVal), self.portfolioValue)
+                guard let path = self.indexPath(for: asset.id) else { return }
+                if let child = path.childIndex {
+                    self.assets[path.classIndex].children?[child].targetChf = val
+                    let parentChf = self.assets[path.classIndex].targetChf
+                    let pct = parentChf > 0 ? val / parentChf * 100 : 0
+                    self.assets[path.classIndex].children?[child].targetPct = pct
+                    if let asset = self.assets[path.classIndex].children?[child] {
+                        self.persistAsset(asset)
+                    }
+                } else {
+                    self.assets[path.classIndex].targetChf = val
+                    let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
+                    self.assets[path.classIndex].targetPct = pct
+                    self.persistAsset(self.assets[path.classIndex])
+                }
+                self.sortAssets()
+            }
+        )
     }
 
     func persistAll() {
-        guard let db else { return }
         for asset in assets {
-            if asset.id.hasPrefix("class-") {
-                if let classId = Int(asset.id.dropFirst(6)) {
-                    db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
-                }
-            } else if asset.id.hasPrefix("sub-") {
-                if let subId = Int(asset.id.dropFirst(4)) {
-                    db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
+            persistAsset(asset)
+            if let children = asset.children {
+                for child in children {
+                    persistAsset(child)
                 }
             }
         }
     }
 
-    private func tryPersist() {
-        if totalsValid {
-            persistAll()
+    private func persistAsset(_ asset: AllocationAsset) {
+        guard let db else { return }
+        if asset.id.hasPrefix("class-") {
+            if let classId = Int(asset.id.dropFirst(6)) {
+                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
+            }
+        } else if asset.id.hasPrefix("sub-") {
+            if let subId = Int(asset.id.dropFirst(4)) {
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
+            }
         }
     }
 }
@@ -505,13 +599,21 @@ struct AllocationTargetsTableView: View {
                     .background(asset.ragColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                Circle()
-                    .fill(asset.ragColor)
-                    .frame(width: 16, height: 16)
-                    .frame(width: 60, alignment: .center)
+                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .frame(width: 16, height: 16)
+                        .frame(width: 60, alignment: .center)
+                } else {
+                    Circle()
+                        .fill(asset.ragColor)
+                        .frame(width: 16, height: 16)
+                        .frame(width: 60, alignment: .center)
+                }
             }
         }
         .frame(height: 48)
+        .background(viewModel.rowHasWarning(asset) ? Color.paleRed : Color.clear)
     }
 }
 
