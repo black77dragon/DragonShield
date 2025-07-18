@@ -117,8 +117,10 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         for asset in assets where asset.id.hasPrefix("class-") {
             guard let children = asset.children else { continue }
             let sumPct = children.map(\.targetPct).reduce(0, +)
-            let pctValid = abs(sumPct - asset.targetPct) <= 1
+            // Sub-class target percentages are relative to their parent so totals must be ~100%
+            let pctValid = abs(sumPct - 100) <= 1
             let sumChf = children.map(\.targetChf).reduce(0, +)
+            // CHF targets should equal the parent target within ±1%
             let tol = abs(asset.targetChf) * 0.01
             let chfValid = asset.targetChf == 0 ? abs(sumChf) <= 0.01 : abs(sumChf - asset.targetChf) <= tol
             if !(pctValid && chfValid) {
@@ -228,9 +230,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let tChf = classTargetChf[cls.id] ?? tPct * total / 100
             let children = dbManager.subAssetClasses(for: cls.id).map { sub in
                 let sChf = subActual[sub.id] ?? 0
-                let sPct = total > 0 ? sChf / total * 100 : 0
+                let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
-                let tc = subTargetChf[sub.id] ?? tp * total / 100
+                let tc = subTargetChf[sub.id] ?? tChf * tp / 100
                 return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
             }
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
@@ -252,7 +254,8 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let val = min(max(0, newVal), 100)
             if let child = path.childIndex {
                 self.assets[path.classIndex].children?[child].targetPct = val
-                let chf = val * self.portfolioValue / 100
+                let parentChf = self.assets[path.classIndex].targetChf
+                let chf = parentChf * val / 100
                 self.assets[path.classIndex].children?[child].targetChf = chf
                 if let asset = self.assets[path.classIndex].children?[child] {
                     self.persistAsset(asset)
@@ -281,7 +284,8 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             let val = min(max(0, newVal), self.portfolioValue)
             if let child = path.childIndex {
                 self.assets[path.classIndex].children?[child].targetChf = val
-                let pct = self.portfolioValue > 0 ? val / self.portfolioValue * 100 : 0
+                let parentChf = self.assets[path.classIndex].targetChf
+                let pct = parentChf > 0 ? val / parentChf * 100 : 0
                 self.assets[path.classIndex].children?[child].targetPct = pct
                 if let asset = self.assets[path.classIndex].children?[child] {
                     self.persistAsset(asset)

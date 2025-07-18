@@ -282,3 +282,4 @@ All notable changes to this project will be documented in this file.
 - Clarify macOS Table API assumptions and detail zero-allocation row handling in Allocation Targets spec
 - Validate AssetSubClass target sums and highlight mismatches in AllocationTargetsTableView
 - Persist AssetSubClass target edits immediately
+- Display AssetSubClass actual values and calculate targets relative to parent classes
