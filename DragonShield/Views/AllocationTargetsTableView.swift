@@ -395,6 +395,9 @@ struct AllocationTargetsTableView: View {
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
+    @State private var showTable = true
+    @State private var showDonut = true
+    @State private var showDelta = true
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -465,28 +468,83 @@ struct AllocationTargetsTableView: View {
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            List {
-                headerRow
-                totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
-                    tableRow(for: asset)
+    private var validationMessages: [String] {
+        var issues: [String] = []
+        if !viewModel.totalsValid {
+            issues.append(String(format: "Overall Target %% total is %.1f%%, which is outside the 99\u2013101%% tolerance", viewModel.targetPctTotal))
+        }
+        for asset in viewModel.assets {
+            if asset.id.hasPrefix("class-") {
+                if viewModel.rowHasWarning(asset) {
+                    let sumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
+                    issues.append("Total Target % for Asset Class '\(asset.name)' is \(formatPercent(sumPct))%, which is outside the 99\u2013101% tolerance")
+                } else if viewModel.rowNeedsOrange(asset) {
+                    issues.append("No sub-asset class allocation defined for Asset Class '\(asset.name)'")
                 }
-                if !inactiveAssets.isEmpty {
-                    Divider()
-                    inactiveHeader
-                    OutlineGroup(inactiveAssets, children: \.children) { asset in
-                        tableRow(for: asset)
-                    }
+                if asset.actualChf > 0 && abs(asset.targetChf) < 0.01 && abs(asset.targetPct) < 0.0001 {
+                    issues.append("Asset Class '\(asset.name)' has actual CHF but no target defined")
+                }
+            } else if asset.id.hasPrefix("sub-") {
+                if asset.actualChf > 0 && abs(asset.targetChf) < 0.01 && abs(asset.targetPct) < 0.0001 {
+                    issues.append("Asset Sub-Class '\(asset.name)' has actual CHF but no target defined")
                 }
             }
+        }
+        return issues
+    }
 
-            DualRingDonutChart(data: chartAllocations)
-                .frame(maxWidth: .infinity)
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                DisclosureGroup(isExpanded: $showTable) {
+                    List {
+                        headerRow
+                        totalsRow
+                        OutlineGroup(activeAssets, children: \.children) { asset in
+                            tableRow(for: asset)
+                        }
+                        if !inactiveAssets.isEmpty {
+                            Divider()
+                            inactiveHeader
+                            OutlineGroup(inactiveAssets, children: \.children) { asset in
+                                tableRow(for: asset)
+                            }
+                        }
+                    }
+                    if !validationMessages.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(validationMessages, id: \.self) { msg in
+                                Text("\u2022 \(msg)")
+                                    .font(.caption)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding(.top, 8)
+                    }
+                } label: {
+                    Text("Asset Allocation")
+                        .font(.headline)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.softBlue)
+                }
+                .padding(.bottom, 16)
 
-            DeltaBarLayout(data: chartAllocations)
-                .frame(maxWidth: .infinity)
+                DisclosureGroup("Double Donut", isExpanded: $showDonut) {
+                    DualRingDonutChart(data: chartAllocations)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.bottom, 16)
+                .background(Color.softBlue)
+
+                DisclosureGroup("Delta Bar", isExpanded: $showDelta) {
+                    DeltaBarLayout(data: chartAllocations)
+                        .frame(maxWidth: .infinity)
+                }
+                .background(Color.softBlue)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
         }
         .onAppear {
             viewModel.load(using: dbManager)
