@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Allow editing allocation targets in CHF or percent with per-row mode toggle
 - Split Allocation Targets table into Target %/CHF columns with totals row warning
 - Enforce minimum column widths in Positions table to prevent overlap
+- Replace legacy target allocation editor with unified AllocationTargetsTableView
 - Improve Position form with labeled numeric fields and aligned date pickers
 - Add Allocation Targets table view with hierarchical editing
 - Fix compile error referencing children key path in AllocationTargetsTableView
