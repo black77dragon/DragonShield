@@ -90,9 +90,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     func sortAssets() {
         assets.sort { lhs, rhs in
-            let lhsZero = abs(lhs.targetPct) < 0.0001 && abs(lhs.targetChf) < 0.01
-            let rhsZero = abs(rhs.targetPct) < 0.0001 && abs(rhs.targetChf) < 0.01
-            if lhsZero != rhsZero { return !lhsZero }
+            let lhsActive = isActive(lhs)
+            let rhsActive = isActive(rhs)
+            if lhsActive != rhsActive { return lhsActive && !rhsActive }
             let lhsVal: Double
             let rhsVal: Double
            switch sortColumn {
@@ -116,13 +116,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         var invalid: Set<String> = []
         for asset in assets where asset.id.hasPrefix("class-") {
             guard let children = asset.children else { continue }
+            let parentZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
+            if parentZero {
+                // When the parent has no target but subclasses do, don't flag as invalid
+                continue
+            }
+
             let sumPct = children.map(\.targetPct).reduce(0, +)
             // Sub-class target percentages are relative to their parent so totals must be ~100%
             let pctValid = abs(sumPct - 100) <= 1
             let sumChf = children.map(\.targetChf).reduce(0, +)
             // CHF targets should equal the parent target within ±1%
             let tol = abs(asset.targetChf) * 0.01
-            let chfValid = asset.targetChf == 0 ? abs(sumChf) <= 0.01 : abs(sumChf - asset.targetChf) <= tol
+            let chfValid = abs(sumChf - asset.targetChf) <= tol
             if !(pctValid && chfValid) {
                 invalid.insert(asset.id)
             }
@@ -136,6 +142,46 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         } else if asset.id.hasPrefix("sub-") {
             if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
                 return invalidClassIds.contains("class-\(parent)")
+            }
+        }
+        return false
+    }
+
+    private func isZeroPct(_ value: Double) -> Bool { abs(value) < 0.0001 }
+    private func isZeroChf(_ value: Double) -> Bool { abs(value) < 0.01 }
+
+    func isActive(_ asset: AllocationAsset) -> Bool {
+        if !(isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf) &&
+             isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf)) {
+            return true
+        }
+        if let children = asset.children {
+            for child in children {
+                if !(isZeroPct(child.targetPct) && isZeroChf(child.targetChf) &&
+                      isZeroPct(child.actualPct) && isZeroChf(child.actualChf)) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private func parentHasSubActivity(_ asset: AllocationAsset) -> Bool {
+        guard asset.id.hasPrefix("class-"), let children = asset.children else { return false }
+        let assetZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf) &&
+            isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf)
+        guard assetZero else { return false }
+        return children.contains { !(isZeroPct($0.targetPct) && isZeroChf($0.targetChf) &&
+                                     isZeroPct($0.actualPct) && isZeroChf($0.actualChf)) }
+    }
+
+    func rowNeedsOrange(_ asset: AllocationAsset) -> Bool {
+        if asset.id.hasPrefix("class-") {
+            return parentHasSubActivity(asset)
+        } else if asset.id.hasPrefix("sub-") {
+            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId],
+               let idx = assets.firstIndex(where: { $0.id == "class-\(parent)" }) {
+                return parentHasSubActivity(assets[idx])
             }
         }
         return false
@@ -269,7 +315,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                     self.assets[path.classIndex].targetChf = chf
                     self.persistAsset(self.assets[path.classIndex])
                 }
-                self.sortAssets()
+                DispatchQueue.main.async {
+                    self.sortAssets()
+                }
             }
         )
     }
@@ -303,7 +351,9 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                     self.assets[path.classIndex].targetPct = pct
                     self.persistAsset(self.assets[path.classIndex])
                 }
-                self.sortAssets()
+                DispatchQueue.main.async {
+                    self.sortAssets()
+                }
             }
         )
     }
@@ -394,32 +444,25 @@ struct AllocationTargetsTableView: View {
         chfDrafts = Dictionary(uniqueKeysWithValues: viewModel.assets.map { ($0.id, formatChf($0.targetChf)) })
     }
 
-    private func isZeroAllocation(_ asset: AllocationAsset) -> Bool {
-        abs(asset.targetPct) < 0.0001 &&
-        abs(asset.actualPct) < 0.0001 &&
-        abs(asset.deviationPct) < 0.0001
+    private var activeAssets: [AllocationAsset] {
+        viewModel.assets.filter { viewModel.isActive($0) }
     }
 
-    private var nonZeroAssets: [AllocationAsset] {
-        viewModel.assets.filter { !isZeroAllocation($0) }
-    }
-
-    private var zeroAssets: [AllocationAsset] {
-        viewModel.assets.filter(isZeroAllocation)
+    private var inactiveAssets: [AllocationAsset] {
+        viewModel.assets.filter { !viewModel.isActive($0) }
     }
 
     var body: some View {
         List {
             headerRow
             totalsRow
-            OutlineGroup(nonZeroAssets, children: \.children) { asset in
+            OutlineGroup(activeAssets, children: \.children) { asset in
                 tableRow(for: asset)
             }
-            if !zeroAssets.isEmpty {
-                zeroHeader
-                OutlineGroup(zeroAssets, children: \.children) { asset in
+            if !inactiveAssets.isEmpty {
+                inactiveHeader
+                OutlineGroup(inactiveAssets, children: \.children) { asset in
                     tableRow(for: asset)
-                        .opacity(0.6)
                 }
             }
         }
@@ -497,9 +540,9 @@ struct AllocationTargetsTableView: View {
         .font(.subheadline)
     }
 
-    private var zeroHeader: some View {
+    private var inactiveHeader: some View {
         HStack(spacing: 0) {
-            Text("Zero Allocation")
+            Text("Inactive Assets")
                 .fontWeight(.semibold)
                 .frame(width: 200, alignment: .leading)
             Spacer()
@@ -613,7 +656,10 @@ struct AllocationTargetsTableView: View {
             }
         }
         .frame(height: 48)
-        .background(viewModel.rowHasWarning(asset) ? Color.paleRed : Color.clear)
+        .background(
+            viewModel.rowHasWarning(asset) ? Color.paleRed :
+                (viewModel.rowNeedsOrange(asset) ? Color.paleOrange : Color.white)
+        )
     }
 }
 
