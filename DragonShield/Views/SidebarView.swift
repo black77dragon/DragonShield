@@ -32,6 +32,10 @@ struct SidebarView: View {
                     Label("Positions", systemImage: "tablecells")
                 }
 
+                NavigationLink(destination: TargetAllocationMaintenanceView()) {
+                    Label("Target Asset Allocation", systemImage: "chart.pie")
+                }
+
             }
             
             // MARK: - Maintenance Functions Section
@@ -59,10 +63,6 @@ struct SidebarView: View {
 
                 NavigationLink(destination: AssetSubClassesView()) {
                     Label("Edit Asset SubClasses", systemImage: "folder.fill")
-                }
-
-                NavigationLink(destination: TargetAllocationMaintenanceView()) {
-                    Label("Edit Target Allocation", systemImage: "chart.pie")
                 }
 
                 NavigationLink(destination: TransactionTypesView()) {

@@ -8,6 +8,7 @@ struct TargetAllocationMaintenanceView: View {
 
     var body: some View {
         AllocationTargetsTableView()
+            .navigationTitle("Target Asset Allocation")
     }
 }
 
