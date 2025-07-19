@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Integrate asset target allocation test dataset into schema.txt
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
+- Rename Direct Real Estate subclass to Own Real Estate and add ZKB bank accounts
 - Add risk concentration dashboard tile showing top 5 groups by value
 - Support asset class grouping and display CHF values in Risk Buckets tile
 - Add valor number field to instruments with database and UI support
@@ -45,7 +46,7 @@ All notable changes to this project will be documented in this file.
 - Compute asset class totals from subclass values to show CHF amounts next to sliders
 - Fix compile error in Asset Allocation view model by specifying dictionary types
 - Fix crash from duplicate target records when viewing Asset Allocation
-- Add toggle for Direct Real Estate with CHF amount and persist settings
+- Add toggle for Own Real Estate with CHF amount and persist settings
 - Persist target allocation percentages to new TargetAllocation table
 - Include FX History table in reference data backups
 - Show info tooltip listing tables on Reference Data card

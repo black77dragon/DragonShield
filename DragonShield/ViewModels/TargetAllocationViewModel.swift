@@ -69,7 +69,7 @@ class TargetAllocationViewModel: ObservableObject {
     func subAssetClasses(for classId: Int) -> [DatabaseManager.SubClassTarget] {
         var subs = dbManager.subAssetClasses(for: classId)
         if !includeDirectRealEstate {
-            subs.removeAll { $0.name == "Direct Real Estate" }
+            subs.removeAll { $0.name == "Own Real Estate" }
         }
         return subs
     }

@@ -41,7 +41,7 @@ class ImportManager {
     /// Returns the institution ID for Zürcher Kantonalbank using various name
     /// variants. Defaults to 1 if not found.
     private func zkbInstitutionId() -> Int {
-        let names = ["Züricher Kantonal Bank ZKB", "Zürcher Kantonalbank", "ZKB"]
+        let names = ["Züricher Kantonalbank ZKB", "Zürcher Kantonalbank", "ZKB"]
         for name in names {
             if let id = dbManager.findInstitutionId(name: name) { return id }
         }
@@ -254,7 +254,7 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                let valueDate = rows.first?.reportDate ?? Date()
-               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Züricher Kantonal Bank ZKB"
+               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Züricher Kantonalbank ZKB"
                let institutionIdDefault = type == .creditSuisse ? (self.dbManager.findInstitutionId(name: institutionName) ?? 1) : self.zkbInstitutionId()
                let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)

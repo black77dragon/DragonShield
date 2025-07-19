@@ -64,7 +64,7 @@ INSERT INTO AssetSubClasses VALUES ('7', '3', 'GOV_BOND', 'Government Bond', NUL
 INSERT INTO AssetSubClasses VALUES ('8', '3', 'CORP_BOND', 'Corporate Bond', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO AssetSubClasses VALUES ('9', '3', 'BOND_ETF', 'Bond ETF', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO AssetSubClasses VALUES ('10', '3', 'BOND_FUND', 'Bond Fund', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetSubClasses VALUES ('11', '4', 'DIRECT_RE', 'Direct Real Estate', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetSubClasses VALUES ('11', '4', 'DIRECT_RE', 'Own Real Estate', NULL, '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO AssetSubClasses VALUES ('12', '4', 'MORT_REIT', 'Mortgage REIT', NULL, '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO AssetSubClasses VALUES ('13', '4', 'COMMOD', 'Commodities', NULL, '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO AssetSubClasses VALUES ('14', '4', 'INFRA', 'Infrastructure', NULL, '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
@@ -102,7 +102,7 @@ INSERT INTO Institutions VALUES ('8', 'Swisspeers', 'Peer2Peer Marketplace', 'n/
 INSERT INTO Institutions VALUES ('9', 'Crypto.com Crypto Exchange', 'Crypto Exchange', 'n/a', 'https://crypto.com', 'contact@crypto.com', 'USD', 'SG', 'Crypto exchange\n\nAccount Holder Name:\nRene Walter Keller\nIBAN: MT37CFTE28004000000000004267296\nBIC/SWIFT Code: CFTEMTM1\nBank Name: OpenPayd\nBank Address: Level 3, 137 Spinola Road St. Julian’s STJ 3011\nBank Institution Country: Malta MT\n', '1', '2025-07-08 00:00:00', '2025-07-12 14:31:11');
 INSERT INTO Institutions VALUES ('10', 'Coinkite Inc', 'Crypto Hardware Wallet Producer', 'n/a', 'https://coldcard.com', 'support@coinkite.com', 'BTC', 'CA', 'Self-custody hardware wallet', '1', '2025-07-08 00:00:00', '2025-07-12 14:20:37');
 INSERT INTO Institutions VALUES ('11', 'Libertas Fund LLC', 'Hedge Fund', 'n/a', 'https://www.hyperiondecimus.com/', 'Chris Sullivan', 'USD', 'KY', 'Hyperion Decimus, LLC (DE foreign LLC; HQ: Maitland, FL) \nDelaware-registered LLC (Foreign in Florida)', '1', '2025-07-12 14:25:32', '2025-07-12 14:30:39');
-INSERT INTO Institutions VALUES ('12', 'Züricher Kantonal Bank ZKB', 'Bank', 'ZKBKCHZZ80A', 'www.zkb.ch', 'Oliver Lanz', 'CHF', 'CH', NULL, '1', '2025-07-12 14:27:50', '2025-07-12 14:27:50');
+INSERT INTO Institutions VALUES ('12', 'Züricher Kantonalbank ZKB', 'Bank', 'ZKBKCHZZ80A', 'www.zkb.ch', 'Oliver Lanz', 'CHF', 'CH', NULL, '1', '2025-07-12 14:27:50', '2025-07-12 14:27:50');
 INSERT INTO Instruments VALUES ('1', 'CH0438959477', NULL, 'EICE', 'ENETIA Energy Infrastructure Fund -IA', '5', 'EUR', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('2', 'CH1108457701', NULL, 'EICRFAK', 'ENETIA Energy Transition Fund -I CHF-', '5', 'CHF', 'CH', 'SWX', 'Energy', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Instruments VALUES ('3', 'US37954Y8710', NULL, 'URA', 'Global X Uranium ETF', '4', 'USD', 'US', 'ARCA', 'Materials', '1', '1', NULL, '2025-07-13 09:04:29', '2025-07-13 09:04:29');
@@ -178,6 +178,11 @@ INSERT INTO Accounts VALUES ('22', 'HD1034', 'Hyperion Decimus Hedge Fund Accoun
 INSERT INTO Accounts VALUES ('23', 'CCMK4', 'ColdCard MK4 Cold Wallet BTC', '10', '3', 'CHF', '1', '1', NULL, NULL, '2024-04-01', NULL, '2025-07-13 09:50:28', '2025-07-13 09:50:28');
 INSERT INTO Accounts VALUES ('24', 'SP', 'Swisspeers Portfolio', '8', '7', 'CHF', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:52:35', '2025-07-13 09:53:31');
 INSERT INTO Accounts VALUES ('25', 'CC', 'Crypto.Com Crypto Hot Wallet', '9', '3', 'EUR', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 09:54:21', '2025-07-13 09:54:21');
+INSERT INTO Accounts VALUES ('27', '1-2600-01180149', 'ZKB Custody Account', '12', '2', 'CHF', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 10:05:00', '2025-07-13 10:05:00');
+INSERT INTO Accounts VALUES ('28', 'CH27 0070 0114 8046 3914 2', 'ZKB Private Account 🇨🇭CHF', '12', '1', 'CHF', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 10:05:01', '2025-07-13 10:05:01');
+INSERT INTO Accounts VALUES ('29', 'CH97 0070 0130 0093 0232 8', 'ZKB Cash Account 🇺🇸 USD', '12', '1', 'USD', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 10:05:02', '2025-07-13 10:05:02');
+INSERT INTO Accounts VALUES ('30', 'CH61 0070 0130 0095 4537 9', 'ZKB Cash Account 🇸🇬 SGD', '12', '1', 'SGD', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 10:05:03', '2025-07-13 10:05:03');
+INSERT INTO Accounts VALUES ('31', 'CH63 0070 0130 0095 4602 2', 'ZKB Cash Account 🇬🇧 GBP', '12', '1', 'GBP', '1', '1', NULL, NULL, NULL, NULL, '2025-07-13 10:05:04', '2025-07-13 10:05:04');
 INSERT INTO ImportSessions VALUES ('1', 'CS Jan 2024', 'cs_jan.csv', '/tmp/cs_jan.csv', 'CSV', '2048', 'aaa111', '2', 'COMPLETED', '5', '5', '0', '0', NULL, 'Initial load', '2024-01-31 10:00:00', '2024-01-31 10:00:00', '2024-01-31 10:05:00');
 INSERT INTO ImportSessions VALUES ('2', 'Sygnum Feb 2024', 'sygnum_feb.xlsx', '/tmp/sygnum_feb.xlsx', 'XLSX', '4096', 'bbb222', '3', 'COMPLETED', '4', '4', '0', '0', NULL, 'Monthly update', '2024-02-29 10:00:00', '2024-02-29 10:00:00', '2024-02-29 10:04:00');
 INSERT INTO ImportSessions VALUES ('3', 'Bitbox Mar 2024', 'bitbox_mar.csv', '/tmp/bitbox_mar.csv', 'CSV', '1024', 'ccc333', '6', 'COMPLETED', '1', '1', '0', '0', NULL, 'Wallet snapshot', '2024-03-15 09:00:00', '2024-03-15 09:00:00', '2024-03-15 09:01:00');

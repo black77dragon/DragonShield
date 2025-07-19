@@ -142,7 +142,7 @@ struct CreditSuissePositionParser {
             1: "Cash", 2: "Money Market Instruments", 3: "Single Stock",
             4: "Equity ETF", 5: "Equity Fund", 6: "Equity REIT",
             7: "Government Bond", 8: "Corporate Bond", 9: "Bond ETF",
-            10: "Bond Fund", 11: "Direct Real Estate", 12: "Mortgage REIT",
+            10: "Bond Fund", 11: "Own Real Estate", 12: "Mortgage REIT",
             13: "Commodities", 14: "Infrastructure", 15: "Hedge Fund",
             16: "Private Equity / Debt", 17: "Structured Product",
             18: "Cryptocurrency", 19: "Options", 20: "Futures",
