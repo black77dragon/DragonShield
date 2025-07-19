@@ -22,8 +22,7 @@ All notable changes to this project will be documented in this file.
 - Avoid duplicate IDs in backup and import logs
 - Show correct database version in startup log
 - Fix seed data to include valor numbers in Instruments table
-- Fix compile error from trailing closure in ImportManager async call
-- Fix closure parameter mismatch in DispatchQueue.async invocation
+- Fix compile error from incorrect DispatchQueue.async usage in ImportManager
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
 - Integrate asset target allocation test dataset into schema.txt
 - Expand seed dataset with full production reference data
