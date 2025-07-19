@@ -19,6 +19,9 @@ struct DatabaseManagementView: View {
     @State private var errorMessage: String?
     @State private var showLogDetails = false
     @State private var showReferenceInfo = false
+    @State private var reportProcessing = false
+
+    private let reportService = InstrumentReportService()
 
     // MARK: - Info Card
     private func infoRow(_ label: String, value: String, mono: Bool = false) -> some View {
@@ -144,6 +147,18 @@ struct DatabaseManagementView: View {
                                 errorMessage = error.localizedDescription
                             }
                         }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Reports")
+                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 12) {
+                    Button(action: generateInstrumentReport) {
+                        if reportProcessing { ProgressView() } else { Text("Generate Full Instrument Report") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(reportProcessing)
                 }
             }
 
@@ -422,6 +437,34 @@ struct DatabaseManagementView: View {
         }
     }
 
+    private func generateInstrumentReport() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        if #available(macOS 12.0, *) {
+            if let xlsxType = UTType(filenameExtension: "xlsx") { panel.allowedContentTypes = [xlsxType] }
+        } else {
+            panel.allowedFileTypes = ["xlsx"]
+        }
+        panel.nameFieldStringValue = "instrument_report.xlsx"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        reportProcessing = true
+        appendReportLog("Generating full instrument report…")
+        DispatchQueue.global().async {
+            do {
+                try reportService.generateReport(outputPath: url.path)
+                DispatchQueue.main.async {
+                    reportProcessing = false
+                    appendReportLog("Report saved to \(url.path)")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    reportProcessing = false
+                    appendReportLog("Error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private func confirmSwitchMode() {
         let newMode = dbManager.dbMode == .production ? "TEST" : "PRODUCTION"
         let alert = NSAlert()
@@ -441,6 +484,13 @@ struct DatabaseManagementView: View {
 
     private var fileSizeString: String {
         ByteCountFormatter.string(fromByteCount: dbManager.dbFileSize, countStyle: .file)
+    }
+
+    private func appendReportLog(_ message: String) {
+        backupService.logMessages.insert(message, at: 0)
+        if backupService.logMessages.count > 10 {
+            backupService.logMessages = Array(backupService.logMessages.prefix(10))
+        }
     }
 }
 
