@@ -10,6 +10,7 @@ struct PositionImportSummary: Codable {
     var parsedRows: Int
     var cashAccounts: Int
     var securityRecords: Int
+    var unmatchedInstruments: Int
 }
 
 struct ParsedPositionRecord {
@@ -55,7 +56,11 @@ struct CreditSuissePositionParser {
         logging.log("Rows found: \(rows.count)", type: .info, logger: log)
         progress?("Rows found: \(rows.count)")
 
-        var summary = PositionImportSummary(totalRows: rows.count, parsedRows: 0, cashAccounts: 0, securityRecords: 0)
+        var summary = PositionImportSummary(totalRows: rows.count,
+                                             parsedRows: 0,
+                                             cashAccounts: 0,
+                                             securityRecords: 0,
+                                             unmatchedInstruments: 0)
         var records: [ParsedPositionRecord] = []
 
         for (idx, row) in rows.enumerated() {

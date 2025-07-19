@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import
+- Robust ZKB instrument discovery using Valor, ISIN and ticker with logging
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link
 - Move Target Asset Allocation link to Key Features section
