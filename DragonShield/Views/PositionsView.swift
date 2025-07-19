@@ -6,6 +6,7 @@
 // - Initial creation: Displays positions with upload and report dates.
 
 import SwiftUI
+import OSLog
 
 struct PositionsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -130,8 +131,10 @@ struct PositionsView: View {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 if let id = selectedInstitutionId {
-                    _ = dbManager.deletePositionReports(institutionIds: [id])
+                    let removed = dbManager.deletePositionReports(institutionIds: [id])
                     loadPositions()
+                    LoggingService.shared.log("Deleted \(removed) position reports for institution id \(id)",
+                                              type: .info, logger: .database)
                 }
             }
         } message: {
@@ -586,6 +589,13 @@ struct PositionsView: View {
 
     private func loadInstitutions() {
         institutions = dbManager.fetchInstitutions()
+        if selectedInstitutionId == nil {
+            if let zkbId = dbManager.findInstitutionId(name: "Zürcher Kantonalbank ZKB") {
+                selectedInstitutionId = zkbId
+            } else {
+                selectedInstitutionId = institutions.first?.id
+            }
+        }
     }
 
     private func animateEntrance() {

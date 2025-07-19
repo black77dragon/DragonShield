@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Shrink Data Import/Export panels and show square drag-and-drop area
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
+- Preselect Zürcher Kantonalbank in Positions view and log deleted rows
 - Prompt to delete existing ZKB positions when importing statements
 - Delete existing ZKB positions by name or BIC before import and log removed count
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
