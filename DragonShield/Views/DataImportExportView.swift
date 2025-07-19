@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
 
+    private let dropZoneSize: CGFloat = 160
+
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
     @State private var showImporterFor: StatementType?
@@ -15,7 +17,7 @@ struct DataImportExportView: View {
                 statusPanel
                 logPanel
             }
-            .frame(minWidth: 1600, minHeight: 1200)
+            .frame(minWidth: 800, minHeight: 800)
             .padding(.top, 32)
             .padding(.horizontal)
         }
@@ -104,7 +106,8 @@ struct DataImportExportView: View {
                 guard enabled, let url = urls.first else { return }
                 importStatement(from: url, type: type)
             }
-            .frame(height: 120)
+            .frame(width: dropZoneSize, height: dropZoneSize)
+            .frame(maxWidth: .infinity)
             .opacity(enabled ? 1 : 0.5)
 
             Text("or")
