@@ -83,7 +83,7 @@ def test_find_institution_ids_by_bic_prefix():
     conn.execute("CREATE TABLE Institutions (institution_id INTEGER PRIMARY KEY, institution_name TEXT, bic TEXT)")
     conn.execute("INSERT INTO Institutions VALUES (1, 'ZKB', 'ZKBKCHZZ80A')")
     conn.execute("INSERT INTO Institutions VALUES (2, 'Other', 'OTHERBIC')")
-    rows = conn.execute("SELECT institution_id FROM Institutions WHERE bic LIKE ? COLLATE NOCASE", ('ZKBKCHZZ80%',)).fetchall()
+    rows = conn.execute("SELECT institution_id FROM Institutions WHERE bic LIKE ? COLLATE NOCASE", ('ZKBKCHZZ80A%',)).fetchall()
     ids = [r[0] for r in rows]
     assert ids == [1]
     conn.close()

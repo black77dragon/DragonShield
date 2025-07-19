@@ -41,7 +41,7 @@ class ImportManager {
     /// Returns the institution ID for Zürcher Kantonalbank using various name
     /// variants. Defaults to 1 if not found.
     private func zkbInstitutionId() -> Int {
-        let names = ["Züricher Kantonalbank ZKB", "Zürcher Kantonalbank", "ZKB"]
+        let names = ["Zürcher Kantonalbank ZKB", "Zürcher Kantonalbank", "ZKB"]
         for name in names {
             if let id = dbManager.findInstitutionId(name: name) { return id }
         }
@@ -282,7 +282,7 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                let valueDate = rows.first?.reportDate ?? Date()
-               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Züricher Kantonalbank ZKB"
+               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Zürcher Kantonalbank ZKB"
                let institutionIdDefault = type == .creditSuisse ? (self.dbManager.findInstitutionId(name: institutionName) ?? 1) : self.zkbInstitutionId()
                let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
@@ -514,8 +514,8 @@ class ImportManager {
     /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
-        let name = "Züricher Kantonalbank ZKB"
-        let bic = "ZKBKCHZZ80"
+        let name = "Zürcher Kantonalbank ZKB"
+        let bic = "ZKBKCHZZ80A"
         var ids = dbManager.findInstitutionIds(name: name)
         ids.append(contentsOf: dbManager.findInstitutionIds(bic: bic))
         ids = Array(Set(ids))
