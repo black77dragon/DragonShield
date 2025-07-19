@@ -84,7 +84,7 @@ class DatabaseManager: ObservableObject {
         }
         
         openDatabase()
-        loadConfiguration()
+        dbVersion = loadConfiguration()
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
@@ -134,7 +134,7 @@ class DatabaseManager: ObservableObject {
     func reopenDatabase() {
         closeConnection()
         openDatabase()
-        loadConfiguration()
+        dbVersion = loadConfiguration()
         updateFileMetadata()
     }
 

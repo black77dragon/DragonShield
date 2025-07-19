@@ -192,7 +192,7 @@ struct DatabaseManagementView: View {
 
     private var logList: some View {
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(backupService.logMessages, id: \..self) { entry in
+            ForEach(Array(backupService.logMessages.enumerated()), id: \.offset) { _, entry in
                 Text(entry)
                     .font(.system(.caption2, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
