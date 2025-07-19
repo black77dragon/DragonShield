@@ -76,3 +76,14 @@ def test_delete_multiple_ids():
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert remaining == [(2,)]
     conn.close()
+
+
+def test_find_institution_ids_by_bic_prefix():
+    conn = sqlite3.connect(':memory:')
+    conn.execute("CREATE TABLE Institutions (institution_id INTEGER PRIMARY KEY, institution_name TEXT, bic TEXT)")
+    conn.execute("INSERT INTO Institutions VALUES (1, 'ZKB', 'ZKBKCHZZ80A')")
+    conn.execute("INSERT INTO Institutions VALUES (2, 'Other', 'OTHERBIC')")
+    rows = conn.execute("SELECT institution_id FROM Institutions WHERE bic LIKE ? COLLATE NOCASE", ('ZKBKCHZZ80%',)).fetchall()
+    ids = [r[0] for r in rows]
+    assert ids == [1]
+    conn.close()

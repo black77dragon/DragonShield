@@ -252,10 +252,14 @@ class ImportManager {
             if deleteExisting {
                 if type == .creditSuisse {
                     let removed = self.deleteCreditSuissePositions()
-                    LoggingService.shared.log("Existing Credit-Suisse positions removed: \(removed)", type: .info, logger: .database)
+                    let msg = "Existing Credit-Suisse positions removed: \(removed)"
+                    LoggingService.shared.log(msg, type: .info, logger: .database)
+                    progress?(msg)
                 } else if type == .zkb {
                     let removed = self.deleteZKBPositions()
-                    LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+                    let msg = "Existing ZKB positions removed: \(removed)"
+                    LoggingService.shared.log(msg, type: .info, logger: .database)
+                    progress?(msg)
                 }
             }
             do {
@@ -511,13 +515,18 @@ class ImportManager {
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
         let name = "Züricher Kantonalbank ZKB"
+        let bic = "ZKBKCHZZ80"
+        var ids = dbManager.findInstitutionIds(name: name)
+        ids.append(contentsOf: dbManager.findInstitutionIds(bic: bic))
+        ids = Array(Set(ids))
+        if ids.isEmpty { return 0 }
         let accounts = dbManager.fetchAccounts(institutionName: name)
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
             LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        return dbManager.deletePositionReports(institutionName: name)
+        return dbManager.deletePositionReports(institutionIds: ids)
     }
 
     /// Presents an open panel and processes the selected XLSX file.
