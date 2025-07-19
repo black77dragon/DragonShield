@@ -15,13 +15,23 @@ struct ZKBStatementParser {
 
         let content = try String(contentsOf: url, encoding: .utf8)
         let lines = content.split(whereSeparator: { $0.isNewline })
-        guard let header = lines.first else { return (PositionImportSummary(totalRows: 0, parsedRows: 0, cashAccounts: 0, securityRecords: 0), []) }
+        guard let header = lines.first else {
+            return (PositionImportSummary(totalRows: 0,
+                                           parsedRows: 0,
+                                           cashAccounts: 0,
+                                           securityRecords: 0,
+                                           unmatchedInstruments: 0), [])
+        }
         let headers = header.replacing("\u{FEFF}", with: "").split(separator: ";").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
         var headerMap: [String: Int] = [:]
         for (idx, name) in headers.enumerated() {
             if headerMap[name] == nil { headerMap[name] = idx }
         }
-        var summary = PositionImportSummary(totalRows: lines.count - 1, parsedRows: 0, cashAccounts: 0, securityRecords: 0)
+        var summary = PositionImportSummary(totalRows: lines.count - 1,
+                                             parsedRows: 0,
+                                             cashAccounts: 0,
+                                             securityRecords: 0,
+                                             unmatchedInstruments: 0)
         var records: [ParsedPositionRecord] = []
         for line in lines.dropFirst() {
             let cells = line.split(separator: ";", omittingEmptySubsequences: false).map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }

@@ -136,6 +136,25 @@ class ImportManager {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
+    /// Looks up an instrument using valor number, ISIN and ticker symbol in priority order.
+    /// Returns the matching ID or nil if none found. Logs the lookup result.
+    private func lookupInstrumentId(name: String, valor: String?, isin: String?, ticker: String?) -> Int? {
+        if let val = valor, !val.isEmpty, let id = dbManager.findInstrumentId(valorNr: val) {
+            LoggingService.shared.log("Matched instrument \(name) (ID: \(id)) via valor", type: .info, logger: .parser)
+            return id
+        }
+        if let i = isin, !i.isEmpty, let id = dbManager.findInstrumentId(isin: i) {
+            LoggingService.shared.log("Matched instrument \(name) (ID: \(id)) via ISIN", type: .info, logger: .parser)
+            return id
+        }
+        if let t = ticker, !t.isEmpty, let id = dbManager.findInstrumentId(ticker: t) {
+            LoggingService.shared.log("Matched instrument \(name) (ID: \(id)) via ticker", type: .info, logger: .parser)
+            return id
+        }
+        LoggingService.shared.log("Unmatched instrument description: \(name)", type: .info, logger: .parser)
+        return nil
+    }
+
     private func promptForPosition(record: ParsedPositionRecord) -> RecordPromptResult {
         var mutable = record
         var result: RecordPromptResult = .ignore
@@ -240,7 +259,7 @@ class ImportManager {
                 }
             }
             do {
-                let (summary, rows) = try {
+                var (summary, rows) = try {
                     if type == .creditSuisse {
                         return try self.positionParser.parse(url: url, progress: logger)
                     } else {
@@ -350,6 +369,7 @@ class ImportManager {
 
                 var success = 0
                 let failure = 0
+                var unmatched = 0
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
@@ -409,15 +429,12 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    var instrumentId: Int?
-                    if let isin = row.isin, !isin.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(isin: isin)
-                    }
-                    if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
-                    }
+                    var instrumentId = self.lookupInstrumentId(name: row.instrumentName,
+                                                                valor: row.valorNr,
+                                                                isin: row.isin,
+                                                                ticker: row.tickerSymbol)
                     if instrumentId == nil {
-                        LoggingService.shared.log("Instrument not found for \(row.instrumentName)", type: .info, logger: .parser)
+                        unmatched += 1
                         var proceed = true
                         DispatchQueue.main.sync {
                             let alert = NSAlert()
@@ -456,6 +473,7 @@ class ImportManager {
                         }
                     }
                 }
+                summary.unmatchedInstruments = unmatched
                 if let sid = sessionId {
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,
