@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 
 struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
@@ -132,26 +133,47 @@ struct DataImportExportView: View {
     }
 
     private func importStatement(from url: URL, type: StatementType) {
-        statusMessage = "Status: Importing \(url.lastPathComponent) …"
-
-        let importType: ImportManager.StatementType = {
-            switch type { case .creditSuisse: return .creditSuisse; case .zkb: return .zkb }
-        }()
-        ImportManager.shared.importPositions(at: url, type: importType, progress: { message in
-            DispatchQueue.main.async { self.appendLog(message) }
-        }) { result in
-            DispatchQueue.main.async {
-                let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
-                switch result {
-                case .success(let summary):
-                    let errors = summary.totalRows - summary.parsedRows
-                    self.statusMessage = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
-                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
-                case .failure(let error):
-                    self.statusMessage = "Status: \u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
-                    self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
+        func startImport(deleteExisting: Bool) {
+            statusMessage = "Status: Importing \(url.lastPathComponent) …"
+            let importType: ImportManager.StatementType = {
+                switch type { case .creditSuisse: return .creditSuisse; case .zkb: return .zkb }
+            }()
+            ImportManager.shared.importPositions(at: url, type: importType, deleteExisting: deleteExisting, progress: { message in
+                DispatchQueue.main.async { self.appendLog(message) }
+            }) { result in
+                DispatchQueue.main.async {
+                    let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+                    switch result {
+                    case .success(let summary):
+                        let errors = summary.totalRows - summary.parsedRows
+                        self.statusMessage = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
+                        self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
+                    case .failure(let error):
+                        self.statusMessage = "Status: \u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
+                        self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
+                    }
                 }
             }
+        }
+
+        if type == .zkb {
+            let alert = NSAlert()
+            alert.messageText = "Delete existing ZKB positions?"
+            alert.informativeText = "Do you want to delete all current Position Data for ZKB?"
+            alert.addButton(withTitle: "Yes")
+            alert.addButton(withTitle: "No")
+            alert.addButton(withTitle: "Cancel")
+            let response = alert.runModal()
+            switch response {
+            case .alertFirstButtonReturn:
+                startImport(deleteExisting: true)
+            case .alertSecondButtonReturn:
+                startImport(deleteExisting: false)
+            default:
+                statusMessage = "Status: Upload cancelled"
+            }
+        } else {
+            startImport(deleteExisting: false)
         }
     }
 

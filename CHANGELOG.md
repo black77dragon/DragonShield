@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - Shrink Data Import/Export panels and show square drag-and-drop area
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
+- Prompt to delete existing ZKB positions when importing statements
+- Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
