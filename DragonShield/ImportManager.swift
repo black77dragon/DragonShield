@@ -225,8 +225,13 @@ class ImportManager {
                 LoggingService.shared.log("Existing Credit-Suisse positions removed: \(removed)", type: .info, logger: .database)
             }
             do {
-                let parser = (type == .creditSuisse) ? self.positionParser : self.zkbParser
-                let (summary, rows) = try parser.parse(url: url, progress: logger)
+                let (summary, rows) = try {
+                    if type == .creditSuisse {
+                        return try self.positionParser.parse(url: url, progress: logger)
+                    } else {
+                        return try self.zkbParser.parse(url: url, progress: logger)
+                    }
+                }()
                 DispatchQueue.main.sync {
                     let first = rows.first
                     self.showImportSummary(fileName: url.lastPathComponent,
