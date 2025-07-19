@@ -24,6 +24,9 @@ struct ImportSummaryPanel: View {
                     Text("Parsed Rows: \(summary.parsedRows)")
                     Text("Cash Accounts: \(summary.cashAccounts)")
                     Text("Securities: \(summary.securityRecords)")
+                    if summary.unmatchedInstruments > 0 {
+                        Text("Unmatched Instruments: \(summary.unmatchedInstruments)")
+                    }
                 }
                 if !logs.isEmpty {
                     Divider()

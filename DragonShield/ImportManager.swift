@@ -350,6 +350,7 @@ class ImportManager {
 
                 var success = 0
                 let failure = 0
+                var unmatched = 0
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
@@ -410,14 +411,25 @@ class ImportManager {
                         continue
                     }
                     var instrumentId: Int?
-                    if let isin = row.isin, !isin.isEmpty {
+                    var matchKey = ""
+                    if let valor = row.valorNr, !valor.isEmpty {
+                        instrumentId = self.dbManager.findInstrumentId(valorNr: valor)
+                        if instrumentId != nil { matchKey = "valor" }
+                    }
+                    if instrumentId == nil, let isin = row.isin, !isin.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(isin: isin)
+                        if instrumentId != nil { matchKey = "isin" }
                     }
                     if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
                         instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
+                        if instrumentId != nil { matchKey = "ticker" }
                     }
-                    if instrumentId == nil {
-                        LoggingService.shared.log("Instrument not found for \(row.instrumentName)", type: .info, logger: .parser)
+                    if let id = instrumentId {
+                        let name = self.dbManager.fetchInstrumentDetails(id: id)?.name ?? row.instrumentName
+                        LoggingService.shared.log("Matched instrument \(name) (ID: \(id)) via \(matchKey)", type: .info, logger: .parser)
+                    } else {
+                        LoggingService.shared.log("Unmatched instrument description: \(row.instrumentName)", type: .info, logger: .parser)
+                        unmatched += 1
                         var proceed = true
                         DispatchQueue.main.sync {
                             let alert = NSAlert()
@@ -456,6 +468,7 @@ class ImportManager {
                         }
                     }
                 }
+                summary.unmatchedInstruments = unmatched
                 if let sid = sessionId {
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,

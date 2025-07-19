@@ -349,4 +349,25 @@ extension DatabaseManager {
         }
         return nil
     }
+
+    /// Finds the instrument_id for the given valor number, ignoring formatting.
+    func findInstrumentId(valorNr: String) -> Int? {
+        let sanitizedSearch = valorNr.filter { $0.isNumber }
+        let query = "SELECT instrument_id, valor_nr FROM Instruments WHERE valor_nr IS NOT NULL;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstrumentId(valorNr): \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            guard let valPtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbValor = String(cString: valPtr).filter { $0.isNumber }
+            if dbValor == sanitizedSearch {
+                return id
+            }
+        }
+        return nil
+    }
 }

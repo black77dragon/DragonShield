@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error in allocation charts by importing Charts framework
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
 - Fix duplicate IDs in import summary logs to avoid SwiftUI warnings
+- Improve ZKB CSV instrument matching using valor, ISIN and ticker with detailed logging
 - Avoid duplicate IDs in backup and import logs
 - Show correct database version in startup log
 - Fix seed data to include valor numbers in Instruments table

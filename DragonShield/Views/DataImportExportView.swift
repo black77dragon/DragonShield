@@ -146,8 +146,16 @@ struct DataImportExportView: View {
                     switch result {
                     case .success(let summary):
                         let errors = summary.totalRows - summary.parsedRows
-                        self.statusMessage = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
-                        self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
+                        var status = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
+                        if summary.unmatchedInstruments > 0 {
+                            status += ", \(summary.unmatchedInstruments) unmatched instruments"
+                        }
+                        self.statusMessage = status
+                        var logMsg = "[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors"
+                        if summary.unmatchedInstruments > 0 {
+                            logMsg += ", unmatched \(summary.unmatchedInstruments)"
+                        }
+                        self.appendLog(logMsg)
                     case .failure(let error):
                         self.statusMessage = "Status: \u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
                         self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
