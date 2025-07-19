@@ -188,6 +188,12 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         return false
     }
 
+    func rowHasActualButNoTarget(_ asset: AllocationAsset) -> Bool {
+        let noTarget = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
+        let hasActual = !(isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf))
+        return noTarget && hasActual
+    }
+
     private static func key(for id: String) -> String { "allocMode-\(id)" }
     static func loadMode(id: String) -> AllocationInputMode {
         if let raw = UserDefaults.standard.string(forKey: key(for: id)),
@@ -679,12 +685,11 @@ struct AllocationTargetsTableView: View {
     }
 
     private func rowBackground(for asset: AllocationAsset) -> Color {
-        if viewModel.rowHasWarning(asset) { return .paleRed }
-        if viewModel.rowNeedsOrange(asset) { return .paleOrange }
-        if asset.children != nil { return Color.beige.opacity(0.6) }
-        if let parentId = viewModel.parentClassId(for: asset.id),
-           viewModel.assets.first(where: { $0.id == "class-\(parentId)" }) != nil {
-            return Color.beige.opacity(0.6)
+        if viewModel.rowHasWarning(asset) {
+            return .paleRed
+        }
+        if viewModel.rowHasActualButNoTarget(asset) {
+            return .paleOrange
         }
         return .white
     }
