@@ -186,6 +186,21 @@ class ImportManager {
         alert.runModal()
     }
 
+    /// Looks up an instrument by valor number, ISIN, then ticker symbol in that order.
+    /// - Returns: Tuple of instrument ID and the key used for the match.
+    private func lookupInstrumentId(valorNr: String?, isin: String?, ticker: String?) -> (Int?, String?) {
+        if let valor = valorNr, !valor.isEmpty, let id = dbManager.findInstrumentId(valorNr: valor) {
+            return (id, "Valor_Nr")
+        }
+        if let code = isin, !code.isEmpty, let id = dbManager.findInstrumentId(isin: code) {
+            return (id, "ISIN")
+        }
+        if let sym = ticker, !sym.isEmpty, let id = dbManager.findInstrumentId(ticker: sym) {
+            return (id, "Ticker_symbol")
+        }
+        return (nil, nil)
+    }
+
     /// Parses a XLSX document and saves the records to the database.
     func parseDocument(at url: URL, progress: ((String) -> Void)? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         LoggingService.shared.clearLog()
@@ -350,6 +365,7 @@ class ImportManager {
 
                 var success = 0
                 let failure = 0
+                var unmatched = 0
                 for parsed in rows {
                     if parsed.isCash {
                         let accNumber = parsed.tickerSymbol ?? ""
@@ -409,15 +425,18 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    var instrumentId: Int?
-                    if let isin = row.isin, !isin.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(isin: isin)
-                    }
-                    if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
+                    let (instrumentId, key) = self.lookupInstrumentId(valorNr: row.valorNr,
+                                                                       isin: row.isin,
+                                                                       ticker: row.tickerSymbol)
+                    if let id = instrumentId, let matched = key {
+                        LoggingService.shared.log("Matched instrument \(row.instrumentName) (ID: \(id)) via \(matched)",
+                                                  type: .info, logger: .parser)
+                    } else {
+                        LoggingService.shared.log("Unmatched instrument description: \(row.instrumentName)",
+                                                  type: .info, logger: .parser)
+                        unmatched += 1
                     }
                     if instrumentId == nil {
-                        LoggingService.shared.log("Instrument not found for \(row.instrumentName)", type: .info, logger: .parser)
                         var proceed = true
                         DispatchQueue.main.sync {
                             let alert = NSAlert()
@@ -464,8 +483,10 @@ class ImportManager {
                                                        duplicateRows: 0,
                                                        notes: "will be determined later")
                 }
+                var finalSummary = summary
+                finalSummary.unmatchedInstruments = unmatched
                 DispatchQueue.main.async {
-                    completion(.success(summary))
+                    completion(.success(finalSummary))
                 }
                 LoggingService.shared.log("Position import complete", type: .info, logger: .parser)
             } catch {

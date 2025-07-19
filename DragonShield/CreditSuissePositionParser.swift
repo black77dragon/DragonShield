@@ -10,6 +10,7 @@ struct PositionImportSummary: Codable {
     var parsedRows: Int
     var cashAccounts: Int
     var securityRecords: Int
+    var unmatchedInstruments: Int = 0
 }
 
 struct ParsedPositionRecord {
