@@ -148,6 +148,18 @@ struct DatabaseManagementView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                Text("Reports")
+                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 12) {
+                    Button(action: generateInstrumentReport) {
+                        if processing { ProgressView() } else { Text("Generate Full Instrument Report") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(processing)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Environment")
                     .font(.system(size: 14, weight: .medium))
                 HStack(spacing: 12) {
@@ -373,6 +385,40 @@ struct DatabaseManagementView: View {
         }
     }
 
+    private func generateInstrumentReport() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        if #available(macOS 12.0, *) {
+            if let xlsx = UTType(filenameExtension: "xlsx") {
+                panel.allowedContentTypes = [xlsx]
+            }
+        } else {
+            panel.allowedFileTypes = ["xlsx"]
+        }
+        panel.directoryURL = backupService.backupDirectory
+        panel.nameFieldStringValue = "Instrument_Report.xlsx"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        processing = true
+        log("Generating full instrument report…")
+        DispatchQueue.global().async {
+            let service = InstrumentReportService()
+            do {
+                _ = try service.generateReport(to: url)
+                DispatchQueue.main.async {
+                    processing = false
+                    log("Report saved to \(url.path)")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    processing = false
+                    log("Error: \(error.localizedDescription)")
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     private func restoreDatabase(url: URL) {
         processing = true
         DispatchQueue.global().async {
@@ -432,6 +478,15 @@ struct DatabaseManagementView: View {
         if alert.runModal() == .alertFirstButtonReturn {
             dbManager.switchMode()
         }
+    }
+
+    private func log(_ message: String) {
+        let entry = "[\(ISO8601DateFormatter().string(from: Date()))] \(message)"
+        backupService.logMessages.insert(entry, at: 0)
+        if backupService.logMessages.count > 10 {
+            backupService.logMessages = Array(backupService.logMessages.prefix(10))
+        }
+        UserDefaults.standard.set(backupService.logMessages, forKey: UserDefaultsKeys.backupLog)
     }
 
     private func formattedDate(_ date: Date?) -> String {

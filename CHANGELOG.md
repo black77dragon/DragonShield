@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import
+- Generate Full Instrument Report from Database Management view
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import
 - Robust ZKB instrument discovery using Valor, ISIN and ticker with logging
