@@ -20,7 +20,8 @@ struct ZKBStatementParser {
                                            parsedRows: 0,
                                            cashAccounts: 0,
                                            securityRecords: 0,
-                                           unmatchedInstruments: 0), [])
+                                           unmatchedInstruments: 0,
+                                           percentValuations: 0), [])
         }
         let headers = header.replacing("\u{FEFF}", with: "").split(separator: ";").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
         var headerMap: [String: Int] = [:]
@@ -31,8 +32,10 @@ struct ZKBStatementParser {
                                              parsedRows: 0,
                                              cashAccounts: 0,
                                              securityRecords: 0,
-                                             unmatchedInstruments: 0)
+                                             unmatchedInstruments: 0,
+                                             percentValuations: 0)
         var records: [ParsedPositionRecord] = []
+        var percentValuations = 0
         for line in lines.dropFirst() {
             let cells = line.split(separator: ";", omittingEmptySubsequences: false).map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
             let row: (String) -> String = { key in
@@ -41,8 +44,22 @@ struct ZKBStatementParser {
             let category = row("Anlagekategorie")
             if category == "Konten" { continue }
             let quantity = Self.parseNumber(row("Anz./Nom.")) ?? 0
-            let purchasePrice = Self.parseNumber(row("Einstandskurs"))
-            let currentPrice = Self.parseNumber(row("Marktkurs"))
+            var purchasePrice = Self.parseNumber(row("Einstandskurs"))
+            var currentPrice = Self.parseNumber(row("Marktkurs"))
+            let marktkursUnit = cells.count > 7 ? cells[7].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            let hasPercent = marktkursUnit.hasSuffix("%")
+            if hasPercent {
+                if let pp = purchasePrice { purchasePrice = pp / 100 }
+                let priceStr: String? = {
+                    if let idx = headerMap["Einstandswert (G)"], idx < cells.count { return cells[idx] } else { return nil }
+                }()
+                if let p = Self.parseNumber(priceStr) {
+                    currentPrice = p / 100
+                } else if let cp = currentPrice {
+                    currentPrice = cp / 100
+                }
+                percentValuations += 1
+            }
             let currency = row("Währung")
             let name = row("Bezeichnung")
             let valor = row("Valor/IBAN/MSCI ESG-Rating")
@@ -64,10 +81,12 @@ struct ZKBStatementParser {
             records.append(rec)
             summary.parsedRows += 1
             summary.securityRecords += 1
-            let msg = "Parsed row: \(name) qty \(quantity) \(currency)"
+            var msg = "Parsed row: \(name) qty \(quantity) \(currency)"
+            if hasPercent { msg += " % Valuation" }
             logging.log(msg, type: .debug, logger: log)
             progress?(msg)
         }
+        summary.percentValuations = percentValuations
         logging.log("Finished ZKB parsing", type: .info, logger: log)
         progress?("Parsed \(summary.parsedRows) rows")
         return (summary, records)

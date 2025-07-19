@@ -24,6 +24,9 @@ struct ImportSummaryPanel: View {
                     Text("Parsed Rows: \(summary.parsedRows)")
                     Text("Cash Accounts: \(summary.cashAccounts)")
                     Text("Securities: \(summary.securityRecords)")
+                    if summary.percentValuations > 0 {
+                        Text("% Valuation Rows: \(summary.percentValuations)")
+                    }
                     if summary.unmatchedInstruments > 0 {
                         Text("Unmatched Instruments: \(summary.unmatchedInstruments)")
                     }
