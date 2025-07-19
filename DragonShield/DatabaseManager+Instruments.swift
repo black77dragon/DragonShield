@@ -334,6 +334,36 @@ extension DatabaseManager {
         return nil
     }
 
+    /// Finds the instrument_id for the given valor number.
+    /// Similar to the ISIN lookup, this ignores any non-alphanumeric
+    /// characters to allow matching formatted values.
+    func findInstrumentId(valorNr: String) -> Int? {
+        let sanitizedSearch = valorNr.uppercased().unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { String($0) }
+            .joined()
+        let query = "SELECT instrument_id, valor_nr FROM Instruments WHERE valor_nr IS NOT NULL;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstrumentId(valorNr): \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            guard let valorPtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbValor = String(cString: valorPtr)
+            let sanitizedDb = dbValor.uppercased().unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { String($0) }
+                .joined()
+            if sanitizedDb == sanitizedSearch {
+                return id
+            }
+        }
+        return nil
+    }
+
     /// Finds the instrument_id for the given ticker symbol, ignoring case.
     func findInstrumentId(ticker: String) -> Int? {
         let query = "SELECT instrument_id FROM Instruments WHERE ticker_symbol = ? COLLATE NOCASE LIMIT 1;"

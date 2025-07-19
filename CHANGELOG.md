@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Prompt to delete existing ZKB positions when importing statements
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
+- Match ZKB instruments by Valor number, ISIN, or ticker with unmatched count in summary
 - Fix type mismatch when selecting parser for statement import
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link

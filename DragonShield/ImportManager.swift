@@ -410,14 +410,32 @@ class ImportManager {
                         continue
                     }
                     var instrumentId: Int?
-                    if let isin = row.isin, !isin.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(isin: isin)
+                    var matchKey: String?
+                    if let valor = row.valorNr, !valor.isEmpty {
+                        if let id = self.dbManager.findInstrumentId(valorNr: valor) {
+                            instrumentId = id
+                            matchKey = "valor_nr"
+                        }
+                    }
+                    if instrumentId == nil, let isin = row.isin, !isin.isEmpty {
+                        if let id = self.dbManager.findInstrumentId(isin: isin) {
+                            instrumentId = id
+                            matchKey = "isin"
+                        }
                     }
                     if instrumentId == nil, let ticker = row.tickerSymbol, !ticker.isEmpty {
-                        instrumentId = self.dbManager.findInstrumentId(ticker: ticker)
+                        if let id = self.dbManager.findInstrumentId(ticker: ticker) {
+                            instrumentId = id
+                            matchKey = "ticker"
+                        }
+                    }
+                    if let id = instrumentId, let key = matchKey {
+                        let name = self.dbManager.fetchInstrumentDetails(id: id)?.name ?? row.instrumentName
+                        LoggingService.shared.log("Matched instrument \(name) (ID: \(id)) via \(key)", type: .info, logger: .parser)
                     }
                     if instrumentId == nil {
-                        LoggingService.shared.log("Instrument not found for \(row.instrumentName)", type: .info, logger: .parser)
+                        LoggingService.shared.log("Unmatched instrument description: \(row.instrumentName)", type: .info, logger: .parser)
+                        summary.unmatchedInstruments += 1
                         var proceed = true
                         DispatchQueue.main.sync {
                             let alert = NSAlert()

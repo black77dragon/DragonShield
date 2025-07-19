@@ -30,7 +30,7 @@ Data begins on **row 2**. All rows where `Anlagekategorie` **≠ "Konten"** repr
 | `Bezeichnung`                | `Instruments.instrument_name`           | Full name including issue details. Only used, if this is a new instrument                         |
 | `Valor/IBAN/MSCI ESG-Rating` | `Instruments.valor_nr`                  | Contains the Valoren number .                                                                     |
 
-**Error Handling:** If the parser does not find a matching instrument by ISIN, the import workflow presents an "Add Instrument" window pre-filled with the parsed name, ticker, ISIN and currency. The user can modify these values and choose Save, Ignore or Abort. Saving creates the instrument before storing the position; Ignore skips the position and Abort cancels the import.
+**Error Handling:** The import process looks up instruments by `Valor/IBAN` first, then by `ISIN`, and finally by `Ticker` symbol. If no match is found using these identifiers, an "Add Instrument" window is shown pre-filled with the parsed details. The user can Save, Ignore or Abort the import of that position. Saving creates the instrument before storing the position; Ignore skips the position and Abort cancels the import.
 
 ---
 

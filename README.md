@@ -127,6 +127,7 @@ python3 python_scripts/deploy_db.py
 
 ### ZKB CSV Import
 Drag a `Depotauszug*.csv` file onto the **Import ZKB Statement** zone in the Data Import/Export view or use *Select File* to choose it manually. The parser maps all rows to the PositionReports table.
+During import the instruments are matched by `Valor` number first, then `ISIN`, and finally by ticker symbol with detailed logging of the result.
 
 
 ### GPT Shell
