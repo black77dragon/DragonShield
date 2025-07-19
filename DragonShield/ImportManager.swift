@@ -194,7 +194,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -216,7 +216,7 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        })
+        }
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
@@ -227,7 +227,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing positions: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             if deleteExisting {
@@ -487,7 +487,7 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        })
+        }
     }
 
     /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
