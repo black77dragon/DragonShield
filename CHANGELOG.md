@@ -322,3 +322,4 @@ All notable changes to this project will be documented in this file.
 - Fix unmatched braces causing compile errors in AllocationTargetsTableView
 - Simplify row background colors so valid rows are white
 - Add script to export Instruments table to XLSX
+- Include TargetAllocation and ExchangeRates tables in transaction backup/restore
