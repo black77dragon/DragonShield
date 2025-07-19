@@ -413,6 +413,33 @@ extension DatabaseManager {
         return results
     }
 
+    /// Returns IDs and numbers of all accounts belonging to the given institution IDs.
+    func fetchAccounts(institutionIds: [Int]) -> [(id: Int, number: String)] {
+        guard !institutionIds.isEmpty else { return [] }
+        let placeholders = institutionIds.map { _ in "?" }.joined(separator: ", ")
+        let sql = """
+            SELECT account_id, account_number
+              FROM Accounts
+             WHERE institution_id IN (\(placeholders));
+            """
+        var stmt: OpaquePointer?
+        var results: [(Int, String)] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchAccounts(institutionIds): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        for (i, id) in institutionIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(i + 1), Int32(id))
+        }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let number = String(cString: sqlite3_column_text(stmt, 1))
+            results.append((id, number))
+        }
+        return results
+    }
+
     /// Recalculates the earliest instrument update date for all accounts.
     /// - Parameter completion: Called on the main thread with the number of
     ///   rows updated or an error.

@@ -157,21 +157,7 @@ struct DataImportExportView: View {
         }
 
         if type == .zkb {
-            let alert = NSAlert()
-            alert.messageText = "Delete existing ZKB positions?"
-            alert.informativeText = "Do you want to delete all current Position Data for ZKB?"
-            alert.addButton(withTitle: "Yes")
-            alert.addButton(withTitle: "No")
-            alert.addButton(withTitle: "Cancel")
-            let response = alert.runModal()
-            switch response {
-            case .alertFirstButtonReturn:
-                startImport(deleteExisting: true)
-            case .alertSecondButtonReturn:
-                startImport(deleteExisting: false)
-            default:
-                statusMessage = "Status: Upload cancelled"
-            }
+            startImport(deleteExisting: true)
         } else {
             startImport(deleteExisting: false)
         }

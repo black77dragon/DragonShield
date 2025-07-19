@@ -253,9 +253,11 @@ class ImportManager {
                 if type == .creditSuisse {
                     let removed = self.deleteCreditSuissePositions()
                     LoggingService.shared.log("Existing Credit-Suisse positions removed: \(removed)", type: .info, logger: .database)
+                    progress?("Existing Credit-Suisse positions removed: \(removed)")
                 } else if type == .zkb {
                     let removed = self.deleteZKBPositions()
                     LoggingService.shared.log("Existing ZKB positions removed: \(removed)", type: .info, logger: .database)
+                    progress?("Existing ZKB positions removed: \(removed)")
                 }
             }
             do {
@@ -511,13 +513,19 @@ class ImportManager {
     /// - Returns: The number of deleted records.
     func deleteZKBPositions() -> Int {
         let name = "Züricher Kantonalbank ZKB"
-        let accounts = dbManager.fetchAccounts(institutionName: name)
-        if !accounts.isEmpty {
-            let numbers = accounts.map { $0.number }.joined(separator: ", ")
-            LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
-                                      type: .info, logger: .database)
+        let bic = "ZKBKCHZZ80"
+        let nameIds = dbManager.findInstitutionIds(name: name)
+        let bicIds = dbManager.findInstitutionIds(bic: bic)
+        let ids = Array(Set(nameIds + bicIds))
+        if !ids.isEmpty {
+            let accounts = dbManager.fetchAccounts(institutionIds: ids)
+            if !accounts.isEmpty {
+                let numbers = accounts.map { $0.number }.joined(separator: ", ")
+                LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
+                                          type: .info, logger: .database)
+            }
         }
-        return dbManager.deletePositionReports(institutionName: name)
+        return dbManager.deletePositionReports(institutionIds: ids)
     }
 
     /// Presents an open panel and processes the selected XLSX file.

@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Remove existing ZKB positions (matching by name or BIC) before import and log deleted row count
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area
