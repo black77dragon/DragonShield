@@ -38,6 +38,16 @@ class ImportManager {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
     }
 
+    /// Returns the institution ID for Zürcher Kantonalbank using various name
+    /// variants. Defaults to 1 if not found.
+    private func zkbInstitutionId() -> Int {
+        let names = ["Züricher Kantonal Bank ZKB", "Zürcher Kantonalbank", "ZKB"]
+        for name in names {
+            if let id = dbManager.findInstitutionId(name: name) { return id }
+        }
+        return 1
+    }
+
     enum RecordPromptResult {
         case save(ParsedPositionRecord)
         case ignore
@@ -245,6 +255,7 @@ class ImportManager {
                 let hash = url.sha256() ?? ""
                let valueDate = rows.first?.reportDate ?? Date()
                let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Züricher Kantonal Bank ZKB"
+               let institutionIdDefault = type == .creditSuisse ? (self.dbManager.findInstitutionId(name: institutionName) ?? 1) : self.zkbInstitutionId()
                let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
@@ -304,7 +315,7 @@ class ImportManager {
                         throw ImportError.aborted
                     }
                     } else {
-                        let instId = self.dbManager.findInstitutionId(name: institutionName) ?? 1
+                        let instId = institutionIdDefault
                         let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
                         let defaultName = type == .creditSuisse ? "Credit-Suisse Account" : "ZKB Account"
                         _ = self.dbManager.addAccount(accountName: defaultName,
@@ -322,7 +333,7 @@ class ImportManager {
                 }
                 let accId = accountId!
                 let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
-                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: institutionName) ?? 1
+                let institutionId = accountInfo?.institutionId ?? institutionIdDefault
 
                 let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,
