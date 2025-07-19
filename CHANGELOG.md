@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Display sub-class aggregate totals with delta validation in Allocation Targets table
+- Fix compile error from variable name clash in AllocationTargetsTableView
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link
 - Move Target Asset Allocation link to Key Features section
