@@ -306,3 +306,4 @@ All notable changes to this project will be documented in this file.
 - Resolve Swift compile errors from invalid Unicode escapes in AllocationTargetsTableView
 - Pin Allocation Targets table at top with collapsible error and chart sections
 - Fix unmatched braces causing compile errors in AllocationTargetsTableView
+- Simplify row background colors so valid rows are white
