@@ -705,7 +705,7 @@ struct AllocationTargetsTableView: View {
         let subclassSumChf = asset.children?.map(\.targetChf).reduce(0, +) ?? 0
         let deltaChf = asset.targetChf - subclassSumChf
         let deltaTol = abs(asset.targetChf) * 0.01
-        let deltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
+        let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 0) {
             Text(asset.name)
@@ -747,7 +747,7 @@ struct AllocationTargetsTableView: View {
                                 Text("Σ \(formatChf(subclassSumChf))")
                                 Text(formatSignedChf(deltaChf))
                                     .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
-                                    .foregroundColor(deltaColor)
+                                    .foregroundColor(aggregateDeltaColor)
                             }
                             .font(.caption2)
                             .frame(width: 100, alignment: .trailing)
@@ -787,7 +787,7 @@ struct AllocationTargetsTableView: View {
                                 Text("Σ \(formatChf(subclassSumChf))")
                                 Text(formatSignedChf(deltaChf))
                                     .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
-                                    .foregroundColor(deltaColor)
+                                    .foregroundColor(aggregateDeltaColor)
                             }
                             .font(.caption2)
                             .frame(width: 100, alignment: .trailing)
