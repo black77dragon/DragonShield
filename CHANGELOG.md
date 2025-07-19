@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Show correct database version in startup log
 - Fix seed data to include valor numbers in Instruments table
 - Replace instrument seed data with Consolidated_Instruments_V8.xlsx for updated test dataset
+- Add asset target allocation test dataset (asset_target_allocation_dataset.sql)
 - Expand seed dataset with full production reference data
 - Expand PositionReports with diverse sample entries for testing
 - Add risk concentration dashboard tile showing top 5 groups by value
