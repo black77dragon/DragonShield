@@ -142,6 +142,13 @@ class BackupService: ObservableObject {
         return "DragonShield_Reference_\(modeTag)_v\(version)_\(df.string(from: Date())).sql"
     }
 
+    static func defaultTransactionFileName(mode: DatabaseMode, version: String) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyyMMdd_HHmm"
+        let modeTag = mode == .production ? "PROD" : "TEST"
+        return "DragonShield_Transaction_\(modeTag)_v\(version)_\(df.string(from: Date())).sql"
+    }
+
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
@@ -307,7 +314,7 @@ class BackupService: ObservableObject {
 
     // MARK: – Transaction Data Backup/Restore
 
-    func backupTransactionData(dbManager: DatabaseManager, to destination: URL) throws -> URL {
+    func backupTransactionData(dbManager: DatabaseManager, to destination: URL, tables: [String]) throws -> URL {
         let dbPath = dbManager.dbFilePath
         var db: OpaquePointer?
         guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else {
@@ -317,7 +324,7 @@ class BackupService: ObservableObject {
         defer { sqlite3_close(db) }
 
         var dump = "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\n"
-        for table in transactionTables {
+        for table in tables {
             var stmt: OpaquePointer?
             let sqlQuery = "SELECT sql FROM sqlite_master WHERE type='table' AND name='\(table)';"
             if sqlite3_prepare_v2(db, sqlQuery, -1, &stmt, nil) == SQLITE_OK {
@@ -351,13 +358,13 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         var counts = [String]()
-        for tbl in transactionTables {
+        for tbl in tables {
             if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
         }
         DispatchQueue.main.async {
             self.logMessages.append("✅ Backed up Transaction data — " + counts.joined(separator: ", "))
             self.appendLog(action: "TxnBackup", file: destination.lastPathComponent, success: true)
-            self.lastActionSummaries = self.transactionTables.map { table in
+            self.lastActionSummaries = tables.map { table in
                 TableActionSummary(table: table, action: "Backed up", count: (try? dbManager.rowCount(table: table)) ?? 0)
             }
         }
@@ -365,7 +372,7 @@ class BackupService: ObservableObject {
         return destination
     }
 
-    func restoreTransactionData(dbManager: DatabaseManager, from url: URL) throws {
+    func restoreTransactionData(dbManager: DatabaseManager, from url: URL, tables: [String]) throws {
         guard let db = dbManager.db else { return }
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
 
@@ -378,7 +385,7 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=OFF;", on: db)
         try execute("BEGIN TRANSACTION;", on: db)
 
-        for table in transactionTables {
+        for table in tables {
             try execute("DROP TABLE IF EXISTS \(table);", on: db)
         }
 
@@ -394,13 +401,13 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         var counts = [String]()
-        for tbl in transactionTables {
+        for tbl in tables {
             if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
         }
         DispatchQueue.main.async {
             self.logMessages.append("✅ Restored Transaction data — " + counts.joined(separator: ", "))
             self.appendLog(action: "TxnRestore", file: url.lastPathComponent, success: true)
-            self.lastActionSummaries = self.transactionTables.map { table in
+            self.lastActionSummaries = tables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
             }
         }
