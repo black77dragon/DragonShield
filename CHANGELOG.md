@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Prompt to delete existing ZKB positions when importing statements
 - Delete existing ZKB positions by name or BIC before import and log removed count
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
+- Fix manual deletion of position reports by institution and log removed count
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import

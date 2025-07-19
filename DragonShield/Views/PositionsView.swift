@@ -130,7 +130,9 @@ struct PositionsView: View {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 if let id = selectedInstitutionId {
-                    _ = dbManager.deletePositionReports(institutionIds: [id])
+                    let removed = dbManager.deletePositionReports(institutionIds: [id])
+                    LoggingService.shared.log("Deleted \(removed) position reports for institution id \(id)",
+                                              type: .info, logger: .database)
                     loadPositions()
                 }
             }
@@ -586,6 +588,11 @@ struct PositionsView: View {
 
     private func loadInstitutions() {
         institutions = dbManager.fetchInstitutions()
+        if selectedInstitutionId == nil {
+            if let zkb = institutions.first(where: { $0.name.localizedCaseInsensitiveContains("z\u00fcrcher kantonalbank") }) {
+                selectedInstitutionId = zkb.id
+            }
+        }
     }
 
     private func animateEntrance() {
