@@ -157,24 +157,38 @@ struct DataImportExportView: View {
         }
 
         if type == .zkb {
-            let alert = NSAlert()
-            alert.messageText = "Delete existing ZKB positions?"
-            alert.informativeText = "Do you want to delete all current Position Data for ZKB?"
-            alert.addButton(withTitle: "Yes")
-            alert.addButton(withTitle: "No")
-            alert.addButton(withTitle: "Cancel")
-            let response = alert.runModal()
-            switch response {
-            case .alertFirstButtonReturn:
-                startImport(deleteExisting: true)
-            case .alertSecondButtonReturn:
-                startImport(deleteExisting: false)
-            default:
+            guard let inst = promptInstitutionSelection(defaultName: "Zürcher Kantonalbank ZKB") else {
                 statusMessage = "Status: Upload cancelled"
+                return
             }
+            let removed = ImportManager.shared.deletePositions(institutionId: inst.id)
+            appendLog("Existing \(inst.name) positions removed: \(removed)")
+            startImport(deleteExisting: false)
         } else {
             startImport(deleteExisting: false)
         }
+    }
+
+    private func promptInstitutionSelection(defaultName: String) -> DatabaseManager.InstitutionData? {
+        let institutions = ImportManager.shared.fetchInstitutions()
+        guard !institutions.isEmpty else { return nil }
+
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 24))
+        popup.addItems(withTitles: institutions.map { $0.name })
+        if let idx = institutions.firstIndex(where: { $0.name == defaultName }) {
+            popup.selectItem(at: idx)
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Delete existing positions?"
+        alert.informativeText = "Select the institution whose positions should be removed before import."
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return nil }
+        let selected = popup.indexOfSelectedItem
+        return institutions[selected]
     }
 
     private func appendLog(_ entry: String) {

@@ -529,6 +529,25 @@ class ImportManager {
         return dbManager.deletePositionReports(institutionIds: ids)
     }
 
+    /// Deletes all position reports for the specified institution.
+    /// - Returns: The number of deleted records.
+    func deletePositions(institutionId: Int) -> Int {
+        let deleted = dbManager.deletePositionReports(institutionIds: [institutionId])
+        if let inst = dbManager.fetchInstitutionDetails(id: institutionId) {
+            LoggingService.shared.log("Deleted \(deleted) position reports for \(inst.name)",
+                                      type: .info, logger: .database)
+        } else {
+            LoggingService.shared.log("Deleted \(deleted) position reports for institution id \(institutionId)",
+                                      type: .info, logger: .database)
+        }
+        return deleted
+    }
+
+    /// Returns all institutions from the database.
+    func fetchInstitutions() -> [DatabaseManager.InstitutionData] {
+        dbManager.fetchInstitutions()
+    }
+
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {
         let panel = NSOpenPanel()
