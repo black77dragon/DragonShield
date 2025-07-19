@@ -134,7 +134,10 @@ struct DataImportExportView: View {
     private func importStatement(from url: URL, type: StatementType) {
         statusMessage = "Status: Importing \(url.lastPathComponent) …"
 
-        ImportManager.shared.importPositions(at: url, type: type, progress: { message in
+        let importType: ImportManager.StatementType = {
+            switch type { case .creditSuisse: return .creditSuisse; case .zkb: return .zkb }
+        }()
+        ImportManager.shared.importPositions(at: url, type: importType, progress: { message in
             DispatchQueue.main.async { self.appendLog(message) }
         }) { result in
             DispatchQueue.main.async {
