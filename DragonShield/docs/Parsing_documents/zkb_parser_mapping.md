@@ -11,7 +11,7 @@ This document outlines the mapping logic for parsing the ZKB "Depotauszug" CSV e
 | **File Name**                       | `Depotauszug Mar 26 2025 ZKB.csv`         | `ImportSessions.filename`                     | Use the full file name.                                                               |
 | **Extract Statement Date**          | from file name: `Mar 26 2025`            | `PositionReports.report_date`                 | Parse date with format `MMM DD YYYY` → `2025-03-26`.                                  |
 | **CSV Header Row**                  | Row 1 with column titles                 | *N/A*                                         | Skip row 1; begin parsing data at row 2.                                              |
-| **Default Institution**             | *(implicit)*                             | `Positions.institution_id`                    | Hard-code to ZKB. (Lookup via `Institutions.name = 'Züricher Kantonalbank ZKB'`.)                             |
+| **Default Institution**             | *(implicit)*                             | `Positions.institution_id`                    | Hard-code to ZKB. (Lookup via `Institutions.name = 'Zürcher Kantonalbank ZKB'`.)                             |
 | **Account Mapping**                 | *(not in CSV)*                           | `Accounts.account_id`                         | Hard-code to ZKB Custody Account. (lookup via `account_number.name` = `1-2600-01180149` in custody account.         |
 
 ---

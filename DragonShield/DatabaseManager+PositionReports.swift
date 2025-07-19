@@ -187,6 +187,17 @@ extension DatabaseManager {
         return deletePositionReports(institutionIds: ids)
     }
 
+    /// Deletes position reports for all institutions matching the given BIC code.
+    func deletePositionReports(institutionBic: String) -> Int {
+        let ids = findInstitutionIds(bic: institutionBic)
+        if ids.isEmpty {
+            print("⚠️ No institution found with BIC \(institutionBic)")
+            return 0
+        }
+        print("🗑️ Deleting positions for institutions with BIC \(institutionBic): \(ids)")
+        return deletePositionReports(institutionIds: ids)
+    }
+
     // MARK: - Single Position CRUD
 
     func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, instrumentUpdatedAt: Date?, notes: String?, reportDate: Date) -> Int? {

@@ -190,5 +190,24 @@ extension DatabaseManager {
         }
         return ids
     }
+
+    /// Returns all institution IDs whose BIC matches the given prefix.
+    /// The comparison is case-insensitive and allows partial branch codes.
+    func findInstitutionIds(bic: String) -> [Int] {
+        let query = "SELECT institution_id FROM Institutions WHERE bic LIKE ? COLLATE NOCASE;"
+        var stmt: OpaquePointer?
+        var ids: [Int] = []
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare findInstitutionIds(bic): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        let pattern = "\(bic)%"
+        sqlite3_bind_text(stmt, 1, pattern, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            ids.append(Int(sqlite3_column_int(stmt, 0)))
+        }
+        return ids
+    }
 }
 
