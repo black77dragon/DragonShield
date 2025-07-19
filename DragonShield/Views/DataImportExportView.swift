@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
 
-    private let dropZoneSize: CGFloat = 160
+    private let dropZoneSize: CGFloat = 100
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
@@ -89,7 +89,7 @@ struct DataImportExportView: View {
     }
 
     private var zkbCard: some View {
-        importCard(title: "Import ZKB Statement", type: .zkb, enabled: false)
+        importCard(title: "Import ZKB Statement", type: .zkb, enabled: true)
     }
 
     private func importCard(title: String, type: StatementType, enabled: Bool) -> some View {
@@ -134,7 +134,7 @@ struct DataImportExportView: View {
     private func importStatement(from url: URL, type: StatementType) {
         statusMessage = "Status: Importing \(url.lastPathComponent) …"
 
-        ImportManager.shared.importPositions(at: url, progress: { message in
+        ImportManager.shared.importPositions(at: url, type: type, progress: { message in
             DispatchQueue.main.async { self.appendLog(message) }
         }) { result in
             DispatchQueue.main.async {

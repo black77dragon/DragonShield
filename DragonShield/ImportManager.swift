@@ -25,6 +25,7 @@ class ImportManager {
     static let shared = ImportManager()
     private let xlsxProcessor = CreditSuisseXLSXProcessor()
     private let positionParser = CreditSuissePositionParser()
+    private let zkbParser = ZKBStatementParser()
     private let dbManager = DatabaseManager()
     private lazy var repository: BankRecordRepository = {
         BankRecordRepository(dbManager: dbManager)
@@ -57,6 +58,11 @@ class ImportManager {
 
     enum ImportError: Error {
         case aborted
+    }
+
+    enum StatementType {
+        case creditSuisse
+        case zkb
     }
 
 
@@ -204,7 +210,7 @@ class ImportManager {
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
-    func importPositions(at url: URL, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
+    func importPositions(at url: URL, type: StatementType = .creditSuisse, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
             LoggingService.shared.log(message, type: .info, logger: .parser)
@@ -214,12 +220,13 @@ class ImportManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            if deleteExisting {
+            if deleteExisting && type == .creditSuisse {
                 let removed = self.deleteCreditSuissePositions()
                 LoggingService.shared.log("Existing Credit-Suisse positions removed: \(removed)", type: .info, logger: .database)
             }
             do {
-                let (summary, rows) = try self.positionParser.parse(url: url, progress: logger)
+                let parser = (type == .creditSuisse) ? self.positionParser : self.zkbParser
+                let (summary, rows) = try parser.parse(url: url, progress: logger)
                 DispatchQueue.main.sync {
                     let first = rows.first
                     self.showImportSummary(fileName: url.lastPathComponent,
@@ -232,7 +239,8 @@ class ImportManager {
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
                let valueDate = rows.first?.reportDate ?? Date()
-               let baseSessionName = "Credit-Suisse Positions \(DateFormatter.swissDate.string(from: valueDate))"
+               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Züricher Kantonal Bank ZKB"
+               let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
 
@@ -240,7 +248,7 @@ class ImportManager {
                 var accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                 LoggingService.shared.log("Lookup account for \(custodyNumber) -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 if accountId == nil {
-                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "Credit-Suisse")
+                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
                     LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 }
                 while accountId == nil {
@@ -266,7 +274,7 @@ class ImportManager {
                         accountId = self.dbManager.findAccountId(accountNumber: number)
                         LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
-                            accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: "Credit-Suisse")
+                        accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: institutionName)
                             LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId != nil {
@@ -276,7 +284,7 @@ class ImportManager {
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                         LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         if accountId == nil {
-                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: "Credit-Suisse")
+                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
                             LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                         }
                         if accountId == nil {
@@ -291,9 +299,10 @@ class ImportManager {
                         throw ImportError.aborted
                     }
                     } else {
-                        let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
+                        let instId = self.dbManager.findInstitutionId(name: institutionName) ?? 1
                         let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-                        _ = self.dbManager.addAccount(accountName: "Credit-Suisse Account",
+                        let defaultName = type == .creditSuisse ? "Credit-Suisse Account" : "ZKB Account"
+                        _ = self.dbManager.addAccount(accountName: defaultName,
                                                        institutionId: instId,
                                                        accountNumber: custodyNumber,
                                                        accountTypeId: typeId,
@@ -308,7 +317,7 @@ class ImportManager {
                 }
                 let accId = accountId!
                 let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
-                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
+                let institutionId = accountInfo?.institutionId ?? self.dbManager.findInstitutionId(name: institutionName) ?? 1
 
                 let sessionId = self.dbManager.startImportSession(sessionName: sessionName,
                                                                   fileName: url.lastPathComponent,

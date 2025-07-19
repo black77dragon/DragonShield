@@ -125,6 +125,9 @@ Run the deploy script to rebuild the database from the schema and copy it to the
 python3 python_scripts/deploy_db.py
 ```
 
+### ZKB CSV Import
+Drag a `Depotauszug*.csv` file onto the **Import ZKB Statement** zone in the Data Import/Export view or use *Select File* to choose it manually. The parser maps all rows to the PositionReports table.
+
 
 ### GPT Shell
 A small CLI to experiment with OpenAI function calls. Requires `OPENAI_API_KEY` in the environment.
