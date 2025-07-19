@@ -20,6 +20,10 @@ struct DatabaseManagementView: View {
     @State private var showLogDetails = false
     @State private var showReferenceInfo = false
     @State private var reportProcessing = false
+    @State private var showTxnBackupSheet = false
+    @State private var showTxnRestoreSheet = false
+    @State private var backupTxnTables: Set<String> = []
+    @State private var restoreTxnTables: Set<String> = []
 
     private let reportService = InstrumentReportService()
 
@@ -142,7 +146,8 @@ struct DatabaseManagementView: View {
                             switch result {
                             case .success(let url):
                                 restoreTransactionURL = url
-                                showTransactionRestoreConfirm = true
+                                restoreTxnTables = Set(backupService.transactionTables)
+                                showTxnRestoreSheet = true
                             case .failure(let error):
                                 errorMessage = error.localizedDescription
                             }
@@ -290,6 +295,30 @@ struct DatabaseManagementView: View {
         } message: {
             Text("Import transaction data from '\(restoreTransactionURL?.lastPathComponent ?? "")'? This will overwrite existing tables.")
         }
+        .sheet(isPresented: $showTxnBackupSheet) {
+            TableSelectionSheet(
+                title: "Select Tables",
+                tables: backupService.transactionTables,
+                selection: $backupTxnTables,
+                onConfirm: {
+                    showTxnBackupSheet = false
+                    performTransactionBackup()
+                },
+                onCancel: { showTxnBackupSheet = false }
+            )
+        }
+        .sheet(isPresented: $showTxnRestoreSheet) {
+            TableSelectionSheet(
+                title: "Select Tables",
+                tables: backupService.transactionTables,
+                selection: $restoreTxnTables,
+                onConfirm: {
+                    showTxnRestoreSheet = false
+                    showTransactionRestoreConfirm = true
+                },
+                onCancel: { showTxnRestoreSheet = false }
+            )
+        }
         .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
             backupNow()
         }
@@ -361,6 +390,11 @@ struct DatabaseManagementView: View {
     }
 
     private func backupTransactionNow() {
+        backupTxnTables = Set(backupService.transactionTables)
+        showTxnBackupSheet = true
+    }
+
+    private func performTransactionBackup() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         if #available(macOS 12.0, *) {
@@ -371,13 +405,20 @@ struct DatabaseManagementView: View {
             panel.allowedFileTypes = ["sql"]
         }
         panel.directoryURL = backupService.backupDirectory
-        panel.nameFieldStringValue = "DragonShield_Transaction.sql"
+        panel.nameFieldStringValue = BackupService.defaultTransactionFileName(
+            mode: dbManager.dbMode,
+            version: dbManager.dbVersion
+        )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.backupTransactionData(dbManager: dbManager, to: url)
+                _ = try backupService.backupTransactionData(
+                    dbManager: dbManager,
+                    to: url,
+                    tables: Array(backupTxnTables)
+                )
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -426,7 +467,11 @@ struct DatabaseManagementView: View {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
-                try backupService.restoreTransactionData(dbManager: dbManager, from: url)
+                try backupService.restoreTransactionData(
+                    dbManager: dbManager,
+                    from: url,
+                    tables: Array(restoreTxnTables)
+                )
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -498,5 +543,35 @@ struct DatabaseManagementView_Previews: PreviewProvider {
     static var previews: some View {
         DatabaseManagementView()
             .environmentObject(DatabaseManager())
+    }
+}
+
+struct TableSelectionSheet: View {
+    let title: String
+    let tables: [String]
+    @Binding var selection: Set<String>
+    var onConfirm: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(.headline)
+            ForEach(tables, id: \..self) { tbl in
+                Toggle(tbl, isOn: Binding(
+                    get: { selection.contains(tbl) },
+                    set: { val in
+                        if val { selection.insert(tbl) } else { selection.remove(tbl) }
+                    }
+                ))
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { onCancel() }
+                Button("OK") { onConfirm() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 300)
     }
 }
