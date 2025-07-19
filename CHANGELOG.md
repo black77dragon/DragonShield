@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Generate full instrument report from Database Management view
+- Fix instrument report generation by locating script path correctly
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area
