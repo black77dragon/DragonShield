@@ -700,12 +700,19 @@ struct AllocationTargetsTableView: View {
 
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {
+        let isClass = asset.id.hasPrefix("class-")
+        let subclassSumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
+        let subclassSumChf = asset.children?.map(\.targetChf).reduce(0, +) ?? 0
+        let deltaChf = asset.targetChf - subclassSumChf
+        let deltaTol = abs(asset.targetChf) * 0.01
+        let deltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
+
         HStack(spacing: 0) {
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
                 .frame(width: 200, alignment: .leading)
             Divider()
-            HStack {
+            HStack(alignment: .top, spacing: 0) {
                 Picker("", selection: viewModel.modeBinding(for: asset)) {
                     Text("%" ).tag(AllocationInputMode.percent)
                     Text("CHF").tag(AllocationInputMode.chf)
@@ -714,38 +721,78 @@ struct AllocationTargetsTableView: View {
                 .tint(.softBlue)
                 .frame(width: 80)
                 if asset.mode == .percent {
-                    TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
-                        .multilineTextAlignment(.trailing)
-                        .padding(4)
-                        .frame(width: 80, alignment: .trailing)
-                        .background(Color.fieldGray)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
-                        )
-                        .focused($focusedPctField, equals: asset.id)
-                    Text(formatChf(asset.targetChf))
-                        .frame(width: 100, alignment: .trailing)
-                } else {
-                    Text(formatPercent(asset.targetPct))
-                        .frame(width: 80, alignment: .trailing)
-                    TextField("", text: chfTextBinding(for: asset))
-                        .multilineTextAlignment(.trailing)
-                        .padding(4)
-                        .frame(width: 100, alignment: .trailing)
-                        .background(Color.fieldGray)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
-                        )
-                        .focused($focusedChfField, equals: asset.id)
-                        .onChange(of: focusedChfField) { oldValue, newValue in
-                            if newValue == asset.id {
-                                chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
-                            } else if oldValue == asset.id && chfDrafts[asset.id] != nil {
-                                chfDrafts[asset.id] = formatChf(asset.targetChf)
-                            }
+                    VStack(alignment: .trailing, spacing: 2) {
+                        TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
+                            .multilineTextAlignment(.trailing)
+                            .padding(4)
+                            .frame(width: 80, alignment: .trailing)
+                            .background(Color.fieldGray)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                            )
+                            .focused($focusedPctField, equals: asset.id)
+                        if isClass {
+                            Text("Σ \(formatPercent(subclassSumPct))%")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .trailing)
                         }
+                    }
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(formatChf(asset.targetChf))
+                            .frame(width: 100, alignment: .trailing)
+                        if isClass {
+                            HStack(spacing: 4) {
+                                Text("Σ \(formatChf(subclassSumChf))")
+                                Text(formatSignedChf(deltaChf))
+                                    .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
+                                    .foregroundColor(deltaColor)
+                            }
+                            .font(.caption2)
+                            .frame(width: 100, alignment: .trailing)
+                        }
+                    }
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(formatPercent(asset.targetPct))
+                            .frame(width: 80, alignment: .trailing)
+                        if isClass {
+                            Text("Σ \(formatPercent(subclassSumPct))%")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .trailing)
+                        }
+                    }
+                    VStack(alignment: .trailing, spacing: 2) {
+                        TextField("", text: chfTextBinding(for: asset))
+                            .multilineTextAlignment(.trailing)
+                            .padding(4)
+                            .frame(width: 100, alignment: .trailing)
+                            .background(Color.fieldGray)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
+                            )
+                            .focused($focusedChfField, equals: asset.id)
+                            .onChange(of: focusedChfField) { oldValue, newValue in
+                                if newValue == asset.id {
+                                    chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
+                                } else if oldValue == asset.id && chfDrafts[asset.id] != nil {
+                                    chfDrafts[asset.id] = formatChf(asset.targetChf)
+                                }
+                            }
+                        if isClass {
+                            HStack(spacing: 4) {
+                                Text("Σ \(formatChf(subclassSumChf))")
+                                Text(formatSignedChf(deltaChf))
+                                    .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
+                                    .foregroundColor(deltaColor)
+                            }
+                            .font(.caption2)
+                            .frame(width: 100, alignment: .trailing)
+                        }
+                    }
                 }
             }
             Divider()
@@ -787,7 +834,7 @@ struct AllocationTargetsTableView: View {
                 }
             }
         }
-        .frame(height: 48)
+        .frame(height: isClass ? 60 : 48)
         .background(rowBackground(for: asset))
     }
 }
