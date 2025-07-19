@@ -318,3 +318,4 @@ All notable changes to this project will be documented in this file.
 - Pin Allocation Targets table at top with collapsible error and chart sections
 - Fix unmatched braces causing compile errors in AllocationTargetsTableView
 - Simplify row background colors so valid rows are white
+- Remove version history comments from ImportManager.swift
