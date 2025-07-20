@@ -376,7 +376,7 @@ class ImportManager {
                 var unmatched = 0
                 for parsed in rows {
                     if parsed.isCash {
-                        let accNumber = parsed.tickerSymbol ?? ""
+                        let accNumber = parsed.valorNr ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
                             var proceed = true
@@ -405,15 +405,15 @@ class ImportManager {
                             }
                         }
                         if let aId = accId,
-                           let instrId = self.dbManager.findInstrumentId(ticker: "\(parsed.currency.uppercased())_CASH") {
+                           let instrId = self.dbManager.findInstrumentId(valorNr: parsed.valorNr ?? "") {
                             _ = self.dbManager.addPositionReport(
                                 importSessionId: sessionId,
                                 accountId: aId,
                                 institutionId: institutionId,
                                 instrumentId: instrId,
                                 quantity: parsed.quantity,
-                                purchasePrice: nil,
-                                currentPrice: nil,
+                                purchasePrice: 1,
+                                currentPrice: 1,
                                 instrumentUpdatedAt: parsed.reportDate,
                                 notes: nil,
                                 reportDate: parsed.reportDate

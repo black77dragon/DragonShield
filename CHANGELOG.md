@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Store Credit-Suisse cash account balances using the Valor as instrument with price 1
 - Generate full instrument report from Database Management view
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
