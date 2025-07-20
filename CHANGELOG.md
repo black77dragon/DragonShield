@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Generate full instrument report from Database Management view
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
+- Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView

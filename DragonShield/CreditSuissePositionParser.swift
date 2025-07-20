@@ -72,7 +72,8 @@ struct CreditSuissePositionParser {
             let currency = row["Whrg."] ?? "CHF"
             let descr = row["Beschreibung"] ?? ""
             let isin = row["ISIN"]
-            let ticker = row["Valor"]
+            let valor = row["Valor"]
+            let ticker = row["Symbol"]
             let instrumentName = "Credit-Suisse \(descr) \(currency)"
             let qtyStr = row["Anzahl / Nominal"]
             var quantity: Double
@@ -98,18 +99,19 @@ struct CreditSuissePositionParser {
                                               instrumentName: instrumentName,
                                               tickerSymbol: ticker,
                                               isin: isin,
-                                              valorNr: nil,
+                                              valorNr: valor,
                                               currency: currency,
-                                               quantity: quantity,
-                                               purchasePrice: purchasePrice,
-                                               currentPrice: currentPrice,
-                                               reportDate: valueDate,
-                                               isCash: isCash,
+                                              quantity: quantity,
+                                              purchasePrice: purchasePrice,
+                                              currentPrice: currentPrice,
+                                              reportDate: valueDate,
+                                              isCash: isCash,
                                                subClassIdGuess: guess)
             records.append(record)
             summary.parsedRows += 1
             if isCash { summary.cashAccounts += 1 } else { summary.securityRecords += 1 }
-            let msg = "Parsed row \(idx+1): \(instrumentName) qty \(quantity) \(currency)"
+            let msg = "Parsed row \(idx+1): \(instrumentName) qty \(quantity) \(currency)" +
+                      " isin:\(isin ?? "") valor:\(valor ?? "")"
             logging.log(msg, type: .debug, logger: log)
             progress?(msg)
         }
