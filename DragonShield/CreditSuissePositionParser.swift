@@ -11,6 +11,7 @@ struct PositionImportSummary: Codable {
     var cashAccounts: Int
     var securityRecords: Int
     var unmatchedInstruments: Int
+    var percentValuationRecords: Int
 }
 
 struct ParsedPositionRecord {
@@ -60,7 +61,8 @@ struct CreditSuissePositionParser {
                                              parsedRows: 0,
                                              cashAccounts: 0,
                                              securityRecords: 0,
-                                             unmatchedInstruments: 0)
+                                             unmatchedInstruments: 0,
+                                             percentValuationRecords: 0)
         var records: [ParsedPositionRecord] = []
 
         for (idx, row) in rows.enumerated() {

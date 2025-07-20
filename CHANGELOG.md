@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Prompt to delete existing ZKB positions when importing statements
 - Delete existing ZKB positions by name or BIC before import and log removed count
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
+- Handle percent-valued bond prices in ZKB CSV import
 - Allow selecting tables for transaction backups and restores with versioned filename
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import
