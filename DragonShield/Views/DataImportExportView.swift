@@ -95,7 +95,7 @@ struct DataImportExportView: View {
     }
 
     private var creditSuisseCard: some View {
-        importCard(title: "Import Credit-Suisse Statement", type: .creditSuisse, enabled: true)
+        importCard(title: "Import Credit-Suisse Statement (Position List M DD YYYY.xls)", type: .creditSuisse, enabled: true)
     }
 
     private var zkbCard: some View {

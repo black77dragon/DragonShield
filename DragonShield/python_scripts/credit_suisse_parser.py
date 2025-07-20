@@ -11,6 +11,7 @@ import openpyxl
 import json
 import os
 import csv
+import sqlite3
 from datetime import datetime
 from typing import Dict, Tuple, Any, List, Set, Optional
 from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
@@ -47,6 +48,12 @@ HEADER_ROW_NUMBER = 8
 LINE_6_PORTFOLIO_NR_LINE_NUMBER = 6
 IDX_WHRG_NOMINAL_FALLBACK = 2 # Fallback if specific header isn't found by name
 IDX_WHRG_KURS_FALLBACK = 7    # Fallback
+
+# Default database path can be overridden by the DRAGONSHIELD_DB_PATH environment variable
+DB_PATH = os.environ.get(
+    "DRAGONSHIELD_DB_PATH",
+    "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield/dragonshield.sqlite",
+)
 
 def _get_actual_cell_value(cell_content: Any) -> Any:
     """Helper to get the .value if it's a Cell object, otherwise return as is."""
@@ -136,6 +143,39 @@ def get_mapped_instrument_group(anlagekategorie: str, asset_unterkategorie: str,
     if norm_anlage or norm_unter: unmapped_pairs.add((norm_anlage, norm_unter))
     return f"UNMAPPED_CATEGORY"
 
+# --- Instrument lookup helpers ---
+def _sanitize(text: str) -> str:
+    return "".join(c for c in text if c.isalnum()).upper()
+
+def find_instrument_id_by_valor(conn: sqlite3.Connection, valor: str) -> Optional[int]:
+    sanitized_search = _sanitize(valor)
+    cur = conn.execute("SELECT instrument_id, valor_nr FROM Instruments WHERE valor_nr IS NOT NULL")
+    for inst_id, db_valor in cur.fetchall():
+        if _sanitize(db_valor) == sanitized_search:
+            return inst_id
+    return None
+
+def find_instrument_id_by_isin(conn: sqlite3.Connection, isin: str) -> Optional[int]:
+    sanitized_search = _sanitize(isin)
+    cur = conn.execute("SELECT instrument_id, isin FROM Instruments WHERE isin IS NOT NULL")
+    for inst_id, db_isin in cur.fetchall():
+        if _sanitize(db_isin) == sanitized_search:
+            return inst_id
+    return None
+
+def lookup_instrument_id(conn: Optional[sqlite3.Connection], name: str, valor: str, isin: str) -> Tuple[Optional[int], str]:
+    if conn is None:
+        return None, ""
+    if valor:
+        val_id = find_instrument_id_by_valor(conn, valor)
+        if val_id is not None:
+            return val_id, "Valor"
+    if isin:
+        isin_id = find_instrument_id_by_isin(conn, isin)
+        if isin_id is not None:
+            return isin_id, "ISIN"
+    return None, ""
+
 # Exit codes for command-line usage
 EXIT_SUCCESS = 0
 EXIT_FILE_NOT_FOUND = 1
@@ -147,18 +187,34 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
     parsed_data = {
         "main_custody_account_nr": None,
         "institution_name": "Credit-Suisse",
-        "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]), # Pass only filename
+        "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]),  # Pass only filename
         "summary": {
-            "processed_file": filepath, "total_data_rows_attempted": 0, 
-            "data_rows_successfully_parsed": 0, "skipped_footer_empty_rows": 0,
-            "cash_account_records": 0, "security_holding_records": 0,
-            "instruments_with_isin": 0, "instruments_with_cost_price": 0,
-            "unmapped_categories": []
+            "processed_file": filepath,
+            "total_data_rows_attempted": 0,
+            "data_rows_successfully_parsed": 0,
+            "skipped_footer_empty_rows": 0,
+            "cash_account_records": 0,
+            "security_holding_records": 0,
+            "instruments_with_isin": 0,
+            "instruments_with_cost_price": 0,
+            "unmatched_categories": [],
+            "unmatched_instruments": 0,
         },
-        "records": []
+        "records": [],
+        "logs": [],
     }
     main_custody_account_nr_internal: Optional[str] = None
     unmapped_category_pairs_internal: Set[Tuple[str,str]] = set()
+    unmatched_instruments_internal = 0
+
+    conn: Optional[sqlite3.Connection] = None
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+        except Exception as e:
+            parsed_data["logs"].append(f"Failed to open database at {DB_PATH}: {e}")
+    else:
+        parsed_data["logs"].append(f"Database not found at {DB_PATH}; instrument lookup skipped")
 
     exit_code = EXIT_SUCCESS
     try:
@@ -267,7 +323,8 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 record_data["record_type"] = "security_holding"
                 record_data["main_custody_account_nr_from_file"] = main_custody_account_nr_internal
                 record_data["isin"] = get_str_val_from_tuple(COL_ISIN)
-                if record_data["isin"]: parsed_data["summary"]["instruments_with_isin"] += 1
+                if record_data["isin"]:
+                    parsed_data["summary"]["instruments_with_isin"] += 1
                 record_data["symbol"] = get_str_val_from_tuple(COL_SYMBOL)
                 record_data["valor_nr"] = get_str_val_from_tuple(COL_VALOR)
                 record_data["quantity_nominal"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_ANZAHL_NOMINAL))
@@ -285,9 +342,33 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 price_date_val = get_raw_val_from_tuple(COL_DATUM_ZEIT_KURS)
                 record_data["price_date"] = parse_date_from_excel_cell(price_date_val)
 
+                valor_col = row_cells_tuple[5] if len(row_cells_tuple) > 5 else None
+                isin_col = row_cells_tuple[22] if len(row_cells_tuple) > 22 else None
+                valor_str = str(valor_col).strip() if valor_col is not None else ""
+                isin_str = str(isin_col).strip() if isin_col is not None else ""
+                instr_id, method = lookup_instrument_id(conn, beschreibung_str, valor_str, isin_str)
+
+                if instr_id is not None:
+                    record_data["instrument_id"] = instr_id
+                    log_msg = (
+                        f"Matched instrument {beschreibung_str} (ID: {instr_id}) via {method} {valor_str if method == 'Valor' else isin_str} "
+                        f"| Valor: {valor_str or 'N/A'}, ISIN: {isin_str or 'N/A'}"
+                    )
+                else:
+                    unmatched_instruments_internal += 1
+                    log_msg = (
+                        f"Unmatched instrument description: {beschreibung_str} "
+                        f"| Valor: {valor_str or 'N/A'}, ISIN: {isin_str or 'N/A'}"
+                    )
+                parsed_data["logs"].append(log_msg)
+            
             parsed_data["records"].append(record_data)
         
         parsed_data["summary"]["unmapped_categories"] = sorted(list(unmapped_category_pairs_internal))
+        parsed_data["summary"]["unmatched_instruments"] = unmatched_instruments_internal
+
+        if conn is not None:
+            conn.close()
 
     # (Exception handling and JSON printing remain the same)
     except FileNotFoundError:
