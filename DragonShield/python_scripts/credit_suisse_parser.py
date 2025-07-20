@@ -11,6 +11,7 @@ import openpyxl
 import json
 import os
 import csv
+import sqlite3
 from datetime import datetime
 from typing import Dict, Tuple, Any, List, Set, Optional
 from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
@@ -47,6 +48,12 @@ HEADER_ROW_NUMBER = 8
 LINE_6_PORTFOLIO_NR_LINE_NUMBER = 6
 IDX_WHRG_NOMINAL_FALLBACK = 2 # Fallback if specific header isn't found by name
 IDX_WHRG_KURS_FALLBACK = 7    # Fallback
+
+# Database path used for instrument lookup
+DB_PATH = os.path.join(
+    "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
+    "dragonshield.sqlite",
+)
 
 def _get_actual_cell_value(cell_content: Any) -> Any:
     """Helper to get the .value if it's a Cell object, otherwise return as is."""
@@ -136,6 +143,24 @@ def get_mapped_instrument_group(anlagekategorie: str, asset_unterkategorie: str,
     if norm_anlage or norm_unter: unmapped_pairs.add((norm_anlage, norm_unter))
     return f"UNMAPPED_CATEGORY"
 
+# Look up an instrument by Valor number or ISIN in that priority order.
+def lookup_instrument(conn: sqlite3.Connection, valor: str, isin: str) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+    if valor:
+        row = conn.execute(
+            "SELECT instrument_id, instrument_name FROM Instruments WHERE valor_nr = ?",
+            (valor.strip(),),
+        ).fetchone()
+        if row:
+            return row[0], row[1], f"Valor {valor.strip()}"
+    if isin:
+        row = conn.execute(
+            "SELECT instrument_id, instrument_name FROM Instruments WHERE isin = ?",
+            (isin.strip(),),
+        ).fetchone()
+        if row:
+            return row[0], row[1], f"ISIN {isin.strip()}"
+    return None, None, None
+
 # Exit codes for command-line usage
 EXIT_SUCCESS = 0
 EXIT_FILE_NOT_FOUND = 1
@@ -149,16 +174,20 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
         "institution_name": "Credit-Suisse",
         "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]), # Pass only filename
         "summary": {
-            "processed_file": filepath, "total_data_rows_attempted": 0, 
+            "processed_file": filepath, "total_data_rows_attempted": 0,
             "data_rows_successfully_parsed": 0, "skipped_footer_empty_rows": 0,
             "cash_account_records": 0, "security_holding_records": 0,
             "instruments_with_isin": 0, "instruments_with_cost_price": 0,
             "unmapped_categories": []
         },
-        "records": []
+        "records": [],
+        "logs": []
     }
     main_custody_account_nr_internal: Optional[str] = None
     unmapped_category_pairs_internal: Set[Tuple[str,str]] = set()
+    unmatched_instruments_internal = 0
+
+    conn = sqlite3.connect(DB_PATH)
 
     exit_code = EXIT_SUCCESS
     try:
@@ -261,7 +290,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 record_data["fx_rate_to_chf"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_DEVISENKURS))
                 record_data["asset_class_code"] = "LIQ"
                 record_data["asset_sub_class_code"] = "CASH"
-            else: 
+            else:
                 # (Security holding processing logic largely the same)
                 parsed_data["summary"]["security_holding_records"] += 1
                 record_data["record_type"] = "security_holding"
@@ -270,6 +299,19 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 if record_data["isin"]: parsed_data["summary"]["instruments_with_isin"] += 1
                 record_data["symbol"] = get_str_val_from_tuple(COL_SYMBOL)
                 record_data["valor_nr"] = get_str_val_from_tuple(COL_VALOR)
+                instrument_id, instrument_name, key_used = lookup_instrument(
+                    conn,
+                    record_data.get("valor_nr", ""),
+                    record_data.get("isin", ""),
+                )
+                if instrument_id:
+                    record_data["instrument_id"] = instrument_id
+                    log_msg = f"Matched instrument {instrument_name} (ID: {instrument_id}) via {key_used}"
+                else:
+                    unmatched_instruments_internal += 1
+                    log_msg = f"Unmatched instrument description: {beschreibung_str}"
+                parsed_data["logs"].append(log_msg)
+                record_data["instrument_lookup_log"] = log_msg
                 record_data["quantity_nominal"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_ANZAHL_NOMINAL))
                 cost_price_val = get_raw_val_from_tuple(COL_KOSTEN_KURS)
                 record_data["cost_price"] = parse_number_from_cell_value(cost_price_val)
@@ -288,6 +330,7 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
             parsed_data["records"].append(record_data)
         
         parsed_data["summary"]["unmapped_categories"] = sorted(list(unmapped_category_pairs_internal))
+        parsed_data["summary"]["unmatched_instruments"] = unmatched_instruments_internal
 
     # (Exception handling and JSON printing remain the same)
     except FileNotFoundError:
@@ -301,7 +344,9 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
         parsed_data["summary"]["error"] = f"An error occurred: {str(e)}"
         parsed_data["summary"]["traceback"] = traceback.format_exc()
         exit_code = EXIT_GENERAL_ERROR
-    
+    finally:
+        conn.close()
+
     print(json.dumps(parsed_data, indent=2, ensure_ascii=False))
     return exit_code
 
