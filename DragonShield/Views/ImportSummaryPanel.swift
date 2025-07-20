@@ -27,6 +27,9 @@ struct ImportSummaryPanel: View {
                     if summary.unmatchedInstruments > 0 {
                         Text("Unmatched Instruments: \(summary.unmatchedInstruments)")
                     }
+                    if summary.percentValuations > 0 {
+                        Text("% Valuations: \(summary.percentValuations)")
+                    }
                 }
                 if !logs.isEmpty {
                     Divider()
