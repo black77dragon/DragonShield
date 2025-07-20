@@ -326,3 +326,4 @@ All notable changes to this project will be documented in this file.
 - Simplify row background colors so valid rows are white
 - Add script to export Instruments table to XLSX
 - Include TargetAllocation and ExchangeRates tables in transaction backup/restore
+- Robust Credit-Suisse instrument lookup using Valor and ISIN with logging

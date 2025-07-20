@@ -18,7 +18,7 @@ Two cards share the width equally. Each provides drag & drop upload and a file p
 | Credit-Suisse Card | ZKB Card |
 | --- | --- |
 | 48×48 px logo icon | 48×48 px logo icon |
-| Heading: **Import Credit-Suisse Statement** | Heading: **Import ZKB Statement** |
+| Heading: **Import Credit-Suisse Statement (Position List M DD YYYY.xls)** | Heading: **Import ZKB Statement** |
 | Drag & Drop zone, 120 px tall with dashed border and 6 px radius. Centered icon and hint text `Drag & Drop Credit-Suisse File` (`13 pt`, `#888`). | Same style. Text `Drag & Drop ZKB File` and highlight on hover. Disabled until parser is ready. |
 | "or" separator (`12 pt`, `#AAA`) | "or" separator |
 | `Select File` button (`32 px` high, outline style, fills on hover) | `Select File` button (disabled with tooltip "coming soon") |
