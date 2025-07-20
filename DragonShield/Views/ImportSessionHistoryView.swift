@@ -7,7 +7,7 @@ struct ImportSessionHistoryView: View {
     @State private var selected: DatabaseManager.ImportSessionData? = nil
     @State private var showDetails = false
 
-    private static let chfFormatter: NumberFormatter = {
+    static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.currencyCode = "CHF"
