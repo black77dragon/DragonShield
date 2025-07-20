@@ -87,6 +87,10 @@ struct SidebarView: View {
                 NavigationLink(destination: DataImportExportView()) {
                     Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
                 }
+
+                NavigationLink(destination: ImportSessionHistoryView()) {
+                    Label("Import Session History", systemImage: "clock.arrow.circlepath")
+                }
                 
                 NavigationLink(destination: DatabaseManagementView()) {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
