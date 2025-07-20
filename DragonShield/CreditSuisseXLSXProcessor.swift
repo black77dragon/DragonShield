@@ -111,9 +111,10 @@ struct CreditSuisseXLSXProcessor {
     }
 
     static func parseNumber(_ string: String) -> Double? {
-        var cleaned = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else { return nil }
-        cleaned = cleaned
+        var trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let isPercent = trimmed.hasSuffix("%") || trimmed.hasSuffix(" %")
+        var cleaned = trimmed
             .replacingOccurrences(of: "'", with: "")
             .replacingOccurrences(of: "’", with: "")
             .replacingOccurrences(of: "%", with: "")
@@ -123,7 +124,8 @@ struct CreditSuisseXLSXProcessor {
             cleaned.removeFirst(); cleaned.removeLast()
             cleaned = "-" + cleaned
         }
-        return Double(cleaned)
+        guard let value = Double(cleaned) else { return nil }
+        return isPercent ? value / 100.0 : value
     }
 
     static func statementDate(from filename: String) -> Date? {
