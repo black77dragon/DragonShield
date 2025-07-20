@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import
+- Lookup instruments in Credit-Suisse parser by Valor or ISIN with per-row logging
+- Clarify file pattern in Credit-Suisse import card label
 - Robust ZKB instrument discovery using Valor, ISIN and ticker with logging
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link
