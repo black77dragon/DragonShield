@@ -12,6 +12,16 @@ struct DataImportExportView: View {
     @State private var showImporterFor: StatementType?
 
     var body: some View {
+        TabView {
+            importTab
+                .tabItem { Text("Import") }
+            ImportSessionHistoryView()
+                .tabItem { Text("History") }
+        }
+        .navigationTitle("Data Import / Export")
+    }
+
+    private var importTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 importPanel
@@ -40,7 +50,6 @@ struct DataImportExportView: View {
                 importStatement(from: url, type: type)
             }
         }
-        .navigationTitle("Data Import / Export")
     }
 
     private var importPanel: some View {
