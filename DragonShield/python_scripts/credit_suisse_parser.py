@@ -11,9 +11,16 @@ import openpyxl
 import json
 import os
 import csv
+import sqlite3
 from datetime import datetime
 from typing import Dict, Tuple, Any, List, Set, Optional
-from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
+from openpyxl.cell import Cell, MergedCell  # Import Cell types for isinstance checks
+
+# Path to the DragonShield database used for instrument lookups
+DB_PATH = os.path.join(
+    "/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield",
+    "dragonshield.sqlite",
+)
 
 # --- Configuration Section (Keep as is) ---
 ANLAGEKATEGORIE_TO_GROUP_MAP: Dict[str, str] = {
@@ -125,6 +132,26 @@ def parse_number_from_cell_value(cell_content: Any) -> Optional[float]:
     # print(f"Warning: Unexpected type for number parsing '{type(val)}', value '{val}'") # Reduce noise
     return None
 
+
+def _sanitize_key(value: str) -> str:
+    """Remove non-alphanumeric characters and uppercase."""
+    return "".join(ch for ch in value if ch.isalnum()).upper()
+
+
+def lookup_instrument(conn: sqlite3.Connection, valor: Optional[str], isin: Optional[str]) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+    """Return instrument_id, name and method used if found."""
+    if valor:
+        sanitized = _sanitize_key(valor)
+        for row in conn.execute("SELECT instrument_id, instrument_name, valor_nr FROM Instruments WHERE valor_nr IS NOT NULL"):
+            if _sanitize_key(row[2]) == sanitized:
+                return row[0], row[1], "Valor"
+    if isin:
+        sanitized = _sanitize_key(isin)
+        for row in conn.execute("SELECT instrument_id, instrument_name, isin FROM Instruments WHERE isin IS NOT NULL"):
+            if _sanitize_key(row[2]) == sanitized:
+                return row[0], row[1], "ISIN"
+    return None, None, None
+
 def get_mapped_instrument_group(anlagekategorie: str, asset_unterkategorie: str, unmapped_pairs: Set[Tuple[str, str]]) -> str:
     # (Same as before)
     norm_anlage = anlagekategorie.strip() if anlagekategorie else ""
@@ -147,18 +174,22 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
     parsed_data = {
         "main_custody_account_nr": None,
         "institution_name": "Credit-Suisse",
-        "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]), # Pass only filename
+        "parsed_statement_date": parse_statement_date_from_filename(filepath.split('/')[-1]),  # Pass only filename
         "summary": {
-            "processed_file": filepath, "total_data_rows_attempted": 0, 
+            "processed_file": filepath, "total_data_rows_attempted": 0,
             "data_rows_successfully_parsed": 0, "skipped_footer_empty_rows": 0,
             "cash_account_records": 0, "security_holding_records": 0,
             "instruments_with_isin": 0, "instruments_with_cost_price": 0,
-            "unmapped_categories": []
+            "unmapped_categories": [], "unmatched_instruments": 0
         },
-        "records": []
+        "records": [],
+        "logs": []
     }
     main_custody_account_nr_internal: Optional[str] = None
-    unmapped_category_pairs_internal: Set[Tuple[str,str]] = set()
+    unmapped_category_pairs_internal: Set[Tuple[str, str]] = set()
+    unmatched_instruments = 0
+
+    conn = sqlite3.connect(DB_PATH)
 
     exit_code = EXIT_SUCCESS
     try:
@@ -261,7 +292,18 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 record_data["fx_rate_to_chf"] = parse_number_from_cell_value(get_raw_val_from_tuple(COL_DEVISENKURS))
                 record_data["asset_class_code"] = "LIQ"
                 record_data["asset_sub_class_code"] = "CASH"
-            else: 
+                ins_id, ins_name, method = lookup_instrument(conn, record_data["cash_account_number_from_file"], None)
+                if ins_id is not None:
+                    record_data["instrument_id"] = ins_id
+                    parsed_data["logs"].append(
+                        f"Matched instrument {ins_name} (ID: {ins_id}) via Valor {record_data['cash_account_number_from_file']}"
+                    )
+                else:
+                    unmatched_instruments += 1
+                    parsed_data["logs"].append(
+                        f"Unmatched instrument description: {beschreibung_str}"
+                    )
+            else:
                 # (Security holding processing logic largely the same)
                 parsed_data["summary"]["security_holding_records"] += 1
                 record_data["record_type"] = "security_holding"
@@ -285,9 +327,22 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
                 price_date_val = get_raw_val_from_tuple(COL_DATUM_ZEIT_KURS)
                 record_data["price_date"] = parse_date_from_excel_cell(price_date_val)
 
+                ins_id, ins_name, method = lookup_instrument(conn, record_data["valor_nr"], record_data["isin"])
+                if ins_id is not None:
+                    record_data["instrument_id"] = ins_id
+                    parsed_data["logs"].append(
+                        f"Matched instrument {ins_name} (ID: {ins_id}) via {method} {record_data['valor_nr'] if method == 'Valor' else record_data['isin']}"
+                    )
+                else:
+                    unmatched_instruments += 1
+                    parsed_data["logs"].append(
+                        f"Unmatched instrument description: {beschreibung_str}"
+                    )
+
             parsed_data["records"].append(record_data)
         
         parsed_data["summary"]["unmapped_categories"] = sorted(list(unmapped_category_pairs_internal))
+        parsed_data["summary"]["unmatched_instruments"] = unmatched_instruments
 
     # (Exception handling and JSON printing remain the same)
     except FileNotFoundError:
@@ -302,6 +357,9 @@ def process_file(filepath: str, sheet_name_or_index: Optional[Any] = None) -> in
         parsed_data["summary"]["traceback"] = traceback.format_exc()
         exit_code = EXIT_GENERAL_ERROR
     
+    finally:
+        conn.close()
+
     print(json.dumps(parsed_data, indent=2, ensure_ascii=False))
     return exit_code
 

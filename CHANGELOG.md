@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area
+- Enhance Credit-Suisse parser with Valor/ISIN instrument matching and detailed logs
+- Clarify Credit-Suisse import card description with expected filename format
 - Add Import Session History tab with per-session totals
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
