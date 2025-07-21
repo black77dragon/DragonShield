@@ -7,5 +7,5 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from deploy_db import parse_version
 
 def test_schema_version_updated():
-    schema_path = Path(__file__).resolve().parents[1] / 'database' / 'schema.sql'
-    assert parse_version(str(schema_path)) == '4.16'
+    schema_path = Path(__file__).resolve().parents[1] / 'DragonShield' / 'database' / 'schema.sql'
+    assert parse_version(str(schema_path)) == '4.17'

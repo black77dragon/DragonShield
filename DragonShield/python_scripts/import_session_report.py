@@ -84,6 +84,31 @@ def save_total(conn: sqlite3.Connection, session_id: int, total: float) -> None:
     conn.commit()
 
 
+def save_report(conn: sqlite3.Connection, session_id: int, items: List[Dict[str, Any]]) -> None:
+    conn.execute(
+        "DELETE FROM ImportSessionValueReports WHERE import_session_id=?",
+        (session_id,)
+    )
+    conn.executemany(
+        """
+        INSERT INTO ImportSessionValueReports
+            (import_session_id, instrument_name, currency, value_orig, value_chf)
+        VALUES (?,?,?,?,?)
+        """,
+        [
+            (
+                session_id,
+                item.get("instrument", ""),
+                item.get("currency", "CHF"),
+                item.get("value_orig", 0.0),
+                item.get("value_chf", 0.0),
+            )
+            for item in items
+        ],
+    )
+    conn.commit()
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Summarize import session values")
     parser.add_argument("session_id", type=int, help="Import session id")
@@ -94,6 +119,7 @@ def main(argv: List[str] | None = None) -> int:
     positions = fetch_positions(conn, args.session_id)
     summary = summarize_positions(conn, positions)
     save_total(conn, args.session_id, summary["total_chf"])
+    save_report(conn, args.session_id, summary["positions"])
 
     print(f"Total value CHF: {summary['total_chf']:.2f}")
     print("Breakdown by currency:")

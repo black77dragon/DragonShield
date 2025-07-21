@@ -5,7 +5,10 @@ struct ImportSessionHistoryView: View {
     @State private var sessions: [DatabaseManager.ImportSessionData] = []
     @State private var totalValues: [Int: Double] = [:]
     @State private var selected: DatabaseManager.ImportSessionData? = nil
-    @State private var showDetails = false
+    @State private var detailItem: DatabaseManager.ImportSessionData? = nil
+    @State private var showReport = false
+    @State private var reportItems: [DatabaseManager.ImportSessionValueItem] = []
+    @State private var reportTotal: Double = 0
 
     static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -29,7 +32,7 @@ struct ImportSessionHistoryView: View {
                             }
                             .onTapGesture(count: 2) {
                                 selected = session
-                                showDetails = true
+                                detailItem = session
                             }
                     }
                 }
@@ -49,10 +52,15 @@ struct ImportSessionHistoryView: View {
         }
         .padding()
         .onAppear { loadSessions() }
-        .sheet(isPresented: $showDetails) {
-            if let s = selected {
-                ImportSessionDetailView(session: s, totalValue: totalValues[s.id] ?? 0)
-                    .environmentObject(dbManager)
+        .sheet(item: $detailItem) { item in
+            ImportSessionDetailView(session: item, totalValue: totalValues[item.id] ?? 0) {
+                detailItem = nil
+            }
+            .environmentObject(dbManager)
+        }
+        .sheet(isPresented: $showReport) {
+            ImportSessionValueReportView(items: reportItems, totalValue: reportTotal) {
+                showReport = false
             }
         }
     }
@@ -77,9 +85,19 @@ struct ImportSessionHistoryView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack {
-                Button("Show Details") { showDetails = true }
+                Button("Show Details") { detailItem = selected }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(selected == nil)
+                Button("Show Report") {
+                    if let s = selected {
+                        let items = dbManager.fetchValueReport(forSession: s.id)
+                        reportItems = items
+                        reportTotal = items.reduce(0) { $0 + $1.valueChf }
+                        showReport = true
+                    }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(selected == nil)
                 Spacer()
                 if let s = selected {
                     HStack(spacing: 8) {
@@ -164,6 +182,7 @@ private struct ImportSessionRowView: View {
 private struct ImportSessionDetailView: View {
     let session: DatabaseManager.ImportSessionData
     let totalValue: Double
+    let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -193,12 +212,41 @@ private struct ImportSessionDetailView: View {
             }
             HStack {
                 Spacer()
-                Button("Close") { NSApp.keyWindow?.close() }
+                Button("Close") { onClose() }
                     .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(24)
         .frame(minWidth: 400, minHeight: 400)
+    }
+}
+
+private struct ImportSessionValueReportView: View {
+    let items: [DatabaseManager.ImportSessionValueItem]
+    let totalValue: Double
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Value Report")
+                .font(.headline)
+            Table(items) {
+                TableColumn("Instrument") { Text($0.instrument) }
+                TableColumn("Currency") { Text($0.currency) }
+                TableColumn("Value") { item in Text(String(format: "%.2f", item.valueOrig)) }
+                TableColumn("Value CHF") { item in Text(String(format: "%.2f", item.valueChf)) }
+            }
+            Text(
+                "Total Value CHF: " + (ImportSessionHistoryView.chfFormatter.string(from: NSNumber(value: totalValue)) ?? "0")
+            )
+            HStack {
+                Spacer()
+                Button("Close") { onClose() }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 500, minHeight: 400)
     }
 }
 

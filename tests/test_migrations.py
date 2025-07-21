@@ -87,4 +87,9 @@ def test_apply_migrations_and_insert_dates():
     tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='TargetAllocation'")]
     assert 'TargetAllocation' in tables
 
+    # Apply fourth migration
+    conn.executescript(read_sql('004_add_import_session_value_report_table.sql'))
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ImportSessionValueReports'")]
+    assert 'ImportSessionValueReports' in tables
+
     conn.close()

@@ -221,7 +221,7 @@ extension DatabaseManager {
                 let qty = sqlite3_column_double(stmt, 2)
                 guard sqlite3_column_type(stmt, 3) != SQLITE_NULL else { continue }
                 let price = sqlite3_column_double(stmt, 3)
-                var value = qty * price
+                let value = qty * price
                 let dateStr = String(cString: sqlite3_column_text(stmt, 4))
                 let date = DateFormatter.iso8601DateOnly.date(from: dateStr)
                 var rate = 1.0
@@ -242,6 +242,79 @@ extension DatabaseManager {
         }
         sqlite3_finalize(stmt)
         return items
+    }
+
+    struct ImportSessionValueItem: Identifiable {
+        var id: Int
+        var instrument: String
+        var currency: String
+        var valueOrig: Double
+        var valueChf: Double
+    }
+
+    func fetchValueReport(forSession id: Int) -> [ImportSessionValueItem] {
+        var items: [ImportSessionValueItem] = []
+        let query = """
+            SELECT report_id, instrument_name, currency, value_orig, value_chf
+              FROM ImportSessionValueReports
+             WHERE import_session_id=?
+             ORDER BY report_id;
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let rid = Int(sqlite3_column_int(stmt, 0))
+                let name = String(cString: sqlite3_column_text(stmt, 1))
+                let cur = String(cString: sqlite3_column_text(stmt, 2))
+                let orig = sqlite3_column_double(stmt, 3)
+                let chf = sqlite3_column_double(stmt, 4)
+                items.append(ImportSessionValueItem(id: rid, instrument: name, currency: cur, valueOrig: orig, valueChf: chf))
+            }
+        }
+        sqlite3_finalize(stmt)
+        if !items.isEmpty {
+            return items
+        }
+
+        let fallback = positionValuesForSession(id)
+        var rid = 1
+        for entry in fallback {
+            items.append(ImportSessionValueItem(id: rid, instrument: entry.0, currency: entry.1, valueOrig: entry.2, valueChf: entry.3))
+            rid += 1
+        }
+        if !fallback.isEmpty {
+            saveValueReport(fallback, forSession: id)
+        }
+        return items
+    }
+
+    func saveValueReport(_ items: [(String, String, Double, Double)], forSession id: Int) {
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "DELETE FROM ImportSessionValueReports WHERE import_session_id=?", -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            _ = sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+
+        let insertSQL = """
+            INSERT INTO ImportSessionValueReports
+                (import_session_id, instrument_name, currency, value_orig, value_chf)
+            VALUES (?,?,?,?,?);
+        """
+        if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            for item in items {
+                sqlite3_bind_int(stmt, 1, Int32(id))
+                sqlite3_bind_text(stmt, 2, item.0, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, item.1, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_double(stmt, 4, item.2)
+                sqlite3_bind_double(stmt, 5, item.3)
+                sqlite3_step(stmt)
+                sqlite3_reset(stmt)
+            }
+        }
+        sqlite3_finalize(stmt)
     }
 }
 
