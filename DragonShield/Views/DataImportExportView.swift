@@ -200,8 +200,8 @@ struct DataImportExportView: View {
         let alert = NSAlert()
         alert.messageText = "Delete existing Credit-Suisse positions?"
         alert.informativeText = "Choose which positions should be removed before import."
-        alert.addButton(withTitle: "all ZKB Accounts")
-        alert.addButton(withTitle: "ZKB Custody Account positions only")
+        alert.addButton(withTitle: "all Credit-Suisse Accounts")
+        alert.addButton(withTitle: "Credit-Suisse Custody Account positions only")
         alert.addButton(withTitle: "Cancel")
         let resp = alert.runModal()
         switch resp {
