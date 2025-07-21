@@ -395,23 +395,32 @@ class ImportManager {
                         if let val = parsed.valorNr {
                             let sanitized = Self.sanitizeValor(val)
                             if let mapping = Self.cashValorMap[sanitized],
-                               parsed.instrumentName.lowercased().contains("konto") || parsed.instrumentName.lowercased().contains("call account") {
-                                if let aId = self.dbManager.findAccountId(valor: val),
-                                   let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) {
-                                    _ = self.dbManager.addPositionReport(
-                                        importSessionId: sessionId,
-                                        accountId: aId,
-                                        institutionId: institutionId,
-                                        instrumentId: instrId,
-                                        quantity: parsed.quantity,
-                                        purchasePrice: 1,
-                                        currentPrice: 1,
-                                        instrumentUpdatedAt: parsed.reportDate,
-                                        notes: nil,
-                                        reportDate: parsed.reportDate
-                                    )
+                               parsed.instrumentName.lowercased().contains("konto") ||
+                               parsed.instrumentName.lowercased().contains("call account") {
+                                guard let aId = self.dbManager.findAccountId(valor: val) else {
+                                    LoggingService.shared.log("Cash account valor \(sanitized) not found", type: .error, logger: .parser)
+                                    continue
+                                }
+                                guard let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) else {
+                                    LoggingService.shared.log("Instrument \(mapping.ticker) missing", type: .error, logger: .parser)
+                                    continue
+                                }
+                                if self.dbManager.addPositionReport(
+                                    importSessionId: sessionId,
+                                    accountId: aId,
+                                    institutionId: institutionId,
+                                    instrumentId: instrId,
+                                    quantity: parsed.quantity,
+                                    purchasePrice: 1,
+                                    currentPrice: 1,
+                                    instrumentUpdatedAt: parsed.reportDate,
+                                    notes: nil,
+                                    reportDate: parsed.reportDate
+                                ) != nil {
                                     LoggingService.shared.log("Cash Account \(mapping.ticker) recorded", type: .info, logger: .parser)
                                     success += 1
+                                } else {
+                                    LoggingService.shared.log("Failed to record cash account \(mapping.ticker)", type: .error, logger: .parser)
                                 }
                                 continue
                             }
