@@ -38,6 +38,22 @@ class ImportManager {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
     }
 
+    private static let cashValorMap: [String: (ticker: String, currency: String)] = [
+        "CH9304835039842401009": ("CASHCHF", "CHF"),
+        "CH8104835039842402001": ("CASHEUR", "EUR"),
+        "CH5404835039842402002": ("CASHGBP", "GBP"),
+        "CH1104835039842402000": ("CASHUSD", "USD"),
+        "CH2704835039842402003": ("CASHUSD", "USD")
+    ]
+
+    private static func sanitizeValor(_ valor: String) -> String {
+        return valor.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { String($0) }
+            .joined()
+            .uppercased()
+    }
+
     /// Returns the institution ID for Zürcher Kantonalbank using various name
     /// variants. Defaults to 1 if not found.
     private func zkbInstitutionId() -> Int {
@@ -376,6 +392,30 @@ class ImportManager {
                 var unmatched = 0
                 for parsed in rows {
                     if parsed.isCash {
+                        if let val = parsed.valorNr {
+                            let sanitized = Self.sanitizeValor(val)
+                            if let mapping = Self.cashValorMap[sanitized],
+                               parsed.instrumentName.lowercased().contains("konto") || parsed.instrumentName.lowercased().contains("call account") {
+                                if let aId = self.dbManager.findAccountId(valor: val),
+                                   let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) {
+                                    _ = self.dbManager.addPositionReport(
+                                        importSessionId: sessionId,
+                                        accountId: aId,
+                                        institutionId: institutionId,
+                                        instrumentId: instrId,
+                                        quantity: parsed.quantity,
+                                        purchasePrice: 1,
+                                        currentPrice: 1,
+                                        instrumentUpdatedAt: parsed.reportDate,
+                                        notes: nil,
+                                        reportDate: parsed.reportDate
+                                    )
+                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded", type: .info, logger: .parser)
+                                    success += 1
+                                }
+                                continue
+                            }
+                        }
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {

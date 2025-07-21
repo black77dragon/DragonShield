@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
 - Handle percent-valued bond prices in ZKB CSV import
 - Convert percent-valued bond prices in Credit-Suisse XLS import
+- Save cash account balances from Credit-Suisse statements into PositionReports
 - Allow selecting tables for transaction backups and restores with versioned filename
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import

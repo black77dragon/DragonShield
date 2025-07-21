@@ -389,6 +389,41 @@ extension DatabaseManager {
         return nil
     }
 
+    /// Finds the account_id for the given valor/IBAN string stored in the notes column.
+    /// The lookup strips non-alphanumeric characters for resilience.
+    func findAccountId(valor: String) -> Int? {
+        let sanitizedSearch = valor.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { Character($0) }
+            .map { String($0) }
+            .joined()
+            .lowercased()
+        let query = "SELECT account_id, notes FROM Accounts WHERE notes IS NOT NULL;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            LoggingService.shared.log("Failed to prepare findAccountId(valor): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            guard let notePtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbValor = String(cString: notePtr)
+            let sanitizedDb = dbValor.unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { Character($0) }
+                .map { String($0) }
+                .joined()
+                .lowercased()
+            if sanitizedDb == sanitizedSearch {
+                LoggingService.shared.log("findAccountId(valor) found id=\(id) for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
+                return id
+            }
+        }
+        LoggingService.shared.log("findAccountId(valor) no match for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
+        return nil
+    }
+
     /// Returns IDs and numbers of all accounts belonging to the given institution name.
     func fetchAccounts(institutionName: String) -> [(id: Int, number: String)] {
         let sql = """
