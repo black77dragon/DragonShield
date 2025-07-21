@@ -487,10 +487,10 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    var instrumentId = self.lookupInstrumentId(name: row.instrumentName,
-                                                                valor: row.valorNr,
-                                                                isin: row.isin,
-                                                                ticker: row.tickerSymbol)
+                    let instrumentId = self.lookupInstrumentId(name: row.instrumentName,
+                                                               valor: row.valorNr,
+                                                               isin: row.isin,
+                                                               ticker: row.tickerSymbol)
                     if instrumentId == nil {
                         unmatched += 1
                         var proceed = true

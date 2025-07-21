@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link
 - Move Target Asset Allocation link to Key Features section
+- Fix compile warnings for immutable variables in import processing
 - Fix compile error in allocation charts by importing Charts framework
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
 - Fix duplicate IDs in import summary logs to avoid SwiftUI warnings
