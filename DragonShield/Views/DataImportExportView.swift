@@ -4,6 +4,7 @@ import AppKit
 
 struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
+    private enum CSDeleteOption { case all, custody }
 
     private let dropZoneSize: CGFloat = 100
 
@@ -173,6 +174,20 @@ struct DataImportExportView: View {
             let removed = ImportManager.shared.deletePositions(institutionId: inst.id)
             appendLog("Existing \(inst.name) positions removed: \(removed)")
             startImport(deleteExisting: false)
+        } else if type == .creditSuisse {
+            guard let choice = promptCreditSuisseDeletion() else {
+                statusMessage = "Status: Upload cancelled"
+                return
+            }
+            let removed: Int
+            switch choice {
+            case .all:
+                removed = ImportManager.shared.deleteCreditSuissePositions()
+            case .custody:
+                removed = ImportManager.shared.deleteCreditSuisseCustodyPositions()
+            }
+            appendLog("Existing Credit-Suisse positions removed: \(removed)")
+            startImport(deleteExisting: false)
         } else {
             startImport(deleteExisting: false)
         }
@@ -198,6 +213,21 @@ struct DataImportExportView: View {
         guard response == .alertFirstButtonReturn else { return nil }
         let selected = popup.indexOfSelectedItem
         return institutions[selected]
+    }
+
+    private func promptCreditSuisseDeletion() -> CSDeleteOption? {
+        let alert = NSAlert()
+        alert.messageText = "Delete existing Credit-Suisse positions?"
+        alert.informativeText = "Choose which positions should be removed before import."
+        alert.addButton(withTitle: "All Accounts")
+        alert.addButton(withTitle: "Custody Only")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn: return .all
+        case .alertSecondButtonReturn: return .custody
+        default: return nil
+        }
     }
 
     private func appendLog(_ entry: String) {
