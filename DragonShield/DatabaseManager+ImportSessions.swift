@@ -275,6 +275,34 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+
+    func saveValueReport(_ items: [(String, String, Double, Double)], forSession id: Int) {
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "DELETE FROM ImportSessionValueReports WHERE import_session_id=?", -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            _ = sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+
+        let insertSQL = """
+            INSERT INTO ImportSessionValueReports
+                (import_session_id, instrument_name, currency, value_orig, value_chf)
+            VALUES (?,?,?,?,?);
+        """
+        if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            for item in items {
+                sqlite3_bind_int(stmt, 1, Int32(id))
+                sqlite3_bind_text(stmt, 2, item.0, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, item.1, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_double(stmt, 4, item.2)
+                sqlite3_bind_double(stmt, 5, item.3)
+                sqlite3_step(stmt)
+                sqlite3_reset(stmt)
+            }
+        }
+        sqlite3_finalize(stmt)
+    }
 }
 
 extension URL {

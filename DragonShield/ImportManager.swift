@@ -566,6 +566,7 @@ class ImportManager {
                                                        duplicateRows: 0,
                                                        notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
+                    self.dbManager.saveValueReport(items, forSession: sid)
                     let lines = items.map {
                         String(format: "%@: %.2f %@ -> %.2f CHF",
                                $0.instrument, $0.valueOrig, $0.currency, $0.valueChf)
