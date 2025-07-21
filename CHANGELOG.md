@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Show imported position values in CHF after import completes
 - Persist full value reports per import session and view them from history
 - Persist value reports in database after import and fix Session Details sheet closing
+- Fix unused variable warning when computing position values
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly

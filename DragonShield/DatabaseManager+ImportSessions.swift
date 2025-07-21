@@ -221,7 +221,7 @@ extension DatabaseManager {
                 let qty = sqlite3_column_double(stmt, 2)
                 guard sqlite3_column_type(stmt, 3) != SQLITE_NULL else { continue }
                 let price = sqlite3_column_double(stmt, 3)
-                var value = qty * price
+                let value = qty * price
                 let dateStr = String(cString: sqlite3_column_text(stmt, 4))
                 let date = DateFormatter.iso8601DateOnly.date(from: dateStr)
                 var rate = 1.0
