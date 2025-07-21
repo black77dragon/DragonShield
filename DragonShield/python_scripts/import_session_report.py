@@ -11,12 +11,13 @@ DB_PATH = (
 )
 
 
-def get_fx_rate(conn: sqlite3.Connection, currency: str, date: str) -> float | None:
+def get_fx_rate(conn: sqlite3.Connection, currency: str, date: str | None) -> float | None:
+    """Return the latest exchange rate flagged as current for ``currency``."""
     cur = conn.execute(
         """SELECT rate_to_chf FROM ExchangeRates
-           WHERE currency_code=? AND rate_date<=?
-           ORDER BY rate_date DESC LIMIT 1""",
-        (currency, date),
+           WHERE currency_code=? AND is_latest=1
+           LIMIT 1""",
+        (currency,),
     )
     row = cur.fetchone()
     return row[0] if row else None
@@ -47,6 +48,7 @@ def fetch_positions(conn: sqlite3.Connection, session_id: int) -> List[Dict[str,
 def summarize_positions(conn: sqlite3.Connection, positions: List[Dict[str, Any]]) -> Dict[str, Any]:
     totals: Dict[str, float] = {}
     items: List[Dict[str, Any]] = []
+    rates: Dict[str, float] = {}
     total_chf = 0.0
     for p in positions:
         price = p.get("price")
@@ -60,6 +62,7 @@ def summarize_positions(conn: sqlite3.Connection, positions: List[Dict[str, Any]
             r = get_fx_rate(conn, currency, p.get("date"))
             if r is None:
                 continue
+            rates.setdefault(currency, r)
             rate = r
         value_chf = value * rate
         items.append(
@@ -72,7 +75,12 @@ def summarize_positions(conn: sqlite3.Connection, positions: List[Dict[str, Any]
         )
         totals[currency] = totals.get(currency, 0.0) + value_chf
         total_chf += value_chf
-    return {"total_chf": total_chf, "breakdown": totals, "positions": items}
+    return {
+        "total_chf": total_chf,
+        "breakdown": totals,
+        "positions": items,
+        "fx_rates": rates,
+    }
 
 
 def save_total(conn: sqlite3.Connection, session_id: int, total: float) -> None:
@@ -125,6 +133,10 @@ def main(argv: List[str] | None = None) -> int:
     print("Breakdown by currency:")
     for cur, val in summary["breakdown"].items():
         print(f"  {cur}: {val:.2f} CHF")
+    if summary["fx_rates"]:
+        print("Exchange rates used:")
+        for cur, rate in summary["fx_rates"].items():
+            print(f"  {cur}: {rate:.4f}")
     print("Positions:")
     for item in summary["positions"]:
         print(

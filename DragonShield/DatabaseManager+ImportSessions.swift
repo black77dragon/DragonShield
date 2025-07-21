@@ -187,11 +187,9 @@ extension DatabaseManager {
                 var value = qty * price
                 let currency = String(cString: sqlite3_column_text(stmt, 2)).uppercased()
                 if currency != "CHF" {
-                    let dateStr = String(cString: sqlite3_column_text(stmt, 3))
-                    let date = DateFormatter.iso8601DateOnly.date(from: dateStr)
                     var rate = rateCache[currency]
                     if rate == nil {
-                        rate = fetchExchangeRates(currencyCode: currency, upTo: date).first?.rateToChf
+                        rate = fetchLatestExchangeRate(currencyCode: currency)?.rateToChf
                         if let r = rate { rateCache[currency] = r }
                     }
                     if let r = rate { value *= r } else { continue }
@@ -222,14 +220,12 @@ extension DatabaseManager {
                 guard sqlite3_column_type(stmt, 3) != SQLITE_NULL else { continue }
                 let price = sqlite3_column_double(stmt, 3)
                 let value = qty * price
-                let dateStr = String(cString: sqlite3_column_text(stmt, 4))
-                let date = DateFormatter.iso8601DateOnly.date(from: dateStr)
                 var rate = 1.0
                 if currency != "CHF" {
                     if let cached = rateCache[currency] {
                         rate = cached
                     } else {
-                        if let r = fetchExchangeRates(currencyCode: currency, upTo: date).first?.rateToChf {
+                        if let r = fetchLatestExchangeRate(currencyCode: currency)?.rateToChf {
                             rateCache[currency] = r
                             rate = r
                         } else {

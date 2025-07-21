@@ -67,6 +67,38 @@ extension DatabaseManager {
         return rates
     }
 
+    func fetchLatestExchangeRate(currencyCode: String) -> ExchangeRate? {
+        let query = """
+            SELECT rate_id, currency_code, rate_date, rate_to_chf, rate_source, api_provider, is_latest, created_at
+              FROM ExchangeRates
+             WHERE currency_code = ? AND is_latest = 1
+             LIMIT 1;
+        """
+        var statement: OpaquePointer?
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        var rate: ExchangeRate?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, (currencyCode as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                let code = String(cString: sqlite3_column_text(statement, 1))
+                let dateStr = String(cString: sqlite3_column_text(statement, 2))
+                let rateDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
+                let rateToChf = sqlite3_column_double(statement, 3)
+                let source = String(cString: sqlite3_column_text(statement, 4))
+                let apiProv = sqlite3_column_text(statement, 5).map { String(cString: $0) }
+                let latest = sqlite3_column_int(statement, 6) == 1
+                let createdStr = String(cString: sqlite3_column_text(statement, 7))
+                let created = DateFormatter.iso8601DateTime.date(from: createdStr) ?? Date()
+                rate = ExchangeRate(id: id, currencyCode: code, rateDate: rateDate, rateToChf: rateToChf, rateSource: source, apiProvider: apiProv, isLatest: latest, createdAt: created)
+            }
+        } else {
+            print("❌ Failed to prepare fetchLatestExchangeRate: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(statement)
+        return rate
+    }
+
     func insertExchangeRate(currencyCode: String, rateDate: Date, rateToChf: Double, rateSource: String, apiProvider: String?, isLatest: Bool) -> Bool {
         if isLatest {
             let clear = "UPDATE ExchangeRates SET is_latest = 0 WHERE currency_code = ?;"
