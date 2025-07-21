@@ -114,7 +114,10 @@ struct PositionsView: View {
     }
 
     var selectedPositionsTotalCHF: Double {
-        filteredPositions.reduce(0) { sum, pos in
+        let selected = positions.filter { pos in
+            selectedInstitutionNames.contains(pos.institutionName)
+        }
+        return selected.reduce(0) { sum, pos in
             if let valOpt = viewModel.positionValueCHF[pos.id], let val = valOpt {
                 return sum + val
             }
