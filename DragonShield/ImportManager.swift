@@ -397,6 +397,7 @@ class ImportManager {
                             if let mapping = Self.cashValorMap[sanitized],
                                parsed.instrumentName.lowercased().contains("konto") ||
                                parsed.instrumentName.lowercased().contains("call account") {
+                                LoggingService.shared.log("Processing cash account valor \(sanitized)", type: .debug, logger: .parser)
                                 guard let aId = self.dbManager.findAccountId(valor: val) else {
                                     LoggingService.shared.log("Cash account valor \(sanitized) not found", type: .error, logger: .parser)
                                     continue
@@ -423,7 +424,11 @@ class ImportManager {
                                     LoggingService.shared.log("Failed to record cash account \(mapping.ticker)", type: .error, logger: .parser)
                                 }
                                 continue
+                            } else {
+                                LoggingService.shared.log("Valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
                             }
+                        } else {
+                            LoggingService.shared.log("Cash account row missing valor", type: .error, logger: .parser)
                         }
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
