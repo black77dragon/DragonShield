@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Fix storing cash account balances when account or instrument lookup fails
 - Log row numbers and failure reasons when processing cash account rows
 - Fix cash account instrument lookup by currency code
+- Sanitize ticker lookup so CASHCHF resolves correctly
 - Allow selecting tables for transaction backups and restores with versioned filename
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import
