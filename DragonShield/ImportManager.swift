@@ -46,6 +46,16 @@ class ImportManager {
         "CH2704835039842402003": ("CASHUSD", "USD")
     ]
 
+    /// Maps currency codes to the ticker symbol of the corresponding cash instrument.
+    /// Used when a valor mapping is unavailable.
+    private static let cashTickerByCurrency: [String: String] = [
+        "CHF": "CASHCHF",
+        "EUR": "CASHEUR",
+        "GBP": "CASHGBP",
+        "USD": "CASHUSD",
+        "SGD": "CASHSGD"
+    ]
+
     private static func sanitizeValor(_ valor: String) -> String {
         return valor.unicodeScalars
             .filter { CharacterSet.alphanumerics.contains($0) }
@@ -458,21 +468,35 @@ class ImportManager {
                                 accId = self.dbManager.findAccountId(accountNumber: accNumber)
                             }
                         }
-                        if let aId = accId,
-                           let instrId = self.dbManager.findInstrumentId(ticker: "\(parsed.currency.uppercased())_CASH") {
-                            _ = self.dbManager.addPositionReport(
-                                importSessionId: sessionId,
-                                accountId: aId,
-                                institutionId: institutionId,
-                                instrumentId: instrId,
-                                quantity: parsed.quantity,
-                                purchasePrice: nil,
-                                currentPrice: nil,
-                                instrumentUpdatedAt: parsed.reportDate,
-                                notes: nil,
-                                reportDate: parsed.reportDate
-                            )
-                            success += 1
+                        if let aId = accId {
+                            let curr = parsed.currency.uppercased()
+                            if let ticker = Self.cashTickerByCurrency[curr] {
+                                if let instrId = self.dbManager.findInstrumentId(ticker: ticker) {
+                                    if self.dbManager.addPositionReport(
+                                        importSessionId: sessionId,
+                                        accountId: aId,
+                                        institutionId: institutionId,
+                                        instrumentId: instrId,
+                                        quantity: parsed.quantity,
+                                        purchasePrice: 1,
+                                        currentPrice: 1,
+                                        instrumentUpdatedAt: parsed.reportDate,
+                                        notes: nil,
+                                        reportDate: parsed.reportDate
+                                    ) != nil {
+                                        LoggingService.shared.log("Cash Account \(ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
+                                        success += 1
+                                    } else {
+                                        LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(ticker)", type: .error, logger: .parser)
+                                    }
+                                } else {
+                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(ticker) missing", type: .error, logger: .parser)
+                                }
+                            } else {
+                                LoggingService.shared.log("Row \(idx+1) currency \(curr) has no cash instrument mapping", type: .error, logger: .parser)
+                            }
+                        } else {
+                            LoggingService.shared.log("Row \(idx+1) skipped - account not found for number \(accNumber)", type: .error, logger: .parser)
                         }
                         continue
                     }
