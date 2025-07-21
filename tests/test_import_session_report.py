@@ -33,7 +33,8 @@ def setup_db():
         CREATE TABLE ExchangeRates (
             currency_code TEXT,
             rate_date TEXT,
-            rate_to_chf REAL
+            rate_to_chf REAL,
+            is_latest INTEGER
         )
         """
     )
@@ -71,7 +72,7 @@ def test_summary_and_save():
     conn.execute("INSERT INTO ImportSessions (session_name) VALUES ('test')")
     conn.execute("INSERT INTO Instruments (instrument_name, currency) VALUES ('A', 'USD')")
     conn.execute("INSERT INTO Instruments (instrument_name, currency) VALUES ('B', 'CHF')")
-    conn.execute("INSERT INTO ExchangeRates VALUES ('USD','2025-01-01',0.9)")
+    conn.execute("INSERT INTO ExchangeRates VALUES ('USD','2025-01-01',0.9,1)")
     conn.execute(
         "INSERT INTO PositionReports (import_session_id, account_id, institution_id, instrument_id, quantity, current_price, report_date) VALUES (1,1,1,1,10,5,'2025-01-01')"
     )
@@ -85,6 +86,7 @@ def test_summary_and_save():
     assert round(summary['total_chf'], 2) == 85.0
     assert summary['breakdown']['USD'] == 45.0
     assert summary['breakdown']['CHF'] == 40.0
+    assert summary['fx_rates']['USD'] == 0.9
 
     report.save_total(conn, 1, summary['total_chf'])
     report.save_report(conn, 1, summary['positions'])

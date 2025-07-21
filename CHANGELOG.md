@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Generate full instrument report from Database Management view
+- Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
 - Show imported position values in CHF after import completes
 - Persist full value reports per import session and view them from history
