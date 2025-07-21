@@ -253,7 +253,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async(execute: {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -265,17 +265,17 @@ class ImportManager {
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
                 let json = String(data: data, encoding: .utf8) ?? "[]"
-                DispatchQueue.main.async {
+                DispatchQueue.main.async(execute: {
                     completion(.success(json))
-                }
+                })
                 LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
-                DispatchQueue.main.async {
+                DispatchQueue.main.async(execute: {
                     completion(.failure(error))
-                }
+                })
             }
-        }
+        })
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
@@ -286,7 +286,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing positions: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async(execute: {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             if deleteExisting {
@@ -310,13 +310,13 @@ class ImportManager {
                         return try self.zkbParser.parse(url: url, progress: logger)
                     }
                 }()
-                DispatchQueue.main.sync {
+                DispatchQueue.main.sync(execute: {
                     let first = rows.first
                     self.showImportSummary(fileName: url.lastPathComponent,
                                            account: first?.accountNumber,
                                            valueDate: first?.reportDate,
                                            validRows: summary.parsedRows)
-                }
+                })
 
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
@@ -338,11 +338,11 @@ class ImportManager {
                 while accountId == nil {
                     if self.checkpointsEnabled {
                         var accAction: AccountPromptResult = .cancel
-                    DispatchQueue.main.sync {
+                    DispatchQueue.main.sync(execute: {
                         accAction = self.promptForAccount(number: custodyNumber,
                                                          currency: rows.first?.currency ?? "CHF",
                                                          accountTypeCode: "CUSTODY")
-                    }
+                    })
                     switch accAction {
                     case let .save(name, instId, number, typeId, curr):
                         _ = self.dbManager.addAccount(accountName: name,
@@ -373,10 +373,10 @@ class ImportManager {
                         }
                         if accountId == nil {
                             if self.checkpointsEnabled {
-                                DispatchQueue.main.sync {
+                                DispatchQueue.main.sync(execute: {
                                     self.showStatusAlert(title: "Account Required",
                                                           message: "Account \(custodyNumber) is required to save positions.")
-                                }
+                                })
                             }
                         }
                     case .abort:
@@ -460,11 +460,11 @@ class ImportManager {
                             var proceed = true
                             if self.checkpointsEnabled {
                                 proceed = false
-                                DispatchQueue.main.sync {
+                                DispatchQueue.main.sync(execute: {
                                     proceed = self.confirmCashAccount(name: parsed.accountName,
                                                                       currency: parsed.currency,
                                                                       amount: parsed.quantity)
-                                }
+                                })
                             }
                             if proceed {
                                 let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
@@ -517,9 +517,9 @@ class ImportManager {
 
                     var action: RecordPromptResult = .save(parsed)
                     if self.checkpointsEnabled {
-                        DispatchQueue.main.sync {
+                        DispatchQueue.main.sync(execute: {
                             action = self.promptForPosition(record: parsed)
-                        }
+                        })
                     }
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
@@ -532,14 +532,14 @@ class ImportManager {
                     if instrumentId == nil {
                         unmatched += 1
                         var proceed = true
-                        DispatchQueue.main.sync {
+                        DispatchQueue.main.sync(execute: {
                             let alert = NSAlert()
                             alert.messageText = "Unknown Instrument"
                             alert.informativeText = "Instrument \(row.instrumentName) is not in the database. Please add it manually. Do you want to continue the upload?"
                             alert.addButton(withTitle: "Yes")
                             alert.addButton(withTitle: "No")
                             proceed = alert.runModal() == .alertFirstButtonReturn
-                        }
+                        })
                         if !proceed {
                             throw ImportError.aborted
                         }
@@ -563,10 +563,10 @@ class ImportManager {
                     )
                     success += 1
                     if self.checkpointsEnabled {
-                        DispatchQueue.main.sync {
+                        DispatchQueue.main.sync(execute: {
                             self.showStatusAlert(title: "Position Saved",
                                                   message: "Saved \(row.instrumentName)")
-                        }
+                        })
                     }
                 }
                 summary.unmatchedInstruments = unmatched
@@ -581,9 +581,9 @@ class ImportManager {
                                                        notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
                     self.dbManager.saveValueReport(items, forSession: sid)
-                    DispatchQueue.main.sync {
+                    DispatchQueue.main.sync(execute: {
                         self.showValueReport(items: items, total: total)
-                    }
+                    })
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))
@@ -595,7 +595,7 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        }
+        })
     }
 
     /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
