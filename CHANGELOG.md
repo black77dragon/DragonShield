@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Generate full instrument report from Database Management view
+- Store import session total value and add CLI summary report
+- Show imported position values in CHF after import completes
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly

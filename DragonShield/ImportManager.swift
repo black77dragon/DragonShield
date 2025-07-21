@@ -557,12 +557,23 @@ class ImportManager {
                 }
                 summary.unmatchedInstruments = unmatched
                 if let sid = sessionId {
+                    let total = self.dbManager.totalReportValueForSession(sid)
+                    let note = String(format: "total_value_chf=%.2f", total)
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,
                                                        successRows: success,
                                                        failedRows: failure,
                                                        duplicateRows: 0,
-                                                       notes: "will be determined later")
+                                                       notes: note)
+                    let items = self.dbManager.positionValuesForSession(sid)
+                    let lines = items.map {
+                        String(format: "%@: %.2f %@ -> %.2f CHF",
+                               $0.instrument, $0.valueOrig, $0.currency, $0.valueChf)
+                    }.joined(separator: "\n")
+                    let msg = lines + String(format: "\nTotal: %.2f CHF", total)
+                    DispatchQueue.main.sync {
+                        self.showStatusAlert(title: "Import Values", message: msg)
+                    }
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))
