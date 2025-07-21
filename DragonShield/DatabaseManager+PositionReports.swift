@@ -198,6 +198,56 @@ extension DatabaseManager {
         return deletePositionReports(institutionIds: ids)
     }
 
+    /// Deletes position reports for accounts of the given institution and account type code.
+    /// - Parameters:
+    ///   - institutionName: Institution name to match.
+    ///   - accountTypeCode: AccountTypes.type_code value (e.g. "CUSTODY").
+    /// - Returns: The number of deleted rows.
+    func deletePositionReports(institutionName: String, accountTypeCode: String) -> Int {
+        let sql = """
+            DELETE FROM PositionReports
+                  WHERE account_id IN (
+                        SELECT a.account_id
+                          FROM Accounts a
+                          JOIN Institutions i ON a.institution_id = i.institution_id
+                          JOIN AccountTypes at ON a.account_type_id = at.account_type_id
+                         WHERE i.institution_name = ? COLLATE NOCASE
+                           AND at.type_code = ? COLLATE NOCASE
+                   )
+                     OR (
+                            institution_id IN (
+                                SELECT i.institution_id
+                                  FROM Institutions i
+                                 WHERE i.institution_name = ? COLLATE NOCASE
+                            )
+                        AND account_id IN (
+                                SELECT a.account_id
+                                  FROM Accounts a
+                                  JOIN AccountTypes at ON a.account_type_id = at.account_type_id
+                                 WHERE at.type_code = ? COLLATE NOCASE
+                            )
+                   );
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports by type: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, institutionName, -1, nil)
+        sqlite3_bind_text(stmt, 2, accountTypeCode, -1, nil)
+        sqlite3_bind_text(stmt, 3, institutionName, -1, nil)
+        sqlite3_bind_text(stmt, 4, accountTypeCode, -1, nil)
+        let stepResult = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if stepResult == SQLITE_DONE {
+            print("✅ Deleted \(deleted) \(accountTypeCode) position reports for \(institutionName)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     // MARK: - Single Position CRUD
 
     func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, instrumentUpdatedAt: Date?, notes: String?, reportDate: Date) -> Int? {

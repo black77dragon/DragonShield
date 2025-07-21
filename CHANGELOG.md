@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly
+- Prompt to delete all or custody-only Credit-Suisse positions before import
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area

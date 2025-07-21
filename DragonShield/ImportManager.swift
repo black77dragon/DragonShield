@@ -620,16 +620,22 @@ class ImportManager {
         }
     }
 
-    /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
+    /// Deletes Credit-Suisse position reports.
+    /// - Parameter custodyOnly: When true, only positions linked to "CUSTODY" accounts are removed.
     /// - Returns: The number of deleted records.
-    func deleteCreditSuissePositions() -> Int {
+    func deleteCreditSuissePositions(custodyOnly: Bool = false) -> Int {
         let accounts = dbManager.fetchAccounts(institutionName: "Credit-Suisse")
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
-            LoggingService.shared.log("Deleting position reports for Credit-Suisse accounts: \(numbers)",
+            let scope = custodyOnly ? "CUSTODY" : "all"
+            LoggingService.shared.log("Deleting \(scope) Credit-Suisse position reports for accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        return dbManager.deletePositionReports(institutionName: "Credit-Suisse")
+        if custodyOnly {
+            return dbManager.deletePositionReports(institutionName: "Credit-Suisse", accountTypeCode: "CUSTODY")
+        } else {
+            return dbManager.deletePositionReports(institutionName: "Credit-Suisse")
+        }
     }
 
     /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.

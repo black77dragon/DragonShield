@@ -4,6 +4,7 @@ import AppKit
 
 struct DataImportExportView: View {
     enum StatementType { case creditSuisse, zkb }
+    enum DeletionChoice { case allAccounts, custodyOnly }
 
     private let dropZoneSize: CGFloat = 100
 
@@ -174,6 +175,18 @@ struct DataImportExportView: View {
             appendLog("Existing \(inst.name) positions removed: \(removed)")
             startImport(deleteExisting: false)
         } else {
+            guard let choice = promptCreditSuisseDeletion() else {
+                statusMessage = "Status: Upload cancelled"
+                return
+            }
+            let removed: Int
+            switch choice {
+            case .allAccounts:
+                removed = ImportManager.shared.deleteCreditSuissePositions()
+            case .custodyOnly:
+                removed = ImportManager.shared.deleteCreditSuissePositions(custodyOnly: true)
+            }
+            appendLog("Existing Credit-Suisse positions removed: \(removed)")
             startImport(deleteExisting: false)
         }
     }
@@ -198,6 +211,21 @@ struct DataImportExportView: View {
         guard response == .alertFirstButtonReturn else { return nil }
         let selected = popup.indexOfSelectedItem
         return institutions[selected]
+    }
+
+    private func promptCreditSuisseDeletion() -> DeletionChoice? {
+        let alert = NSAlert()
+        alert.messageText = "Delete existing Credit-Suisse positions?"
+        alert.informativeText = "Choose which Credit-Suisse positions should be removed before import."
+        alert.addButton(withTitle: "All Credit-Suisse Accounts")
+        alert.addButton(withTitle: "Custody Accounts Only")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn: return .allAccounts
+        case .alertSecondButtonReturn: return .custodyOnly
+        default: return nil
+        }
     }
 
     private func appendLog(_ entry: String) {

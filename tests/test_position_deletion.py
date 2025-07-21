@@ -12,6 +12,27 @@ def build_delete_query(count):
               );
     """
 
+def build_delete_custody_query():
+    return """
+        DELETE FROM PositionReports
+              WHERE account_id IN (
+                        SELECT a.account_id
+                          FROM Accounts a
+                          JOIN Institutions i ON a.institution_id = i.institution_id
+                          JOIN AccountTypes at ON a.account_type_id = at.account_type_id
+                         WHERE i.institution_name = ? COLLATE NOCASE
+                           AND at.type_code = ? COLLATE NOCASE
+                    )
+                 OR (
+                        institution_id IN (
+                            SELECT i.institution_id FROM Institutions i WHERE i.institution_name = ? COLLATE NOCASE
+                        )
+                    AND account_id IN (
+                            SELECT a.account_id FROM Accounts a JOIN AccountTypes at ON a.account_type_id = at.account_type_id WHERE at.type_code = ? COLLATE NOCASE
+                        )
+                    );
+    """
+    
 def setup_db():
     conn = sqlite3.connect(':memory:')
     conn.execute("CREATE TABLE Institutions (institution_id INTEGER PRIMARY KEY, institution_name TEXT)")
@@ -36,6 +57,26 @@ def setup_db():
     conn.execute("INSERT INTO PositionReports VALUES (1, 1, 1, 1, 10, '2024-01-01')")
     conn.execute("INSERT INTO PositionReports VALUES (2, 1, 99, 1, 20, '2024-01-01')")
     conn.execute("INSERT INTO PositionReports VALUES (3, 2, 2, 1, 30, '2024-01-01')")
+    return conn
+
+def setup_custody_db():
+    conn = sqlite3.connect(':memory:')
+    conn.execute("CREATE TABLE Institutions (institution_id INTEGER PRIMARY KEY, institution_name TEXT)")
+    conn.execute("CREATE TABLE AccountTypes (account_type_id INTEGER PRIMARY KEY, type_code TEXT)")
+    conn.execute(
+        "CREATE TABLE Accounts (account_id INTEGER PRIMARY KEY, account_number TEXT, institution_id INTEGER, account_type_id INTEGER)"
+    )
+    conn.execute("CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY, account_id INTEGER, institution_id INTEGER)")
+    conn.execute("INSERT INTO Institutions VALUES (1, 'Credit-Suisse')")
+    conn.execute("INSERT INTO Institutions VALUES (2, 'OtherBank')")
+    conn.execute("INSERT INTO AccountTypes VALUES (1, 'CUSTODY')")
+    conn.execute("INSERT INTO AccountTypes VALUES (2, 'BANK')")
+    conn.execute("INSERT INTO Accounts VALUES (1, 'CS-CUST', 1, 1)")
+    conn.execute("INSERT INTO Accounts VALUES (2, 'CS-BANK', 1, 2)")
+    conn.execute("INSERT INTO Accounts VALUES (3, 'OTHER', 2, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (1, 1, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (2, 2, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (3, 3, 2)")
     return conn
 
 def test_delete_by_institution():
@@ -75,6 +116,17 @@ def test_delete_multiple_ids():
     assert deleted == 3
     remaining = conn.execute('SELECT account_id FROM PositionReports').fetchall()
     assert remaining == [(2,)]
+    conn.close()
+
+
+def test_delete_custody_by_name():
+    conn = setup_custody_db()
+    query = build_delete_custody_query()
+    params = ('Credit-Suisse', 'CUSTODY', 'Credit-Suisse', 'CUSTODY')
+    deleted = conn.execute(query, params).rowcount
+    assert deleted == 1
+    remaining = conn.execute('SELECT account_id FROM PositionReports ORDER BY account_id').fetchall()
+    assert remaining == [(2,), (3,)]
     conn.close()
 
 
