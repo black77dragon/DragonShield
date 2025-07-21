@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Populate import session value report modal with stored rows
+- Display value import report in table after each import session
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly
