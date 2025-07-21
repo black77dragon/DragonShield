@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.16 - Add TargetAllocation table
+-- Version 4.17 - Add ImportSessionValueReports table
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
@@ -358,6 +358,16 @@ CREATE TABLE PositionReports (
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
     FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
+);
+
+CREATE TABLE ImportSessionValueReports (
+    report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_session_id INTEGER NOT NULL,
+    instrument_name TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    value_orig REAL NOT NULL,
+    value_chf REAL NOT NULL,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id)
 );
 
 -- Sample import sessions for testing

@@ -6,7 +6,7 @@
 import argparse
 import json
 import pandas as pd
-import numpy as np
+import math
 from typing import Dict
 
 
@@ -14,7 +14,7 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     excess = returns - risk_free_rate / 252
     if excess.std() == 0:
         return 0.0
-    return (excess.mean() / excess.std()) * np.sqrt(252)
+    return (excess.mean() / excess.std()) * math.sqrt(252)
 
 
 def sortino_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
@@ -22,7 +22,7 @@ def sortino_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     if downside.std() == 0:
         return 0.0
     excess = returns - risk_free_rate / 252
-    return (excess.mean() / downside.std()) * np.sqrt(252)
+    return (excess.mean() / downside.std()) * math.sqrt(252)
 
 
 def max_drawdown(returns: pd.Series) -> float:

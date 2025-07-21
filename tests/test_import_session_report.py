@@ -51,6 +51,18 @@ def setup_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE ImportSessionValueReports (
+            report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            import_session_id INTEGER,
+            instrument_name TEXT,
+            currency TEXT,
+            value_orig REAL,
+            value_chf REAL
+        )
+        """
+    )
     return conn
 
 
@@ -75,6 +87,9 @@ def test_summary_and_save():
     assert summary['breakdown']['CHF'] == 40.0
 
     report.save_total(conn, 1, summary['total_chf'])
+    report.save_report(conn, 1, summary['positions'])
     note = conn.execute('SELECT processing_notes FROM ImportSessions WHERE import_session_id=1').fetchone()[0]
     assert 'total_value_chf=85.00' == note
+    count = conn.execute('SELECT COUNT(*) FROM ImportSessionValueReports').fetchone()[0]
+    assert count == 2
     conn.close()

@@ -243,6 +243,38 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+
+    struct ImportSessionValueItem: Identifiable {
+        var id: Int
+        var instrument: String
+        var currency: String
+        var valueOrig: Double
+        var valueChf: Double
+    }
+
+    func fetchValueReport(forSession id: Int) -> [ImportSessionValueItem] {
+        var items: [ImportSessionValueItem] = []
+        let query = """
+            SELECT report_id, instrument_name, currency, value_orig, value_chf
+              FROM ImportSessionValueReports
+             WHERE import_session_id=?
+             ORDER BY report_id;
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let rid = Int(sqlite3_column_int(stmt, 0))
+                let name = String(cString: sqlite3_column_text(stmt, 1))
+                let cur = String(cString: sqlite3_column_text(stmt, 2))
+                let orig = sqlite3_column_double(stmt, 3)
+                let chf = sqlite3_column_double(stmt, 4)
+                items.append(ImportSessionValueItem(id: rid, instrument: name, currency: cur, valueOrig: orig, valueChf: chf))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return items
+    }
 }
 
 extension URL {

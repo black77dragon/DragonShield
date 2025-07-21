@@ -28,7 +28,7 @@ class BackupService: ObservableObject {
         "AssetClasses", "AssetSubClasses", "Instruments", "Portfolios",
         "PortfolioInstruments", "AccountTypes", "Institutions", "Accounts",
         "TransactionTypes", "Transactions", "ImportSessions", "PositionReports",
-        "TargetAllocation"
+        "ImportSessionValueReports", "TargetAllocation"
     ]
 
     let referenceTables = [
@@ -39,8 +39,8 @@ class BackupService: ObservableObject {
 
     let transactionTables = [
         "Portfolios", "PortfolioInstruments", "Transactions",
-        "PositionReports", "ImportSessions", "ExchangeRates",
-        "TargetAllocation"
+        "PositionReports", "ImportSessions", "ImportSessionValueReports",
+        "ExchangeRates", "TargetAllocation"
     ]
 
     init() {
