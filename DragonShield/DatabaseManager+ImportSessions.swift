@@ -243,6 +243,66 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+
+    struct SessionValueItem: Identifiable {
+        var id: Int
+        var sessionId: Int
+        var instrumentName: String
+        var currency: String
+        var valueOrig: Double
+        var valueChf: Double
+        var createdAt: Date
+    }
+
+    func saveSessionValues(sessionId: Int, values: [(String, String, Double, Double)]) {
+        let sql = """
+            INSERT INTO ImportSessionValues (import_session_id, instrument_name, currency, value_orig, value_chf)
+            VALUES (?, ?, ?, ?, ?);
+            """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            for v in values {
+                sqlite3_bind_int(stmt, 1, Int32(sessionId))
+                sqlite3_bind_text(stmt, 2, v.0, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, v.1, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_double(stmt, 4, v.2)
+                sqlite3_bind_double(stmt, 5, v.3)
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("❌ Failed to insert ImportSessionValue: \(String(cString: sqlite3_errmsg(db)))")
+                }
+                sqlite3_reset(stmt)
+            }
+        } else {
+            print("❌ Failed to prepare saveSessionValues: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    func fetchSessionValues(sessionId: Int) -> [SessionValueItem] {
+        var items: [SessionValueItem] = []
+        let sql = """
+            SELECT value_id, instrument_name, currency, value_orig, value_chf, created_at
+              FROM ImportSessionValues
+             WHERE import_session_id = ?
+             ORDER BY value_id;
+            """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(sessionId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let name = String(cString: sqlite3_column_text(stmt, 1))
+                let currency = String(cString: sqlite3_column_text(stmt, 2))
+                let valOrig = sqlite3_column_double(stmt, 3)
+                let valChf = sqlite3_column_double(stmt, 4)
+                let dateStr = String(cString: sqlite3_column_text(stmt, 5))
+                let created = DateFormatter.iso8601DateTime.date(from: dateStr) ?? Date()
+                items.append(SessionValueItem(id: id, sessionId: sessionId, instrumentName: name, currency: currency, valueOrig: valOrig, valueChf: valChf, createdAt: created))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return items
+    }
 }
 
 extension URL {

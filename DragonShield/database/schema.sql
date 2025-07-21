@@ -1,6 +1,4 @@
--- DragonShield/docs/schema.sql
--- Dragon Shield Database Creation Script
--- Version 4.16 - Add TargetAllocation table
+-- Version 4.17 - Add ImportSessionValues table
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
@@ -15,6 +13,7 @@
 -- - v4.8 -> v4.9: Introduced AssetClasses and AssetSubClasses tables.
 -- - v4.10 -> v4.11: Expanded Institutions with contact info and currency fields.
 -- - v4.11 -> v4.12: Added notes column to PositionReports table.
+-- - v4.16 -> v4.17: Added ImportSessionValues table.
 -- - (Previous history for v4.3 and earlier...)
 --
 
@@ -28,6 +27,7 @@ DROP VIEW IF EXISTS PortfolioSummary;
 DROP VIEW IF EXISTS Positions;
 
 DROP TABLE IF EXISTS PositionReports;
+DROP TABLE IF EXISTS ImportSessionValues;
 DROP TABLE IF EXISTS ImportSessions;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS TransactionTypes;
@@ -358,6 +358,17 @@ CREATE TABLE PositionReports (
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
     FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
+);
+
+CREATE TABLE ImportSessionValues (
+    value_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_session_id INTEGER NOT NULL,
+    instrument_name TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    value_orig REAL NOT NULL,
+    value_chf REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id)
 );
 
 -- Sample import sessions for testing

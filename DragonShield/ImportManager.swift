@@ -566,6 +566,7 @@ class ImportManager {
                                                        duplicateRows: 0,
                                                        notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
+                    self.dbManager.saveSessionValues(sessionId: sid, values: items.map { ($0.instrument, $0.currency, $0.valueOrig, $0.valueChf) })
                     let lines = items.map {
                         String(format: "%@: %.2f %@ -> %.2f CHF",
                                $0.instrument, $0.valueOrig, $0.currency, $0.valueChf)

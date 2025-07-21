@@ -164,6 +164,9 @@ private struct ImportSessionRowView: View {
 private struct ImportSessionDetailView: View {
     let session: DatabaseManager.ImportSessionData
     let totalValue: Double
+    @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.dismiss) var dismiss
+    @State private var valueItems: [DatabaseManager.SessionValueItem] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -190,15 +193,28 @@ private struct ImportSessionDetailView: View {
                     if let c = session.completedAt { Text("Completed: \(c.formatted())") }
                     Text("Total Value CHF: " + (ImportSessionHistoryView.chfFormatter.string(from: NSNumber(value: totalValue)) ?? "0"))
                 }
+                if !valueItems.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Value Report")
+                            .font(.subheadline)
+                            .padding(.bottom, 2)
+                        ForEach(valueItems) { item in
+                            Text(String(format: "%@ - %.2f %@ -> %.2f CHF", item.instrumentName, item.valueOrig, item.currency, item.valueChf))
+                                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                        }
+                    }
+                }
             }
             HStack {
                 Spacer()
-                Button("Close") { NSApp.keyWindow?.close() }
+                Button("Close") { dismiss() }
                     .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(24)
         .frame(minWidth: 400, minHeight: 400)
+        .onAppear { valueItems = dbManager.fetchSessionValues(sessionId: session.id) }
     }
 }
 
