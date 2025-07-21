@@ -162,6 +162,18 @@ class ImportManager {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
+    /// Asks the user whether the given instrument is an option.
+    /// - Parameter name: The instrument description.
+    /// - Returns: `true` if the quantity should be multiplied by 100.
+    private func confirmOptionInstrument(name: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = name
+        alert.informativeText = "Is this an Option and shall the quantity be multiplied by 100?"
+        alert.addButton(withTitle: "Yes")
+        alert.addButton(withTitle: "No")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     /// Looks up an instrument using valor number, ISIN and ticker symbol in priority order.
     /// Returns the matching ID or nil if none found. Logs the lookup result.
     private func lookupInstrumentId(name: String, valor: String?, isin: String?, ticker: String?) -> Int? {
@@ -415,12 +427,20 @@ class ImportManager {
                 let failure = 0
                 var unmatched = 0
                 for (idx, parsed) in rows.enumerated() {
-                    if parsed.isCash {
-                        if let val = parsed.valorNr {
+                    var row = parsed
+                    if row.instrumentName.lowercased().contains("option") {
+                        var multiply = false
+                        DispatchQueue.main.sync {
+                            multiply = self.confirmOptionInstrument(name: row.instrumentName)
+                        }
+                        if multiply { row.quantity *= 100 }
+                    }
+                    if row.isCash {
+                        if let val = row.valorNr {
                             let sanitized = Self.sanitizeValor(val)
                             if let mapping = Self.cashValorMap[sanitized],
-                               parsed.instrumentName.lowercased().contains("konto") ||
-                               parsed.instrumentName.lowercased().contains("call account") {
+                               row.instrumentName.lowercased().contains("konto") ||
+                               row.instrumentName.lowercased().contains("call account") {
                                 LoggingService.shared.log("Processing cash account row \(idx+1) valor \(sanitized)", type: .debug, logger: .parser)
                                 guard let aId = self.dbManager.findAccountId(valor: val) else {
                                     LoggingService.shared.log("Row \(idx+1) skipped - account for valor \(sanitized) not found", type: .error, logger: .parser)
@@ -435,12 +455,12 @@ class ImportManager {
                                     accountId: aId,
                                     institutionId: institutionId,
                                     instrumentId: instrId,
-                                    quantity: parsed.quantity,
+                                    quantity: row.quantity,
                                     purchasePrice: 1,
                                     currentPrice: 1,
-                                    instrumentUpdatedAt: parsed.reportDate,
+                                    instrumentUpdatedAt: row.reportDate,
                                     notes: nil,
-                                    reportDate: parsed.reportDate
+                                    reportDate: row.reportDate
                                 ) != nil {
                                     LoggingService.shared.log("Cash Account \(mapping.ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
                                     success += 1
@@ -454,26 +474,26 @@ class ImportManager {
                         } else {
                             LoggingService.shared.log("Row \(idx+1) cash account missing valor", type: .error, logger: .parser)
                         }
-                        let accNumber = parsed.tickerSymbol ?? ""
+                        let accNumber = row.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
                             var proceed = true
                             if self.checkpointsEnabled {
                                 proceed = false
                                 DispatchQueue.main.sync {
-                                    proceed = self.confirmCashAccount(name: parsed.accountName,
-                                                                      currency: parsed.currency,
-                                                                      amount: parsed.quantity)
+                                    proceed = self.confirmCashAccount(name: row.accountName,
+                                                                      currency: row.currency,
+                                                                      amount: row.quantity)
                                 }
                             }
                             if proceed {
                                 let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
                                 let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
-                                _ = self.dbManager.addAccount(accountName: parsed.accountName,
+                                _ = self.dbManager.addAccount(accountName: row.accountName,
                                                            institutionId: instId,
                                                            accountNumber: accNumber,
                                                            accountTypeId: typeId,
-                                                           currencyCode: parsed.currency,
+                                                           currencyCode: row.currency,
                                                            openingDate: nil,
                                                            closingDate: nil,
                                                            includeInPortfolio: true,
@@ -483,7 +503,7 @@ class ImportManager {
                             }
                         }
                         if let aId = accId {
-                            let curr = parsed.currency.uppercased()
+                            let curr = row.currency.uppercased()
                             if let ticker = Self.cashTickerByCurrency[curr] {
                                 if let instrId = self.dbManager.findInstrumentId(ticker: ticker) {
                                     if self.dbManager.addPositionReport(
@@ -491,12 +511,12 @@ class ImportManager {
                                         accountId: aId,
                                         institutionId: institutionId,
                                         instrumentId: instrId,
-                                        quantity: parsed.quantity,
+                                        quantity: row.quantity,
                                         purchasePrice: 1,
                                         currentPrice: 1,
-                                        instrumentUpdatedAt: parsed.reportDate,
+                                        instrumentUpdatedAt: row.reportDate,
                                         notes: nil,
-                                        reportDate: parsed.reportDate
+                                        reportDate: row.reportDate
                                     ) != nil {
                                         LoggingService.shared.log("Cash Account \(ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
                                         success += 1
@@ -515,10 +535,10 @@ class ImportManager {
                         continue
                     }
 
-                    var action: RecordPromptResult = .save(parsed)
+                    var action: RecordPromptResult = .save(row)
                     if self.checkpointsEnabled {
                         DispatchQueue.main.sync {
-                            action = self.promptForPosition(record: parsed)
+                            action = self.promptForPosition(record: row)
                         }
                     }
                     guard case let .save(row) = action else {
