@@ -374,8 +374,37 @@ class ImportManager {
                 var success = 0
                 let failure = 0
                 var unmatched = 0
+                let cashMap: [String: (ticker: String, currency: String)] = [
+                    "CH9304835039842401009": ("CASHCHF", "CHF"),
+                    "CH8104835039842402001": ("CASHEUR", "EUR"),
+                    "CH5404835039842402002": ("CASHGBP", "GBP"),
+                    "CH1104835039842402000": ("CASHUSD", "USD"),
+                    "CH2704835039842402003": ("CASHUSD", "USD")
+                ]
+
                 for parsed in rows {
                     if parsed.isCash {
+                        let rawValor = (parsed.valorNr ?? "").replacingOccurrences(of: " ", with: "")
+                        if let map = cashMap[rawValor],
+                           let aId = self.dbManager.findAccountId(accountNumber: parsed.valorNr ?? ""),
+                           let instrId = self.dbManager.findInstrumentId(ticker: map.ticker) {
+                            _ = self.dbManager.addPositionReport(
+                                importSessionId: sessionId,
+                                accountId: aId,
+                                institutionId: institutionId,
+                                instrumentId: instrId,
+                                quantity: parsed.quantity,
+                                purchasePrice: 1,
+                                currentPrice: 1,
+                                instrumentUpdatedAt: parsed.reportDate,
+                                notes: nil,
+                                reportDate: parsed.reportDate
+                            )
+                            LoggingService.shared.log("Cash Account \(map.ticker) recorded", type: .info, logger: .database)
+                            success += 1
+                            continue
+                        }
+
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
