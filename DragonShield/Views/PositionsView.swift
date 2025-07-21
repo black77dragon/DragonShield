@@ -15,8 +15,9 @@ struct PositionsView: View {
     @State private var searchText = ""
 
     @State private var institutions: [DatabaseManager.InstitutionData] = []
-    @State private var selectedInstitutionId: Int? = nil
+    @State private var selectedInstitutionIds: Set<Int> = []
     @State private var showingDeleteAlert = false
+    @State private var showDeleteSuccessToast = false
     @State private var showAddSheet = false
     @State private var showEditSheet = false
     @State private var positionToEdit: PositionReportData? = nil
@@ -90,13 +91,37 @@ struct PositionsView: View {
         filteredPositions.sorted(using: sortOrder)
     }
 
+    var selectedInstitutionNames: [String] {
+        institutions.filter { selectedInstitutionIds.contains($0.id) }.map { $0.name }
+    }
+
     var filteredPositions: [PositionReportData] {
-        if searchText.isEmpty { return positions }
-        return positions.filter { position in
-            position.instrumentName.localizedCaseInsensitiveContains(searchText) ||
-            position.accountName.localizedCaseInsensitiveContains(searchText) ||
-            String(position.id).contains(searchText) ||
-            (position.importSessionId.map { String($0).contains(searchText) } ?? false)
+        var result = positions
+        if !searchText.isEmpty {
+            result = result.filter { position in
+                position.instrumentName.localizedCaseInsensitiveContains(searchText) ||
+                position.accountName.localizedCaseInsensitiveContains(searchText) ||
+                String(position.id).contains(searchText) ||
+                (position.importSessionId.map { String($0).contains(searchText) } ?? false)
+            }
+        }
+        if !selectedInstitutionIds.isEmpty {
+            result = result.filter { pos in
+                selectedInstitutionNames.contains(pos.institutionName)
+            }
+        }
+        return result
+    }
+
+    var selectedPositionsTotalCHF: Double {
+        let selected = positions.filter { pos in
+            selectedInstitutionNames.contains(pos.institutionName)
+        }
+        return selected.reduce(0) { sum, pos in
+            if let valOpt = viewModel.positionValueCHF[pos.id], let val = valOpt {
+                return sum + val
+            }
+            return sum
         }
     }
 
@@ -129,15 +154,17 @@ struct PositionsView: View {
         .alert("Delete Positions", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
-                if let id = selectedInstitutionId {
-                    _ = dbManager.deletePositionReports(institutionIds: [id])
-                    loadPositions()
-                }
+                let ids = Array(selectedInstitutionIds)
+                _ = dbManager.deletePositionReports(institutionIds: ids)
+                selectedInstitutionIds.removeAll()
+                loadPositions()
+                showDeleteSuccessToast = true
             }
         } message: {
-            if let id = selectedInstitutionId,
-               let name = institutions.first(where: { $0.id == id })?.name {
-                Text("Are you sure you want to delete all positions for \(name)? This action cannot be undone.")
+            if !selectedInstitutionIds.isEmpty {
+                let names = selectedInstitutionNames.joined(separator: ", ")
+                let count = positions.filter { selectedInstitutionNames.contains($0.institutionName) }.count
+                Text("Delete \(count) positions for \(names)? This action cannot be undone.")
             }
         }
         .alert("Delete Position", isPresented: $showDeleteSingleAlert) {
@@ -166,6 +193,7 @@ struct PositionsView: View {
             .environmentObject(dbManager)
         }
         .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
+        .toast(isPresented: $showDeleteSuccessToast, message: "Positions deleted")
         .onChange(of: visibleColumns) {
             persistVisibleColumns()
         }
@@ -199,6 +227,9 @@ struct PositionsView: View {
                         ProgressView()
                     }
                 }
+                modernStatCard(title: "Selected Value (CHF)",
+                               value: Self.chfFormatter.string(from: NSNumber(value: selectedPositionsTotalCHF)) ?? "0",
+                               icon: "tray.full", color: .blue)
                 Button {
                     viewModel.calculateValues(positions: positions, db: dbManager)
                 } label: {
@@ -516,15 +547,24 @@ struct PositionsView: View {
             HStack(spacing: 16) {
                 Menu {
                     ForEach(institutions, id: \.id) { inst in
-                        Button(inst.name) {
-                            selectedInstitutionId = inst.id
+                        Button {
+                            if selectedInstitutionIds.contains(inst.id) {
+                                selectedInstitutionIds.remove(inst.id)
+                            } else {
+                                selectedInstitutionIds.insert(inst.id)
+                            }
+                        } label: {
+                            HStack {
+                                Text(inst.name)
+                                if selectedInstitutionIds.contains(inst.id) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
                         }
                     }
                 } label: {
                     HStack {
-                        Text(selectedInstitutionId.flatMap { id in
-                            institutions.first { $0.id == id }?.name
-                        } ?? "Select Institution")
+                        Text(selectedInstitutionIds.isEmpty ? "Select Institutions" : "\(selectedInstitutionIds.count) Selected")
                             .font(.system(size: 14, weight: .medium))
                         Image(systemName: "chevron.down")
                             .font(.system(size: 12, weight: .medium))
@@ -541,27 +581,24 @@ struct PositionsView: View {
                 }
                 .buttonStyle(ScaleButtonStyle())
 
-                if let id = selectedInstitutionId,
-                   let inst = institutions.first(where: { $0.id == id }) {
-                    Button {
-                        showingDeleteAlert = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Wipe All Positions for \(inst.name)")
-                        }
+                Button {
+                    showingDeleteAlert = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                        Text("Delete Positions")
                     }
-                    .buttonStyle(DestructiveButtonStyle())
                 }
+                .buttonStyle(DestructiveButtonStyle())
+                .disabled(selectedInstitutionIds.isEmpty)
 
                 Spacer()
 
-                if let id = selectedInstitutionId,
-                   let inst = institutions.first(where: { $0.id == id }) {
+                if !selectedInstitutionIds.isEmpty {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.blue)
-                        Text("Selected: \(inst.name)")
+                        Text(selectedInstitutionNames.joined(separator: ", "))
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
