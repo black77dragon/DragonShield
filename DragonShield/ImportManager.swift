@@ -253,7 +253,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -265,13 +265,13 @@ class ImportManager {
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(records)
                 let json = String(data: data, encoding: .utf8) ?? "[]"
-                DispatchQueue.main.async(execute: {
+                DispatchQueue.main.async {
                     completion(.success(json))
                 })
                 LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
-                DispatchQueue.main.async(execute: {
+                DispatchQueue.main.async {
                     completion(.failure(error))
                 })
             }
@@ -286,7 +286,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing positions: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             if deleteExisting {
@@ -310,7 +310,7 @@ class ImportManager {
                         return try self.zkbParser.parse(url: url, progress: logger)
                     }
                 }()
-                DispatchQueue.main.sync(execute: {
+                DispatchQueue.main.sync {
                     let first = rows.first
                     self.showImportSummary(fileName: url.lastPathComponent,
                                            account: first?.accountNumber,
@@ -338,7 +338,7 @@ class ImportManager {
                 while accountId == nil {
                     if self.checkpointsEnabled {
                         var accAction: AccountPromptResult = .cancel
-                    DispatchQueue.main.sync(execute: {
+                    DispatchQueue.main.sync {
                         accAction = self.promptForAccount(number: custodyNumber,
                                                          currency: rows.first?.currency ?? "CHF",
                                                          accountTypeCode: "CUSTODY")
@@ -373,7 +373,7 @@ class ImportManager {
                         }
                         if accountId == nil {
                             if self.checkpointsEnabled {
-                                DispatchQueue.main.sync(execute: {
+                                DispatchQueue.main.sync {
                                     self.showStatusAlert(title: "Account Required",
                                                           message: "Account \(custodyNumber) is required to save positions.")
                                 })
@@ -460,7 +460,7 @@ class ImportManager {
                             var proceed = true
                             if self.checkpointsEnabled {
                                 proceed = false
-                                DispatchQueue.main.sync(execute: {
+                                DispatchQueue.main.sync {
                                     proceed = self.confirmCashAccount(name: parsed.accountName,
                                                                       currency: parsed.currency,
                                                                       amount: parsed.quantity)
@@ -517,7 +517,7 @@ class ImportManager {
 
                     var action: RecordPromptResult = .save(parsed)
                     if self.checkpointsEnabled {
-                        DispatchQueue.main.sync(execute: {
+                        DispatchQueue.main.sync {
                             action = self.promptForPosition(record: parsed)
                         })
                     }
@@ -532,7 +532,7 @@ class ImportManager {
                     if instrumentId == nil {
                         unmatched += 1
                         var proceed = true
-                        DispatchQueue.main.sync(execute: {
+                        DispatchQueue.main.sync {
                             let alert = NSAlert()
                             alert.messageText = "Unknown Instrument"
                             alert.informativeText = "Instrument \(row.instrumentName) is not in the database. Please add it manually. Do you want to continue the upload?"
@@ -563,7 +563,7 @@ class ImportManager {
                     )
                     success += 1
                     if self.checkpointsEnabled {
-                        DispatchQueue.main.sync(execute: {
+                        DispatchQueue.main.sync {
                             self.showStatusAlert(title: "Position Saved",
                                                   message: "Saved \(row.instrumentName)")
                         })
@@ -581,7 +581,7 @@ class ImportManager {
                                                        notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
                     self.dbManager.saveValueReport(items, forSession: sid)
-                    DispatchQueue.main.sync(execute: {
+                    DispatchQueue.main.sync {
                         self.showValueReport(items: items, total: total)
                     })
                 }
