@@ -8,6 +8,7 @@ struct ImportSessionHistoryView: View {
     @State private var detailItem: DatabaseManager.ImportSessionData? = nil
     @State private var showReport = false
     @State private var reportItems: [DatabaseManager.ImportSessionValueItem] = []
+    @State private var reportTotal: Double = 0
 
     static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -58,7 +59,7 @@ struct ImportSessionHistoryView: View {
             .environmentObject(dbManager)
         }
         .sheet(isPresented: $showReport) {
-            ImportSessionValueReportView(items: reportItems, totalValue: selected.map { totalValues[$0.id] ?? 0 } ?? 0) {
+            ImportSessionValueReportView(items: reportItems, totalValue: reportTotal) {
                 showReport = false
             }
         }
@@ -89,7 +90,9 @@ struct ImportSessionHistoryView: View {
                     .disabled(selected == nil)
                 Button("Show Report") {
                     if let s = selected {
-                        reportItems = dbManager.fetchValueReport(forSession: s.id)
+                        let items = dbManager.fetchValueReport(forSession: s.id)
+                        reportItems = items
+                        reportTotal = items.reduce(0) { $0 + $1.valueChf }
                         showReport = true
                     }
                 }
