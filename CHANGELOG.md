@@ -18,6 +18,11 @@ All notable changes to this project will be documented in this file.
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
 - Handle percent-valued bond prices in ZKB CSV import
 - Convert percent-valued bond prices in Credit-Suisse XLS import
+- Save cash account balances from Credit-Suisse statements into PositionReports
+- Fix storing cash account balances when account or instrument lookup fails
+- Log row numbers and failure reasons when processing cash account rows
+- Fix cash account instrument lookup by currency code
+- Sanitize ticker lookup so CASHCHF resolves correctly
 - Allow selecting tables for transaction backups and restores with versioned filename
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import
@@ -27,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Visualize target vs actual allocations with dual-ring donut chart and delta bar layout in Allocation Targets view
 - Remove outdated Asset Allocation view and sidebar link
 - Move Target Asset Allocation link to Key Features section
+- Fix compile warnings for immutable variables in import processing
 - Fix compile error in allocation charts by importing Charts framework
 - Resolve build error by replacing onTapGesture with overlay gesture in donut chart
 - Fix duplicate IDs in import summary logs to avoid SwiftUI warnings
@@ -331,3 +337,4 @@ All notable changes to this project will be documented in this file.
 - Simplify row background colors so valid rows are white
 - Add script to export Instruments table to XLSX
 - Include TargetAllocation and ExchangeRates tables in transaction backup/restore
+- Fix account lookup by valor when importing cash account balances with detailed logging

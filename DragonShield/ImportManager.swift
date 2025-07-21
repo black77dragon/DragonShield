@@ -38,6 +38,32 @@ class ImportManager {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
     }
 
+    private static let cashValorMap: [String: (ticker: String, currency: String)] = [
+        "CH9304835039842401009": ("CASHCHF", "CHF"),
+        "CH8104835039842402001": ("CASHEUR", "EUR"),
+        "CH5404835039842402002": ("CASHGBP", "GBP"),
+        "CH1104835039842402000": ("CASHUSD", "USD"),
+        "CH2704835039842402003": ("CASHUSD", "USD")
+    ]
+
+    /// Maps currency codes to the ticker symbol of the corresponding cash instrument.
+    /// Used when a valor mapping is unavailable.
+    private static let cashTickerByCurrency: [String: String] = [
+        "CHF": "CASHCHF",
+        "EUR": "CASHEUR",
+        "GBP": "CASHGBP",
+        "USD": "CASHUSD",
+        "SGD": "CASHSGD"
+    ]
+
+    private static func sanitizeValor(_ valor: String) -> String {
+        return valor.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { String($0) }
+            .joined()
+            .uppercased()
+    }
+
     /// Returns the institution ID for Zürcher Kantonalbank using various name
     /// variants. Defaults to 1 if not found.
     private func zkbInstitutionId() -> Int {
@@ -374,8 +400,46 @@ class ImportManager {
                 var success = 0
                 let failure = 0
                 var unmatched = 0
-                for parsed in rows {
+                for (idx, parsed) in rows.enumerated() {
                     if parsed.isCash {
+                        if let val = parsed.valorNr {
+                            let sanitized = Self.sanitizeValor(val)
+                            if let mapping = Self.cashValorMap[sanitized],
+                               parsed.instrumentName.lowercased().contains("konto") ||
+                               parsed.instrumentName.lowercased().contains("call account") {
+                                LoggingService.shared.log("Processing cash account row \(idx+1) valor \(sanitized)", type: .debug, logger: .parser)
+                                guard let aId = self.dbManager.findAccountId(valor: val) else {
+                                    LoggingService.shared.log("Row \(idx+1) skipped - account for valor \(sanitized) not found", type: .error, logger: .parser)
+                                    continue
+                                }
+                                guard let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) else {
+                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(mapping.ticker) missing", type: .error, logger: .parser)
+                                    continue
+                                }
+                                if self.dbManager.addPositionReport(
+                                    importSessionId: sessionId,
+                                    accountId: aId,
+                                    institutionId: institutionId,
+                                    instrumentId: instrId,
+                                    quantity: parsed.quantity,
+                                    purchasePrice: 1,
+                                    currentPrice: 1,
+                                    instrumentUpdatedAt: parsed.reportDate,
+                                    notes: nil,
+                                    reportDate: parsed.reportDate
+                                ) != nil {
+                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
+                                    success += 1
+                                } else {
+                                    LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(mapping.ticker)", type: .error, logger: .parser)
+                                }
+                                continue
+                            } else {
+                                LoggingService.shared.log("Row \(idx+1) valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
+                            }
+                        } else {
+                            LoggingService.shared.log("Row \(idx+1) cash account missing valor", type: .error, logger: .parser)
+                        }
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
@@ -404,21 +468,35 @@ class ImportManager {
                                 accId = self.dbManager.findAccountId(accountNumber: accNumber)
                             }
                         }
-                        if let aId = accId,
-                           let instrId = self.dbManager.findInstrumentId(ticker: "\(parsed.currency.uppercased())_CASH") {
-                            _ = self.dbManager.addPositionReport(
-                                importSessionId: sessionId,
-                                accountId: aId,
-                                institutionId: institutionId,
-                                instrumentId: instrId,
-                                quantity: parsed.quantity,
-                                purchasePrice: nil,
-                                currentPrice: nil,
-                                instrumentUpdatedAt: parsed.reportDate,
-                                notes: nil,
-                                reportDate: parsed.reportDate
-                            )
-                            success += 1
+                        if let aId = accId {
+                            let curr = parsed.currency.uppercased()
+                            if let ticker = Self.cashTickerByCurrency[curr] {
+                                if let instrId = self.dbManager.findInstrumentId(ticker: ticker) {
+                                    if self.dbManager.addPositionReport(
+                                        importSessionId: sessionId,
+                                        accountId: aId,
+                                        institutionId: institutionId,
+                                        instrumentId: instrId,
+                                        quantity: parsed.quantity,
+                                        purchasePrice: 1,
+                                        currentPrice: 1,
+                                        instrumentUpdatedAt: parsed.reportDate,
+                                        notes: nil,
+                                        reportDate: parsed.reportDate
+                                    ) != nil {
+                                        LoggingService.shared.log("Cash Account \(ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
+                                        success += 1
+                                    } else {
+                                        LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(ticker)", type: .error, logger: .parser)
+                                    }
+                                } else {
+                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(ticker) missing", type: .error, logger: .parser)
+                                }
+                            } else {
+                                LoggingService.shared.log("Row \(idx+1) currency \(curr) has no cash instrument mapping", type: .error, logger: .parser)
+                            }
+                        } else {
+                            LoggingService.shared.log("Row \(idx+1) skipped - account not found for number \(accNumber)", type: .error, logger: .parser)
                         }
                         continue
                     }
@@ -433,10 +511,10 @@ class ImportManager {
                         if case .abort = action { throw ImportError.aborted }
                         continue
                     }
-                    var instrumentId = self.lookupInstrumentId(name: row.instrumentName,
-                                                                valor: row.valorNr,
-                                                                isin: row.isin,
-                                                                ticker: row.tickerSymbol)
+                    let instrumentId = self.lookupInstrumentId(name: row.instrumentName,
+                                                               valor: row.valorNr,
+                                                               isin: row.isin,
+                                                               ticker: row.tickerSymbol)
                     if instrumentId == nil {
                         unmatched += 1
                         var proceed = true

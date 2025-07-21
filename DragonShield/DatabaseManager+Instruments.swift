@@ -365,19 +365,42 @@ extension DatabaseManager {
         return nil
     }
 
-    /// Finds the instrument_id for the given ticker symbol, ignoring case.
+    /// Finds the `instrument_id` for the given ticker symbol.
+    /// The lookup strips non-alphanumeric characters and ignores case so
+    /// variations like `CASH_CHF` or `cashchf` still match `CASHCHF`.
     func findInstrumentId(ticker: String) -> Int? {
-        let query = "SELECT instrument_id FROM Instruments WHERE ticker_symbol = ? COLLATE NOCASE LIMIT 1;"
+        let sanitizedSearch = ticker.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { String($0) }
+            .joined()
+            .lowercased()
+
+        let query = "SELECT instrument_id, ticker_symbol FROM Instruments WHERE ticker_symbol IS NOT NULL;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare findInstrumentId(ticker): \(String(cString: sqlite3_errmsg(db)))")
+            LoggingService.shared.log("Failed to prepare findInstrumentId(ticker): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, ticker, -1, nil)
-        if sqlite3_step(statement) == SQLITE_ROW {
-            return Int(sqlite3_column_int(statement, 0))
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(statement, 0))
+            guard let tickerPtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbTicker = String(cString: tickerPtr)
+            let sanitizedDb = dbTicker.unicodeScalars
+                .filter { CharacterSet.alphanumerics.contains($0) }
+                .map { String($0) }
+                .joined()
+                .lowercased()
+            LoggingService.shared.log(
+                "findInstrumentId(ticker) check id=\(id) ticker=\(dbTicker) sanitized=\(sanitizedDb)",
+                type: .debug, logger: .database
+            )
+            if sanitizedDb == sanitizedSearch {
+                LoggingService.shared.log("findInstrumentId(ticker) found id=\(id) for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
+                return id
+            }
         }
+        LoggingService.shared.log("findInstrumentId(ticker) no match for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
         return nil
     }
 }

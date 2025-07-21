@@ -111,7 +111,7 @@ struct CreditSuisseXLSXProcessor {
     }
 
     static func parseNumber(_ string: String) -> Double? {
-        var trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let isPercent = trimmed.hasSuffix("%") || trimmed.hasSuffix(" %")
         var cleaned = trimmed
