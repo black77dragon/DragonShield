@@ -624,26 +624,25 @@ class ImportManager {
     /// to the Credit Suisse institution.
     /// - Returns: The number of deleted records.
     func deleteCreditSuissePositions() -> Int {
-        let accounts = dbManager.fetchAccounts(institutionName: "Credit Suisse")
+        let accounts = dbManager.fetchAccounts(institutionNameLike: "Credit Suisse")
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
             LoggingService.shared.log("Deleting position reports for Credit-Suisse accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        return dbManager.deletePositionReports(institutionName: "Credit Suisse")
+        return dbManager.deletePositionReports(instrumentInstitutionNameLike: "Credit Suisse")
     }
 
     /// Deletes Credit-Suisse position reports only for custody accounts.
     /// - Returns: The number of deleted records.
     func deleteCreditSuisseCustodyPositions() -> Int {
-        let accounts = dbManager.fetchAccounts(institutionName: "Credit Suisse", accountTypeCode: "CUSTODY")
+        let accounts = dbManager.fetchAccounts(institutionNameLike: "Credit Suisse", accountTypeCode: "CUSTODY")
         if !accounts.isEmpty {
             let numbers = accounts.map { $0.number }.joined(separator: ", ")
             LoggingService.shared.log("Deleting custody position reports for Credit-Suisse accounts: \(numbers)",
                                       type: .info, logger: .database)
         }
-        let ids = accounts.map { $0.id }
-        return dbManager.deletePositionReports(accountIds: ids)
+        return dbManager.deletePositionReports(instrumentInstitutionNameLike: "Credit Suisse", accountTypeCode: "CUSTODY")
     }
 
     /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.

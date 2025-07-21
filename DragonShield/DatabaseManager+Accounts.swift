@@ -485,6 +485,59 @@ extension DatabaseManager {
         return results
     }
 
+    /// Returns IDs and numbers of accounts for institutions whose names contain the given fragment.
+    func fetchAccounts(institutionNameLike fragment: String) -> [(id: Int, number: String)] {
+        let sql = """
+            SELECT a.account_id, a.account_number
+              FROM Accounts a
+              JOIN Institutions i ON a.institution_id = i.institution_id
+             WHERE i.institution_name LIKE ? COLLATE NOCASE;
+            """
+        var stmt: OpaquePointer?
+        var results: [(Int, String)] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchAccounts(institutionNameLike): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        let pattern = "%\(fragment)%"
+        sqlite3_bind_text(stmt, 1, pattern, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let number = String(cString: sqlite3_column_text(stmt, 1))
+            results.append((id, number))
+        }
+        return results
+    }
+
+    /// Returns IDs and numbers of accounts for institutions containing the name fragment and matching account type code.
+    func fetchAccounts(institutionNameLike fragment: String, accountTypeCode: String) -> [(id: Int, number: String)] {
+        let sql = """
+            SELECT a.account_id, a.account_number
+              FROM Accounts a
+              JOIN Institutions i ON a.institution_id = i.institution_id
+              JOIN AccountTypes t ON a.account_type_id = t.account_type_id
+             WHERE i.institution_name LIKE ? COLLATE NOCASE
+               AND t.type_code = ? COLLATE NOCASE;
+            """
+        var stmt: OpaquePointer?
+        var results: [(Int, String)] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchAccounts(institutionNameLike:accountType): \(String(cString: sqlite3_errmsg(db)))")
+            return []
+        }
+        defer { sqlite3_finalize(stmt) }
+        let pattern = "%\(fragment)%"
+        sqlite3_bind_text(stmt, 1, pattern, -1, nil)
+        sqlite3_bind_text(stmt, 2, accountTypeCode, -1, nil)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let number = String(cString: sqlite3_column_text(stmt, 1))
+            results.append((id, number))
+        }
+        return results
+    }
+
     /// Recalculates the earliest instrument update date for all accounts.
     /// - Parameter completion: Called on the main thread with the number of
     ///   rows updated or an error.

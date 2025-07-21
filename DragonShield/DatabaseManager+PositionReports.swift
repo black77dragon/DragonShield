@@ -222,6 +222,46 @@ extension DatabaseManager {
         return deletePositionReports(institutionIds: ids)
     }
 
+    /// Deletes position reports whose instrument institution names contain the given fragment.
+    /// Optionally restricts deletion to accounts of a specific account type.
+    func deletePositionReports(instrumentInstitutionNameLike fragment: String, accountTypeCode: String? = nil) -> Int {
+        var sql = """
+            DELETE FROM PositionReports
+                  WHERE instrument_id IN (
+                        SELECT ins.instrument_id
+                          FROM Instruments ins
+                          JOIN Institutions inst ON ins.institution_id = inst.institution_id
+                         WHERE inst.institution_name LIKE ? COLLATE NOCASE
+                  )
+        """
+        if accountTypeCode != nil {
+            sql += " AND account_id IN (\n" +
+                   "        SELECT a.account_id FROM Accounts a\n" +
+                   "        JOIN AccountTypes t ON a.account_type_id = t.account_type_id\n" +
+                   "       WHERE t.type_code = ? COLLATE NOCASE\n" +
+                   "    )"
+        }
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports(instrumentInstitutionNameLike): \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        let pattern = "%\(fragment)%"
+        sqlite3_bind_text(stmt, 1, pattern, -1, nil)
+        if let code = accountTypeCode {
+            sqlite3_bind_text(stmt, 2, code, -1, nil)
+        }
+        let stepResult = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if stepResult == SQLITE_DONE {
+            print("✅ Deleted \(deleted) position reports for instruments with institution name like \(fragment)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     // MARK: - Single Position CRUD
 
     func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, instrumentUpdatedAt: Date?, notes: String?, reportDate: Date) -> Int? {

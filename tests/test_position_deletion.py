@@ -87,3 +87,69 @@ def test_find_institution_ids_by_bic_prefix():
     ids = [r[0] for r in rows]
     assert ids == [1]
     conn.close()
+
+
+def build_delete_query_like(custody=False):
+    base = (
+        "DELETE FROM PositionReports\n"
+        "      WHERE instrument_id IN (\n"
+        "            SELECT ins.instrument_id\n"
+        "              FROM Instruments ins\n"
+        "              JOIN Institutions inst ON ins.institution_id = inst.institution_id\n"
+        "             WHERE inst.institution_name LIKE ? COLLATE NOCASE\n"
+        "      )"
+    )
+    if custody:
+        base += (
+            " AND account_id IN (\n"
+            "        SELECT a.account_id FROM Accounts a\n"
+            "        JOIN AccountTypes t ON a.account_type_id = t.account_type_id\n"
+            "       WHERE t.type_code = ? COLLATE NOCASE\n"
+            " )"
+        )
+    return base
+
+
+def setup_db_like():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE Institutions (institution_id INTEGER PRIMARY KEY, institution_name TEXT)")
+    conn.execute("CREATE TABLE AccountTypes (account_type_id INTEGER PRIMARY KEY, type_code TEXT)")
+    conn.execute("CREATE TABLE Accounts (account_id INTEGER PRIMARY KEY, account_number TEXT, institution_id INTEGER, account_type_id INTEGER)")
+    conn.execute("CREATE TABLE Instruments (instrument_id INTEGER PRIMARY KEY, institution_id INTEGER)")
+    conn.execute(
+        "CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY, account_id INTEGER, instrument_id INTEGER)"
+    )
+    conn.execute("INSERT INTO Institutions VALUES (1, 'Credit Suisse AG')")
+    conn.execute("INSERT INTO Institutions VALUES (2, 'OtherBank')")
+    conn.execute("INSERT INTO AccountTypes VALUES (1, 'CUSTODY')")
+    conn.execute("INSERT INTO AccountTypes VALUES (2, 'OTHER')")
+    conn.execute("INSERT INTO Accounts VALUES (1, 'A1', 1, 1)")
+    conn.execute("INSERT INTO Accounts VALUES (2, 'A2', 1, 2)")
+    conn.execute("INSERT INTO Accounts VALUES (3, 'B1', 2, 1)")
+    conn.execute("INSERT INTO Instruments VALUES (1, 1)")
+    conn.execute("INSERT INTO Instruments VALUES (2, 2)")
+    conn.execute("INSERT INTO PositionReports VALUES (1, 1, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (2, 2, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (3, 3, 1)")
+    conn.execute("INSERT INTO PositionReports VALUES (4, 3, 2)")
+    return conn
+
+
+def test_delete_by_instrument_institution_like():
+    conn = setup_db_like()
+    query = build_delete_query_like()
+    deleted = conn.execute(query, ("%Credit Suisse%",)).rowcount
+    assert deleted == 3
+    rows = conn.execute("SELECT position_id FROM PositionReports ORDER BY position_id").fetchall()
+    assert rows == [(4,)]
+    conn.close()
+
+
+def test_delete_by_instrument_institution_custody_only():
+    conn = setup_db_like()
+    query = build_delete_query_like(True)
+    deleted = conn.execute(query, ("%Credit%", "CUSTODY")).rowcount
+    assert deleted == 2
+    rows = conn.execute("SELECT position_id FROM PositionReports ORDER BY position_id").fetchall()
+    assert rows == [(2,), (4,)]
+    conn.close()
