@@ -557,12 +557,14 @@ class ImportManager {
                 }
                 summary.unmatchedInstruments = unmatched
                 if let sid = sessionId {
+                    let total = self.dbManager.totalReportValueForSession(sid)
+                    let note = String(format: "total_value_chf=%.2f", total)
                     self.dbManager.completeImportSession(id: sid,
                                                        totalRows: summary.totalRows,
                                                        successRows: success,
                                                        failedRows: failure,
                                                        duplicateRows: 0,
-                                                       notes: "will be determined later")
+                                                       notes: note)
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))
