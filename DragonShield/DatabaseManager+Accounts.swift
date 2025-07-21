@@ -389,8 +389,9 @@ extension DatabaseManager {
         return nil
     }
 
-    /// Finds the account_id for the given valor/IBAN string stored in the notes column.
-    /// The lookup strips non-alphanumeric characters for resilience.
+    /// Finds the `account_id` for the given valor/IBAN string.
+    /// The valor corresponds to the `account_number` in the Accounts table.
+    /// All non-alphanumeric characters are stripped for a resilient comparison.
     func findAccountId(valor: String) -> Int? {
         let sanitizedSearch = valor.unicodeScalars
             .filter { CharacterSet.alphanumerics.contains($0) }
@@ -398,7 +399,12 @@ extension DatabaseManager {
             .map { String($0) }
             .joined()
             .lowercased()
-        let query = "SELECT account_id, notes FROM Accounts WHERE notes IS NOT NULL;"
+        LoggingService.shared.log(
+            "findAccountId(valor) search valor=\(valor) sanitized=\(sanitizedSearch)",
+            type: .debug, logger: .database
+        )
+
+        let query = "SELECT account_id, account_number FROM Accounts;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             LoggingService.shared.log("Failed to prepare findAccountId(valor): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -407,14 +413,18 @@ extension DatabaseManager {
         defer { sqlite3_finalize(statement) }
         while sqlite3_step(statement) == SQLITE_ROW {
             let id = Int(sqlite3_column_int(statement, 0))
-            guard let notePtr = sqlite3_column_text(statement, 1) else { continue }
-            let dbValor = String(cString: notePtr)
-            let sanitizedDb = dbValor.unicodeScalars
+            guard let numPtr = sqlite3_column_text(statement, 1) else { continue }
+            let dbNumber = String(cString: numPtr)
+            let sanitizedDb = dbNumber.unicodeScalars
                 .filter { CharacterSet.alphanumerics.contains($0) }
                 .map { Character($0) }
                 .map { String($0) }
                 .joined()
                 .lowercased()
+            LoggingService.shared.log(
+                "findAccountId(valor) check id=\(id) number=\(dbNumber) sanitized=\(sanitizedDb)",
+                type: .debug, logger: .database
+            )
             if sanitizedDb == sanitizedSearch {
                 LoggingService.shared.log("findAccountId(valor) found id=\(id) for sanitized=\(sanitizedSearch)", type: .debug, logger: .database)
                 return id
