@@ -202,6 +202,47 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return total
     }
+
+    func positionValuesForSession(_ id: Int) -> [(instrument: String, currency: String, valueOrig: Double, valueChf: Double)] {
+        var items: [(String, String, Double, Double)] = []
+        var rateCache: [String: Double] = [:]
+        let query = """
+            SELECT i.instrument_name, i.currency, pr.quantity, pr.current_price, pr.report_date
+              FROM PositionReports pr
+              JOIN Instruments i ON pr.instrument_id = i.instrument_id
+             WHERE pr.import_session_id = ?;
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let name = String(cString: sqlite3_column_text(stmt, 0))
+                let currency = String(cString: sqlite3_column_text(stmt, 1)).uppercased()
+                let qty = sqlite3_column_double(stmt, 2)
+                guard sqlite3_column_type(stmt, 3) != SQLITE_NULL else { continue }
+                let price = sqlite3_column_double(stmt, 3)
+                var value = qty * price
+                let dateStr = String(cString: sqlite3_column_text(stmt, 4))
+                let date = DateFormatter.iso8601DateOnly.date(from: dateStr)
+                var rate = 1.0
+                if currency != "CHF" {
+                    if let cached = rateCache[currency] {
+                        rate = cached
+                    } else {
+                        if let r = fetchExchangeRates(currencyCode: currency, upTo: date).first?.rateToChf {
+                            rateCache[currency] = r
+                            rate = r
+                        } else {
+                            continue
+                        }
+                    }
+                }
+                items.append((name, currency, value, value * rate))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return items
+    }
 }
 
 extension URL {
