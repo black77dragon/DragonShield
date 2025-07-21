@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Show imported position values in CHF after import completes
 - Persist full value reports per import session and view them from history
 - Persist value reports in database after import and fix Session Details sheet closing
+- Present value report in a table window after import
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Populate import session value report modal with stored rows
