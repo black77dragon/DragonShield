@@ -255,6 +255,7 @@ class ImportManager {
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+        window.close()
     }
 
     /// Parses a XLSX document and saves the records to the database.
