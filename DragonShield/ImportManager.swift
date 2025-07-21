@@ -124,6 +124,7 @@ class ImportManager {
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+        window.close()
         return result
     }
 
@@ -221,6 +222,22 @@ class ImportManager {
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+        window.close()
+    }
+
+    private func showValueReport(items: [DatabaseManager.ImportSessionValueItem], total: Double) {
+        let view = ImportSessionValueReportView(items: items, totalValue: total) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 420),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Import Values"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        window.close()
     }
 
     private func showStatusAlert(title: String, message: String) {
@@ -567,13 +584,8 @@ class ImportManager {
                                                        notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
                     self.dbManager.saveValueReport(items, forSession: sid)
-                    let lines = items.map {
-                        String(format: "%@: %.2f %@ -> %.2f CHF",
-                               $0.instrument, $0.valueOrig, $0.currency, $0.valueChf)
-                    }.joined(separator: "\n")
-                    let msg = lines + String(format: "\nTotal: %.2f CHF", total)
                     DispatchQueue.main.sync {
-                        self.showStatusAlert(title: "Import Values", message: msg)
+                        self.showValueReport(items: items, total: total)
                     }
                 }
                 DispatchQueue.main.async {
