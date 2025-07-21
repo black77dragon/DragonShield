@@ -6,6 +6,7 @@ struct ImportSessionHistoryView: View {
     @State private var totalValues: [Int: Double] = [:]
     @State private var selected: DatabaseManager.ImportSessionData? = nil
     @State private var showDetails = false
+    @State private var showValues = false
 
     static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -55,6 +56,12 @@ struct ImportSessionHistoryView: View {
                     .environmentObject(dbManager)
             }
         }
+        .sheet(isPresented: $showValues) {
+            if let s = selected {
+                ImportSessionValueReportView(session: s)
+                    .environmentObject(dbManager)
+            }
+        }
     }
 
     private var tableHeader: some View {
@@ -78,6 +85,9 @@ struct ImportSessionHistoryView: View {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack {
                 Button("Show Details") { showDetails = true }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(selected == nil)
+                Button("Value Report") { showValues = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(selected == nil)
                 Spacer()
@@ -164,6 +174,7 @@ private struct ImportSessionRowView: View {
 private struct ImportSessionDetailView: View {
     let session: DatabaseManager.ImportSessionData
     let totalValue: Double
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -193,7 +204,7 @@ private struct ImportSessionDetailView: View {
             }
             HStack {
                 Spacer()
-                Button("Close") { NSApp.keyWindow?.close() }
+                Button("Close") { dismiss() }
                     .buttonStyle(PrimaryButtonStyle())
             }
         }

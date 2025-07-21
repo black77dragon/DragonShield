@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.16 - Add TargetAllocation table
+-- Version 4.17 - Add ImportSessionValues table
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.16 -> v4.17: Added ImportSessionValues table for storing value reports.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
@@ -358,6 +359,16 @@ CREATE TABLE PositionReports (
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
     FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
     FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
+);
+
+CREATE TABLE ImportSessionValues (
+    value_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_session_id INTEGER NOT NULL,
+    instrument_name TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    value_original REAL NOT NULL,
+    value_chf REAL NOT NULL,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id)
 );
 
 -- Sample import sessions for testing

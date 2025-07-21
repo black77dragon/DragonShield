@@ -243,6 +243,68 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+
+    struct ImportSessionValueData: Identifiable, Equatable {
+        var id: Int
+        var instrument: String
+        var currency: String
+        var valueOrig: Double
+        var valueChf: Double
+    }
+
+    func deleteImportSessionValues(sessionId: Int) {
+        let sql = "DELETE FROM ImportSessionValues WHERE import_session_id=?;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(sessionId))
+            if sqlite3_step(stmt) != SQLITE_DONE {
+                print("❌ Failed to delete ImportSessionValues: \(String(cString: sqlite3_errmsg(db)))")
+            }
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    func saveImportSessionValues(sessionId: Int, items: [(instrument: String, currency: String, valueOrig: Double, valueChf: Double)]) {
+        guard !items.isEmpty else { return }
+        let sql = "INSERT INTO ImportSessionValues (import_session_id, instrument_name, currency, value_original, value_chf) VALUES (?,?,?,?,?);"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            for item in items {
+                sqlite3_bind_int(stmt, 1, Int32(sessionId))
+                sqlite3_bind_text(stmt, 2, item.instrument, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, item.currency, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_double(stmt, 4, item.valueOrig)
+                sqlite3_bind_double(stmt, 5, item.valueChf)
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("❌ Failed to insert ImportSessionValue: \(String(cString: sqlite3_errmsg(db)))")
+                }
+                sqlite3_reset(stmt)
+            }
+        } else {
+            print("❌ Failed to prepare saveImportSessionValues: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    func fetchImportSessionValues(_ sessionId: Int) -> [ImportSessionValueData] {
+        var result: [ImportSessionValueData] = []
+        let query = "SELECT value_id, instrument_name, currency, value_original, value_chf FROM ImportSessionValues WHERE import_session_id=? ORDER BY value_id;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(sessionId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let instrument = String(cString: sqlite3_column_text(stmt, 1))
+                let currency = String(cString: sqlite3_column_text(stmt, 2))
+                let valueOrig = sqlite3_column_double(stmt, 3)
+                let valueChf = sqlite3_column_double(stmt, 4)
+                result.append(ImportSessionValueData(id: id, instrument: instrument, currency: currency, valueOrig: valueOrig, valueChf: valueChf))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return result
+    }
 }
 
 extension URL {
