@@ -174,7 +174,40 @@ struct DataImportExportView: View {
             appendLog("Existing \(inst.name) positions removed: \(removed)")
             startImport(deleteExisting: false)
         } else {
+            guard let choice = promptCreditSuisseDeletionChoice() else {
+                statusMessage = "Status: Upload cancelled"
+                return
+            }
+            let removed: Int = {
+                switch choice {
+                case .allAccounts:
+                    return ImportManager.shared.deleteCreditSuissePositions()
+                case .custodyOnly:
+                    return ImportManager.shared.deleteCreditSuisseCustodyPositions()
+                }
+            }()
+            appendLog("Existing Credit-Suisse positions removed: \(removed)")
             startImport(deleteExisting: false)
+        }
+    }
+
+    private enum CreditSuisseDeletionChoice {
+        case allAccounts
+        case custodyOnly
+    }
+
+    private func promptCreditSuisseDeletionChoice() -> CreditSuisseDeletionChoice? {
+        let alert = NSAlert()
+        alert.messageText = "Delete existing Credit-Suisse positions?"
+        alert.informativeText = "Choose which positions should be removed before import."
+        alert.addButton(withTitle: "all ZKB Accounts")
+        alert.addButton(withTitle: "ZKB Custody Account positions only")
+        alert.addButton(withTitle: "Cancel")
+        let resp = alert.runModal()
+        switch resp {
+        case .alertFirstButtonReturn: return .allAccounts
+        case .alertSecondButtonReturn: return .custodyOnly
+        default: return nil
         }
     }
 

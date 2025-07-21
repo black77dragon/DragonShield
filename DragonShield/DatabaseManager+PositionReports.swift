@@ -140,6 +140,30 @@ extension DatabaseManager {
         return Int(deleted)
     }
 
+    /// Deletes position reports for the specified account IDs.
+    func deletePositionReports(accountIds: [Int]) -> Int {
+        guard !accountIds.isEmpty else { return 0 }
+        let placeholders = Array(repeating: "?", count: accountIds.count).joined(separator: ", ")
+        let sql = "DELETE FROM PositionReports WHERE account_id IN (\(placeholders));"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports(accountIds): \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        for (i, id) in accountIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(i + 1), Int32(id))
+        }
+        let stepResult = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if stepResult == SQLITE_DONE {
+            print("✅ Deleted \(deleted) position reports for accounts \(accountIds)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     /// Deletes position reports linked to the specified institution IDs.
     /// - Parameter institutionIds: The identifiers to match.
     /// - Returns: The number of deleted rows.

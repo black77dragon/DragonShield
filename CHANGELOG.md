@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Prompt to confirm option quantity multiplier during position import
+- Prompt to delete existing Credit-Suisse positions with custody-only option
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
