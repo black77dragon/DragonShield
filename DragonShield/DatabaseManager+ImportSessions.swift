@@ -273,6 +273,19 @@ extension DatabaseManager {
             }
         }
         sqlite3_finalize(stmt)
+        if !items.isEmpty {
+            return items
+        }
+
+        let fallback = positionValuesForSession(id)
+        var rid = 1
+        for entry in fallback {
+            items.append(ImportSessionValueItem(id: rid, instrument: entry.0, currency: entry.1, valueOrig: entry.2, valueChf: entry.3))
+            rid += 1
+        }
+        if !fallback.isEmpty {
+            saveValueReport(fallback, forSession: id)
+        }
         return items
     }
 
