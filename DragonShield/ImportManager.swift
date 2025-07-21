@@ -267,15 +267,15 @@ class ImportManager {
                 let json = String(data: data, encoding: .utf8) ?? "[]"
                 DispatchQueue.main.async {
                     completion(.success(json))
-                })
+                }
                 LoggingService.shared.log("Import complete for \(url.lastPathComponent)", type: .info, logger: .parser)
             } catch {
                 LoggingService.shared.log("Import failed: \(error.localizedDescription)", type: .error, logger: .parser)
                 DispatchQueue.main.async {
                     completion(.failure(error))
-                })
+                }
             }
-        })
+        }
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
@@ -316,7 +316,7 @@ class ImportManager {
                                            account: first?.accountNumber,
                                            valueDate: first?.reportDate,
                                            validRows: summary.parsedRows)
-                })
+                }
 
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
@@ -342,7 +342,7 @@ class ImportManager {
                         accAction = self.promptForAccount(number: custodyNumber,
                                                          currency: rows.first?.currency ?? "CHF",
                                                          accountTypeCode: "CUSTODY")
-                    })
+                    }
                     switch accAction {
                     case let .save(name, instId, number, typeId, curr):
                         _ = self.dbManager.addAccount(accountName: name,
@@ -376,7 +376,7 @@ class ImportManager {
                                 DispatchQueue.main.sync {
                                     self.showStatusAlert(title: "Account Required",
                                                           message: "Account \(custodyNumber) is required to save positions.")
-                                })
+                                }
                             }
                         }
                     case .abort:
@@ -464,7 +464,7 @@ class ImportManager {
                                     proceed = self.confirmCashAccount(name: parsed.accountName,
                                                                       currency: parsed.currency,
                                                                       amount: parsed.quantity)
-                                })
+                                }
                             }
                             if proceed {
                                 let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
@@ -519,7 +519,7 @@ class ImportManager {
                     if self.checkpointsEnabled {
                         DispatchQueue.main.sync {
                             action = self.promptForPosition(record: parsed)
-                        })
+                        }
                     }
                     guard case let .save(row) = action else {
                         if case .abort = action { throw ImportError.aborted }
@@ -539,7 +539,7 @@ class ImportManager {
                             alert.addButton(withTitle: "Yes")
                             alert.addButton(withTitle: "No")
                             proceed = alert.runModal() == .alertFirstButtonReturn
-                        })
+                        }
                         if !proceed {
                             throw ImportError.aborted
                         }
@@ -566,7 +566,7 @@ class ImportManager {
                         DispatchQueue.main.sync {
                             self.showStatusAlert(title: "Position Saved",
                                                   message: "Saved \(row.instrumentName)")
-                        })
+                        }
                     }
                 }
                 summary.unmatchedInstruments = unmatched
@@ -583,7 +583,7 @@ class ImportManager {
                     self.dbManager.saveValueReport(items, forSession: sid)
                     DispatchQueue.main.sync {
                         self.showValueReport(items: items, total: total)
-                    })
+                    }
                 }
                 DispatchQueue.main.async {
                     completion(.success(summary))
@@ -595,7 +595,7 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        })
+        }
     }
 
     /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
