@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area
 - Add Import Session History tab with per-session totals
+- Enable multi-institution selection in Positions view with summary totals and bulk delete
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
 - Prompt to delete existing ZKB positions when importing statements
