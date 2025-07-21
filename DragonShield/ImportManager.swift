@@ -390,20 +390,20 @@ class ImportManager {
                 var success = 0
                 let failure = 0
                 var unmatched = 0
-                for parsed in rows {
+                for (idx, parsed) in rows.enumerated() {
                     if parsed.isCash {
                         if let val = parsed.valorNr {
                             let sanitized = Self.sanitizeValor(val)
                             if let mapping = Self.cashValorMap[sanitized],
                                parsed.instrumentName.lowercased().contains("konto") ||
                                parsed.instrumentName.lowercased().contains("call account") {
-                                LoggingService.shared.log("Processing cash account valor \(sanitized)", type: .debug, logger: .parser)
+                                LoggingService.shared.log("Processing cash account row \(idx+1) valor \(sanitized)", type: .debug, logger: .parser)
                                 guard let aId = self.dbManager.findAccountId(valor: val) else {
-                                    LoggingService.shared.log("Cash account valor \(sanitized) not found", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx+1) skipped - account for valor \(sanitized) not found", type: .error, logger: .parser)
                                     continue
                                 }
                                 guard let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) else {
-                                    LoggingService.shared.log("Instrument \(mapping.ticker) missing", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(mapping.ticker) missing", type: .error, logger: .parser)
                                     continue
                                 }
                                 if self.dbManager.addPositionReport(
@@ -418,17 +418,17 @@ class ImportManager {
                                     notes: nil,
                                     reportDate: parsed.reportDate
                                 ) != nil {
-                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded", type: .info, logger: .parser)
+                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
                                     success += 1
                                 } else {
-                                    LoggingService.shared.log("Failed to record cash account \(mapping.ticker)", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(mapping.ticker)", type: .error, logger: .parser)
                                 }
                                 continue
                             } else {
-                                LoggingService.shared.log("Valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
+                                LoggingService.shared.log("Row \(idx+1) valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
                             }
                         } else {
-                            LoggingService.shared.log("Cash account row missing valor", type: .error, logger: .parser)
+                            LoggingService.shared.log("Row \(idx+1) cash account missing valor", type: .error, logger: .parser)
                         }
                         let accNumber = parsed.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
