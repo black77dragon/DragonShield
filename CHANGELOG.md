@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix Value Report window not closing when pressing the Close button
 - Prompt to confirm option quantity multiplier during position import
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates

@@ -244,15 +244,18 @@ class ImportManager {
     }
 
     private func showValueReport(items: [DatabaseManager.ImportSessionValueItem], total: Double) {
-        let view = ValueReportView(items: items, totalValue: total) {
-            NSApp.stopModal()
-        }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Import Values"
         window.isReleasedWhenClosed = false
         window.center()
+
+        let view = ValueReportView(items: items, totalValue: total) {
+            NSApp.stopModal()
+            window.close()
+        }
+
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
     }
