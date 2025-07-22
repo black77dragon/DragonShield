@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 - Prompt to confirm option quantity multiplier during position import
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view
+- Validate backups by comparing row counts and checksums before and after restore
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
 - Show imported position values in CHF after import completes
