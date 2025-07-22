@@ -55,6 +55,9 @@ struct DataImportExportView: View {
     private var importPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+            Text("This process is adding and not replacing positions. Delete positions in the Positions Menu if required")
+                .font(.system(size: 14))
+                .foregroundColor(.red)
             cardsSection
         }
         .padding(24)
@@ -142,12 +145,12 @@ struct DataImportExportView: View {
     }
 
     private func importStatement(from url: URL, type: StatementType) {
-        func startImport(deleteExisting: Bool) {
+        func startImport() {
             statusMessage = "Status: Importing \(url.lastPathComponent) …"
             let importType: ImportManager.StatementType = {
                 switch type { case .creditSuisse: return .creditSuisse; case .zkb: return .zkb }
             }()
-            ImportManager.shared.importPositions(at: url, type: importType, deleteExisting: deleteExisting, progress: { message in
+            ImportManager.shared.importPositions(at: url, type: importType, progress: { message in
                 DispatchQueue.main.async { self.appendLog(message) }
             }) { result in
                 DispatchQueue.main.async {
@@ -165,39 +168,7 @@ struct DataImportExportView: View {
             }
         }
 
-        if type == .zkb {
-            guard let inst = promptInstitutionSelection(defaultName: "Zürcher Kantonalbank ZKB") else {
-                statusMessage = "Status: Upload cancelled"
-                return
-            }
-            let removed = ImportManager.shared.deletePositions(institutionId: inst.id)
-            appendLog("Existing \(inst.name) positions removed: \(removed)")
-            startImport(deleteExisting: false)
-        } else {
-            startImport(deleteExisting: false)
-        }
-    }
-
-    private func promptInstitutionSelection(defaultName: String) -> DatabaseManager.InstitutionData? {
-        let institutions = ImportManager.shared.fetchInstitutions()
-        guard !institutions.isEmpty else { return nil }
-
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 24))
-        popup.addItems(withTitles: institutions.map { $0.name })
-        if let idx = institutions.firstIndex(where: { $0.name == defaultName }) {
-            popup.selectItem(at: idx)
-        }
-
-        let alert = NSAlert()
-        alert.messageText = "Delete existing positions?"
-        alert.informativeText = "Select the institution whose positions should be removed before import."
-        alert.accessoryView = popup
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else { return nil }
-        let selected = popup.indexOfSelectedItem
-        return institutions[selected]
+        startImport()
     }
 
     private func appendLog(_ entry: String) {
