@@ -176,6 +176,63 @@ extension DatabaseManager {
         return Int(deleted)
     }
 
+    /// Counts position reports matching the provided institution and account type IDs.
+    func countPositionReports(institutionIds: [Int], accountTypeIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty, !accountTypeIds.isEmpty else { return 0 }
+        let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
+        let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
+        let sql = """
+            SELECT COUNT(*)
+              FROM PositionReports pr
+              JOIN Accounts a ON pr.account_id = a.account_id
+             WHERE pr.institution_id IN (\(instPlaceholders))
+               AND a.account_type_id IN (\(typePlaceholders));
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare countPositionReports: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        var index: Int32 = 1
+        for id in institutionIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        for id in accountTypeIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        return Int(sqlite3_column_int(stmt, 0))
+    }
+
+    /// Deletes position reports matching the given institution and account type IDs.
+    func deletePositionReports(institutionIds: [Int], accountTypeIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty, !accountTypeIds.isEmpty else { return 0 }
+        let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
+        let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
+        let sql = """
+            DELETE FROM PositionReports
+                  WHERE institution_id IN (\(instPlaceholders))
+                    AND account_id IN (
+                        SELECT account_id FROM Accounts
+                         WHERE account_type_id IN (\(typePlaceholders))
+                  );
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        var index: Int32 = 1
+        for id in institutionIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        for id in accountTypeIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        let step = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if step == SQLITE_DONE {
+            print("✅ Deleted \(deleted) position reports for institutions \(institutionIds) and account types \(accountTypeIds)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     /// Deletes position reports for all institutions matching the given name.
     func deletePositionReports(institutionName: String) -> Int {
         let ids = findInstitutionIds(name: institutionName)

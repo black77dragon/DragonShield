@@ -15,9 +15,11 @@ struct PositionsView: View {
     @State private var searchText = ""
 
     @State private var institutions: [DatabaseManager.InstitutionData] = []
+    @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
     @State private var selectedInstitutionIds: Set<Int> = []
-    @State private var showingDeleteAlert = false
+    @State private var showingDeleteSheet = false
     @State private var showDeleteSuccessToast = false
+    @State private var deleteSummaryMessage = ""
     @State private var showAddSheet = false
     @State private var showEditSheet = false
     @State private var positionToEdit: PositionReportData? = nil
@@ -148,24 +150,29 @@ struct PositionsView: View {
         .onAppear {
             loadPositions()
             loadInstitutions()
+            loadAccountTypes()
             viewModel.calculateValues(positions: positions, db: dbManager)
             animateEntrance()
         }
-        .alert("Delete Positions", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                let ids = Array(selectedInstitutionIds)
-                _ = dbManager.deletePositionReports(institutionIds: ids)
-                selectedInstitutionIds.removeAll()
-                loadPositions()
-                showDeleteSuccessToast = true
-            }
-        } message: {
-            if !selectedInstitutionIds.isEmpty {
-                let names = selectedInstitutionNames.joined(separator: ", ")
-                let count = positions.filter { selectedInstitutionNames.contains($0.institutionName) }.count
-                Text("Delete \(count) positions for \(names)? This action cannot be undone.")
-            }
+        .sheet(isPresented: $showingDeleteSheet) {
+            DeletePositionsSheet(
+                institutions: institutions,
+                accountTypes: accountTypes,
+                selectedInstitutionIds: selectedInstitutionIds,
+                onConfirm: { instIds, typeIds, count in
+                    let deleted = dbManager.deletePositionReports(
+                        institutionIds: Array(instIds),
+                        accountTypeIds: Array(typeIds)
+                    )
+                    deleteSummaryMessage = "Deleted \(deleted) positions"
+                    selectedInstitutionIds.removeAll()
+                    loadPositions()
+                    showDeleteSuccessToast = true
+                    showingDeleteSheet = false
+                },
+                onCancel: { showingDeleteSheet = false }
+            )
+            .environmentObject(dbManager)
         }
         .alert("Delete Position", isPresented: $showDeleteSingleAlert) {
             Button("Cancel", role: .cancel) {}
@@ -193,7 +200,7 @@ struct PositionsView: View {
             .environmentObject(dbManager)
         }
         .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
-        .toast(isPresented: $showDeleteSuccessToast, message: "Positions deleted")
+        .toast(isPresented: $showDeleteSuccessToast, message: deleteSummaryMessage)
         .onChange(of: visibleColumns) {
             persistVisibleColumns()
         }
@@ -582,7 +589,7 @@ struct PositionsView: View {
                 .buttonStyle(ScaleButtonStyle())
 
                 Button {
-                    showingDeleteAlert = true
+                    showingDeleteSheet = true
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "trash")
@@ -625,6 +632,10 @@ struct PositionsView: View {
         institutions = dbManager.fetchInstitutions()
     }
 
+    private func loadAccountTypes() {
+        accountTypes = dbManager.fetchAccountTypes()
+    }
+
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
@@ -645,6 +656,90 @@ struct PositionsView: View {
         if let data = try? JSONEncoder().encode(arr) {
             persistedColumnsData = data
         }
+    }
+}
+
+
+struct DeletePositionsSheet: View {
+    @EnvironmentObject var dbManager: DatabaseManager
+
+    let institutions: [DatabaseManager.InstitutionData]
+    let accountTypes: [DatabaseManager.AccountTypeData]
+    let selectedInstitutionIds: Set<Int>
+    var onConfirm: (Set<Int>, Set<Int>, Int) -> Void
+    var onCancel: () -> Void
+
+    @State private var instIds: Set<Int>
+    @State private var typeIds: Set<Int>
+    @State private var count: Int = 0
+
+    init(institutions: [DatabaseManager.InstitutionData],
+         accountTypes: [DatabaseManager.AccountTypeData],
+         selectedInstitutionIds: Set<Int>,
+         onConfirm: @escaping (Set<Int>, Set<Int>, Int) -> Void,
+         onCancel: @escaping () -> Void) {
+        self.institutions = institutions
+        self.accountTypes = accountTypes
+        self.selectedInstitutionIds = selectedInstitutionIds
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        _instIds = State(initialValue: selectedInstitutionIds)
+        _typeIds = State(initialValue: Set(accountTypes.map { $0.id }))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Delete Positions").font(.headline)
+            if !selectedInstitutionIds.isEmpty {
+                Text("Institutions").font(.subheadline.weight(.semibold))
+                ForEach(institutions.filter { selectedInstitutionIds.contains($0.id) }, id: \.id) { inst in
+                    Toggle(inst.name, isOn: Binding(
+                        get: { instIds.contains(inst.id) },
+                        set: { val in
+                            if val { instIds.insert(inst.id) } else { instIds.remove(inst.id) }
+                        }
+                    ))
+                }
+            }
+
+            Divider()
+
+            Text("Account Types").font(.subheadline.weight(.semibold))
+            ForEach(accountTypes, id: \.id) { type in
+                Toggle("\(type.code) – \(type.name)", isOn: Binding(
+                    get: { typeIds.contains(type.id) },
+                    set: { val in
+                        if val { typeIds.insert(type.id) } else { typeIds.remove(type.id) }
+                    }
+                ))
+            }
+
+            Divider()
+
+            Text("Matching positions: \(count)")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { onCancel() }
+                Button("Confirm") { onConfirm(instIds, typeIds, count) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(count == 0)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 340)
+        .onAppear { updateCount() }
+        .onChange(of: instIds) { _ in updateCount() }
+        .onChange(of: typeIds) { _ in updateCount() }
+    }
+
+    private func updateCount() {
+        count = dbManager.countPositionReports(
+            institutionIds: Array(instIds),
+            accountTypeIds: Array(typeIds)
+        )
     }
 }
 
