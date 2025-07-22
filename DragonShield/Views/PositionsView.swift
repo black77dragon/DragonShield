@@ -16,8 +16,11 @@ struct PositionsView: View {
 
     @State private var institutions: [DatabaseManager.InstitutionData] = []
     @State private var selectedInstitutionIds: Set<Int> = []
-    @State private var showingDeleteAlert = false
+    @State private var showDeleteModal = false
+    @State private var deleteSummaryMessage = ""
     @State private var showDeleteSuccessToast = false
+    @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
+    @State private var selectedAccountTypeIds: Set<Int> = []
     @State private var showAddSheet = false
     @State private var showEditSheet = false
     @State private var positionToEdit: PositionReportData? = nil
@@ -148,24 +151,23 @@ struct PositionsView: View {
         .onAppear {
             loadPositions()
             loadInstitutions()
+            loadAccountTypes()
             viewModel.calculateValues(positions: positions, db: dbManager)
             animateEntrance()
         }
-        .alert("Delete Positions", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                let ids = Array(selectedInstitutionIds)
-                _ = dbManager.deletePositionReports(institutionIds: ids)
-                selectedInstitutionIds.removeAll()
+        .sheet(isPresented: $showDeleteModal) {
+            DeletePositionsModal(
+                institutions: institutions.filter { selectedInstitutionIds.contains($0.id) },
+                accountTypes: accountTypes,
+                selectedInstitutionIds: $selectedInstitutionIds,
+                selectedAccountTypeIds: $selectedAccountTypeIds,
+                isPresented: $showDeleteModal
+            ) { deleted in
+                deleteSummaryMessage = "Deleted \(deleted) positions"
+                showDeleteSuccessToast = deleted > 0
                 loadPositions()
-                showDeleteSuccessToast = true
             }
-        } message: {
-            if !selectedInstitutionIds.isEmpty {
-                let names = selectedInstitutionNames.joined(separator: ", ")
-                let count = positions.filter { selectedInstitutionNames.contains($0.institutionName) }.count
-                Text("Delete \(count) positions for \(names)? This action cannot be undone.")
-            }
+            .environmentObject(dbManager)
         }
         .alert("Delete Position", isPresented: $showDeleteSingleAlert) {
             Button("Cancel", role: .cancel) {}
@@ -193,7 +195,7 @@ struct PositionsView: View {
             .environmentObject(dbManager)
         }
         .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
-        .toast(isPresented: $showDeleteSuccessToast, message: "Positions deleted")
+        .toast(isPresented: $showDeleteSuccessToast, message: deleteSummaryMessage)
         .onChange(of: visibleColumns) {
             persistVisibleColumns()
         }
@@ -582,7 +584,7 @@ struct PositionsView: View {
                 .buttonStyle(ScaleButtonStyle())
 
                 Button {
-                    showingDeleteAlert = true
+                    showDeleteModal = true
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "trash")
@@ -623,6 +625,13 @@ struct PositionsView: View {
 
     private func loadInstitutions() {
         institutions = dbManager.fetchInstitutions()
+    }
+
+    private func loadAccountTypes() {
+        accountTypes = dbManager.fetchAccountTypes(activeOnly: true)
+        if selectedAccountTypeIds.isEmpty {
+            selectedAccountTypeIds = Set(accountTypes.map { $0.id })
+        }
     }
 
     private func animateEntrance() {

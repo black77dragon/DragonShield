@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Sanitize ticker lookup so CASHCHF resolves correctly
 - Allow selecting tables for transaction backups and restores with versioned filename
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
+- Confirm deletion by institution and account type from Positions view
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
 - Fix type mismatch when selecting parser for statement import

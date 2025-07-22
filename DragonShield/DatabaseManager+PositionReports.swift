@@ -198,6 +198,79 @@ extension DatabaseManager {
         return deletePositionReports(institutionIds: ids)
     }
 
+    /// Counts position reports matching the given institutions and account types.
+    /// - Parameters:
+    ///   - institutionIds: Allowed institutions.
+    ///   - accountTypeIds: Allowed account types.
+    /// - Returns: Number of rows that would be removed.
+    func countPositionReports(institutionIds: [Int], accountTypeIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty, !accountTypeIds.isEmpty else { return 0 }
+        let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
+        let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
+        let sql = """
+            SELECT COUNT(*) FROM PositionReports
+             WHERE (institution_id IN (\(instPlaceholders))
+                    OR account_id IN (
+                        SELECT account_id FROM Accounts WHERE institution_id IN (\(instPlaceholders))
+                   ))
+               AND account_id IN (
+                        SELECT account_id FROM Accounts WHERE account_type_id IN (\(typePlaceholders))
+                   );
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare countPositionReports: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        var idx: Int32 = 1
+        for id in institutionIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        for id in institutionIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        for id in accountTypeIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        let count = sqlite3_column_int(stmt, 0)
+        return Int(count)
+    }
+
+    /// Deletes position reports matching both institution and account type filters.
+    /// - Parameters:
+    ///   - institutionIds: Allowed institutions.
+    ///   - accountTypeIds: Allowed account types.
+    /// - Returns: Number of deleted rows.
+    func deletePositionReports(institutionIds: [Int], accountTypeIds: [Int]) -> Int {
+        guard !institutionIds.isEmpty, !accountTypeIds.isEmpty else { return 0 }
+        let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
+        let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
+        let sql = """
+            DELETE FROM PositionReports
+                  WHERE (institution_id IN (\(instPlaceholders))
+                         OR account_id IN (
+                            SELECT account_id FROM Accounts WHERE institution_id IN (\(instPlaceholders))
+                        ))
+                    AND account_id IN (
+                            SELECT account_id FROM Accounts WHERE account_type_id IN (\(typePlaceholders))
+                        );
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare deletePositionReports filtered: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        var idx: Int32 = 1
+        for id in institutionIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        for id in institutionIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        for id in accountTypeIds { sqlite3_bind_int(stmt, idx, Int32(id)); idx += 1 }
+        let stepResult = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if stepResult == SQLITE_DONE {
+            print("✅ Deleted \(deleted) position reports for institutions \(institutionIds) and types \(accountTypeIds)")
+        } else {
+            print("❌ Failed to delete position reports: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     // MARK: - Single Position CRUD
 
     func addPositionReport(importSessionId: Int?, accountId: Int, institutionId: Int, instrumentId: Int, quantity: Double, purchasePrice: Double?, currentPrice: Double?, instrumentUpdatedAt: Date?, notes: String?, reportDate: Date) -> Int? {
