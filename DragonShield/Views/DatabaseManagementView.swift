@@ -220,6 +220,16 @@ struct DatabaseManagementView: View {
         }
     }
 
+    private var validationList: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(backupService.lastValidationMessages.enumerated()), id: \.offset) { _, entry in
+                Text(entry)
+                    .font(.system(.caption2, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
     private var logCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Backup & Restore Log")
@@ -228,6 +238,9 @@ struct DatabaseManagementView: View {
 
             if !backupService.lastActionSummaries.isEmpty {
                 summaryTable
+            }
+            if !backupService.lastValidationMessages.isEmpty {
+                validationList
             }
 
             Button(showLogDetails ? "Hide Details" : "Show Details") {
