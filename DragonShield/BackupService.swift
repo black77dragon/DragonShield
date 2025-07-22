@@ -1,12 +1,22 @@
 import Foundation
 import SwiftUI
 import SQLite3
+import CryptoKit
 
 struct TableActionSummary: Identifiable {
     let id = UUID()
     let table: String
     let action: String
     let count: Int
+}
+
+struct TableManifest: Codable, Equatable {
+    let count: Int
+    let hash: String
+}
+
+struct BackupManifest: Codable {
+    let tables: [String: TableManifest]
 }
 
 class BackupService: ObservableObject {
@@ -154,6 +164,19 @@ class BackupService: ObservableObject {
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
         let fm = FileManager.default
         try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        if let manifest = generateManifest(dbPath: destination.path, tables: tables) {
+            let manifestURL = destination.deletingPathExtension().appendingPathExtension("manifest.json")
+            try? saveManifest(manifest, to: manifestURL)
+            let results = validateDatabase(at: destination.path, manifest: manifest)
+            let failed = results.filter { !$0.value }.map { $0.key }
+            DispatchQueue.main.async {
+                if failed.isEmpty {
+                    self.logMessages.append("Backup validated: all tables OK")
+                } else {
+                    self.logMessages.append("Backup validation failed: " + failed.joined(separator: ", "))
+                }
+            }
+        }
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
@@ -218,6 +241,18 @@ class BackupService: ObservableObject {
         dump += "COMMIT;\nPRAGMA foreign_keys=ON;\n"
 
         try dump.write(to: destination, atomically: true, encoding: .utf8)
+        if let manifest = generateManifest(dbPath: dbPath, tables: tables) {
+            let manifestURL = destination.deletingPathExtension().appendingPathExtension("manifest.json")
+            try? saveManifest(manifest, to: manifestURL)
+            DispatchQueue.main.async { self.logMessages.append("Backup validated: all tables OK") }
+        }
+        if let manifest = generateManifest(dbPath: dbPath, tables: referenceTables) {
+            let manifestURL = destination.deletingPathExtension().appendingPathExtension("manifest.json")
+            try? saveManifest(manifest, to: manifestURL)
+            DispatchQueue.main.async {
+                self.logMessages.append("Backup validated: all tables OK")
+            }
+        }
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
@@ -239,18 +274,37 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
+        let oldPath = dbPath + "." + isoFormatter.string(from: Date()) + ".old"
+        let manifestURL = url.deletingPathExtension().appendingPathExtension("manifest.json")
+        let manifest = try loadManifest(from: manifestURL)
+        let preCheck = validateDatabase(at: url.path, manifest: manifest)
+        guard preCheck.values.allSatisfy({ $0 }) else {
+            let failed = preCheck.filter { !$0.value }.map { $0.key }.joined(separator: ", ")
+            appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: "Backup validation failed: \(failed)")
+            throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup validation failed"])
+        }
+
         dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
+        try fm.moveItem(atPath: dbPath, toPath: oldPath)
         do {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
+            let results = validateDatabase(at: dbPath, manifest: manifest)
+            guard results.values.allSatisfy({ $0 }) else {
+                try? fm.removeItem(atPath: dbPath)
+                try? fm.moveItem(atPath: oldPath, toPath: dbPath)
+                dbManager.reopenDatabase()
+                let failed = results.filter { !$0.value }.map { $0.key }.joined(separator: ", ")
+                appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: "Validation failed: \(failed)")
+                throw NSError(domain: "Restore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore validation failed"])
+            }
 
             var counts = [String]()
-            for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-            }
+            for tbl in tables { if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") } }
             DispatchQueue.main.async {
+                for (tbl, ok) in results {
+                    self.logMessages.append("Validation \(tbl): \(ok ? "OK" : "FAIL")")
+                }
                 self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
                 self.lastActionSummaries = tables.map { tbl in
@@ -258,17 +312,18 @@ class BackupService: ObservableObject {
                 }
             }
         } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
-            DispatchQueue.main.async {
-                self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
-            }
+            try? fm.removeItem(atPath: dbPath)
+            try? fm.moveItem(atPath: oldPath, toPath: dbPath)
+            dbManager.reopenDatabase()
+            DispatchQueue.main.async { self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription) }
             throw error
         }
-        try? fm.removeItem(atPath: temp)
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
         guard let db = dbManager.db else { return }
+        let manifestURL = url.deletingPathExtension().appendingPathExtension("manifest.json")
+        let manifest = try loadManifest(from: manifestURL)
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
 
         // Remove transaction wrappers to avoid nested transactions
@@ -294,6 +349,15 @@ class BackupService: ObservableObject {
             throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
 
+        let results = validateDatabase(db: db, manifest: manifest)
+        guard results.values.allSatisfy({ $0 }) else {
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
+            let failed = results.filter { !$0.value }.map { $0.key }.joined(separator: ", ")
+            appendLog(action: "RefRestore", file: url.lastPathComponent, success: false, message: "Validation failed: \(failed)")
+            throw NSError(domain: "Restore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore validation failed"])
+        }
+
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
@@ -302,6 +366,9 @@ class BackupService: ObservableObject {
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         DispatchQueue.main.async {
+            for (tbl, ok) in results {
+                self.logMessages.append("Validation \(tbl): \(ok ? \"OK\" : \"FAIL\")")
+            }
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
@@ -374,6 +441,8 @@ class BackupService: ObservableObject {
 
     func restoreTransactionData(dbManager: DatabaseManager, from url: URL, tables: [String]) throws {
         guard let db = dbManager.db else { return }
+        let manifestURL = url.deletingPathExtension().appendingPathExtension("manifest.json")
+        let manifest = try loadManifest(from: manifestURL)
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
 
         let cleanedSQL = rawSQL
@@ -396,15 +465,22 @@ class BackupService: ObservableObject {
             appendLog(action: "TxnRestore", file: url.lastPathComponent, success: false, message: msg)
             throw NSError(domain: "Restore", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
+        let results = validateDatabase(db: db, manifest: manifest)
+        guard results.values.allSatisfy({ $0 }) else {
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            sqlite3_exec(db, "PRAGMA foreign_keys=ON;", nil, nil, nil)
+            let failed = results.filter { !$0.value }.map { $0.key }.joined(separator: ", ")
+            appendLog(action: "TxnRestore", file: url.lastPathComponent, success: false, message: "Validation failed: \(failed)")
+            throw NSError(domain: "Restore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore validation failed"])
+        }
 
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
+        for tbl in tables { if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") } }
         DispatchQueue.main.async {
+            for (tbl, ok) in results { self.logMessages.append("Validation \(tbl): \(ok ? \"OK\" : \"FAIL\")") }
             self.logMessages.append("✅ Restored Transaction data — " + counts.joined(separator: ", "))
             self.appendLog(action: "TxnRestore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { table in
@@ -453,6 +529,100 @@ class BackupService: ObservableObject {
             }
             sqlite3_finalize(stmt)
             stmt = nil
+        }
+        return result
+    }
+
+    // MARK: - Manifest Helpers
+
+    private func tableDigest(db: OpaquePointer, table: String) -> TableManifest? {
+        var countStmt: OpaquePointer?
+        var selectStmt: OpaquePointer?
+        defer {
+            sqlite3_finalize(countStmt)
+            sqlite3_finalize(selectStmt)
+        }
+
+        var rowCount = 0
+        if sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &countStmt, nil) == SQLITE_OK,
+           sqlite3_step(countStmt) == SQLITE_ROW {
+            rowCount = Int(sqlite3_column_int(countStmt, 0))
+        }
+
+        if sqlite3_prepare_v2(db, "SELECT * FROM \(table) ORDER BY rowid;", -1, &selectStmt, nil) != SQLITE_OK {
+            return nil
+        }
+        var data = Data()
+        let cols = Int(sqlite3_column_count(selectStmt))
+        while sqlite3_step(selectStmt) == SQLITE_ROW {
+            for i in 0..<cols {
+                if let text = sqlite3_column_text(selectStmt, Int32(i)) {
+                    data.append(contentsOf: String(cString: text).utf8)
+                } else if let blob = sqlite3_column_blob(selectStmt, Int32(i)) {
+                    let size = Int(sqlite3_column_bytes(selectStmt, Int32(i)))
+                    data.append(Data(bytes: blob, count: size))
+                } else {
+                    data.append(contentsOf: "NULL".utf8)
+                }
+                data.append(0x1f)
+            }
+            data.append(0x1e)
+        }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return TableManifest(count: rowCount, hash: digest)
+    }
+
+    private func generateManifest(dbPath: String, tables: [String]) -> BackupManifest? {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return nil }
+        defer { sqlite3_close(db) }
+        var dict: [String: TableManifest] = [:]
+        for table in tables {
+            if let info = tableDigest(db: db, table: table) {
+                dict[table] = info
+            }
+        }
+        return BackupManifest(tables: dict)
+    }
+
+    private func generateManifest(db: OpaquePointer, tables: [String]) -> BackupManifest {
+        var dict: [String: TableManifest] = [:]
+        for table in tables { if let info = tableDigest(db: db, table: table) { dict[table] = info } }
+        return BackupManifest(tables: dict)
+    }
+
+    private func saveManifest(_ manifest: BackupManifest, to url: URL) throws {
+        let data = try JSONEncoder().encode(manifest)
+        try data.write(to: url)
+    }
+
+    private func loadManifest(from url: URL) throws -> BackupManifest {
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(BackupManifest.self, from: data)
+    }
+
+    private func validateDatabase(at dbPath: String, manifest: BackupManifest) -> [String: Bool] {
+        guard let current = generateManifest(dbPath: dbPath, tables: Array(manifest.tables.keys)) else { return [:] }
+        var result: [String: Bool] = [:]
+        for (table, info) in manifest.tables {
+            if let cur = current.tables[table] {
+                result[table] = cur == info
+            } else {
+                result[table] = false
+            }
+        }
+        return result
+    }
+
+    private func validateDatabase(db: OpaquePointer, manifest: BackupManifest) -> [String: Bool] {
+        let current = generateManifest(db: db, tables: Array(manifest.tables.keys))
+        var result: [String: Bool] = [:]
+        for (table, info) in manifest.tables {
+            if let cur = current.tables[table] {
+                result[table] = cur == info
+            } else {
+                result[table] = false
+            }
         }
         return result
     }

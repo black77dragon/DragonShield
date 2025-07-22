@@ -353,3 +353,4 @@ All notable changes to this project will be documented in this file.
 - Include TargetAllocation and ExchangeRates tables in transaction backup/restore
 - Fix account lookup by valor when importing cash account balances with detailed logging
 - Remove ZKB position deletion prompt from Data Import/Export view; use Positions view for deletions
+- Validate database backups with per-table manifests and abort restores if validation fails
