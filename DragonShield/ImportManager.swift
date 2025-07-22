@@ -292,7 +292,7 @@ class ImportManager {
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
-    func importPositions(at url: URL, type: StatementType = .creditSuisse, deleteExisting: Bool = false, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
+    func importPositions(at url: URL, type: StatementType = .creditSuisse, progress: ((String) -> Void)? = nil, completion: @escaping (Result<PositionImportSummary, Error>) -> Void) {
         LoggingService.shared.clearLog()
         let logger: (String) -> Void = { message in
             LoggingService.shared.log(message, type: .info, logger: .parser)
@@ -302,19 +302,6 @@ class ImportManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            if deleteExisting {
-                if type == .creditSuisse {
-                    let removed = self.deleteCreditSuissePositions()
-                    let msg = "Existing Credit-Suisse positions removed: \(removed)"
-                    LoggingService.shared.log(msg, type: .info, logger: .database)
-                    progress?(msg)
-                } else if type == .zkb {
-                    let removed = self.deleteZKBPositions()
-                    let msg = "Existing ZKB positions removed: \(removed)"
-                    LoggingService.shared.log(msg, type: .info, logger: .database)
-                    progress?(msg)
-                }
-            }
             do {
                 var (summary, rows) = try {
                     if type == .creditSuisse {
@@ -620,54 +607,6 @@ class ImportManager {
         }
     }
 
-    /// Deletes all Credit-Suisse position reports by selecting accounts linked to the Credit-Suisse institution.
-    /// - Returns: The number of deleted records.
-    func deleteCreditSuissePositions() -> Int {
-        let accounts = dbManager.fetchAccounts(institutionName: "Credit-Suisse")
-        if !accounts.isEmpty {
-            let numbers = accounts.map { $0.number }.joined(separator: ", ")
-            LoggingService.shared.log("Deleting position reports for Credit-Suisse accounts: \(numbers)",
-                                      type: .info, logger: .database)
-        }
-        return dbManager.deletePositionReports(institutionName: "Credit-Suisse")
-    }
-
-    /// Deletes all ZKB position reports by selecting accounts linked to the ZKB institution.
-    /// - Returns: The number of deleted records.
-    func deleteZKBPositions() -> Int {
-        let name = "Zürcher Kantonalbank ZKB"
-        let bic = "ZKBKCHZZ80A"
-        var ids = dbManager.findInstitutionIds(name: name)
-        ids.append(contentsOf: dbManager.findInstitutionIds(bic: bic))
-        ids = Array(Set(ids))
-        if ids.isEmpty { return 0 }
-        let accounts = dbManager.fetchAccounts(institutionName: name)
-        if !accounts.isEmpty {
-            let numbers = accounts.map { $0.number }.joined(separator: ", ")
-            LoggingService.shared.log("Deleting position reports for ZKB accounts: \(numbers)",
-                                      type: .info, logger: .database)
-        }
-        return dbManager.deletePositionReports(institutionIds: ids)
-    }
-
-    /// Deletes all position reports for the specified institution.
-    /// - Returns: The number of deleted records.
-    func deletePositions(institutionId: Int) -> Int {
-        let deleted = dbManager.deletePositionReports(institutionIds: [institutionId])
-        if let inst = dbManager.fetchInstitutionDetails(id: institutionId) {
-            LoggingService.shared.log("Deleted \(deleted) position reports for \(inst.name)",
-                                      type: .info, logger: .database)
-        } else {
-            LoggingService.shared.log("Deleted \(deleted) position reports for institution id \(institutionId)",
-                                      type: .info, logger: .database)
-        }
-        return deleted
-    }
-
-    /// Returns all institutions from the database.
-    func fetchInstitutions() -> [DatabaseManager.InstitutionData] {
-        dbManager.fetchInstitutions()
-    }
 
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {
