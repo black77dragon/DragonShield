@@ -177,8 +177,11 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+        let now = Date()
+        DispatchQueue.main.async {
+            self.lastBackup = now
+            UserDefaults.standard.set(now, forKey: UserDefaultsKeys.lastBackupTimestamp)
+        }
 
         DispatchQueue.main.async {
             func pad(_ value: String, _ len: Int) -> String {
@@ -247,8 +250,11 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        let refDate = Date()
+        DispatchQueue.main.async {
+            self.lastReferenceBackup = refDate
+            UserDefaults.standard.set(refDate, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        }
 
         DispatchQueue.main.async {
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
@@ -277,7 +283,13 @@ class BackupService: ObservableObject {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
         }
 
-        dbManager.closeConnection()
+        guard dbManager.closeConnection() else {
+            throw NSError(
+                domain: "SQLite",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to close database connection"]
+            )
+        }
 
         let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
         try? fm.removeItem(at: tempURL)
@@ -365,10 +377,14 @@ class BackupService: ObservableObject {
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
-        dbManager.dbVersion = dbManager.loadConfiguration()
+        let loadedVersion = dbManager.loadConfiguration()
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        let refDate = Date()
+        DispatchQueue.main.async {
+            dbManager.dbVersion = loadedVersion
+            self.lastReferenceBackup = refDate
+            UserDefaults.standard.set(refDate, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        }
         DispatchQueue.main.async {
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
