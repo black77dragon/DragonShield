@@ -84,7 +84,8 @@ class DatabaseManager: ObservableObject {
         }
         
         openDatabase()
-        dbVersion = loadConfiguration()
+        let version = loadConfiguration()
+        DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(dbVersion)")
     }
@@ -123,18 +124,27 @@ class DatabaseManager: ObservableObject {
         }
     }
 
-    func closeConnection() {
+    @discardableResult
+    func closeConnection() -> Bool {
         if let pointer = db {
-            sqlite3_close(pointer)
-            db = nil
-            print("✅ Database connection closed")
+            let rc = sqlite3_close_v2(pointer)
+            if rc == SQLITE_OK {
+                db = nil
+                print("✅ Database connection closed")
+                return true
+            } else {
+                print("❌ sqlite3_close_v2 failed with code \(rc)")
+                return false
+            }
         }
+        return true
     }
 
     func reopenDatabase() {
         closeConnection()
         openDatabase()
-        dbVersion = loadConfiguration()
+        let version = loadConfiguration()
+        DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
     }
 
@@ -175,7 +185,7 @@ class DatabaseManager: ObservableObject {
     deinit {
         // ... (deinit logic remains the same as v1.3) ...
         if let dbPointer = db {
-            sqlite3_close(dbPointer)
+            sqlite3_close_v2(dbPointer)
             print("✅ Database connection closed in deinit.")
             self.db = nil
         } else {

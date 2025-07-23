@@ -95,7 +95,8 @@ extension DatabaseManager {
             print("✅ Configuration updated for key '\(key)' to value '\(value)'")
             // Reload configuration to update @Published properties
             // This ensures that if one part of the app updates config, others see it if observing DatabaseManager
-            self.dbVersion = loadConfiguration()
+            let version = loadConfiguration()
+            DispatchQueue.main.async { self.dbVersion = version }
         } else {
             print("❌ Failed to update configuration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
         }
@@ -104,7 +105,8 @@ extension DatabaseManager {
 
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")
-        self.dbVersion = loadConfiguration()
+        let version = loadConfiguration()
+        DispatchQueue.main.async { self.dbVersion = version }
         NotificationCenter.default.post(name: NSNotification.Name("DatabaseForceReloaded"), object: nil)
     }
 }
