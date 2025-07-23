@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Persist value reports in database after import and fix Session Details sheet closing
 - Fix Import Values window closing when pressing the Close button
 - Present value report in a table window after import
+- Validate table counts and checksums during backup and restore with manifest files
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Populate import session value report modal with stored rows
