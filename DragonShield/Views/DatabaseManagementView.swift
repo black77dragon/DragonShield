@@ -24,6 +24,8 @@ struct DatabaseManagementView: View {
     @State private var showTxnRestoreSheet = false
     @State private var backupTxnTables: Set<String> = []
     @State private var restoreTxnTables: Set<String> = []
+    @State private var showRestoreComparison = false
+    @State private var restoreDeltas: [RestoreDelta] = []
 
     private let reportService = InstrumentReportService()
 
@@ -319,6 +321,11 @@ struct DatabaseManagementView: View {
                 onCancel: { showTxnRestoreSheet = false }
             )
         }
+        .sheet(isPresented: $showRestoreComparison) {
+            RestoreComparisonView(rows: restoreDeltas) {
+                showRestoreComparison = false
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
             backupNow()
         }
@@ -433,8 +440,12 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
-                DispatchQueue.main.async { processing = false }
+                let result = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                DispatchQueue.main.async {
+                    processing = false
+                    restoreDeltas = result
+                    showRestoreComparison = true
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
