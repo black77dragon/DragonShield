@@ -45,19 +45,30 @@ def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict
 def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, int]]:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     old_path = db_path.with_name(db_path.name + f".old.{ts}")
+    temp_path = db_path.with_name(f"restore_temp_{ts}.sqlite")
 
     with sqlite3.connect(db_path) as conn:
         pre_counts = _row_counts(conn)
 
-    os.replace(db_path, old_path)
+    shutil.copy2(backup_file, temp_path)
+
     try:
-        shutil.copy2(backup_file, db_path)
-        with sqlite3.connect(db_path) as conn:
-            post_counts = _row_counts(conn)
+        os.replace(db_path, old_path)
+        try:
+            os.replace(temp_path, db_path)
+        except Exception:
+            shutil.copy2(temp_path, db_path)
+            os.remove(temp_path)
     except Exception:
         if old_path.exists():
             os.replace(old_path, db_path)
         raise
+
+    if temp_path.exists():
+        temp_path.unlink()
+
+    with sqlite3.connect(db_path) as conn:
+        post_counts = _row_counts(conn)
 
     summary = {}
     for tbl in sorted(set(pre_counts) | set(post_counts)):

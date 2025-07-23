@@ -94,11 +94,14 @@ class BackupService: ObservableObject {
     func updateBackupDirectory(to url: URL) throws {
         if isAccessing { backupDirectory.stopAccessingSecurityScopedResource(); isAccessing = false }
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        backupDirectory = url
-        UserDefaults.standard.set(url, forKey: UserDefaultsKeys.backupDirectoryURL)
-        if let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
-            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
-            if url.startAccessingSecurityScopedResource() { isAccessing = true }
+        let bookmark = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        DispatchQueue.main.async {
+            self.backupDirectory = url
+            UserDefaults.standard.set(url, forKey: UserDefaultsKeys.backupDirectoryURL)
+            if let data = bookmark {
+                UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
+                if url.startAccessingSecurityScopedResource() { self.isAccessing = true }
+            }
         }
     }
 
@@ -177,10 +180,9 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-
         DispatchQueue.main.async {
+            self.lastBackup = Date()
+            UserDefaults.standard.set(self.lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
             func pad(_ value: String, _ len: Int) -> String {
                 value.padding(toLength: len, withPad: " ", startingAt: 0)
             }
@@ -247,10 +249,10 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
         DispatchQueue.main.async {
+            self.lastReferenceBackup = Date()
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
@@ -367,9 +369,9 @@ class BackupService: ObservableObject {
 
         dbManager.dbVersion = dbManager.loadConfiguration()
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         DispatchQueue.main.async {
+            self.lastReferenceBackup = Date()
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)

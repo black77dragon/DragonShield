@@ -362,3 +362,4 @@ All notable changes to this project will be documented in this file.
 - Show detailed Backup Summary and ensure restore logs publish on main thread
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
+- Fix restore file-in-use errors and thread warnings by closing connections and publishing on the main thread
