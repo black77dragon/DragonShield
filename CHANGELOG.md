@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Prompt to confirm option quantity multiplier during position import
 - Show per-table row count comparison after restore in a modal window
+- Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates

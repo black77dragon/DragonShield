@@ -49,6 +49,7 @@ struct RestoreComparisonView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 500, minHeight: 400)
+        // Ensure all table columns are visible without horizontal scrolling
+        .frame(minWidth: 700, minHeight: 400)
     }
 }
