@@ -31,7 +31,7 @@ def test_backup_and_restore(tmp_path):
 
     summary = restore_database(db, backup_file)
 
-    assert summary["t1"] == (1, 2)
+    assert summary["t1"] == (1, 2, 1)
 
     # check old file preserved
     old_files = list(tmp_path.glob("dragonshield.sqlite.old.*"))

@@ -42,28 +42,43 @@ def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict
     return backup_path, counts
 
 
-def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, int]]:
+def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, int, int]]:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     old_path = db_path.with_name(db_path.name + f".old.{ts}")
+    temp_path = db_path.with_name(f"restore_temp_{ts}.sqlite")
 
     with sqlite3.connect(db_path) as conn:
         pre_counts = _row_counts(conn)
 
-    os.replace(db_path, old_path)
+    shutil.copy2(backup_file, temp_path)
+
     try:
-        shutil.copy2(backup_file, db_path)
-        with sqlite3.connect(db_path) as conn:
-            post_counts = _row_counts(conn)
+        os.replace(db_path, old_path)
+        os.replace(temp_path, db_path)
     except Exception:
-        if old_path.exists():
-            os.replace(old_path, db_path)
-        raise
+        try:
+            if not old_path.exists() and db_path.exists():
+                os.rename(db_path, old_path)
+            shutil.copy2(backup_file, db_path)
+        except Exception:
+            if old_path.exists() and not db_path.exists():
+                os.replace(old_path, db_path)
+            raise
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+    else:
+        if temp_path.exists():
+            temp_path.unlink()
+
+    with sqlite3.connect(db_path) as conn:
+        post_counts = _row_counts(conn)
 
     summary = {}
     for tbl in sorted(set(pre_counts) | set(post_counts)):
         pre = pre_counts.get(tbl, 0)
         post = post_counts.get(tbl, 0)
-        summary[tbl] = (pre, post)
+        summary[tbl] = (pre, post, post - pre)
 
     return summary
 
@@ -95,8 +110,7 @@ def main(argv=None) -> int:
         summary = restore_database(args.db, args.backup)
         print("Restore Summary")
         print(f"{'Table':20}{'Pre-Restore':12}{'Post-Restore':14}Delta")
-        for tbl, (pre, post) in summary.items():
-            delta = post - pre
+        for tbl, (pre, post, delta) in summary.items():
             sign = '+' if delta >= 0 else ''
             print(f"{tbl:20}{pre:<12}{post:<14}{sign}{delta}")
         return 0

@@ -177,10 +177,10 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-
+        let now = Date()
         DispatchQueue.main.async {
+            self.lastBackup = now
+            UserDefaults.standard.set(now, forKey: UserDefaultsKeys.lastBackupTimestamp)
             func pad(_ value: String, _ len: Int) -> String {
                 value.padding(toLength: len, withPad: " ", startingAt: 0)
             }
@@ -247,10 +247,10 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
-
+        let now = Date()
         DispatchQueue.main.async {
+            self.lastReferenceBackup = now
+            UserDefaults.standard.set(now, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
@@ -367,9 +367,10 @@ class BackupService: ObservableObject {
 
         dbManager.dbVersion = dbManager.loadConfiguration()
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        let now = Date()
         DispatchQueue.main.async {
+            self.lastReferenceBackup = now
+            UserDefaults.standard.set(now, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
