@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add option to exclude Own Real Estate from Top 10 Positions tile
 - Prompt to confirm option quantity multiplier during position import
 - Show per-table row count comparison after restore in a modal window
 - Widen Restore Comparison window to display all columns without scrolling

@@ -14,6 +14,7 @@ class PositionsViewModel: ObservableObject {
         let instrument: String
         let valueCHF: Double
         let currency: String
+        let subClass: String?
     }
 
     func calculateValues(positions: [PositionReportData], db: DatabaseManager) {
@@ -73,9 +74,11 @@ class PositionsViewModel: ObservableObject {
                 self.totalAssetValueCHF = total
                 self.top10PositionsCHF = orig.keys.compactMap { id in
                     if let value = chf[id], let v = value {
-                        let name = positions.first { $0.id == id }?.instrumentName ?? ""
-                        let currency = positions.first { $0.id == id }?.instrumentCurrency.uppercased() ?? "CHF"
-                        return TopPosition(id: id, instrument: name, valueCHF: v, currency: currency)
+                        let pos = positions.first { $0.id == id }
+                        let name = pos?.instrumentName ?? ""
+                        let currency = pos?.instrumentCurrency.uppercased() ?? "CHF"
+                        let subclass = pos?.assetSubClass
+                        return TopPosition(id: id, instrument: name, valueCHF: v, currency: currency, subClass: subclass)
                     }
                     return nil
                 }
@@ -88,8 +91,11 @@ class PositionsViewModel: ObservableObject {
         }
     }
 
-    func calculateTop10Positions(db: DatabaseManager) {
-        let positions = db.fetchPositionReports()
+    func calculateTop10Positions(db: DatabaseManager, excludingRealEstate: Bool = false) {
+        var positions = db.fetchPositionReports()
+        if excludingRealEstate {
+            positions = positions.filter { ($0.assetSubClass ?? "").lowercased() != "own real estate" }
+        }
         calculateValues(positions: positions, db: db)
     }
 }
