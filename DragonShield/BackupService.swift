@@ -23,6 +23,8 @@ class BackupService: ObservableObject {
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
 
+    private var lastBackupRowCounts: [String: Int] = [:]
+
     let fullTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
         "AssetClasses", "AssetSubClasses", "Instruments", "Portfolios",
@@ -152,21 +154,19 @@ class BackupService: ObservableObject {
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
-        let fm = FileManager.default
-        try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        let counts = rowCounts(dbPath: dbPath, tables: tables)
+        lastBackupRowCounts = Dictionary(uniqueKeysWithValues: counts)
+
+        try sqliteCopy(from: dbPath, to: destination.path)
+
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
+        let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Backed up \(label) data — " + counts.joined(separator: ", "))
+            self.logMessages.append("✅ Backed up \(label) data — " + summary)
             self.appendLog(action: "Backup", file: destination.path, success: true)
-            self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-            }
+            self.lastActionSummaries = counts.map { TableActionSummary(table: $0.0, action: "Backed up", count: $0.1) }
         }
         return destination
     }
@@ -239,32 +239,35 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
+        let ts = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
+        let oldPath = dbPath + ".old." + ts
         dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
+        try fm.moveItem(atPath: dbPath, toPath: oldPath)
         do {
-            try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
+            try sqliteCopy(from: url.path, to: dbPath)
             dbManager.reopenDatabase()
 
-            var counts = [String]()
-            for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+            let afterCounts = rowCounts(dbPath: dbPath, tables: tables)
+            let reportLines = afterCounts.map { table, count -> String in
+                let before = lastBackupRowCounts[table] ?? 0
+                let delta = count - before
+                let sign = delta >= 0 ? "+" : ""
+                return "\(table): \(before) -> \(count) (\(sign)\(delta))"
             }
+            let report = reportLines.joined(separator: ", ")
+            print("Restore report: " + report)
             DispatchQueue.main.async {
-                self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
+                self.logMessages.append("✅ Restored \(label) data — " + report)
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
-                self.lastActionSummaries = tables.map { tbl in
-                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-                }
+                self.lastActionSummaries = afterCounts.map { TableActionSummary(table: $0.0, action: "Restored", count: $0.1) }
             }
         } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
+            try? fm.moveItem(atPath: oldPath, toPath: dbPath)
             DispatchQueue.main.async {
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             }
             throw error
         }
-        try? fm.removeItem(atPath: temp)
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
@@ -455,5 +458,33 @@ class BackupService: ObservableObject {
             stmt = nil
         }
         return result
+    }
+
+    private func sqliteCopy(from sourcePath: String, to destinationPath: String) throws {
+        var sourceDB: OpaquePointer?
+        var destDB: OpaquePointer?
+        guard sqlite3_open_v2(sourcePath, &sourceDB, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let sourceDB else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open source DB"])
+        }
+        guard sqlite3_open(destinationPath, &destDB) == SQLITE_OK, let destDB else {
+            sqlite3_close(sourceDB)
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open destination DB"])
+        }
+        guard let backup = sqlite3_backup_init(destDB, "main", sourceDB, "main") else {
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            sqlite3_close(sourceDB)
+            sqlite3_close(destDB)
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        while sqlite3_backup_step(backup, -1) == SQLITE_OK {}
+        let rc = sqlite3_backup_finish(backup)
+        if rc != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            sqlite3_close(sourceDB)
+            sqlite3_close(destDB)
+            throw NSError(domain: "SQLite", code: Int(rc), userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        sqlite3_close(sourceDB)
+        sqlite3_close(destDB)
     }
 }
