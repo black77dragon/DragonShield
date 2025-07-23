@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Fix Import Values window closing when pressing the Close button
 - Present value report in a table window after import
 - Document production folder path and backups in README
+- Add CLI tool for full database backups and restores via SQLite API
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Populate import session value report modal with stored rows
