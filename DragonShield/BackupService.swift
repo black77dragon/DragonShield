@@ -17,6 +17,7 @@ class BackupService: ObservableObject {
     @Published var scheduledTime: Date
     @Published var backupDirectory: URL
     @Published var lastActionSummaries: [TableActionSummary] = []
+    private var lastFullBackupCounts: [String: Int] = [:]
 
     private var timer: Timer?
     private var isAccessing = false
@@ -152,21 +153,42 @@ class BackupService: ObservableObject {
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
-        let fm = FileManager.default
-        try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        let before = rowCounts(dbPath: dbPath, tables: tables)
+        lastFullBackupCounts = Dictionary(uniqueKeysWithValues: before)
+
+        var source: OpaquePointer?
+        var dest: OpaquePointer?
+        guard sqlite3_open(dbPath, &source) == SQLITE_OK, sqlite3_open(destination.path, &dest) == SQLITE_OK else {
+            let msg = String(cString: sqlite3_errmsg(source ?? dest))
+            sqlite3_close(source)
+            sqlite3_close(dest)
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        guard let backup = sqlite3_backup_init(dest, "main", source, "main") else {
+            let msg = String(cString: sqlite3_errmsg(dest))
+            sqlite3_close(source)
+            sqlite3_close(dest)
+            throw NSError(domain: "SQLite", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        while sqlite3_backup_step(backup, -1) == SQLITE_OK {}
+        if sqlite3_backup_finish(backup) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(dest))
+            sqlite3_close(source)
+            sqlite3_close(dest)
+            throw NSError(domain: "SQLite", code: 3, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        sqlite3_close(source)
+        sqlite3_close(dest)
+
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
+        let summary = before.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Backed up \(label) data — " + counts.joined(separator: ", "))
+            self.logMessages.append("✅ Backed up \(label) data — " + summary)
             self.appendLog(action: "Backup", file: destination.path, success: true)
-            self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-            }
+            self.lastActionSummaries = before.map { TableActionSummary(table: $0.0, action: "Backed up", count: $0.1) }
         }
         return destination
     }
@@ -246,16 +268,20 @@ class BackupService: ObservableObject {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
 
-            var counts = [String]()
-            for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-            }
+            let after = rowCounts(dbPath: dbPath, tables: tables)
+            let reportLines = after.map { table, countAfter in
+                let before = self.lastFullBackupCounts[table] ?? 0
+                let delta = countAfter - before
+                let sign = delta >= 0 ? "+" : ""
+                return "\(table): \(before) -> \(countAfter) (\(sign)\(delta))"
+            }.joined(separator: ", ")
+
+            print("Restore Verification: " + reportLines)
+
             DispatchQueue.main.async {
-                self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
+                self.logMessages.append("✅ Restored \(label) data — " + reportLines)
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
-                self.lastActionSummaries = tables.map { tbl in
-                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-                }
+                self.lastActionSummaries = after.map { TableActionSummary(table: $0.0, action: "Restored", count: $0.1) }
             }
         } catch {
             try? fm.moveItem(atPath: temp, toPath: dbPath)
