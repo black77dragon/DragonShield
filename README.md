@@ -112,7 +112,11 @@ DragonShield/
 ## 💾 Database Information
 
 - **Type**: SQLite
-- **Path**: `/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield/dragonshield.sqlite` (generate with `python3 python_scripts/deploy_db.py`)
+- **Production Folder**: `/Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield`
+  - Primary database: `dragonshield.sqlite`
+  - Test database: `dragonshield_test.sqlite`
+  - Backup directory: `Dragonshield DB Backup` (full, reference and transaction backups)
+  - Generate the database with `python3 python_scripts/deploy_db.py`.
 - **Encryption**: SQLCipher (AES-256)
 - **Schema**: `docs/schema.sql`
 - **Dev Key**: Temporary; do not use for production data
