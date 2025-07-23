@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Document production folder path and backups in README
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
+- Add Crypto Top 5 dashboard tile showing largest crypto holdings
 - Populate import session value report modal with stored rows
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
