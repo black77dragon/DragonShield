@@ -731,8 +731,8 @@ struct DeletePositionsSheet: View {
         .padding(20)
         .frame(minWidth: 340)
         .onAppear { updateCount() }
-        .onChange(of: instIds) { _ in updateCount() }
-        .onChange(of: typeIds) { _ in updateCount() }
+        .onChange(of: instIds) { updateCount() }
+        .onChange(of: typeIds) { updateCount() }
     }
 
     private func updateCount() {

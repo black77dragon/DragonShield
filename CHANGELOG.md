@@ -364,3 +364,4 @@ All notable changes to this project will be documented in this file.
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
 - Close SQLite connection before file moves and update dbVersion on main thread
+- Ensure published properties update on main thread and migrate onChange syntax
