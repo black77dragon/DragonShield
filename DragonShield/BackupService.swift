@@ -17,6 +17,7 @@ class BackupService: ObservableObject {
     @Published var scheduledTime: Date
     @Published var backupDirectory: URL
     @Published var lastActionSummaries: [TableActionSummary] = []
+    private var lastFullBackupCounts: [String: Int] = [:]
 
     private var timer: Timer?
     private var isAccessing = false
@@ -153,19 +154,46 @@ class BackupService: ObservableObject {
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
         let fm = FileManager.default
-        try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        if fm.fileExists(atPath: destination.path) {
+            try fm.removeItem(at: destination)
+        }
+
+        let countsBefore = rowCounts(dbPath: dbPath, tables: tables)
+        lastFullBackupCounts = Dictionary(uniqueKeysWithValues: countsBefore)
+
+        guard let srcDB = dbManager.db else { throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "DB not open"]) }
+        var dstDB: OpaquePointer?
+        guard sqlite3_open(destination.path, &dstDB) == SQLITE_OK, let dstDB else {
+            let msg = String(cString: sqlite3_errmsg(dstDB))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(dstDB) }
+
+        guard let backup = sqlite3_backup_init(dstDB, "main", srcDB, "main") else {
+            let msg = String(cString: sqlite3_errmsg(dstDB))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        var step = sqlite3_backup_step(backup, -1)
+        while step == SQLITE_BUSY || step == SQLITE_LOCKED {
+            sqlite3_sleep(100)
+            step = sqlite3_backup_step(backup, -1)
+        }
+        let finish = sqlite3_backup_finish(backup)
+        if step != SQLITE_DONE || finish != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(dstDB))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
+        let summary = countsBefore.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Backed up \(label) data — " + counts.joined(separator: ", "))
+            self.logMessages.append("✅ Backed up \(label) data — " + summary)
             self.appendLog(action: "Backup", file: destination.path, success: true)
             self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+                TableActionSummary(table: tbl, action: "Backed up", count: self.lastFullBackupCounts[tbl] ?? 0)
             }
         }
         return destination
@@ -246,15 +274,25 @@ class BackupService: ObservableObject {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
 
-            var counts = [String]()
+            var afterCounts: [String: Int] = [:]
             for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+                afterCounts[tbl] = (try? dbManager.rowCount(table: tbl)) ?? 0
             }
+            var reportLines: [String] = []
+            for tbl in tables {
+                let before = lastFullBackupCounts[tbl] ?? 0
+                let after = afterCounts[tbl] ?? 0
+                let delta = after - before
+                let sign = delta >= 0 ? "+" : ""
+                reportLines.append("\(tbl): \(before) -> \(after) (\(sign)\(delta))")
+            }
+            let report = reportLines.joined(separator: ", ")
+            print("Restore verification: \(report)")
             DispatchQueue.main.async {
-                self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
+                self.logMessages.append("✅ Restored \(label) data — " + report)
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
                 self.lastActionSummaries = tables.map { tbl in
-                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+                    TableActionSummary(table: tbl, action: "Restored", count: afterCounts[tbl] ?? 0)
                 }
             }
         } catch {
