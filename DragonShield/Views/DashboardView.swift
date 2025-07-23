@@ -47,6 +47,9 @@ struct DashboardView: View {
             tileIDs = saved.filter { id in TileRegistry.all.contains { $0.id == id } }
         } else {
             tileIDs = TileRegistry.all.map { $0.id }
+            if let idx = tileIDs.firstIndex(of: CryptoTop5Tile.tileID) {
+                tileIDs.move(fromOffsets: IndexSet(integer: idx), toOffset: 0)
+            }
         }
     }
 
