@@ -277,7 +277,9 @@ class BackupService: ObservableObject {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
         }
 
-        dbManager.closeConnection()
+        if !dbManager.closeConnection() || dbManager.db != nil {
+            print("⚠️ Database connection still open before restore")
+        }
 
         let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
         try? fm.removeItem(at: tempURL)
