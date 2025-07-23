@@ -275,7 +275,11 @@ class BackupService: ObservableObject {
 
         var usedOldURL = false
         do {
-            _ = try fm.replaceItem(at: dbURL, withItemAt: url, backupItemName: oldName)
+            _ = try fm.replaceItem(at: dbURL,
+                                   withItemAt: url,
+                                   backupItemName: oldName,
+                                   options: [],
+                                   resultingItemURL: nil)
         } catch {
             do {
                 try fm.moveItem(at: dbURL, to: oldURL)
