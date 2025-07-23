@@ -9,6 +9,14 @@ struct TableActionSummary: Identifiable {
     let count: Int
 }
 
+struct RestoreComparisonRow: Identifiable {
+    let id = UUID()
+    let table: String
+    let preCount: Int
+    let postCount: Int
+    var delta: Int { postCount - preCount }
+}
+
 class BackupService: ObservableObject {
     @Published var lastBackup: Date?
     @Published var lastReferenceBackup: Date?
@@ -17,6 +25,7 @@ class BackupService: ObservableObject {
     @Published var scheduledTime: Date
     @Published var backupDirectory: URL
     @Published var lastActionSummaries: [TableActionSummary] = []
+    @Published var restoreComparison: [RestoreComparisonRow] = []
 
     private var timer: Timer?
     private var isAccessing = false
@@ -263,7 +272,7 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
+    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreComparisonRow] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
@@ -319,10 +328,12 @@ class BackupService: ObservableObject {
         func pad(_ value: String, _ len: Int) -> String {
             return value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
+        var comparison: [RestoreComparisonRow] = []
         var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
         for (tbl, post) in postCounts {
             let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
             let delta = post - pre
+            comparison.append(RestoreComparisonRow(table: tbl, preCount: pre, postCount: post))
             let sign = delta >= 0 ? "+" : ""
             lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
         }
@@ -334,7 +345,10 @@ class BackupService: ObservableObject {
             self.lastActionSummaries = tables.map { tbl in
                 TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
             }
+            self.restoreComparison = comparison
         }
+
+        return comparison
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {

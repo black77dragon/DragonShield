@@ -433,8 +433,11 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
-                DispatchQueue.main.async { processing = false }
+                let comparison = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                DispatchQueue.main.async {
+                    processing = false
+                    showRestoreComparison(items: comparison)
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
@@ -508,6 +511,21 @@ struct DatabaseManagementView: View {
                 }
             }
         }
+    }
+
+    private func showRestoreComparison(items: [RestoreComparisonRow]) {
+        let view = RestoreComparisonView(items: items) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 400),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Restore Comparison"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        window.close()
     }
 
     private func confirmSwitchMode() {
