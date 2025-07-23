@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-import re
+
 
 from DragonShield.python_scripts.backup_restore import backup_database, restore_database
 
@@ -36,4 +36,7 @@ def test_backup_and_restore(tmp_path):
     # check old file preserved
     old_files = list(tmp_path.glob("dragonshield.sqlite.old.*"))
     assert len(old_files) == 1
+
+    # backup should still exist
+    assert backup_file.exists()
 

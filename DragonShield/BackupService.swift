@@ -279,12 +279,16 @@ class BackupService: ObservableObject {
 
         dbManager.closeConnection()
 
+        let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
+        try? fm.removeItem(at: tempURL)
+        try fm.copyItem(at: url, to: tempURL)
+
         var usedOldURL = false
         do {
             _ = try fm.replaceItem(at: dbURL,
-                                   withItemAt: url,
+                                   withItemAt: tempURL,
                                    backupItemName: oldName,
-                                   options: [.withoutDeletingBackupItem],
+                                   options: [],
                                    resultingItemURL: nil)
         } catch {
             do {
@@ -296,6 +300,7 @@ class BackupService: ObservableObject {
                 throw error
             }
         }
+        try? fm.removeItem(at: tempURL)
 
         guard checkIntegrity(path: dbPath) else {
             if usedOldURL {
