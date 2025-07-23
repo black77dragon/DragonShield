@@ -9,6 +9,14 @@ struct TableActionSummary: Identifiable {
     let count: Int
 }
 
+struct RestoreDelta: Identifiable {
+    let id = UUID()
+    let table: String
+    let preCount: Int
+    let postCount: Int
+    var delta: Int { postCount - preCount }
+}
+
 class BackupService: ObservableObject {
     @Published var lastBackup: Date?
     @Published var lastReferenceBackup: Date?
@@ -263,7 +271,7 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
+    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
@@ -316,13 +324,15 @@ class BackupService: ObservableObject {
         dbManager.reopenDatabase()
 
         let postCounts = rowCounts(dbPath: dbPath, tables: tables)
+        var comparisons: [RestoreDelta] = []
         func pad(_ value: String, _ len: Int) -> String {
-            return value.padding(toLength: len, withPad: " ", startingAt: 0)
+            value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
         var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
         for (tbl, post) in postCounts {
             let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
             let delta = post - pre
+            comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
             let sign = delta >= 0 ? "+" : ""
             lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
         }
@@ -335,6 +345,7 @@ class BackupService: ObservableObject {
                 TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
             }
         }
+        return comparisons
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
