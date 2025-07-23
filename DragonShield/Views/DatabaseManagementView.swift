@@ -433,8 +433,11 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
-                DispatchQueue.main.async { processing = false }
+                let rows = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                DispatchQueue.main.async {
+                    processing = false
+                    showRestoreComparison(rows: rows)
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
@@ -536,6 +539,24 @@ struct DatabaseManagementView: View {
         if backupService.logMessages.count > 10 {
             backupService.logMessages = Array(backupService.logMessages.prefix(10))
         }
+    }
+
+    private func showRestoreComparison(rows: [RestoreComparisonRow]) {
+        let view = RestoreComparisonView(rows: rows) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Restore Comparison"
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        window.close()
     }
 }
 
