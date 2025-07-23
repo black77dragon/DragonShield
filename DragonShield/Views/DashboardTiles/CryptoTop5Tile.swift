@@ -3,7 +3,7 @@ import SwiftUI
 struct CryptoTop5Tile: DashboardTile {
     init() {}
     static let tileID = "crypto_top5"
-    static let tileName = "Crypto Top 5"
+    static let tileName = "Crypto Allocations"
     static let iconName = "bitcoinsign.circle"
 
     struct CryptoRow: Identifiable {
@@ -34,12 +34,15 @@ struct CryptoTop5Tile: DashboardTile {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(0..<5, id: \.self) { idx in
-                        rowView(for: idx)
-                            .frame(minHeight: 44)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(rows) { item in
+                            rowView(item)
+                                .padding(.vertical, 4)
+                        }
                     }
                 }
+                .frame(maxHeight: rows.count > 6 ? 200 : .infinity)
             }
         }
         .padding(16)
@@ -50,38 +53,23 @@ struct CryptoTop5Tile: DashboardTile {
         .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder
-    private func rowView(for index: Int) -> some View {
-        if index < rows.count {
-            let item = rows[index]
-            HStack {
-                Text(item.symbol)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "0")
-                    .frame(width: 80, alignment: .trailing)
-                Text(String(format: "%.1f%%", item.percentage))
-                    .frame(width: 50, alignment: .trailing)
-            }
-            .font(.system(size: 13))
-        } else {
-            HStack {
-                Text("–")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("–")
-                    .frame(width: 80, alignment: .trailing)
-                Text("–")
-                    .frame(width: 50, alignment: .trailing)
-            }
-            .font(.system(size: 13))
-            .foregroundColor(.secondary)
+    private func rowView(_ item: CryptoRow) -> some View {
+        HStack {
+            Text(item.symbol)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "0")
+                .frame(width: 80, alignment: .trailing)
+            Text(String(format: "%.1f%%", item.percentage))
+                .frame(width: 50, alignment: .trailing)
         }
+        .font(.system(size: 13))
     }
 
     private func calculate() {
         loading = true
         DispatchQueue.global().async {
             let positions = dbManager.fetchPositionReports()
-            var totals: [(symbol: String, value: Double)] = []
+            var totals: [String: Double] = [:]
             var rateCache: [String: Double] = [:]
             for p in positions {
                 guard let price = p.currentPrice else { continue }
@@ -99,14 +87,14 @@ struct CryptoTop5Tile: DashboardTile {
                         continue
                     }
                 }
-                totals.append((symbol: p.instrumentName, value: value))
+                totals[p.instrumentName, default: 0] += value
             }
-            let totalValue = totals.reduce(0) { $0 + $1.value }
-            let sorted = totals.sorted { $0.value > $1.value }.prefix(5)
-            let results = sorted.map { item in
-                CryptoRow(symbol: item.symbol,
-                          valueCHF: item.value,
-                          percentage: totalValue > 0 ? item.value / totalValue * 100 : 0)
+            let totalValue = totals.values.reduce(0, +)
+            let sorted = totals.sorted { $0.value > $1.value }
+            let results = sorted.map { key, value in
+                CryptoRow(symbol: key,
+                          valueCHF: value,
+                          percentage: totalValue > 0 ? value / totalValue * 100 : 0)
             }
             DispatchQueue.main.async {
                 self.rows = results
