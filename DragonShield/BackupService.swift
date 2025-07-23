@@ -278,6 +278,16 @@ class BackupService: ObservableObject {
         }
 
         dbManager.closeConnection()
+        if dbManager.db != nil {
+            dbManager.closeConnection()
+        }
+        guard dbManager.db == nil else {
+            throw NSError(
+                domain: "SQLite",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to close database before restore"]
+            )
+        }
 
         let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
         try? fm.removeItem(at: tempURL)
@@ -365,7 +375,10 @@ class BackupService: ObservableObject {
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
-        dbManager.dbVersion = dbManager.loadConfiguration()
+        let newVersion = dbManager.loadConfiguration()
+        DispatchQueue.main.async {
+            dbManager.dbVersion = newVersion
+        }
         let tableCounts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)

@@ -124,10 +124,22 @@ class DatabaseManager: ObservableObject {
     }
 
     func closeConnection() {
-        if let pointer = db {
-            sqlite3_close(pointer)
+        guard let pointer = db else { return }
+
+        // Finalize any prepared statements before closing
+        var stmt = sqlite3_next_stmt(pointer, nil)
+        while stmt != nil {
+            sqlite3_finalize(stmt)
+            stmt = sqlite3_next_stmt(pointer, nil)
+        }
+
+        let rc = sqlite3_close_v2(pointer)
+        if rc == SQLITE_OK {
             db = nil
             print("✅ Database connection closed")
+        } else {
+            let msg = String(cString: sqlite3_errmsg(pointer))
+            print("❌ Failed to close database connection: \(msg) (\(rc))")
         }
     }
 
