@@ -22,6 +22,7 @@ class BackupService: ObservableObject {
     private var isAccessing = false
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
+    private var preBackupCounts: [String: Int] = [:]
 
     let fullTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
@@ -152,8 +153,34 @@ class BackupService: ObservableObject {
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
-        let fm = FileManager.default
-        try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        guard let sourceDB = dbManager.db else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Database not open"]) }
+
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        var destDB: OpaquePointer?
+        guard sqlite3_open(destination.path, &destDB) == SQLITE_OK, let destDB else {
+            let msg = destDB != nil ? String(cString: sqlite3_errmsg(destDB)) : "Unknown error"
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(destDB) }
+
+        preBackupCounts = [:]
+        for tbl in tables {
+            preBackupCounts[tbl] = (try? dbManager.rowCount(table: tbl)) ?? 0
+        }
+
+        guard let backup = sqlite3_backup_init(destDB, "main", sourceDB, "main") else {
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        var stepResult: Int32
+        repeat { stepResult = sqlite3_backup_step(backup, -1) } while stepResult == SQLITE_OK || stepResult == SQLITE_BUSY || stepResult == SQLITE_LOCKED
+        sqlite3_backup_finish(backup)
+        if stepResult != SQLITE_DONE {
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            throw NSError(domain: "SQLite", code: Int(stepResult), userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
@@ -239,32 +266,64 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
-        dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
-        do {
-            try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
-            dbManager.reopenDatabase()
+        let df = DateFormatter()
+        df.dateFormat = "yyyyMMddHHmmss"
+        let backupPath = dbPath + ".old." + df.string(from: Date())
 
-            var counts = [String]()
-            for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-            }
-            DispatchQueue.main.async {
-                self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
-                self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
-                self.lastActionSummaries = tables.map { tbl in
-                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-                }
-            }
-        } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
-            DispatchQueue.main.async {
-                self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
-            }
-            throw error
+        dbManager.closeConnection()
+        try fm.moveItem(atPath: dbPath, toPath: backupPath)
+
+        var destDB: OpaquePointer?
+        guard sqlite3_open(dbPath, &destDB) == SQLITE_OK, let destDB else {
+            try? fm.moveItem(atPath: backupPath, toPath: dbPath)
+            let msg = destDB != nil ? String(cString: sqlite3_errmsg(destDB)) : "Unknown error"
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
-        try? fm.removeItem(atPath: temp)
+        defer { sqlite3_close(destDB) }
+
+        var srcDB: OpaquePointer?
+        guard sqlite3_open(url.path, &srcDB) == SQLITE_OK, let srcDB else {
+            try? fm.moveItem(atPath: backupPath, toPath: dbPath)
+            let msg = srcDB != nil ? String(cString: sqlite3_errmsg(srcDB)) : "Unknown error"
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(srcDB) }
+
+        guard let backup = sqlite3_backup_init(destDB, "main", srcDB, "main") else {
+            sqlite3_close(srcDB)
+            try? fm.moveItem(atPath: backupPath, toPath: dbPath)
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        var stepResult: Int32
+        repeat { stepResult = sqlite3_backup_step(backup, -1) } while stepResult == SQLITE_OK || stepResult == SQLITE_BUSY || stepResult == SQLITE_LOCKED
+        sqlite3_backup_finish(backup)
+        if stepResult != SQLITE_DONE {
+            try? fm.moveItem(atPath: backupPath, toPath: dbPath)
+            let msg = String(cString: sqlite3_errmsg(destDB))
+            throw NSError(domain: "SQLite", code: Int(stepResult), userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        dbManager.reopenDatabase()
+
+        var counts = [String]()
+        var afterDict: [String: Int] = [:]
+        for tbl in tables {
+            if let n = try? dbManager.rowCount(table: tbl) {
+                counts.append("\(tbl): \(n)")
+                afterDict[tbl] = n
+            }
+        }
+        let report = buildReport(before: preBackupCounts, after: afterDict)
+        print(report)
+        DispatchQueue.main.async {
+            self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
+            self.logMessages.append(report)
+            self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
+            self.lastActionSummaries = tables.map { tbl in
+                TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+            }
+        }
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
@@ -455,5 +514,18 @@ class BackupService: ObservableObject {
             stmt = nil
         }
         return result
+    }
+
+    private func buildReport(before: [String: Int], after: [String: Int]) -> String {
+        var lines: [String] = []
+        let tables = Set(before.keys).union(after.keys)
+        for table in tables.sorted() {
+            let b = before[table] ?? 0
+            let a = after[table] ?? 0
+            let delta = a - b
+            let sign = delta >= 0 ? "+" : ""
+            lines.append("\(table): \(b) -> \(a) (\(sign)\(delta))")
+        }
+        return "Restore verification — " + lines.joined(separator: ", ")
     }
 }

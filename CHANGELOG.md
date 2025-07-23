@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix unused variable warning when computing position values
 - Populate import session value report modal with stored rows
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
+- Verify full database restore using SQLite backup API with row count report
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
