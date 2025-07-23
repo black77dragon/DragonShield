@@ -117,6 +117,7 @@ DragonShield/
   - Test database: `dragonshield_test.sqlite`
   - Backup directory: `Dragonshield DB Backup` (full, reference and transaction backups)
   - Generate the database with `python3 python_scripts/deploy_db.py`.
+  - Full database backup/restore via `python3 python_scripts/backup_restore.py`
 - **Encryption**: SQLCipher (AES-256)
 - **Schema**: `docs/schema.sql`
 - **Dev Key**: Temporary; do not use for production data

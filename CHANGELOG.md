@@ -354,3 +354,11 @@ All notable changes to this project will be documented in this file.
 - Include TargetAllocation and ExchangeRates tables in transaction backup/restore
 - Fix account lookup by valor when importing cash account balances with detailed logging
 - Remove ZKB position deletion prompt from Data Import/Export view; use Positions view for deletions
+- Add Python script for full database backup and restore using SQLite
+- Improve BackupService restore logic with atomic replace and integrity validation
+- Fix compile error when calling FileManager.replaceItem during database restore
+- Fix integrity check failure when validating WAL-mode backups
+- Preserve backup file during restore and log pre/post row comparisons
+- Show detailed Backup Summary and ensure restore logs publish on main thread
+- Keep original backup file by copying to a temporary location before atomic replace
+- Document python backup_restore script in README
