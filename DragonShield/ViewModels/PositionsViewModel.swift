@@ -88,8 +88,11 @@ class PositionsViewModel: ObservableObject {
         }
     }
 
-    func calculateTop10Positions(db: DatabaseManager) {
-        let positions = db.fetchPositionReports()
+    func calculateTop10Positions(db: DatabaseManager, excludeRealEstate: Bool = false) {
+        var positions = db.fetchPositionReports()
+        if excludeRealEstate {
+            positions.removeAll { $0.assetSubClass?.lowercased() == "own real estate".lowercased() }
+        }
         calculateValues(positions: positions, db: db)
     }
 }

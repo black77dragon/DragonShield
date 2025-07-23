@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view
+- Revise Top 10 Positions dashboard tile with header logo and "Exclude Own Real Estate" toggle
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
 - Show imported position values in CHF after import completes

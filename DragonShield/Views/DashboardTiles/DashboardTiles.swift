@@ -142,6 +142,7 @@ struct TotalValueTile: DashboardTile {
 struct TopPositionsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = PositionsViewModel()
+    @State private var excludeRealEstate = false
 
     init() {}
     static let tileID = "top_positions"
@@ -150,8 +151,17 @@ struct TopPositionsTile: DashboardTile {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(Self.tileName)
-                .font(.headline)
+            HStack {
+                Text(Self.tileName)
+                    .font(.headline)
+                Spacer()
+                Image("Top10Icon")
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .accessibilityLabel("Top 10 icon")
+            }
+            Toggle("Exclude Own Real Estate", isOn: $excludeRealEstate)
+                .accessibilityLabel("Exclude Own Real Estate")
             if viewModel.calculating {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -183,10 +193,13 @@ struct TopPositionsTile: DashboardTile {
             }
         }
         .padding(16)
-        .background(Color(red: 216/255, green: 236/255, blue: 248/255))
+        .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        .onAppear { viewModel.calculateTop10Positions(db: dbManager) }
+        .onAppear { viewModel.calculateTop10Positions(db: dbManager, excludeRealEstate: excludeRealEstate) }
+        .onChange(of: excludeRealEstate) { _, newValue in
+            viewModel.calculateTop10Positions(db: dbManager, excludeRealEstate: newValue)
+        }
         .accessibilityElement(children: .combine)
     }
 }
