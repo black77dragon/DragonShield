@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Prompt to confirm option quantity multiplier during position import
 - Record table row counts during full backup and verify after restore
+- Rename WAL and SHM files when restoring database to avoid disk errors
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates

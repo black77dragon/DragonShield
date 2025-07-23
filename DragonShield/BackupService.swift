@@ -241,8 +241,18 @@ class BackupService: ObservableObject {
         let dbPath = dbManager.dbFilePath
         let ts = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
         let oldPath = dbPath + ".old." + ts
+        let walOld = dbPath + "-wal.old." + ts
+        let shmOld = dbPath + "-shm.old." + ts
+
         dbManager.closeConnection()
+
         try fm.moveItem(atPath: dbPath, toPath: oldPath)
+        if fm.fileExists(atPath: dbPath + "-wal") {
+            try fm.moveItem(atPath: dbPath + "-wal", toPath: walOld)
+        }
+        if fm.fileExists(atPath: dbPath + "-shm") {
+            try fm.moveItem(atPath: dbPath + "-shm", toPath: shmOld)
+        }
         do {
             try sqliteCopy(from: url.path, to: dbPath)
             dbManager.reopenDatabase()
@@ -263,6 +273,12 @@ class BackupService: ObservableObject {
             }
         } catch {
             try? fm.moveItem(atPath: oldPath, toPath: dbPath)
+            if fm.fileExists(atPath: walOld) {
+                try? fm.moveItem(atPath: walOld, toPath: dbPath + "-wal")
+            }
+            if fm.fileExists(atPath: shmOld) {
+                try? fm.moveItem(atPath: shmOld, toPath: dbPath + "-shm")
+            }
             DispatchQueue.main.async {
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             }
