@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Display sub-class aggregate totals with delta validation in Allocation Targets table
 - Fix compile error from variable name clash in AllocationTargetsTableView
 - Shrink Data Import/Export panels and show square drag-and-drop area
+- Record pre/post table counts in restore summary log
 - Add Import Session History tab with per-session totals
 - Enable multi-institution selection in Positions view with summary totals and bulk delete
 - Show total CHF value for selected institutions in Positions view

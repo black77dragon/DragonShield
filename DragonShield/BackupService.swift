@@ -314,16 +314,44 @@ class BackupService: ObservableObject {
         dbManager.reopenDatabase()
 
         let postCounts = rowCounts(dbPath: dbPath, tables: tables)
+
         func pad(_ value: String, _ len: Int) -> String {
-            return value.padding(toLength: len, withPad: " ", startingAt: 0)
+            value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
-        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
+
+        func format(_ n: Int) -> String {
+            let f = NumberFormatter()
+            f.numberStyle = .decimal
+            f.groupingSeparator = "’"
+            return f.string(from: NSNumber(value: n)) ?? "\(n)"
+        }
+
+        func colorDelta(_ delta: Int) -> String {
+            if delta > 0 {
+                return "\u{001B}[0;32m+\(format(delta))\u{001B}[0m"
+            } else if delta < 0 {
+                return "-\(format(-delta))"
+            } else {
+                return "+0"
+            }
+        }
+
+        var lines: [String] = [
+            "Restore Summary",
+            pad("Table", 20) + pad("Pre-Restore", 14) + pad("Post-Restore", 14) + "Delta"
+        ]
         for (tbl, post) in postCounts {
             let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
             let delta = post - pre
-            let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            let deltaStr = colorDelta(delta)
+            lines.append(
+                pad(tbl, 20) +
+                pad(format(pre), 14) +
+                pad(format(post), 14) +
+                deltaStr
+            )
         }
+
         let summary = lines.joined(separator: "\n")
 
         DispatchQueue.main.async {
@@ -337,6 +365,7 @@ class BackupService: ObservableObject {
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
         guard let db = dbManager.db else { return }
+        let preCounts = rowCounts(db: db, tables: referenceTables)
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
 
         // Remove transaction wrappers to avoid nested transactions
@@ -366,12 +395,27 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.dbVersion = dbManager.loadConfiguration()
-        let tableCounts = rowCounts(db: db, tables: referenceTables)
+        let postCounts = rowCounts(db: db, tables: referenceTables)
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        func pad(_ v: String, _ n: Int) -> String { v.padding(toLength: n, withPad: " ", startingAt: 0) }
+        func format(_ n: Int) -> String {
+            let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = "’"; return f.string(from: NSNumber(value: n)) ?? "\(n)"
+        }
+        func deltaStr(_ d: Int) -> String {
+            if d > 0 { return "\u{001B}[0;32m+\(format(d))\u{001B}[0m" }
+            if d < 0 { return "-\(format(-d))" }
+            return "+0"
+        }
+        var lines = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 14) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, post) in postCounts {
+            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+            lines.append(pad(tbl, 20) + pad(format(pre), 14) + pad(format(post), 14) + deltaStr(post - pre))
+        }
+        let summary = lines.joined(separator: "\n")
+
         DispatchQueue.main.async {
-            let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
-            self.logMessages.append("✅ Restored Reference data — " + summary)
+            self.logMessages.append("✅ Restored Reference data\n" + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = self.referenceTables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
@@ -442,6 +486,7 @@ class BackupService: ObservableObject {
 
     func restoreTransactionData(dbManager: DatabaseManager, from url: URL, tables: [String]) throws {
         guard let db = dbManager.db else { return }
+        let preCounts = rowCounts(db: db, tables: tables)
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
 
         let cleanedSQL = rawSQL
@@ -468,12 +513,19 @@ class BackupService: ObservableObject {
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
-        var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+        let postCounts = rowCounts(db: db, tables: tables)
+        func pad(_ v: String, _ n: Int) -> String { v.padding(toLength: n, withPad: " ", startingAt: 0) }
+        func format(_ n: Int) -> String { let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = "’"; return f.string(from: NSNumber(value: n)) ?? "\(n)" }
+        func deltaStr(_ d: Int) -> String { if d > 0 { return "\u{001B}[0;32m+\(format(d))\u{001B}[0m" } else if d < 0 { return "-\(format(-d))" } else { return "+0" } }
+        var lines = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 14) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, post) in postCounts {
+            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+            lines.append(pad(tbl, 20) + pad(format(pre), 14) + pad(format(post), 14) + deltaStr(post - pre))
         }
+        let summary = lines.joined(separator: "\n")
+
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored Transaction data — " + counts.joined(separator: ", "))
+            self.logMessages.append("✅ Restored Transaction data\n" + summary)
             self.appendLog(action: "TxnRestore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
