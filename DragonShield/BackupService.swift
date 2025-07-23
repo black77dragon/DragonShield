@@ -102,7 +102,9 @@ class BackupService: ObservableObject {
     func updateBackupDirectory(to url: URL) throws {
         if isAccessing { backupDirectory.stopAccessingSecurityScopedResource(); isAccessing = false }
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        backupDirectory = url
+        DispatchQueue.main.async {
+            self.backupDirectory = url
+        }
         UserDefaults.standard.set(url, forKey: UserDefaultsKeys.backupDirectoryURL)
         if let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
             UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
@@ -185,10 +187,11 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+        let backupDate = Date()
+        UserDefaults.standard.set(backupDate, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
         DispatchQueue.main.async {
+            self.lastBackup = backupDate
             func pad(_ value: String, _ len: Int) -> String {
                 value.padding(toLength: len, withPad: " ", startingAt: 0)
             }

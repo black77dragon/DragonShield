@@ -364,3 +364,5 @@ All notable changes to this project will be documented in this file.
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
 - Close SQLite connection before file moves and update dbVersion on main thread
+- Publish backup directory updates and last backup date on the main thread
+- Replace deprecated onChange calls in PositionsView
