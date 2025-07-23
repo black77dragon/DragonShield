@@ -177,8 +177,11 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+        let now = Date()
+        DispatchQueue.main.async {
+            self.lastBackup = now
+            UserDefaults.standard.set(self.lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+        }
 
         DispatchQueue.main.async {
             func pad(_ value: String, _ len: Int) -> String {
@@ -247,8 +250,11 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        let refNow = Date()
+        DispatchQueue.main.async {
+            self.lastReferenceBackup = refNow
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        }
 
         DispatchQueue.main.async {
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
@@ -367,9 +373,10 @@ class BackupService: ObservableObject {
 
         dbManager.dbVersion = dbManager.loadConfiguration()
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+        let refNow = Date()
         DispatchQueue.main.async {
+            self.lastReferenceBackup = refNow
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)
