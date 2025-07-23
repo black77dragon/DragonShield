@@ -10,6 +10,12 @@ struct RiskBucketsTile: DashboardTile {
     static let tileName = "Top 5 Risk Buckets by Value"
     static let iconName = "chart.pie"
 
+    private let palette: [Color] = [.teal, .purple, .green, .orange, .red]
+
+    private func color(for index: Int) -> Color {
+        palette[index % palette.count]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -28,26 +34,29 @@ struct RiskBucketsTile: DashboardTile {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HStack(alignment: .top) {
-                    Chart(viewModel.topRiskBuckets) { bucket in
+                    Chart(Array(viewModel.topRiskBuckets.enumerated()), id: \.element.id) { idx, bucket in
                         SectorMark(
                             angle: .value("Share", bucket.exposurePct),
                             innerRadius: .ratio(0.6)
                         )
-                        .foregroundStyle(bucket.isOverconcentrated ? Color.warning : Theme.primaryAccent)
+                        .foregroundStyle(color(for: idx))
                     }
                     .chartLegend(.hidden)
                     .frame(width: 100, height: 100)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(viewModel.topRiskBuckets) { bucket in
+                        ForEach(Array(viewModel.topRiskBuckets.enumerated()), id: \.element.id) { idx, bucket in
                             HStack {
+                                Rectangle()
+                                    .fill(color(for: idx))
+                                    .frame(width: 12, height: 12)
                                 Text(bucket.label)
                                     .frame(width: 80, alignment: .leading)
                                 Text(String(format: "%.1f%%", bucket.exposurePct * 100))
                                     .frame(width: 50, alignment: .trailing)
                                 Text(String(format: "%.0f CHF", bucket.valueCHF))
                             }
-                            .foregroundColor(bucket.isOverconcentrated ? .orange : .primary)
+                            .foregroundColor(.primary)
                         }
                     }
                     .font(.caption)
