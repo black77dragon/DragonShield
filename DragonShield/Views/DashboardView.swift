@@ -45,6 +45,9 @@ struct DashboardView: View {
     private func loadLayout() {
         if let saved = UserDefaults.standard.array(forKey: layoutKey) as? [String], !saved.isEmpty {
             tileIDs = saved.filter { id in TileRegistry.all.contains { $0.id == id } }
+            if !tileIDs.contains(CryptoTop5Tile.tileID) {
+                tileIDs.insert(CryptoTop5Tile.tileID, at: 0)
+            }
         } else {
             tileIDs = TileRegistry.all.map { $0.id }
         }
