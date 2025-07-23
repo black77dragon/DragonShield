@@ -177,10 +177,9 @@ class BackupService: ObservableObject {
 
         let counts = rowCounts(db: dst, tables: tables)
 
-        lastBackup = Date()
-        UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
-
         DispatchQueue.main.async {
+            self.lastBackup = Date()
+            UserDefaults.standard.set(self.lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
             func pad(_ value: String, _ len: Int) -> String {
                 value.padding(toLength: len, withPad: " ", startingAt: 0)
             }
@@ -247,10 +246,10 @@ class BackupService: ObservableObject {
         try dump.write(to: destination, atomically: true, encoding: .utf8)
 
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
 
         DispatchQueue.main.async {
+            self.lastReferenceBackup = Date()
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Backed up Reference data — " + summary)
             self.appendLog(action: "RefBackup", file: destination.lastPathComponent, success: true)
@@ -278,6 +277,9 @@ class BackupService: ObservableObject {
         }
 
         dbManager.closeConnection()
+        if dbManager.isConnected {
+            dbManager.closeConnection()
+        }
 
         let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
         try? fm.removeItem(at: tempURL)
@@ -365,11 +367,13 @@ class BackupService: ObservableObject {
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
-        dbManager.dbVersion = dbManager.loadConfiguration()
+        let newVersion = dbManager.loadConfiguration()
         let tableCounts = rowCounts(db: db, tables: referenceTables)
-        lastReferenceBackup = Date()
-        UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
+
         DispatchQueue.main.async {
+            dbManager.dbVersion = newVersion
+            self.lastReferenceBackup = Date()
+            UserDefaults.standard.set(self.lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
             let summary = tableCounts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
             self.logMessages.append("✅ Restored Reference data — " + summary)
             self.appendLog(action: "RefRestore", file: url.lastPathComponent, success: true)

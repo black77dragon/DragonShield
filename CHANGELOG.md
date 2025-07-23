@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
+- Close SQLite connection before file operations during database restore
+- Ensure backup timestamps and version updates publish on the main thread
 - Show imported position values in CHF after import completes
 - Persist full value reports per import session and view them from history
 - Persist value reports in database after import and fix Session Details sheet closing

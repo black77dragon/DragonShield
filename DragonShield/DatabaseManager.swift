@@ -123,12 +123,18 @@ class DatabaseManager: ObservableObject {
         }
     }
 
+    var isConnected: Bool { db != nil }
+
     func closeConnection() {
-        if let pointer = db {
-            sqlite3_close(pointer)
-            db = nil
+        guard let pointer = db else { return }
+        let result = sqlite3_close_v2(pointer)
+        if result != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(pointer))
+            print("❌ Failed to close database: \(msg)")
+        } else {
             print("✅ Database connection closed")
         }
+        db = nil
     }
 
     func reopenDatabase() {
