@@ -22,6 +22,7 @@ class BackupService: ObservableObject {
     private var isAccessing = false
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
+    private var lastBackupRowCounts: [String: Int] = [:]
 
     let fullTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
@@ -91,6 +92,55 @@ class BackupService: ObservableObject {
         return dir
     }
 
+    private func sqliteBackup(from sourcePath: String, to destPath: String) throws {
+        var src: OpaquePointer?
+        var dst: OpaquePointer?
+        let roFlags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+        let rwFlags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+
+        guard sqlite3_open_v2(sourcePath, &src, roFlags, nil) == SQLITE_OK, let src else {
+            let msg = src != nil ? String(cString: sqlite3_errmsg(src)) : "Unknown error"
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(src) }
+
+        if FileManager.default.fileExists(atPath: destPath) {
+            try FileManager.default.removeItem(atPath: destPath)
+        }
+
+        guard sqlite3_open_v2(destPath, &dst, rwFlags, nil) == SQLITE_OK, let dst else {
+            let msg = dst != nil ? String(cString: sqlite3_errmsg(dst)) : "Unknown error"
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        defer { sqlite3_close(dst) }
+
+        guard let backup = sqlite3_backup_init(dst, "main", src, "main") else {
+            let msg = String(cString: sqlite3_errmsg(dst))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        while sqlite3_backup_step(backup, -1) == SQLITE_OK {}
+        if sqlite3_backup_finish(backup) != SQLITE_OK {
+            let msg = String(cString: sqlite3_errmsg(dst))
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+    }
+
+    private func allTableNames(in path: String) -> [String] {
+        var db: OpaquePointer?
+        var tables: [String] = []
+        if sqlite3_open(path, &db) == SQLITE_OK, let db {
+            defer { sqlite3_close(db) }
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';", -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW, let cstr = sqlite3_column_text(stmt, 0) {
+                    tables.append(String(cString: cstr))
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        return tables
+    }
+
     func updateBackupDirectory(to url: URL) throws {
         if isAccessing { backupDirectory.stopAccessingSecurityScopedResource(); isAccessing = false }
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -152,10 +202,13 @@ class BackupService: ObservableObject {
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
-        let fm = FileManager.default
-        try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        try sqliteBackup(from: dbPath, to: destination.path)
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
+
+        let allTables = allTableNames(in: dbPath)
+        let countsAll = rowCounts(dbPath: dbPath, tables: allTables)
+        lastBackupRowCounts = Dictionary(uniqueKeysWithValues: countsAll)
 
         var counts = [String]()
         for tbl in tables {
@@ -239,17 +292,29 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
+        let ts = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
+        let backupPath = dbPath + ".old." + ts
         dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
+        try fm.moveItem(atPath: dbPath, toPath: backupPath)
         do {
-            try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
+            try sqliteBackup(from: url.path, to: dbPath)
             dbManager.reopenDatabase()
 
             var counts = [String]()
             for tbl in tables {
                 if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
             }
+
+            let afterCountsArr = rowCounts(dbPath: dbPath, tables: Array(lastBackupRowCounts.keys))
+            let afterCounts = Dictionary(uniqueKeysWithValues: afterCountsArr)
+            print("===== Restore Verification =====")
+            for tbl in lastBackupRowCounts.keys.sorted() {
+                let before = lastBackupRowCounts[tbl] ?? 0
+                let after = afterCounts[tbl] ?? 0
+                let delta = after - before
+                print("\(tbl): before \(before), after \(after), delta \(delta >= 0 ? "+" : "")\(delta)")
+            }
+
             DispatchQueue.main.async {
                 self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
@@ -258,13 +323,14 @@ class BackupService: ObservableObject {
                 }
             }
         } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
+            try? fm.removeItem(atPath: dbPath)
+            try? fm.moveItem(atPath: backupPath, toPath: dbPath)
+            dbManager.reopenDatabase()
             DispatchQueue.main.async {
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             }
             throw error
         }
-        try? fm.removeItem(atPath: temp)
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
