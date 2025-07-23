@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Validate backups with row counts and checksums and store manifests in the sandbox container
 - Prompt to confirm option quantity multiplier during position import
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view
