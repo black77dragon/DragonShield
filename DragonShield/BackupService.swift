@@ -278,7 +278,7 @@ class BackupService: ObservableObject {
             _ = try fm.replaceItem(at: dbURL,
                                    withItemAt: url,
                                    backupItemName: oldName,
-                                   options: [],
+                                   options: [.withoutDeletingBackupItem],
                                    resultingItemURL: nil)
         } catch {
             do {
@@ -303,15 +303,20 @@ class BackupService: ObservableObject {
         dbManager.reopenDatabase()
 
         let postCounts = rowCounts(dbPath: dbPath, tables: tables)
-        let deltas = postCounts.map { tbl, post -> String in
+        func pad(_ value: String, _ len: Int) -> String {
+            return value.padding(toLength: len, withPad: " ", startingAt: 0)
+        }
+        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, post) in postCounts {
             let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
             let delta = post - pre
             let sign = delta >= 0 ? "+" : ""
-            return "\(tbl): \(pre)->\(post) (\(sign)\(delta))"
+            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
         }
+        let summary = lines.joined(separator: "\n")
 
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored \(label) data — " + deltas.joined(separator: ", "))
+            self.logMessages.append("✅ Restored \(label) data\n" + summary)
             self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { tbl in
                 TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)

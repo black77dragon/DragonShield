@@ -358,3 +358,4 @@ All notable changes to this project will be documented in this file.
 - Improve BackupService restore logic with atomic replace and integrity validation
 - Fix compile error when calling FileManager.replaceItem during database restore
 - Fix integrity check failure when validating WAL-mode backups
+- Preserve backup file during restore and log pre/post row comparisons
