@@ -17,6 +17,7 @@ class BackupService: ObservableObject {
     @Published var scheduledTime: Date
     @Published var backupDirectory: URL
     @Published var lastActionSummaries: [TableActionSummary] = []
+    @Published var lastRestoreComparison: [RestoreDelta] = []
 
     private var timer: Timer?
     private var isAccessing = false
@@ -316,15 +317,22 @@ class BackupService: ObservableObject {
         dbManager.reopenDatabase()
 
         let postCounts = rowCounts(dbPath: dbPath, tables: tables)
+        let comparisons: [RestoreDelta] = tables.map { tbl in
+            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            return RestoreDelta(table: tbl, preCount: pre, postCount: post)
+        }
+
         func pad(_ value: String, _ len: Int) -> String {
             return value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
         var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
-        for (tbl, post) in postCounts {
-            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
-            let delta = post - pre
+        for comp in comparisons {
+            let pre = comp.preCount
+            let post = comp.postCount
+            let delta = comp.delta
             let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            lines.append(pad(comp.table, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
         }
         let summary = lines.joined(separator: "\n")
 
@@ -334,6 +342,7 @@ class BackupService: ObservableObject {
             self.lastActionSummaries = tables.map { tbl in
                 TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
             }
+            self.lastRestoreComparison = comparisons
         }
     }
 
@@ -348,7 +357,12 @@ class BackupService: ObservableObject {
             .replacingOccurrences(of: "COMMIT;", with: "")
             .replacingOccurrences(of: "PRAGMA foreign_keys=ON;", with: "")
 
+        // capture pre-restore counts
+        let preCounts = rowCounts(db: db, tables: referenceTables)
+
         // Drop tables and import data inside one transaction with foreign keys disabled
+        let preCounts = rowCounts(db: db, tables: tables)
+
         try execute("PRAGMA foreign_keys=OFF;", on: db)
         try execute("BEGIN TRANSACTION;", on: db)
 
@@ -368,7 +382,13 @@ class BackupService: ObservableObject {
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
         dbManager.dbVersion = dbManager.loadConfiguration()
-        let tableCounts = rowCounts(db: db, tables: referenceTables)
+        let postCounts = rowCounts(db: db, tables: referenceTables)
+        let comparisons: [RestoreDelta] = referenceTables.map { tbl in
+            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            return RestoreDelta(table: tbl, preCount: pre, postCount: post)
+        }
+        let tableCounts = postCounts
         lastReferenceBackup = Date()
         UserDefaults.standard.set(lastReferenceBackup, forKey: UserDefaultsKeys.lastReferenceBackupTimestamp)
         DispatchQueue.main.async {
@@ -378,6 +398,7 @@ class BackupService: ObservableObject {
             self.lastActionSummaries = self.referenceTables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
             }
+            self.lastRestoreComparison = comparisons
         }
 
     }
@@ -470,6 +491,12 @@ class BackupService: ObservableObject {
         try execute("COMMIT;", on: db)
         try execute("PRAGMA foreign_keys=ON;", on: db)
 
+        let postCounts = rowCounts(db: db, tables: tables)
+        let comparisons: [RestoreDelta] = tables.map { tbl in
+            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            return RestoreDelta(table: tbl, preCount: pre, postCount: post)
+        }
         var counts = [String]()
         for tbl in tables {
             if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
@@ -480,6 +507,7 @@ class BackupService: ObservableObject {
             self.lastActionSummaries = tables.map { table in
                 TableActionSummary(table: table, action: "Restored", count: (try? dbManager.rowCount(table: table)) ?? 0)
             }
+            self.lastRestoreComparison = comparisons
         }
     }
 

@@ -24,6 +24,7 @@ struct DatabaseManagementView: View {
     @State private var showTxnRestoreSheet = false
     @State private var backupTxnTables: Set<String> = []
     @State private var restoreTxnTables: Set<String> = []
+    @State private var showRestoreComparison = false
 
     private let reportService = InstrumentReportService()
 
@@ -319,6 +320,11 @@ struct DatabaseManagementView: View {
                 onCancel: { showTxnRestoreSheet = false }
             )
         }
+        .sheet(isPresented: $showRestoreComparison) {
+            RestoreComparisonView(deltas: backupService.lastRestoreComparison) {
+                showRestoreComparison = false
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .init("PerformDatabaseBackup"))) { _ in
             backupNow()
         }
@@ -434,7 +440,10 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
-                DispatchQueue.main.async { processing = false }
+                DispatchQueue.main.async {
+                    processing = false
+                    showRestoreComparison = true
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
@@ -451,7 +460,10 @@ struct DatabaseManagementView: View {
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
                 try backupService.restoreReferenceData(dbManager: dbManager, from: url)
-                DispatchQueue.main.async { processing = false }
+                DispatchQueue.main.async {
+                    processing = false
+                    showRestoreComparison = true
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
@@ -472,7 +484,10 @@ struct DatabaseManagementView: View {
                     from: url,
                     tables: Array(restoreTxnTables)
                 )
-                DispatchQueue.main.async { processing = false }
+                DispatchQueue.main.async {
+                    processing = false
+                    showRestoreComparison = true
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
