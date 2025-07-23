@@ -355,3 +355,4 @@ All notable changes to this project will be documented in this file.
 - Fix account lookup by valor when importing cash account balances with detailed logging
 - Remove ZKB position deletion prompt from Data Import/Export view; use Positions view for deletions
 - Add Python script for full database backup and restore using SQLite
+- Improve BackupService restore logic with atomic replace and integrity validation
