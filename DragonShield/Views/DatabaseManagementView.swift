@@ -192,6 +192,7 @@ struct DatabaseManagementView: View {
                 Text("Table Name").font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                 Text("Action").font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                 Text("Records Processed").font(.caption).frame(maxWidth: .infinity, alignment: .trailing)
+                Text("Diff").font(.caption).frame(maxWidth: .infinity, alignment: .trailing)
             }
             ForEach(Array(backupService.lastActionSummaries.enumerated()), id: \..offset) { index, entry in
                 HStack {
@@ -203,6 +204,15 @@ struct DatabaseManagementView: View {
                     Text("\(entry.count)")
                         .font(.system(.caption, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .trailing)
+                    if let diff = entry.diff {
+                        Text(diff >= 0 ? "+\(diff)" : "\(diff)")
+                            .foregroundColor(diff >= 0 ? .green : .red)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Text("")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .padding(.vertical, 2)
                 .background(index % 2 == 0 ? Color.gray.opacity(0.05) : Color.clear)
