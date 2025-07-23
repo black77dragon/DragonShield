@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Fix cash account instrument lookup by currency code
 - Sanitize ticker lookup so CASHCHF resolves correctly
 - Allow selecting tables for transaction backups and restores with versioned filename
+- Validate all tables during backup and restore to prevent data loss
 - Allow deleting PositionReports for a selected institution when importing ZKB statements
 - Alert when an unknown instrument is encountered during import
 - Fix ZKB CSV import assigning Equate Plus institution and zero quantities
