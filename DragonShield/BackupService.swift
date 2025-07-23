@@ -1,12 +1,24 @@
 import Foundation
 import SwiftUI
 import SQLite3
+import CryptoKit
 
 struct TableActionSummary: Identifiable {
     let id = UUID()
     let table: String
     let action: String
     let count: Int
+}
+
+private struct TableMetric: Codable {
+    let table: String
+    let count: Int
+    let checksum: String
+}
+
+private struct BackupManifest: Codable {
+    let created: String
+    let tables: [TableMetric]
 }
 
 class BackupService: ObservableObject {
@@ -154,19 +166,17 @@ class BackupService: ObservableObject {
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
         let fm = FileManager.default
         try fm.copyItem(atPath: dbPath, toPath: destination.path)
+        let metrics = computeMetrics(dbPath: dbPath, tables: tables)
+        try saveManifest(metrics, url: destination.appendingPathExtension("manifest.json"))
+
         lastBackup = Date()
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
-        var counts = [String]()
-        for tbl in tables {
-            if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
-        }
+        let counts = metrics.map { "\($0.table): \($0.count)" }
         DispatchQueue.main.async {
             self.logMessages.append("✅ Backed up \(label) data — " + counts.joined(separator: ", "))
             self.appendLog(action: "Backup", file: destination.path, success: true)
-            self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-            }
+            self.lastActionSummaries = metrics.map { TableActionSummary(table: $0.table, action: "Backed up", count: $0.count) }
         }
         return destination
     }
@@ -239,32 +249,58 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
+        let manifestURL = url.appendingPathExtension("manifest.json")
+        if fm.fileExists(atPath: manifestURL.path) {
+            let manifest = try loadManifest(url: manifestURL)
+            let current = computeMetrics(dbPath: dbPath, tables: tables)
+            for entry in manifest.tables {
+                if let cur = current.first(where: { $0.table == entry.table }), cur.count == entry.count && cur.checksum == entry.checksum {
+                    continue
+                } else {
+                    throw NSError(domain: "Restore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Pre-restore validation failed for table \(entry.table)"])
+                }
+            }
+        }
+
+        let backupName = dbPath + ".old." + isoFormatter.string(from: Date())
         dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
+        try fm.moveItem(atPath: dbPath, toPath: backupName)
+        var success = false
         do {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
 
-            var counts = [String]()
-            for tbl in tables {
-                if let n = try? dbManager.rowCount(table: tbl) { counts.append("\(tbl): \(n)") }
+            let post = computeMetrics(dbPath: dbPath, tables: tables)
+            if fm.fileExists(atPath: manifestURL.path) {
+                let manifest = try loadManifest(url: manifestURL)
+                for entry in manifest.tables {
+                    if let cur = post.first(where: { $0.table == entry.table }), cur.count == entry.count && cur.checksum == entry.checksum {
+                        continue
+                    } else {
+                        try fm.removeItem(atPath: dbPath)
+                        try fm.moveItem(atPath: backupName, toPath: dbPath)
+                        dbManager.reopenDatabase()
+                        throw NSError(domain: "Restore", code: 3, userInfo: [NSLocalizedDescriptionKey: "Post-restore validation failed for table \(entry.table)"])
+                    }
+                }
             }
+            success = true
+            let counts = post.map { "\($0.table): \($0.count)" }
             DispatchQueue.main.async {
                 self.logMessages.append("✅ Restored \(label) data — " + counts.joined(separator: ", "))
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
-                self.lastActionSummaries = tables.map { tbl in
-                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-                }
+                self.lastActionSummaries = post.map { TableActionSummary(table: $0.table, action: "Restored", count: $0.count) }
             }
         } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
+            try? fm.removeItem(atPath: dbPath)
+            try? fm.moveItem(atPath: backupName, toPath: dbPath)
+            dbManager.reopenDatabase()
             DispatchQueue.main.async {
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             }
             throw error
         }
-        try? fm.removeItem(atPath: temp)
+        if success { try? fm.removeItem(atPath: backupName) }
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
@@ -455,5 +491,55 @@ class BackupService: ObservableObject {
             stmt = nil
         }
         return result
+    }
+
+    // MARK: - Manifest Helpers
+
+    private func computeChecksum(db: OpaquePointer, table: String) -> String {
+        var stmt: OpaquePointer?
+        var rows: [String] = []
+        let query = "SELECT * FROM \(table) ORDER BY rowid;"
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            let columns = Int(sqlite3_column_count(stmt))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                var values: [String] = []
+                for i in 0..<columns {
+                    if let text = sqlite3_column_text(stmt, Int32(i)) {
+                        values.append(String(cString: text))
+                    } else {
+                        values.append("NULL")
+                    }
+                }
+                rows.append(values.joined(separator: "|"))
+            }
+        }
+        sqlite3_finalize(stmt)
+        let joined = rows.joined(separator: "\n")
+        let digest = Insecure.MD5.hash(data: Data(joined.utf8))
+        return digest.map { String(format: "%02hhx", $0) }.joined()
+    }
+
+    private func computeMetrics(dbPath: String, tables: [String]) -> [TableMetric] {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        var metrics: [TableMetric] = []
+        for t in tables {
+            let count = rowCounts(db: db, tables: [t]).first?.1 ?? 0
+            let checksum = computeChecksum(db: db, table: t)
+            metrics.append(TableMetric(table: t, count: count, checksum: checksum))
+        }
+        return metrics
+    }
+
+    private func saveManifest(_ metrics: [TableMetric], url: URL) throws {
+        let manifest = BackupManifest(created: isoFormatter.string(from: Date()), tables: metrics)
+        let data = try JSONEncoder().encode(manifest)
+        try data.write(to: url)
+    }
+
+    private func loadManifest(url: URL) throws -> BackupManifest {
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(BackupManifest.self, from: data)
     }
 }
