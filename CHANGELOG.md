@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Add validation manifest for database backup and restore workflow
+- Fix backup script writing to nested directories
 - Prompt to confirm option quantity multiplier during position import
 - Confirm deletion of positions per account type with live count
 - Generate full instrument report from Database Management view

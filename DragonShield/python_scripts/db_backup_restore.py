@@ -51,7 +51,19 @@ def load_manifest(path: Path) -> dict:
         return json.load(f)
 
 
+def _normalize(path: Path) -> Path:
+    """Expand user and resolve a path."""
+    return path.expanduser().resolve()
+
+
+def _ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
 def backup_database(db_path: Path, out_path: Path) -> Path:
+    db_path = _normalize(db_path)
+    out_path = _normalize(out_path)
+    _ensure_parent(out_path)
     conn = sqlite3.connect(str(db_path))
     manifest = generate_manifest(conn)
     conn.close()
@@ -72,6 +84,10 @@ def compare_manifest(conn: sqlite3.Connection, manifest: dict) -> list[str]:
 
 
 def restore_database(backup_file: Path, db_path: Path) -> int:
+    backup_file = _normalize(backup_file)
+    db_path = _normalize(db_path)
+    _ensure_parent(db_path)
+
     manifest_file = backup_file.with_suffix(backup_file.suffix + ".manifest.json")
     if not manifest_file.exists():
         print("❌ Manifest file missing")
@@ -89,7 +105,7 @@ def restore_database(backup_file: Path, db_path: Path) -> int:
             return 1
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         backup_old = db_path.with_suffix(f".old.{ts}")
-        os.rename(db_path, backup_old)
+        shutil.move(str(db_path), str(backup_old))
     else:
         backup_old = None
 

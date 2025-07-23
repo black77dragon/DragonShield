@@ -40,3 +40,15 @@ def test_backup_and_restore(tmp_path: Path) -> None:
     count = conn.execute('SELECT COUNT(*) FROM test').fetchone()[0]
     conn.close()
     assert count == 2
+
+
+def test_backup_creates_parent_dirs(tmp_path: Path) -> None:
+    db = tmp_path / 'db.sqlite'
+    make_db(db)
+
+    backup_dir = tmp_path / 'nested' / 'dir'
+    backup = backup_dir / 'backup.sqlite'
+    manifest = br.backup_database(db, backup)
+
+    assert backup.exists() and manifest.exists()
+    assert backup_dir.exists()
