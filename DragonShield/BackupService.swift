@@ -511,7 +511,10 @@ class BackupService: ObservableObject {
 
     private func checkIntegrity(path: String) -> Bool {
         var db: OpaquePointer?
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
+        // opening read-write allows SQLite to create a temporary WAL file if the
+        // database uses WAL mode. Without this, opening a WAL-mode database
+        // read-only fails when the WAL file is missing.
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
         defer { sqlite3_close(db) }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
