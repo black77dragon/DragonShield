@@ -261,9 +261,10 @@ class BackupService: ObservableObject {
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
-        let temp = dbPath + ".inprogress"
+        let oldPath = dbPath + ".previous"
         dbManager.closeConnection()
-        try fm.moveItem(atPath: dbPath, toPath: temp)
+        if fm.fileExists(atPath: oldPath) { try fm.removeItem(atPath: oldPath) }
+        try fm.moveItem(atPath: dbPath, toPath: oldPath)
         do {
             try fm.copyItem(at: url, to: URL(fileURLWithPath: dbPath))
             dbManager.reopenDatabase()
@@ -284,13 +285,13 @@ class BackupService: ObservableObject {
                 self.lastActionSummaries = after.map { TableActionSummary(table: $0.0, action: "Restored", count: $0.1) }
             }
         } catch {
-            try? fm.moveItem(atPath: temp, toPath: dbPath)
+            try? fm.moveItem(atPath: oldPath, toPath: dbPath)
             DispatchQueue.main.async {
                 self.appendLog(action: "Restore", file: url.lastPathComponent, success: false, message: error.localizedDescription)
             }
             throw error
         }
-        try? fm.removeItem(atPath: temp)
+        try? fm.removeItem(atPath: oldPath)
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
