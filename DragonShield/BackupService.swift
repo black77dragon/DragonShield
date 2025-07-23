@@ -181,8 +181,14 @@ class BackupService: ObservableObject {
         UserDefaults.standard.set(lastBackup, forKey: UserDefaultsKeys.lastBackupTimestamp)
 
         DispatchQueue.main.async {
-            let summary = counts.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
-            self.logMessages.append("✅ Backed up \(label) data — " + summary)
+            func pad(_ value: String, _ len: Int) -> String {
+                value.padding(toLength: len, withPad: " ", startingAt: 0)
+            }
+            var lines: [String] = ["Backup Summary", pad("Table", 20) + "Rows"]
+            for (tbl, count) in counts {
+                lines.append(pad(tbl, 20) + String(count))
+            }
+            self.logMessages.append("✅ Backed up \(label) data\n" + lines.joined(separator: "\n"))
             self.appendLog(action: "Backup", file: destination.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { tbl in
                 TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)

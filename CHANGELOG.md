@@ -359,4 +359,5 @@ All notable changes to this project will be documented in this file.
 - Fix compile error when calling FileManager.replaceItem during database restore
 - Fix integrity check failure when validating WAL-mode backups
 - Preserve backup file during restore and log pre/post row comparisons
+- Show detailed Backup Summary and ensure restore logs publish on main thread
 - Document python backup_restore script in README
