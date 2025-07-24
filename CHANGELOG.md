@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Show per-table row count comparison after restore in a modal window
 - Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count
+- Revise Accounts Needing Update tile with calendar icon, scrolling list and color-coded rows
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report

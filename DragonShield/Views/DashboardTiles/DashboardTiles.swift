@@ -9,17 +9,27 @@ protocol DashboardTile: View {
 
 struct DashboardCard<Content: View>: View {
     let title: String
+    let headerIcon: Image?
     let content: Content
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(title: String, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.headerIcon = headerIcon
         self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                if let icon = headerIcon {
+                    icon
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                }
+            }
             content
         }
         .padding(16)

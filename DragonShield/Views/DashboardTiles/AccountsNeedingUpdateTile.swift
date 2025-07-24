@@ -15,12 +15,17 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         return f
     }()
 
-    private func warningNeeded(for date: Date) -> Bool {
-        viewModel.daysSince(date) > 30
+    private func rowColor(for date: Date?) -> Color {
+        guard let date else { return .clear }
+        let days = viewModel.daysSince(date)
+        if days > 60 { return Color.red.opacity(0.2) }
+        if days > 30 { return Color.orange.opacity(0.2) }
+        return Color.green.opacity(0.2)
     }
 
     var body: some View {
-        DashboardCard(title: Self.tileName) {
+        DashboardCard(title: Self.tileName,
+                      headerIcon: Image(systemName: "calendar")) {
             if viewModel.staleAccounts.isEmpty {
                 Text("All accounts up to date ✅")
                     .font(.subheadline)
@@ -29,8 +34,6 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 contentList
             }
         }
-        .background(Color.blue.opacity(0.1))
-        .cornerRadius(8)
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
         }
@@ -40,11 +43,8 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     private var contentList: some View {
         let rows = viewModel.staleAccounts
         Group {
-            if rows.count > 6 {
-                ScrollView { listBody(rows) }
-            } else {
-                listBody(rows)
-            }
+            ScrollView { listBody(rows) }
+                .frame(maxHeight: rows.count > 6 ? 220 : .infinity)
         }
     }
 
@@ -57,15 +57,11 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                     if let date = account.earliestInstrumentLastUpdatedAt {
                         Text(Self.displayFormatter.string(from: date))
                             .foregroundColor(.secondary)
-                        if warningNeeded(for: date) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                        }
                     }
                 }
                 .padding(.vertical, 2)
                 .padding(.horizontal, 4)
-                .background(idx == 0 ? Color.yellow.opacity(0.2) : Color.clear)
+                .background(rowColor(for: account.earliestInstrumentLastUpdatedAt))
                 .cornerRadius(4)
             }
         }
