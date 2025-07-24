@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
 - Prompt to delete existing ZKB positions when importing statements
+- Automatically update account timestamps via trigger and remove manual refresh
 - Delete existing ZKB positions by name or BIC before import and log removed count
 - Update ZKB deletion to use BIC `ZKBKCHZZ80A` and correct institution name
 - Handle percent-valued bond prices in ZKB CSV import

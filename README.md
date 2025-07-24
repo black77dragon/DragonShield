@@ -130,6 +130,10 @@ Run the deploy script to rebuild the database from the schema and copy it to the
 python3 python_scripts/deploy_db.py
 ```
 
+The database now includes a trigger (`tr_touch_account_last_updated`) that
+automatically updates each account's `earliest_instrument_last_updated_at`
+whenever related position reports are inserted or modified.
+
 ### ZKB CSV Import
 Drag a `Depotauszug*.csv` file onto the **Import ZKB Statement** zone in the Data Import/Export view or use *Select File* to choose it manually. The parser maps all rows to the PositionReports table.
 
@@ -156,6 +160,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 
 ## Version History
+- 2.25: Automatic account timestamp updates via trigger; removed manual refresh.
 - 2.24: Search for Python interpreter in Homebrew locations or env var.
 - 2.23: Run parser via /usr/bin/python3 to avoid sandbox xcrun error.
 - 2.22: Launch parser via /usr/bin/env and return exit codes.
