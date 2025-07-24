@@ -369,3 +369,4 @@ All notable changes to this project will be documented in this file.
 - Close SQLite connection before file moves and update dbVersion on main thread
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
+- Add Position Value by Currency map tile with blue-shade choropleth

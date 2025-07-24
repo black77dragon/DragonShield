@@ -229,18 +229,26 @@ struct ImageTile: DashboardTile {
 struct MapTile: DashboardTile {
     init() {}
     static let tileID = "map"
-    static let tileName = "Map Tile"
+    static let tileName = "Position Value by Currency"
     static let iconName = "map"
+
+    @EnvironmentObject var dbManager: DatabaseManager
+    @StateObject private var viewModel = CurrencyMapViewModel()
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .overlay(Image(systemName: "map")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
-                .cornerRadius(4)
+            if viewModel.loading {
+                ProgressView()
+                    .frame(height: 140)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    CurrencyChoroplethMapView(viewModel: viewModel)
+                        .frame(height: 140)
+                    MapLegend(viewModel: viewModel)
+                }
+            }
         }
+        .onAppear { viewModel.load(using: dbManager) }
         .accessibilityElement(children: .combine)
     }
 }
