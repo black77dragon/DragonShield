@@ -36,6 +36,10 @@ struct SidebarView: View {
                     Label("Target Asset Allocation", systemImage: "chart.pie")
                 }
 
+                NavigationLink(destination: ToDoKanbanView()) {
+                    Label("To-Do Board", systemImage: "list.bullet.rectangle")
+                }
+
             }
             
             // MARK: - Maintenance Functions Section
