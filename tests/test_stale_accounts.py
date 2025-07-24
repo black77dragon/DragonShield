@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from DragonShield.python_scripts.stale_accounts import Account, top_stale_accounts
+from DragonShield.python_scripts.stale_accounts import Account, top_stale_accounts, age_bucket
 
 
 def test_sort_and_limit():
@@ -24,3 +24,11 @@ def test_sort_and_limit():
     assert len(result) == 10
     dates = [acc.earliest_instrument_last_updated_at for acc in result]
     assert dates == sorted(dates)
+
+
+def test_age_bucket_classification():
+    today = datetime(2025, 1, 1)
+    assert age_bucket(today - timedelta(days=10), today) == "green"
+    assert age_bucket(today - timedelta(days=40), today) == "amber"
+    assert age_bucket(today - timedelta(days=61), today) == "red"
+    assert age_bucket(None, today) == "red"

@@ -11,7 +11,7 @@ def setup_db():
             institution_id INTEGER,
             account_type_id INTEGER,
             currency_code TEXT,
-            earliest_instrument_last_updated_at DATE
+            earliest_instrument_last_updated_at DATETIME
         )
         """
     )
@@ -28,38 +28,51 @@ def setup_db():
         )
         """
     )
+    conn.executescript(
+        """
+        CREATE TRIGGER tr_touch_account_last_updated_insert
+        AFTER INSERT ON PositionReports
+        WHEN NEW.account_id IS NOT NULL
+        BEGIN
+            UPDATE Accounts
+            SET earliest_instrument_last_updated_at = CURRENT_TIMESTAMP
+            WHERE account_id = NEW.account_id;
+        END;
+        CREATE TRIGGER tr_touch_account_last_updated_update
+        AFTER UPDATE ON PositionReports
+        WHEN NEW.account_id IS NOT NULL
+        BEGIN
+            UPDATE Accounts
+            SET earliest_instrument_last_updated_at = CURRENT_TIMESTAMP
+            WHERE account_id = NEW.account_id;
+        END;
+        """
+    )
     return conn
 
 
-def refresh(conn):
+def test_trigger_updates_account():
+    conn = setup_db()
     conn.execute(
-        """
-        UPDATE Accounts
-           SET earliest_instrument_last_updated_at = (
-                SELECT MIN(instrument_updated_at)
-                  FROM PositionReports pr
-                 WHERE pr.account_id = Accounts.account_id
-           );
-        """
+        "INSERT INTO Accounts (account_name, institution_id, account_type_id, currency_code) VALUES ('A',1,1,'CHF')"
     )
-
-
-def test_refresh_min_date():
-    conn = setup_db()
-    conn.execute("INSERT INTO Accounts (account_name, institution_id, account_type_id, currency_code) VALUES ('A',1,1,'CHF')")
-    acc_id = conn.execute("SELECT account_id FROM Accounts WHERE account_name='A'").fetchone()[0]
-    conn.execute("INSERT INTO PositionReports (account_id, institution_id, instrument_id, quantity, instrument_updated_at, report_date) VALUES (?,1,1,10,'2025-05-01','2025-01-01')", (acc_id,))
-    conn.execute("INSERT INTO PositionReports (account_id, institution_id, instrument_id, quantity, instrument_updated_at, report_date) VALUES (?,1,1,20,'2025-04-15','2025-01-02')", (acc_id,))
-    refresh(conn)
-    val = conn.execute("SELECT earliest_instrument_last_updated_at FROM Accounts WHERE account_id=?", (acc_id,)).fetchone()[0]
-    assert val == '2025-04-15'
-    conn.close()
-
-
-def test_refresh_null_when_no_reports():
-    conn = setup_db()
-    conn.execute("INSERT INTO Accounts (account_name, institution_id, account_type_id, currency_code) VALUES ('A',1,1,'CHF')")
-    refresh(conn)
-    val = conn.execute("SELECT earliest_instrument_last_updated_at FROM Accounts").fetchone()[0]
-    assert val is None
+    conn.execute(
+        "INSERT INTO Accounts (account_name, institution_id, account_type_id, currency_code) VALUES ('B',1,1,'CHF')"
+    )
+    acc1 = conn.execute("SELECT account_id FROM Accounts WHERE account_name='A'").fetchone()[0]
+    acc2 = conn.execute("SELECT account_id FROM Accounts WHERE account_name='B'").fetchone()[0]
+    conn.execute(
+        "INSERT INTO PositionReports (account_id, institution_id, instrument_id, quantity, report_date) VALUES (?,1,1,10,'2025-01-01')",
+        (acc1,),
+    )
+    ts1 = conn.execute(
+        "SELECT earliest_instrument_last_updated_at FROM Accounts WHERE account_id=?",
+        (acc1,),
+    ).fetchone()[0]
+    ts2 = conn.execute(
+        "SELECT earliest_instrument_last_updated_at FROM Accounts WHERE account_id=?",
+        (acc2,),
+    ).fetchone()[0]
+    assert ts1 is not None
+    assert ts2 is None
     conn.close()

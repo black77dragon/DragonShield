@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Add macOS Kanban to-do board with drag-and-drop
 - Add sidebar link to the Kanban board
+- Automatically update account instrument timestamps via trigger and remove manual refresh button
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Asset Class and SubClass management into one page with sortable rows
 - Prompt to confirm option quantity multiplier during position import

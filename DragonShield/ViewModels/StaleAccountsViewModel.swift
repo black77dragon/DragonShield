@@ -19,7 +19,6 @@ class StaleAccountsViewModel: ObservableObject {
         let accounts = dbManager.fetchAccounts()
         staleAccounts = accounts
             .sorted(by: Self.earliestFirst)
-            .prefix(10)
             .map { $0 }
     }
 
