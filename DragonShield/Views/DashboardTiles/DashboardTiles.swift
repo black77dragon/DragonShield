@@ -226,24 +226,6 @@ struct ImageTile: DashboardTile {
     }
 }
 
-struct MapTile: DashboardTile {
-    init() {}
-    static let tileID = "map"
-    static let tileName = "Map Tile"
-    static let iconName = "map"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .overlay(Image(systemName: "map")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
-                .cornerRadius(4)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
 
 struct TileInfo {
     let id: String

@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type": "Feature", "properties": {"ADMIN": "Switzerland"}, "geometry": {"type": "Polygon", "coordinates": [[[5.956,45.818],[10.492,45.818],[10.492,47.808],[5.956,47.808],[5.956,45.818]]]}},
+    {"type": "Feature", "properties": {"ADMIN": "United States"}, "geometry": {"type": "Polygon", "coordinates": [[[-124.784,24.743],[-66.951,24.743],[-66.951,49.345],[-124.784,49.345],[-124.784,24.743]]]}},
+    {"type": "Feature", "properties": {"ADMIN": "Germany"}, "geometry": {"type": "Polygon", "coordinates": [[[5.866,47.302],[15.041,47.302],[15.041,55.099],[5.866,55.099],[5.866,47.302]]]}},
+    {"type": "Feature", "properties": {"ADMIN": "United Kingdom"}, "geometry": {"type": "Polygon", "coordinates": [[[-8.649,49.906],[1.768,49.906],[1.768,58.635],[-8.649,58.635],[-8.649,49.906]]]}}
+  ]
+}
