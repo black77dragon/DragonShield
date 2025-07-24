@@ -227,20 +227,24 @@ struct ImageTile: DashboardTile {
 }
 
 struct MapTile: DashboardTile {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @StateObject private var viewModel = CurrencyMapViewModel()
+
     init() {}
     static let tileID = "map"
-    static let tileName = "Map Tile"
+    static let tileName = "Position Value by Currency"
     static let iconName = "map"
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .overlay(Image(systemName: "map")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
-                .cornerRadius(4)
+            if viewModel.loading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                CurrencyMapView(entries: viewModel.entries, quantiles: viewModel.quantiles)
+            }
         }
+        .onAppear { viewModel.calculate(db: dbManager) }
         .accessibilityElement(children: .combine)
     }
 }
