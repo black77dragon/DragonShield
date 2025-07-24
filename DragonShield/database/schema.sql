@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.17 - Add ImportSessionValueReports table
+-- Version 4.18 - Touch account timestamp trigger
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
@@ -412,6 +412,24 @@ BEGIN
     UPDATE Instruments
     SET updated_at = CURRENT_TIMESTAMP
     WHERE instrument_id = NEW.instrument_id;
+END;
+
+CREATE TRIGGER tr_touch_account_last_updated
+AFTER INSERT ON PositionReports
+WHEN NEW.account_id IS NOT NULL
+BEGIN
+    UPDATE Accounts
+    SET earliest_instrument_last_updated_at = CURRENT_TIMESTAMP
+    WHERE account_id = NEW.account_id;
+END;
+
+CREATE TRIGGER tr_touch_account_last_updated_update
+AFTER UPDATE ON PositionReports
+WHEN NEW.account_id IS NOT NULL
+BEGIN
+    UPDATE Accounts
+    SET earliest_instrument_last_updated_at = CURRENT_TIMESTAMP
+    WHERE account_id = NEW.account_id;
 END;
 
 --=============================================================================

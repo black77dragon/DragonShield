@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count
 - Display stale accounts grouped by age with collapsible sections
+- Maintain account update timestamps via trigger and remove manual refresh
 - Generate full instrument report from Database Management view
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report

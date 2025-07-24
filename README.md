@@ -157,6 +157,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 ## Version History
 - 2.24: Search for Python interpreter in Homebrew locations or env var.
+- 2.25: Accounts timestamps auto-update via trigger; removed manual refresh UI.
 - 2.23: Run parser via /usr/bin/python3 to avoid sandbox xcrun error.
 - 2.22: Launch parser via /usr/bin/env and return exit codes.
 - 2.21: Add source-path fallback for locating parser module.
