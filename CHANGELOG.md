@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Add macOS Kanban to-do board with drag-and-drop
 - Add sidebar link to the Kanban board
+- Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Prompt to confirm option quantity multiplier during position import
 - Show per-table row count comparison after restore in a modal window
 - Widen Restore Comparison window to display all columns without scrolling

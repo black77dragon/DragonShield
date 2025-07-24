@@ -13,91 +13,78 @@ import AppKit
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
+    @State private var showOverview = true
+    @State private var showManagement = true
+    @State private var showConfiguration = true
+    @State private var showSystem = true
+
     var body: some View {
         List {
-            // MARK: - Key Features Section
-            Section("Key Features") {
+            DisclosureGroup("Overview", isExpanded: $showOverview) {
                 NavigationLink(destination: DashboardView()) {
-                    Label("Portfolio Overview", systemImage: "chart.pie.fill")
+                    Label("Dashboard", systemImage: "chart.pie.fill")
                 }
-                
-                NavigationLink(destination: TransactionsView()) {
-                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
-                }
-                
-                NavigationLink(destination: TransactionHistoryView()) {
-                    Label("Transaction History", systemImage: "clock.arrow.circlepath")
-                }
+
                 NavigationLink(destination: PositionsView()) {
                     Label("Positions", systemImage: "tablecells")
                 }
 
+                NavigationLink(destination: PerformanceView()) {
+                    Label("Performance", systemImage: "chart.bar.fill")
+                }
+            }
+
+            DisclosureGroup("Management", isExpanded: $showManagement) {
                 NavigationLink(destination: TargetAllocationMaintenanceView()) {
-                    Label("Target Asset Allocation", systemImage: "chart.pie")
+                    Label("Asset Allocation", systemImage: "chart.pie")
+                }
+
+                NavigationLink(destination: RebalancingView()) {
+                    Label("Rebalancing", systemImage: "arrow.left.arrow.right")
                 }
 
                 NavigationLink(destination: ToDoKanbanView()) {
                     Label("To-Do Board", systemImage: "checklist")
                 }
-
             }
-            
-            // MARK: - Maintenance Functions Section
-            Section("Maintenance Functions") {
-                
+
+            DisclosureGroup("Configuration", isExpanded: $showConfiguration) {
                 NavigationLink(destination: InstitutionsView()) {
-                    Label("Edit Institutions", systemImage: "building.2.fill")
+                    Label("Institutions", systemImage: "building.2.fill")
                 }
 
                 NavigationLink(destination: CurrenciesView()) {
-                    Label("Currency Maintenance", systemImage: "dollarsign.circle.fill")
-                }
-
-                NavigationLink(destination: ExchangeRatesView()) {
-                    Label("Edit FX History", systemImage: "chart.line.uptrend.xyaxis")
-                }
-
-                NavigationLink(destination: AccountTypesView()) {
-                    Label("Edit Account Types", systemImage: "creditcard.circle.fill")
+                    Label("Currencies", systemImage: "dollarsign.circle.fill")
                 }
 
                 NavigationLink(destination: AssetClassesView()) {
-                    Label("Edit Asset Classes", systemImage: "folder")
+                    Label("Asset Classes", systemImage: "folder")
                 }
 
-                NavigationLink(destination: AssetSubClassesView()) {
-                    Label("Edit Asset SubClasses", systemImage: "folder.fill")
+                NavigationLink(destination: AccountsView()) {
+                    Label("Accounts", systemImage: "building.columns.fill")
                 }
 
                 NavigationLink(destination: TransactionTypesView()) {
-                    Label("Edit Transaction Types", systemImage: "tag.circle.fill")
+                    Label("Transaction Types", systemImage: "tag.circle.fill")
                 }
-                
+
                 NavigationLink(destination: PortfolioView()) {
-                    Label("Edit Instruments", systemImage: "pencil.and.list.clipboard")
-                }
-                
-                NavigationLink(destination: AccountsView()) {
-                    Label("Edit Accounts", systemImage: "building.columns.fill")
+                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
                 }
             }
-            
-            // MARK: - System Section
-            Section("System") {
-                NavigationLink(destination: SettingsView()) {
-                    Label("Settings", systemImage: "gear")
-                }
-                
+
+            DisclosureGroup("System", isExpanded: $showSystem) {
                 NavigationLink(destination: DataImportExportView()) {
                     Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
                 }
 
-                NavigationLink(destination: ImportSessionHistoryView()) {
-                    Label("Import Session History", systemImage: "clock.arrow.circlepath")
-                }
-
                 NavigationLink(destination: DatabaseManagementView()) {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
+                }
+
+                NavigationLink(destination: SettingsView()) {
+                    Label("Settings", systemImage: "gear")
                 }
             }
         }
