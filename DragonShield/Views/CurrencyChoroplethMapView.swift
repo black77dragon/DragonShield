@@ -24,6 +24,12 @@ struct CurrencyChoroplethMapView: NSViewRepresentable {
             polygon.title = country.country
             context.coordinator.data[polygon] = country
             mapView.addOverlay(polygon)
+
+            let annotation = MKPointAnnotation()
+            annotation.coordinate = country.centroid
+            annotation.title = "\(country.country) – \(country.currency)"
+            annotation.subtitle = "\(viewModel.formatted(value: country.totalCHF)) CHF"
+            mapView.addAnnotation(annotation)
         }
         mapView.setVisibleMapRect(MKMapRect.world, animated: false)
     }
@@ -43,19 +49,10 @@ struct CurrencyChoroplethMapView: NSViewRepresentable {
             return renderer
         }
 
-        func mapView(_ mapView: MKMapView, didSelect overlay: MKOverlay) {
-            guard let poly = overlay as? MKPolygon, let info = data[poly] else { return }
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = info.centroid
-            annotation.title = "\(info.country) – \(info.currency)"
-            annotation.subtitle = "\(viewModel.formatted(value: info.totalCHF)) CHF"
-            mapView.addAnnotation(annotation)
-            mapView.selectAnnotation(annotation, animated: true)
-        }
-
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             let view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: nil)
             view.canShowCallout = true
+            view.alpha = 0
             return view
         }
     }
