@@ -52,7 +52,7 @@ struct CurrencyChoroplethMapView: NSViewRepresentable {
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             let view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: nil)
             view.canShowCallout = true
-            view.alpha = 0
+            view.alphaValue = 0
             return view
         }
     }

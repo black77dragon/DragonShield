@@ -370,3 +370,4 @@ All notable changes to this project will be documented in this file.
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
 - Add Position Value by Currency map tile with blue-shade choropleth
+- Fix compile error using alphaValue on macOS map annotations
