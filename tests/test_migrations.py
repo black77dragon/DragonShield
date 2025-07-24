@@ -92,4 +92,12 @@ def test_apply_migrations_and_insert_dates():
     tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ImportSessionValueReports'")]
     assert 'ImportSessionValueReports' in tables
 
+    # Apply fifth migration
+    conn.executescript(read_sql('005_add_account_timestamp_trigger.sql'))
+    conn.execute("INSERT INTO Accounts (account_name, institution_id, account_type_id, currency_code) VALUES ('B',1,1,'CHF')")
+    acc_id = conn.execute("SELECT account_id FROM Accounts WHERE account_name='B'").fetchone()[0]
+    conn.execute("INSERT INTO PositionReports (account_id, institution_id, instrument_id, quantity, report_date) VALUES (?,1,1,10,'2025-01-01')", (acc_id,))
+    val = conn.execute("SELECT earliest_instrument_last_updated_at FROM Accounts WHERE account_id=?", (acc_id,)).fetchone()[0]
+    assert val is not None
+
     conn.close()
