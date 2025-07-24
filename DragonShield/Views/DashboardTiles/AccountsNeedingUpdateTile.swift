@@ -8,6 +8,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
 
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = StaleAccountsViewModel()
+    @State private var showRed = false
+    @State private var showAmber = false
+    @State private var showGreen = false
 
     private static let displayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -15,12 +18,34 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         return f
     }()
 
-    private func warningNeeded(for date: Date) -> Bool {
-        viewModel.daysSince(date) > 30
+    private enum StaleCategory {
+        case red, amber, green
+    }
+
+    private func category(for date: Date?) -> StaleCategory? {
+        guard let date else { return nil }
+        let days = viewModel.daysSince(date)
+        if days > 60 { return .red }
+        if days > 30 { return .amber }
+        return .green
+    }
+
+    private func rowColor(for date: Date?) -> Color {
+        switch category(for: date) {
+        case .red?:
+            return Color.error.opacity(0.2)
+        case .amber?:
+            return Color.warning.opacity(0.2)
+        case .green?:
+            return Color.success.opacity(0.2)
+        case nil:
+            return .clear
+        }
     }
 
     var body: some View {
-        DashboardCard(title: Self.tileName) {
+        DashboardCard(title: Self.tileName,
+                      headerIcon: Image(systemName: "calendar")) {
             if viewModel.staleAccounts.isEmpty {
                 Text("All accounts up to date ✅")
                     .font(.subheadline)
@@ -29,8 +54,6 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 contentList
             }
         }
-        .background(Color.blue.opacity(0.1))
-        .cornerRadius(8)
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
         }
@@ -39,35 +62,62 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     @ViewBuilder
     private var contentList: some View {
         let rows = viewModel.staleAccounts
+        let redRows = rows.filter { category(for: $0.earliestInstrumentLastUpdatedAt) == .red }
+        let amberRows = rows.filter { category(for: $0.earliestInstrumentLastUpdatedAt) == .amber }
+        let greenRows = rows.filter { category(for: $0.earliestInstrumentLastUpdatedAt) == .green }
+
         Group {
-            if rows.count > 6 {
-                ScrollView { listBody(rows) }
-            } else {
-                listBody(rows)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    DisclosureGroup(isExpanded: $showRed) {
+                        listBody(redRows)
+                    } label: {
+                        summaryRow(title: "Over 2 months", count: redRows.count, color: .error)
+                    }
+
+                    DisclosureGroup(isExpanded: $showAmber) {
+                        listBody(amberRows)
+                    } label: {
+                        summaryRow(title: "1-2 months", count: amberRows.count, color: .warning)
+                    }
+
+                    DisclosureGroup(isExpanded: $showGreen) {
+                        listBody(greenRows)
+                    } label: {
+                        summaryRow(title: "<1 month", count: greenRows.count, color: .success)
+                    }
+                }
             }
+            .frame(maxHeight: rows.count > 6 ? 220 : .infinity)
         }
     }
 
     private func listBody(_ rows: [DatabaseManager.AccountData]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { idx, account in
+            ForEach(rows) { account in
                 HStack {
                     Text(account.accountName)
                     Spacer()
                     if let date = account.earliestInstrumentLastUpdatedAt {
                         Text(Self.displayFormatter.string(from: date))
                             .foregroundColor(.secondary)
-                        if warningNeeded(for: date) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                        }
                     }
                 }
                 .padding(.vertical, 2)
                 .padding(.horizontal, 4)
-                .background(idx == 0 ? Color.yellow.opacity(0.2) : Color.clear)
+                .background(rowColor(for: account.earliestInstrumentLastUpdatedAt))
                 .cornerRadius(4)
             }
         }
+    }
+
+    private func summaryRow(title: String, count: Int, color: Color) -> some View {
+        HStack {
+            Text("\(title) (\(count))")
+            Spacer()
+        }
+        .padding(4)
+        .background(color.opacity(0.2))
+        .cornerRadius(4)
     }
 }
