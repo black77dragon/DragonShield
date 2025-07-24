@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Show imported position values in CHF after import completes
 - Persist full value reports per import session and view them from history
 - Persist value reports in database after import and fix Session Details sheet closing
+- Display position value by currency on a choropleth world map tile
 - Fix Import Values window closing when pressing the Close button
 - Present value report in a table window after import
 - Document production folder path and backups in README

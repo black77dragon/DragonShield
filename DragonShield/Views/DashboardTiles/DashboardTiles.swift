@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 protocol DashboardTile: View {
     init()
@@ -227,21 +228,92 @@ struct ImageTile: DashboardTile {
 }
 
 struct MapTile: DashboardTile {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @StateObject private var viewModel = CurrencyMapViewModel()
+    @State private var selected: CountryShape?
+
     init() {}
     static let tileID = "map"
-    static let tileName = "Map Tile"
+    static let tileName = "Position Value by Currency"
     static let iconName = "map"
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        return f
+    }()
+
+    private let palette: [Color] = stride(from: 0, to: 5).map {
+        let brightness = 0.9 - Double($0) * 0.15
+        return Color(hue: 0.6, saturation: 0.6, brightness: brightness)
+    }
+
+    private func color(for value: Double) -> Color {
+        guard !viewModel.quantileBreaks.isEmpty else { return palette.last! }
+        let breaks = viewModel.quantileBreaks
+        if value < breaks[0] { return palette[0] }
+        if value < breaks[1] { return palette[1] }
+        if value < breaks[2] { return palette[2] }
+        if value < breaks[3] { return palette[3] }
+        return palette[4]
+    }
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .overlay(Image(systemName: "map")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
-                .cornerRadius(4)
+            if viewModel.loading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 8) {
+                    Map() {
+                        ForEach(CountryShapes.shapes, id: \.code) { shape in
+                            if let total = viewModel.totals[shape.currency] {
+                                MapPolygon(coordinates: shape.coordinates)
+                                    .foregroundStyle(color(for: total))
+                                    .onTapGesture { selected = shape }
+                            }
+                        }
+                    }
+                    .frame(height: 160)
+                    legend
+                }
+            }
         }
+        .mapOverlay(alignment: .topLeading) {
+            if let selected, let value = viewModel.totals[selected.currency] {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selected.name)
+                    Text(selected.currency)
+                    Text("\(Self.chfFormatter.string(from: NSNumber(value: value)) ?? "0") CHF")
+                }
+                .font(.caption)
+                .padding(6)
+                .background(Theme.surface.opacity(0.9))
+                .cornerRadius(6)
+            }
+        }
+        .onAppear { viewModel.load(using: dbManager) }
         .accessibilityElement(children: .combine)
+    }
+
+    private var legend: some View {
+        HStack(alignment: .center, spacing: 4) {
+            let breaks = [0] + viewModel.quantileBreaks + [Double.greatestFiniteMagnitude]
+            ForEach(0..<5, id: \.self) { idx in
+                VStack {
+                    Rectangle()
+                        .fill(palette[idx])
+                        .frame(width: 20, height: 10)
+                    if idx < breaks.count - 1 {
+                        Text("\(Int(breaks[idx])) – \(Int(breaks[idx+1]))")
+                            .font(.system(size: 8))
+                    }
+                }
+            }
+        }
     }
 }
 
