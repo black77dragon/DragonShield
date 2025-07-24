@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Present value report in a table window after import
 - Document production folder path and backups in README
 - Compute value report from positions when stored data is missing
+- Kanban-style To Do board with drag-and-drop
 - Fix unused variable warning when computing position values
 - Display consolidated crypto allocations with scrolling in Dashboard (#PR)
 - Add Crypto Top 5 dashboard tile showing largest crypto holdings
