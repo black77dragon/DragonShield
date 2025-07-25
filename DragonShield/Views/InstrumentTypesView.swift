@@ -16,8 +16,9 @@ struct AssetSubClassesView: View {
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
     @State private var selectedSubClass: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
-    @State private var showingDeleteAlert = false
-    @State private var subClassToDelete: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var showDeleteResultAlert = false
+    @State private var deleteResultMessage = ""
+    @State private var showDeleteSuccessToast = false
     @State private var searchText = ""
     
     // Animation states
@@ -77,18 +78,12 @@ struct AssetSubClassesView: View {
                 EditAssetSubClassView(typeId: type.id)
             }
         }
-        .alert("Delete Asset SubClass", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                if let type = subClassToDelete {
-                    confirmDelete(type)
-                }
-            }
+        .alert("Delete Failed", isPresented: $showDeleteResultAlert) {
+            Button("OK", role: .cancel) {}
         } message: {
-            if let type = subClassToDelete {
-                Text("Are you sure you want to delete '\(type.name)'?")
-            }
+            Text(deleteResultMessage)
         }
+        .toast(isPresented: $showDeleteSuccessToast, message: "Asset subclass deleted")
     }
     
     // MARK: - Modern Header
@@ -394,8 +389,7 @@ struct AssetSubClassesView: View {
                     
                     Button {
                         if let type = selectedSubClass {
-                            subClassToDelete = type
-                            showingDeleteAlert = true
+                            handleDelete(type)
                         }
                     } label: {
                         HStack(spacing: 6) {
@@ -490,49 +484,30 @@ struct AssetSubClassesView: View {
         subClasses = dbManager.fetchInstrumentTypes()
     }
 
-    func confirmDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
+    func handleDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
-        
-        // Check if deletion is safe
-        let deleteInfo = dbManager.canDeleteInstrumentType(id: type.id)
-        
-        if deleteInfo.instrumentCount > 0 {
-            // Show warning dialog for types with instruments
-            let alert = NSAlert()
-            alert.messageText = "Delete Asset SubClass with Data"
-            alert.informativeText = "This asset subclass '\(type.name)' is used by \(deleteInfo.instrumentCount) instrument(s). Deleting it may cause data inconsistencies.\n\nAre you sure you want to proceed?"
-            alert.alertStyle = .critical
-            alert.addButton(withTitle: "Delete Anyway")
-            alert.addButton(withTitle: "Cancel")
-            
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                performDelete(type)
-            }
-        } else {
-            // Safe to delete - no instruments use this type
-            let alert = NSAlert()
-            alert.messageText = "Delete Asset SubClass"
-            alert.informativeText = "Are you sure you want to delete '\(type.name)'?"
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "Delete")
-            alert.addButton(withTitle: "Cancel")
-            
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                performDelete(type)
-            }
+        let info = dbManager.canDeleteInstrumentType(id: type.id)
+
+        guard info.canDelete else {
+            deleteResultMessage = "Cannot delete — subclass in use by \(info.instrumentCount) instrument(s)."
+            showDeleteResultAlert = true
+            return
         }
+
+        performDelete(type)
     }
 
     private func performDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrumentType(id: type.id)
-        
+
         if success {
             loadSubClasses()
             selectedSubClass = nil
-            subClassToDelete = nil
+            showDeleteSuccessToast = true
+        } else {
+            deleteResultMessage = "Failed to delete asset subclass."
+            showDeleteResultAlert = true
         }
     }
 }
