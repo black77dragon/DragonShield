@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Combine Asset Class and SubClass management into one page with sortable rows
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
+- Document troubleshooting steps for missing `default.metallib` warning
 - Show per-table row count comparison after restore in a modal window
 - Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count

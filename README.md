@@ -146,6 +146,11 @@ python3 python_scripts/gpt_shell.py call echo '{"text": "hello"}'
 
 At present the application must be run from Xcode. Future releases will ship a signed & notarized .app bundle.
 
+## 🛠 Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for solutions to common issues. This includes the harmless
+`default.metallib` warning printed by the Metal framework on some systems.
+
 ## 🤝 Contributing
 
 This is a personal passion project, but issues and PRs are welcome. Please keep PRs focused and well-documented.
