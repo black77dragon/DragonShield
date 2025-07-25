@@ -48,6 +48,9 @@ struct DashboardView: View {
             if !tileIDs.contains(CryptoTop5Tile.tileID) {
                 tileIDs.insert(CryptoTop5Tile.tileID, at: 0)
             }
+            if !tileIDs.contains(InstitutionsAUMTile.tileID) {
+                tileIDs.append(InstitutionsAUMTile.tileID)
+            }
         } else {
             tileIDs = TileRegistry.all.map { $0.id }
         }
