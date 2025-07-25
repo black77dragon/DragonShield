@@ -54,7 +54,7 @@ struct SidebarView: View {
                 }
 
                 NavigationLink(destination: CurrenciesView()) {
-                    Label("Currencies", systemImage: "dollarsign.circle.fill")
+                    Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
                 }
 
                 NavigationLink(destination: ClassManagementView()) {

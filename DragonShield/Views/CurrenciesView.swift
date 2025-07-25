@@ -11,6 +11,9 @@ import SwiftUI
 struct CurrenciesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
+    /// 0 = Currencies, 1 = FX Rates
+    @AppStorage(UserDefaultsKeys.currenciesFxSegment) private var selectedSegment: Int = 0
+
     @State private var currencies: [(code: String, name: String, symbol: String, isActive: Bool, apiSupported: Bool)] = []
     @State private var showAddCurrencySheet = false
     @State private var showEditCurrencySheet = false
@@ -39,29 +42,43 @@ struct CurrenciesView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.98, green: 0.99, blue: 1.0), Color(red: 0.95, green: 0.97, blue: 0.99), Color(red: 0.93, green: 0.95, blue: 0.98)],
+                colors: [Color(red: 0.98, green: 0.99, blue: 1.0),
+                         Color(red: 0.95, green: 0.97, blue: 0.99),
+                         Color(red: 0.93, green: 0.95, blue: 0.98)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
 
             CurrencyParticleBackground()
 
-            VStack(spacing: 0) {
-                modernHeader
-                searchAndStats
-                currenciesContent
-                modernActionBar
+            VStack(spacing: 16) {
+                modePicker
+                Group {
+                    if selectedSegment == 0 {
+                        currenciesSection
+                    } else {
+                        fxSection
+                    }
+                }
+                .transition(.opacity)
             }
             .padding(24)
         }
         .onAppear {
-            loadCurrencies()
-            animateEntrance()
+            if selectedSegment == 0 {
+                loadCurrencies()
+                animateEntrance()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCurrencies"))) { _ in
-            loadCurrencies()
+            if selectedSegment == 0 {
+                loadCurrencies()
+            }
         }
-        .onChange(of: dbManager.tableRowSpacing) { _, _ in }
-        .onChange(of: dbManager.tableRowPadding) { _, _ in }
+        .onChange(of: selectedSegment) { _, newValue in
+            if newValue == 0 {
+                loadCurrencies()
+            }
+        }
         .sheet(isPresented: $showAddCurrencySheet) {
             AddCurrencyView().environmentObject(dbManager)
         }
@@ -83,6 +100,41 @@ struct CurrenciesView: View {
             }
         }
         .navigationTitle("Currency Maintenance")
+        .animation(.easeInOut, value: selectedSegment)
+    }
+
+    // MARK: - Segmented Sections
+
+    private var modePicker: some View {
+        Picker("Mode", selection: $selectedSegment) {
+            Text("Currencies").tag(0)
+            Text("FX Rates").tag(1)
+        }
+        .pickerStyle(SegmentedPickerStyle())
+        .font(.system(size: 13, weight: .semibold))
+    }
+
+    private var currenciesSection: some View {
+        VStack(spacing: 0) {
+            modernHeader
+            searchAndStats
+            currenciesContent
+            modernActionBar
+        }
+    }
+
+    private var fxSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Button(action: { withAnimation { selectedSegment = 0 } }) {
+                    Label("Back to Currencies", systemImage: "chevron.left")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                Spacer()
+            }
+            ExchangeRatesView()
+                .environmentObject(dbManager)
+        }
     }
     
     // MARK: - Subviews (Header, Search, etc. - Unchanged)
