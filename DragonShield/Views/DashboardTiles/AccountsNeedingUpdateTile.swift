@@ -7,6 +7,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     static let iconName = "exclamationmark.triangle"
 
     @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var viewModel = StaleAccountsViewModel()
     @State private var showRed = false
     @State private var showAmber = false
@@ -62,6 +63,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         }
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
+            showRed = true
+            showAmber = true
+            showGreen = false
         }
         .alert("Error", isPresented: Binding(
             get: { refreshError != nil },
@@ -121,6 +125,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 .padding(.horizontal, 4)
                 .background(rowColor(for: account.earliestInstrumentLastUpdatedAt))
                 .cornerRadius(4)
+                .onTapGesture {
+                    openWindow(id: "accountDetail", value: account.id)
+                }
             }
         }
     }

@@ -23,5 +23,13 @@ struct DragonShieldApp: App {
                 }
             }
         }
+        WindowGroup(id: "accountDetail", for: Int.self) { $accountId in
+            if let accId = accountId {
+                AccountDetailWindowView(viewModel: AccountDetailWindowViewModel(accountId: accId, dbManager: databaseManager))
+                    .environmentObject(databaseManager)
+            } else {
+                Text("No Account")
+            }
+        }
     }
 }
