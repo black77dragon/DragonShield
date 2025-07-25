@@ -11,6 +11,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     @State private var showRed = false
     @State private var showAmber = false
     @State private var showGreen = false
+    @State private var refreshing = false
+    @State private var showCheckmark = false
+    @State private var refreshError: String?
 
     private static let displayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -54,8 +57,19 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 contentList
             }
         }
+        .overlay(alignment: .topTrailing) {
+            refreshButton
+        }
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
+        }
+        .alert("Error", isPresented: Binding(
+            get: { refreshError != nil },
+            set: { if !$0 { refreshError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(refreshError ?? "")
         }
     }
 
@@ -119,5 +133,45 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         .padding(4)
         .background(color.opacity(0.2))
         .cornerRadius(4)
+    }
+
+    private var refreshButton: some View {
+        Button(action: performRefresh) {
+            Group {
+                if refreshing {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else if showCheckmark {
+                    Image(systemName: "checkmark")
+                        .transition(.scale)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .frame(width: 16, height: 16)
+            .foregroundColor(.blue)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help("Refresh Instrument Timestamps")
+        .accessibilityLabel("Refresh Instrument Timestamps")
+        .disabled(refreshing)
+        .opacity(refreshing ? 0.4 : 1)
+    }
+
+    private func performRefresh() {
+        refreshing = true
+        dbManager.refreshEarliestInstrumentTimestamps { result in
+            refreshing = false
+            switch result {
+            case .success:
+                showCheckmark = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    showCheckmark = false
+                }
+                viewModel.loadStaleAccounts(db: dbManager)
+            case .failure(let err):
+                refreshError = err.localizedDescription
+            }
+        }
     }
 }
