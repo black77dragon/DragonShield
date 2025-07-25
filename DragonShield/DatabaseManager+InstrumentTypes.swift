@@ -208,20 +208,51 @@ extension DatabaseManager {
         return result
     }
 
-    func canDeleteInstrumentType(id: Int) -> (canDelete: Bool, instrumentCount: Int) {
-        let checkQuery = "SELECT COUNT(*) FROM Instruments WHERE sub_class_id = ?"
-        var checkStatement: OpaquePointer?
-        var count: Int = 0
-        
-        if sqlite3_prepare_v2(db, checkQuery, -1, &checkStatement, nil) == SQLITE_OK {
-            sqlite3_bind_int(checkStatement, 1, Int32(id))
-            if sqlite3_step(checkStatement) == SQLITE_ROW {
-                count = Int(sqlite3_column_int(checkStatement, 0))
+    func canDeleteInstrumentType(id: Int) -> (canDelete: Bool, instrumentCount: Int, allocationCount: Int) {
+        var instrumentCount = 0
+        var allocationCount = 0
+
+        let instrumentQuery = "SELECT COUNT(*) FROM Instruments WHERE sub_class_id = ?"
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, instrumentQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                instrumentCount = Int(sqlite3_column_int(statement, 0))
             }
-            sqlite3_finalize(checkStatement)
+            sqlite3_finalize(statement)
         } else {
-            print("❌ Failed to prepare canDeleteInstrumentType check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            print("❌ Failed to prepare instrument usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
         }
-        return (canDelete: count == 0, instrumentCount: count)
+
+        let allocationQuery = "SELECT COUNT(*) FROM TargetAllocation WHERE sub_class_id = ?"
+        if sqlite3_prepare_v2(db, allocationQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                allocationCount = Int(sqlite3_column_int(statement, 0))
+            }
+            sqlite3_finalize(statement)
+        } else {
+            print("❌ Failed to prepare allocation usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+
+        return (canDelete: instrumentCount == 0 && allocationCount == 0,
+                instrumentCount: instrumentCount,
+                allocationCount: allocationCount)
+    }
+
+    func usageDetailsForInstrumentType(id: Int) -> [(table: String, field: String, count: Int)] {
+        let info = canDeleteInstrumentType(id: id)
+        var details: [(String, String, Int)] = []
+
+        if info.instrumentCount > 0 {
+            details.append(("Instruments", "sub_class_id", info.instrumentCount))
+        }
+
+        if info.allocationCount > 0 {
+            details.append(("TargetAllocation", "sub_class_id", info.allocationCount))
+        }
+
+        return details
     }
 }

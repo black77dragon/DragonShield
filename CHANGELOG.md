@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Document troubleshooting steps for missing `default.metallib` warning
 - Show per-table row count comparison after restore in a modal window
 - Delete Asset SubClass instantly with toast feedback and error alert when in use
+- Display table details when Asset SubClass deletion fails
 - Widen Restore Comparison window to display all columns without scrolling
 - Confirm deletion of positions per account type with live count
 - Display stale accounts grouped by age with collapsible sections

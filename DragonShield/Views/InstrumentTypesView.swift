@@ -486,10 +486,13 @@ struct AssetSubClassesView: View {
 
     func handleDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
-        let info = dbManager.canDeleteInstrumentType(id: type.id)
+        let usage = dbManager.usageDetailsForInstrumentType(id: type.id)
 
-        guard info.canDelete else {
-            deleteResultMessage = "Cannot delete — subclass in use by \(info.instrumentCount) instrument(s)."
+        if !usage.isEmpty {
+            let detail = usage
+                .map { "\($0.count) row(s) in \($0.table).\($0.field)" }
+                .joined(separator: ", ")
+            deleteResultMessage = "Cannot delete — referenced by " + detail
             showDeleteResultAlert = true
             return
         }
