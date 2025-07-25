@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Add Import Session History tab with per-session totals
 - Enable multi-institution selection in Positions view with summary totals and bulk delete
 - Show total CHF value for selected institutions in Positions view
+- Modernize Instruments page with searchable, sortable and filterable table
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
 - Prompt to delete existing ZKB positions when importing statements
