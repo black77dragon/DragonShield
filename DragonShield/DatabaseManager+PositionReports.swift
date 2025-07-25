@@ -112,6 +112,85 @@ extension DatabaseManager {
         return reports
     }
 
+    /// Fetches position reports linked to a specific account.
+    /// - Parameter accountId: The account identifier.
+    /// - Returns: Sorted position reports for the account.
+    func fetchPositionReports(accountId: Int) -> [PositionReportData] {
+        let sql = """
+            SELECT pr.position_id, pr.import_session_id, a.account_name,
+                   ins.institution_name, i.instrument_name, i.currency,
+                   i.country_code, i.sector, ac.class_name, asc.sub_class_name,
+                   pr.quantity, pr.purchase_price, pr.current_price,
+                   pr.instrument_updated_at,
+                   pr.notes,
+                   pr.report_date, pr.uploaded_at
+              FROM PositionReports pr
+              JOIN Accounts a ON pr.account_id = a.account_id
+              JOIN Institutions ins ON pr.institution_id = ins.institution_id
+              JOIN Instruments i ON pr.instrument_id = i.instrument_id
+              JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+              JOIN AssetClasses ac ON asc.class_id = ac.class_id
+             WHERE pr.account_id = ?
+             ORDER BY pr.position_id;
+        """
+
+        var stmt: OpaquePointer?
+        var reports: [PositionReportData] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let sessionId: Int? = sqlite3_column_type(stmt, 1) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 1)) : nil
+                let accountName = String(cString: sqlite3_column_text(stmt, 2))
+                let institutionName = String(cString: sqlite3_column_text(stmt, 3))
+                let instrumentName = String(cString: sqlite3_column_text(stmt, 4))
+                let instrumentCurrency = String(cString: sqlite3_column_text(stmt, 5))
+                let instrumentCountry = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let instrumentSector = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let assetClass = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let assetSubClass = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(stmt, 10)
+                var purchasePrice: Double?
+                if sqlite3_column_type(stmt, 11) != SQLITE_NULL { purchasePrice = sqlite3_column_double(stmt, 11) }
+                var currentPrice: Double?
+                if sqlite3_column_type(stmt, 12) != SQLITE_NULL { currentPrice = sqlite3_column_double(stmt, 12) }
+                var instrumentUpdatedAt: Date?
+                if sqlite3_column_type(stmt, 13) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(stmt, 13))
+                    instrumentUpdatedAt = DateFormatter.iso8601DateOnly.date(from: str)
+                }
+                let notes: String? = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(stmt, 15))
+                let uploadedAtStr = String(cString: sqlite3_column_text(stmt, 16))
+                let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
+                let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
+                reports.append(PositionReportData(
+                    id: id,
+                    importSessionId: sessionId,
+                    accountName: accountName,
+                    institutionName: institutionName,
+                    instrumentName: instrumentName,
+                    instrumentCurrency: instrumentCurrency,
+                    instrumentCountry: instrumentCountry,
+                    instrumentSector: instrumentSector,
+                    assetClass: assetClass,
+                    assetSubClass: assetSubClass,
+                    quantity: quantity,
+                    purchasePrice: purchasePrice,
+                    currentPrice: currentPrice,
+                    instrumentUpdatedAt: instrumentUpdatedAt,
+                    notes: notes,
+                    reportDate: reportDate,
+                    uploadedAt: uploadedAt
+                ))
+            }
+        } else {
+            print("❌ Failed to prepare fetchPositionReports(accountId): \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+        return reports
+    }
+
     /// Deletes position reports where the associated account name contains the provided text.
     /// - Parameter substring: The case-insensitive text to match within account names.
     /// - Returns: The number of deleted rows.
@@ -306,6 +385,57 @@ extension DatabaseManager {
         let result = sqlite3_step(stmt) == SQLITE_DONE
         if !result { print("❌ Update position failed: \(String(cString: sqlite3_errmsg(db)))") }
         return result
+    }
+
+    /// Updates quantity, current price and update date for a position.
+    /// Other fields remain unchanged.
+    func updatePositionValues(id: Int, quantity: Double, currentPrice: Double?, instrumentUpdatedAt: Date?) -> Bool {
+        let sql = "UPDATE PositionReports SET quantity = ?, current_price = ?, instrument_updated_at = ?, uploaded_at = CURRENT_TIMESTAMP WHERE position_id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare updatePositionValues: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_double(stmt, 1, quantity)
+        if let c = currentPrice {
+            sqlite3_bind_double(stmt, 2, c)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        if let d = instrumentUpdatedAt {
+            sqlite3_bind_text(stmt, 3, DateFormatter.iso8601DateOnly.string(from: d), -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, 3)
+        }
+        sqlite3_bind_int(stmt, 4, Int32(id))
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        if !result { print("❌ Failed to update position values: \(String(cString: sqlite3_errmsg(db)))") }
+        return result
+    }
+
+    /// Recalculates earliest instrument timestamp for a single account.
+    func refreshEarliestInstrumentTimestamp(accountId: Int) {
+        let sql = """
+            UPDATE Accounts
+               SET earliest_instrument_last_updated_at = (
+                    SELECT MIN(instrument_updated_at)
+                      FROM PositionReports pr
+                     WHERE pr.account_id = ?
+               )
+             WHERE account_id = ?;
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            sqlite3_bind_int(stmt, 2, Int32(accountId))
+            if sqlite3_step(stmt) != SQLITE_DONE {
+                print("❌ Failed to refresh earliest timestamp for account \(accountId): \(String(cString: sqlite3_errmsg(db)))")
+            }
+        } else {
+            print("❌ Failed to prepare refresh earliest timestamp: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
     }
 
     func deletePositionReport(id: Int) -> Bool {

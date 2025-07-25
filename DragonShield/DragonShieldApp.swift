@@ -23,5 +23,12 @@ struct DragonShieldApp: App {
                 }
             }
         }
+
+        WindowGroup(for: Int.self) { $accountId in
+            if let id = accountId {
+                AccountDetailWindowView(accountId: id)
+                    .environmentObject(databaseManager)
+            }
+        }
     }
 }
