@@ -115,43 +115,54 @@ struct InstrumentsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 160)
-            .headerProminence(.increased)
-            .overlay(filterButton(for: .name), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .name)
+            }
 
             TableColumn(Column.type.title, value: \InstrumentData.type) { inst in
                 Text(inst.type)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 120)
-            .overlay(filterButton(for: .type), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .type)
+            }
 
             TableColumn(Column.currency.title, value: \InstrumentData.currency) { inst in
                 Text(inst.currency)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 60)
-            .overlay(filterButton(for: .currency), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .currency)
+            }
 
             TableColumn(Column.symbol.title, value: \InstrumentData.symbol) { inst in
                 Text(inst.symbol ?? "--")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 80)
-            .overlay(filterButton(for: .symbol), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .symbol)
+            }
 
             TableColumn(Column.valor.title, value: \InstrumentData.valor) { inst in
                 Text(inst.valor ?? "--")
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .width(min: 80)
-            .overlay(filterButton(for: .valor), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .valor)
+            }
 
             TableColumn(Column.isin.title, value: \InstrumentData.isin) { inst in
                 Text(inst.isin ?? "--")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 140)
-            .overlay(filterButton(for: .isin), alignment: .trailing)
+            .overlay(alignment: .trailing) {
+                filterButton(for: .isin)
+            }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .onTapGesture(count: 2) {
@@ -172,7 +183,10 @@ struct InstrumentsView: View {
                 .padding(.trailing, 4)
         }
         .buttonStyle(PlainButtonStyle())
-        .popover(item: Binding<Column?>(get: { activeFilter == column ? column : nil }, set: { val in if val == nil { activeFilter = nil } })) {
+        .popover(item: Binding<Column?>(
+            get: { activeFilter == column ? column : nil },
+            set: { val in if val == nil { activeFilter = nil } }
+        )) { _ in
             filterPopover(for: column)
         }
         .accessibilityLabel("Filter \(column.title)")
