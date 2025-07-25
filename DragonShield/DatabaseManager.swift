@@ -85,9 +85,10 @@ class DatabaseManager: ObservableObject {
         
         openDatabase()
         let version = loadConfiguration()
+        self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
-        print("📂 Database path: \(dbPath) | version: \(dbVersion)")
+        print("📂 Database path: \(dbPath) | version: \(version)")
     }
     
     func openDatabase() {
