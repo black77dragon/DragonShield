@@ -115,6 +115,19 @@ struct PositionsView: View {
         return result
     }
 
+    var filterActive: Bool {
+        !searchText.isEmpty || !selectedInstitutionIds.isEmpty
+    }
+
+    var filteredValueTotalCHF: Double {
+        filteredPositions.reduce(0) { sum, pos in
+            if let valOpt = viewModel.positionValueCHF[pos.id], let val = valOpt {
+                return sum + val
+            }
+            return sum
+        }
+    }
+
     var selectedPositionsTotalCHF: Double {
         let selected = positions.filter { pos in
             selectedInstitutionNames.contains(pos.institutionName)
@@ -204,16 +217,22 @@ struct PositionsView: View {
         .onChange(of: visibleColumns) {
             persistVisibleColumns()
         }
+        .onChange(of: sortOrder) { newValue in
+            if newValue.count > 1, let last = newValue.last {
+                sortOrder = [last]
+            }
+        }
     }
 
     // MARK: - Modern Header
     private var modernHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
-                    Image(systemName: "tablecells")
-                        .font(.system(size: 32))
-                        .foregroundColor(.blue)
+        VStack(alignment: .leading) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "tablecells")
+                            .font(.system(size: 32))
+                            .foregroundColor(.blue)
                     Text("Positions")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                 }
@@ -287,6 +306,15 @@ struct PositionsView: View {
                     .frame(width: 220)
                 }
             }
+            if filterActive {
+                HStack(spacing: 16) {
+                    modernStatCard(title: "Filtered", value: "\(filteredPositions.count)", icon: "line.3.horizontal.decrease", color: .purple)
+                    modernStatCard(title: "Filtered Value (CHF)",
+                                   value: Self.chfFormatter.string(from: NSNumber(value: filteredValueTotalCHF)) ?? "0",
+                                   icon: "sum", color: .purple)
+                }
+                .transition(.opacity)
+            }
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
@@ -337,6 +365,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 160, ideal: 180)
                 }
@@ -349,6 +378,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 160, ideal: 180)
                 }
@@ -361,6 +391,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 160, ideal: 200)
                 }
@@ -373,6 +404,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 60, ideal: 70)
                 }
@@ -384,6 +416,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .trailing)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 70, ideal: 80)
                 }
@@ -396,6 +429,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         } else {
                             Text("-")
                                 .font(.system(size: fontSize, design: .monospaced))
@@ -403,6 +437,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         }
                     }
                     .width(min: 80, ideal: 90)
@@ -416,6 +451,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         } else {
                             Text("-")
                                 .font(.system(size: fontSize, design: .monospaced))
@@ -423,6 +459,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         }
                     }
                     .width(min: 80, ideal: 90)
@@ -437,6 +474,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         } else {
                             Text("-")
                                 .font(.system(size: fontSize, design: .monospaced))
@@ -444,6 +482,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         }
                     }
                     .width(min: 180, ideal: 200)
@@ -458,6 +497,7 @@ struct PositionsView: View {
                                     .lineLimit(2)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
+                                    .onTapGesture(count: 2) { positionToEdit = position }
                             } else {
                                 Text("-")
                                     .font(.system(size: fontSize, design: .monospaced))
@@ -465,6 +505,7 @@ struct PositionsView: View {
                                     .lineLimit(2)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
+                                    .onTapGesture(count: 2) { positionToEdit = position }
                             }
                         } else {
                             Text("-")
@@ -473,6 +514,7 @@ struct PositionsView: View {
                                 .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
+                                .onTapGesture(count: 2) { positionToEdit = position }
                         }
                     }
                     .width(min: 150, ideal: 170)
@@ -492,6 +534,7 @@ struct PositionsView: View {
                         .font(.system(size: fontSize))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
+                        .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 120, ideal: 140)
                 }

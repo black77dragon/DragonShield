@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Persist value reports in database after import and fix Session Details sheet closing
 - Fix Import Values window closing when pressing the Close button
 - Present value report in a table window after import
+- Enforce single-column sorting and double-click editing in Positions table
 - Document production folder path and backups in README
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
