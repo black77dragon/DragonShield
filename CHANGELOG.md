@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Confirm deletion of positions per account type with live count
 - Display stale accounts grouped by age with collapsible sections
 - Generate full instrument report from Database Management view
+- Auto-expand critical Accounts Needing Update sections and open account detail window
 - Use latest flagged FX rates for import value calculations and report applied rates
 - Store import session total value and add CLI summary report
 - Show imported position values in CHF after import completes

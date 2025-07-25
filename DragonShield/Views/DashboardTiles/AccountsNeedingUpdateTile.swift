@@ -14,6 +14,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     @State private var refreshing = false
     @State private var showCheckmark = false
     @State private var refreshError: String?
+    @Environment(\.openWindow) private var openWindow
 
     private static let displayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -62,6 +63,8 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         }
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
+            showRed = true
+            showAmber = true
         }
         .alert("Error", isPresented: Binding(
             get: { refreshError != nil },
@@ -121,6 +124,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 .padding(.horizontal, 4)
                 .background(rowColor(for: account.earliestInstrumentLastUpdatedAt))
                 .cornerRadius(4)
+                .onTapGesture {
+                    openWindow(value: account.id)
+                }
             }
         }
     }

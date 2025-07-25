@@ -27,6 +27,22 @@ struct PositionReportData: Identifiable {
         var uploadedAt: Date
 }
 
+/// Simplified position structure used for editing positions within an account detail window.
+struct AccountPositionData: Identifiable {
+    var id: Int
+    var accountId: Int
+    var institutionId: Int
+    var instrumentId: Int
+    var instrumentName: String
+    var quantity: Double
+    var purchasePrice: Double?
+    var currentPrice: Double?
+    var instrumentUpdatedAt: Date?
+    var notes: String?
+    var reportDate: Date
+    var importSessionId: Int?
+}
+
 extension DatabaseManager {
 
     func fetchPositionReports() -> [PositionReportData] {
@@ -110,6 +126,53 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
         return reports
+    }
+
+    /// Fetches positions for a specific account including identifiers for editing.
+    func fetchAccountPositions(accountId: Int) -> [AccountPositionData] {
+        var rows: [AccountPositionData] = []
+        let sql = """
+            SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
+                   i.instrument_name, pr.quantity, pr.purchase_price, pr.current_price,
+                   pr.instrument_updated_at, pr.notes, pr.report_date, pr.import_session_id
+              FROM PositionReports pr
+              JOIN Instruments i ON pr.instrument_id = i.instrument_id
+             WHERE pr.account_id = ?
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let accId = Int(sqlite3_column_int(stmt, 1))
+                let instId = Int(sqlite3_column_int(stmt, 2))
+                let instrId = Int(sqlite3_column_int(stmt, 3))
+                let instrument = String(cString: sqlite3_column_text(stmt, 4))
+                let qty = sqlite3_column_double(stmt, 5)
+                var purchase: Double?
+                if sqlite3_column_type(stmt, 6) != SQLITE_NULL { purchase = sqlite3_column_double(stmt, 6) }
+                var curr: Double?
+                if sqlite3_column_type(stmt, 7) != SQLITE_NULL { curr = sqlite3_column_double(stmt, 7) }
+                var updated: Date?
+                if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(stmt, 8))
+                    updated = DateFormatter.iso8601DateOnly.date(from: str)
+                }
+                let notes = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let reportStr = String(cString: sqlite3_column_text(stmt, 10))
+                let sessionId: Int?
+                if sqlite3_column_type(stmt, 11) != SQLITE_NULL { sessionId = Int(sqlite3_column_int(stmt, 11)) } else { sessionId = nil }
+                let reportDate = DateFormatter.iso8601DateOnly.date(from: reportStr) ?? Date()
+                rows.append(AccountPositionData(id: id, accountId: accId, institutionId: instId, instrumentId: instrId,
+                                                instrumentName: instrument, quantity: qty, purchasePrice: purchase,
+                                                currentPrice: curr, instrumentUpdatedAt: updated, notes: notes,
+                                                reportDate: reportDate, importSessionId: sessionId))
+            }
+        } else {
+            print("❌ Failed to prepare fetchAccountPositions: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+        return rows
     }
 
     /// Deletes position reports where the associated account name contains the provided text.

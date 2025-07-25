@@ -23,5 +23,9 @@ struct DragonShieldApp: App {
                 }
             }
         }
+        WindowGroup(for: Int.self) { accountId in
+            AccountDetailWindowView(accountId: accountId, db: databaseManager)
+                .environmentObject(databaseManager)
+        }
     }
 }
