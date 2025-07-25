@@ -12,7 +12,11 @@ All notable changes to this project will be documented in this file.
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
+- Mention language code console warnings and how to silence them
+- Log database version correctly at startup
+- Label green stale account range as "<1 month / today"
 - Show per-table row count comparison after restore in a modal window
+- Auto-expand stale account sections and open editable account detail window from Dashboard
 - Delete Asset SubClass instantly with toast feedback and error alert when in use
 - Display table details when Asset SubClass deletion fails
 - Widen Restore Comparison window to display all columns without scrolling

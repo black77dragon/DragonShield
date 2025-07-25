@@ -492,4 +492,27 @@ extension DatabaseManager {
             }
         }
     }
+
+    func refreshEarliestInstrumentTimestamp(accountId: Int) {
+        let sql = """
+            UPDATE Accounts
+               SET earliest_instrument_last_updated_at = (
+                    SELECT MIN(instrument_updated_at)
+                      FROM PositionReports pr
+                     WHERE pr.account_id = ?
+               )
+             WHERE account_id = ?;
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare refreshEarliestInstrumentTimestamp: \(String(cString: sqlite3_errmsg(db)))")
+            return
+        }
+        sqlite3_bind_int(stmt, 1, Int32(accountId))
+        sqlite3_bind_int(stmt, 2, Int32(accountId))
+        if sqlite3_step(stmt) != SQLITE_DONE {
+            print("❌ Failed to refresh earliest timestamp: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+    }
 }

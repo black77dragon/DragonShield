@@ -321,4 +321,82 @@ extension DatabaseManager {
         if !result { print("❌ Delete position failed: \(String(cString: sqlite3_errmsg(db)))") }
         return result
     }
+
+    struct EditablePositionData: Identifiable {
+        var id: Int
+        var accountId: Int
+        var institutionId: Int
+        var instrumentId: Int
+        var instrumentName: String
+        var quantity: Double
+        var purchasePrice: Double?
+        var currentPrice: Double?
+        var instrumentUpdatedAt: Date?
+        var notes: String?
+        var reportDate: Date
+        var importSessionId: Int?
+    }
+
+    func fetchEditablePositions(accountId: Int) -> [EditablePositionData] {
+        var rows: [EditablePositionData] = []
+        let sql = """
+            SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
+                   i.instrument_name, pr.quantity, pr.purchase_price, pr.current_price,
+                   pr.instrument_updated_at, pr.notes, pr.report_date, pr.import_session_id
+              FROM PositionReports pr
+              JOIN Instruments i ON pr.instrument_id = i.instrument_id
+             WHERE pr.account_id = ?
+             ORDER BY (pr.quantity * IFNULL(pr.current_price,0)) DESC;
+            """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let accId = Int(sqlite3_column_int(stmt, 1))
+                let instId = Int(sqlite3_column_int(stmt, 2))
+                let instrId = Int(sqlite3_column_int(stmt, 3))
+                let name = String(cString: sqlite3_column_text(stmt, 4))
+                let qty = sqlite3_column_double(stmt, 5)
+                var pPrice: Double?
+                if sqlite3_column_type(stmt, 6) != SQLITE_NULL {
+                    pPrice = sqlite3_column_double(stmt, 6)
+                }
+                var cPrice: Double?
+                if sqlite3_column_type(stmt, 7) != SQLITE_NULL {
+                    cPrice = sqlite3_column_double(stmt, 7)
+                }
+                var updated: Date?
+                if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(stmt, 8))
+                    updated = DateFormatter.iso8601DateOnly.date(from: str)
+                }
+                let notes = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let reportStr = String(cString: sqlite3_column_text(stmt, 10))
+                let reportDate = DateFormatter.iso8601DateOnly.date(from: reportStr) ?? Date()
+                let sess: Int?
+                if sqlite3_column_type(stmt, 11) != SQLITE_NULL {
+                    sess = Int(sqlite3_column_int(stmt, 11))
+                } else { sess = nil }
+                rows.append(EditablePositionData(
+                    id: id,
+                    accountId: accId,
+                    institutionId: instId,
+                    instrumentId: instrId,
+                    instrumentName: name,
+                    quantity: qty,
+                    purchasePrice: pPrice,
+                    currentPrice: cPrice,
+                    instrumentUpdatedAt: updated,
+                    notes: notes,
+                    reportDate: reportDate,
+                    importSessionId: sess
+                ))
+            }
+        } else {
+            print("❌ Failed to prepare fetchEditablePositions: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        sqlite3_finalize(stmt)
+        return rows
+    }
 }
