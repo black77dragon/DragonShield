@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 - Enable multi-institution selection in Positions view with summary totals and bulk delete
 - Show total CHF value for selected institutions in Positions view
 - Modernize Instruments page with searchable, sortable and filterable table
+- Fix build errors in Instruments view when aligning filter buttons
 - Add ZKB CSV import parser and enable ZKB statements in Data Import/Export view
 - Fix compile error when passing statement type to ImportManager
 - Prompt to delete existing ZKB positions when importing statements

@@ -110,59 +110,41 @@ struct InstrumentsView: View {
 
     private var instrumentsTable: some View {
         Table(sortedInstruments, selection: $selectedRows, sortOrder: $sortOrder) {
-            TableColumn(Column.name.title, value: \InstrumentData.name) { inst in
+            TableColumn(columnHeader(for: .name), sortUsing: KeyPathComparator(\InstrumentData.name)) { inst in
                 Text(inst.name)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 160)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .name)
-            }
 
-            TableColumn(Column.type.title, value: \InstrumentData.type) { inst in
+            TableColumn(columnHeader(for: .type), sortUsing: KeyPathComparator(\InstrumentData.type)) { inst in
                 Text(inst.type)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 120)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .type)
-            }
 
-            TableColumn(Column.currency.title, value: \InstrumentData.currency) { inst in
+            TableColumn(columnHeader(for: .currency), sortUsing: KeyPathComparator(\InstrumentData.currency)) { inst in
                 Text(inst.currency)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 60)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .currency)
-            }
 
-            TableColumn(Column.symbol.title, value: \InstrumentData.symbol) { inst in
+            TableColumn(columnHeader(for: .symbol), sortUsing: KeyPathComparator(\InstrumentData.symbol)) { inst in
                 Text(inst.symbol ?? "--")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 80)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .symbol)
-            }
 
-            TableColumn(Column.valor.title, value: \InstrumentData.valor) { inst in
+            TableColumn(columnHeader(for: .valor), sortUsing: KeyPathComparator(\InstrumentData.valor)) { inst in
                 Text(inst.valor ?? "--")
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .width(min: 80)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .valor)
-            }
 
-            TableColumn(Column.isin.title, value: \InstrumentData.isin) { inst in
+            TableColumn(columnHeader(for: .isin), sortUsing: KeyPathComparator(\InstrumentData.isin)) { inst in
                 Text(inst.isin ?? "--")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .width(min: 140)
-            .overlay(alignment: .trailing) {
-                filterButton(for: .isin)
-            }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .onTapGesture(count: 2) {
@@ -172,6 +154,13 @@ struct InstrumentsView: View {
         }
         .background(Theme.surface)
         .cornerRadius(8)
+    }
+
+    private func columnHeader(for column: Column) -> some View {
+        HStack(spacing: 4) {
+            Text(column.title)
+            filterButton(for: column)
+        }
     }
 
     private func filterButton(for column: Column) -> some View {
