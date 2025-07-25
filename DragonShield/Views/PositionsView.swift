@@ -27,6 +27,8 @@ struct PositionsView: View {
     @State private var showDeleteSingleAlert = false
     @State private var buttonsOpacity: Double = 0
 
+    @State private var currencyFilters: Set<String> = []
+
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
@@ -111,6 +113,9 @@ struct PositionsView: View {
             result = result.filter { pos in
                 selectedInstitutionNames.contains(pos.institutionName)
             }
+        }
+        if !currencyFilters.isEmpty {
+            result = result.filter { currencyFilters.contains($0.instrumentCurrency) }
         }
         return result
     }
@@ -337,6 +342,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 160, ideal: 180)
                 }
@@ -361,6 +367,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 160, ideal: 200)
                 }
@@ -373,6 +380,7 @@ struct PositionsView: View {
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .onTapGesture(count: 2) { positionToEdit = position }
                     }
                     .width(min: 60, ideal: 70)
                 }
@@ -588,6 +596,40 @@ struct PositionsView: View {
                 }
                 .buttonStyle(ScaleButtonStyle())
 
+                Menu {
+                    ForEach(Array(Set(positions.map(\.instrumentCurrency))), id: \.self) { cur in
+                        Button {
+                            if currencyFilters.contains(cur) {
+                                currencyFilters.remove(cur)
+                            } else {
+                                currencyFilters.insert(cur)
+                            }
+                        } label: {
+                            HStack {
+                                Text(cur)
+                                if currencyFilters.contains(cur) { Image(systemName: "checkmark") }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(currencyFilters.isEmpty ? "Filter Currency" : "\(currencyFilters.count) Selected")
+                            .font(.system(size: 14, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
                 Button {
                     showingDeleteSheet = true
                 } label: {
@@ -614,6 +656,14 @@ struct PositionsView: View {
                     .padding(.vertical, 6)
                     .background(Color.blue.opacity(0.05))
                     .clipShape(Capsule())
+                }
+
+                if !currencyFilters.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(Array(currencyFilters), id: \.self) { cur in
+                            filterChip(text: cur) { currencyFilters.remove(cur) }
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -649,6 +699,19 @@ struct PositionsView: View {
         case "CHF": return .red
         default: return .primary
         }
+    }
+
+    private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.caption)
+            Button(action: onRemove) { Image(systemName: "xmark.circle.fill") }
+                .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.blue.opacity(0.1))
+        .clipShape(Capsule())
     }
 
     private func persistVisibleColumns() {
