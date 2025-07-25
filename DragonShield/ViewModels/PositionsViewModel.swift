@@ -8,12 +8,34 @@ class PositionsViewModel: ObservableObject {
     @Published var calculating: Bool = false
     @Published var showErrorToast: Bool = false
     @Published var top10PositionsCHF: [TopPosition] = []
+    @Published var selectedCurrencies: Set<String> = []
+    @Published var sortColumn: PositionsView.Column = .account
+    @Published var ascending: Bool = true
 
     struct TopPosition: Identifiable {
         let id: Int
         let instrument: String
         let valueCHF: Double
         let currency: String
+    }
+
+    var hasFilters: Bool { !selectedCurrencies.isEmpty }
+
+    func toggleCurrency(_ code: String) {
+        if selectedCurrencies.contains(code) {
+            selectedCurrencies.remove(code)
+        } else {
+            selectedCurrencies.insert(code)
+        }
+    }
+
+    func toggleSort(_ column: PositionsView.Column) {
+        if sortColumn == column {
+            ascending.toggle()
+        } else {
+            sortColumn = column
+            ascending = true
+        }
     }
 
     func calculateValues(positions: [PositionReportData], db: DatabaseManager) {

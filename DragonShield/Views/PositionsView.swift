@@ -30,8 +30,6 @@ struct PositionsView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
 
-    @State private var sortOrder = [KeyPathComparator(\PositionReportData.accountName)]
-
     @StateObject private var viewModel = PositionsViewModel()
 
     enum Column: String, CaseIterable, Identifiable {
@@ -90,7 +88,36 @@ struct PositionsView: View {
     }()
 
     var sortedPositions: [PositionReportData] {
-        filteredPositions.sorted(using: sortOrder)
+        filteredPositions.sorted { a, b in
+            switch viewModel.sortColumn {
+            case .account:
+                return viewModel.ascending ? a.accountName < b.accountName : a.accountName > b.accountName
+            case .institution:
+                return viewModel.ascending ? a.institutionName < b.institutionName : a.institutionName > b.institutionName
+            case .instrument:
+                return viewModel.ascending ? a.instrumentName < b.instrumentName : a.instrumentName > b.instrumentName
+            case .currency:
+                return viewModel.ascending ? a.instrumentCurrency < b.instrumentCurrency : a.instrumentCurrency > b.instrumentCurrency
+            case .quantity:
+                return viewModel.ascending ? a.quantity < b.quantity : a.quantity > b.quantity
+            case .purchase:
+                return viewModel.ascending ? (a.purchasePrice ?? 0) < (b.purchasePrice ?? 0) : (a.purchasePrice ?? 0) > (b.purchasePrice ?? 0)
+            case .current:
+                return viewModel.ascending ? (a.currentPrice ?? 0) < (b.currentPrice ?? 0) : (a.currentPrice ?? 0) > (b.currentPrice ?? 0)
+            case .valueOriginal:
+                let va = viewModel.positionValueOriginal[a.id] ?? 0
+                let vb = viewModel.positionValueOriginal[b.id] ?? 0
+                return viewModel.ascending ? va < vb : va > vb
+            case .valueChf:
+                let va = viewModel.positionValueCHF[a.id] ?? 0
+                let vb = viewModel.positionValueCHF[b.id] ?? 0
+                return viewModel.ascending ? (va ?? 0) < (vb ?? 0) : (va ?? 0) > (vb ?? 0)
+            case .dates:
+                return viewModel.ascending ? a.uploadedAt < b.uploadedAt : a.uploadedAt > b.uploadedAt
+            case .notes, .actions:
+                return true
+            }
+        }
     }
 
     var selectedInstitutionNames: [String] {
@@ -111,6 +138,9 @@ struct PositionsView: View {
             result = result.filter { pos in
                 selectedInstitutionNames.contains(pos.institutionName)
             }
+        }
+        if !viewModel.selectedCurrencies.isEmpty {
+            result = result.filter { viewModel.selectedCurrencies.contains($0.instrumentCurrency) }
         }
         return result
     }
@@ -312,7 +342,7 @@ struct PositionsView: View {
 
     private var positionsContent: some View {
         let data = sortedPositions
-        return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
+        return Table(data, selection: $selectedRows) {
             if visibleColumns.contains(.notes) {
                 TableColumn("") { (position: PositionReportData) in
                     if let notes = position.notes, !notes.isEmpty {
@@ -330,7 +360,7 @@ struct PositionsView: View {
 
             Group {
                 if visibleColumns.contains(.account) {
-                    TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) { (position: PositionReportData) in
+                    TableColumn("Account") { (position: PositionReportData) in
                         Text(position.accountName)
                             .font(.system(size: fontSize))
                             .foregroundColor(.secondary)
@@ -342,7 +372,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.institution) {
-                    TableColumn("Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)) { (position: PositionReportData) in
+                    TableColumn("Institution") { (position: PositionReportData) in
                         Text(position.institutionName)
                             .font(.system(size: fontSize))
                             .foregroundColor(.secondary)
@@ -354,7 +384,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.instrument) {
-                    TableColumn("Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)) { (position: PositionReportData) in
+                    TableColumn("Instrument") { (position: PositionReportData) in
                         Text(position.instrumentName)
                             .font(.system(size: fontSize))
                             .foregroundColor(.primary)
@@ -366,7 +396,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.currency) {
-                    TableColumn("Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)) { (position: PositionReportData) in
+                    TableColumn("Currency") { (position: PositionReportData) in
                         Text(position.instrumentCurrency)
                             .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
                             .foregroundColor(colorForCurrency(position.instrumentCurrency))
@@ -378,7 +408,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.quantity) {
-                    TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) { (position: PositionReportData) in
+                    TableColumn("Qty") { (position: PositionReportData) in
                         Text(String(format: "%.2f", position.quantity))
                             .font(.system(size: fontSize, design: .monospaced))
                             .lineLimit(2)
@@ -389,7 +419,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.purchase) {
-                    TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) { (position: PositionReportData) in
+                    TableColumn("Purchase") { (position: PositionReportData) in
                         if let p = position.purchasePrice {
                             Text(String(format: "%.2f", p))
                                 .font(.system(size: fontSize, design: .monospaced))
@@ -409,7 +439,7 @@ struct PositionsView: View {
                 }
 
                 if visibleColumns.contains(.current) {
-                    TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) { (position: PositionReportData) in
+                    TableColumn("Current") { (position: PositionReportData) in
                         if let cp = position.currentPrice {
                             Text(String(format: "%.2f", cp))
                                 .font(.system(size: fontSize, design: .monospaced))
@@ -481,7 +511,7 @@ struct PositionsView: View {
 
             Group {
                 if visibleColumns.contains(.dates) {
-                    TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) { (position: PositionReportData) in
+                    TableColumn("Dates") { (position: PositionReportData) in
                         VStack {
                             if let iu = position.instrumentUpdatedAt {
                                 Text(iu, formatter: DateFormatter.iso8601DateOnly)
@@ -511,6 +541,11 @@ struct PositionsView: View {
             }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .onTapGesture(count: 2) {
+            if let id = selectedRows.first, let pos = positions.first(where: { $0.id == id }) {
+                positionToEdit = pos
+            }
+        }
         .font(.system(size: fontSize))
         .padding(24)
         .background(Theme.surface)
@@ -572,6 +607,36 @@ struct PositionsView: View {
                 } label: {
                     HStack {
                         Text(selectedInstitutionIds.isEmpty ? "Select Institutions" : "\(selectedInstitutionIds.count) Selected")
+                            .font(.system(size: 14, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                Menu {
+                    ForEach(Set(positions.map { $0.instrumentCurrency }).sorted(), id: \.self) { cur in
+                        Button(action: { viewModel.toggleCurrency(cur) }) {
+                            HStack {
+                                Text(cur)
+                                if viewModel.selectedCurrencies.contains(cur) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(viewModel.selectedCurrencies.isEmpty ? "Filter Currency" : "\(viewModel.selectedCurrencies.count) Currencies")
                             .font(.system(size: 14, weight: .medium))
                         Image(systemName: "chevron.down")
                             .font(.system(size: 12, weight: .medium))
