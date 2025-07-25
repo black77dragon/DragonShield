@@ -69,7 +69,7 @@ struct SidebarView: View {
                     Label("Transaction Types", systemImage: "tag.circle.fill")
                 }
 
-                NavigationLink(destination: PortfolioView()) {
+                NavigationLink(destination: InstrumentsView()) {
                     Label("Instruments", systemImage: "pencil.and.list.clipboard")
                 }
             }
