@@ -9,23 +9,59 @@ struct PortfolioView: View {
     @State private var showingDeleteAlert = false
     @State private var assetToDelete: DragonAsset? = nil
     @State private var searchText = ""
+
+    // Filtering & Sorting
+    @State private var typeFilters: Set<String> = []
+    @State private var currencyFilters: Set<String> = []
+    @State private var sortColumn: SortColumn = .name
+    @State private var sortAscending: Bool = true
+
+    enum SortColumn {
+        case name, type, currency, symbol, valor, isin
+    }
     
     // Animation states
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
     
-    // Filtered assets based on search
+    // Filtered assets based on search and column filters
     var filteredAssets: [DragonAsset] {
-        if searchText.isEmpty {
-            return assetManager.assets
-        } else {
-            return assetManager.assets.filter { asset in
+        var result = assetManager.assets
+        if !searchText.isEmpty {
+            result = result.filter { asset in
                 asset.name.localizedCaseInsensitiveContains(searchText) ||
                 asset.type.localizedCaseInsensitiveContains(searchText) ||
                 asset.currency.localizedCaseInsensitiveContains(searchText) ||
                 asset.tickerSymbol?.localizedCaseInsensitiveContains(searchText) == true ||
                 asset.isin?.localizedCaseInsensitiveContains(searchText) == true
+            }
+        }
+        if !typeFilters.isEmpty {
+            result = result.filter { typeFilters.contains($0.type) }
+        }
+        if !currencyFilters.isEmpty {
+            result = result.filter { currencyFilters.contains($0.currency) }
+        }
+        return result
+    }
+
+    // Sorted assets based on selected column
+    var sortedAssets: [DragonAsset] {
+        filteredAssets.sorted { a, b in
+            switch sortColumn {
+            case .name:
+                return sortAscending ? a.name < b.name : a.name > b.name
+            case .type:
+                return sortAscending ? a.type < b.type : a.type > b.type
+            case .currency:
+                return sortAscending ? a.currency < b.currency : a.currency > b.currency
+            case .symbol:
+                return sortAscending ? (a.tickerSymbol ?? "") < (b.tickerSymbol ?? "") : (a.tickerSymbol ?? "") > (b.tickerSymbol ?? "")
+            case .valor:
+                return sortAscending ? (a.valorNr ?? "") < (b.valorNr ?? "") : (a.valorNr ?? "") > (b.valorNr ?? "")
+            case .isin:
+                return sortAscending ? (a.isin ?? "") < (b.isin ?? "") : (a.isin ?? "") > (b.isin ?? "")
             }
         }
     }
@@ -181,12 +217,22 @@ struct PortfolioView: View {
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
             
             // Results indicator
-            if !searchText.isEmpty {
+            if !searchText.isEmpty || !typeFilters.isEmpty || !currencyFilters.isEmpty {
                 HStack {
-                    Text("Found \(filteredAssets.count) of \(assetManager.assets.count) instruments")
+                    Text("Found \(sortedAssets.count) of \(assetManager.assets.count) instruments")
                         .font(.caption)
                         .foregroundColor(.gray)
                     Spacer()
+                }
+                if !typeFilters.isEmpty || !currencyFilters.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(Array(typeFilters), id: \.self) { val in
+                            filterChip(text: val) { typeFilters.remove(val) }
+                        }
+                        ForEach(Array(currencyFilters), id: \.self) { val in
+                            filterChip(text: val) { currencyFilters.remove(val) }
+                        }
+                    }
                 }
             }
         }
@@ -197,7 +243,7 @@ struct PortfolioView: View {
     // MARK: - Instruments Content
     private var instrumentsContent: some View {
         VStack(spacing: 16) {
-            if filteredAssets.isEmpty {
+            if sortedAssets.isEmpty {
                 emptyStateView
             } else {
                 instrumentsTable
@@ -279,7 +325,7 @@ struct PortfolioView: View {
             // Table content
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    ForEach(filteredAssets) { asset in
+                    ForEach(sortedAssets) { asset in
                         ModernAssetRowView(
                             asset: asset,
                             isSelected: selectedAsset?.id == asset.id,
@@ -310,34 +356,22 @@ struct PortfolioView: View {
     // MARK: - Modern Table Header
     private var modernTableHeader: some View {
         HStack {
-            Text("Name")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+            headerCell(title: "Name", column: .name)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text("Type")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+
+            headerCell(title: "Type", column: .type, filterValues: Array(Set(assetManager.assets.map(\.type))), filterSelection: $typeFilters)
                 .frame(width: 120, alignment: .leading)
-            
-            Text("Currency")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+
+            headerCell(title: "Currency", column: .currency, filterValues: Array(Set(assetManager.assets.map(\.currency))), filterSelection: $currencyFilters)
                 .frame(width: 80, alignment: .leading)
-            
-            Text("Symbol")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+
+            headerCell(title: "Symbol", column: .symbol)
                 .frame(width: 100, alignment: .leading)
 
-            Text("Valor")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+            headerCell(title: "Valor", column: .valor)
                 .frame(width: 100, alignment: .leading)
 
-            Text("ISIN")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+            headerCell(title: "ISIN", column: .isin)
                 .frame(width: 140, alignment: .leading)
         }
         .padding(.horizontal, 16)
@@ -347,6 +381,64 @@ struct PortfolioView: View {
                 .fill(Color.gray.opacity(0.1))
         )
         .padding(.bottom, 1)
+    }
+
+    private func headerCell(title: String, column: SortColumn, filterValues: [String] = [], filterSelection: Binding<Set<String>>? = nil) -> some View {
+        HStack(spacing: 4) {
+            Button(action: {
+                if sortColumn == column {
+                    sortAscending.toggle()
+                } else {
+                    sortColumn = column
+                    sortAscending = true
+                }
+            }) {
+                HStack(spacing: 2) {
+                    Text(title)
+                    Image(systemName: sortColumn == column && sortAscending ? "arrow.up" : "arrow.down")
+                        .opacity(sortColumn == column ? 1 : 0.2)
+                        .font(.system(size: 9))
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            if let binding = filterSelection {
+                Menu {
+                    ForEach(filterValues, id: \.self) { val in
+                        Button(action: {
+                            if binding.wrappedValue.contains(val) {
+                                binding.wrappedValue.remove(val)
+                            } else {
+                                binding.wrappedValue.insert(val)
+                            }
+                        }) {
+                            Label(val, systemImage: binding.wrappedValue.contains(val) ? "checkmark" : "")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .opacity(binding.wrappedValue.isEmpty ? 0.3 : 1)
+                }
+                .menuStyle(BorderlessButtonMenuStyle())
+            }
+        }
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundColor(.gray)
+    }
+
+    private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.caption)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.blue.opacity(0.1))
+        .clipShape(Capsule())
     }
     
     // MARK: - Modern Action Bar

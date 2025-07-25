@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
 - Combine Asset Class and SubClass management into one page with sortable rows
+- Add column filters, single-column sorting and double-click editing to Instruments and Positions tables
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
