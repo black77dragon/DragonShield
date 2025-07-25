@@ -3,6 +3,7 @@ import SwiftUI
 struct AccountDetailWindowView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: AccountDetailWindowViewModel
 
     private static let numberFormatter: NumberFormatter = {
@@ -21,6 +22,24 @@ struct AccountDetailWindowView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
             positionsTable
+            HStack {
+                Button("Cancel") {
+                    viewModel.revertChanges()
+                    dismiss()
+                }
+                Spacer()
+                if viewModel.showSaved {
+                    Text("Saved")
+                        .foregroundColor(.green)
+                        .transition(.opacity)
+                }
+                Spacer()
+                Button("OK") {
+                    viewModel.saveAll()
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
         }
         .padding(16)
         .frame(minWidth: 600, minHeight: 400)
