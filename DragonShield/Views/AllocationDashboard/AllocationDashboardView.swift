@@ -164,11 +164,10 @@ struct AllocationTreeCard: View {
     private let actualCol: CGFloat = 52
     private let trackCol:  CGFloat = 128
     private let deltaCol:  CGFloat = 40
-    private let iconCol:   CGFloat = 24
     private let gap:       CGFloat = 10
 
     private var nameCol: CGFloat {
-        max(width - 16 - gap * 6 - targetCol - actualCol - trackCol - deltaCol - iconCol, 160)
+        max(width - 16 - gap * 5 - targetCol - actualCol - trackCol - deltaCol, 160)
     }
 
     var body: some View {
@@ -223,7 +222,6 @@ struct AllocationTreeCard: View {
                      actualWidth: actualCol,
                      trackWidth: trackCol,
                      deltaWidth: deltaCol,
-                     iconWidth: iconCol,
                      gap: gap)
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
@@ -234,7 +232,6 @@ struct AllocationTreeCard: View {
                              actualWidth: actualCol,
                              trackWidth: trackCol,
                              deltaWidth: deltaCol,
-                             iconWidth: iconCol,
                              gap: gap)
                 }
             }
@@ -289,7 +286,6 @@ struct AssetRow: View {
     let actualWidth: CGFloat
     let trackWidth: CGFloat
     let deltaWidth: CGFloat
-    let iconWidth: CGFloat
     let gap: CGFloat
 
     var body: some View {
@@ -325,12 +321,6 @@ struct AssetRow: View {
                 .frame(width: deltaWidth, alignment: .trailing)
                 .foregroundStyle(barColor(node.relativeDev * 100))
 
-            Image(systemName: iconName(for: node.relativeDev))
-                .font(.caption2.weight(.bold))
-                .foregroundColor(.white)
-                .padding(4)
-                .background(Circle().fill(iconColor(node.relativeDev)))
-                .frame(width: iconWidth, alignment: .center)
         }
         .padding(.vertical, node.children != nil ? 8 : 6)
         .background(node.children != nil ? Color.gray.opacity(0.07) : .clear)
@@ -345,18 +335,6 @@ struct AssetRow: View {
         String(format: "%+.1f", value)
     }
 
-    private func iconColor(_ relDev: Double) -> Color {
-        let tol = 0.05
-        if abs(relDev) <= tol { return .gray }
-        return relDev > 0 ? .success : .error
-    }
-
-    private func iconName(for relDev: Double) -> String {
-        let tol = 0.05
-        if relDev > tol { return "plus" }
-        if relDev < -tol { return "minus" }
-        return "checkmark"
-    }
 }
 
 fileprivate func barColor(_ diffPercent: Double) -> Color {
