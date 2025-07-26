@@ -5,13 +5,14 @@ struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationDashboardViewModel()
 
-    // MARK: - Column width constants
-    private let leftWidth:  Double = 520
-    private let rightWidth: Double = 400
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            let leftWidth  = max(540, totalWidth * 0.55)
+            let rightWidth = totalWidth - leftWidth - 32
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
                 OverviewBar(portfolioTotal: viewModel.portfolioTotalFormatted,
                             outOfRange: "\(viewModel.outOfRangeCount)",
                             largestDev: String(format: "%.1f%%", viewModel.largestDeviation),
@@ -26,23 +27,26 @@ struct AllocationDashboardView: View {
                     VStack(spacing: 32) {
                         DeviationChartsCard(bubbles: viewModel.bubbles,
                                            highlighted: $viewModel.highlightedId)
+                            .frame(maxWidth: .infinity)
                         RebalanceListCard(actions: viewModel.actions)
+                            .frame(maxWidth: .infinity)
                     }
                     .frame(width: rightWidth)
                 }
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 40)
-        }
-        .background(Color(NSColor.windowBackgroundColor))
-        .navigationTitle("Asset Allocation Targets")
-        .toolbar {
+            .background(Color(NSColor.windowBackgroundColor))
+            .navigationTitle("Asset Allocation Targets")
+            .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 Button("Import Targets") {}
                 Button("Auto-Rebalance") {}.disabled(true)
             }
+            }
+            .onAppear { viewModel.load(using: dbManager) }
         }
-        .onAppear { viewModel.load(using: dbManager) }
     }
 
 }
@@ -216,10 +220,10 @@ struct AllocationTreeCard: View {
     @ViewBuilder
     private var rows: some View {
         ForEach(viewModel.assets) { parent in
-            AssetRow(node: parent, expanded: binding(for: parent.id))
+            AssetRow(node: parent, expanded: binding(for: parent.id), mode: displayMode)
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
-                    AssetRow(node: child, expanded: .constant(false))
+                    AssetRow(node: child, expanded: .constant(false), mode: displayMode)
                 }
             }
         }
@@ -240,13 +244,14 @@ struct AllocationTreeCard: View {
 struct AssetRow: View {
     let node: AllocationDashboardViewModel.Asset
     @Binding var expanded: Bool
+    var mode: DisplayMode
 
-    private let columnWidth: CGFloat = 60
-    private let barWidth: CGFloat = 72
+    private let columnWidth: CGFloat = 48
+    private let barTrack: CGFloat = 96
     private let maxDev: Double = 1.0
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             if node.children != nil {
                 Button(action: { expanded.toggle() }) {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
@@ -261,38 +266,36 @@ struct AssetRow: View {
 
             Text(node.name)
                 .font(node.children != nil ? .body.weight(.semibold) : .subheadline.weight(.regular))
+                .frame(minWidth: 140, alignment: .leading)
 
-            Spacer()
-
-            HStack(spacing: 8) {
-                Spacer().frame(width: 16)
-                Text(formatPercent(node.targetPct))
-                    .frame(width: columnWidth, alignment: .trailing)
-                    .font(node.children != nil ? .body.weight(.bold) : .subheadline)
-                Text(formatPercent(node.actualPct))
-                    .frame(width: columnWidth, alignment: .trailing)
-                    .font(node.children != nil ? .body.weight(.bold) : .subheadline)
-                deviationBar(node.deviationPct)
-                    .padding(.horizontal, 4)
-                Text(formatSigned(node.deviationPct))
-                    .frame(width: 36, alignment: .trailing)
-                    .font(node.children != nil ? .body.weight(.bold) : .subheadline)
-            }
+            Text(valueText(node.targetPct, node.targetChf))
+                .frame(width: columnWidth, alignment: .trailing)
+                .font(node.children != nil ? .body.weight(.bold) : .subheadline)
+            Text(valueText(node.actualPct, node.actualChf))
+                .frame(width: columnWidth, alignment: .trailing)
+                .font(node.children != nil ? .body.weight(.bold) : .subheadline)
+            deviationBar(node.deviationPct)
+                .frame(width: barTrack)
+            Text(signedText())
+                .frame(width: 36, alignment: .trailing)
+                .font(node.children != nil ? .body.weight(.bold) : .subheadline)
         }
-        .padding(.vertical, 6)
-        .padding(.leading, 24)
+        .padding(.vertical, node.children != nil ? 8 : 6)
+        .padding(.leading, 16)
         .background(node.children != nil ? Color.gray.opacity(0.07) : Color.white)
         .accessibilityElement(children: .combine)
     }
 
     private func deviationBar(_ dev: Double) -> some View {
-        ZStack {
+        let span  = CGFloat(min(abs(dev), maxDev)) * (barTrack / 2)
+        let offset = dev < 0 ? span : -span
+        return ZStack {
             Capsule().fill(.quaternary)
             Capsule().fill(colorFor(dev))
-                .frame(width: min(barWidth / 2, abs(dev) * barWidth / maxDev))
-                .offset(x: dev < 0 ? barWidth / 2 : -barWidth / 2)
+                .frame(width: span)
+                .offset(x: offset)
         }
-        .frame(width: barWidth, height: 6)
+        .frame(height: 6)
     }
 
     private func colorFor(_ dev: Double) -> Color {
@@ -303,12 +306,23 @@ struct AssetRow: View {
         return .numberRed
     }
 
-    private func formatPercent(_ value: Double) -> String {
-        String(format: "%.1f%%", value)
+    private func valueText(_ pct: Double, _ chf: Double) -> String {
+        switch mode {
+        case .percent:
+            return String(format: "%.1f", pct)
+        case .chf:
+            return chf.formatted(.currency(code: "CHF"))
+        }
     }
 
-    private func formatSigned(_ value: Double) -> String {
-        String(format: "%+.1f%%", value)
+    private func signedText() -> String {
+        let value = mode == .percent ? node.deviationPct : node.deviationChf
+        if mode == .percent {
+            return String(format: "%+.1f", value)
+        } else {
+            let sign = value >= 0 ? "+" : "-"
+            return sign + abs(value).formatted(.currency(code: "CHF"))
+        }
     }
 }
 
