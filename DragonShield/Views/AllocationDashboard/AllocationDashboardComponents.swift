@@ -20,7 +20,7 @@ struct Card<Content: View>: View {
                 .fill(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.quaternary, lineWidth: 1)
+                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
                 )
         )
     }

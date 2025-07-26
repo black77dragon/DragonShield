@@ -138,7 +138,7 @@ struct AssetRowView: View {
         let dev = asset.deviationPct
         let devColor = dev > 0 ? Color.numberRed : Color.numberGreen
         return ZStack(alignment: .leading) {
-            Capsule().fill(Color.quaternary)
+            Capsule().fill(Color.gray.opacity(0.25))
             Capsule().fill(devColor).frame(width: abs(dev) * 60)
         }
         .frame(height: 6)
@@ -155,11 +155,9 @@ struct DeviationChartsCard: View {
             Chart(bubbles) { bubble in
                 PointMark(
                     x: .value("Deviation", bubble.deviation),
-                    y: .value("Allocation", bubble.allocation),
-                    size: .value("Allocation %", bubble.allocation),
-                    series: .value("Asset", bubble.name)
+                    y: .value("Allocation", bubble.allocation)
                 )
-                .symbol(by: .value("State", bubble.color))
+                .symbolSize(by: .value("Allocation %", bubble.allocation))
                 .foregroundStyle(bubble.color)
             }
             .chartXScale(domain: -25...25)
