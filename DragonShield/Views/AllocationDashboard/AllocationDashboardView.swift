@@ -5,24 +5,36 @@ struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationDashboardViewModel()
 
-    private let columns = [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: 24)]
+    // MARK: - Column width constants
+    private let leftWidth:  Double = 520
+    private let rightWidth: Double = 400
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 24) {
+            VStack(alignment: .leading, spacing: 32) {
                 OverviewBar(portfolioTotal: viewModel.portfolioTotalFormatted,
                             outOfRange: "\(viewModel.outOfRangeCount)",
                             largestDev: String(format: "%.1f%%", viewModel.largestDeviation),
                             rebalAmount: viewModel.rebalanceAmountFormatted)
-                    .gridCellColumns(columns.count)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
 
-                AllocationTreeCard(viewModel: viewModel)
-                DeviationChartsCard(bubbles: viewModel.bubbles,
-                                   highlighted: $viewModel.highlightedId)
-                RebalanceListCard(actions: viewModel.actions)
+                HStack(alignment: .top, spacing: 32) {
+                    AllocationTreeCard(viewModel: viewModel)
+                        .frame(width: leftWidth)
+
+                    VStack(spacing: 32) {
+                        DeviationChartsCard(bubbles: viewModel.bubbles,
+                                           highlighted: $viewModel.highlightedId)
+                        RebalanceListCard(actions: viewModel.actions)
+                    }
+                    .frame(width: rightWidth)
+                }
             }
             .padding(.horizontal, 32)
+            .padding(.bottom, 40)
         }
+        .background(Color(NSColor.windowBackgroundColor))
         .navigationTitle("Asset Allocation Targets")
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
