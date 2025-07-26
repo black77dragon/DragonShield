@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
+- Add Asset Allocation dashboard with interactive bubble chart
 - Mention language code console warnings and how to silence them
 - Log database version correctly at startup
 - Label green stale account range as "<1 month / today"
