@@ -11,11 +11,13 @@ struct DashboardCard<Content: View>: View {
     let title: String
     let headerIcon: Image?
     let content: Content
+    var resizable: Bool = true
 
-    init(title: String, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
+    init(title: String, headerIcon: Image? = nil, resizable: Bool = true, @ViewBuilder content: () -> Content) {
         self.title = title
         self.headerIcon = headerIcon
         self.content = content()
+        self.resizable = resizable
     }
 
     var body: some View {
@@ -36,6 +38,11 @@ struct DashboardCard<Content: View>: View {
         .background(Theme.surface)
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .overlay(alignment: .bottomTrailing) {
+            if resizable {
+                ResizeHandle(title: title)
+            }
+        }
     }
 }
 
