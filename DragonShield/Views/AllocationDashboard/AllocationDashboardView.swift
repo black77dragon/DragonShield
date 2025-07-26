@@ -69,11 +69,20 @@ struct OverviewBar: View {
         .padding(.vertical, 20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(scheme == .dark ? .ultraThinMaterial : .white)
+                .fill(
+                    scheme == .dark
+                        ? AnyShapeStyle(.ultraThinMaterial)
+                        : AnyShapeStyle(Color.white)
+                )
                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(scheme == .dark ? .tertiary : .quaternary, lineWidth: 1)
+                        .stroke(
+                            scheme == .dark
+                                ? Color.tertiary
+                                : Color.quaternary,
+                            lineWidth: 1
+                        )
                 )
         )
     }
