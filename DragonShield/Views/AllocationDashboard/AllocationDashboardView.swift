@@ -210,7 +210,7 @@ struct AllocationTreeCard: View {
                 SegmentedPicker
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
     }
 
     @ViewBuilder
@@ -276,18 +276,18 @@ struct AllocationTreeCard: View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
                 Text("TARGET")
-                    .font(.caption2)
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: targetWidth, alignment: .trailing)
                 Text("ACTUAL")
-                    .font(.caption2)
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: actualWidth, alignment: .trailing)
                 Text("DEVIATION")
                     .font(.caption2.weight(.semibold))
                     .frame(width: trackWidth + gap + deltaWidth, alignment: .center)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
     }
@@ -336,22 +336,28 @@ struct AssetRow: View {
             HStack(spacing: 4) {
                 Text(node.name)
                     .font(node.children != nil ? .body.bold() : .subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Text("±\(Int(node.tolerancePercent))%")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.fieldGray))
+                    .background(Capsule().fill(Color(.systemGray5)))
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
             Text(formatValue(target))
                 .frame(width: targetWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
+                .monospacedDigit()
+                .lineLimit(1)
             Text(formatValue(actual))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
+                .monospacedDigit()
+                .lineLimit(1)
             DeviationBar(target: target,
                          actual: actual,
                          trackWidth: trackWidth)
@@ -360,10 +366,13 @@ struct AssetRow: View {
             Text(formatDeviation(deviation))
                 .frame(width: deltaWidth, alignment: .trailing)
                 .foregroundStyle(barColor(relativeDeviation * 100))
+                .monospacedDigit()
+                .lineLimit(1)
 
         }
-        .padding(.vertical, node.children != nil ? 8 : 6)
-        .background(node.children != nil ? Color.gray.opacity(0.07) : .clear)
+        .padding(.vertical, node.children != nil ? 6 : 4)
+        .padding(.horizontal, 16)
+        .background(node.children != nil ? Color(.systemGray6) : .clear)
         .accessibilityElement(children: .combine)
     }
 
