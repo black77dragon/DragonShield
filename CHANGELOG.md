@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
 - Add Asset Allocation dashboard with interactive bubble chart
+- Polish Asset Allocation dashboard layout with overview bar and cards
 - Restore link to legacy Asset Allocation view in sidebar
 - Mention language code console warnings and how to silence them
 - Log database version correctly at startup

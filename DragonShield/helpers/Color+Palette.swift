@@ -13,6 +13,11 @@ extension Color {
     /// Soft blue highlight used for segmented controls and headers.
     static let softBlue = Color(red: 229/255, green: 241/255, blue: 255/255)
 
+    // Numeric colour tokens used in allocation dashboards
+    static let numericGreen = Color(red: 22/255, green: 163/255, blue: 74/255)
+    static let numericAmber = Color(red: 245/255, green: 158/255, blue: 11/255)
+    static let numericRed = Color(red: 220/255, green: 38/255, blue: 38/255)
+
     /// Neutral gray used for text field backgrounds across platforms.
     static var fieldGray: Color {
 #if os(macOS)
