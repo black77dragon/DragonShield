@@ -146,7 +146,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
             Group {
                 if refreshing {
                     ProgressView()
-                        .scaleEffect(0.7)
+                        .controlSize(.small)
                 } else if showCheckmark {
                     Image(systemName: "checkmark")
                         .transition(.scale)
