@@ -311,7 +311,7 @@ struct AssetRow: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color(.systemGray6)))
+                    .background(Capsule().fill(Color.fieldGray))
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
