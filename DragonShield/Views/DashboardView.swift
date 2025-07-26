@@ -36,7 +36,7 @@ struct DashboardView: View {
                 .animation(.easeInOut(duration: 0.2), value: columnCount)
             }
             .onAppear { updateColumns(width: geo.size.width) }
-            .onChange(of: geo.size.width) { updateColumns(width: $0) }
+            .onChange(of: geo.size.width) { _, newValue in updateColumns(width: newValue) }
         }
         .navigationTitle("Dashboard")
         .toolbar {
@@ -49,7 +49,7 @@ struct DashboardView: View {
                 .onDisappear { saveLayout() }
         }
         .onAppear(perform: loadLayout)
-        .onChange(of: tileIDs) {
+        .onChange(of: tileIDs) { _, _ in
             saveLayout()
         }
     }
