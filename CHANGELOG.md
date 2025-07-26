@@ -53,6 +53,7 @@ All notable changes to this project will be documented in this file.
 - Display consolidated crypto allocations with scrolling in Dashboard (#PR)
 - Add Crypto Top 5 dashboard tile showing largest crypto holdings
 - Populate import session value report modal with stored rows
+- Refine Asset Allocation deviation column with centre line, delta text and action icons
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN
 - Log Valor and ISIN for each parsed Credit-Suisse row and store valor numbers
 - Fix instrument report generation by locating script path correctly
