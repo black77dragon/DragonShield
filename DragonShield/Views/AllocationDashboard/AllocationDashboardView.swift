@@ -159,20 +159,13 @@ struct AllocationTreeCard: View {
 
     var body: some View {
         Card {
-            HStack(alignment: .top) {
-                Text("Asset Classes")
-                    .font(.headline)
-                Spacer()
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Display mode")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    SegmentedPicker
-                }
+            VStack(spacing: 0) {
+                headerBar
+                Divider()
+                captionRow
+                Divider()
+                ScrollView { VStack(spacing: 0) { rows } }
             }
-            .padding(.horizontal, 24)
-            Divider()
-            ScrollView { VStack(spacing: 0) { rows } }
         }
         .onAppear { initializeExpanded() }
     }
@@ -208,11 +201,49 @@ struct AllocationTreeCard: View {
             if expanded[asset.id] == nil { expanded[asset.id] = false }
         }
     }
+
+    // MARK: - Subviews
+    private var headerBar: some View {
+        HStack(alignment: .top) {
+            Text("Asset Classes")
+                .font(.headline)
+            Spacer()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Display mode")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                SegmentedPicker
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 4)
+    }
+
+    private var captionRow: some View {
+        HStack {
+            Spacer().frame(width: 150)
+            Caption("TARGET")
+            Caption("ACTUAL")
+            Caption("DEVIATION")
+            Spacer().frame(width: 36)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 4)
+    }
+
+    private func Caption(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: 80, alignment: .trailing)
+    }
 }
 
 struct AssetRow: View {
     let node: AllocationDashboardViewModel.Asset
     @Binding var expanded: Bool
+    private let barWidth: CGFloat = 72
+    private let maxDev: Double = 100
 
     var body: some View {
         HStack(spacing: 0) {
@@ -232,18 +263,24 @@ struct AssetRow: View {
                 .font(node.children != nil ? .body.weight(.semibold) : .subheadline.weight(.regular))
                 .padding(.leading, 4)
 
-            Spacer()
+            Spacer(minLength: 16)
 
-            Text(String(format: "%.1f%%", node.targetPct))
-                .frame(width: 50, alignment: .trailing)
-                .font(.system(.footnote, design: .monospaced))
-            Text(String(format: "%.1f%%", node.actualPct))
-                .frame(width: 50, alignment: .trailing)
-                .font(.system(.footnote, design: .monospaced))
-            deviationBar
-            Text(String(format: "%+.1f%%", node.deviationPct))
-                .font(.system(.footnote, design: .monospaced))
-                .padding(.leading, 4)
+            HStack(spacing: 8) {
+                Text(formatPercent(node.targetPct))
+                    .font(node.children != nil ? .body.weight(.bold) : .subheadline)
+                    .frame(width: 60, alignment: .trailing)
+
+                Text(formatPercent(node.actualPct))
+                    .font(node.children != nil ? .body.weight(.bold) : .subheadline)
+                    .frame(width: 60, alignment: .trailing)
+
+                deviationBar(node.deviationPct)
+                    .frame(width: barWidth)
+                    .padding(.horizontal, 4)
+
+                Text(formatSignedPercent(node.deviationPct))
+                    .font(.subheadline)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 24)
@@ -251,27 +288,29 @@ struct AssetRow: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var deviationBar: some View {
-        let tol = 5.0
-        let dev = node.deviationPct
-        let magnitude = abs(dev)
-        let maxWidth: CGFloat = 60
-        let fillWidth = CGFloat(min(100.0, magnitude) / 100) * maxWidth
-        let xpos: CGFloat = dev < 0 ? maxWidth : -fillWidth
-
-        return ZStack {
-            Capsule().fill(Color.quaternary)
-            Capsule().fill(fillColor(tol, magnitude))
-                .frame(width: fillWidth)
-                .offset(x: xpos)
+    private func deviationBar(_ dev: Double) -> some View {
+        ZStack {
+            Capsule().fill(.quaternary)
+            Capsule().fill(colorFor(dev))
+                .frame(width: min(barWidth / 2, abs(dev) * barWidth / maxDev))
+                .offset(x: dev < 0 ? barWidth / 2 : -barWidth / 2)
         }
-        .frame(width: maxWidth * 2, height: 6)
+        .frame(width: barWidth, height: 6)
     }
 
-    private func fillColor(_ tol: Double, _ mag: Double) -> Color {
-        if mag <= tol { return .numberGreen }
-        if mag <= tol * 2 { return .numberAmber }
+    private func colorFor(_ dev: Double) -> Color {
+        let magnitude = abs(dev)
+        if magnitude <= 5 { return .numberGreen }
+        if magnitude <= 10 { return .numberAmber }
         return .numberRed
+    }
+
+    private func formatPercent(_ value: Double) -> String {
+        String(format: "%.1f%%", value)
+    }
+
+    private func formatSignedPercent(_ value: Double) -> String {
+        String(format: "%+.1f%%", value)
     }
 }
 

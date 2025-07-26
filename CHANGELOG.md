@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Add column filters, single-column sorting and double-click editing to Instruments and Positions tables
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
+- Tweak Asset Allocation tree layout with column captions and uniform deviation bars
 - Document troubleshooting steps for missing `default.metallib` warning
 - Add Asset Allocation dashboard with interactive bubble chart
 - Restore link to legacy Asset Allocation view in sidebar
