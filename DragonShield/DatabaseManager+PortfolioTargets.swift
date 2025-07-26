@@ -129,9 +129,9 @@ extension DatabaseManager {
     // MARK: - New persistence helpers
 
     /// Returns stored target percentages aggregated by asset class or sub-class.
-    func fetchPortfolioTargetRecords(portfolioId: Int) -> [(classId: Int?, subClassId: Int?, percent: Double, amountCHF: Double?)] {
-        var results: [(classId: Int?, subClassId: Int?, percent: Double, amountCHF: Double?)] = []
-        let query = "SELECT asset_class_id, sub_class_id, COALESCE(target_percent,0), target_amount_chf FROM TargetAllocation;"
+    func fetchPortfolioTargetRecords(portfolioId: Int) -> [(classId: Int?, subClassId: Int?, percent: Double, amountCHF: Double?, tolerance: Double)] {
+        var results: [(classId: Int?, subClassId: Int?, percent: Double, amountCHF: Double?, tolerance: Double)] = []
+        let query = "SELECT asset_class_id, sub_class_id, COALESCE(target_percent,0), target_amount_chf, tolerance_percent FROM TargetAllocation;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -139,7 +139,8 @@ extension DatabaseManager {
                 let subId = sqlite3_column_type(statement, 1) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 1))
                 let pct = sqlite3_column_double(statement, 2)
                 let amount = sqlite3_column_type(statement, 3) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 3)
-                results.append((classId: classId, subClassId: subId, percent: pct, amountCHF: amount))
+                let tolerance = sqlite3_column_double(statement, 4)
+                results.append((classId: classId, subClassId: subId, percent: pct, amountCHF: amount, tolerance: tolerance))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioTargetRecords: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)

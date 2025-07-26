@@ -302,9 +302,18 @@ struct AssetRow: View {
                 Spacer().frame(width: 16)
             }
 
-            Text(node.name)
-                .font(node.children != nil ? .body.bold() : .subheadline)
-                .frame(width: nameWidth - 16, alignment: .leading)
+            HStack(spacing: 4) {
+                Text(node.name)
+                    .font(node.children != nil ? .body.bold() : .subheadline)
+
+                Text("±\(Int(node.tolerancePercent))%")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color(.systemGray6)))
+            }
+            .frame(width: nameWidth - 16, alignment: .leading)
 
             Text(formatPercent(node.targetPct))
                 .frame(width: targetWidth, alignment: .trailing)
