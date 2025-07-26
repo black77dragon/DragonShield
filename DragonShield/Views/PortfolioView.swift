@@ -384,7 +384,13 @@ struct PortfolioView: View {
     }
 
     private func headerCell(title: String, column: SortColumn, filterValues: [String] = [], filterSelection: Binding<Set<String>>? = nil) -> some View {
-        HStack(spacing: 4) {
+        let sortedValues = filterValues.sorted { a, b in
+            if a == "—" { return false }
+            if b == "—" { return true }
+            return a.localizedCaseInsensitiveCompare(b) == .orderedAscending
+        }
+
+        return HStack(spacing: 4) {
             Button(action: {
                 if sortColumn == column {
                     sortAscending.toggle()
@@ -404,7 +410,7 @@ struct PortfolioView: View {
 
             if let binding = filterSelection {
                 Menu {
-                    ForEach(filterValues, id: \.self) { val in
+                    ForEach(sortedValues, id: \.self) { val in
                         Button(action: {
                             if binding.wrappedValue.contains(val) {
                                 binding.wrappedValue.remove(val)
