@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Label green stale account range as "<1 month / today"
 - Show per-table row count comparison after restore in a modal window
 - Auto-expand stale account sections and open editable account detail window from Dashboard
+- Allow dashboard tiles to resize adaptively with a responsive grid
 - Provide Save/Cancel buttons in Account Detail window with quick saved status
 - Polish Account Detail window layout with labeled fields and toolbar actions
 - Resolve progress indicator layout warning on macOS
