@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 protocol DashboardTile: View {
     init()
@@ -53,12 +56,18 @@ private struct ResizeHandle: View {
             .frame(width: 12, height: 12)
             .padding(16)
             .contentShape(Rectangle())
-            .onHover { hovering = $0 }
+            .onHover { inside in
+                hovering = inside
+#if os(macOS)
+                if inside {
+                    NSCursor.resizeUpDown.push()
+                } else {
+                    NSCursor.pop()
+                }
+#endif
+            }
             .animation(.easeInOut(duration: 0.15), value: hovering)
             .accessibilityLabel("Resize handle for \(title)")
-#if os(macOS)
-            .cursor(.resizeUpDown)
-#endif
     }
 }
 
