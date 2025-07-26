@@ -293,7 +293,8 @@ struct AssetRow: View {
     let gap: CGFloat
 
     var body: some View {
-        HStack(spacing: gap) {
+        let relDev = node.targetPct != 0 ? (node.actualPct - node.targetPct) / node.targetPct : 0
+        return HStack(spacing: gap) {
             if node.children != nil {
                 Button(action: { expanded.toggle() }) {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
@@ -316,18 +317,20 @@ struct AssetRow: View {
             Text(formatPercent(node.actualPct))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            DeviationBar(dev: node.deviationPct / 100.0, trackWidth: trackWidth)
+            DeviationBar(target: node.targetPct,
+                         actual: node.actualPct,
+                         trackWidth: trackWidth)
                 .frame(width: trackWidth)
 
-            Text(formatSigned(node.deviationPct))
+            Text(formatSigned(relDev))
                 .frame(width: deltaWidth, alignment: .trailing)
-                .foregroundStyle(barColor(node.deviationPct / 100.0))
+                .foregroundStyle(barColor(relDev))
 
-            Image(systemName: iconName(for: node.deviationPct / 100.0))
+            Image(systemName: iconName(for: relDev))
                 .font(.caption2.weight(.bold))
                 .foregroundColor(.white)
                 .padding(4)
-                .background(Circle().fill(iconColor(node.deviationPct / 100.0)))
+                .background(Circle().fill(iconColor(relDev)))
                 .frame(width: iconWidth, alignment: .center)
         }
         .padding(.vertical, node.children != nil ? 8 : 6)
@@ -340,7 +343,7 @@ struct AssetRow: View {
     }
 
     private func formatSigned(_ value: Double) -> String {
-        String(format: "%+.1f", value)
+        String(format: "%+.1f", value * 100)
     }
 
     private func iconColor(_ dev: Double) -> Color {
@@ -366,29 +369,34 @@ fileprivate func barColor(_ dev: Double) -> Color {
 }
 
 struct DeviationBar: View {
-    var dev: Double
+    let target: Double
+    let actual: Double
     var trackWidth: CGFloat
 
-    var body: some View {
-        let half = trackWidth / 2
+    private var relDev: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target
+    }
 
+    private var span: CGFloat {
+        let mag = min(abs(relDev), 1.0)
+        return CGFloat(mag) * (trackWidth / 2)
+    }
+
+    private var offset: CGFloat {
+        relDev < 0 ? span : relDev > 0 ? -span : 0
+    }
+
+    var body: some View {
         ZStack {
             Capsule().fill(.quaternary)
                 .frame(width: trackWidth, height: 6)
             Rectangle().fill(Color.black.opacity(0.6))
                 .frame(width: 1, height: 8)
-            Capsule().fill(barColor(dev))
-                .frame(width: span(for: dev, half: half), height: 6)
-                .offset(x: offset(for: dev, half: half))
+            Capsule().fill(barColor(relDev))
+                .frame(width: span, height: 6)
+                .offset(x: offset)
         }
-    }
-
-    private func span(for dev: Double, half: CGFloat) -> CGFloat {
-        CGFloat(min(abs(dev), 1.0)) * half
-    }
-
-    private func offset(for dev: Double, half: CGFloat) -> CGFloat {
-        dev < 0 ? span(for: dev, half: half) : -span(for: dev, half: half)
     }
 }
 
