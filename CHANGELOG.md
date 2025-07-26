@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
 - Add macOS Kanban to-do board with drag-and-drop
+- Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
