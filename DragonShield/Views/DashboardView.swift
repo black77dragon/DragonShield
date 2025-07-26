@@ -2,29 +2,42 @@ import SwiftUI
 
 private let layoutKey = "dashboardTileLayout"
 
+private enum DashboardLayout {
+    static let spacing: CGFloat = 24
+    static let minWidth: CGFloat = 260
+    static let maxWidth: CGFloat = 400
+}
+
 struct DashboardView: View {
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: DashboardLayout.minWidth,
+                            maximum: DashboardLayout.maxWidth),
+                  spacing: DashboardLayout.spacing)]
+    }
 
     @State private var tileIDs: [String] = []
     @State private var showingPicker = false
     @State private var draggedID: String?
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(tileIDs, id: \.self) { id in
-                    if let tile = TileRegistry.view(for: id) {
-                        tile
-                            .onDrag {
-                                draggedID = id
-                                return NSItemProvider(object: id as NSString)
-                            }
-                            .onDrop(of: [.text], delegate: TileDropDelegate(item: id, tiles: $tileIDs, dragged: $draggedID))
-                            .accessibilityLabel(TileRegistry.info(for: id).name)
+        GeometryReader { proxy in
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: DashboardLayout.spacing) {
+                    ForEach(tileIDs, id: \.self) { id in
+                        if let tile = TileRegistry.view(for: id) {
+                            tile
+                                .onDrag {
+                                    draggedID = id
+                                    return NSItemProvider(object: id as NSString)
+                                }
+                                .onDrop(of: [.text], delegate: TileDropDelegate(item: id, tiles: $tileIDs, dragged: $draggedID))
+                                .accessibilityLabel(TileRegistry.info(for: id).name)
+                        }
                     }
                 }
+                .padding(DashboardLayout.spacing)
+                .animation(.easeInOut(duration: 0.2), value: proxy.size.width)
             }
-            .padding()
         }
         .navigationTitle("Dashboard")
         .toolbar {
