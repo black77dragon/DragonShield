@@ -19,23 +19,61 @@ struct DashboardCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(title)
-                    .font(.headline)
-                Spacer()
-                if let icon = headerIcon {
-                    icon
-                        .resizable()
-                        .frame(width: 24, height: 24)
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(title)
+                        .font(.headline)
+                    Spacer()
+                    if let icon = headerIcon {
+                        icon
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                    }
                 }
+                content
             }
-            content
+            ResizeHandle(title: title)
         }
         .padding(16)
         .background(Theme.surface)
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+    }
+}
+
+private struct ResizeHandle: View {
+    let title: String
+    @State private var hovering = false
+
+    var body: some View {
+        ResizeGrip()
+            .foregroundColor(.secondary)
+            .opacity(hovering ? 1 : 0.4)
+            .frame(width: 12, height: 12)
+            .padding(16)
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .animation(.easeInOut(duration: 0.15), value: hovering)
+            .accessibilityLabel("Resize handle for \(title)")
+            .cursor(.resizeUpDown)
+    }
+}
+
+private struct ResizeGrip: View {
+    var body: some View {
+        GeometryReader { geo in
+            let r: CGFloat = 2
+            Group {
+                Circle().frame(width: r, height: r)
+                    .position(x: geo.size.width - r, y: geo.size.height - r)
+                Circle().frame(width: r, height: r)
+                    .position(x: geo.size.width - 3*r, y: geo.size.height - r)
+                Circle().frame(width: r, height: r)
+                    .position(x: geo.size.width - r, y: geo.size.height - 3*r)
+            }
+        }
+        .frame(width: 12, height: 12)
     }
 }
 
