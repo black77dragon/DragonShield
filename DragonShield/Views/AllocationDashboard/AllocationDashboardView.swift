@@ -20,7 +20,7 @@ struct AllocationDashboardView: View {
                         .padding(.top, 8)
 
                     HStack(alignment: .top, spacing: 32) {
-                        AllocationTreeCard(viewModel: viewModel, width: usableWidth * 0.45)
+                        AllocationTreeCard(width: usableWidth * 0.45, viewModel: viewModel)
 
                         VStack(spacing: 32) {
                             DeviationChartsCard(bubbles: viewModel.bubbles,
@@ -44,7 +44,6 @@ struct AllocationDashboardView: View {
             }
         }
         .onAppear { viewModel.load(using: dbManager) }
-        }
     }
 
 }
