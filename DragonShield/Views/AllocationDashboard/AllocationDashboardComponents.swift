@@ -17,7 +17,7 @@ struct Card<Content: View>: View {
             }
             content
         }
-        .padding(16)
+        .padding(24)
         .background(
             Group {
                 if scheme == .dark {

@@ -210,7 +210,7 @@ struct AllocationTreeCard: View {
                 SegmentedPicker
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
     }
 
     @ViewBuilder
@@ -276,19 +276,27 @@ struct AllocationTreeCard: View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
                 Text("TARGET")
-                    .font(.caption2)
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: targetWidth, alignment: .trailing)
+                    .lineLimit(1)
                 Text("ACTUAL")
-                    .font(.caption2)
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: actualWidth, alignment: .trailing)
+                    .lineLimit(1)
                 Text("DEVIATION")
                     .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
                     .frame(width: trackWidth + gap + deltaWidth, alignment: .center)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
             .padding(.vertical, 4)
+        }
+        .overlay(alignment: .bottom) {
+            Divider()
+                .background(Color(.systemGray4))
         }
     }
 }
@@ -320,10 +328,15 @@ struct AssetRow: View {
     }
 
     var body: some View {
+        let diffPct = relativeDeviation * 100
+        let span = trackWidth * CGFloat(min(abs(diffPct), 100)) / 100 * 0.5
+        let labelInside = span >= trackWidth * 0.25
+
         HStack(spacing: gap) {
             if node.children != nil {
                 Button(action: { expanded.toggle() }) {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
                         .font(.caption2)
                 }
                 .buttonStyle(.plain)
@@ -336,34 +349,56 @@ struct AssetRow: View {
             HStack(spacing: 4) {
                 Text(node.name)
                     .font(node.children != nil ? .body.bold() : .subheadline)
+                    .lineLimit(1)
 
                 Text("±\(Int(node.tolerancePercent))%")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.fieldGray))
+                    .background(Capsule().fill(Color(.systemGray5)))
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
             Text(formatValue(target))
                 .frame(width: targetWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
+                .lineLimit(1)
             Text(formatValue(actual))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            DeviationBar(target: target,
-                         actual: actual,
-                         trackWidth: trackWidth)
-                .frame(width: trackWidth)
+                .lineLimit(1)
 
-            Text(formatDeviation(deviation))
-                .frame(width: deltaWidth, alignment: .trailing)
-                .foregroundStyle(barColor(relativeDeviation * 100))
+            HStack(spacing: labelInside ? 0 : 4) {
+                ZStack(alignment: diffPct >= 0 ? .trailing : .leading) {
+                    DeviationBar(target: target,
+                                 actual: actual,
+                                 trackWidth: trackWidth)
+                        .frame(width: trackWidth)
+                    if labelInside {
+                        Text(formatDeviation(deviation))
+                            .font(.caption2)
+                            .foregroundStyle(barColor(diffPct))
+                            .padding(.horizontal, 2)
+                            .lineLimit(1)
+                    }
+                }
+                if !labelInside {
+                    Text(formatDeviation(deviation))
+                        .font(.caption2)
+                        .foregroundStyle(barColor(diffPct))
+                        .frame(width: deltaWidth, alignment: .trailing)
+                        .lineLimit(1)
+                } else {
+                    Spacer().frame(width: deltaWidth)
+                }
+            }
 
         }
-        .padding(.vertical, node.children != nil ? 8 : 6)
-        .background(node.children != nil ? Color.gray.opacity(0.07) : .clear)
+        .frame(height: node.children != nil ? 28 : 24)
+        .padding(.vertical, node.children != nil ? 6 : 4)
+        .padding(.horizontal, 16)
+        .background(node.children != nil ? Color(.systemGray6) : .clear)
         .accessibilityElement(children: .combine)
     }
 
@@ -429,9 +464,11 @@ struct DeviationBar: View {
         return (actual - target) / target * 100
     }
 
+    private var track: CGFloat { trackWidth - 24 }
+
     private var span: CGFloat {
         let mag = min(abs(diffPercent), 100)
-        return trackWidth * CGFloat(mag) / 100 * 0.5
+        return track * CGFloat(mag) / 100 * 0.5
     }
 
     private var offset: CGFloat {
@@ -442,14 +479,17 @@ struct DeviationBar: View {
 
     var body: some View {
         ZStack {
-            Capsule().fill(.quaternary)
-                .frame(width: trackWidth, height: 6)
-            Rectangle().fill(Color.black.opacity(0.6))
+            Capsule().fill(Color(.systemGray5))
+                .frame(height: 6)
+                .padding(.horizontal, 12)
+            Rectangle().fill(Color.black)
                 .frame(width: 1, height: 8)
             Capsule().fill(barColor(diffPercent))
                 .frame(width: span, height: 6)
                 .offset(x: offset)
+                .padding(.horizontal, 12)
         }
+        .frame(width: trackWidth)
     }
 }
 

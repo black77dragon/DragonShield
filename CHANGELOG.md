@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Convert Allocation dashboard to two-column layout with full-width overview bar
 - Correct side padding and responsive columns in Asset Allocation view
 - Add macOS Kanban to-do board with drag-and-drop
+- Polish asset-class table layout and typography
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
