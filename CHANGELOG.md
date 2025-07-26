@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Show per-table row count comparison after restore in a modal window
 - Auto-expand stale account sections and open editable account detail window from Dashboard
 - Allow dashboard tiles to resize adaptively with a responsive grid
+- Align dashboard tiles vertically so cards of different heights no longer leave gaps
 - Provide Save/Cancel buttons in Account Detail window with quick saved status
 - Polish Account Detail window layout with labeled fields and toolbar actions
 - Resolve progress indicator layout warning on macOS

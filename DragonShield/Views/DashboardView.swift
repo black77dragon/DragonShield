@@ -12,7 +12,8 @@ struct DashboardView: View {
     private let gridItems = [
         GridItem(
             .adaptive(minimum: Layout.minWidth, maximum: Layout.maxWidth),
-            spacing: Layout.spacing
+            spacing: Layout.spacing,
+            alignment: .top
         )
     ]
 
