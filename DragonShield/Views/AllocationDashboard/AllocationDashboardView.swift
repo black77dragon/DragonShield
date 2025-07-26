@@ -372,19 +372,25 @@ struct DeviationBar: View {
     let actual: Double
     var trackWidth: CGFloat
 
-    private var relDev: Double {
+    private var diffPercent: Double {
         guard target != 0 else { return 0 }
-        return (actual - target) / target
+        return (actual - target) / target * 100
     }
 
-    private var span: CGFloat {
-        let half = trackWidth / 2
-        let mag = min(abs(relDev), 1.0)
-        return CGFloat(mag) * half
+    private var barLength: CGFloat {
+        trackWidth * CGFloat(min(abs(diffPercent) / 100, 1))
     }
 
-    private var offset: CGFloat {
-        relDev < 0 ? span : relDev > 0 ? -span : 0
+    private var barOffset: CGFloat {
+        guard diffPercent != 0 else { return 0 }
+        return (diffPercent < 0 ? 1 : -1) * barLength / 2
+    }
+
+    private var deviationColor: Color {
+        let mag = abs(diffPercent)
+        if mag <= 10 { return .numberGreen }
+        if mag <= 20 { return .numberAmber }
+        return .numberRed
     }
 
     var body: some View {
@@ -393,9 +399,11 @@ struct DeviationBar: View {
                 .frame(width: trackWidth, height: 6)
             Rectangle().fill(Color.black.opacity(0.6))
                 .frame(width: 1, height: 8)
-            Capsule().fill(barColor(relDev))
-                .frame(width: span, height: 6)
-                .offset(x: offset)
+            if diffPercent != 0 {
+                Capsule().fill(deviationColor)
+                    .frame(width: barLength, height: 6)
+                    .offset(x: barOffset)
+            }
         }
     }
 }
