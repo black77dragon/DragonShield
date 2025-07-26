@@ -378,7 +378,7 @@ struct DeviationBar: View {
 
     private var span: CGFloat {
         let mag = min(abs(diffPercent), 100)
-        return trackWidth * CGFloat(mag) / 100
+        return trackWidth * CGFloat(mag) / 100 * 0.5
     }
 
     private var offset: CGFloat {
