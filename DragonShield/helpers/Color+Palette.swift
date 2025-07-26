@@ -21,6 +21,31 @@ extension Color {
         Color(UIColor.systemGray6)
 #endif
     }
+
+    /// Platform-neutral system gray colours
+    static var systemGray4: Color {
+#if os(macOS)
+        Color(nsColor: .systemGray4)
+#else
+        Color(uiColor: .systemGray4)
+#endif
+    }
+
+    static var systemGray5: Color {
+#if os(macOS)
+        Color(nsColor: .systemGray5)
+#else
+        Color(uiColor: .systemGray5)
+#endif
+    }
+
+    static var systemGray6: Color {
+#if os(macOS)
+        Color(nsColor: .systemGray6)
+#else
+        Color(uiColor: .systemGray6)
+#endif
+    }
     /// Numeric value colors
     static let numberGreen = Color(red: 0x16/255, green: 0xA3/255, blue: 0x4A/255)
     static let numberAmber = Color(red: 0xF5/255, green: 0x9E/255, blue: 0x0B/255)

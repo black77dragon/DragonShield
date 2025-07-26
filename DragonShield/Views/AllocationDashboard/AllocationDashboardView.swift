@@ -186,7 +186,7 @@ struct AllocationTreeCard: View {
         }
         .frame(width: width)
         .onAppear { initializeExpanded() }
-        .onChange(of: displayMode) { _ in saveMode() }
+        .onChange(of: displayMode) { _, _ in saveMode() }
     }
 
     private var SegmentedPicker: some View {
@@ -296,7 +296,7 @@ struct AllocationTreeCard: View {
         }
         .overlay(alignment: .bottom) {
             Divider()
-                .background(Color(.systemGray4))
+                .background(Color.systemGray4)
         }
     }
 }
@@ -356,7 +356,7 @@ struct AssetRow: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color(.systemGray5)))
+                    .background(Capsule().fill(Color.systemGray5))
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
@@ -398,7 +398,7 @@ struct AssetRow: View {
         .frame(height: node.children != nil ? 28 : 24)
         .padding(.vertical, node.children != nil ? 6 : 4)
         .padding(.horizontal, 16)
-        .background(node.children != nil ? Color(.systemGray6) : .clear)
+        .background(node.children != nil ? Color.systemGray6 : .clear)
         .accessibilityElement(children: .combine)
     }
 
@@ -479,7 +479,7 @@ struct DeviationBar: View {
 
     var body: some View {
         ZStack {
-            Capsule().fill(Color(.systemGray5))
+            Capsule().fill(Color.systemGray5)
                 .frame(height: 6)
                 .padding(.horizontal, 12)
             Rectangle().fill(Color.black)

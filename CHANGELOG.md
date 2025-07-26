@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Correct side padding and responsive columns in Asset Allocation view
 - Add macOS Kanban to-do board with drag-and-drop
 - Polish asset-class table layout and typography
+- Fix compile errors for system gray colours and onChange deprecations in Allocation dashboard
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
