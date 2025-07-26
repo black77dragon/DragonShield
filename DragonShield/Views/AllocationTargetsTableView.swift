@@ -250,9 +250,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                _ = row.tolerance
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                _ = row.tolerance
             }
         }
 
