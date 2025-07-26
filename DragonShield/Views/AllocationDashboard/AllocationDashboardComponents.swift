@@ -1,18 +1,20 @@
 import SwiftUI
 
 struct Card<Content: View>: View {
-    let title: String
+    let title: String?
     let content: Content
     @Environment(\.colorScheme) private var scheme
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
+            if let title = title {
+                Text(title)
+                    .font(.headline)
+            }
             content
         }
         .padding(16)
