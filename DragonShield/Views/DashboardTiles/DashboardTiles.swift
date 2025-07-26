@@ -152,51 +152,60 @@ struct TotalValueTile: DashboardTile {
 struct TopPositionsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = PositionsViewModel()
+    @Environment(\.colorScheme) private var colorScheme
 
     init() {}
     static let tileID = "top_positions"
-    static let tileName = "Top 10 Positions by Asset Value (CHF)"
+    static let tileName = "Top Positions"
     static let iconName = "list.number"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(Self.tileName)
-                .font(.headline)
+                .font(.system(size: 18, weight: .bold))
             if viewModel.calculating {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(viewModel.top10PositionsCHF.enumerated()), id: \.element.id) { index, item in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.instrument)
-                                        .fontWeight(.semibold)
-                                        .lineLimit(1)
-                                    Text(String(format: "%.2f CHF", item.valueCHF))
-                                        .font(.caption)
-                                        .foregroundColor(Color(red: 30/255, green: 58/255, blue: 138/255))
-                                }
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(Array(viewModel.topPositions.enumerated()), id: \.element.id) { index, item in
+                            HStack(alignment: .top) {
+                                Text(item.instrument)
+                                    .fontWeight(.semibold)
+                                    .multilineTextAlignment(.leading)
                                 Spacer()
-                                Text(item.currency)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(String(format: "%.2f", item.valueCHF))
+                                        .font(.system(.body, design: .monospaced).bold())
+                                    Text(item.currency)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
-                            .padding(4)
-                            .background(index == 0 ? Color(red: 191/255, green: 219/255, blue: 254/255) : Color.clear)
-                            .cornerRadius(6)
+                            if index != viewModel.topPositions.count - 1 {
+                                Divider().foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
+                            }
                         }
                     }
                 }
-                .frame(maxHeight: viewModel.top10PositionsCHF.count > 6 ? 220 : .infinity)
+                .frame(maxHeight: 400)
             }
         }
-        .padding(16)
-        .background(Color(red: 216/255, green: 236/255, blue: 248/255))
-        .cornerRadius(12)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 24)
+        .background(
+            Group {
+                if colorScheme == .dark {
+                    Color(red: 30/255, green: 30/255, blue: 30/255)
+                } else {
+                    Color.white
+                }
+            }
+        )
+        .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        .onAppear { viewModel.calculateTop10Positions(db: dbManager) }
+        .onAppear { viewModel.calculateTopPositions(db: dbManager) }
         .accessibilityElement(children: .combine)
     }
 }
