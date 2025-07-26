@@ -290,7 +290,10 @@ enum TileRegistry {
     ]
 
     static func view(for id: String) -> AnyView? {
-        all.first(where: { $0.id == id })?.viewBuilder()
+        if let tile = all.first(where: { $0.id == id }) {
+            return AnyView(tile.viewBuilder().dashboardResizeHandle(title: tile.name))
+        }
+        return nil
     }
 
     static func info(for id: String) -> (name: String, icon: String) {
