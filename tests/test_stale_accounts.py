@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from DragonShield.python_scripts.stale_accounts import Account, top_stale_accounts
 
 
-def test_sort_and_limit():
+def test_sort_and_order():
     today = datetime(2025, 1, 1)
     accounts = [
         Account("A", today - timedelta(days=40)),
@@ -19,8 +19,14 @@ def test_sort_and_limit():
         Account("K", today - timedelta(days=55)),
     ]
 
+    accounts.append(Account("AA", today - timedelta(days=10)))
+
     result = top_stale_accounts(accounts)
 
-    assert len(result) == 10
+    assert len(result) == len(accounts)
     dates = [acc.earliest_instrument_last_updated_at for acc in result]
     assert dates == sorted(dates)
+    # ensure tie-breaking by name when dates match
+    b_index = next(i for i, acc in enumerate(result) if acc.name == "B")
+    aa_index = next(i for i, acc in enumerate(result) if acc.name == "AA")
+    assert aa_index < b_index

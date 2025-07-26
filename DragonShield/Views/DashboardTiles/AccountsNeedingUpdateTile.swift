@@ -7,6 +7,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     static let iconName = "exclamationmark.triangle"
 
     @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var viewModel = StaleAccountsViewModel()
     @State private var showRed = false
     @State private var showAmber = false
@@ -62,6 +63,8 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         }
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
+            showRed = true
+            showAmber = true
         }
         .alert("Error", isPresented: Binding(
             get: { refreshError != nil },
@@ -98,7 +101,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                     DisclosureGroup(isExpanded: $showGreen) {
                         listBody(greenRows)
                     } label: {
-                        summaryRow(title: "<1 month", count: greenRows.count, color: .success)
+                        summaryRow(title: "<1 month / today", count: greenRows.count, color: .success)
                     }
                 }
             }
@@ -121,6 +124,9 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 .padding(.horizontal, 4)
                 .background(rowColor(for: account.earliestInstrumentLastUpdatedAt))
                 .cornerRadius(4)
+                .onTapGesture {
+                    openWindow(id: "accountDetail", value: account.id)
+                }
             }
         }
     }
@@ -140,7 +146,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
             Group {
                 if refreshing {
                     ProgressView()
-                        .scaleEffect(0.7)
+                        .controlSize(.small)
                 } else if showCheckmark {
                     Image(systemName: "checkmark")
                         .transition(.scale)
