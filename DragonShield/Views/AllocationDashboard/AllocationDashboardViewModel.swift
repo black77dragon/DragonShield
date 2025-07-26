@@ -8,6 +8,7 @@ final class AllocationDashboardViewModel: ObservableObject {
         let actualChf: Double
         let targetPct: Double
         let targetChf: Double
+        let tolerancePercent: Double
         var children: [Asset]? = nil
 
         var deviationPct: Double { actualPct - targetPct }
@@ -83,12 +84,16 @@ final class AllocationDashboardViewModel: ObservableObject {
 
         let targets = db.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
+        var classTolerance: [Int: Double] = [:]
         var subTargetPct: [Int: Double] = [:]
+        var subTolerance: [Int: Double] = [:]
         for row in targets {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
+                subTolerance[sub] = row.tolerance
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
+                classTolerance[cls] = row.tolerance
             }
         }
 
@@ -121,13 +126,15 @@ final class AllocationDashboardViewModel: ObservableObject {
             let actualCHF = classActual[cls.id] ?? 0
             let actualPct = total > 0 ? actualCHF / total * 100 : 0
             let tPct = classTargetPct[cls.id] ?? 0
+            let tol = classTolerance[cls.id] ?? 5.0
             let children = db.subAssetClasses(for: cls.id).map { sub in
                 let sChf = subActual[sub.id] ?? 0
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
-                return Asset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: 0, children: nil)
+                let st = subTolerance[sub.id] ?? tol
+                return Asset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: 0, tolerancePercent: st, children: nil)
             }
-            return Asset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: 0, children: children)
+            return Asset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: 0, tolerancePercent: tol, children: children)
         }
 
         bubbles = assets.map { asset in
