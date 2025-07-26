@@ -46,7 +46,7 @@ extension Color {
     /// System gray colours cross-platform
     static var systemGray4: Color {
         #if os(macOS)
-        Color(nsColor: .systemGray4)
+        Color(red: 174/255, green: 174/255, blue: 178/255)
         #else
         Color(uiColor: .systemGray4)
         #endif
@@ -54,7 +54,7 @@ extension Color {
 
     static var systemGray5: Color {
         #if os(macOS)
-        Color(nsColor: .systemGray5)
+        Color(red: 199/255, green: 199/255, blue: 204/255)
         #else
         Color(uiColor: .systemGray5)
         #endif
@@ -62,7 +62,7 @@ extension Color {
 
     static var systemGray6: Color {
         #if os(macOS)
-        Color(nsColor: .systemGray6)
+        Color(red: 239/255, green: 239/255, blue: 244/255)
         #else
         Color(uiColor: .systemGray6)
         #endif
