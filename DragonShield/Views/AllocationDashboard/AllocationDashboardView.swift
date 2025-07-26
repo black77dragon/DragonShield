@@ -105,7 +105,7 @@ struct OverviewBar: View {
 
 enum TileStyle { case neutral, alert, warning }
 
-enum DisplayMode { case percent, chf }
+enum DisplayMode: String { case percent, chf }
 
 struct OverviewTile: View {
     var value: String
@@ -156,7 +156,7 @@ struct OverviewTile: View {
 struct AllocationTreeCard: View {
     let width: CGFloat
     @ObservedObject var viewModel: AllocationDashboardViewModel
-    @State private var displayMode: DisplayMode = .percent
+    @State private var displayMode: DisplayMode = Self.loadMode()
     @State private var expanded: [String: Bool] = [:]
 
     // Final column layout based on 640pt reference width
@@ -186,6 +186,7 @@ struct AllocationTreeCard: View {
         }
         .frame(width: width)
         .onAppear { initializeExpanded() }
+        .onChange(of: displayMode) { _ in saveMode() }
     }
 
     private var SegmentedPicker: some View {
@@ -216,6 +217,7 @@ struct AllocationTreeCard: View {
     private var rows: some View {
         ForEach(viewModel.assets) { parent in
             AssetRow(node: parent,
+                     mode: displayMode,
                      expanded: binding(for: parent.id),
                      nameWidth: nameCol,
                      targetWidth: targetCol,
@@ -226,6 +228,7 @@ struct AllocationTreeCard: View {
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
                     AssetRow(node: child,
+                             mode: displayMode,
                              expanded: .constant(false),
                              nameWidth: nameCol,
                              targetWidth: targetCol,
@@ -247,6 +250,18 @@ struct AllocationTreeCard: View {
         for asset in viewModel.assets {
             if expanded[asset.id] == nil { expanded[asset.id] = false }
         }
+    }
+
+    private static let modeKey = "AllocationDisplayMode"
+    private static func loadMode() -> DisplayMode {
+        if let raw = UserDefaults.standard.string(forKey: modeKey),
+           let mode = DisplayMode(rawValue: raw) {
+            return mode
+        }
+        return .percent
+    }
+    private func saveMode() {
+        UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
 
     struct CaptionRow: View {
@@ -280,6 +295,7 @@ struct AllocationTreeCard: View {
 
 struct AssetRow: View {
     let node: AllocationDashboardViewModel.Asset
+    let mode: DisplayMode
     @Binding var expanded: Bool
     let nameWidth: CGFloat
     let targetWidth: CGFloat
@@ -287,6 +303,21 @@ struct AssetRow: View {
     let trackWidth: CGFloat
     let deltaWidth: CGFloat
     let gap: CGFloat
+
+    private var target: Double {
+        mode == .percent ? node.targetPct : node.targetChf
+    }
+
+    private var actual: Double {
+        mode == .percent ? node.actualPct : node.actualChf
+    }
+
+    private var deviation: Double { actual - target }
+
+    private var relativeDeviation: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target
+    }
 
     var body: some View {
         HStack(spacing: gap) {
@@ -315,20 +346,20 @@ struct AssetRow: View {
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
-            Text(formatPercent(node.targetPct))
+            Text(formatValue(target))
                 .frame(width: targetWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            Text(formatPercent(node.actualPct))
+            Text(formatValue(actual))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            DeviationBar(target: node.targetPct,
-                         actual: node.actualPct,
+            DeviationBar(target: target,
+                         actual: actual,
                          trackWidth: trackWidth)
                 .frame(width: trackWidth)
 
-            Text(formatSigned(node.relativeDev * 100))
+            Text(formatDeviation(deviation))
                 .frame(width: deltaWidth, alignment: .trailing)
-                .foregroundStyle(barColor(node.relativeDev * 100))
+                .foregroundStyle(barColor(relativeDeviation * 100))
 
         }
         .padding(.vertical, node.children != nil ? 8 : 6)
@@ -336,12 +367,47 @@ struct AssetRow: View {
         .accessibilityElement(children: .combine)
     }
 
+    private static let percentFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 1
+        return f
+    }()
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 2
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        return f
+    }()
+
     private func formatPercent(_ value: Double) -> String {
-        String(format: "%.1f", value)
+        Self.percentFormatter.string(from: NSNumber(value: value)) ?? ""
     }
 
-    private func formatSigned(_ value: Double) -> String {
-        String(format: "%+.1f", value)
+    private func formatChf(_ value: Double) -> String {
+        Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func formatSignedPercent(_ value: Double) -> String {
+        let sign = value >= 0 ? "+" : "-"
+        return sign + (Self.percentFormatter.string(from: NSNumber(value: abs(value))) ?? "") + " %"
+    }
+
+    private func formatSignedChf(_ value: Double) -> String {
+        let sign = value >= 0 ? "+" : "-"
+        return sign + (Self.chfFormatter.string(from: NSNumber(value: abs(value))) ?? "")
+    }
+
+    private func formatValue(_ value: Double) -> String {
+        mode == .percent ? formatPercent(value) : formatChf(value)
+    }
+
+    private func formatDeviation(_ value: Double) -> String {
+        mode == .percent ? formatSignedPercent(value) : formatSignedChf(value)
     }
 
 }
