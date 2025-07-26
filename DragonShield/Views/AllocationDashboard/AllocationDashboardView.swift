@@ -105,7 +105,10 @@ struct OverviewBar: View {
 
 enum TileStyle { case neutral, alert, warning }
 
-enum DisplayMode { case percent, chf }
+enum DisplayMode: String {
+    case percent
+    case chf
+}
 
 struct OverviewTile: View {
     var value: String
@@ -156,7 +159,11 @@ struct OverviewTile: View {
 struct AllocationTreeCard: View {
     let width: CGFloat
     @ObservedObject var viewModel: AllocationDashboardViewModel
-    @State private var displayMode: DisplayMode = .percent
+    @AppStorage(UserDefaultsKeys.assetDisplayMode) private var modeRaw: String = DisplayMode.percent.rawValue
+    private var displayMode: DisplayMode {
+        get { DisplayMode(rawValue: modeRaw) ?? .percent }
+        set { modeRaw = newValue.rawValue }
+    }
     @State private var expanded: [String: Bool] = [:]
 
     // Final column layout based on 640pt reference width
@@ -189,7 +196,7 @@ struct AllocationTreeCard: View {
     }
 
     private var SegmentedPicker: some View {
-        Picker("", selection: $displayMode) {
+        Picker("", selection: Binding(get: { displayMode }, set: { displayMode = $0 })) {
             Text("%").tag(DisplayMode.percent)
             Text("CHF").tag(DisplayMode.chf)
         }
@@ -217,6 +224,7 @@ struct AllocationTreeCard: View {
         ForEach(viewModel.assets) { parent in
             AssetRow(node: parent,
                      expanded: binding(for: parent.id),
+                     displayMode: displayMode,
                      nameWidth: nameCol,
                      targetWidth: targetCol,
                      actualWidth: actualCol,
@@ -227,6 +235,7 @@ struct AllocationTreeCard: View {
                 ForEach(children) { child in
                     AssetRow(node: child,
                              expanded: .constant(false),
+                             displayMode: displayMode,
                              nameWidth: nameCol,
                              targetWidth: targetCol,
                              actualWidth: actualCol,
@@ -281,6 +290,7 @@ struct AllocationTreeCard: View {
 struct AssetRow: View {
     let node: AllocationDashboardViewModel.Asset
     @Binding var expanded: Bool
+    let displayMode: DisplayMode
     let nameWidth: CGFloat
     let targetWidth: CGFloat
     let actualWidth: CGFloat
@@ -315,12 +325,21 @@ struct AssetRow: View {
             }
             .frame(width: nameWidth - 16, alignment: .leading)
 
-            Text(formatPercent(node.targetPct))
-                .frame(width: targetWidth, alignment: .trailing)
-                .font(node.children != nil ? .body.bold() : .subheadline)
-            Text(formatPercent(node.actualPct))
-                .frame(width: actualWidth, alignment: .trailing)
-                .font(node.children != nil ? .body.bold() : .subheadline)
+            if displayMode == .percent {
+                Text(formatPercent(node.targetPct))
+                    .frame(width: targetWidth, alignment: .trailing)
+                    .font(node.children != nil ? .body.bold() : .subheadline)
+                Text(formatPercent(node.actualPct))
+                    .frame(width: actualWidth, alignment: .trailing)
+                    .font(node.children != nil ? .body.bold() : .subheadline)
+            } else {
+                Text(formatChf(node.targetChf))
+                    .frame(width: targetWidth, alignment: .trailing)
+                    .font(node.children != nil ? .body.bold() : .subheadline)
+                Text(formatChf(node.actualChf))
+                    .frame(width: actualWidth, alignment: .trailing)
+                    .font(node.children != nil ? .body.bold() : .subheadline)
+            }
             DeviationBar(target: node.targetPct,
                          actual: node.actualPct,
                          trackWidth: trackWidth)
@@ -340,9 +359,23 @@ struct AssetRow: View {
         String(format: "%.1f", value)
     }
 
+    private func formatChf(_ value: Double) -> String {
+        Self.chfFormatter.string(from: NSNumber(value: value)) ?? "0"
+    }
+
     private func formatSigned(_ value: Double) -> String {
         String(format: "%+.1f", value)
     }
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 2
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        return f
+    }()
 
 }
 
