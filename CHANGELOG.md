@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix Asset Allocation view layout with symmetric padding and responsive columns
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
 - Fix compile errors in Asset Allocation dashboard views
