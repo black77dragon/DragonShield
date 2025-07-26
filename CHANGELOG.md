@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
+- Correct side padding and responsive columns in Asset Allocation view
 - Add macOS Kanban to-do board with drag-and-drop
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
