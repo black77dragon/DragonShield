@@ -56,7 +56,9 @@ private struct ResizeHandle: View {
             .onHover { hovering = $0 }
             .animation(.easeInOut(duration: 0.15), value: hovering)
             .accessibilityLabel("Resize handle for \(title)")
+#if os(macOS)
             .cursor(.resizeUpDown)
+#endif
     }
 }
 
