@@ -26,43 +26,92 @@ struct CryptoTop5Tile: DashboardTile {
         return f
     }()
 
+    private var captionRow: some View {
+        HStack {
+            Text("Asset")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Value (CHF)")
+                .frame(width: 80, alignment: .trailing)
+            Text("Weight")
+                .frame(width: 60, alignment: .trailing)
+        }
+        .font(.caption2)
+        .foregroundColor(Color(red: 100/255, green: 116/255, blue: 139/255))
+        .textCase(.uppercase)
+        .padding(.vertical, 2)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(Self.tileName)
                 .font(.system(size: 17, weight: .semibold))
+            captionRow
             if loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(rows) { item in
+                    VStack(spacing: 16) {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { idx, item in
+                            if idx > 0 { Divider() }
                             rowView(item)
-                                .padding(.vertical, 4)
                         }
                     }
                 }
                 .frame(maxHeight: rows.count > 6 ? 200 : .infinity)
             }
         }
-        .padding(16)
+        .padding(24)
         .background(Color.white)
-        .cornerRadius(12)
+        .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
         .onAppear(perform: calculate)
         .accessibilityElement(children: .combine)
     }
 
     private func rowView(_ item: CryptoRow) -> some View {
-        HStack {
+        HStack(alignment: .center) {
             Text(item.symbol)
+                .fontWeight(.semibold)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "0")
+            Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "\u2014")
+                .monospacedDigit()
                 .frame(width: 80, alignment: .trailing)
-            Text(String(format: "%.1f%%", item.percentage))
-                .frame(width: 50, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(String(format: "%.1f %%", item.percentage))
+                    .font(.system(size: 13, weight: .bold))
+                WeightBar(percentage: item.percentage)
+                    .frame(width: 60, height: 4)
+            }
         }
         .font(.system(size: 13))
+    }
+
+    private struct WeightBar: View {
+        let percentage: Double
+        @Environment(\.colorScheme) private var scheme
+
+        var body: some View {
+            let track = scheme == .dark
+                ? Color(red: 46/255, green: 46/255, blue: 46/255)
+                : Color(red: 241/255, green: 245/255, blue: 249/255)
+            let fillWidth = max(CGFloat(percentage / 100) * 60,
+                                (percentage > 0 && percentage < 0.5) ? 2 : 0)
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(track)
+                Capsule()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color(red: 59/255, green: 130/255, blue: 246/255),
+                            Color(red: 6/255, green: 182/255, blue: 212/255)
+                        ]),
+                        startPoint: .leading, endPoint: .trailing)
+                    )
+                    .frame(width: fillWidth)
+            }
+            .accessibilityLabel(String(format: "%.1f%% weight", percentage))
+        }
     }
 
     private func calculate() {
