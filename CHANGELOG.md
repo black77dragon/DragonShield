@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Align deviation column with center line, delta text and action icons
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
 - Fix compile errors in Asset Allocation dashboard views

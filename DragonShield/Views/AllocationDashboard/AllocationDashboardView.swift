@@ -159,19 +159,29 @@ struct AllocationTreeCard: View {
     @State private var displayMode: DisplayMode = .percent
     @State private var expanded: [String: Bool] = [:]
 
-    private var nameCol: CGFloat { width * 0.40 }
-    private var numCol:  CGFloat { width * 0.12 }
-    private var barCol:  CGFloat { width * 0.24 }
-    private var pad:     CGFloat { width * 0.02 }
+    private let targetWidth: CGFloat = 52
+    private let actualWidth: CGFloat = 52
+    private let trackWidth: CGFloat = 128
+    private let deltaWidth: CGFloat = 40
+    private let iconWidth:  CGFloat = 24
+    private let gap: CGFloat = 10
+
+    private var nameCol: CGFloat {
+        max(width - (targetWidth + actualWidth + trackWidth + deltaWidth + iconWidth)
+            - gap * 5, 160)
+    }
+    private var numCol: CGFloat { targetWidth } // same for target and actual
+    private var barCol: CGFloat { trackWidth }
 
     var body: some View {
         Card {
             VStack(spacing: 0) {
                 HeaderBar()
-                CaptionRow(numWidth: numCol,
-                           barWidth: barCol,
-                           nameWidth: nameCol,
-                           pad: pad)
+                CaptionRow(nameWidth: nameCol,
+                           numWidth: numCol,
+                           trackWidth: trackWidth,
+                           deltaWidth: deltaWidth,
+                           gap: gap)
                 Divider()
                 ScrollView { VStack(spacing: 0) { rows } }
             }
@@ -211,16 +221,20 @@ struct AllocationTreeCard: View {
                      expanded: binding(for: parent.id),
                      nameWidth: nameCol,
                      numWidth: numCol,
-                     barWidth: barCol,
-                     pad: pad)
+                     trackWidth: barCol,
+                     deltaWidth: deltaWidth,
+                     iconWidth: iconWidth,
+                     gap: gap)
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
                     AssetRow(node: child,
                              expanded: .constant(false),
                              nameWidth: nameCol,
                              numWidth: numCol,
-                             barWidth: barCol,
-                             pad: pad)
+                             trackWidth: barCol,
+                             deltaWidth: deltaWidth,
+                             iconWidth: iconWidth,
+                             gap: gap)
                 }
             }
         }
@@ -238,14 +252,15 @@ struct AllocationTreeCard: View {
     }
 
     struct CaptionRow: View {
-        let numWidth: CGFloat
-        let barWidth: CGFloat
         let nameWidth: CGFloat
-        let pad: CGFloat
+        let numWidth: CGFloat
+        let trackWidth: CGFloat
+        let deltaWidth: CGFloat
+        let gap: CGFloat
 
         var body: some View {
-            HStack(spacing: pad) {
-                Spacer().frame(width: nameWidth)
+            HStack(spacing: gap) {
+                Spacer(minLength: nameWidth)
                 Text("TARGET")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -255,10 +270,10 @@ struct AllocationTreeCard: View {
                     .foregroundStyle(.secondary)
                     .frame(width: numWidth, alignment: .trailing)
                 Text("DEVIATION")
-                    .font(.caption2)
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: barWidth, alignment: .trailing)
-                Spacer(minLength: 0)
+                    .frame(width: trackWidth + gap + deltaWidth,
+                           alignment: .center)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 4)
@@ -271,11 +286,14 @@ struct AssetRow: View {
     @Binding var expanded: Bool
     let nameWidth: CGFloat
     let numWidth: CGFloat
-    let barWidth: CGFloat
-    let pad: CGFloat
+    let trackWidth: CGFloat
+    let deltaWidth: CGFloat
+    let iconWidth: CGFloat
+    let gap: CGFloat
 
     var body: some View {
-        HStack(spacing: pad) {
+        let tolPct = 5.0
+        HStack(spacing: gap) {
             if node.children != nil {
                 Button(action: { expanded.toggle() }) {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
@@ -299,12 +317,20 @@ struct AssetRow: View {
                 .frame(width: numWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
 
-            DeviationBar(dev: node.deviationPct / 100.0, trackWidth: barWidth)
-                .frame(width: barWidth)
+            DeviationBar(dev: node.deviationPct / 100.0, trackWidth: trackWidth)
+                .frame(width: trackWidth)
 
-            Spacer(minLength: 0)
+            Text(formatSigned(node.deviationPct))
+                .frame(width: deltaWidth, alignment: .trailing)
+                .foregroundStyle(colorFor(node.deviationPct / 100.0))
 
-            Spacer()
+            Image(systemName: node.deviationPct > tolPct ? "plus" :
+                                 node.deviationPct < -tolPct ? "minus" : "checkmark")
+                .font(.caption2.weight(.bold))
+                .foregroundColor(.white)
+                .padding(4)
+                .background(Circle().fill(iconColor(node.deviationPct / 100.0)))
+                .frame(width: iconWidth)
         }
         .padding(.vertical, node.children != nil ? 8 : 6)
         .background(node.children != nil ? Color.gray.opacity(0.07) : .clear)
@@ -317,6 +343,21 @@ struct AssetRow: View {
 
     private func formatSigned(_ value: Double) -> String {
         String(format: "%+.1f", value)
+    }
+
+    private func colorFor(_ dev: Double) -> Color {
+        let tol = 0.05
+        let mag = abs(dev)
+        if mag <= tol { return .numberGreen }
+        if mag <= tol * 2 { return .numberAmber }
+        return .numberRed
+    }
+
+    private func iconColor(_ dev: Double) -> Color {
+        let tol = 0.05
+        if dev > tol { return .numberGreen }
+        if dev < -tol { return .numberRed }
+        return .gray
     }
 }
 
@@ -331,11 +372,14 @@ struct DeviationBar: View {
 
         ZStack {
             Capsule().fill(.quaternary)
+                .frame(width: trackWidth, height: 6)
+            Rectangle().fill(.black.opacity(0.6))
+                .frame(width: 1, height: 8)
             Capsule().fill(colorFor(dev))
-                .frame(width: span)
+                .frame(width: span, height: 6)
                 .offset(x: offset)
         }
-        .frame(height: 6)
+        .frame(height: 8)
     }
 
     private func colorFor(_ dev: Double) -> Color {
