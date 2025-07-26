@@ -3,7 +3,10 @@ import SwiftUI
 struct MasonryLayout: Layout {
     var columns: Int
     var spacing: CGFloat = 0
-    var verticalSpacing: CGFloat = 0
+    /// Vertical gap between items. If not specified, defaults to `spacing / 2`.
+    var verticalSpacing: CGFloat? = nil
+
+    private var vSpacing: CGFloat { verticalSpacing ?? spacing / 2 }
 
     typealias Cache = Void
 
@@ -15,10 +18,10 @@ struct MasonryLayout: Layout {
         for subview in subviews {
             let size = subview.sizeThatFits(.init(width: columnWidth, height: nil))
             let index = columnHeights.enumerated().min(by: { $0.element < $1.element })?.offset ?? 0
-            columnHeights[index] += size.height + verticalSpacing
+            columnHeights[index] += size.height + vSpacing
         }
         let height = columnHeights.max() ?? 0
-        return CGSize(width: width, height: height - verticalSpacing)
+        return CGSize(width: width, height: height - vSpacing)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
@@ -31,7 +34,7 @@ struct MasonryLayout: Layout {
             let x = bounds.minX + CGFloat(index) * (columnWidth + spacing)
             let y = bounds.minY + columnHeights[index]
             subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .init(width: columnWidth, height: size.height))
-            columnHeights[index] += size.height + verticalSpacing
+            columnHeights[index] += size.height + vSpacing
         }
     }
 }
