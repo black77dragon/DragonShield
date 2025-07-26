@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce Asset Allocation dashboard with interactive bubble chart
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Add macOS Kanban to-do board with drag-and-drop
 - Add sidebar link to the Kanban board
