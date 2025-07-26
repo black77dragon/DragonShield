@@ -186,10 +186,10 @@ struct AllocationTreeCard: View {
         }
         .frame(width: width)
         .onAppear { initializeExpanded() }
-        .onChange(of: displayMode) { _, _ in saveMode() }
+        .onChange(of: displayMode) { saveMode() }
     }
 
-    private var SegmentedPicker: some View {
+    private var segmentedPicker: some View {
         Picker("", selection: $displayMode) {
             Text("%").tag(DisplayMode.percent)
             Text("CHF").tag(DisplayMode.chf)
@@ -207,7 +207,7 @@ struct AllocationTreeCard: View {
                 Text("Display mode")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                SegmentedPicker
+                segmentedPicker
             }
         }
         .padding(.horizontal, 16)
