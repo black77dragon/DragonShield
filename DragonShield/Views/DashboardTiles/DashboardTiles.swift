@@ -36,6 +36,32 @@ struct DashboardCard<Content: View>: View {
         .background(Theme.surface)
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .overlay(alignment: .bottomTrailing) {
+            ResizeHandle(title: title)
+                .padding(4)
+        }
+    }
+}
+
+private struct ResizeHandle: View {
+    let title: String
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: "square.and.arrow.up.right")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 12, height: 12)
+            .rotationEffect(.degrees(45))
+            .foregroundColor(.secondary)
+            .opacity(hovering ? 1 : 0.4)
+            .frame(width: 44, height: 44, alignment: .bottomTrailing)
+            .contentShape(Rectangle())
+            .onHover { over in
+                withAnimation(.easeInOut(duration: 0.15)) { hovering = over }
+            }
+            .cursor(.resizeUpDown)
+            .accessibilityLabel("Resize handle for \(title)")
     }
 }
 
