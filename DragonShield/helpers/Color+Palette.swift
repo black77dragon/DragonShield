@@ -21,4 +21,25 @@ extension Color {
         Color(UIColor.systemGray6)
 #endif
     }
+    /// Numeric value colors
+    static let numberGreen = Color(red: 0x16/255, green: 0xA3/255, blue: 0x4A/255)
+    static let numberAmber = Color(red: 0xF5/255, green: 0x9E/255, blue: 0x0B/255)
+    static let numberRed = Color(red: 0xDC/255, green: 0x26/255, blue: 0x26/255)
+
+    /// Stroke colours used for card borders
+    static var tertiary: Color {
+        #if os(macOS)
+        Color(nsColor: .tertiaryLabelColor)
+        #else
+        Color(uiColor: .tertiaryLabel)
+        #endif
+    }
+
+    static var quaternary: Color {
+        #if os(macOS)
+        Color(nsColor: .quaternaryLabelColor)
+        #else
+        Color(uiColor: .quaternaryLabel)
+        #endif
+    }
 }
