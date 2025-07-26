@@ -42,4 +42,29 @@ extension Color {
         Color(uiColor: .quaternaryLabel)
         #endif
     }
+
+    /// System gray colours cross-platform
+    static var systemGray4: Color {
+        #if os(macOS)
+        Color(nsColor: .systemGray4)
+        #else
+        Color(uiColor: .systemGray4)
+        #endif
+    }
+
+    static var systemGray5: Color {
+        #if os(macOS)
+        Color(nsColor: .systemGray5)
+        #else
+        Color(uiColor: .systemGray5)
+        #endif
+    }
+
+    static var systemGray6: Color {
+        #if os(macOS)
+        Color(nsColor: .systemGray6)
+        #else
+        Color(uiColor: .systemGray6)
+        #endif
+    }
 }
