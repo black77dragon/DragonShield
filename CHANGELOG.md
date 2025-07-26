@@ -393,3 +393,4 @@ All notable changes to this project will be documented in this file.
 
 - Sort instrument Type and Currency filter menus alphabetically
 - Replace blue Top 10 Positions tile with modern white card showing all positions
+- Reduce list row spacing in Top Positions card for denser display

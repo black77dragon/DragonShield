@@ -168,7 +168,7 @@ struct TopPositionsTile: DashboardTile {
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 20) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(viewModel.topPositions.enumerated()), id: \.element.id) { index, item in
                             HStack(alignment: .top) {
                                 Text(item.instrument)
