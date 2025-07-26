@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Polish Crypto Allocations tile visuals and reduce row spacing
+- Display tolerance bounds in Asset Allocation dashboard rows
 - Redesign Asset Allocation dashboard with modern cards
 - Fix compile errors in Asset Allocation dashboard views
 - Redesign overview bar layout with dedicated tiles
