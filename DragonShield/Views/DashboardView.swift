@@ -3,28 +3,44 @@ import SwiftUI
 private let layoutKey = "dashboardTileLayout"
 
 struct DashboardView: View {
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
+    private enum Layout {
+        static let hSpacing: CGFloat = 24
+        static let minWidth: CGFloat = 260
+        static let maxWidth: CGFloat = 400
+    }
 
     @State private var tileIDs: [String] = []
     @State private var showingPicker = false
     @State private var draggedID: String?
+    @State private var columnCount = 3
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(tileIDs, id: \.self) { id in
-                    if let tile = TileRegistry.view(for: id) {
-                        tile
-                            .onDrag {
-                                draggedID = id
-                                return NSItemProvider(object: id as NSString)
+        GeometryReader { geo in
+            ScrollView {
+                HStack(alignment: .top, spacing: Layout.hSpacing) {
+                    ForEach(0..<columnCount, id: \.self) { column in
+                        LazyVStack(spacing: 0) {
+                            ForEach(columnItems(for: column), id: \.self) { id in
+                                if let tile = TileRegistry.view(for: id) {
+                                    tile
+                                        .onDrag {
+                                            draggedID = id
+                                            return NSItemProvider(object: id as NSString)
+                                        }
+                                        .onDrop(of: [.text], delegate: TileDropDelegate(item: id, tiles: $tileIDs, dragged: $draggedID))
+                                        .accessibilityLabel(TileRegistry.info(for: id).name)
+                                }
                             }
-                            .onDrop(of: [.text], delegate: TileDropDelegate(item: id, tiles: $tileIDs, dragged: $draggedID))
-                            .accessibilityLabel(TileRegistry.info(for: id).name)
+                        }
                     }
                 }
+                .frame(maxWidth: gridWidth(for: columnCount), alignment: .topLeading)
+                .padding(.horizontal, Layout.hSpacing)
+                .padding(.vertical, Layout.hSpacing)
+                .animation(.easeInOut(duration: 0.2), value: columnCount)
             }
-            .padding()
+            .onAppear { updateColumns(width: geo.size.width) }
+            .onChange(of: geo.size.width) { updateColumns(width: $0) }
         }
         .navigationTitle("Dashboard")
         .toolbar {
@@ -58,6 +74,31 @@ struct DashboardView: View {
 
     private func saveLayout() {
         UserDefaults.standard.set(tileIDs, forKey: layoutKey)
+    }
+
+    private func updateColumns(width: CGFloat) {
+        let available = width - Layout.hSpacing * 2
+        let fitByMax = Int(available / (Layout.maxWidth + Layout.hSpacing))
+        switch fitByMax {
+        case 4...:
+            columnCount = 4
+        case 3:
+            columnCount = 3
+        case 2:
+            columnCount = 2
+        default:
+            columnCount = 1
+        }
+    }
+
+    private func gridWidth(for columns: Int) -> CGFloat {
+        Layout.maxWidth * CGFloat(columns) + Layout.hSpacing * CGFloat(columns - 1)
+    }
+
+    private func columnItems(for column: Int) -> [String] {
+        tileIDs.enumerated()
+            .filter { index, _ in index % columnCount == column }
+            .map { $0.element }
     }
 }
 
