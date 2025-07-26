@@ -92,4 +92,10 @@ def test_apply_migrations_and_insert_dates():
     tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ImportSessionValueReports'")]
     assert 'ImportSessionValueReports' in tables
 
+    # Apply fifth migration
+    conn.executescript(read_sql('005_add_target_kind_and_tolerance.sql'))
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(TargetAllocation)")]
+    assert 'target_kind' in cols
+    assert 'tolerance_percent' in cols
+
     conn.close()
