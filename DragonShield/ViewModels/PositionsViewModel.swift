@@ -7,7 +7,8 @@ class PositionsViewModel: ObservableObject {
     @Published var currencySymbols: [String: String] = [:]
     @Published var calculating: Bool = false
     @Published var showErrorToast: Bool = false
-    @Published var top10PositionsCHF: [TopPosition] = []
+    /// All positions sorted by value in CHF descending.
+    @Published var topPositions: [TopPosition] = []
 
     struct TopPosition: Identifiable {
         let id: Int
@@ -71,7 +72,7 @@ class PositionsViewModel: ObservableObject {
                 self.positionValueCHF = chf
                 self.currencySymbols = symbolCache
                 self.totalAssetValueCHF = total
-                self.top10PositionsCHF = orig.keys.compactMap { id in
+                self.topPositions = orig.keys.compactMap { id in
                     if let value = chf[id], let v = value {
                         let name = positions.first { $0.id == id }?.instrumentName ?? ""
                         let currency = positions.first { $0.id == id }?.instrumentCurrency.uppercased() ?? "CHF"
@@ -80,15 +81,13 @@ class PositionsViewModel: ObservableObject {
                     return nil
                 }
                 .sorted { $0.valueCHF > $1.valueCHF }
-                .prefix(10)
-                .map { $0 }
                 self.calculating = false
                 self.showErrorToast = missingRate
             }
         }
     }
 
-    func calculateTop10Positions(db: DatabaseManager) {
+    func calculateTopPositions(db: DatabaseManager) {
         let positions = db.fetchPositionReports()
         calculateValues(positions: positions, db: db)
     }
