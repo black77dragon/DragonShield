@@ -293,10 +293,10 @@ struct AllocationTreeCard: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
-        }
-        .overlay(alignment: .bottom) {
-            Divider()
-                .background(Color.systemGray4)
+            .overlay(alignment: .bottom) {
+                Divider()
+                    .background(Color.systemGray4)
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
 - Fix compile errors in Asset Allocation dashboard views
+- Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
