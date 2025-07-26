@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Auto-expand stale account sections and open editable account detail window from Dashboard
 - Provide Save/Cancel buttons in Account Detail window with quick saved status
 - Resolve progress indicator layout warning on macOS
+- Display all stale accounts sorted by earliest update and account name
 - Delete Asset SubClass instantly with toast feedback and error alert when in use
 - Display table details when Asset SubClass deletion fails
 - Widen Restore Comparison window to display all columns without scrolling

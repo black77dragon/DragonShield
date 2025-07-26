@@ -18,16 +18,17 @@ class StaleAccountsViewModel: ObservableObject {
         guard let dbManager else { return }
         let accounts = dbManager.fetchAccounts()
         staleAccounts = accounts
-            .sorted(by: Self.earliestFirst)
-            .prefix(10)
-            .map { $0 }
+            .sorted(by: Self.earliestThenName)
     }
 
-    private static func earliestFirst(_ a: DatabaseManager.AccountData,
-                                      _ b: DatabaseManager.AccountData) -> Bool {
-        let lhs = a.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
-        let rhs = b.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
-        return lhs < rhs
+    private static func earliestThenName(_ a: DatabaseManager.AccountData,
+                                         _ b: DatabaseManager.AccountData) -> Bool {
+        let lhsDate = a.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
+        let rhsDate = b.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
+        if lhsDate == rhsDate {
+            return a.accountName.localizedCaseInsensitiveCompare(b.accountName) == .orderedAscending
+        }
+        return lhsDate < rhsDate
     }
 
     func daysSince(_ date: Date) -> Int {
