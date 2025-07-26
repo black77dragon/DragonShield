@@ -117,13 +117,15 @@ final class AllocationDashboardViewModel: ObservableObject {
             let actualCHF = classActual[cls.id] ?? 0
             let actualPct = total > 0 ? actualCHF / total * 100 : 0
             let tPct = classTargetPct[cls.id] ?? 0
+            let targetCHF = total * tPct / 100
             let children = db.subAssetClasses(for: cls.id).map { sub in
                 let sChf = subActual[sub.id] ?? 0
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
-                return Asset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: 0, children: nil)
+                let subTargetCHF = targetCHF * tp / 100
+                return Asset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: subTargetCHF, children: nil)
             }
-            return Asset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: 0, children: children)
+            return Asset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: targetCHF, children: children)
         }
 
         bubbles = assets.map { asset in

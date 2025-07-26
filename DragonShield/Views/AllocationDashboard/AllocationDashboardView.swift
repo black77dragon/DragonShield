@@ -153,65 +153,127 @@ struct OverviewTile: View {
 struct AllocationTreeCard: View {
     @ObservedObject var viewModel: AllocationDashboardViewModel
 
-    var body: some View {
-        Card("Asset Classes") {
-            Picker("Display", selection: .constant(0)) {
-                Text("%").tag(0)
-                Text("CHF").tag(1)
-            }
-            .pickerStyle(.segmented)
+    private enum DisplayMode { case percent, chf }
+    @State private var displayMode: DisplayMode = .percent
+    @State private var expanded: [String: Bool] = [:]
 
+    var body: some View {
+        Card {
+            HStack {
+                Text("Asset Classes")
+                    .font(.headline)
+                Spacer()
+                segmentedPicker
+            }
+            .padding(.horizontal, 24)
+            Divider()
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(viewModel.assets) { asset in
-                        AssetRowView(asset: asset, level: 0, highlighted: viewModel.highlightedId == asset.id)
-                        if let children = asset.children {
+                    ForEach(viewModel.assets) { parent in
+                        AssetRow(node: parentNode(parent), displayMode: displayMode,
+                                 expanded: binding(for: parent.id))
+                        if expanded[parent.id] ?? false, let children = parent.children {
                             ForEach(children) { child in
-                                AssetRowView(asset: child, level: 1, highlighted: viewModel.highlightedId == child.id)
+                                AssetRow(node: childNode(child), displayMode: displayMode,
+                                         expanded: .constant(false))
                             }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-struct AssetRowView: View {
-    let asset: AllocationDashboardViewModel.Asset
-    let level: Int
-    let highlighted: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(asset.name)
-                .frame(width: level == 0 ? 140 : 120, alignment: .leading)
-            Spacer()
-            Text(String(format: "%.1f%%", asset.targetPct))
-                .frame(width: 50, alignment: .trailing)
-                .font(.system(.footnote, design: .monospaced))
-            Text(String(format: "%.1f%%", asset.actualPct))
-                .frame(width: 50, alignment: .trailing)
-                .font(.system(.footnote, design: .monospaced))
-            deviationBar
-                .frame(width: 60)
-            Text(String(format: "%+.1f%%", asset.deviationPct))
-                .frame(width: 50, alignment: .trailing)
-                .font(.system(.footnote, design: .monospaced))
-        }
-        .padding(.vertical, 4)
-        .background(highlighted ? Color.blue.opacity(0.1) : (level == 0 ? Color.fieldGray.opacity(0.4) : Color.clear))
-        .overlay(alignment: .leading) {
-            if highlighted {
-                Rectangle()
-                    .fill(Color.accentColor)
-                    .frame(width: 3)
+        .onAppear {
+            if expanded.isEmpty {
+                for asset in viewModel.assets { expanded[asset.id] = true }
             }
         }
     }
 
+    private var segmentedPicker: some View {
+        Picker("", selection: $displayMode) {
+            Text("%").tag(DisplayMode.percent)
+            Text("CHF").tag(DisplayMode.chf)
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 120)
+    }
+
+    private func binding(for id: String) -> Binding<Bool> {
+        Binding(get: { expanded[id] ?? false }, set: { expanded[id] = $0 })
+    }
+
+    private func parentNode(_ asset: AllocationDashboardViewModel.Asset) -> AllocationNode {
+        AllocationNode(id: asset.id, name: asset.name, targetPct: asset.targetPct,
+                       targetChf: asset.targetChf, actualPct: asset.actualPct,
+                       actualChf: asset.actualChf, isParent: true)
+    }
+
+    private func childNode(_ asset: AllocationDashboardViewModel.Asset) -> AllocationNode {
+        AllocationNode(id: asset.id, name: asset.name, targetPct: asset.targetPct,
+                       targetChf: asset.targetChf, actualPct: asset.actualPct,
+                       actualChf: asset.actualChf, isParent: false)
+    }
+}
+
+struct AssetRow: View {
+    let node: AllocationNode
+    let displayMode: AllocationTreeCard.DisplayMode
+    @Binding var expanded: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if node.isParent {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.caption2)
+                    .frame(width: 16)
+                    .onTapGesture { expanded.toggle() }
+                    .keyboardShortcut(.space, modifiers: [])
+            } else {
+                Spacer().frame(width: 16)
+            }
+
+            Text(node.name)
+                .font(node.isParent ? .body.weight(.semibold) : .subheadline.weight(.regular))
+                .padding(.leading, 4)
+
+            Spacer()
+
+            Text(formatted(value: node.targetValue(mode: displayMode)))
+                .frame(width: 60, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
+            Text(formatted(value: node.actualValue(mode: displayMode)))
+                .frame(width: 60, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
+            deviationBar
+                .frame(width: 60)
+            Text(formattedDeviation(node.deviationValue(mode: displayMode)))
+                .frame(width: 60, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 24)
+        .background(node.isParent ? Color.gray.opacity(0.07) : Color.white)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func formatted(value: Double) -> String {
+        if displayMode == .percent {
+            return String(format: "%.1f%%", value)
+        } else {
+            return NumberFormatter.localizedString(from: NSNumber(value: value), number: .decimal)
+        }
+    }
+
+    private func formattedDeviation(_ value: Double) -> String {
+        if displayMode == .percent {
+            return String(format: "%+.1f%%", value)
+        } else {
+            return NumberFormatter.localizedString(from: NSNumber(value: value), number: .decimal)
+        }
+    }
+
     private var deviationBar: some View {
-        let dev = asset.deviationPct
+        let dev = node.deviationValue(mode: .percent)
         let devColor = dev > 0 ? Color.numberRed : Color.numberGreen
         return ZStack(alignment: .leading) {
             Capsule().fill(Color.gray.opacity(0.25))
@@ -219,6 +281,28 @@ struct AssetRowView: View {
         }
         .frame(height: 6)
         .offset(x: dev >= 0 ? 30 : -30)
+    }
+}
+
+struct AllocationNode: Identifiable {
+    let id: String
+    let name: String
+    let targetPct: Double
+    let targetChf: Double
+    let actualPct: Double
+    let actualChf: Double
+    let isParent: Bool
+
+    func targetValue(mode: AllocationTreeCard.DisplayMode) -> Double {
+        mode == .percent ? targetPct : targetChf
+    }
+
+    func actualValue(mode: AllocationTreeCard.DisplayMode) -> Double {
+        mode == .percent ? actualPct : actualChf
+    }
+
+    func deviationValue(mode: AllocationTreeCard.DisplayMode) -> Double {
+        mode == .percent ? (actualPct - targetPct) : (actualChf - targetChf)
     }
 }
 
