@@ -409,3 +409,4 @@ All notable changes to this project will be documented in this file.
 - Reduce list row spacing in Top Positions card for denser display
 - Refine Asset Class card with captioned display toggle and color-coded deviation bars
 - Tweak Asset Allocation rows with caption header and uniform deviation bars
+- Enhance deviation column with centre line, delta numbers and action icons
