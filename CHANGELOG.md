@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Polish Crypto Allocations tile visuals with percentage labels and captions
 - Add macOS Kanban to-do board with drag-and-drop
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
