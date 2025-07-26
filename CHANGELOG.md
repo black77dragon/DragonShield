@@ -389,3 +389,4 @@ All notable changes to this project will be documented in this file.
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
 - Quick refresh icon on Accounts Needing Update dashboard tile
+- Place Actions column first in Positions table for quicker edits

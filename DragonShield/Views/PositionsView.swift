@@ -318,6 +318,19 @@ struct PositionsView: View {
     private var positionsContent: some View {
         let data = sortedPositions
         return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
+            if visibleColumns.contains(.actions) {
+                TableColumn("Actions") { (position: PositionReportData) in
+                    HStack(spacing: 8) {
+                        Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
+                            .buttonStyle(PlainButtonStyle())
+                        Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
+                            .buttonStyle(PlainButtonStyle())
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .width(min: 45, ideal: 45)
+            }
+
             if visibleColumns.contains(.notes) {
                 TableColumn("") { (position: PositionReportData) in
                     if let notes = position.notes, !notes.isEmpty {
@@ -502,19 +515,6 @@ struct PositionsView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .width(min: 120, ideal: 140)
-                }
-
-                if visibleColumns.contains(.actions) {
-                    TableColumn("Actions") { (position: PositionReportData) in
-                        HStack(spacing: 8) {
-                            Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-                                .buttonStyle(PlainButtonStyle())
-                            Button(action: { positionToDelete = position; showDeleteSingleAlert = true }) { Image(systemName: "trash") }
-                                .buttonStyle(PlainButtonStyle())
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .width(min: 60, ideal: 60)
                 }
             }
         }
