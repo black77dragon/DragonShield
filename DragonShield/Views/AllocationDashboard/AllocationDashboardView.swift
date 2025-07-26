@@ -316,18 +316,20 @@ struct AssetRow: View {
             Text(formatPercent(node.actualPct))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            DeviationBar(dev: node.deviationPct / 100.0, trackWidth: trackWidth)
+            DeviationBar(target: node.targetPct,
+                         actual: node.actualPct,
+                         trackWidth: trackWidth)
                 .frame(width: trackWidth)
 
-            Text(formatSigned(node.deviationPct))
+            Text(formatSigned(node.relativeDev * 100))
                 .frame(width: deltaWidth, alignment: .trailing)
-                .foregroundStyle(barColor(node.deviationPct / 100.0))
+                .foregroundStyle(barColor(node.relativeDev))
 
-            Image(systemName: iconName(for: node.deviationPct / 100.0))
+            Image(systemName: iconName(for: node.relativeDev))
                 .font(.caption2.weight(.bold))
                 .foregroundColor(.white)
                 .padding(4)
-                .background(Circle().fill(iconColor(node.deviationPct / 100.0)))
+                .background(Circle().fill(iconColor(node.relativeDev)))
                 .frame(width: iconWidth, alignment: .center)
         }
         .padding(.vertical, node.children != nil ? 8 : 6)
@@ -343,52 +345,58 @@ struct AssetRow: View {
         String(format: "%+.1f", value)
     }
 
-    private func iconColor(_ dev: Double) -> Color {
+    private func iconColor(_ relDev: Double) -> Color {
         let tol = 0.05
-        if abs(dev) <= tol { return .gray }
-        return dev > 0 ? .success : .error
+        if abs(relDev) <= tol { return .gray }
+        return relDev > 0 ? .success : .error
     }
 
-    private func iconName(for dev: Double) -> String {
+    private func iconName(for relDev: Double) -> String {
         let tol = 0.05
-        if dev > tol { return "plus" }
-        if dev < -tol { return "minus" }
+        if relDev > tol { return "plus" }
+        if relDev < -tol { return "minus" }
         return "checkmark"
     }
 }
 
-fileprivate func barColor(_ dev: Double) -> Color {
+fileprivate func barColor(_ relDev: Double) -> Color {
     let tol = 0.05
-    let mag = abs(dev)
+    let mag = abs(relDev)
     if mag <= tol { return .numberGreen }
     if mag <= tol * 2 { return .numberAmber }
     return .numberRed
 }
 
 struct DeviationBar: View {
-    var dev: Double
+    let target: Double
+    let actual: Double
     var trackWidth: CGFloat
 
-    var body: some View {
-        let half = trackWidth / 2
+    private var relDev: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target
+    }
 
+    private var span: CGFloat {
+        let half = trackWidth / 2
+        let mag = min(abs(relDev), 1.0)
+        return CGFloat(mag) * half
+    }
+
+    private var offset: CGFloat {
+        relDev < 0 ? span : relDev > 0 ? -span : 0
+    }
+
+    var body: some View {
         ZStack {
             Capsule().fill(.quaternary)
                 .frame(width: trackWidth, height: 6)
             Rectangle().fill(Color.black.opacity(0.6))
                 .frame(width: 1, height: 8)
-            Capsule().fill(barColor(dev))
-                .frame(width: span(for: dev, half: half), height: 6)
-                .offset(x: offset(for: dev, half: half))
+            Capsule().fill(barColor(relDev))
+                .frame(width: span, height: 6)
+                .offset(x: offset)
         }
-    }
-
-    private func span(for dev: Double, half: CGFloat) -> CGFloat {
-        CGFloat(min(abs(dev), 1.0)) * half
-    }
-
-    private func offset(for dev: Double, half: CGFloat) -> CGFloat {
-        dev < 0 ? span(for: dev, half: half) : -span(for: dev, half: half)
     }
 }
 

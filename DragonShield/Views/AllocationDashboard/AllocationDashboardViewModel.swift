@@ -12,6 +12,10 @@ final class AllocationDashboardViewModel: ObservableObject {
 
         var deviationPct: Double { actualPct - targetPct }
         var deviationChf: Double { actualChf - targetChf }
+        var relativeDev: Double {
+            guard targetPct != 0 else { return 0 }
+            return (actualPct - targetPct) / targetPct
+        }
     }
 
     struct Bubble: Identifiable {
