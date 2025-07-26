@@ -35,8 +35,12 @@ struct SidebarView: View {
             }
 
             DisclosureGroup("Management", isExpanded: $showManagement) {
-                NavigationLink(destination: TargetAllocationMaintenanceView()) {
+                NavigationLink(destination: AllocationDashboardView()) {
                     Label("Asset Allocation", systemImage: "chart.pie")
+                }
+
+                NavigationLink(destination: TargetAllocationMaintenanceView()) {
+                    Label("Legacy Asset Allocation", systemImage: "clock.arrow.circlepath")
                 }
 
                 NavigationLink(destination: RebalancingView()) {
