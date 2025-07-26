@@ -36,6 +36,10 @@ extension DatabaseManager {
                 let value = String(cString: valuePtr)
                 // let dataType = String(cString: dataTypePtr)
                                 
+                if key == "db_version" {
+                    loadedVersion = value
+                }
+
                 DispatchQueue.main.async { // Ensure @Published vars are updated on the main thread
                     switch key {
                     case "base_currency":
@@ -59,7 +63,6 @@ extension DatabaseManager {
                     case "direct_re_target_chf":
                         self.directRealEstateTargetCHF = Double(value) ?? 0
                     case "db_version":
-                        loadedVersion = value
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
                     default:
