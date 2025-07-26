@@ -225,7 +225,7 @@ struct AccountsView: View {
                     }
                 } label: {
                     HStack(spacing: 6) {
-                        if isRefreshing { ProgressView().scaleEffect(0.7) } else { Image(systemName: "arrow.clockwise") }
+                        if isRefreshing { ProgressView().controlSize(.small) } else { Image(systemName: "arrow.clockwise") }
                         Text("Refresh Instrument Timestamps")
                     }
                     .font(.system(size: 14, weight: .medium))
