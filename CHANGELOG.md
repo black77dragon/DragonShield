@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Mention language code console warnings and how to silence them
 - Log database version correctly at startup
 - Label green stale account range as "<1 month / today"
+- Redesign Asset Allocation dashboard cards and charts
 - Show per-table row count comparison after restore in a modal window
 - Auto-expand stale account sections and open editable account detail window from Dashboard
 - Allow dashboard tiles to resize adaptively with a responsive grid
