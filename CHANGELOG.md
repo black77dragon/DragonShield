@@ -406,3 +406,4 @@ All notable changes to this project will be documented in this file.
 - Replace blue Top 10 Positions tile with modern white card showing all positions
 - Reduce list row spacing in Top Positions card for denser display
 - Refine Asset Class card with captioned display toggle and color-coded deviation bars
+- Tweak Asset Allocation rows with caption header and uniform deviation bars
