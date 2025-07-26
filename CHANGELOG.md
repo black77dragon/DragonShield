@@ -410,3 +410,4 @@ All notable changes to this project will be documented in this file.
 - Refine Asset Class card with captioned display toggle and color-coded deviation bars
 - Tweak Asset Allocation rows with caption header and uniform deviation bars
 - Enhance deviation column with centre line, delta numbers and action icons
+- Implement accurate centre-based deviation bars in Asset Allocation view

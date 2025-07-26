@@ -316,7 +316,9 @@ struct AssetRow: View {
             Text(formatPercent(node.actualPct))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
-            DeviationBar(dev: node.deviationPct / 100.0, trackWidth: trackWidth)
+            DeviationBar(target: node.targetPct,
+                         actual: node.actualPct,
+                         trackWidth: trackWidth)
                 .frame(width: trackWidth)
 
             Text(formatSigned(node.deviationPct))
@@ -345,14 +347,13 @@ struct AssetRow: View {
 
     private func iconColor(_ dev: Double) -> Color {
         let tol = 0.05
-        if abs(dev) <= tol { return .gray }
-        return dev > 0 ? .success : .error
+        return abs(dev) <= tol ? .gray : .green
     }
 
     private func iconName(for dev: Double) -> String {
         let tol = 0.05
-        if dev > tol { return "plus" }
-        if dev < -tol { return "minus" }
+        if dev < -tol { return "plus" }
+        if dev > tol { return "minus" }
         return "checkmark"
     }
 }
@@ -366,29 +367,36 @@ fileprivate func barColor(_ dev: Double) -> Color {
 }
 
 struct DeviationBar: View {
-    var dev: Double
+    let target: Double
+    let actual: Double
     var trackWidth: CGFloat
 
-    var body: some View {
-        let half = trackWidth / 2
+    private var relDev: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target
+    }
 
+    private var halfTrack: CGFloat { trackWidth / 2 }
+
+    private var span: CGFloat {
+        let mag = min(abs(relDev), 1.0)
+        return CGFloat(mag) * halfTrack
+    }
+
+    private var offset: CGFloat {
+        relDev < 0 ? span : relDev > 0 ? -span : 0
+    }
+
+    var body: some View {
         ZStack {
             Capsule().fill(.quaternary)
                 .frame(width: trackWidth, height: 6)
             Rectangle().fill(Color.black.opacity(0.6))
                 .frame(width: 1, height: 8)
-            Capsule().fill(barColor(dev))
-                .frame(width: span(for: dev, half: half), height: 6)
-                .offset(x: offset(for: dev, half: half))
+            Capsule().fill(barColor(relDev))
+                .frame(width: span, height: 6)
+                .offset(x: offset)
         }
-    }
-
-    private func span(for dev: Double, half: CGFloat) -> CGFloat {
-        CGFloat(min(abs(dev), 1.0)) * half
-    }
-
-    private func offset(for dev: Double, half: CGFloat) -> CGFloat {
-        dev < 0 ? span(for: dev, half: half) : -span(for: dev, half: half)
     }
 }
 
