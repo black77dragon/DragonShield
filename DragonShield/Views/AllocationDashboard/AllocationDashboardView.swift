@@ -323,7 +323,7 @@ struct AssetRow: View {
 
             Text(formatSigned(node.relativeDev * 100))
                 .frame(width: deltaWidth, alignment: .trailing)
-                .foregroundStyle(barColor(node.relativeDev))
+                .foregroundStyle(barColor(node.relativeDev * 100))
 
             Image(systemName: iconName(for: node.relativeDev))
                 .font(.caption2.weight(.bold))
@@ -359,11 +359,10 @@ struct AssetRow: View {
     }
 }
 
-fileprivate func barColor(_ relDev: Double) -> Color {
-    let tol = 0.05
-    let mag = abs(relDev)
-    if mag <= tol { return .numberGreen }
-    if mag <= tol * 2 { return .numberAmber }
+fileprivate func barColor(_ diffPercent: Double) -> Color {
+    let mag = abs(diffPercent)
+    if mag <= 10 { return .numberGreen }
+    if mag <= 20 { return .numberAmber }
     return .numberRed
 }
 
@@ -372,19 +371,20 @@ struct DeviationBar: View {
     let actual: Double
     var trackWidth: CGFloat
 
-    private var relDev: Double {
+    private var diffPercent: Double {
         guard target != 0 else { return 0 }
-        return (actual - target) / target
+        return (actual - target) / target * 100
     }
 
     private var span: CGFloat {
-        let half = trackWidth / 2
-        let mag = min(abs(relDev), 1.0)
-        return CGFloat(mag) * half
+        let mag = min(abs(diffPercent), 100)
+        return trackWidth * CGFloat(mag) / 100
     }
 
     private var offset: CGFloat {
-        relDev < 0 ? span : relDev > 0 ? -span : 0
+        if diffPercent < 0 { return span / 2 }
+        if diffPercent > 0 { return -span / 2 }
+        return 0
     }
 
     var body: some View {
@@ -393,7 +393,7 @@ struct DeviationBar: View {
                 .frame(width: trackWidth, height: 6)
             Rectangle().fill(Color.black.opacity(0.6))
                 .frame(width: 1, height: 8)
-            Capsule().fill(barColor(relDev))
+            Capsule().fill(barColor(diffPercent))
                 .frame(width: span, height: 6)
                 .offset(x: offset)
         }
