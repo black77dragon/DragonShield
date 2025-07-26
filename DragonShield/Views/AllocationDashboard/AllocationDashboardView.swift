@@ -159,11 +159,16 @@ struct AllocationTreeCard: View {
 
     var body: some View {
         Card {
-            HStack {
+            HStack(alignment: .top) {
                 Text("Asset Classes")
                     .font(.headline)
                 Spacer()
-                SegmentedPicker
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Display mode")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    SegmentedPicker
+                }
             }
             .padding(.horizontal, 24)
             Divider()
@@ -236,10 +241,9 @@ struct AssetRow: View {
                 .frame(width: 50, alignment: .trailing)
                 .font(.system(.footnote, design: .monospaced))
             deviationBar
-                .frame(width: 60)
             Text(String(format: "%+.1f%%", node.deviationPct))
-                .frame(width: 50, alignment: .trailing)
                 .font(.system(.footnote, design: .monospaced))
+                .padding(.leading, 4)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 24)
@@ -248,14 +252,26 @@ struct AssetRow: View {
     }
 
     private var deviationBar: some View {
+        let tol = 5.0
         let dev = node.deviationPct
-        let devColor = dev > 0 ? Color.numberRed : Color.numberGreen
-        return ZStack(alignment: .leading) {
-            Capsule().fill(Color.gray.opacity(0.25))
-            Capsule().fill(devColor).frame(width: abs(dev) * 60)
+        let magnitude = abs(dev)
+        let maxWidth: CGFloat = 60
+        let fillWidth = CGFloat(min(100.0, magnitude) / 100) * maxWidth
+        let xpos: CGFloat = dev < 0 ? maxWidth : -fillWidth
+
+        return ZStack {
+            Capsule().fill(Color.quaternary)
+            Capsule().fill(fillColor(tol, magnitude))
+                .frame(width: fillWidth)
+                .offset(x: xpos)
         }
-        .frame(height: 6)
-        .offset(x: dev >= 0 ? 30 : -30)
+        .frame(width: maxWidth * 2, height: 6)
+    }
+
+    private func fillColor(_ tol: Double, _ mag: Double) -> Color {
+        if mag <= tol { return .numberGreen }
+        if mag <= tol * 2 { return .numberAmber }
+        return .numberRed
     }
 }
 
