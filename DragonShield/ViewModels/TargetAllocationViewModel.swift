@@ -61,6 +61,7 @@ class TargetAllocationViewModel: ObservableObject {
                 // direct real estate stored via configuration separately
                 directRealEstateTargetCHF = amount
             }
+            _ = row.tolerance
         }
         subClassTargets = subMap
         classTargets = classMap
