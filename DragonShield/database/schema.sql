@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.17 - Add ImportSessionValueReports table
+-- Version 4.18 - Add target_kind and tolerance_percent columns
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
 -- - v4.5 -> v4.6: Extracted seed data into schema.txt for easier migrations.
@@ -195,6 +196,8 @@ CREATE TABLE TargetAllocation (
     sub_class_id INTEGER,
     target_percent REAL,
     target_amount_chf REAL,
+    target_kind TEXT NOT NULL DEFAULT 'percent' CHECK(target_kind IN('percent','amount')),
+    tolerance_percent REAL NOT NULL DEFAULT 5.0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(asset_class_id, sub_class_id),
     FOREIGN KEY (asset_class_id) REFERENCES AssetClasses(class_id),

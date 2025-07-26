@@ -61,20 +61,20 @@ INSERT INTO PositionReports VALUES (
 );
 
 -- Target allocations (class level)
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (4, NULL, 40, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (7, NULL, 15, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (2, NULL, 35, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (1, NULL, 15, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (3, NULL, 5, NULL, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, NULL, 40, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, NULL, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, NULL, 35, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (1, NULL, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (3, NULL, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
 
 -- Target allocations (sub-class level)
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (4, 11, 30, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (4, 14, 10, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (7, 18, 10, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (7, 21, 5, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (2, 3, 20, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (2, 4, 15, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (1, 1, 15, NULL, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, updated_at) VALUES (3, 7, 5, NULL, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, 11, 30, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, 14, 10, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, 18, 10, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, 21, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, 3, 20, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, 4, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (1, 1, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (3, 7, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
 
 PRAGMA foreign_keys=ON;
