@@ -5,17 +5,21 @@ struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationDashboardViewModel()
 
-    private let gridColumns = [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: 24)]
+    private let columns = [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: 24)]
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: gridColumns, spacing: 24) {
-                overviewSection
-                treeSection
-                chartsSection
-                actionsSection
+            LazyVGrid(columns: columns, spacing: 24) {
+                OverviewBar(total: viewModel.portfolioTotalFormatted,
+                            outOfRange: viewModel.outOfRangeCount,
+                            largestDeviation: viewModel.largestDeviation,
+                            rebalanceAmount: viewModel.rebalanceAmountFormatted)
+                AllocationTreeCard(viewModel: viewModel)
+                DeviationChartsCard(bubbles: viewModel.bubbles,
+                                   highlighted: $viewModel.highlightedId)
+                RebalanceListCard(actions: viewModel.actions)
             }
-            .padding(24)
+            .padding(.horizontal, 32)
         }
         .navigationTitle("Asset Allocation Targets")
         .toolbar {
@@ -27,96 +31,159 @@ struct AllocationDashboardView: View {
         .onAppear { viewModel.load(using: dbManager) }
     }
 
-    private var overviewSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                overviewTile(title: "Portfolio Total", value: viewModel.portfolioTotalFormatted, color: .primary)
-                overviewTile(title: "Assets Out of Range", value: "\(viewModel.outOfRangeCount)", color: .red)
-            }
-            HStack {
-                overviewTile(title: "Largest Deviation", value: String(format: "%.1f%%", viewModel.largestDeviation), color: .orange)
-                overviewTile(title: "Rebalancing Amount", value: viewModel.rebalanceAmountFormatted, color: .primary)
-            }
+}
+
+// MARK: - Components
+
+struct OverviewBar: View {
+    let total: String
+    let outOfRange: Int
+    let largestDeviation: Double
+    let rebalanceAmount: String
+
+    var body: some View {
+        HStack(spacing: 24) {
+            tile(label: "Portfolio Total", value: total, background: .clear)
+            Divider().frame(height: 40)
+            tile(label: "Assets Out of Range", value: "\(outOfRange)", background:
+                    .linearGradient(colors: [Color.numberRed.opacity(0.1), .white], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Divider().frame(height: 40)
+            tile(label: "Largest Deviation", value: String(format: "%.1f%%", largestDeviation), background:
+                    .linearGradient(colors: [Color.numberAmber.opacity(0.1), .white], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Divider().frame(height: 40)
+            tile(label: "Rebalancing Amount", value: rebalanceAmount, background: .clear)
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .background(Capsule().fill(Color.white).shadow(radius: 1))
     }
 
-    private func overviewTile(title: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption)
-            Text(value).font(.title3.bold()).foregroundColor(color)
+    private func tile(label: String, value: String, background: some ShapeStyle) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundColor(.primary)
         }
+        .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.fieldGray)
-        .cornerRadius(8)
+        .background(background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
+}
 
-    private var treeSection: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text("Allocations (%)").font(.headline)
-                Spacer()
-                Text("Tolerance ±5%")
-                    .font(.caption)
-                    .padding(4)
-                    .background(Color.softBlue)
-                    .cornerRadius(4)
+struct AllocationTreeCard: View {
+    @ObservedObject var viewModel: AllocationDashboardViewModel
+
+    var body: some View {
+        Card("Asset Classes") {
+            Picker("Display", selection: .constant(0)) {
+                Text("%").tag(0)
+                Text("CHF").tag(1)
             }
-            OutlineGroup(viewModel.assets, children: \.children) { asset in
-                allocationRow(asset)
+            .pickerStyle(.segmented)
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(viewModel.assets) { asset in
+                        AssetRowView(asset: asset, level: 0, highlighted: viewModel.highlightedId == asset.id)
+                        if let children = asset.children {
+                            ForEach(children) { child in
+                                AssetRowView(asset: child, level: 1, highlighted: viewModel.highlightedId == child.id)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+}
 
-    private func allocationRow(_ asset: AllocationDashboardViewModel.Asset) -> some View {
-        HStack {
-            Text(asset.name).frame(width: 120, alignment: .leading)
+struct AssetRowView: View {
+    let asset: AllocationDashboardViewModel.Asset
+    let level: Int
+    let highlighted: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(asset.name)
+                .frame(width: level == 0 ? 140 : 120, alignment: .leading)
             Spacer()
-            Text(String(format: "%.1f%%", asset.targetPct)).frame(width: 60, alignment: .trailing)
-            Text(String(format: "%.1f%%", asset.actualPct)).frame(width: 60, alignment: .trailing)
-            deviationBar(for: asset).frame(width: 80, height: 8)
-            Text(String(format: "%+.1f%%", asset.deviationPct)).frame(width: 50, alignment: .trailing)
+            Text(String(format: "%.1f%%", asset.targetPct))
+                .frame(width: 50, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
+            Text(String(format: "%.1f%%", asset.actualPct))
+                .frame(width: 50, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
+            deviationBar
+                .frame(width: 60)
+            Text(String(format: "%+.1f%%", asset.deviationPct))
+                .frame(width: 50, alignment: .trailing)
+                .font(.system(.footnote, design: .monospaced))
         }
         .padding(.vertical, 4)
-        .background(viewModel.highlightedId == asset.id ? Color.softBlue.opacity(0.3) : Color.clear)
-        .onTapGesture { viewModel.highlightedId = asset.id }
-    }
-
-    private func deviationBar(for asset: AllocationDashboardViewModel.Asset) -> some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let pct = abs(asset.deviationPct)
-            let color: Color = pct > 10 ? .red : (pct > 5 ? .orange : .green)
-            HStack(spacing: 0) {
-                Spacer()
-                Rectangle().fill(color).frame(width: width * CGFloat(min(pct/10,1)))
+        .background(highlighted ? Color.blue.opacity(0.1) : (level == 0 ? Color.fieldGray.opacity(0.4) : Color.clear))
+        .overlay(alignment: .leading) {
+            if highlighted {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: 3)
             }
         }
     }
 
-    private var chartsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Deviation Bubble Chart").font(.headline)
-            Chart(viewModel.bubbles) { bubble in
-                PointMark(x: .value("Deviation", bubble.deviation), y: .value("Allocation", bubble.allocation))
-                    .foregroundStyle(bubble.color)
-                    .symbolSize(bubble.size)
+    private var deviationBar: some View {
+        let dev = asset.deviationPct
+        let devColor = dev > 0 ? Color.numberRed : Color.numberGreen
+        return ZStack(alignment: .leading) {
+            Capsule().fill(Color.quaternary)
+            Capsule().fill(devColor).frame(width: abs(dev) * 60)
+        }
+        .frame(height: 6)
+        .offset(x: dev >= 0 ? 30 : -30)
+    }
+}
+
+struct DeviationChartsCard: View {
+    let bubbles: [AllocationDashboardViewModel.Bubble]
+    @Binding var highlighted: String?
+
+    var body: some View {
+        Card("Deviation Bubble Chart") {
+            Chart(bubbles) { bubble in
+                PointMark(
+                    x: .value("Deviation", bubble.deviation),
+                    y: .value("Allocation", bubble.allocation),
+                    size: .value("Allocation %", bubble.allocation),
+                    series: .value("Asset", bubble.name)
+                )
+                .symbol(by: .value("State", bubble.color))
+                .foregroundStyle(bubble.color)
             }
+            .chartXScale(domain: -25...25)
+            .chartYScale(domain: 0...40)
             .frame(height: 240)
         }
     }
+}
 
-    private var actionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Top Rebalancing Actions").font(.headline)
-            ForEach(viewModel.actions.prefix(5)) { action in
+struct RebalanceListCard: View {
+    let actions: [AllocationDashboardViewModel.Action]
+
+    var body: some View {
+        Card("Top Rebalancing Actions") {
+            ForEach(actions.prefix(5)) { action in
                 HStack {
                     Text(action.label)
                     Spacer()
                     Text(action.amount)
+                        .font(.system(.body, design: .monospaced))
                 }
             }
-            Button("Execute") {}.disabled(true)
+            Button("Execute") {}
+                .disabled(true)
         }
     }
 }
