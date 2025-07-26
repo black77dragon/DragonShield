@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Fix Import Values window closing when pressing the Close button
 - Present value report in a table window after import
 - Document production folder path and backups in README
+- Add bottom-right resize handle to dashboard tiles for discoverable resizing
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Display consolidated crypto allocations with scrolling in Dashboard (#PR)
