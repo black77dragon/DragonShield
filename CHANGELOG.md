@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Polish Crypto Allocations tile visuals and reduce row spacing
+- Make dashboard grid responsive with adaptive columns and 24pt spacing
 - Add macOS Kanban to-do board with drag-and-drop
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links

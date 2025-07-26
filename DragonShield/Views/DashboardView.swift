@@ -3,7 +3,15 @@ import SwiftUI
 private let layoutKey = "dashboardTileLayout"
 
 struct DashboardView: View {
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
+    private enum Layout {
+        static let spacing: CGFloat = 24
+        static let minWidth: CGFloat = 260
+        static let maxWidth: CGFloat = 400
+    }
+
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: Layout.minWidth, maximum: Layout.maxWidth), spacing: Layout.spacing)]
+    }
 
     @State private var tileIDs: [String] = []
     @State private var showingPicker = false
@@ -11,7 +19,7 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
+            LazyVGrid(columns: columns, spacing: Layout.spacing) {
                 ForEach(tileIDs, id: \.self) { id in
                     if let tile = TileRegistry.view(for: id) {
                         tile
@@ -24,7 +32,8 @@ struct DashboardView: View {
                     }
                 }
             }
-            .padding()
+            .padding(Layout.spacing)
+            .animation(.easeInOut(duration: 0.2), value: columns.count)
         }
         .navigationTitle("Dashboard")
         .toolbar {
