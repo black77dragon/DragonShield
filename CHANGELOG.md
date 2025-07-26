@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Compute value report from positions when stored data is missing
 - Fix unused variable warning when computing position values
 - Display consolidated crypto allocations with scrolling in Dashboard (#PR)
+- Polish Crypto Allocations dashboard tile visuals with captions and weight bars
 - Add Crypto Top 5 dashboard tile showing largest crypto holdings
 - Populate import session value report modal with stored rows
 - Improve Credit-Suisse parser instrument matching via Valor/ISIN with row-level logging of Valor and ISIN

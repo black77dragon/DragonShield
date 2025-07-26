@@ -16,6 +16,7 @@ struct CryptoTop5Tile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @State private var rows: [CryptoRow] = []
     @State private var loading = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private static let chfFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -27,42 +28,92 @@ struct CryptoTop5Tile: DashboardTile {
     }()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text(Self.tileName)
                 .font(.system(size: 17, weight: .semibold))
+
+            HStack(alignment: .bottom) {
+                Text("ASSET")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("VALUE (CHF)")
+                    .frame(width: 80, alignment: .trailing)
+                Text("WEIGHT")
+                    .frame(width: 60, alignment: .trailing)
+            }
+            .font(.caption2)
+            .foregroundColor(Color(red: 100/255, green: 116/255, blue: 139/255))
+            .textCase(.uppercase)
+            .padding(.bottom, 4)
+
             if loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(rows) { item in
+                    VStack(spacing: 16) {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
                             rowView(item)
-                                .padding(.vertical, 4)
+                            if index != rows.count - 1 {
+                                Divider()
+                                    .foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
                 .frame(maxHeight: rows.count > 6 ? 200 : .infinity)
             }
         }
-        .padding(16)
+        .padding(24)
         .background(Color.white)
-        .cornerRadius(12)
+        .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
         .onAppear(perform: calculate)
         .accessibilityElement(children: .combine)
     }
 
     private func rowView(_ item: CryptoRow) -> some View {
-        HStack {
+        HStack(alignment: .top) {
             Text(item.symbol)
+                .fontWeight(.semibold)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "0")
+
+            Text(Self.chfFormatter.string(from: NSNumber(value: item.valueCHF)) ?? "\u2014")
+                .font(.system(.body, design: .monospaced))
                 .frame(width: 80, alignment: .trailing)
-            Text(String(format: "%.1f%%", item.percentage))
-                .frame(width: 50, alignment: .trailing)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(String(format: "%.1f %%", item.percentage))
+                    .font(.system(size: 13, weight: .bold))
+                weightBar(item.percentage)
+            }
+            .frame(width: 60, alignment: .trailing)
         }
         .font(.system(size: 13))
+    }
+
+    private func weightBar(_ percentage: Double) -> some View {
+        GeometryReader { geometry in
+            let fraction = CGFloat(percentage / 100)
+            let width = max(fraction * geometry.size.width, 2)
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(colorScheme == .dark ? Color(red: 46/255, green: 46/255, blue: 46/255)
+                                              : Color(red: 241/255, green: 245/255, blue: 249/255))
+                    .frame(height: 4)
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 59/255, green: 130/255, blue: 246/255),
+                                     Color(red: 6/255, green: 182/255, blue: 212/255)],
+                            startPoint: .leading,
+                            endPoint: .trailing)
+                    )
+                    .frame(width: width, height: 4)
+            }
+        }
+        .frame(width: 60, height: 4)
+        .accessibilityLabel(Text(String(format: "%.1f%% weight", percentage)))
     }
 
     private func calculate() {
