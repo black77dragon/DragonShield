@@ -14,6 +14,7 @@ struct AllocationDashboardView: View {
                             outOfRange: viewModel.outOfRangeCount,
                             largestDeviation: viewModel.largestDeviation,
                             rebalanceAmount: viewModel.rebalanceAmountFormatted)
+                    .gridCellColumns(columns.count)
                 AllocationTreeCard(viewModel: viewModel)
                 DeviationChartsCard(bubbles: viewModel.bubbles,
                                    highlighted: $viewModel.highlightedId)
@@ -40,37 +41,72 @@ struct OverviewBar: View {
     let outOfRange: Int
     let largestDeviation: Double
     let rebalanceAmount: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(spacing: 24) {
-            tile(label: "Portfolio Total", value: total, background: .clear)
-            Divider().frame(height: 40)
-            tile(label: "Assets Out of Range", value: "\(outOfRange)", background:
-                    .linearGradient(colors: [Color.numberRed.opacity(0.1), .white], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Divider().frame(height: 40)
-            tile(label: "Largest Deviation", value: String(format: "%.1f%%", largestDeviation), background:
-                    .linearGradient(colors: [Color.numberAmber.opacity(0.1), .white], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Divider().frame(height: 40)
-            tile(label: "Rebalancing Amount", value: rebalanceAmount, background: .clear)
+        HStack(spacing: 0) {
+            OverviewTile(value: total, label: "Portfolio Total")
+            Divider().frame(width: 1, height: 40)
+            OverviewTile(value: "\(outOfRange)", label: "Assets Out of Range", style: .alert)
+            Divider().frame(width: 1, height: 40)
+            OverviewTile(value: String(format: "%.1f%%", largestDeviation), label: "Largest Deviation", style: .warning)
+            Divider().frame(width: 1, height: 40)
+            OverviewTile(value: rebalanceAmount, label: "Rebalancing Amount")
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-        .background(Capsule().fill(Color.white).shadow(radius: 1))
+        .padding(.horizontal, 32)
+        .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(colorScheme == .dark ? .ultraThinMaterial : .white)
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(colorScheme == .dark ? .tertiary : .quaternary, lineWidth: 1)
+                )
+        )
     }
+}
 
-    private func tile(label: String, value: String, background: some ShapeStyle) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
+enum TileStyle { case neutral, alert, warning }
+
+struct OverviewTile: View {
+    var value: String
+    var label: String
+    var style: TileStyle = .neutral
+
+    var body: some View {
+        VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundStyle(valueColor)
+
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(background)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background(tileBackground)
+    }
+
+    private var valueColor: Color {
+        switch style {
+        case .alert: return .red
+        case .warning: return .orange
+        case .neutral: return .primary
+        }
+    }
+
+    @ViewBuilder
+    private var tileBackground: some View {
+        switch style {
+        case .alert:
+            LinearGradient(colors: [.red.opacity(0.08), .white], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .warning:
+            LinearGradient(colors: [.orange.opacity(0.08), .white], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .neutral:
+            Color.clear
+        }
     }
 }
 
