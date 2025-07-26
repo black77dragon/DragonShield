@@ -28,7 +28,7 @@ struct CryptoTop5Tile: DashboardTile {
     }()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(Self.tileName)
                 .font(.system(size: 17, weight: .semibold))
             if loading {
@@ -37,7 +37,7 @@ struct CryptoTop5Tile: DashboardTile {
             } else {
                 headerRow
                 ScrollView {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 12) {
                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
                             rowView(item)
                             if index != rows.count - 1 {
@@ -71,7 +71,7 @@ struct CryptoTop5Tile: DashboardTile {
                 .font(.system(.body, design: .monospaced))
                 .frame(width: 80, alignment: .trailing)
 
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(String(format: "%.1f %%", item.percentage))
                     .font(.system(size: 13, weight: .bold))
                 weightBar(percent: item.percentage)
