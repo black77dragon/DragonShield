@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Rework Asset Classes card header with inline picker
 - Combine Asset Class and SubClass management into one page with sortable rows
 - Add column filters, single-column sorting and double-click editing to Instruments and Positions tables
+- Refine deviation bar logic in Asset Allocation view
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
