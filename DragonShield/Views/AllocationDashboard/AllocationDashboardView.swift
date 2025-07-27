@@ -7,11 +7,8 @@ struct AllocationDashboardView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let sidePad: CGFloat = 32
-            let usableWidth = geo.size.width - sidePad * 2
-
-            ScrollView {
-                VStack(spacing: 32) {
+            ScrollView([.vertical, .horizontal]) {
+                VStack(spacing: 24) {
                     OverviewBar(portfolioTotal: viewModel.portfolioTotalFormatted,
                                 outOfRange: "\(viewModel.outOfRangeCount)",
                                 largestDev: String(format: "%.1f%%", viewModel.largestDeviation),
@@ -19,18 +16,20 @@ struct AllocationDashboardView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, 8)
 
-                    HStack(alignment: .top, spacing: 32) {
-                        AllocationTreeCard(width: usableWidth * 0.45, viewModel: viewModel)
+                    HStack(alignment: .top, spacing: 24) {
+                        AllocationTreeCard(viewModel: viewModel)
+                            .frame(minWidth: 340)
+                            .layoutPriority(1)
 
-                        VStack(spacing: 32) {
+                        VStack(spacing: 24) {
                             DeviationChartsCard(bubbles: viewModel.bubbles,
                                                highlighted: $viewModel.highlightedId)
                             RebalanceListCard(actions: viewModel.actions)
                         }
-                        .frame(width: usableWidth * 0.55)
+                        .frame(minWidth: 300)
                     }
                 }
-                .padding(.horizontal, sidePad)
+                .padding(.horizontal, 24)
                 .padding(.bottom, 40)
             }
         }
@@ -154,37 +153,30 @@ struct OverviewTile: View {
 }
 
 struct AllocationTreeCard: View {
-    let width: CGFloat
     @ObservedObject var viewModel: AllocationDashboardViewModel
     @State private var displayMode: DisplayMode = Self.loadMode()
     @State private var expanded: [String: Bool] = [:]
-
-    // Final column layout based on 640pt reference width
-    private let targetCol: CGFloat = 52
-    private let actualCol: CGFloat = 52
-    private let trackCol:  CGFloat = 128
-    private let deltaCol:  CGFloat = 40
-    private let gap:       CGFloat = 10
-
-    private var nameCol: CGFloat {
-        max(width - 16 - gap * 5 - targetCol - actualCol - trackCol - deltaCol, 160)
-    }
+    private let gap: CGFloat = 8
 
     var body: some View {
-        Card {
-            VStack(spacing: 0) {
-                HeaderBar()
-                CaptionRow(nameWidth: nameCol,
-                           targetWidth: targetCol,
-                           actualWidth: actualCol,
-                           trackWidth: trackCol,
-                           deltaWidth: deltaCol,
-                           gap: gap)
-                Divider()
-                ScrollView { VStack(spacing: 0) { rows } }
+        GeometryReader { geo in
+            let nameCol = geo.size.width * 0.36
+            let targetCol = geo.size.width * 0.18
+            let actualCol = geo.size.width * 0.18
+            let deviationCol = geo.size.width * 0.28
+
+            Card {
+                VStack(spacing: 0) {
+                    HeaderBar()
+                    CaptionRow(nameWidth: nameCol,
+                               targetWidth: targetCol,
+                               actualWidth: actualCol,
+                               deviationWidth: deviationCol,
+                               gap: gap)
+                    ScrollView { VStack(spacing: 0) { rows(nameCol, targetCol, actualCol, deviationCol) } }
+                }
             }
         }
-        .frame(width: width)
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
     }
@@ -214,27 +206,25 @@ struct AllocationTreeCard: View {
     }
 
     @ViewBuilder
-    private var rows: some View {
+    private func rows(_ nameW: CGFloat, _ targetW: CGFloat, _ actualW: CGFloat, _ devW: CGFloat) -> some View {
         ForEach(viewModel.assets) { parent in
             AssetRow(node: parent,
                      mode: displayMode,
                      expanded: binding(for: parent.id),
-                     nameWidth: nameCol,
-                     targetWidth: targetCol,
-                     actualWidth: actualCol,
-                     trackWidth: trackCol,
-                     deltaWidth: deltaCol,
+                     nameWidth: nameW,
+                     targetWidth: targetW,
+                     actualWidth: actualW,
+                     deviationWidth: devW,
                      gap: gap)
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
                     AssetRow(node: child,
                              mode: displayMode,
                              expanded: .constant(false),
-                             nameWidth: nameCol,
-                             targetWidth: targetCol,
-                             actualWidth: actualCol,
-                             trackWidth: trackCol,
-                             deltaWidth: deltaCol,
+                             nameWidth: nameW,
+                             targetWidth: targetW,
+                             actualWidth: actualW,
+                             deviationWidth: devW,
                              gap: gap)
                 }
             }
@@ -268,8 +258,7 @@ struct AllocationTreeCard: View {
         let nameWidth: CGFloat
         let targetWidth: CGFloat
         let actualWidth: CGFloat
-        let trackWidth: CGFloat
-        let deltaWidth: CGFloat
+        let deviationWidth: CGFloat
         let gap: CGFloat
 
         var body: some View {
@@ -288,7 +277,7 @@ struct AllocationTreeCard: View {
                 Text("DEVIATION")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: trackWidth + gap + deltaWidth, alignment: .center)
+                    .frame(width: deviationWidth, alignment: .center)
                     .lineLimit(1)
             }
             .padding(.horizontal, 16)
@@ -308,8 +297,7 @@ struct AssetRow: View {
     let nameWidth: CGFloat
     let targetWidth: CGFloat
     let actualWidth: CGFloat
-    let trackWidth: CGFloat
-    let deltaWidth: CGFloat
+    let deviationWidth: CGFloat
     let gap: CGFloat
 
     private var target: Double {
@@ -329,7 +317,7 @@ struct AssetRow: View {
 
     var body: some View {
         let diffPct = relativeDeviation * 100
-        let track = trackWidth - 24
+        let track = deviationWidth - 24
         let span = track * CGFloat(min(abs(diffPct), 100)) / 100 * 0.5
         let labelInside = span >= track * 0.25
 
@@ -374,8 +362,8 @@ struct AssetRow: View {
                 ZStack(alignment: diffPct >= 0 ? .trailing : .leading) {
                     DeviationBar(target: target,
                                  actual: actual,
-                                 trackWidth: trackWidth)
-                        .frame(width: trackWidth)
+                                 trackWidth: deviationWidth)
+                        .frame(maxWidth: .infinity)
                     if labelInside {
                         Text(formatDeviation(deviation))
                             .font(.caption2)
@@ -388,17 +376,16 @@ struct AssetRow: View {
                     Text(formatDeviation(deviation))
                         .font(.caption2)
                         .foregroundStyle(barColor(diffPct))
-                        .frame(width: deltaWidth, alignment: .trailing)
                         .lineLimit(1)
-                } else {
-                    Spacer().frame(width: deltaWidth)
                 }
             }
-
+            .frame(width: deviationWidth, alignment: .trailing)
         }
+
         .padding(.vertical, node.children != nil ? 6 : 4)
         .padding(.horizontal, 16)
         .background(node.children != nil ? Color.systemGray6 : .clear)
+        .frame(height: node.children != nil ? 28 : 24)
         .accessibilityElement(children: .combine)
     }
 
@@ -427,6 +414,16 @@ struct AssetRow: View {
         Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
     }
 
+    private func shortChf(_ value: Double) -> String {
+        let absV = abs(value)
+        if absV >= 1_000_000 {
+            return String(format: "%.1f\u{202f}M", value / 1_000_000)
+        } else if absV >= 1_000 {
+            return String(format: "%.0f\u{202f}k", value / 1_000)
+        }
+        return formatChf(value)
+    }
+
     private func formatSignedPercent(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : "-"
         return sign + (Self.percentFormatter.string(from: NSNumber(value: abs(value))) ?? "") + " %"
@@ -434,11 +431,11 @@ struct AssetRow: View {
 
     private func formatSignedChf(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : "-"
-        return sign + (Self.chfFormatter.string(from: NSNumber(value: abs(value))) ?? "")
+        return sign + shortChf(abs(value))
     }
 
     private func formatValue(_ value: Double) -> String {
-        mode == .percent ? formatPercent(value) : formatChf(value)
+        mode == .percent ? formatPercent(value) : shortChf(value)
     }
 
     private func formatDeviation(_ value: Double) -> String {
