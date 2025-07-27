@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Maintain equal margin around Asset-Class table to prevent bleed
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
+- Enhance Asset Classes table with flexible columns, dedicated delta column and sortable headers
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
 - Rework Asset Classes card header with inline picker

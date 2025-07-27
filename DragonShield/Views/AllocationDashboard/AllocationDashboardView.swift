@@ -106,6 +106,8 @@ enum TileStyle { case neutral, alert, warning }
 
 enum DisplayMode: String { case percent, chf }
 
+private enum SortColumn { case target, actual, delta }
+
 struct OverviewTile: View {
     var value: String
     var label: String
@@ -156,6 +158,8 @@ struct AllocationTreeCard: View {
     @ObservedObject var viewModel: AllocationDashboardViewModel
     @State private var displayMode: DisplayMode = Self.loadMode()
     @State private var expanded: [String: Bool] = [:]
+    @State private var sortColumn: SortColumn = .actual
+    @State private var sortAscending = false
 
     private let gap: CGFloat = 10
 
@@ -164,12 +168,15 @@ struct AllocationTreeCard: View {
             GeometryReader { geo in
                 let sidePad: CGFloat = 12
                 let tableWidth = geo.size.width - sidePad * 2
-                let nameCol = tableWidth * 0.36
-                let targetCol = tableWidth * 0.18
-                let actualCol = tableWidth * 0.18
-                let devCol = tableWidth * 0.28
-                let trackCol = devCol * 0.75
-                let deltaCol = devCol - trackCol
+                let barWidth: CGFloat = 90
+                let deltaWidth: CGFloat = 68
+                let minCol: CGFloat = 80
+                let flex = tableWidth - barWidth - deltaWidth - 16 - gap * 4
+                let targetCol = max(minCol, flex * 0.25)
+                let actualCol = max(minCol, flex * 0.25)
+                let nameCol = max(0, flex - targetCol - actualCol)
+                let trackCol = barWidth
+                let deltaCol = deltaWidth
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
@@ -179,7 +186,10 @@ struct AllocationTreeCard: View {
                                actualWidth: actualCol,
                                trackWidth: trackCol,
                                deltaWidth: deltaCol,
-                               gap: gap)
+                               gap: gap,
+                               sortColumn: sortColumn,
+                               sortAscending: sortAscending,
+                               sortAction: toggleSort)
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
@@ -220,6 +230,26 @@ struct AllocationTreeCard: View {
         .padding(.horizontal, 16)
     }
 
+    private var sortedParents: [AllocationDashboardViewModel.Asset] {
+        viewModel.assets.sorted { lhs, rhs in
+            let lhsVal: Double
+            let rhsVal: Double
+            switch sortColumn {
+            case .target:
+                lhsVal = displayMode == .percent ? lhs.targetPct : lhs.targetChf
+                rhsVal = displayMode == .percent ? rhs.targetPct : rhs.targetChf
+            case .actual:
+                lhsVal = displayMode == .percent ? lhs.actualPct : lhs.actualChf
+                rhsVal = displayMode == .percent ? rhs.actualPct : rhs.actualChf
+            case .delta:
+                lhsVal = displayMode == .percent ? lhs.deviationPct : lhs.deviationChf
+                rhsVal = displayMode == .percent ? rhs.deviationPct : rhs.deviationChf
+            }
+            if lhsVal == rhsVal { return lhs.name < rhs.name }
+            return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
+        }
+    }
+
     @ViewBuilder
     private func rows(_ nameWidth: CGFloat,
                       _ targetWidth: CGFloat,
@@ -227,7 +257,7 @@ struct AllocationTreeCard: View {
                       _ trackWidth: CGFloat,
                       _ deltaWidth: CGFloat,
                       _ compact: Bool) -> some View {
-        ForEach(viewModel.assets) { parent in
+        ForEach(sortedParents) { parent in
             AssetRow(node: parent,
                      mode: displayMode,
                      compact: compact,
@@ -278,6 +308,15 @@ struct AllocationTreeCard: View {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
 
+    private func toggleSort(column: SortColumn) {
+        if sortColumn == column {
+            sortAscending.toggle()
+        } else {
+            sortColumn = column
+            sortAscending = false
+        }
+    }
+
     struct CaptionRow: View {
         let nameWidth: CGFloat
         let targetWidth: CGFloat
@@ -285,31 +324,48 @@ struct AllocationTreeCard: View {
         let trackWidth: CGFloat
         let deltaWidth: CGFloat
         let gap: CGFloat
+        let sortColumn: SortColumn
+        let sortAscending: Bool
+        let sortAction: (SortColumn) -> Void
 
         var body: some View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
-                Text("TARGET")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                sortHeader(title: "TARGET", column: .target)
                     .frame(width: targetWidth, alignment: .trailing)
-                    .lineLimit(1)
-                Text("ACTUAL")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                sortHeader(title: "ACTUAL", column: .actual)
                     .frame(width: actualWidth, alignment: .trailing)
-                    .lineLimit(1)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: trackWidth + gap + deltaWidth, alignment: .center)
-                    .lineLimit(1)
+                Spacer().frame(width: trackWidth)
+                sortHeader(title: "Δ", column: .delta)
+                    .frame(width: deltaWidth, alignment: .trailing)
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
                 Divider()
                     .background(Color.systemGray4)
             }
+        }
+
+        private func sortHeader(title: String, column: SortColumn) -> some View {
+            Button(action: { sortAction(column) }) {
+                HStack(spacing: 2) {
+                    Text(title)
+                    Image(systemName: iconName(for: column))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(iconColor(for: column))
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .buttonStyle(.plain)
+        }
+
+        private func iconName(for column: SortColumn) -> String {
+            if sortColumn != column { return "arrow.up.arrow.down" }
+            return sortAscending ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill"
+        }
+
+        private func iconColor(for column: SortColumn) -> Color {
+            sortColumn == column ? .accentColor : .secondary
         }
     }
 }
@@ -343,9 +399,6 @@ struct AssetRow: View {
 
     var body: some View {
         let diffPct = relativeDeviation * 100
-        let track = trackWidth - 24
-        let span = track * CGFloat(min(abs(diffPct), 100)) / 100 * 0.5
-        let labelInside = span >= track * 0.25
 
         HStack(spacing: gap) {
             if node.children != nil {
@@ -384,29 +437,16 @@ struct AssetRow: View {
                 .font(node.children != nil ? .body.bold() : .subheadline)
                 .lineLimit(1)
 
-            HStack(spacing: labelInside ? 0 : 4) {
-                ZStack(alignment: diffPct >= 0 ? .trailing : .leading) {
-                    DeviationBar(target: target,
-                                 actual: actual,
-                                 trackWidth: trackWidth)
-                        .frame(width: trackWidth)
-                    if labelInside {
-                        Text(formatDeviation(deviation))
-                            .font(.caption2)
-                            .foregroundStyle(barColor(diffPct))
-                            .padding(.horizontal, 2)
-                            .lineLimit(1)
-                    }
-                }
-                if !labelInside {
-                    Text(formatDeviation(deviation))
-                        .font(.caption2)
-                        .foregroundStyle(barColor(diffPct))
-                        .frame(width: deltaWidth, alignment: .trailing)
-                        .lineLimit(1)
-                } else {
-                    Spacer().frame(width: deltaWidth)
-                }
+            HStack(spacing: 4) {
+                DeviationBar(target: target,
+                             actual: actual,
+                             trackWidth: trackWidth)
+                    .frame(width: trackWidth)
+                Text(formatDeviation(deviation))
+                    .font(.caption2)
+                    .foregroundStyle(barColor(diffPct))
+                    .frame(width: deltaWidth, alignment: .trailing)
+                    .lineLimit(1)
             }
 
         }
@@ -434,12 +474,13 @@ struct AssetRow: View {
 
     private func short(_ value: Double) -> String {
         let absV = abs(value)
+        if absV < 0.5 { return "0" }
         if absV >= 1_000_000 {
             return String(format: "%.1f\u{202f}M", value / 1_000_000)
         } else if absV >= 1_000 {
             return String(format: "%.0f\u{202f}k", value / 1_000)
         }
-        return Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+        return String(format: "%.0f", value)
     }
 
     private func formatPercent(_ value: Double) -> String {
@@ -447,8 +488,7 @@ struct AssetRow: View {
     }
 
     private func formatChf(_ value: Double) -> String {
-        if compact { return short(value) }
-        return Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+        short(value)
     }
 
     private func formatSignedPercent(_ value: Double) -> String {
@@ -458,8 +498,7 @@ struct AssetRow: View {
 
     private func formatSignedChf(_ value: Double) -> String {
         let sign = value >= 0 ? "+" : "-"
-        if compact { return sign + short(abs(value)) }
-        return sign + (Self.chfFormatter.string(from: NSNumber(value: abs(value))) ?? "")
+        return sign + short(abs(value))
     }
 
     private func formatValue(_ value: Double) -> String {
