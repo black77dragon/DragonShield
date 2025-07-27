@@ -8,11 +8,16 @@ All notable changes to this project will be documented in this file.
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
 - Fix compile errors in Asset Allocation dashboard views
+- Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
 - Correct side padding and responsive columns in Asset Allocation view
 - Add macOS Kanban to-do board with drag-and-drop
+- Polish asset-class table layout and typography
+- Refine deviation label placement in asset allocation table
+- Make Asset-Class table responsive with compact CHF numbers
+- Ensure Asset-Class table stays within tile padding
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
@@ -22,6 +27,8 @@ All notable changes to this project will be documented in this file.
 - Add column filters, single-column sorting and double-click editing to Instruments and Positions tables
 - Display tolerance pills in Asset Allocation table rows
 - Fix compile error referencing systemGray6 in tolerance pill background
+- Fix compile errors referencing system gray colours and deprecated onChange API
+- Provide fallback colours for systemGray4-6 on macOS to resolve compile errors
 - Refine deviation bar logic in Asset Allocation view
 - Update deviation bar display in Asset Allocation tile
 - Shorten deviation bars to half length in Asset Allocation tile
