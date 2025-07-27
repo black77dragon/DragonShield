@@ -426,3 +426,4 @@ All notable changes to this project will be documented in this file.
 - Tweak Asset Allocation rows with caption header and uniform deviation bars
 - Enhance deviation column with centre line, delta numbers and action icons
 - Add target_kind and tolerance_percent columns to TargetAllocation table
+- Polish Asset Classes table with dedicated Δ column and sortable headers
