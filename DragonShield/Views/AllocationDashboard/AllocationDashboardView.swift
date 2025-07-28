@@ -178,6 +178,12 @@ struct AllocationTreeCard: View {
     ]
     private static let widthsKey = "ui.assetAllocation.columnWidths"
 
+    private static func clamp(_ value: CGFloat, for key: ColumnKey) -> CGFloat {
+        let minV = minWidths[key] ?? 80
+        let maxV = maxWidths[key] ?? 250
+        return min(max(value, minV), maxV)
+    }
+
     enum SortColumn { case target, actual, delta }
 
     private let gap: CGFloat = 10
@@ -426,27 +432,22 @@ struct AllocationTreeCard: View {
             switch key {
             case .name:
                 if startName == nil { startName = nameWidth }
-                nameWidth = clamp(startName! + delta, key)
+                nameWidth = AllocationTreeCard.clamp(startName! + delta, for: key)
             case .target:
                 if startTarget == nil { startTarget = targetWidth }
-                targetWidth = clamp(startTarget! + delta, key)
+                targetWidth = AllocationTreeCard.clamp(startTarget! + delta, for: key)
             case .actual:
                 if startActual == nil { startActual = actualWidth }
-                actualWidth = clamp(startActual! + delta, key)
+                actualWidth = AllocationTreeCard.clamp(startActual! + delta, for: key)
             case .deltaVal:
                 if startDelta == nil { startDelta = deltaWidth }
-                deltaWidth = clamp(startDelta! + delta, key)
+                deltaWidth = AllocationTreeCard.clamp(startDelta! + delta, for: key)
             case .bar:
                 if startBar == nil { startBar = trackWidth }
-                trackWidth = clamp(startBar! + delta, key)
+                trackWidth = AllocationTreeCard.clamp(startBar! + delta, for: key)
             }
         }
 
-        private func clamp(_ value: CGFloat, _ key: ColumnKey) -> CGFloat {
-            let minV = AllocationTreeCard.minWidths[key] ?? 80
-            let maxV = AllocationTreeCard.maxWidths[key] ?? 250
-            return min(max(value, minV), maxV)
-        }
 
         private func saveWidths() {
             let dict: [String: Double] = [
