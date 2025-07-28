@@ -1,5 +1,8 @@
 import SwiftUI
 import Charts
+#if os(macOS)
+import AppKit
+#endif
 
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -409,7 +412,7 @@ struct AllocationTreeCard: View {
                 .padding(.trailing, -3)
                 .gesture(dragGesture(for: key))
 #if os(macOS)
-                .cursor(.resizeLeftRight)
+                .horizontalResizeCursor()
 #endif
         }
 
@@ -710,6 +713,21 @@ struct RebalanceListCard: View {
         }
     }
 }
+
+#if os(macOS)
+private extension View {
+    @ViewBuilder
+    func horizontalResizeCursor() -> some View {
+        if #available(macOS 13, *) {
+            self.cursor(.resizeLeftRight)
+        } else {
+            self.onHover { hovering in
+                if hovering { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+        }
+    }
+}
+#endif
 
 struct AllocationDashboardView_Previews: PreviewProvider {
     static var previews: some View {
