@@ -405,6 +405,7 @@ struct AllocationTargetsTableView: View {
     @State private var showDonut = true
     @State private var showDelta = true
     @State private var editingClassId: Int?
+    @State private var selectedAssets = Set<String>()
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -502,7 +503,7 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Table(viewModel.assets, children: \.children) {
+            Table(viewModel.assets, selection: $selectedAssets, children: \.children) {
                 TableColumn("Asset") { asset in
                     Text(asset.name)
                         .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
@@ -550,6 +551,7 @@ struct AllocationTargetsTableView: View {
                                 if let id = cid { editingClassId = id }
                             } label: {
                                 Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                                    .foregroundColor(.accentColor)
                             }
                             .buttonStyle(.plain)
                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -598,6 +600,8 @@ struct AllocationTargetsTableView: View {
                     }
                 }
             }
+            .tableStyle(.inset(alternatesRowBackgrounds: true))
+            .tint(.softBlue)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
