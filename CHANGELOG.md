@@ -7,6 +7,14 @@ All notable changes to this project will be documented in this file.
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
+- Document Target Allocation edit panel workflow
+- Implement side-panel editor for Asset Class targets
+- Activate pencil edit button in Allocation Targets table
+- Fix edit pencil visibility in Allocation Targets table and place it next to Target column
+- Style pencil button for visibility and ensure it opens the edit panel
+- Show pencil button next to the Target column and open the edit panel on
+  double-click
+- Added persistent edit buttons and keyboard/double-click shortcuts for target rows (PR #XXX)
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles

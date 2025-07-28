@@ -33,3 +33,9 @@ Provide detailed requirements for improving the `AllocationTargetsTableView` in 
 - Split the assets array into `nonZeroAssets` and `zeroAssets` before populating the `List` or `OutlineGroup`.
 - Apply `opacity(0.6)` (approximate) to the zero‑allocation rows.
 
+## Editing
+- Each Asset Class row shows a permanent pencil button inside the Target column.
+- Hovering fills the icon. Clicking it or double-clicking the row opens the Target Edit panel.
+- When the panel is open the row background turns `#F5F9FF` and the pencil stays filled.
+- Hitting **Enter** or **Space** while the row is focused triggers the same action.
+

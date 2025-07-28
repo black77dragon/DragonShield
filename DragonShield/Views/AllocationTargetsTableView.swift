@@ -404,6 +404,8 @@ struct AllocationTargetsTableView: View {
     @State private var showDetails = true
     @State private var showDonut = true
     @State private var showDelta = true
+    @State private var editingClassId: Int?
+    @State private var hoverClassId: Int?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -559,6 +561,16 @@ struct AllocationTargetsTableView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .overlay(alignment: .trailing) {
+            if let cid = editingClassId {
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    refreshDrafts()
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
+            }
+        }
         .onAppear {
             viewModel.load(using: dbManager)
             refreshDrafts()
@@ -685,6 +697,10 @@ struct AllocationTargetsTableView: View {
     }
 
     private func rowBackground(for asset: AllocationAsset) -> Color {
+        if let edit = editingClassId,
+           asset.id == "class-\(edit)" {
+            return Color(red: 0.96, green: 0.98, blue: 1.0)
+        }
         if viewModel.rowHasWarning(asset) {
             return .paleRed
         }
@@ -712,10 +728,12 @@ struct AllocationTargetsTableView: View {
         let deltaTol = abs(asset.targetChf) * 0.01
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
-                .frame(width: 200, alignment: .leading)
+        }
+        .frame(width: 200, alignment: .leading)
+        HStack(spacing: 0) {
             Divider()
             HStack(alignment: .top, spacing: 0) {
                 Picker("", selection: viewModel.modeBinding(for: asset)) {
@@ -800,6 +818,20 @@ struct AllocationTargetsTableView: View {
                     }
                 }
             }
+            .overlay(alignment: .trailing) {
+                if isClass, let id = Int(asset.id.dropFirst(6)) {
+                    Button {
+                        editingClassId = id
+                    } label: {
+                        Image(systemName: (editingClassId == id || hoverClassId == id) ? "pencil.circle.fill" : "pencil.circle")
+                            .foregroundColor(.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 24, height: 24)
+                    .accessibilityLabel("Edit targets for \(asset.name)")
+                    .onHover { hovering in hoverClassId = hovering ? id : nil }
+                }
+            }
             Divider()
             HStack {
                 Text("\(formatPercent(asset.actualPct))%")
@@ -841,6 +873,22 @@ struct AllocationTargetsTableView: View {
         }
         .frame(height: isClass ? 60 : 48)
         .background(rowBackground(for: asset))
+        .contentShape(Rectangle())
+        .onKeyDown(.return) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
+        .onKeyDown(.space) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
+        .onTapGesture(count: 2) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
     }
 }
 
