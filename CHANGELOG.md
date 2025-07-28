@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 - Add column filters, single-column sorting and double-click editing to Instruments and Positions tables
 - Display tolerance pills in Asset Allocation table rows
 - Replace custom HStack layout in Allocation Targets view with native Table columns
+- Fix compile error when building Allocation Targets Table
 - Fix compile error referencing systemGray6 in tolerance pill background
 - Fix compile errors referencing system gray colours and deprecated onChange API
 - Provide fallback colours for systemGray4-6 on macOS to resolve compile errors

@@ -502,12 +502,12 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Table(viewModel.assets, children: \.children) { asset in
-                TableColumn("Asset") {
+            Table(viewModel.assets, children: \.children) {
+                TableColumn("Asset") { asset in
                     Text(asset.name)
                         .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
                 }
-                TableColumn("Mode") {
+                TableColumn("Mode") { asset in
                     Picker("", selection: viewModel.modeBinding(for: asset)) {
                         Text("%" ).tag(AllocationInputMode.percent)
                         Text("CHF").tag(AllocationInputMode.chf)
@@ -515,7 +515,7 @@ struct AllocationTargetsTableView: View {
                     .pickerStyle(.segmented)
                     .tint(.softBlue)
                 }
-                TableColumn("Target %") {
+                TableColumn("Target %") { asset in
                     if asset.mode == .percent {
                         TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
                             .multilineTextAlignment(.trailing)
@@ -525,7 +525,7 @@ struct AllocationTargetsTableView: View {
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
-                TableColumn("Target CHF") {
+                TableColumn("Target CHF") { asset in
                     HStack(alignment: .center) {
                         if asset.mode == .percent {
                             Text(formatChf(asset.targetChf))
@@ -557,17 +557,17 @@ struct AllocationTargetsTableView: View {
                         }
                     }
                 }
-                TableColumn("Actual %") {
+                TableColumn("Actual %") { asset in
                     Text("\(formatPercent(asset.actualPct))%")
                         .foregroundColor(asset.actualPct == 0 ? .secondary : .primary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                TableColumn("Actual CHF") {
+                TableColumn("Actual CHF") { asset in
                     Text(formatChf(asset.actualChf))
                         .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                TableColumn("Δ %") {
+                TableColumn("Δ %") { asset in
                     let dColor = deltaColor(asset.deviationPct)
                     Text("\(formatSignedPercent(asset.deviationPct))%")
                         .padding(4)
@@ -576,7 +576,7 @@ struct AllocationTargetsTableView: View {
                         .cornerRadius(6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                TableColumn("Δ CHF") {
+                TableColumn("Δ CHF") { asset in
                     let dColor = deltaColor(asset.deviationPct)
                     Text(formatSignedChf(asset.deviationChf))
                         .padding(4)
@@ -585,7 +585,7 @@ struct AllocationTargetsTableView: View {
                         .cornerRadius(6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                TableColumn("Status") {
+                TableColumn("Status") { asset in
                     if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.red)
