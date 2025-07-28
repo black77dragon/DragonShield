@@ -313,7 +313,9 @@ struct AllocationTreeCard: View {
 
         var body: some View {
             HStack(spacing: gap) {
-                Spacer().frame(width: nameWidth + 16)
+                Text("Asset Class")
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: nameWidth + 16, alignment: .leading)
                 sortHeader("TARGET", column: .target)
                     .frame(width: targetWidth, alignment: .trailing)
                 sortHeader("ACTUAL", column: .actual)
@@ -323,7 +325,8 @@ struct AllocationTreeCard: View {
                     .foregroundStyle(.secondary)
                     .frame(width: trackWidth, alignment: .center)
                     .lineLimit(1)
-                sortHeader("\u{0394}", column: .delta)
+                Text("\u{0394}")
+                    .font(.caption2.weight(.semibold))
                     .frame(width: deltaWidth, alignment: .trailing)
             }
             .padding(.vertical, 4)
