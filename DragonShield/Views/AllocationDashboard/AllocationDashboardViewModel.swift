@@ -1,6 +1,7 @@
 import SwiftUI
 
 final class AllocationDashboardViewModel: ObservableObject {
+    enum TargetKind: String { case percent, amount }
     struct Asset: Identifiable {
         let id: String
         let name: String
@@ -8,6 +9,7 @@ final class AllocationDashboardViewModel: ObservableObject {
         let actualChf: Double
         let targetPct: Double
         let targetChf: Double
+        let targetKind: TargetKind
         let tolerancePercent: Double
         var children: [Asset]? = nil
 
@@ -85,18 +87,22 @@ final class AllocationDashboardViewModel: ObservableObject {
         let targets = db.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
         var classTargetChf: [Int: Double] = [:]
+        var classTargetKind: [Int: TargetKind] = [:]
         var classTolerance: [Int: Double] = [:]
         var subTargetPct: [Int: Double] = [:]
         var subTargetChf: [Int: Double] = [:]
+        var subTargetKind: [Int: TargetKind] = [:]
         var subTolerance: [Int: Double] = [:]
         for row in targets {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                subTargetKind[sub] = TargetKind(rawValue: row.targetKind) ?? .percent
                 subTolerance[sub] = row.tolerance
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                classTargetKind[cls] = TargetKind(rawValue: row.targetKind) ?? .percent
                 classTolerance[cls] = row.tolerance
             }
         }
@@ -138,9 +144,27 @@ final class AllocationDashboardViewModel: ObservableObject {
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
                 let st = subTolerance[sub.id] ?? tol
-                return Asset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, tolerancePercent: st, children: nil)
+                let kind = subTargetKind[sub.id] ?? .percent
+                return Asset(id: "sub-\(sub.id)",
+                             name: sub.name,
+                             actualPct: sPct,
+                             actualChf: sChf,
+                             targetPct: tp,
+                             targetChf: tc,
+                             targetKind: kind,
+                             tolerancePercent: st,
+                             children: nil)
             }
-            return Asset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, tolerancePercent: tol, children: children)
+            let kind = classTargetKind[cls.id] ?? .percent
+            return Asset(id: "class-\(cls.id)",
+                         name: cls.name,
+                         actualPct: actualPct,
+                         actualChf: actualCHF,
+                         targetPct: tPct,
+                         targetChf: tChf,
+                         targetKind: kind,
+                         tolerancePercent: tol,
+                         children: children)
         }
 
         bubbles = assets.map { asset in
