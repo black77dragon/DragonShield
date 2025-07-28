@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Refine deviation label placement in asset allocation table
 - Make Asset-Class table responsive with compact CHF numbers
 - Maintain equal margin around Asset-Class table to prevent bleed
+- Lock Asset Class Allocation column order and label first column
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
 - Add fixed Δ column and abbreviated numbers in Asset Classes table
 - Fix Δ column layout to stay visible within Asset Classes card

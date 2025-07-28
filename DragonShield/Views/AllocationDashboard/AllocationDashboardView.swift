@@ -158,6 +158,9 @@ struct AllocationTreeCard: View {
     @State private var expanded: [String: Bool] = [:]
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
+    @AppStorage(UserDefaultsKeys.assetAllocationColumnMeta)
+    private var persistedColumnMeta: Data = Data()
+    @State private var columnMeta: ColumnMeta = ColumnMeta.defaultMeta
 
     enum SortColumn { case target, actual, delta }
 
@@ -168,14 +171,19 @@ struct AllocationTreeCard: View {
             GeometryReader { geo in
                 let sidePad: CGFloat = 6
                 let tableWidth = geo.size.width - sidePad * 2
-                let trackCol: CGFloat = 90
-                let deltaCol: CGFloat = 68
+                let trackCol: CGFloat = columnMeta.widths["bar"] ?? 90
+                let deltaCol: CGFloat = columnMeta.widths["deltaVal"] ?? 68
                 let minValue: CGFloat = 80
                 let spacing = 16 + gap * 4 + 4
                 let remaining = tableWidth - trackCol - deltaCol - spacing
-                let targetCol = max(minValue, remaining * 0.25)
-                let actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
+                let targetCol = columnMeta.widths["target"] ?? max(minValue, remaining * 0.25)
+                let actualCol = columnMeta.widths["actual"] ?? max(minValue, remaining * 0.25)
+                let nameCol = columnMeta.widths["name"] ?? max(0, remaining - targetCol - actualCol)
+                let newWidths = ["name": nameCol, "target": targetCol, "actual": actualCol, "bar": trackCol, "deltaVal": deltaCol]
+                if columnMeta.widths != newWidths {
+                    columnMeta.widths = newWidths
+                    saveColumnMeta()
+                }
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
@@ -200,7 +208,10 @@ struct AllocationTreeCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .onAppear { initializeExpanded() }
+        .onAppear { 
+            initializeExpanded()
+            loadColumnMeta()
+        }
         .onChange(of: displayMode) { _, _ in saveMode() }
     }
 
@@ -313,17 +324,15 @@ struct AllocationTreeCard: View {
 
         var body: some View {
             HStack(spacing: gap) {
-                Spacer().frame(width: nameWidth + 16)
+                header("Asset Class")
+                    .frame(width: nameWidth + 16, alignment: .leading)
                 sortHeader("TARGET", column: .target)
                     .frame(width: targetWidth, alignment: .trailing)
                 sortHeader("ACTUAL", column: .actual)
                     .frame(width: actualWidth, alignment: .trailing)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                header("DEVIATION")
                     .frame(width: trackWidth, alignment: .center)
-                    .lineLimit(1)
-                sortHeader("\u{0394}", column: .delta)
+                header("\u{0394}")
                     .frame(width: deltaWidth, alignment: .trailing)
             }
             .padding(.vertical, 4)
@@ -335,14 +344,16 @@ struct AllocationTreeCard: View {
 
         private func sortHeader(_ title: String, column: SortColumn) -> some View {
             Button(action: { toggle(column) }) {
-                HStack(spacing: 2) {
-                    Text(title)
-                    Image(systemName: icon(for: column))
-                }
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
+                headerContent(title: title, icon: icon(for: column))
+                    .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
             }
             .buttonStyle(.plain)
+        }
+
+        private func header(_ title: String) -> some View {
+            Text(title)
+                .modifier(BaseHeader())
+                .foregroundStyle(.secondary)
         }
 
         private func icon(for column: SortColumn) -> String {
@@ -357,6 +368,53 @@ struct AllocationTreeCard: View {
                 sortColumn = column
                 sortAscending = false
             }
+        }
+
+        private struct BaseHeader: ViewModifier {
+            func body(content: Content) -> some View {
+                HStack(spacing: 2) {
+                    content
+                    Text("\u{22EE}")
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 6)
+                }
+                .font(.caption2.weight(.semibold))
+            }
+        }
+
+        private func headerContent(title: String, icon: String?) -> some View {
+            HStack(spacing: 2) {
+                Text(title)
+                if let icon = icon { Image(systemName: icon) }
+            }
+            .modifier(BaseHeader())
+        }
+    }
+}
+
+private struct ColumnMeta: Codable, Equatable {
+    static let defaultOrder = ["name", "target", "actual", "bar", "deltaVal"]
+
+    static let defaultMeta = ColumnMeta(order: defaultOrder, widths: [:])
+
+    var order: [String]
+    var widths: [String: CGFloat]
+}
+
+extension AllocationTreeCard {
+    private func loadColumnMeta() {
+        if let meta = try? JSONDecoder().decode(ColumnMeta.self, from: persistedColumnMeta),
+           meta.order == ColumnMeta.defaultOrder {
+            columnMeta = meta
+        } else {
+            columnMeta = ColumnMeta.defaultMeta
+            saveColumnMeta()
+        }
+    }
+
+    private func saveColumnMeta() {
+        if let data = try? JSONEncoder().encode(columnMeta) {
+            persistedColumnMeta = data
         }
     }
 }

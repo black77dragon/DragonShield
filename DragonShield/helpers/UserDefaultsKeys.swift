@@ -21,4 +21,6 @@ struct UserDefaultsKeys {
     static let positionsFontSize = "positionsFontSize"
     /// Persist selected segment in Currencies & FX maintenance view.
     static let currenciesFxSegment = "currenciesFxSegment"
+    /// Persist column order & widths for Asset Allocation table
+    static let assetAllocationColumnMeta = "ui.assetAllocation.columnMeta"
 }
