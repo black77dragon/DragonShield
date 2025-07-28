@@ -408,7 +408,9 @@ struct AllocationTreeCard: View {
                 .frame(width: 6)
                 .padding(.trailing, -3)
                 .gesture(dragGesture(for: key))
+#if os(macOS)
                 .cursor(.resizeLeftRight)
+#endif
         }
 
         private func dragGesture(for key: ColumnKey) -> some Gesture {
