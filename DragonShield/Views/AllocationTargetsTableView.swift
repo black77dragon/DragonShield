@@ -818,10 +818,11 @@ struct AllocationTargetsTableView: View {
                     Button {
                         if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
                     } label: {
-                        Image(systemName: "pencil")
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundColor(.accentColor)
                     }
-                    .buttonStyle(.borderless)
-                    .padding(.trailing, 4)
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 6)
                 }
             }
             Divider()

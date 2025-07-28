@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Implement side-panel editor for Asset Class targets
 - Activate pencil edit button in Allocation Targets table
 - Fix edit pencil visibility in Allocation Targets table and place it next to Target column
+- Style pencil button for visibility and ensure it opens the edit panel
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles
