@@ -812,8 +812,6 @@ struct AllocationTargetsTableView: View {
                         }
                     }
                 }
-            }
-            .overlay(alignment: .trailing) {
                 if isClass {
                     Button {
                         if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
@@ -822,7 +820,7 @@ struct AllocationTargetsTableView: View {
                             .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
-                    .padding(.trailing, 6)
+                    .padding(.leading, 4)
                 }
             }
             Divider()
@@ -866,6 +864,11 @@ struct AllocationTargetsTableView: View {
         }
         .frame(height: isClass ? 60 : 48)
         .background(rowBackground(for: asset))
+        .onTapGesture(count: 2) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
     }
 }
 
