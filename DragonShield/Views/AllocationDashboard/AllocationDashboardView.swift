@@ -163,35 +163,84 @@ struct AllocationTreeCard: View {
 
     private let gap: CGFloat = 10
 
+    private let minName: CGFloat = 120
+    private let minNumeric: CGFloat = 60
+    private let minBar: CGFloat = 120
+
+    private func updateWidths(for tableWidth: CGFloat) {
+        let spacing: CGFloat = 16 + gap * 4 + 4
+        let available = tableWidth - spacing
+        guard available > 0 else { return }
+        let oldTotal = widths.total
+        if oldTotal == 0 { return }
+        let ratio = available / oldTotal
+        widths.name *= ratio
+        widths.target *= ratio
+        widths.actual *= ratio
+        widths.bar *= ratio
+        widths.delta *= ratio
+
+        widths.name = max(minName, widths.name)
+        widths.target = max(minNumeric, widths.target)
+        widths.actual = max(minNumeric, widths.actual)
+        widths.bar = max(minBar, widths.bar)
+        widths.delta = max(minNumeric, widths.delta)
+
+        var diff = available - widths.total
+        if abs(diff) > 0.1 {
+            let adj = max(0, widths.total - (minName + minNumeric * 3 + minBar))
+            guard adj > 0 else { return }
+            let f = diff / adj
+            widths.name += (widths.name - minName) * f
+            widths.target += (widths.target - minNumeric) * f
+            widths.actual += (widths.actual - minNumeric) * f
+            widths.bar += (widths.bar - minBar) * f
+            widths.delta += (widths.delta - minNumeric) * f
+            diff = available - widths.total
+            if abs(diff) > 0.1 {
+                widths.name += diff
+            }
+        }
+    }
+
+    private struct ColumnWidths {
+        var name: CGFloat
+        var target: CGFloat
+        var actual: CGFloat
+        var bar: CGFloat
+        var delta: CGFloat
+
+        var total: CGFloat { name + target + actual + bar + delta }
+    }
+
+    @State private var widths = ColumnWidths(name: 160, target: 90, actual: 90, bar: 200, delta: 80)
+
     var body: some View {
         Card {
             GeometryReader { geo in
                 let sidePad: CGFloat = 6
                 let tableWidth = geo.size.width - sidePad * 2
-                let trackCol: CGFloat = 90
-                let deltaCol: CGFloat = 68
-                let minValue: CGFloat = 80
-                let spacing = 16 + gap * 4 + 4
-                let remaining = tableWidth - trackCol - deltaCol - spacing
-                let targetCol = max(minValue, remaining * 0.25)
-                let actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
+                Color.clear
+                    .onAppear { updateWidths(for: tableWidth) }
+                    .onChange(of: geo.size.width) { newVal in
+                        updateWidths(for: newVal - sidePad * 2)
+                    }
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
                     HeaderBar()
-                    CaptionRow(nameWidth: nameCol,
-                               targetWidth: targetCol,
-                               actualWidth: actualCol,
-                               trackWidth: trackCol,
-                               deltaWidth: deltaCol,
+                    CaptionRow(nameWidth: widths.name,
+                               targetWidth: widths.target,
+                               actualWidth: widths.actual,
+                               trackWidth: widths.bar,
+                               deltaWidth: widths.delta,
                                gap: gap,
                                sortColumn: $sortColumn,
                                sortAscending: $sortAscending)
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
-                            rows(nameCol, targetCol, actualCol, trackCol, deltaCol, compact)
+                            rows(widths.name, widths.target, widths.actual, widths.bar, widths.delta, compact)
                         }
                     }
                 }
