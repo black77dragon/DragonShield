@@ -502,7 +502,7 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Table(viewModel.assets, children: \.children) {
+            Table(viewModel.assets, children: \.children) { asset in
                 TableColumn("Asset") { asset in
                     Text(asset.name)
                         .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)

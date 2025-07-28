@@ -40,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - Display tolerance pills in Asset Allocation table rows
 - Replace custom HStack layout in Allocation Targets view with native Table columns
 - Fix compile error when building Allocation Targets Table
+- Fix Table row closure parameter mismatch in Allocation Targets view
 - Fix compile error referencing systemGray6 in tolerance pill background
 - Fix compile errors referencing system gray colours and deprecated onChange API
 - Provide fallback colours for systemGray4-6 on macOS to resolve compile errors
