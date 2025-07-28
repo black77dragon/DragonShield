@@ -728,17 +728,6 @@ struct AllocationTargetsTableView: View {
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }
         .frame(width: 200, alignment: .leading)
-        .overlay(alignment: .trailing) {
-            if isClass {
-                Button {
-                    if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
-                } label: {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.borderless)
-                .padding(.trailing, 4)
-            }
-        }
         HStack(spacing: 0) {
             Divider()
             HStack(alignment: .top, spacing: 0) {
@@ -822,6 +811,17 @@ struct AllocationTargetsTableView: View {
                             .frame(width: 100, alignment: .trailing)
                         }
                     }
+                }
+            }
+            .overlay(alignment: .trailing) {
+                if isClass {
+                    Button {
+                        if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.trailing, 4)
                 }
             }
             Divider()
