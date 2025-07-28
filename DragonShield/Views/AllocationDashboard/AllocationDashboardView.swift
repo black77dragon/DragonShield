@@ -171,10 +171,15 @@ struct AllocationTreeCard: View {
                 let trackCol: CGFloat = 90
                 let deltaCol: CGFloat = 68
                 let minValue: CGFloat = 80
-                let remaining = tableWidth - trackCol - deltaCol
+                let remaining = max(0, tableWidth - trackCol - deltaCol)
                 var targetCol = max(minValue, remaining * 0.25)
                 var actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
+                if targetCol + actualCol > remaining {
+                    let scale = remaining / (targetCol + actualCol)
+                    targetCol *= scale
+                    actualCol *= scale
+                }
+                let nameCol = remaining - targetCol - actualCol
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
