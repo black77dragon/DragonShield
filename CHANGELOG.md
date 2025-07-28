@@ -23,6 +23,9 @@ All notable changes to this project will be documented in this file.
 - Fix Δ column layout to stay visible within Asset Classes card
 - Shrink table padding and correct column widths to keep Δ column visible
 - Add sidebar link to the Kanban board
+- Asset Class Allocation columns now resizable with persistent widths
+- Fix build errors in column resizing logic
+- Fix cross-platform compile error from column grip cursor by adding platform check
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
 - Rework Asset Classes card header with inline picker
