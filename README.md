@@ -146,6 +146,26 @@ python3 python_scripts/gpt_shell.py call echo '{"text": "hello"}'
 
 At present the application must be run from Xcode. Future releases will ship a signed & notarized .app bundle.
 
+### Running Unit Tests
+
+1. Activate the virtual environment if you haven't already:
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+2. Install the test runner:
+
+   ```bash
+   pip install pytest
+   ```
+
+3. Execute all tests from the project root:
+
+   ```bash
+   pytest
+   ```
+
 ## 🛠 Troubleshooting
 
 See [docs/troubleshooting.md](docs/troubleshooting.md) for solutions to common issues. This includes the harmless
