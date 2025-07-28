@@ -95,6 +95,7 @@ DragonShield/
    pip install -r requirements.txt
    ```
    All required packages are listed in `requirements.txt`.
+   The list now includes `python-dateutil` for more flexible date parsing.
 
 5. **Generate the local database**
    ```bash

@@ -13,6 +13,7 @@ import os
 import csv
 import sqlite3
 from datetime import datetime
+from dateutil.parser import parse as parse_date
 from typing import Dict, Tuple, Any, List, Set, Optional
 from openpyxl.cell import Cell, MergedCell # Import Cell types for isinstance checks
 
@@ -82,6 +83,10 @@ def parse_statement_date_from_filename(filename: str) -> Optional[str]:
         if month:
             try: return datetime(int(year), month, int(day)).strftime('%Y-%m-%d')
             except Exception: pass
+    try:
+        return parse_date(filename, dayfirst=True).date().isoformat()
+    except Exception:
+        pass
     return None
 
 def parse_date_from_excel_cell(cell_content: Any, input_format: Optional[str] = None) -> Optional[str]:
@@ -103,6 +108,10 @@ def parse_date_from_excel_cell(cell_content: Any, input_format: Optional[str] = 
         if len(cell_str) >= 10 and cell_str[4] == '-' and cell_str[7] == '-': # YYYY-MM-DD or longer
             try: return datetime.strptime(cell_str[:10], '%Y-%m-%d').strftime('%Y-%m-%d')
             except ValueError: pass
+        try:
+            return parse_date(cell_str, dayfirst=True).date().isoformat()
+        except Exception:
+            pass
         # print(f"Warning: Could not parse date string '{cell_str}' to YYYY-MM-DD") # Reduce noise
     return None
 

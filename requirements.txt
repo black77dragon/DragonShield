@@ -4,3 +4,4 @@ openpyxl
 pdfplumber
 openai
 jsonschema
+python-dateutil
