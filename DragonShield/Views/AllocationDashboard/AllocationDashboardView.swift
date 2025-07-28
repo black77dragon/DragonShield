@@ -159,6 +159,12 @@ struct AllocationTreeCard: View {
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
 
+    @State private var nameWidth: CGFloat = Self.loadWidths().name
+    @State private var targetWidth: CGFloat = Self.loadWidths().target
+    @State private var actualWidth: CGFloat = Self.loadWidths().actual
+    @State private var deltaWidth: CGFloat = Self.loadWidths().deltaVal
+    @State private var barWidth: CGFloat = Self.loadWidths().bar
+
     enum SortColumn { case target, actual, delta }
 
     private let gap: CGFloat = 10
@@ -166,36 +172,32 @@ struct AllocationTreeCard: View {
     var body: some View {
         Card {
             GeometryReader { geo in
-                let sidePad: CGFloat = 6
-                let tableWidth = geo.size.width - sidePad * 2
-                let trackCol: CGFloat = 90
-                let deltaCol: CGFloat = 68
-                let minValue: CGFloat = 80
-                let spacing = 16 + gap * 4 + 4
-                let remaining = tableWidth - trackCol - deltaCol - spacing
-                let targetCol = max(minValue, remaining * 0.25)
-                let actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
-                let compact = tableWidth < 1024
+                let sidePad: CGFloat = 8
+                let available = geo.size.width - sidePad * 2
+                let totalWidth = nameWidth + targetWidth + actualWidth + barWidth + deltaWidth + 16 + gap * 4
+                let compact = available < 1024
 
-                VStack(spacing: 0) {
-                    HeaderBar()
-                    CaptionRow(nameWidth: nameCol,
-                               targetWidth: targetCol,
-                               actualWidth: actualCol,
-                               trackWidth: trackCol,
-                               deltaWidth: deltaCol,
-                               gap: gap,
-                               sortColumn: $sortColumn,
-                               sortAscending: $sortAscending)
-                    Divider()
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            rows(nameCol, targetCol, actualCol, trackCol, deltaCol, compact)
+                ScrollView(.horizontal) {
+                    VStack(spacing: 0) {
+                        HeaderBar()
+                        CaptionRow(nameWidth: $nameWidth,
+                                   targetWidth: $targetWidth,
+                                   actualWidth: $actualWidth,
+                                   trackWidth: $barWidth,
+                                   deltaWidth: $deltaWidth,
+                                   gap: gap,
+                                   sortColumn: $sortColumn,
+                                   sortAscending: $sortAscending,
+                                   onResize: saveWidths)
+                        Divider()
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                rows(nameWidth, targetWidth, actualWidth, barWidth, deltaWidth, compact)
+                            }
                         }
                     }
+                    .frame(width: max(available, totalWidth), alignment: .leading)
                 }
-                .frame(width: tableWidth, alignment: .leading)
                 .padding(.horizontal, sidePad)
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -215,14 +217,21 @@ struct AllocationTreeCard: View {
 
     private func HeaderBar() -> some View {
         HStack(alignment: .top) {
-            Text("Asset Classes")
+            Text("Asset Class Allocation")
                 .font(.headline)
             Spacer()
             VStack(alignment: .leading, spacing: 4) {
                 Text("Display mode")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                SegmentedPicker
+                HStack(spacing: 4) {
+                    SegmentedPicker
+                    Button(action: resetWidths) {
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset column widths")
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -232,7 +241,7 @@ struct AllocationTreeCard: View {
     private func rows(_ nameWidth: CGFloat,
                       _ targetWidth: CGFloat,
                       _ actualWidth: CGFloat,
-                      _ trackWidth: CGFloat,
+                      _ barWidth: CGFloat,
                       _ deltaWidth: CGFloat,
                       _ compact: Bool) -> some View {
         ForEach(sortedAssets) { parent in
@@ -243,7 +252,7 @@ struct AllocationTreeCard: View {
                      nameWidth: nameWidth,
                      targetWidth: targetWidth,
                      actualWidth: actualWidth,
-                     trackWidth: trackWidth,
+                     trackWidth: barWidth,
                      deltaWidth: deltaWidth,
                      gap: gap)
             if expanded[parent.id] == true, let children = parent.children {
@@ -255,7 +264,7 @@ struct AllocationTreeCard: View {
                              nameWidth: nameWidth,
                              targetWidth: targetWidth,
                              actualWidth: actualWidth,
-                             trackWidth: trackWidth,
+                             trackWidth: barWidth,
                              deltaWidth: deltaWidth,
                             gap: gap)
                 }
@@ -301,30 +310,88 @@ struct AllocationTreeCard: View {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
 
+    private struct ColumnWidths {
+        var name: CGFloat
+        var target: CGFloat
+        var actual: CGFloat
+        var deltaVal: CGFloat
+        var bar: CGFloat
+    }
+
+    private static let widthKey = "ui.assetAllocation.columnWidths"
+    private static let defaultWidths = ColumnWidths(name: 200,
+                                                    target: 110,
+                                                    actual: 110,
+                                                    deltaVal: 110,
+                                                    bar: 130)
+
+    private static func loadWidths() -> ColumnWidths {
+        if let dict = UserDefaults.standard.dictionary(forKey: widthKey) as? [String: Double] {
+            return ColumnWidths(name: CGFloat(dict["name"] ?? Double(defaultWidths.name)),
+                               target: CGFloat(dict["target"] ?? Double(defaultWidths.target)),
+                               actual: CGFloat(dict["actual"] ?? Double(defaultWidths.actual)),
+                               deltaVal: CGFloat(dict["deltaVal"] ?? Double(defaultWidths.deltaVal)),
+                               bar: CGFloat(dict["bar"] ?? Double(defaultWidths.bar)))
+        }
+        return defaultWidths
+    }
+
+    private func saveWidths() {
+        let dict: [String: Double] = [
+            "name": Double(nameWidth),
+            "target": Double(targetWidth),
+            "actual": Double(actualWidth),
+            "deltaVal": Double(deltaWidth),
+            "bar": Double(barWidth)
+        ]
+        UserDefaults.standard.set(dict, forKey: Self.widthKey)
+    }
+
+    private func resetWidths() {
+        UserDefaults.standard.removeObject(forKey: Self.widthKey)
+        let d = Self.defaultWidths
+        withAnimation {
+            nameWidth = d.name
+            targetWidth = d.target
+            actualWidth = d.actual
+            deltaWidth = d.deltaVal
+            barWidth = d.bar
+        }
+    }
+
     struct CaptionRow: View {
-        let nameWidth: CGFloat
-        let targetWidth: CGFloat
-        let actualWidth: CGFloat
-        let trackWidth: CGFloat
-        let deltaWidth: CGFloat
+        @Binding var nameWidth: CGFloat
+        @Binding var targetWidth: CGFloat
+        @Binding var actualWidth: CGFloat
+        @Binding var trackWidth: CGFloat
+        @Binding var deltaWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
+        var onResize: () -> Void
 
         var body: some View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
-                sortHeader("TARGET", column: .target)
-                    .frame(width: targetWidth, alignment: .trailing)
-                sortHeader("ACTUAL", column: .actual)
-                    .frame(width: actualWidth, alignment: .trailing)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: trackWidth, alignment: .center)
-                    .lineLimit(1)
-                sortHeader("\u{0394}", column: .delta)
-                    .frame(width: deltaWidth, alignment: .trailing)
+                    .overlay(alignment: .trailing) { grip { val in
+                        nameWidth = clamp(nameWidth + val, 160, 380); onResize() } }
+
+                resizable(sortHeader("TARGET", column: .target),
+                          width: $targetWidth,
+                          min: 80, max: 250)
+                resizable(sortHeader("ACTUAL", column: .actual),
+                          width: $actualWidth,
+                          min: 80, max: 250)
+                resizable(Text("DEVIATION")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1),
+                          width: $trackWidth,
+                          min: 120, max: 260,
+                          center: true)
+                resizable(sortHeader("\u{0394}", column: .delta),
+                          width: $deltaWidth,
+                          min: 80, max: 250)
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
@@ -357,6 +424,39 @@ struct AllocationTreeCard: View {
                 sortColumn = column
                 sortAscending = false
             }
+        }
+
+        private func resizable<Content: View>(_ content: Content,
+                                              width: Binding<CGFloat>,
+                                              min: CGFloat, max: CGFloat,
+                                              center: Bool = false) -> some View {
+            HStack(spacing: 0) {
+                content
+                    .frame(width: width.wrappedValue, alignment: center ? .center : .trailing)
+                grip(onChange: { delta in
+                    width.wrappedValue = clamp(width.wrappedValue + delta, min, max)
+                }, onEnd: {
+                    onResize()
+                })
+            }
+        }
+
+        private func grip(onChange: @escaping (CGFloat) -> Void,
+                          onEnd: @escaping () -> Void) -> some View {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 6)
+                .overlay(Text("\u{22EE}").font(.caption2).foregroundStyle(.secondary))
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { value in onChange(value.translation.width) }
+                    .onEnded { _ in onEnd() })
+#if os(macOS)
+                .cursor(.resizeLeftRight)
+#endif
+        }
+
+        private func clamp(_ value: CGFloat, _ min: CGFloat, _ max: CGFloat) -> CGFloat {
+            Swift.max(min, Swift.min(max, value))
         }
     }
 }
@@ -522,7 +622,7 @@ struct DeviationBar: View {
         return (actual - target) / target * 100
     }
 
-    private var track: CGFloat { trackWidth - 24 }
+    private var track: CGFloat { trackWidth - 8 }
 
     private var span: CGFloat {
         let mag = min(abs(diffPercent), 100)
@@ -539,13 +639,13 @@ struct DeviationBar: View {
         ZStack {
             Capsule().fill(Color.systemGray5)
                 .frame(height: 6)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 4)
             Rectangle().fill(Color.black)
                 .frame(width: 1, height: 8)
             Capsule().fill(barColor(diffPercent))
                 .frame(width: span, height: 6)
                 .offset(x: offset)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 4)
         }
         .frame(width: trackWidth)
     }
