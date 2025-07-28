@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Add fixed Δ column and abbreviated numbers in Asset Classes table
 - Fix Δ column layout to stay visible within Asset Classes card
 - Shrink table padding and correct column widths to keep Δ column visible
+- Label first Asset Allocation column as "Asset Class" and persist column order
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view

@@ -173,10 +173,23 @@ struct AllocationTreeCard: View {
                 let minValue: CGFloat = 80
                 let spacing = 16 + gap * 4 + 4
                 let remaining = tableWidth - trackCol - deltaCol - spacing
-                let targetCol = max(minValue, remaining * 0.25)
-                let actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
+                let targetColDefault = max(minValue, remaining * 0.25)
+                let actualColDefault = max(minValue, remaining * 0.25)
+                let nameColDefault = max(0, remaining - targetColDefault - actualColDefault)
                 let compact = tableWidth < 1024
+
+                let loaded = loadColumnMeta(defaults: ColumnMeta(order: Self.columnOrder,
+                                                                 widths: [
+                                                                     "name": nameColDefault,
+                                                                     "target": targetColDefault,
+                                                                     "actual": actualColDefault,
+                                                                     "bar": trackCol,
+                                                                     "deltaVal": deltaCol
+                                                                 ]))
+
+                let nameCol = loaded.widths["name"] ?? nameColDefault
+                let targetCol = loaded.widths["target"] ?? targetColDefault
+                let actualCol = loaded.widths["actual"] ?? actualColDefault
 
                 VStack(spacing: 0) {
                     HeaderBar()
@@ -290,6 +303,14 @@ struct AllocationTreeCard: View {
     }
 
     private static let modeKey = "AllocationDisplayMode"
+    private static let columnMetaKey = UserDefaultsKeys.assetAllocationColumnMeta
+    private static let columnOrder = ["name", "target", "actual", "bar", "deltaVal"]
+
+    struct ColumnMeta: Codable {
+        var order: [String]
+        var widths: [String: CGFloat]
+    }
+
     private static func loadMode() -> DisplayMode {
         if let raw = UserDefaults.standard.string(forKey: modeKey),
            let mode = DisplayMode(rawValue: raw) {
@@ -299,6 +320,22 @@ struct AllocationTreeCard: View {
     }
     private func saveMode() {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
+    }
+
+    private func loadColumnMeta(defaults: ColumnMeta) -> ColumnMeta {
+        if let data = UserDefaults.standard.data(forKey: Self.columnMetaKey),
+           let meta = try? JSONDecoder().decode(ColumnMeta.self, from: data),
+           meta.order == Self.columnOrder {
+            return meta
+        }
+        saveColumnMeta(defaults)
+        return defaults
+    }
+
+    private func saveColumnMeta(_ meta: ColumnMeta) {
+        if let data = try? JSONEncoder().encode(meta) {
+            UserDefaults.standard.set(data, forKey: Self.columnMetaKey)
+        }
     }
 
     struct CaptionRow: View {
@@ -313,7 +350,10 @@ struct AllocationTreeCard: View {
 
         var body: some View {
             HStack(spacing: gap) {
-                Spacer().frame(width: nameWidth + 16)
+                Text("Asset Class")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: nameWidth + 16, alignment: .leading)
                 sortHeader("TARGET", column: .target)
                     .frame(width: targetWidth, alignment: .trailing)
                 sortHeader("ACTUAL", column: .actual)
