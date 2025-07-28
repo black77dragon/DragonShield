@@ -404,6 +404,7 @@ struct AllocationTargetsTableView: View {
     @State private var showDetails = true
     @State private var showDonut = true
     @State private var showDelta = true
+    @State private var editingClassId: Int?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -559,6 +560,16 @@ struct AllocationTargetsTableView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .overlay(alignment: .trailing) {
+            if let cid = editingClassId {
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    refreshDrafts()
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
+            }
+        }
         .onAppear {
             viewModel.load(using: dbManager)
             refreshDrafts()
@@ -573,6 +584,7 @@ struct AllocationTargetsTableView: View {
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
+                Spacer().frame(width: 20)
                 Text("Mode")
                     .frame(width: 80)
                 sortHeader(title: "Target %", column: .targetPct)
@@ -606,6 +618,7 @@ struct AllocationTargetsTableView: View {
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
+                Spacer().frame(width: 20)
                 Spacer()
                     .frame(width: 80)
                 totalCellPct
@@ -622,6 +635,7 @@ struct AllocationTargetsTableView: View {
             }
             Divider()
             HStack {
+                Spacer().frame(width: 20)
                 Spacer()
                     .frame(width: 80)
                 Spacer()
@@ -712,12 +726,25 @@ struct AllocationTargetsTableView: View {
         let deltaTol = abs(asset.targetChf) * 0.01
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
-                .frame(width: 200, alignment: .leading)
+        }
+        .frame(width: 200, alignment: .leading)
+        HStack(spacing: 0) {
             Divider()
             HStack(alignment: .top, spacing: 0) {
+                if isClass {
+                    Button {
+                        if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.trailing, 4)
+                } else {
+                    Spacer().frame(width: 20)
+                }
                 Picker("", selection: viewModel.modeBinding(for: asset)) {
                     Text("%" ).tag(AllocationInputMode.percent)
                     Text("CHF").tag(AllocationInputMode.chf)
