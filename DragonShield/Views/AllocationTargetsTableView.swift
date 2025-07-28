@@ -696,6 +696,9 @@ struct AllocationTargetsTableView: View {
     }
 
     private func rowBackground(for asset: AllocationAsset) -> Color {
+        if let cid = editingClassId, asset.id == "class-\(cid)" {
+            return .rowHighlight
+        }
         if viewModel.rowHasWarning(asset) {
             return .paleRed
         }
@@ -814,14 +817,17 @@ struct AllocationTargetsTableView: View {
                 }
             }
             if isClass {
+                let cid = Int(asset.id.dropFirst(6))
                 Button {
-                    if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
+                    if let id = cid { editingClassId = id }
                 } label: {
-                    Image(systemName: "pencil.circle.fill")
+                    Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
                         .foregroundColor(.accentColor)
+                        .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.plain)
-                .frame(width: 28)
+                .frame(width: 24, height: 24)
+                .accessibilityLabel("Edit targets for \(asset.name)")
             }
             Divider()
             HStack {
@@ -864,6 +870,7 @@ struct AllocationTargetsTableView: View {
         }
         .frame(height: isClass ? 60 : 48)
         .background(rowBackground(for: asset))
+        .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             if isClass, let id = Int(asset.id.dropFirst(6)) {
                 editingClassId = id

@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Style pencil button for visibility and ensure it opens the edit panel
 - Show pencil button next to the Target column and open the edit panel on
   double-click
+- Make pencil buttons persistent with row highlight and keyboard activation
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles

@@ -31,8 +31,10 @@ This document outlines the side‑panel workflow for editing Asset Class targets
 - The remaining line turns red when non‑zero.
 - Auto‑balance fills the remainder proportionally across editable rows.
 - Save stays disabled until remaining equals zero.
-- A pencil button appears next to each Asset Class target column. Clicking it or
-  double‑clicking the row opens the side‑panel editor.
+- A persistent pencil button sits inside the **Target** column of every Asset
+  Class row. Clicking it, pressing **Enter** or **Space** while focused,
+  or double‑clicking the row opens the side‑panel editor. When open,
+  the row background turns `#F5F9FF` and the icon becomes filled.
 
 ## Validation Logic (pseudo)
 ```swift
