@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles
+- Replace HStack layout in Allocation Targets view with Table columns
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
 - Correct side padding and responsive columns in Asset Allocation view
