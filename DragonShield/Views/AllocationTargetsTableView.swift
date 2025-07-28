@@ -404,6 +404,8 @@ struct AllocationTargetsTableView: View {
     @State private var showDetails = true
     @State private var showDonut = true
     @State private var showDelta = true
+    @State private var editingClassId: Int?
+    @State private var hoveredClassId: Int?
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -559,6 +561,16 @@ struct AllocationTargetsTableView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .overlay(alignment: .trailing) {
+            if let cid = editingClassId {
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    refreshDrafts()
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
+            }
+        }
         .onAppear {
             viewModel.load(using: dbManager)
             refreshDrafts()
@@ -685,6 +697,9 @@ struct AllocationTargetsTableView: View {
     }
 
     private func rowBackground(for asset: AllocationAsset) -> Color {
+        if let id = Int(asset.id.dropFirst(6)), editingClassId == id {
+            return Color(red: 245/255, green: 249/255, blue: 1)
+        }
         if viewModel.rowHasWarning(asset) {
             return .paleRed
         }
@@ -712,10 +727,12 @@ struct AllocationTargetsTableView: View {
         let deltaTol = abs(asset.targetChf) * 0.01
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
-                .frame(width: 200, alignment: .leading)
+        }
+        .frame(width: 200, alignment: .leading)
+        HStack(spacing: 0) {
             Divider()
             HStack(alignment: .top, spacing: 0) {
                 Picker("", selection: viewModel.modeBinding(for: asset)) {
@@ -800,6 +817,27 @@ struct AllocationTargetsTableView: View {
                     }
                 }
             }
+            if isClass {
+                Button {
+                    if let id = Int(asset.id.dropFirst(6)) { editingClassId = id }
+                } label: {
+                    Image(systemName: (editingClassId == Int(asset.id.dropFirst(6)) || hoveredClassId == Int(asset.id.dropFirst(6))) ? "pencil.circle.fill" : "pencil.circle")
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 24, height: 24)
+                .accessibilityLabel("Edit targets for \(asset.name)")
+                .focusable()
+                .onHover { over in
+                    if over, let id = Int(asset.id.dropFirst(6)) {
+                        hoveredClassId = id
+                    } else {
+                        hoveredClassId = nil
+                    }
+                }
+            }
             Divider()
             HStack {
                 Text("\(formatPercent(asset.actualPct))%")
@@ -841,6 +879,26 @@ struct AllocationTargetsTableView: View {
         }
         .frame(height: isClass ? 60 : 48)
         .background(rowBackground(for: asset))
+        .focusable()
+        .onTapGesture(count: 2) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
+        .overlay(
+            Group {
+                if isClass, let id = Int(asset.id.dropFirst(6)) {
+                    Button("") { editingClassId = id }
+                        .keyboardShortcut(.defaultAction)
+                        .opacity(0)
+                        .frame(width: 0, height: 0)
+                    Button("") { editingClassId = id }
+                        .keyboardShortcut(.space, modifiers: [])
+                        .opacity(0)
+                        .frame(width: 0, height: 0)
+                }
+            }
+        )
     }
 }
 
