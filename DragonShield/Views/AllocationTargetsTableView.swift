@@ -500,22 +500,108 @@ struct AllocationTargetsTableView: View {
         return issues
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            List {
-                headerRow
-                totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
-                    tableRow(for: asset)
+    private var allocationTable: some View {
+        Table(viewModel.assets, children: \.
+children) { asset in
+            TableColumn("Asset") { item in
+                Text(item.name)
+                    .fontWeight((abs(item.targetPct) > 0.0001 || abs(item.targetChf) > 0.01) ? .bold : .regular)
+            }
+            TableColumn("Mode") { item in
+                Picker("", selection: viewModel.modeBinding(for: item)) {
+                    Text("%").tag(AllocationInputMode.percent)
+                    Text("CHF").tag(AllocationInputMode.chf)
                 }
-                    if !inactiveAssets.isEmpty {
-                        Divider()
-                        inactiveHeader
-                        OutlineGroup(inactiveAssets, children: \.children) { asset in
-                            tableRow(for: asset)
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            TableColumn("Target %") { item in
+                if item.mode == .percent {
+                    TextField("", value: viewModel.percentBinding(for: item), formatter: percentFormatter)
+                        .multilineTextAlignment(.trailing)
+                        .focused($focusedPctField, equals: item.id)
+                } else {
+                    Text(formatPercent(item.targetPct))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            TableColumn("Target CHF") { item in
+                HStack {
+                    if item.mode == .percent {
+                        Text(formatChf(item.targetChf))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        TextField("", text: chfTextBinding(for: item))
+                            .multilineTextAlignment(.trailing)
+                            .focused($focusedChfField, equals: item.id)
+                            .onChange(of: focusedChfField) { oldValue, newValue in
+                                if newValue == item.id {
+                                    chfDrafts[item.id] = chfDrafts[item.id]?.replacingOccurrences(of: "'", with: "")
+                                } else if oldValue == item.id && chfDrafts[item.id] != nil {
+                                    chfDrafts[item.id] = formatChf(item.targetChf)
+                                }
+                            }
+                    }
+                    if item.id.hasPrefix("class-") {
+                        let cid = Int(item.id.dropFirst(6))
+                        Button {
+                            if let id = cid { editingClassId = id }
+                        } label: {
+                            Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                                .foregroundColor(.accentColor)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("Actual %") { item in
+                Text("\(formatPercent(item.actualPct))%")
+                    .foregroundColor(item.actualPct == 0 ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("Actual CHF") { item in
+                Text(formatChf(item.actualChf))
+                    .foregroundColor(item.actualChf == 0 ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("Δ %") { item in
+                let dColor = deltaColor(item.deviationPct)
+                Text("\(formatSignedPercent(item.deviationPct))%")
+                    .padding(4)
+                    .background(dColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("Δ CHF") { item in
+                let dColor = deltaColor(item.deviationPct)
+                Text(formatSignedChf(item.deviationChf))
+                    .padding(4)
+                    .background(dColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("Status") { item in
+                if item.id.hasPrefix("class-") && viewModel.rowHasWarning(item) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .help(statusText(for: item))
+                } else {
+                    Circle()
+                        .fill(deltaColor(item.deviationPct))
+                        .frame(width: 12, height: 12)
+                        .help(statusText(for: item))
+                }
+            }
+        }
+        .tableStyle(.inset(alternatesRowBackgrounds: true))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            allocationTable
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -578,116 +664,6 @@ struct AllocationTargetsTableView: View {
         .navigationTitle("Allocation Targets")
     }
 
-    private var headerRow: some View {
-        HStack(spacing: 0) {
-            Text("Asset")
-                .frame(width: 200, alignment: .leading)
-            Divider()
-            HStack {
-                Text("Mode")
-                    .frame(width: 80)
-                sortHeader(title: "Target %", column: .targetPct)
-                    .frame(width: 80)
-                Text("Target CHF")
-                    .frame(width: 100)
-            }
-            Divider()
-            HStack {
-                sortHeader(title: "Actual %", column: .actualPct)
-                    .frame(width: 80)
-                Text("Actual CHF")
-                    .frame(width: 100)
-            }
-            Divider()
-            HStack {
-                sortHeader(title: "Δ %", column: .deltaPct)
-                    .frame(width: 80)
-                Text("Δ CHF")
-                    .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
-            }
-        }
-        .font(.system(size: 12, weight: .semibold))
-    }
-
-    private var totalsRow: some View {
-        HStack(spacing: 0) {
-            Text("Totals")
-                .frame(width: 200, alignment: .leading)
-            Divider()
-            HStack {
-                Spacer()
-                    .frame(width: 80)
-                totalCellPct
-                    .frame(width: 80, alignment: .trailing)
-                Text(formatChf(viewModel.targetChfTotal))
-                    .frame(width: 100, alignment: .trailing)
-            }
-            Divider()
-            HStack {
-                Text("\(formatPercent(viewModel.actualPctTotal))%")
-                    .frame(width: 80, alignment: .trailing)
-                Text(formatChf(viewModel.actualChfTotal))
-                    .frame(width: 100, alignment: .trailing)
-            }
-            Divider()
-            HStack {
-                Spacer()
-                    .frame(width: 80)
-                Spacer()
-                    .frame(width: 100)
-                Spacer()
-                    .frame(width: 60)
-            }
-        }
-        .font(.subheadline)
-        .background(viewModel.totalsValid ? Color.white : Color.paleRed)
-    }
-
-    private var inactiveHeader: some View {
-        HStack(spacing: 0) {
-            Text("Inactive Assets")
-                .fontWeight(.semibold)
-                .frame(width: 200, alignment: .leading)
-            Spacer()
-        }
-        .padding(.vertical, 2)
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-
-    private var totalCellPct: some View {
-        HStack(spacing: 2) {
-            Text("\(formatPercent(viewModel.targetPctTotal))%")
-                .fontWeight((99...101).contains(viewModel.targetPctTotal) ? .regular : .bold)
-                .foregroundColor((99...101).contains(viewModel.targetPctTotal) ? .primary : .red)
-            if !(99...101).contains(viewModel.targetPctTotal) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                    .help("Target % total must be between 99% and 101%")
-            }
-        }
-    }
-
-    private func sortHeader(title: String, column: SortColumn) -> some View {
-        Button(action: { viewModel.toggleSort(column: column) }) {
-            HStack(spacing: 2) {
-                Text(title)
-                Image(systemName: {
-                    let base = viewModel.sortAscending ? "arrowtriangle.up" : "arrowtriangle.down"
-                    return viewModel.sortColumn == column ? base + ".fill" : base
-                }())
-                .resizable()
-                .frame(width: 12, height: 12)
-                .foregroundColor(viewModel.sortColumn == column ? .accentColor : .gray)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 2)
-        }
-        .buttonStyle(.plain)
-        .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
-    }
-
     private func deltaColor(_ value: Double) -> Color {
         if abs(value) > 5 { return .warning }
         if value > 0 { return .success }
@@ -717,166 +693,6 @@ struct AllocationTargetsTableView: View {
         return asset.deviationPct > 0 ? "Above target" : "Below target"
     }
 
-    @ViewBuilder
-    private func tableRow(for asset: AllocationAsset) -> some View {
-        let isClass = asset.id.hasPrefix("class-")
-        let subclassSumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
-        let subclassSumChf = asset.children?.map(\.targetChf).reduce(0, +) ?? 0
-        let deltaChf = asset.targetChf - subclassSumChf
-        let deltaTol = abs(asset.targetChf) * 0.01
-        let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
-
-        HStack(spacing: 4) {
-            Text(asset.name)
-                .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
-        }
-        .frame(width: 200, alignment: .leading)
-        HStack(spacing: 0) {
-            Divider()
-            HStack(alignment: .top, spacing: 0) {
-                Picker("", selection: viewModel.modeBinding(for: asset)) {
-                    Text("%" ).tag(AllocationInputMode.percent)
-                    Text("CHF").tag(AllocationInputMode.chf)
-                }
-                .pickerStyle(.segmented)
-                .tint(.softBlue)
-                .frame(width: 80)
-                if asset.mode == .percent {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        TextField("", value: viewModel.percentBinding(for: asset), formatter: percentFormatter)
-                            .multilineTextAlignment(.trailing)
-                            .padding(4)
-                            .frame(width: 80, alignment: .trailing)
-                            .background(Color.fieldGray)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(focusedPctField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
-                            )
-                            .focused($focusedPctField, equals: asset.id)
-                        if isClass {
-                            Text("Σ \(formatPercent(subclassSumPct))%")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .trailing)
-                        }
-                    }
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(formatChf(asset.targetChf))
-                            .frame(width: 100, alignment: .trailing)
-                        if isClass {
-                            HStack(spacing: 4) {
-                                Text("Σ \(formatChf(subclassSumChf))")
-                                Text(formatSignedChf(deltaChf))
-                                    .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
-                                    .foregroundColor(aggregateDeltaColor)
-                            }
-                            .font(.caption2)
-                            .frame(width: 100, alignment: .trailing)
-                        }
-                    }
-                } else {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(formatPercent(asset.targetPct))
-                            .frame(width: 80, alignment: .trailing)
-                        if isClass {
-                            Text("Σ \(formatPercent(subclassSumPct))%")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .trailing)
-                        }
-                    }
-                    VStack(alignment: .trailing, spacing: 2) {
-                        TextField("", text: chfTextBinding(for: asset))
-                            .multilineTextAlignment(.trailing)
-                            .padding(4)
-                            .frame(width: 100, alignment: .trailing)
-                            .background(Color.fieldGray)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(focusedChfField == asset.id ? Color.accentColor : Color.clear, lineWidth: 1)
-                            )
-                            .focused($focusedChfField, equals: asset.id)
-                            .onChange(of: focusedChfField) { oldValue, newValue in
-                                if newValue == asset.id {
-                                    chfDrafts[asset.id] = chfDrafts[asset.id]?.replacingOccurrences(of: "'", with: "")
-                                } else if oldValue == asset.id && chfDrafts[asset.id] != nil {
-                                    chfDrafts[asset.id] = formatChf(asset.targetChf)
-                                }
-                            }
-                        if isClass {
-                            HStack(spacing: 4) {
-                                Text("Σ \(formatChf(subclassSumChf))")
-                                Text(formatSignedChf(deltaChf))
-                                    .fontWeight(abs(deltaChf) > deltaTol ? .bold : .regular)
-                                    .foregroundColor(aggregateDeltaColor)
-                            }
-                            .font(.caption2)
-                            .frame(width: 100, alignment: .trailing)
-                        }
-                    }
-                }
-            }
-            if isClass {
-                let cid = Int(asset.id.dropFirst(6))
-                Button {
-                    if let id = cid { editingClassId = id }
-                } label: {
-                    Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
-                        .foregroundColor(.accentColor)
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(.plain)
-                .frame(width: 24, height: 24)
-                .accessibilityLabel("Edit targets for \(asset.name)")
-            }
-            Divider()
-            HStack {
-                Text("\(formatPercent(asset.actualPct))%")
-                    .frame(width: 80, alignment: .trailing)
-                    .foregroundColor(asset.actualPct == 0 ? .secondary : .primary)
-                Text(formatChf(asset.actualChf))
-                    .frame(width: 100, alignment: .trailing)
-                    .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
-            }
-            Divider()
-            HStack {
-                let dColor = deltaColor(asset.deviationPct)
-                Text("\(formatSignedPercent(asset.deviationPct))%")
-                    .frame(width: 80, alignment: .trailing)
-                    .padding(4)
-                    .background(dColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-                Text(formatSignedChf(asset.deviationChf))
-                    .frame(width: 100, alignment: .trailing)
-                    .padding(4)
-                    .background(dColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
-            }
-        }
-        .frame(height: isClass ? 60 : 48)
-        .background(rowBackground(for: asset))
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            if isClass, let id = Int(asset.id.dropFirst(6)) {
-                editingClassId = id
-            }
-        }
-    }
 }
 
 struct AllocationTargetsTableView_Previews: PreviewProvider {
