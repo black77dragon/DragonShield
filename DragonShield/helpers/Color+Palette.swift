@@ -12,8 +12,6 @@ extension Color {
     static let beige = Color(red: 250/255, green: 243/255, blue: 224/255)
     /// Soft blue highlight used for segmented controls and headers.
     static let softBlue = Color(red: 229/255, green: 241/255, blue: 255/255)
-    /// Row highlight used when editing in tables.
-    static let rowHighlight = Color(red: 245/255, green: 249/255, blue: 255/255)
 
     /// Neutral gray used for text field backgrounds across platforms.
     static var fieldGray: Color {
