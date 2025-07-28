@@ -163,35 +163,91 @@ struct AllocationTreeCard: View {
 
     private let gap: CGFloat = 10
 
+    private struct ColumnMeta: Codable {
+        var order: [String]
+        var widths: [String: Double]
+    }
+
+    private static let columnOrder = ["name", "target", "actual", "bar", "deltaVal"]
+    private static let columnMetaKey = UserDefaultsKeys.assetAllocationColumnMeta
+
+    @State private var columnWidths: [String: CGFloat] = [:]
+    @State private var nameWidth: CGFloat = 0
+    @State private var targetWidth: CGFloat = 0
+    @State private var actualWidth: CGFloat = 0
+    @State private var barWidth: CGFloat = 0
+    @State private var deltaWidth: CGFloat = 0
+
+    private func loadColumnMeta() {
+        if let data = UserDefaults.standard.data(forKey: Self.columnMetaKey),
+           let meta = try? JSONDecoder().decode(ColumnMeta.self, from: data),
+           meta.order == Self.columnOrder {
+            columnWidths = meta.widths.mapValues { CGFloat($0) }
+            nameWidth = columnWidths["name"] ?? 0
+            targetWidth = columnWidths["target"] ?? 0
+            actualWidth = columnWidths["actual"] ?? 0
+            barWidth = columnWidths["bar"] ?? 0
+            deltaWidth = columnWidths["deltaVal"] ?? 0
+        }
+    }
+
+    private func saveColumnMeta() {
+        columnWidths = [
+            "name": nameWidth,
+            "target": targetWidth,
+            "actual": actualWidth,
+            "bar": barWidth,
+            "deltaVal": deltaWidth
+        ]
+        let meta = ColumnMeta(order: Self.columnOrder,
+                              widths: columnWidths.mapValues { Double($0) })
+        if let data = try? JSONEncoder().encode(meta) {
+            UserDefaults.standard.set(data, forKey: Self.columnMetaKey)
+        }
+    }
+
     var body: some View {
         Card {
             GeometryReader { geo in
                 let sidePad: CGFloat = 6
                 let tableWidth = geo.size.width - sidePad * 2
-                let trackCol: CGFloat = 90
-                let deltaCol: CGFloat = 68
+                let defaultTrack: CGFloat = 90
+                let defaultDelta: CGFloat = 68
                 let minValue: CGFloat = 80
                 let spacing = 16 + gap * 4 + 4
-                let remaining = tableWidth - trackCol - deltaCol - spacing
-                let targetCol = max(minValue, remaining * 0.25)
-                let actualCol = max(minValue, remaining * 0.25)
-                let nameCol = max(0, remaining - targetCol - actualCol)
+                if nameWidth == 0 {
+                    let trackCol = defaultTrack
+                    let deltaCol = defaultDelta
+                    let remaining = tableWidth - trackCol - deltaCol - spacing
+                    nameWidth = max(0, remaining * 0.5)
+                    targetWidth = max(minValue, remaining * 0.25)
+                    actualWidth = max(minValue, remaining * 0.25)
+                    barWidth = trackCol
+                    deltaWidth = deltaCol
+                    saveColumnMeta()
+                }
+                let trackCol = barWidth
+                let deltaCol = deltaWidth
+                let targetCol = targetWidth
+                let actualCol = actualWidth
+                let nameCol = nameWidth
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
                     HeaderBar()
-                    CaptionRow(nameWidth: nameCol,
-                               targetWidth: targetCol,
-                               actualWidth: actualCol,
-                               trackWidth: trackCol,
-                               deltaWidth: deltaCol,
+                    CaptionRow(nameWidth: $nameWidth,
+                               targetWidth: $targetWidth,
+                               actualWidth: $actualWidth,
+                               trackWidth: $barWidth,
+                               deltaWidth: $deltaWidth,
                                gap: gap,
                                sortColumn: $sortColumn,
-                               sortAscending: $sortAscending)
+                               sortAscending: $sortAscending,
+                               onResize: saveColumnMeta)
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
-                            rows(nameCol, targetCol, actualCol, trackCol, deltaCol, compact)
+                            rows(nameWidth, targetWidth, actualWidth, barWidth, deltaWidth, compact)
                         }
                     }
                 }
@@ -200,7 +256,10 @@ struct AllocationTreeCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .onAppear { initializeExpanded() }
+        .onAppear {
+            initializeExpanded()
+            loadColumnMeta()
+        }
         .onChange(of: displayMode) { _, _ in saveMode() }
     }
 
@@ -302,29 +361,23 @@ struct AllocationTreeCard: View {
     }
 
     struct CaptionRow: View {
-        let nameWidth: CGFloat
-        let targetWidth: CGFloat
-        let actualWidth: CGFloat
-        let trackWidth: CGFloat
-        let deltaWidth: CGFloat
+        @Binding var nameWidth: CGFloat
+        @Binding var targetWidth: CGFloat
+        @Binding var actualWidth: CGFloat
+        @Binding var trackWidth: CGFloat
+        @Binding var deltaWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
+        var onResize: () -> Void
 
         var body: some View {
             HStack(spacing: gap) {
-                Spacer().frame(width: nameWidth + 16)
-                sortHeader("TARGET", column: .target)
-                    .frame(width: targetWidth, alignment: .trailing)
-                sortHeader("ACTUAL", column: .actual)
-                    .frame(width: actualWidth, alignment: .trailing)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: trackWidth, alignment: .center)
-                    .lineLimit(1)
-                sortHeader("\u{0394}", column: .delta)
-                    .frame(width: deltaWidth, alignment: .trailing)
+                resizableLabel("Asset Class", width: $nameWidth, alignment: .leading)
+                sortHeader("TARGET", column: .target, width: $targetWidth)
+                sortHeader("ACTUAL", column: .actual, width: $actualWidth)
+                resizableStatic("Deviation", width: $trackWidth)
+                sortHeader("\u{0394}", column: .delta, width: $deltaWidth)
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
@@ -333,16 +386,20 @@ struct AllocationTreeCard: View {
             }
         }
 
-        private func sortHeader(_ title: String, column: SortColumn) -> some View {
-            Button(action: { toggle(column) }) {
-                HStack(spacing: 2) {
-                    Text(title)
-                    Image(systemName: icon(for: column))
+        private func sortHeader(_ title: String, column: SortColumn, width: Binding<CGFloat>) -> some View {
+            HStack(spacing: 0) {
+                Button(action: { toggle(column) }) {
+                    HStack(spacing: 2) {
+                        Text(title)
+                        Image(systemName: icon(for: column))
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
                 }
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
+                .buttonStyle(.plain)
+                .frame(width: width.wrappedValue - 6, alignment: .trailing)
+                grip(width)
             }
-            .buttonStyle(.plain)
         }
 
         private func icon(for column: SortColumn) -> String {
@@ -356,6 +413,40 @@ struct AllocationTreeCard: View {
             } else {
                 sortColumn = column
                 sortAscending = false
+            }
+        }
+
+        private func grip(_ width: Binding<CGFloat>) -> some View {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 6)
+                .contentShape(Rectangle())
+                .overlay(Text("\u{22EE}").font(.caption2).foregroundColor(.secondary))
+                .gesture(DragGesture().onChanged { value in
+                    width.wrappedValue += value.translation.width
+                }.onEnded { _ in
+                    width.wrappedValue = max(width.wrappedValue, 40)
+                    onResize()
+                })
+        }
+
+        private func resizableLabel(_ title: String, width: Binding<CGFloat>, alignment: Alignment) -> some View {
+            HStack(spacing: 0) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: width.wrappedValue - 6, alignment: alignment)
+                grip(width)
+            }
+        }
+
+        private func resizableStatic(_ title: String, width: Binding<CGFloat>) -> some View {
+            HStack(spacing: 0) {
+                Text(title.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: width.wrappedValue - 6, alignment: .center)
+                    .lineLimit(1)
+                grip(width)
             }
         }
     }
