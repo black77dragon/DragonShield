@@ -19,6 +19,8 @@ struct UserDefaultsKeys {
     static let backupDirectoryBookmark = "backupDirectoryBookmark"
     static let positionsVisibleColumns = "positionsVisibleColumns"
     static let positionsFontSize = "positionsFontSize"
+    /// Persist column widths for Asset Allocation table.
+    static let assetAllocationColumnWidths = "assetAllocationColumnWidths"
     /// Persist selected segment in Currencies & FX maintenance view.
     static let currenciesFxSegment = "currenciesFxSegment"
 }
