@@ -426,6 +426,11 @@ struct AssetRow: View {
         mode == .percent ? node.targetPct : node.targetChf
     }
 
+    private var showBullet: Bool {
+        (mode == .percent && node.targetKind == .percent) ||
+        (mode == .chf && node.targetKind == .amount)
+    }
+
     private var actual: Double {
         mode == .percent ? node.actualPct : node.actualChf
     }
@@ -467,10 +472,18 @@ struct AssetRow: View {
             }
             .frame(width: max(0, nameWidth - 16), alignment: .leading)
 
-            Text(formatValue(target))
-                .frame(width: targetWidth, alignment: .trailing)
-                .font(node.children != nil ? .body.bold() : .subheadline)
-                .lineLimit(1)
+            HStack(spacing: 2) {
+                Text(formatValue(target))
+                if showBullet {
+                    Text("\u{25CF}")
+                        .font(.system(size: 7))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .alignmentGuide(.trailing) { d in d[.trailing] }
+            .frame(width: targetWidth, alignment: .trailing)
+            .font(node.children != nil ? .body.bold() : .subheadline)
+            .lineLimit(1)
             Text(formatValue(actual))
                 .frame(width: actualWidth, alignment: .trailing)
                 .font(node.children != nil ? .body.bold() : .subheadline)
