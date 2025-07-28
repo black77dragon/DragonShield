@@ -2,10 +2,12 @@ import SwiftUI
 
 struct Card<Content: View>: View {
     let title: String?
+    let padding: CGFloat
     let content: Content
     @Environment(\.colorScheme) private var scheme
-    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+    init(_ title: String? = nil, padding: CGFloat = 24, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.padding = padding
         self.content = content()
     }
 
@@ -17,7 +19,7 @@ struct Card<Content: View>: View {
             }
             content
         }
-        .padding(24)
+        .padding(padding)
         .background(
             Group {
                 if scheme == .dark {
