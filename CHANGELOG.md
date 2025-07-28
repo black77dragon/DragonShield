@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Redesign Asset Allocation dashboard with modern cards
 - Document Target Allocation edit panel workflow
 - Implement side-panel editor for Asset Class targets
+- Activate pencil edit button in Allocation Targets table
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Redesign overview bar layout with dedicated tiles
