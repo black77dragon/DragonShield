@@ -1,10 +1,10 @@
 -- DragonShield/docs/schema.sql
--- Dragon Shield Database Creation Script
--- Version 4.18 - Add target_kind and tolerance_percent columns
+-- Version 4.19 - Add target_kind and tolerance_percent columns
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.18 -> v4.19: Bump db_version for allocation view updates.
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
