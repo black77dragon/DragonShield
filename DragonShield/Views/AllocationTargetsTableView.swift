@@ -402,6 +402,7 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
     @State private var editingClassId: Int?
+    @Environment(\.colorScheme) private var scheme
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -493,7 +494,7 @@ struct AllocationTargetsTableView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        HStack(alignment: .top, spacing: 16) {
             List {
                 headerRow
                 totalsRow
@@ -507,7 +508,7 @@ struct AllocationTargetsTableView: View {
                             tableRow(for: asset)
                         }
                     }
-                }
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -537,9 +538,12 @@ struct AllocationTargetsTableView: View {
 
                 }
                 .padding()
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(width: 320)
+            .background(cardBackground)
         }
+        .padding(.horizontal, 24)
         .overlay(alignment: .trailing) {
             if let cid = editingClassId {
                 TargetEditPanel(classId: cid) {
@@ -695,6 +699,28 @@ struct AllocationTargetsTableView: View {
         if abs(asset.deviationPct) < 0.01 { return "OK" }
         if abs(asset.deviationPct) > 5 { return "Large deviation" }
         return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
+    private var cardBackground: some View {
+        Group {
+            if scheme == .dark {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.tertiary, lineWidth: 1)
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.quaternary, lineWidth: 1)
+                    )
+            }
+        }
     }
 
     @ViewBuilder
