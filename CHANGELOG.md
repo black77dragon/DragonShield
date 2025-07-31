@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view
+- Remove Delta Bar section from legacy Asset Allocation view
+- Display overview bar in legacy Asset Allocation view
 - Migrate width update onChange to new two-parameter closure
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components

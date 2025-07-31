@@ -5,10 +5,22 @@ import SwiftUI
 /// appearance.
 struct TargetAllocationMaintenanceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @StateObject private var overviewModel = AllocationDashboardViewModel()
 
     var body: some View {
-        AllocationTargetsTableView()
-            .navigationTitle("Target Asset Allocation")
+        VStack(spacing: 0) {
+            OverviewBar(portfolioTotal: overviewModel.portfolioTotalFormatted,
+                        outOfRange: "\(overviewModel.outOfRangeCount)",
+                        largestDev: String(format: "%.1f%%", overviewModel.largestDeviation),
+                        rebalAmount: overviewModel.rebalanceAmountFormatted)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+                .padding(.horizontal, 24)
+
+            AllocationTargetsTableView()
+        }
+        .navigationTitle("Target Asset Allocation")
+        .onAppear { overviewModel.load(using: dbManager) }
     }
 }
 
