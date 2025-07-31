@@ -402,7 +402,6 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
-    @State private var showDonut = true
     @State private var showDelta = true
     @State private var editingClassId: Int?
 
@@ -542,13 +541,6 @@ struct AllocationTargetsTableView: View {
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 16)
-
-                    DisclosureGroup("Double Donut", isExpanded: $showDonut) {
-                        DualRingDonutChart(data: chartAllocations)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .padding(.bottom, 16)
-                    .background(Color.softBlue)
 
                     DisclosureGroup("Delta Bar Asset Class", isExpanded: $showDelta) {
                         DeltaBarLayout(data: chartAllocations)
@@ -896,120 +888,6 @@ struct AssetAllocation: Identifiable {
     var delta: Double { actualPercent - targetPercent }
 }
 
-struct DualRingDonutChart: View {
-    let data: [AssetAllocation]
-    @State private var selected: AssetAllocation?
-
-    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .teal, .indigo]
-
-    private var targetTotal: Double { data.map(\.targetPercent).reduce(0, +) }
-
-    private func color(for name: String) -> Color {
-        if let idx = data.firstIndex(where: { $0.name == name }) {
-            return colors[idx % colors.count]
-        }
-        return .blue
-    }
-
-    private func item(at angle: Double) -> AssetAllocation? {
-        var cumulative = 0.0
-        for item in data {
-            let end = cumulative + item.actualPercent / 100 * 360
-            if angle >= cumulative && angle < end {
-                return item
-            }
-            cumulative = end
-        }
-        return nil
-    }
-
-    private func handleTap(_ location: CGPoint, in size: CGSize) {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let dx = location.x - center.x
-        let dy = location.y - center.y
-        let radius = sqrt(dx * dx + dy * dy)
-        let minRadius = min(size.width, size.height) / 2
-        guard radius >= minRadius * 0.35, radius <= minRadius else { return }
-        var angle = atan2(dy, dx) * 180 / .pi
-        if angle < 0 { angle += 360 }
-        if let item = item(at: angle) {
-            selected = item
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            ZStack {
-                Chart(data, id: \.name) { item in
-                    SectorMark(
-                        angle: .value("Actual", item.actualPercent),
-                        innerRadius: .ratio(0.55),
-                        outerRadius: .ratio(1.0)
-                    )
-                    .foregroundStyle(color(for: item.name))
-                    .shadow(color: abs(item.delta) > 2 ? .red : .clear, radius: 4)
-                }
-                .chartOverlay { proxy in
-                    GeometryReader { geo in
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onEnded { value in
-                                        handleTap(value.location, in: geo.size)
-                                    }
-                            )
-                    }
-                }
-                Chart(data, id: \.name) { item in
-                    SectorMark(
-                        angle: .value("Target", item.targetPercent),
-                        innerRadius: .ratio(0.35),
-                        outerRadius: .ratio(0.55)
-                    )
-                    .foregroundStyle(color(for: item.name).opacity(0.4))
-                }
-
-                if abs(targetTotal - 100) > 0.1 {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                } else {
-                    Text("Target vs Actual")
-                        .font(.caption)
-                }
-            }
-            .frame(width: 200, height: 200)
-            .chartLegend(.hidden)
-            .popover(item: $selected) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name).font(.headline)
-                    Text(String(format: "Target %.1f%%", item.targetPercent))
-                    Text(String(format: "Actual %.1f%%", item.actualPercent))
-                    Text(String(format: "Delta %+.1f%%", item.delta))
-                }
-                .padding()
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(data.indices, id: \.self) { idx in
-                    let item = data[idx]
-                    HStack(spacing: 6) {
-                        Rectangle()
-                            .fill(color(for: item.name))
-                            .frame(width: 12, height: 12)
-                        Text(item.name)
-                            .frame(width: 80, alignment: .leading)
-                        Text(String(format: "%.1f%%", item.targetPercent))
-                            .frame(width: 50, alignment: .trailing)
-                        Text(String(format: "%.1f%%", item.actualPercent))
-                            .frame(width: 50, alignment: .trailing)
-                    }
-                    .font(.caption)
-                }
-            }
-        }
-    }
-}
 
 struct DeltaBarLayout: View {
     let data: [AssetAllocation]

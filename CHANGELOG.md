@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 - Make pencil buttons persistent with row highlight and keyboard activation
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
+- Remove Double Donut chart from legacy Asset Allocation view
+- Migrate width update onChange to new two-parameter closure
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components
 - Convert Allocation dashboard to two-column layout with full-width overview bar
