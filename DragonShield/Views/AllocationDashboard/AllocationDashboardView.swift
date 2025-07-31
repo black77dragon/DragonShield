@@ -222,7 +222,7 @@ struct AllocationTreeCard: View {
                 let tableWidth = geo.size.width - sidePad * 2
                 Color.clear
                     .onAppear { updateWidths(for: tableWidth) }
-                    .onChange(of: geo.size.width) { newVal in
+                    .onChange(of: geo.size.width, initial: false) { _, newVal in
                         updateWidths(for: newVal - sidePad * 2)
                     }
                 let compact = tableWidth < 1024
