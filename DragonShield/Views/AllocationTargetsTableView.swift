@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 enum AllocationInputMode: String {
     case percent
@@ -402,7 +401,6 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
-    @State private var showDelta = true
     @State private var editingClassId: Int?
 
     private let percentFormatter: NumberFormatter = {
@@ -468,11 +466,6 @@ struct AllocationTargetsTableView: View {
         viewModel.assets.filter { !viewModel.isActive($0) }
     }
 
-    private var chartAllocations: [AssetAllocation] {
-        viewModel.assets.filter { $0.id.hasPrefix("class-") }.map {
-            AssetAllocation(name: $0.name, targetPercent: $0.targetPct, actualPercent: $0.actualPct)
-        }
-    }
 
     private var validationMessages: [String] {
         var issues: [String] = []
@@ -542,11 +535,6 @@ struct AllocationTargetsTableView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
 
-                    DisclosureGroup("Delta Bar Asset Class", isExpanded: $showDelta) {
-                        DeltaBarLayout(data: chartAllocations)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .background(Color.softBlue)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -880,104 +868,3 @@ struct AllocationTargetsTableView_Previews: PreviewProvider {
 
 // MARK: - Comparative Visual Components
 
-struct AssetAllocation: Identifiable {
-    var id: String { name }
-    let name: String
-    let targetPercent: Double
-    let actualPercent: Double
-    var delta: Double { actualPercent - targetPercent }
-}
-
-
-struct DeltaBarLayout: View {
-    let data: [AssetAllocation]
-    var tolerance: Double = 2.0
-
-    @State private var sortByDelta = true
-    @State private var ascending = false
-
-    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .teal, .indigo]
-
-    private func color(for name: String) -> Color {
-        if let idx = data.firstIndex(where: { $0.name == name }) {
-            return colors[idx % colors.count]
-        }
-        return .blue
-    }
-
-    private var sortedData: [AssetAllocation] {
-        data.sorted { lhs, rhs in
-            if sortByDelta {
-                if lhs.delta == rhs.delta { return lhs.name < rhs.name }
-                return ascending ? lhs.delta < rhs.delta : lhs.delta > rhs.delta
-            } else {
-                return ascending ? lhs.name < rhs.name : lhs.name > rhs.name
-            }
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                headerButton(title: "Asset Class", delta: false)
-                    .frame(width: 120, alignment: .leading)
-                Spacer()
-                headerButton(title: "Δ %", delta: true)
-                    .frame(width: 50, alignment: .trailing)
-            }
-            ForEach(sortedData.indices, id: \.self) { idx in
-                let item = sortedData[idx]
-                HStack(alignment: .center) {
-                    Text(item.name)
-                        .frame(width: 120, alignment: .leading)
-                    GeometryReader { geo in
-                        let width = geo.size.width
-                        ZStack {
-                            HStack {
-                                Capsule()
-                                    .fill(color(for: item.name).opacity(0.4))
-                                    .frame(width: width * item.targetPercent / 100, height: 8)
-                                Spacer()
-                            }
-                            HStack {
-                                Spacer()
-                                Capsule()
-                                    .fill(color(for: item.name))
-                                    .frame(width: width * item.actualPercent / 100, height: 8)
-                                    .overlay(
-                                        Capsule().stroke(Color.red, lineWidth: abs(item.delta) > tolerance ? 2 : 0)
-                                    )
-                            }
-                        }
-                    }
-                    .frame(height: 8)
-                    Text(String(format: "%+.1f%%", item.delta))
-                        .padding(4)
-                        .background(abs(item.delta) <= tolerance ? Color.success : Color.error)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .frame(width: 60, alignment: .trailing)
-                }
-                .font(.caption)
-            }
-        }
-    }
-
-    private func headerButton(title: String, delta: Bool) -> some View {
-        Button {
-            if sortByDelta == delta {
-                ascending.toggle()
-            } else {
-                sortByDelta = delta
-                ascending = false
-            }
-        } label: {
-            HStack(spacing: 2) {
-                Text(title)
-                Image(systemName: ascending && sortByDelta == delta ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
-                    .font(.caption2)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
