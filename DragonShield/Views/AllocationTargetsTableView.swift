@@ -567,7 +567,7 @@ struct AllocationTargetsTableView: View {
             Text("Asset")
                 .frame(width: 200, alignment: .leading)
             Divider()
-            HStack {
+            HStack(spacing: 0) {
                 Text("Mode")
                     .frame(width: 80)
                 sortHeader(title: "Target %", column: .targetPct)
@@ -575,6 +575,8 @@ struct AllocationTargetsTableView: View {
                 Text("Target CHF")
                     .frame(width: 100)
             }
+            Spacer()
+                .frame(width: 24)
             Divider()
             HStack {
                 sortHeader(title: "Actual %", column: .actualPct)
@@ -593,6 +595,7 @@ struct AllocationTargetsTableView: View {
             }
         }
         .font(.system(size: 12, weight: .semibold))
+        .listRowInsets(EdgeInsets())
     }
 
     private var totalsRow: some View {
@@ -608,6 +611,8 @@ struct AllocationTargetsTableView: View {
                 Text(formatChf(viewModel.targetChfTotal))
                     .frame(width: 100, alignment: .trailing)
             }
+            Spacer()
+                .frame(width: 24)
             Divider()
             HStack {
                 Text("\(formatPercent(viewModel.actualPctTotal))%")
@@ -627,6 +632,7 @@ struct AllocationTargetsTableView: View {
         }
         .font(.subheadline)
         .background(viewModel.totalsValid ? Color.white : Color.paleRed)
+        .listRowInsets(EdgeInsets())
     }
 
     private var inactiveHeader: some View {

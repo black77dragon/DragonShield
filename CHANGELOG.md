@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Activate pencil edit button in Allocation Targets table
 - Fix edit pencil visibility in Allocation Targets table and place it next to Target column
 - Style pencil button for visibility and ensure it opens the edit panel
+- Fix header alignment in legacy Asset Allocation table
 - Show pencil button next to the Target column and open the edit panel on
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
