@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Add segmented display mode toggle for Asset Classes tile
+- Make Asset Allocation columns resizable with widths saved per user
 - Move Asset Allocation Errors panel beside legacy targets table
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
 - Fix compile errors in Asset Allocation dashboard views
+- Fix Unicode escape for reset icon in Allocation dashboard
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view
 - Remove Delta Bar section from legacy Asset Allocation view
