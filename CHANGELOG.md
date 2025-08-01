@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Make pencil buttons persistent with row highlight and keyboard activation
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
+- Align header captions with Asset Class rows in legacy allocation view
 - Remove Double Donut chart from legacy Asset Allocation view
 - Remove Delta Bar section from legacy Asset Allocation view
 - Display overview bar in legacy Asset Allocation view
