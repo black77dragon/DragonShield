@@ -79,6 +79,11 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 - Use dropdown selectors for Date, Asset, Type, etc.
 - Bulk actions (Import, Export) always bottom-aligned
 
+### Editing
+- Each row in allocation tables has a persistent pencil button.
+- Double-clicking a row or pressing **Enter** or **Space** while it is focused opens the side-panel target editor.
+- The active row highlights with a soft blue background and the pencil icon fills.
+
 ---
 
 ## ⚖️ Functional Modules

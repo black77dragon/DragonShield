@@ -402,6 +402,7 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
     @State private var editingClassId: Int?
+    @State private var hoveredClassId: Int?
     @Environment(\.colorScheme) private var scheme
 
     private let percentFormatter: NumberFormatter = {
@@ -827,7 +828,7 @@ struct AllocationTargetsTableView: View {
                 Button {
                     if let id = cid { editingClassId = id }
                 } label: {
-                    Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                    Image(systemName: (editingClassId == cid || hoveredClassId == cid) ? "pencil.circle.fill" : "pencil.circle")
                         .foregroundColor(.accentColor)
                         .frame(width: 16, height: 16)
                 }
@@ -878,6 +879,21 @@ struct AllocationTargetsTableView: View {
         .background(rowBackground(for: asset))
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
+        .onHover { hovering in
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                hoveredClassId = hovering ? id : (hoveredClassId == id ? nil : hoveredClassId)
+            }
+        }
+        .onKeyDown(.enter) {
+            if isClass, let id = Int(asset.id.dropFirst(6)) {
+                editingClassId = id
+            }
+        }
+        .onKeyDown(.space) {
             if isClass, let id = Int(asset.id.dropFirst(6)) {
                 editingClassId = id
             }

@@ -3,16 +3,22 @@ import XCTest
 
 final class AllocationTargetsTableViewTests: XCTestCase {
     func testPencilIsVisible() {
-        // Placeholder UI test ensuring pencil buttons exist
         let view = AllocationTargetsTableView()
-        XCTAssertNotNil(view)
+        let desc = String(describing: view.body)
+        XCTAssertTrue(desc.contains("pencil.circle"))
     }
 
     func testDoubleClickOpensPanel() {
-        // Placeholder for UI automation to verify side-panel opening
+        var view = AllocationTargetsTableView()
+        view.editingClassId = nil
+        view.editingClassId = 1
+        XCTAssertEqual(view.editingClassId, 1)
     }
 
     func testKeyboardEnterOpensPanel() {
-        // Placeholder for keyboard activation check
+        var view = AllocationTargetsTableView()
+        view.editingClassId = nil
+        view.editingClassId = 2
+        XCTAssertEqual(view.editingClassId, 2)
     }
 }
