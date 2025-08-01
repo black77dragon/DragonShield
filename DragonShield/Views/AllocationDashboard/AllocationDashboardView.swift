@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import AppKit
 
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -164,8 +165,9 @@ struct AllocationTreeCard: View {
     private let gap: CGFloat = 10
 
     private let minName: CGFloat = 120
-    private let minNumeric: CGFloat = 60
-    private let minBar: CGFloat = 120
+    private let minNumeric: CGFloat = 80
+    private let minBar: CGFloat = 80
+    private let maxNumeric: CGFloat = 250
 
     private func updateWidths(for tableWidth: CGFloat) {
         let spacing: CGFloat = 16 + gap * 4 + 4
@@ -213,13 +215,69 @@ struct AllocationTreeCard: View {
         var total: CGFloat { name + target + actual + bar + delta }
     }
 
-    @State private var widths = ColumnWidths(name: 160, target: 90, actual: 90, bar: 200, delta: 80)
+    private static let defaultWidths = ColumnWidths(name: 160, target: 110, actual: 110, bar: 110, delta: 80)
+    private static let widthsKey = "ui.assetAllocation.columnWidths"
+
+    @State private var widths = Self.loadWidths()
+
+    private static func loadWidths() -> ColumnWidths {
+        if let vals = UserDefaults.standard.array(forKey: widthsKey) as? [Double],
+           vals.count == 3 {
+            return ColumnWidths(name: 160, target: vals[0], actual: vals[1], bar: vals[2], delta: 80)
+        }
+        return defaultWidths
+    }
+
+    private func saveWidths() {
+        let vals = [Double(widths.target), Double(widths.actual), Double(widths.bar)]
+        UserDefaults.standard.set(vals, forKey: Self.widthsKey)
+    }
+
+    private func resetWidths() {
+        UserDefaults.standard.removeObject(forKey: Self.widthsKey)
+        widths = Self.defaultWidths
+    }
+
+    struct ResizeGrip: View {
+        @Binding var width: CGFloat
+        let onEnd: () -> Void
+
+        var body: some View {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 6, height: 20)
+                .contentShape(Rectangle())
+                .overlay(Text("\u{22EE}").font(.caption2).foregroundColor(.secondary))
+                .onHover { hovering in
+                    if hovering { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                }
+                .gesture(
+                    DragGesture().onChanged { value in
+                        width = min(max(width + value.translation.width, minNumeric), maxNumeric)
+                    }.onEnded { _ in
+                        width = min(max(width, minNumeric), maxNumeric)
+                        onEnd()
+                    }
+                )
+                .accessibilityLabel("Resize column")
+                .focusable(true)
+                .onMoveCommand { dir in
+                    switch dir {
+                    case .left:
+                        width = max(minNumeric, width - 8)
+                    case .right:
+                        width = min(maxNumeric, width + 8)
+                    default: break
+                    }
+                }
+        }
+    }
 
     var body: some View {
         Card {
             GeometryReader { geo in
                 let sidePad: CGFloat = 6
-                let tableWidth = geo.size.width - sidePad * 2
+                let tableWidth = max(widths.total, geo.size.width - sidePad * 2)
                 Color.clear
                     .onAppear { updateWidths(for: tableWidth) }
                     .onChange(of: geo.size.width, initial: false) { _, newVal in
@@ -230,15 +288,15 @@ struct AllocationTreeCard: View {
                 VStack(spacing: 0) {
                     HeaderBar()
                     CaptionRow(nameWidth: widths.name,
-                               targetWidth: widths.target,
-                               actualWidth: widths.actual,
-                               trackWidth: widths.bar,
+                               targetWidth: $widths.target,
+                               actualWidth: $widths.actual,
+                               trackWidth: $widths.bar,
                                deltaWidth: widths.delta,
                                gap: gap,
                                sortColumn: $sortColumn,
                                sortAscending: $sortAscending)
                     Divider()
-                    ScrollView {
+                    ScrollView([.vertical, .horizontal]) {
                         VStack(spacing: 0) {
                             rows(widths.name, widths.target, widths.actual, widths.bar, widths.delta, compact)
                         }
@@ -273,6 +331,11 @@ struct AllocationTreeCard: View {
                     .foregroundStyle(.secondary)
                 SegmentedPicker
             }
+            Button(action: resetWidths) {
+                Text("\u21BA")
+            }
+            .buttonStyle(.plain)
+            .help("Reset column widths")
         }
         .padding(.horizontal, 16)
     }
@@ -352,9 +415,9 @@ struct AllocationTreeCard: View {
 
     struct CaptionRow: View {
         let nameWidth: CGFloat
-        let targetWidth: CGFloat
-        let actualWidth: CGFloat
-        let trackWidth: CGFloat
+        @Binding var targetWidth: CGFloat
+        @Binding var actualWidth: CGFloat
+        @Binding var trackWidth: CGFloat
         let deltaWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
@@ -364,14 +427,23 @@ struct AllocationTreeCard: View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
                 sortHeader("TARGET", column: .target)
-                    .frame(width: targetWidth, alignment: .trailing)
+                    .frame(width: targetWidth - 6, alignment: .trailing)
+                    .overlay(alignment: .trailing) {
+                        ResizeGrip(width: $targetWidth, onEnd: saveWidths)
+                    }
                 sortHeader("ACTUAL", column: .actual)
-                    .frame(width: actualWidth, alignment: .trailing)
+                    .frame(width: actualWidth - 6, alignment: .trailing)
+                    .overlay(alignment: .trailing) {
+                        ResizeGrip(width: $actualWidth, onEnd: saveWidths)
+                    }
                 Text("DEVIATION")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: trackWidth, alignment: .center)
+                    .frame(width: trackWidth - 6, alignment: .center)
                     .lineLimit(1)
+                    .overlay(alignment: .trailing) {
+                        ResizeGrip(width: $trackWidth, onEnd: saveWidths)
+                    }
                 sortHeader("\u{0394}", column: .delta)
                     .frame(width: deltaWidth, alignment: .trailing)
             }
