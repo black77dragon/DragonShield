@@ -593,6 +593,7 @@ struct AllocationTargetsTableView: View {
             }
         }
         .font(.system(size: 12, weight: .semibold))
+        .padding(.leading, 20)
     }
 
     private var totalsRow: some View {
@@ -627,6 +628,7 @@ struct AllocationTargetsTableView: View {
         }
         .font(.subheadline)
         .background(viewModel.totalsValid ? Color.white : Color.paleRed)
+        .padding(.leading, 20)
     }
 
     private var inactiveHeader: some View {
