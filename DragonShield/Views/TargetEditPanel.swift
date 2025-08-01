@@ -21,6 +21,7 @@ struct TargetEditPanel: View {
     @State private var kind: TargetKind = .percent
     @State private var parentPercent: Double = 0
     @State private var parentAmount: Double = 0
+    @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
 
@@ -48,7 +49,6 @@ struct TargetEditPanel: View {
         }
     }
 
-    private var targetLabel: String { kind == .percent ? "Target %" : "Target CHF" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -66,14 +66,31 @@ struct TargetEditPanel: View {
                     .pickerStyle(.radioGroup)
                     .frame(width: 120)
                 }
-                HStack {
-                    Text(targetLabel)
-                    Spacer()
-                    TextField("", value: kind == .percent ? $parentPercent : $parentAmount,
-                              formatter: Self.numberFormatter)
-                        .frame(width: 80)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.roundedBorder)
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading) {
+                        Text("Target %")
+                        TextField("", value: $parentPercent, formatter: Self.percentFormatter)
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .percent)
+                            .onChange(of: parentPercent) { newVal in
+                                guard kind == .percent else { return }
+                                parentAmount = portfolioTotal * newVal / 100
+                            }
+                    }
+                    VStack(alignment: .leading) {
+                        Text("Target CHF")
+                        TextField("", value: $parentAmount, formatter: Self.chfFormatter)
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .amount)
+                            .onChange(of: parentAmount) { newVal in
+                                guard kind == .amount else { return }
+                                parentPercent = portfolioTotal > 0 ? newVal / portfolioTotal * 100 : 0
+                            }
+                    }
                 }
                 HStack {
                     Text("Tolerance")
@@ -95,11 +112,12 @@ struct TargetEditPanel: View {
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                 GridRow {
                     Text("Kind").frame(width: 80)
-                    Text("Value").frame(width: 80, alignment: .trailing)
+                    Text("Target %").frame(width: 80, alignment: .trailing)
+                    Text("Target CHF").frame(width: 100, alignment: .trailing)
                     Text("Tol %").frame(width: 60, alignment: .trailing)
                     Text("")
                 }
-                Divider().gridCellColumns(4)
+                Divider().gridCellColumns(5)
                 ForEach($rows) { $row in
                     GridRow {
                         Picker("", selection: $row.kind) {
@@ -108,12 +126,33 @@ struct TargetEditPanel: View {
                         }
                         .pickerStyle(.radioGroup)
                         .frame(width: 80)
+                        .onChange(of: row.kind) { _, newKind in
+                            if newKind == .percent {
+                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                            } else {
+                                row.amount = parentAmount * row.percent / 100
+                            }
+                        }
 
-                        TextField("", value: row.kind == .percent ? $row.percent : $row.amount,
-                                  formatter: Self.numberFormatter)
+                        TextField("", value: $row.percent, formatter: Self.percentFormatter)
                             .frame(width: 80)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .percent)
+                            .onChange(of: row.percent) { newVal in
+                                guard row.kind == .percent else { return }
+                                row.amount = parentAmount * newVal / 100
+                            }
+
+                        TextField("", value: $row.amount, formatter: Self.chfFormatter)
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .amount)
+                            .onChange(of: row.amount) { newVal in
+                                guard row.kind == .amount else { return }
+                                row.percent = parentAmount > 0 ? newVal / parentAmount * 100 : 0
+                            }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
                             .frame(width: 60)
@@ -123,7 +162,7 @@ struct TargetEditPanel: View {
                         Text(row.name)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Divider().background(Color.systemGray4).gridCellColumns(4)
+                    Divider().background(Color.systemGray4).gridCellColumns(5)
                 }
             }
 
@@ -141,6 +180,17 @@ struct TargetEditPanel: View {
         .padding()
         .frame(minWidth: 360)
         .onAppear { load() }
+        .onChange(of: kind) { _, _ in
+            if kind == .percent {
+                parentAmount = portfolioTotal * parentPercent / 100
+            } else {
+                parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
+            }
+            updateRows()
+        }
+        .onChange(of: parentAmount) { _, _ in
+            updateRows()
+        }
     }
 
     private func load() {
@@ -162,6 +212,37 @@ struct TargetEditPanel: View {
                        amount: rec?.amountCHF ?? 0,
                        kind: rk,
                        tolerance: rec?.tolerance ?? tolerance)
+        }
+        portfolioTotal = calculatePortfolioTotal()
+        updateRows()
+    }
+
+    private func calculatePortfolioTotal() -> Double {
+        var total = 0.0
+        var rateCache: [String: Double] = [:]
+        for p in db.fetchPositionReports() {
+            guard let price = p.currentPrice else { continue }
+            var value = p.quantity * price
+            let currency = p.instrumentCurrency.uppercased()
+            if currency != "CHF" {
+                if rateCache[currency] == nil {
+                    rateCache[currency] = db.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
+                }
+                guard let r = rateCache[currency] else { continue }
+                value *= r
+            }
+            total += value
+        }
+        return total
+    }
+
+    private func updateRows() {
+        for idx in rows.indices {
+            if rows[idx].kind == .percent {
+                rows[idx].amount = parentAmount * rows[idx].percent / 100
+            } else {
+                rows[idx].percent = parentAmount > 0 ? rows[idx].amount / parentAmount * 100 : 0
+            }
         }
     }
 
@@ -202,6 +283,20 @@ struct TargetEditPanel: View {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 1
+        return f
+    }()
+
+    private static let percentFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 1
+        return f
+    }()
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
         return f
     }()
 }
