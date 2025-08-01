@@ -253,6 +253,23 @@ struct AllocationTreeCard: View {
         }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
+        .overlay {
+            if let cid = editingClassId {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
+                .frame(maxWidth: 420)
+                .padding()
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(radius: 20)
+            }
+        }
     }
 
     private var SegmentedPicker: some View {
@@ -299,14 +316,6 @@ struct AllocationTreeCard: View {
                          trackWidth: trackWidth,
                          deltaWidth: deltaWidth,
                          gap: gap)
-                if let cid = Int(parent.id.dropFirst(6)), editingClassId == cid {
-                    TargetEditPanel(classId: cid) {
-                        viewModel.load(using: dbManager)
-                        withAnimation { editingClassId = nil }
-                    }
-                    .environmentObject(dbManager)
-                    .background(Color.white)
-                }
             }
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in

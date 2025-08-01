@@ -5,91 +5,125 @@ struct TargetEditPanel: View {
     let classId: Int
     let onClose: () -> Void
 
-    @State private var kind: TargetKind = .percent
-    @State private var parentValue: Double = 0
-    @State private var rows: [Row] = []
-    @State private var tolerance: Double = 5
+    enum TargetKind: String, CaseIterable { case percent, amount }
 
     struct Row: Identifiable {
         let id: Int
         let name: String
-        var value: Double
+        var percent: Double
+        var amount: Double
+        var kind: TargetKind
+        var tolerance: Double
         var locked: Bool = false
     }
 
-    enum TargetKind: String, CaseIterable { case percent, amount }
+    @State private var className: String = ""
+    @State private var kind: TargetKind = .percent
+    @State private var parentPercent: Double = 0
+    @State private var parentAmount: Double = 0
+    @State private var tolerance: Double = 5
+    @State private var rows: [Row] = []
 
-    private var total: Double { rows.map(\.value).reduce(0, +) }
-
-    private var remaining: Double {
-        kind == .percent ? (100 - total) : (parentValue - total)
-    }
-
-    private var parentOK: Bool {
+    private var subTotal: Double {
         if kind == .percent {
-            abs(total - 100) < 0.1
+            rows.map(\.percent).reduce(0, +)
         } else {
-            abs(total - parentValue) < 1.0
+            rows.map(\.amount).reduce(0, +)
         }
     }
 
-    private var canSave: Bool { parentOK && parentValue >= 0 && rows.allSatisfy { $0.value >= 0 } }
+    private var remaining: Double {
+        if kind == .percent {
+            100 - subTotal
+        } else {
+            parentAmount - subTotal
+        }
+    }
+
+    private var canSave: Bool {
+        if kind == .percent {
+            abs(subTotal - 100) < 0.1 && parentPercent >= 0
+        } else {
+            abs(subTotal - parentAmount) < 1.0 && parentAmount >= 0
+        }
+    }
+
+    private var targetLabel: String { kind == .percent ? "Target %" : "Target CHF" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Button("Back") { onClose() }
-                Spacer()
-                Text("Edit targets")
-                    .font(.headline)
-            }
-            .padding(.bottom)
-
-            HStack {
-                Text("Target Kind")
-                Spacer()
-                Picker("Target Kind", selection: $kind) {
-                    Text("%").tag(TargetKind.percent)
-                    Text("CHF").tag(TargetKind.amount)
-                }
-                .pickerStyle(.radioGroup)
-                .frame(width: 120)
-            }
-
-            HStack {
-                Text("Target Value")
-                Spacer()
-                TextField("", value: $parentValue, formatter: Self.numberFormatter)
-                    .frame(width: 80)
-                    .multilineTextAlignment(.trailing)
-                    .textFieldStyle(.roundedBorder)
-                Text(kind == .percent ? "%" : "CHF")
-            }
-
-            HStack {
-                Text("Tolerance")
-                Spacer()
-                TextField("", value: $tolerance, formatter: Self.numberFormatter)
-                    .frame(width: 60)
-                    .multilineTextAlignment(.trailing)
-                    .textFieldStyle(.roundedBorder)
-                Text("%")
-            }
-
-            Text("Sub-Class Targets")
+            Text("Edit \"\(className)\" Targets")
                 .font(.headline)
 
-            Grid(alignment: .trailing, horizontalSpacing: 8, verticalSpacing: 4) {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Target Kind")
+                    Spacer()
+                    Picker("", selection: $kind) {
+                        Text("%").tag(TargetKind.percent)
+                        Text("CHF").tag(TargetKind.amount)
+                    }
+                    .pickerStyle(.radioGroup)
+                    .frame(width: 120)
+                }
+                HStack {
+                    Text(targetLabel)
+                    Spacer()
+                    TextField("", value: kind == .percent ? $parentPercent : $parentAmount,
+                              formatter: Self.numberFormatter)
+                        .frame(width: 80)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                }
+                HStack {
+                    Text("Tolerance")
+                    Spacer()
+                    TextField("", value: $tolerance, formatter: Self.numberFormatter)
+                        .frame(width: 60)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                    Text("%")
+                }
+            }
+            .padding(8)
+            .background(Color.sectionBlue)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            Text("Sub-Class Targets:")
+                .font(.headline)
+
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
+                GridRow {
+                    Text("Kind").frame(width: 80)
+                    Text("Value").frame(width: 80, alignment: .trailing)
+                    Text("Tol %").frame(width: 60, alignment: .trailing)
+                    Text("")
+                }
+                Divider().gridCellColumns(4)
                 ForEach($rows) { $row in
                     GridRow {
-                        Text(row.name)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        TextField("", value: $row.value, formatter: Self.numberFormatter)
+                        Picker("", selection: $row.kind) {
+                            Text("%").tag(TargetKind.percent)
+                            Text("CHF").tag(TargetKind.amount)
+                        }
+                        .pickerStyle(.radioGroup)
+                        .frame(width: 80)
+
+                        TextField("", value: row.kind == .percent ? $row.percent : $row.amount,
+                                  formatter: Self.numberFormatter)
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+
+                        TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
                             .frame(width: 60)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                        Text(kind == .percent ? "%" : "CHF")
+
+                        Text(row.name)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    Divider().background(Color.systemGray4).gridCellColumns(4)
                 }
             }
 
@@ -105,24 +139,29 @@ struct TargetEditPanel: View {
             }
         }
         .padding()
-        .frame(maxWidth: 320)
-        .background(Color.white)
+        .frame(minWidth: 360)
         .onAppear { load() }
-        .transition(.move(edge: .trailing))
     }
 
     private func load() {
+        className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
-            if parent.targetKind == "amount" { kind = .amount } else { kind = .percent }
-            parentValue = kind == .percent ? parent.percent : (parent.amountCHF ?? 0)
+            kind = parent.targetKind == "amount" ? .amount : .percent
+            parentPercent = parent.percent
+            parentAmount = parent.amountCHF ?? 0
             tolerance = parent.tolerance
         }
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
-            let rec = records.first(where: { $0.subClassId == sub.id })
-            let val = kind == .percent ? (rec?.percent ?? 0) : (rec?.amountCHF ?? 0)
-            return Row(id: sub.id, name: sub.name, value: val)
+            let rec = records.first { $0.subClassId == sub.id }
+            let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
+            return Row(id: sub.id,
+                       name: sub.name,
+                       percent: rec?.percent ?? 0,
+                       amount: rec?.amountCHF ?? 0,
+                       kind: rk,
+                       tolerance: rec?.tolerance ?? tolerance)
         }
     }
 
@@ -130,18 +169,31 @@ struct TargetEditPanel: View {
         let unlocked = rows.indices.filter { !rows[$0].locked }
         guard !unlocked.isEmpty else { return }
         let share = remaining / Double(unlocked.count)
-        for idx in unlocked { rows[idx].value += share }
-        // minor adjustment to remove rounding drift
-        if let last = unlocked.last { rows[last].value += remaining - share * Double(unlocked.count) }
+        if kind == .percent {
+            for idx in unlocked { rows[idx].percent += share }
+            if let last = unlocked.last {
+                rows[last].percent += remaining - share * Double(unlocked.count)
+            }
+        } else {
+            for idx in unlocked { rows[idx].amount += share }
+            if let last = unlocked.last {
+                rows[last].amount += remaining - share * Double(unlocked.count)
+            }
+        }
     }
 
     private func save() {
-        if kind == .percent {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: parentValue, tolerance: tolerance)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: r.value, tolerance: tolerance) }
-        } else {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: 0, amountChf: parentValue, tolerance: tolerance)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: 0, amountChf: r.value, tolerance: tolerance) }
+        db.upsertClassTarget(portfolioId: 1,
+                             classId: classId,
+                             percent: parentPercent,
+                             amountChf: parentAmount,
+                             tolerance: tolerance)
+        for row in rows {
+            db.upsertSubClassTarget(portfolioId: 1,
+                                    subClassId: row.id,
+                                    percent: row.percent,
+                                    amountChf: row.amount,
+                                    tolerance: row.tolerance)
         }
         onClose()
     }
