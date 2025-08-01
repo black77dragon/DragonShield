@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import AppKit
 
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -165,42 +166,50 @@ struct AllocationTreeCard: View {
 
     private let minName: CGFloat = 120
     private let minNumeric: CGFloat = 60
-    private let minBar: CGFloat = 120
+    private let minBar: CGFloat = 80
+
+    private static let widthKey = "ui.assetAllocation.columnWidths"
+    private static let defaultWidths = ColumnWidths(name: 160,
+                                                    target: 110,
+                                                    actual: 110,
+                                                    bar: 110,
+                                                    delta: 80)
+
+    @State private var tableWidth: CGFloat = 0
 
     private func updateWidths(for tableWidth: CGFloat) {
+        self.tableWidth = tableWidth
         let spacing: CGFloat = 16 + gap * 4 + 4
         let available = tableWidth - spacing
         guard available > 0 else { return }
-        let oldTotal = widths.total
-        if oldTotal == 0 { return }
-        let ratio = available / oldTotal
-        widths.name *= ratio
-        widths.target *= ratio
-        widths.actual *= ratio
-        widths.bar *= ratio
-        widths.delta *= ratio
 
-        widths.name = max(minName, widths.name)
-        widths.target = max(minNumeric, widths.target)
-        widths.actual = max(minNumeric, widths.actual)
-        widths.bar = max(minBar, widths.bar)
-        widths.delta = max(minNumeric, widths.delta)
+        let minTotal = minName + minNumeric * 2 + minBar + widths.delta
+        if available < minTotal {
+            let ratio = available / minTotal
+            widths.name = minName * ratio
+            widths.target = minNumeric * ratio
+            widths.actual = minNumeric * ratio
+            widths.bar = minBar * ratio
+            return
+        }
 
-        var diff = available - widths.total
-        if abs(diff) > 0.1 {
-            let adj = max(0, widths.total - (minName + minNumeric * 3 + minBar))
-            guard adj > 0 else { return }
-            let f = diff / adj
-            widths.name += (widths.name - minName) * f
-            widths.target += (widths.target - minNumeric) * f
-            widths.actual += (widths.actual - minNumeric) * f
-            widths.bar += (widths.bar - minBar) * f
-            widths.delta += (widths.delta - minNumeric) * f
-            diff = available - widths.total
-            if abs(diff) > 0.1 {
-                widths.name += diff
+        widths.target = min(max(widths.target, minNumeric), 250)
+        widths.actual = min(max(widths.actual, minNumeric), 250)
+        widths.bar = min(max(widths.bar, minBar), 250)
+
+        var name = available - (widths.target + widths.actual + widths.bar + widths.delta)
+        if name < minName {
+            let deficit = minName - name
+            name = minName
+            var adjustable = (widths.target - minNumeric) + (widths.actual - minNumeric) + (widths.bar - minBar)
+            if adjustable > 0 {
+                let factor = deficit / adjustable
+                widths.target -= (widths.target - minNumeric) * factor
+                widths.actual -= (widths.actual - minNumeric) * factor
+                widths.bar -= (widths.bar - minBar) * factor
             }
         }
+        widths.name = name
     }
 
     private struct ColumnWidths {
@@ -213,7 +222,7 @@ struct AllocationTreeCard: View {
         var total: CGFloat { name + target + actual + bar + delta }
     }
 
-    @State private var widths = ColumnWidths(name: 160, target: 90, actual: 90, bar: 200, delta: 80)
+    @State private var widths = Self.loadWidths()
 
     var body: some View {
         Card {
@@ -221,22 +230,29 @@ struct AllocationTreeCard: View {
                 let sidePad: CGFloat = 6
                 let tableWidth = geo.size.width - sidePad * 2
                 Color.clear
-                    .onAppear { updateWidths(for: tableWidth) }
+                    .onAppear {
+                        self.tableWidth = tableWidth
+                        updateWidths(for: tableWidth)
+                    }
                     .onChange(of: geo.size.width, initial: false) { _, newVal in
-                        updateWidths(for: newVal - sidePad * 2)
+                        self.tableWidth = newVal - sidePad * 2
+                        updateWidths(for: self.tableWidth)
                     }
                 let compact = tableWidth < 1024
 
                 VStack(spacing: 0) {
                     HeaderBar()
                     CaptionRow(nameWidth: widths.name,
-                               targetWidth: widths.target,
-                               actualWidth: widths.actual,
-                               trackWidth: widths.bar,
+                               targetWidth: $widths.target,
+                               actualWidth: $widths.actual,
+                               trackWidth: $widths.bar,
                                deltaWidth: widths.delta,
                                gap: gap,
                                sortColumn: $sortColumn,
-                               sortAscending: $sortAscending)
+                               sortAscending: $sortAscending,
+                               reset: resetWidths,
+                               widthChanged: { updateWidths(for: tableWidth) },
+                               widthEnded: { saveWidths() })
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
@@ -339,6 +355,33 @@ struct AllocationTreeCard: View {
     }
 
     private static let modeKey = "AllocationDisplayMode"
+    private static func loadWidths() -> ColumnWidths {
+        if let dict = UserDefaults.standard.dictionary(forKey: Self.widthKey) as? [String: Double] {
+            return ColumnWidths(name: defaultWidths.name,
+                                target: CGFloat(dict["targetCol"] ?? Double(defaultWidths.target)),
+                                actual: CGFloat(dict["actualCol"] ?? Double(defaultWidths.actual)),
+                                bar: CGFloat(dict["deviationCol"] ?? Double(defaultWidths.bar)),
+                                delta: defaultWidths.delta)
+        }
+        return defaultWidths
+    }
+
+    private func saveWidths() {
+        let data: [String: Double] = [
+            "targetCol": Double(widths.target),
+            "actualCol": Double(widths.actual),
+            "deviationCol": Double(widths.bar)
+        ]
+        UserDefaults.standard.set(data, forKey: Self.widthKey)
+    }
+
+    private func resetWidths() {
+        widths.target = Self.defaultWidths.target
+        widths.actual = Self.defaultWidths.actual
+        widths.bar = Self.defaultWidths.bar
+        UserDefaults.standard.removeObject(forKey: Self.widthKey)
+        updateWidths(for: tableWidth)
+    }
     private static func loadMode() -> DisplayMode {
         if let raw = UserDefaults.standard.string(forKey: modeKey),
            let mode = DisplayMode(rawValue: raw) {
@@ -350,30 +393,80 @@ struct AllocationTreeCard: View {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
 
+    struct ResizeGrip: View {
+        @Binding var width: CGFloat
+        let min: CGFloat
+        let onChanged: () -> Void
+        let onEnded: () -> Void
+
+        var body: some View {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 8)
+                .overlay(Text("\u{22EE}")
+                            .font(.caption2)
+                            .foregroundColor(.secondary))
+                .contentShape(Rectangle())
+                .cursor(.resizeLeftRight)
+                .gesture(
+                    DragGesture()
+                        .onChanged { val in
+                            width = min(max(width + val.translation.width, min), 250)
+                            onChanged()
+                        }
+                        .onEnded { _ in onEnded() }
+                )
+                .accessibilityLabel("Resize column")
+                .focusable()
+                .onMoveCommand { dir in
+                    switch dir {
+                    case .left:
+                        width = max(width - 8, min)
+                    case .right:
+                        width = min(width + 8, 250)
+                    default:
+                        break
+                    }
+                    onChanged()
+                    onEnded()
+                }
+        }
+    }
+
     struct CaptionRow: View {
         let nameWidth: CGFloat
-        let targetWidth: CGFloat
-        let actualWidth: CGFloat
-        let trackWidth: CGFloat
+        @Binding var targetWidth: CGFloat
+        @Binding var actualWidth: CGFloat
+        @Binding var trackWidth: CGFloat
         let deltaWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
+        let reset: () -> Void
+        let widthChanged: () -> Void
+        let widthEnded: () -> Void
 
         var body: some View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
-                sortHeader("TARGET", column: .target)
-                    .frame(width: targetWidth, alignment: .trailing)
-                sortHeader("ACTUAL", column: .actual)
-                    .frame(width: actualWidth, alignment: .trailing)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: trackWidth, alignment: .center)
-                    .lineLimit(1)
+                resizableHeader(title: "TARGET",
+                                column: .target,
+                                width: $targetWidth,
+                                min: 80)
+                resizableHeader(title: "ACTUAL",
+                                column: .actual,
+                                width: $actualWidth,
+                                min: 80)
+                resizableDeviation
                 sortHeader("\u{0394}", column: .delta)
                     .frame(width: deltaWidth, alignment: .trailing)
+                Button(action: reset) {
+                    Text("\u21BA")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Reset column widths")
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
@@ -392,6 +485,30 @@ struct AllocationTreeCard: View {
                 .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
             }
             .buttonStyle(.plain)
+        }
+
+        private func resizableHeader(title: String,
+                                     column: SortColumn,
+                                     width: Binding<CGFloat>,
+                                     min: CGFloat) -> some View {
+            ZStack(alignment: .trailing) {
+                sortHeader(title, column: column)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                ResizeGrip(width: width, min: min, onChanged: widthChanged, onEnded: widthEnded)
+            }
+            .frame(width: width.wrappedValue, alignment: .trailing)
+        }
+
+        private var resizableDeviation: some View {
+            ZStack(alignment: .trailing) {
+                Text("DEVIATION")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                ResizeGrip(width: $trackWidth, min: 80, onChanged: widthChanged, onEnded: widthEnded)
+            }
+            .frame(width: trackWidth, alignment: .center)
+            .lineLimit(1)
         }
 
         private func icon(for column: SortColumn) -> String {
@@ -584,7 +701,7 @@ struct DeviationBar: View {
         return (actual - target) / target * 100
     }
 
-    private var track: CGFloat { trackWidth - 24 }
+    private var track: CGFloat { trackWidth - 16 }
 
     private var span: CGFloat {
         let mag = min(abs(diffPercent), 100)
