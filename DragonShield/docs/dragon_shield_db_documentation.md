@@ -253,7 +253,6 @@ Analysis Layer
 - portfolio_id: Portfolio reference
 - instrument_id: Instrument reference
 - assigned_date: Assignment date
-- target_allocation_percent: Target weight
 ```
 
 ### Transaction Management Tables

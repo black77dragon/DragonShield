@@ -18,6 +18,9 @@ All notable changes to this project will be documented in this file.
 - Show pencil button next to the Target column and open the edit panel on
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
+- Show both Target % and Target CHF fields in edit pop-over with automatic conversion
+- Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
+- Persist Target CHF values in database and allow saving targets even when totals do not match
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view
