@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
 - Added persistent edit buttons & dbl-click shortcut for target rows (PR #XXX)
+- Inline edit panel with tolerance input below Asset Allocation rows
 - Document Target Allocation edit panel workflow
 - Implement side-panel editor for Asset Class targets
 - Activate pencil edit button in Allocation Targets table

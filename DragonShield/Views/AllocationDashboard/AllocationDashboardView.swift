@@ -253,15 +253,6 @@ struct AllocationTreeCard: View {
         }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
-        .overlay(alignment: .trailing) {
-            if let cid = editingClassId {
-                TargetEditPanel(classId: cid) {
-                    viewModel.load(using: dbManager)
-                    withAnimation { editingClassId = nil }
-                }
-                .environmentObject(dbManager)
-            }
-        }
     }
 
     private var SegmentedPicker: some View {
@@ -296,17 +287,27 @@ struct AllocationTreeCard: View {
                       _ deltaWidth: CGFloat,
                       _ compact: Bool) -> some View {
         ForEach(sortedAssets) { parent in
-            AssetRow(node: parent,
-                     mode: displayMode,
-                     compact: compact,
-                     expanded: binding(for: parent.id),
-                     editingClassId: $editingClassId,
-                     nameWidth: nameWidth,
-                     targetWidth: targetWidth,
-                     actualWidth: actualWidth,
-                     trackWidth: trackWidth,
-                     deltaWidth: deltaWidth,
-                     gap: gap)
+            VStack(spacing: 0) {
+                AssetRow(node: parent,
+                         mode: displayMode,
+                         compact: compact,
+                         expanded: binding(for: parent.id),
+                         editingClassId: $editingClassId,
+                         nameWidth: nameWidth,
+                         targetWidth: targetWidth,
+                         actualWidth: actualWidth,
+                         trackWidth: trackWidth,
+                         deltaWidth: deltaWidth,
+                         gap: gap)
+                if let cid = Int(parent.id.dropFirst(6)), editingClassId == cid {
+                    TargetEditPanel(classId: cid) {
+                        viewModel.load(using: dbManager)
+                        withAnimation { editingClassId = nil }
+                    }
+                    .environmentObject(dbManager)
+                    .background(Color.white)
+                }
+            }
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
                     AssetRow(node: child,

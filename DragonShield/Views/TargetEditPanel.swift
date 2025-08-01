@@ -7,12 +7,14 @@ struct TargetEditPanel: View {
 
     @State private var kind: TargetKind = .percent
     @State private var parentValue: Double = 0
+    @State private var parentTolerance: Double = 5
     @State private var rows: [Row] = []
 
     struct Row: Identifiable {
         let id: Int
         let name: String
         var value: Double
+        var tolerance: Double
         var locked: Bool = false
     }
 
@@ -32,7 +34,12 @@ struct TargetEditPanel: View {
         }
     }
 
-    private var canSave: Bool { parentOK && parentValue >= 0 && rows.allSatisfy { $0.value >= 0 } }
+    private var canSave: Bool {
+        parentOK &&
+        parentValue >= 0 &&
+        parentTolerance >= 0 &&
+        rows.allSatisfy { $0.value >= 0 && $0.tolerance >= 0 }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -65,6 +72,16 @@ struct TargetEditPanel: View {
                 Text(kind == .percent ? "%" : "CHF")
             }
 
+            HStack {
+                Text("Tolerance")
+                Spacer()
+                TextField("", value: $parentTolerance, formatter: Self.numberFormatter)
+                    .frame(width: 60)
+                    .multilineTextAlignment(.trailing)
+                    .textFieldStyle(.roundedBorder)
+                Text("%")
+            }
+
             Text("Sub-Class Targets")
                 .font(.headline)
 
@@ -78,6 +95,11 @@ struct TargetEditPanel: View {
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                         Text(kind == .percent ? "%" : "CHF")
+                        TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
+                            .frame(width: 40)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                        Text("%")
                     }
                 }
             }
@@ -104,12 +126,14 @@ struct TargetEditPanel: View {
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
             if parent.targetKind == "amount" { kind = .amount } else { kind = .percent }
             parentValue = kind == .percent ? parent.percent : (parent.amountCHF ?? 0)
+            parentTolerance = parent.tolerance
         }
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first(where: { $0.subClassId == sub.id })
             let val = kind == .percent ? (rec?.percent ?? 0) : (rec?.amountCHF ?? 0)
-            return Row(id: sub.id, name: sub.name, value: val)
+            let tol = rec?.tolerance ?? parentTolerance
+            return Row(id: sub.id, name: sub.name, value: val, tolerance: tol)
         }
     }
 
@@ -124,11 +148,15 @@ struct TargetEditPanel: View {
 
     private func save() {
         if kind == .percent {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: parentValue)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: r.value) }
+            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: parentValue, targetKind: kind.rawValue, tolerance: parentTolerance)
+            for r in rows {
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: r.value, targetKind: kind.rawValue, tolerance: r.tolerance)
+            }
         } else {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: 0, amountChf: parentValue)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: 0, amountChf: r.value) }
+            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: 0, amountChf: parentValue, targetKind: kind.rawValue, tolerance: parentTolerance)
+            for r in rows {
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: 0, amountChf: r.value, targetKind: kind.rawValue, tolerance: r.tolerance)
+            }
         }
         onClose()
     }
