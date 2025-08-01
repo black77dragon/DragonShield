@@ -21,9 +21,14 @@ struct TargetEditPanel: View {
     @State private var kind: TargetKind = .percent
     @State private var parentPercent: Double = 0
     @State private var parentAmount: Double = 0
+    @State private var parentAmountDraft: String = ""
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
+    @State private var chfDrafts: [Int: String] = [:]
+
+    @FocusState private var focusedParentAmount: Bool
+    @FocusState private var focusedRowAmount: Int?
 
     private var subTotal: Double {
         if kind == .percent {
@@ -70,18 +75,34 @@ struct TargetEditPanel: View {
                             .onChange(of: parentPercent) { newVal in
                                 guard kind == .percent else { return }
                                 parentAmount = portfolioTotal * newVal / 100
+                                if !focusedParentAmount {
+                                    parentAmountDraft = formatChf(parentAmount)
+                                }
                             }
                     }
                     VStack(alignment: .leading) {
                         Text("Target CHF")
-                        TextField("", value: $parentAmount, formatter: Self.chfFormatter)
+                        TextField("", text: $parentAmountDraft)
                             .frame(width: 100)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .amount)
-                            .onChange(of: parentAmount) { newVal in
-                                guard kind == .amount else { return }
-                                parentPercent = portfolioTotal > 0 ? newVal / portfolioTotal * 100 : 0
+                            .focused($focusedParentAmount)
+                            .onChange(of: parentAmountDraft) { newVal in
+                                let raw = newVal.replacingOccurrences(of: "'", with: "")
+                                if let val = Double(raw) {
+                                    parentAmount = val
+                                    if kind == .amount {
+                                        parentPercent = portfolioTotal > 0 ? val / portfolioTotal * 100 : 0
+                                    }
+                                }
+                            }
+                            .onChange(of: focusedParentAmount) { old, newVal in
+                                if newVal {
+                                    parentAmountDraft = parentAmountDraft.replacingOccurrences(of: "'", with: "")
+                                } else {
+                                    parentAmountDraft = formatChf(parentAmount)
+                                }
                             }
                     }
                 }
@@ -137,14 +158,18 @@ struct TargetEditPanel: View {
                                 row.amount = parentAmount * newVal / 100
                             }
 
-                        TextField("", value: $row.amount, formatter: Self.chfFormatter)
+                        TextField("", text: chfBinding(for: $row))
                             .frame(width: 100)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(row.kind != .amount)
-                            .onChange(of: row.amount) { newVal in
-                                guard row.kind == .amount else { return }
-                                row.percent = parentAmount > 0 ? newVal / parentAmount * 100 : 0
+                            .focused($focusedRowAmount, equals: row.id)
+                            .onChange(of: focusedRowAmount) { old, newVal in
+                                if newVal == row.id {
+                                    chfDrafts[row.id] = chfDrafts[row.id]?.replacingOccurrences(of: "'", with: "")
+                                } else if old == row.id {
+                                    chfDrafts[row.id] = formatChf(row.amount)
+                                }
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -181,6 +206,9 @@ struct TargetEditPanel: View {
             updateRows()
         }
         .onChange(of: parentAmount) { _, _ in
+            if !focusedParentAmount {
+                parentAmountDraft = formatChf(parentAmount)
+            }
             updateRows()
         }
     }
@@ -195,6 +223,7 @@ struct TargetEditPanel: View {
             parentPercent = parent.percent
             parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
+            parentAmountDraft = formatChf(parentAmount)
         }
 
         let subs = db.subAssetClasses(for: classId)
@@ -203,6 +232,7 @@ struct TargetEditPanel: View {
             let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
             let pct = rec?.percent ?? 0
             let amt = rec?.amountCHF ?? parentAmount * pct / 100
+            chfDrafts[sub.id] = formatChf(amt)
             return Row(id: sub.id,
                        name: sub.name,
                        percent: pct,
@@ -240,7 +270,33 @@ struct TargetEditPanel: View {
             } else {
                 rows[idx].percent = parentAmount > 0 ? rows[idx].amount / parentAmount * 100 : 0
             }
+            if focusedRowAmount != rows[idx].id {
+                chfDrafts[rows[idx].id] = formatChf(rows[idx].amount)
+            }
         }
+    }
+
+    private func chfBinding(for row: Binding<Row>) -> Binding<String> {
+        let id = row.id.wrappedValue
+        return Binding(
+            get: {
+                chfDrafts[id] ?? formatChf(row.amount.wrappedValue)
+            },
+            set: { newVal in
+                chfDrafts[id] = newVal
+                let raw = newVal.replacingOccurrences(of: "'", with: "")
+                if let val = Double(raw) {
+                    row.amount.wrappedValue = val
+                    if row.kind.wrappedValue == .amount {
+                        row.percent.wrappedValue = parentAmount > 0 ? val / parentAmount * 100 : 0
+                    }
+                }
+            }
+        )
+    }
+
+    private func formatChf(_ value: Double) -> String {
+        Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
     }
 
     private func autoBalance() {
@@ -294,6 +350,8 @@ struct TargetEditPanel: View {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
         return f
     }()
 }

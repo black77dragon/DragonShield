@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - Show both Target % and Target CHF fields in edit pop-over with automatic conversion
 - Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
 - Load stored Target CHF in edit pop-over, computing from portfolio total only if missing, and allow saving with non-zero remaining
+- Pre-populate Target % and CHF fields from database and auto-format CHF with thousands separators
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view
