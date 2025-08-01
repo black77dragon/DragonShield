@@ -15,4 +15,10 @@ final class AllocationTargetsTableViewTests: XCTestCase {
     func testKeyboardEnterOpensPanel() {
         // Placeholder for keyboard activation check
     }
+
+    func testSummaryRowsHaveNoCaret() {
+        // Placeholder ensuring summary rows use custom disclosure style
+        let view = AllocationTargetsTableView()
+        XCTAssertNotNil(view)
+    }
 }

@@ -501,12 +501,14 @@ struct AllocationTargetsTableView: View {
                 OutlineGroup(activeAssets, children: \.children) { asset in
                     tableRow(for: asset)
                 }
+                .disclosureGroupStyle(NoDisclosureIndicator())
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
                         OutlineGroup(inactiveAssets, children: \.children) { asset in
                             tableRow(for: asset)
                         }
+                        .disclosureGroupStyle(NoDisclosureIndicator())
                     }
             }
 
@@ -889,6 +891,17 @@ struct AllocationTargetsTableView_Previews: PreviewProvider {
     static var previews: some View {
         AllocationTargetsTableView()
             .environmentObject(DatabaseManager())
+    }
+}
+
+// MARK: - Custom Disclosure Group Style
+
+struct NoDisclosureIndicator: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            configuration.label
+            configuration.content
+        }
     }
 }
 
