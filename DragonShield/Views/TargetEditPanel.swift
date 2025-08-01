@@ -8,6 +8,7 @@ struct TargetEditPanel: View {
     @State private var kind: TargetKind = .percent
     @State private var parentValue: Double = 0
     @State private var rows: [Row] = []
+    @State private var tolerance: Double = 5
 
     struct Row: Identifiable {
         let id: Int
@@ -65,6 +66,16 @@ struct TargetEditPanel: View {
                 Text(kind == .percent ? "%" : "CHF")
             }
 
+            HStack {
+                Text("Tolerance")
+                Spacer()
+                TextField("", value: $tolerance, formatter: Self.numberFormatter)
+                    .frame(width: 60)
+                    .multilineTextAlignment(.trailing)
+                    .textFieldStyle(.roundedBorder)
+                Text("%")
+            }
+
             Text("Sub-Class Targets")
                 .font(.headline)
 
@@ -95,6 +106,7 @@ struct TargetEditPanel: View {
         }
         .padding()
         .frame(maxWidth: 320)
+        .background(Color.white)
         .onAppear { load() }
         .transition(.move(edge: .trailing))
     }
@@ -104,6 +116,7 @@ struct TargetEditPanel: View {
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
             if parent.targetKind == "amount" { kind = .amount } else { kind = .percent }
             parentValue = kind == .percent ? parent.percent : (parent.amountCHF ?? 0)
+            tolerance = parent.tolerance
         }
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
@@ -124,11 +137,11 @@ struct TargetEditPanel: View {
 
     private func save() {
         if kind == .percent {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: parentValue)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: r.value) }
+            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: parentValue, tolerance: tolerance)
+            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: r.value, tolerance: tolerance) }
         } else {
-            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: 0, amountChf: parentValue)
-            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: 0, amountChf: r.value) }
+            db.upsertClassTarget(portfolioId: 1, classId: classId, percent: 0, amountChf: parentValue, tolerance: tolerance)
+            for r in rows { db.upsertSubClassTarget(portfolioId: 1, subClassId: r.id, percent: 0, amountChf: r.value, tolerance: tolerance) }
         }
         onClose()
     }
