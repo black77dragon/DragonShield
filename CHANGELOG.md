@@ -444,3 +444,4 @@ All notable changes to this project will be documented in this file.
 - Enhance deviation column with centre line, delta numbers and action icons
 - Add target_kind and tolerance_percent columns to TargetAllocation table
 - Indicate stored target_kind with a bullet when display mode matches
+- Hide expand arrow on totals row in legacy Asset Allocation view

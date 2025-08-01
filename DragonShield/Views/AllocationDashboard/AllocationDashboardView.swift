@@ -445,7 +445,7 @@ struct AssetRow: View {
     var body: some View {
         let diffPct = relativeDeviation * 100
         HStack(spacing: gap) {
-            if node.children != nil {
+            if let children = node.children, !children.isEmpty {
                 Button(action: { expanded.toggle() }) {
                     Image(systemName: "chevron.right")
                         .rotationEffect(.degrees(expanded ? 90 : 0))
