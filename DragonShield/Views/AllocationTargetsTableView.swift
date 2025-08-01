@@ -498,13 +498,13 @@ struct AllocationTargetsTableView: View {
             List {
                 headerRow
                 totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
+                OutlineGroup(activeAssets, id: \.id, children: \.children) { asset in
                     tableRow(for: asset)
                 }
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
-                        OutlineGroup(inactiveAssets, children: \.children) { asset in
+                        OutlineGroup(inactiveAssets, id: \.id, children: \.children) { asset in
                             tableRow(for: asset)
                         }
                     }
