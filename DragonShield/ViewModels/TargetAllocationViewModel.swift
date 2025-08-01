@@ -98,10 +98,20 @@ class TargetAllocationViewModel: ObservableObject {
         _ = dbManager.updateConfiguration(key: "include_direct_re", value: includeDirectRealEstate ? "true" : "false")
         _ = dbManager.updateConfiguration(key: "direct_re_target_chf", value: String(directRealEstateTargetCHF))
         for (classId, pct) in classTargets {
-            dbManager.upsertClassTarget(portfolioId: portfolioId, classId: classId, percent: pct, tolerance: 5)
+            dbManager.upsertClassTarget(portfolioId: portfolioId,
+                                       classId: classId,
+                                       percent: pct,
+                                       amountChf: nil,
+                                       kind: "percent",
+                                       tolerance: 5)
         }
         for (subId, pct) in subClassTargets {
-            dbManager.upsertSubClassTarget(portfolioId: portfolioId, subClassId: subId, percent: pct, tolerance: 5)
+            dbManager.upsertSubClassTarget(portfolioId: portfolioId,
+                                          subClassId: subId,
+                                          percent: pct,
+                                          amountChf: nil,
+                                          kind: "percent",
+                                          tolerance: 5)
         }
     }
 

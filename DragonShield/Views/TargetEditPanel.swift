@@ -41,13 +41,7 @@ struct TargetEditPanel: View {
         }
     }
 
-    private var canSave: Bool {
-        if kind == .percent {
-            abs(subTotal - 100) < 0.1 && parentPercent >= 0
-        } else {
-            abs(subTotal - parentAmount) < 1.0 && parentAmount >= 0
-        }
-    }
+    private var canSave: Bool { true }
 
 
     var body: some View {
@@ -195,25 +189,31 @@ struct TargetEditPanel: View {
 
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
+        portfolioTotal = calculatePortfolioTotal()
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? 0
+            if let amt = parent.amountCHF {
+                parentAmount = amt
+            } else {
+                parentAmount = portfolioTotal * parent.percent / 100
+            }
             tolerance = parent.tolerance
         }
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first { $0.subClassId == sub.id }
             let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
+            let pct = rec?.percent ?? 0
+            let amt = rec?.amountCHF ?? (parentAmount * pct / 100)
             return Row(id: sub.id,
                        name: sub.name,
-                       percent: rec?.percent ?? 0,
-                       amount: rec?.amountCHF ?? 0,
+                       percent: pct,
+                       amount: amt,
                        kind: rk,
                        tolerance: rec?.tolerance ?? tolerance)
         }
-        portfolioTotal = calculatePortfolioTotal()
         updateRows()
     }
 
@@ -268,12 +268,14 @@ struct TargetEditPanel: View {
                              classId: classId,
                              percent: parentPercent,
                              amountChf: parentAmount,
+                             kind: kind.rawValue,
                              tolerance: tolerance)
         for row in rows {
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
                                     percent: row.percent,
                                     amountChf: row.amount,
+                                    kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
         onClose()
