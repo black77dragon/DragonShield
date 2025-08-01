@@ -575,6 +575,8 @@ struct AllocationTargetsTableView: View {
                 Text("Target CHF")
                     .frame(width: 100)
             }
+            Spacer()
+                .frame(width: 24)
             Divider()
             HStack {
                 sortHeader(title: "Actual %", column: .actualPct)
