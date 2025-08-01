@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Align header row with Asset Class rows in legacy Allocation table
 - Add segmented display mode toggle for Asset Classes tile
 - Move Asset Allocation Errors panel beside legacy targets table
 - Show database schema version in Database Management view and include it in backup file names
