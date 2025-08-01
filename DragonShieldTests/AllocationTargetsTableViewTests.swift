@@ -4,7 +4,7 @@ import XCTest
 final class AllocationTargetsTableViewTests: XCTestCase {
     func testPencilIsVisible() {
         // Placeholder UI test ensuring pencil buttons exist
-        let view = AllocationTargetsTableView()
+        let view = AllocationDashboardView()
         XCTAssertNotNil(view)
     }
 

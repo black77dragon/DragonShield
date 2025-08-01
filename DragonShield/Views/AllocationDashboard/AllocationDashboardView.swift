@@ -158,6 +158,8 @@ struct AllocationTreeCard: View {
     @State private var expanded: [String: Bool] = [:]
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
+    @State private var editingClassId: Int?
+    @EnvironmentObject private var dbManager: DatabaseManager
 
     enum SortColumn { case target, actual, delta }
 
@@ -251,6 +253,15 @@ struct AllocationTreeCard: View {
         }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
+        .overlay(alignment: .trailing) {
+            if let cid = editingClassId {
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
+            }
+        }
     }
 
     private var SegmentedPicker: some View {
@@ -289,6 +300,7 @@ struct AllocationTreeCard: View {
                      mode: displayMode,
                      compact: compact,
                      expanded: binding(for: parent.id),
+                     editingClassId: $editingClassId,
                      nameWidth: nameWidth,
                      targetWidth: targetWidth,
                      actualWidth: actualWidth,
@@ -301,6 +313,7 @@ struct AllocationTreeCard: View {
                              mode: displayMode,
                              compact: compact,
                              expanded: .constant(false),
+                             editingClassId: $editingClassId,
                              nameWidth: nameWidth,
                              targetWidth: targetWidth,
                              actualWidth: actualWidth,
@@ -415,12 +428,18 @@ struct AssetRow: View {
     let mode: DisplayMode
     let compact: Bool
     @Binding var expanded: Bool
+    @Binding var editingClassId: Int?
     let nameWidth: CGFloat
     let targetWidth: CGFloat
     let actualWidth: CGFloat
     let trackWidth: CGFloat
     let deltaWidth: CGFloat
     let gap: CGFloat
+
+    private var classId: Int? {
+        guard node.id.hasPrefix("class-") else { return nil }
+        return Int(node.id.dropFirst(6))
+    }
 
     private var target: Double {
         mode == .percent ? node.targetPct : node.targetChf
@@ -479,6 +498,17 @@ struct AssetRow: View {
                         .font(.system(size: 7))
                         .foregroundStyle(.primary)
                 }
+                if let cid = classId {
+                    Button { editingClassId = cid } label: {
+                        Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                            .foregroundColor(.accentColor)
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 24, height: 24)
+                    .accessibilityLabel("Edit targets for \(node.name)")
+                    .keyboardShortcut(.defaultAction)
+                }
             }
             .alignmentGuide(.trailing) { d in d[.trailing] }
             .frame(width: targetWidth, alignment: .trailing)
@@ -503,7 +533,10 @@ struct AssetRow: View {
 
         }
         .padding(.vertical, node.children != nil ? 6 : 4)
-        .background(node.children != nil ? Color.systemGray6 : .clear)
+        .background(editingClassId == classId ? Color.rowHighlight : (node.children != nil ? Color.systemGray6 : .clear))
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { if let cid = classId { editingClassId = cid } }
+        .focusable()
         .accessibilityElement(children: .combine)
     }
 
