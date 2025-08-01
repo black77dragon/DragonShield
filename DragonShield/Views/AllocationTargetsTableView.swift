@@ -384,11 +384,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         guard let db else { return }
         if asset.id.hasPrefix("class-") {
             if let classId = Int(asset.id.dropFirst(6)) {
-                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf)
+                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: 5)
             }
         } else if asset.id.hasPrefix("sub-") {
             if let subId = Int(asset.id.dropFirst(4)) {
-                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf)
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: 5)
             }
         }
     }
