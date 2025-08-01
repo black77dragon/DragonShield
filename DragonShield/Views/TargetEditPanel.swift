@@ -21,6 +21,9 @@ struct TargetEditPanel: View {
     @State private var kind: TargetKind = .percent
     @State private var parentPercent: Double = 0
     @State private var parentAmount: Double = 0
+    @State private var chfDrafts: [String: String] = [:]
+    @FocusState private var focusedChfField: String?
+    @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
 
@@ -40,15 +43,7 @@ struct TargetEditPanel: View {
         }
     }
 
-    private var canSave: Bool {
-        if kind == .percent {
-            abs(subTotal - 100) < 0.1 && parentPercent >= 0
-        } else {
-            abs(subTotal - parentAmount) < 1.0 && parentAmount >= 0
-        }
-    }
 
-    private var targetLabel: String { kind == .percent ? "Target %" : "Target CHF" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -66,14 +61,32 @@ struct TargetEditPanel: View {
                     .pickerStyle(.radioGroup)
                     .frame(width: 120)
                 }
-                HStack {
-                    Text(targetLabel)
-                    Spacer()
-                    TextField("", value: kind == .percent ? $parentPercent : $parentAmount,
-                              formatter: Self.numberFormatter)
-                        .frame(width: 80)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.roundedBorder)
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading) {
+                        Text("Target %")
+                        TextField("", value: $parentPercent, formatter: Self.percentFormatter)
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .percent)
+                            .onChange(of: parentPercent) { newVal in
+                                guard kind == .percent else { return }
+                                parentAmount = portfolioTotal * newVal / 100
+                            }
+                    }
+                    VStack(alignment: .leading) {
+                        Text("Target CHF")
+                        TextField("", text: chfBinding(key: "parent", value: $parentAmount))
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .amount)
+                            .focused($focusedChfField, equals: "parent")
+                            .onChange(of: parentAmount) { newVal in
+                                guard kind == .amount else { return }
+                                parentPercent = portfolioTotal > 0 ? newVal / portfolioTotal * 100 : 0
+                            }
+                    }
                 }
                 HStack {
                     Text("Tolerance")
@@ -95,11 +108,12 @@ struct TargetEditPanel: View {
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                 GridRow {
                     Text("Kind").frame(width: 80)
-                    Text("Value").frame(width: 80, alignment: .trailing)
+                    Text("Target %").frame(width: 80, alignment: .trailing)
+                    Text("Target CHF").frame(width: 100, alignment: .trailing)
                     Text("Tol %").frame(width: 60, alignment: .trailing)
                     Text("")
                 }
-                Divider().gridCellColumns(4)
+                Divider().gridCellColumns(5)
                 ForEach($rows) { $row in
                     GridRow {
                         Picker("", selection: $row.kind) {
@@ -108,12 +122,34 @@ struct TargetEditPanel: View {
                         }
                         .pickerStyle(.radioGroup)
                         .frame(width: 80)
+                        .onChange(of: row.kind) { _, newKind in
+                            if newKind == .percent {
+                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                            } else {
+                                row.amount = parentAmount * row.percent / 100
+                            }
+                        }
 
-                        TextField("", value: row.kind == .percent ? $row.percent : $row.amount,
-                                  formatter: Self.numberFormatter)
+                        TextField("", value: $row.percent, formatter: Self.percentFormatter)
                             .frame(width: 80)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .percent)
+                            .onChange(of: row.percent) { newVal in
+                                guard row.kind == .percent else { return }
+                                row.amount = parentAmount * newVal / 100
+                            }
+
+                        TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .amount)
+                            .focused($focusedChfField, equals: "row-\(row.id)")
+                            .onChange(of: row.amount) { newVal in
+                                guard row.kind == .amount else { return }
+                                row.percent = parentAmount > 0 ? newVal / parentAmount * 100 : 0
+                            }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
                             .frame(width: 60)
@@ -123,7 +159,7 @@ struct TargetEditPanel: View {
                         Text(row.name)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Divider().background(Color.systemGray4).gridCellColumns(4)
+                    Divider().background(Color.systemGray4).gridCellColumns(5)
                 }
             }
 
@@ -135,34 +171,96 @@ struct TargetEditPanel: View {
                 Spacer()
                 Button("Cancel") { onClose() }
                 Button("Save") { save() }
-                    .disabled(!canSave)
             }
         }
         .padding()
         .frame(minWidth: 360)
         .onAppear { load() }
+        .onChange(of: kind) { _, _ in
+            if kind == .percent {
+                parentAmount = portfolioTotal * parentPercent / 100
+            } else {
+                parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
+            }
+            updateRows()
+        }
+        .onChange(of: parentAmount) { _, _ in
+            updateRows()
+        }
+        .onChange(of: focusedChfField) { oldValue, newValue in
+            if let old = oldValue, old != newValue {
+                if old == "parent" {
+                    chfDrafts[old] = formatChf(parentAmount)
+                } else if let id = Int(old.dropFirst(4)), let row = rows.first(where: { $0.id == id }) {
+                    chfDrafts[old] = formatChf(row.amount)
+                }
+            }
+            if let key = newValue {
+                chfDrafts[key] = chfDrafts[key]?.replacingOccurrences(of: "'", with: "")
+            }
+        }
     }
 
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
+        portfolioTotal = calculatePortfolioTotal()
+
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? 0
+            parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
         }
+
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first { $0.subClassId == sub.id }
             let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
+            let pct = rec?.percent ?? 0
+            let amt = rec?.amountCHF ?? parentAmount * pct / 100
             return Row(id: sub.id,
                        name: sub.name,
-                       percent: rec?.percent ?? 0,
-                       amount: rec?.amountCHF ?? 0,
+                       percent: pct,
+                       amount: amt,
                        kind: rk,
                        tolerance: rec?.tolerance ?? tolerance)
         }
+
+        updateRows()
+        if focusedChfField == nil {
+            refreshDrafts()
+        }
+    }
+
+    private func calculatePortfolioTotal() -> Double {
+        var total = 0.0
+        var rateCache: [String: Double] = [:]
+        for p in db.fetchPositionReports() {
+            guard let price = p.currentPrice else { continue }
+            var value = p.quantity * price
+            let currency = p.instrumentCurrency.uppercased()
+            if currency != "CHF" {
+                if rateCache[currency] == nil {
+                    rateCache[currency] = db.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
+                }
+                guard let r = rateCache[currency] else { continue }
+                value *= r
+            }
+            total += value
+        }
+        return total
+    }
+
+    private func updateRows() {
+        for idx in rows.indices {
+            if rows[idx].kind == .percent {
+                rows[idx].amount = parentAmount * rows[idx].percent / 100
+            } else {
+                rows[idx].percent = parentAmount > 0 ? rows[idx].amount / parentAmount * 100 : 0
+            }
+        }
+        refreshDrafts()
     }
 
     private func autoBalance() {
@@ -198,10 +296,54 @@ struct TargetEditPanel: View {
         onClose()
     }
 
+    private func formatChf(_ value: Double) -> String {
+        Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func chfBinding(key: String, value: Binding<Double>) -> Binding<String> {
+        Binding(
+            get: {
+                chfDrafts[key] ?? formatChf(value.wrappedValue)
+            },
+            set: { newVal in
+                chfDrafts[key] = newVal
+                let raw = newVal.replacingOccurrences(of: "'", with: "")
+                if let v = Double(raw) {
+                    value.wrappedValue = v
+                }
+            }
+        )
+    }
+
+    private func refreshDrafts() {
+        chfDrafts["parent"] = formatChf(parentAmount)
+        for row in rows {
+            chfDrafts["row-\(row.id)"] = formatChf(row.amount)
+        }
+    }
+
     private static let numberFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 1
+        return f
+    }()
+
+    private static let percentFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        f.maximumFractionDigits = 1
+        return f
+    }()
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "'"
+        f.usesGroupingSeparator = true
+        f.maximumFractionDigits = 0
         return f
     }()
 }
