@@ -139,6 +139,8 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 - Animations: Max 300ms, disable if prefers-reduced-motion
 - Tooltip on hover for abbreviations and icons
 
+## Editing
+- Persistent pencil buttons in Asset Class Allocation rows open the Target-Editor panel. Double-click, Enter or Space on a focused row do the same.
 ---
 
 ## 🔮 Assets & Icons

@@ -4,6 +4,7 @@ import Charts
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = AllocationDashboardViewModel()
+    @State private var editingClassId: Int?
 
     var body: some View {
         GeometryReader { _ in
@@ -17,7 +18,8 @@ struct AllocationDashboardView: View {
                         .padding(.top, 8)
 
                     HStack(alignment: .top, spacing: 24) {
-                        AllocationTreeCard(viewModel: viewModel)
+                        AllocationTreeCard(viewModel: viewModel,
+                                          editingClassId: $editingClassId)
                             .frame(minWidth: 360)
                             .layoutPriority(1)
 
@@ -40,6 +42,15 @@ struct AllocationDashboardView: View {
             ToolbarItemGroup(placement: .automatic) {
                 Button("Import Targets") {}
                 Button("Auto-Rebalance") {}.disabled(true)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if let cid = editingClassId {
+                TargetEditPanel(classId: cid) {
+                    viewModel.load(using: dbManager)
+                    withAnimation { editingClassId = nil }
+                }
+                .environmentObject(dbManager)
             }
         }
         .onAppear { viewModel.load(using: dbManager) }
@@ -154,6 +165,7 @@ struct OverviewTile: View {
 
 struct AllocationTreeCard: View {
     @ObservedObject var viewModel: AllocationDashboardViewModel
+    @Binding var editingClassId: Int?
     @State private var displayMode: DisplayMode = Self.loadMode()
     @State private var expanded: [String: Bool] = [:]
     @State private var sortColumn: SortColumn = .actual
@@ -289,6 +301,7 @@ struct AllocationTreeCard: View {
                      mode: displayMode,
                      compact: compact,
                      expanded: binding(for: parent.id),
+                     editingClassId: $editingClassId,
                      nameWidth: nameWidth,
                      targetWidth: targetWidth,
                      actualWidth: actualWidth,
@@ -301,12 +314,13 @@ struct AllocationTreeCard: View {
                              mode: displayMode,
                              compact: compact,
                              expanded: .constant(false),
+                             editingClassId: $editingClassId,
                              nameWidth: nameWidth,
                              targetWidth: targetWidth,
                              actualWidth: actualWidth,
                              trackWidth: trackWidth,
                              deltaWidth: deltaWidth,
-                            gap: gap)
+                             gap: gap)
                 }
             }
         }
@@ -415,6 +429,7 @@ struct AssetRow: View {
     let mode: DisplayMode
     let compact: Bool
     @Binding var expanded: Bool
+    @Binding var editingClassId: Int?
     let nameWidth: CGFloat
     let targetWidth: CGFloat
     let actualWidth: CGFloat
@@ -472,13 +487,27 @@ struct AssetRow: View {
             }
             .frame(width: max(0, nameWidth - 16), alignment: .leading)
 
-            HStack(spacing: 2) {
-                Text(formatValue(target))
-                if showBullet {
-                    Text("\u{25CF}")
-                        .font(.system(size: 7))
-                        .foregroundStyle(.primary)
+            HStack(spacing: 4) {
+                HStack(spacing: 2) {
+                    Text(formatValue(target))
+                    if showBullet {
+                        Text("\u{25CF}")
+                            .font(.system(size: 7))
+                            .foregroundStyle(.primary)
+                    }
                 }
+                Button {
+                    if let cid = Int(node.id.dropFirst(6)) {
+                        editingClassId = cid
+                    }
+                } label: {
+                    Image(systemName: editingClassId == Int(node.id.dropFirst(6)) ? "pencil.circle.fill" : "pencil.circle")
+                        .foregroundColor(.accentColor)
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 24, height: 24)
+                .accessibilityLabel("Edit targets for \(node.name)")
             }
             .alignmentGuide(.trailing) { d in d[.trailing] }
             .frame(width: targetWidth, alignment: .trailing)
@@ -503,8 +532,21 @@ struct AssetRow: View {
 
         }
         .padding(.vertical, node.children != nil ? 6 : 4)
-        .background(node.children != nil ? Color.systemGray6 : .clear)
+        .background(editingClassId == Int(node.id.dropFirst(6)) ? Color.rowHighlight : (node.children != nil ? Color.systemGray6 : .clear))
         .accessibilityElement(children: .combine)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            if let cid = Int(node.id.dropFirst(6)) {
+                editingClassId = cid
+            }
+        }
+        .focusable()
+        .onKeyDown(.return) {
+            if let cid = Int(node.id.dropFirst(6)) { editingClassId = cid }
+        }
+        .onKeyDown(.space) {
+            if let cid = Int(node.id.dropFirst(6)) { editingClassId = cid }
+        }
     }
 
     private static let percentFormatter: NumberFormatter = {
@@ -656,5 +698,49 @@ struct RebalanceListCard: View {
 struct AllocationDashboardView_Previews: PreviewProvider {
     static var previews: some View {
         AllocationDashboardView().environmentObject(DatabaseManager())
+    }
+}
+
+// MARK: - Key Handling Modifier
+
+struct KeyDownModifier: ViewModifier {
+    let key: KeyEquivalent
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        content.background(KeyDownView(key: key, action: action))
+    }
+
+    private struct KeyDownView: NSViewRepresentable {
+        let key: KeyEquivalent
+        let action: () -> Void
+
+        func makeNSView(context: Context) -> KeyView {
+            let v = KeyView()
+            v.key = key
+            v.action = action
+            return v
+        }
+
+        func updateNSView(_ nsView: KeyView, context: Context) {}
+
+        class KeyView: NSView {
+            var key: KeyEquivalent = .return
+            var action: () -> Void = {}
+            override var acceptsFirstResponder: Bool { true }
+            override func keyDown(with event: NSEvent) {
+                if event.charactersIgnoringModifiers == String(key.character ?? "\u{0}") {
+                    action()
+                } else {
+                    super.keyDown(with: event)
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    func onKeyDown(_ key: KeyEquivalent, perform action: @escaping () -> Void) -> some View {
+        modifier(KeyDownModifier(key: key, action: action))
     }
 }
