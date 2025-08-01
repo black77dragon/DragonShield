@@ -544,14 +544,22 @@ struct AllocationTargetsTableView: View {
             .background(cardBackground)
         }
         .padding(.horizontal, 24)
-        .overlay(alignment: .trailing) {
+        .overlay {
             if let cid = editingClassId {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
                 TargetEditPanel(classId: cid) {
                     viewModel.load(using: dbManager)
                     refreshDrafts()
                     withAnimation { editingClassId = nil }
                 }
                 .environmentObject(dbManager)
+                .frame(maxWidth: 420)
+                .padding()
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(radius: 20)
             }
         }
         .onAppear {
