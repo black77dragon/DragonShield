@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Show pencil button next to the Target column and open the edit panel on
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
+- Convert target editor into a modal popover with subclass overrides (PR #XXX)
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view

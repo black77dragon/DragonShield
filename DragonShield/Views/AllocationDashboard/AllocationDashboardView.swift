@@ -251,6 +251,23 @@ struct AllocationTreeCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .overlay {
+            if let cid = editingClassId {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                        .onTapGesture { withAnimation { editingClassId = nil } }
+                    TargetEditPanel(classId: cid) {
+                        viewModel.load(using: dbManager)
+                        withAnimation { editingClassId = nil }
+                    }
+                    .environmentObject(dbManager)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(radius: 10)
+                }
+            }
+        }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
     }
@@ -299,14 +316,6 @@ struct AllocationTreeCard: View {
                          trackWidth: trackWidth,
                          deltaWidth: deltaWidth,
                          gap: gap)
-                if let cid = Int(parent.id.dropFirst(6)), editingClassId == cid {
-                    TargetEditPanel(classId: cid) {
-                        viewModel.load(using: dbManager)
-                        withAnimation { editingClassId = nil }
-                    }
-                    .environmentObject(dbManager)
-                    .background(Color.white)
-                }
             }
             if expanded[parent.id] == true, let children = parent.children {
                 ForEach(children) { child in
