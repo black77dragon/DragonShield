@@ -240,6 +240,8 @@ struct AllocationTreeCard: View {
 
     struct ResizeGrip: View {
         @Binding var width: CGFloat
+        let minWidth: CGFloat
+        let maxWidth: CGFloat
         let onEnd: () -> Void
 
         var body: some View {
@@ -253,9 +255,9 @@ struct AllocationTreeCard: View {
                 }
                 .gesture(
                     DragGesture().onChanged { value in
-                        width = min(max(width + value.translation.width, minNumeric), maxNumeric)
+                        width = min(max(width + value.translation.width, minWidth), maxWidth)
                     }.onEnded { _ in
-                        width = min(max(width, minNumeric), maxNumeric)
+                        width = min(max(width, minWidth), maxWidth)
                         onEnd()
                     }
                 )
@@ -264,9 +266,9 @@ struct AllocationTreeCard: View {
                 .onMoveCommand { dir in
                     switch dir {
                     case .left:
-                        width = max(minNumeric, width - 8)
+                        width = max(minWidth, width - 8)
                     case .right:
-                        width = min(maxNumeric, width + 8)
+                        width = min(maxWidth, width + 8)
                     default: break
                     }
                 }
@@ -293,8 +295,12 @@ struct AllocationTreeCard: View {
                                trackWidth: $widths.bar,
                                deltaWidth: widths.delta,
                                gap: gap,
+                               minNumeric: minNumeric,
+                               minBar: minBar,
+                               maxNumeric: maxNumeric,
                                sortColumn: $sortColumn,
-                               sortAscending: $sortAscending)
+                               sortAscending: $sortAscending,
+                               onWidthsChange: saveWidths)
                     Divider()
                     ScrollView([.vertical, .horizontal]) {
                         VStack(spacing: 0) {
@@ -420,8 +426,12 @@ struct AllocationTreeCard: View {
         @Binding var trackWidth: CGFloat
         let deltaWidth: CGFloat
         let gap: CGFloat
+        let minNumeric: CGFloat
+        let minBar: CGFloat
+        let maxNumeric: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
+        let onWidthsChange: () -> Void
 
         var body: some View {
             HStack(spacing: gap) {
@@ -429,12 +439,18 @@ struct AllocationTreeCard: View {
                 sortHeader("TARGET", column: .target)
                     .frame(width: targetWidth - 6, alignment: .trailing)
                     .overlay(alignment: .trailing) {
-                        ResizeGrip(width: $targetWidth, onEnd: saveWidths)
+                        ResizeGrip(width: $targetWidth,
+                                   minWidth: minNumeric,
+                                   maxWidth: maxNumeric,
+                                   onEnd: onWidthsChange)
                     }
                 sortHeader("ACTUAL", column: .actual)
                     .frame(width: actualWidth - 6, alignment: .trailing)
                     .overlay(alignment: .trailing) {
-                        ResizeGrip(width: $actualWidth, onEnd: saveWidths)
+                        ResizeGrip(width: $actualWidth,
+                                   minWidth: minNumeric,
+                                   maxWidth: maxNumeric,
+                                   onEnd: onWidthsChange)
                     }
                 Text("DEVIATION")
                     .font(.caption2.weight(.semibold))
@@ -442,7 +458,10 @@ struct AllocationTreeCard: View {
                     .frame(width: trackWidth - 6, alignment: .center)
                     .lineLimit(1)
                     .overlay(alignment: .trailing) {
-                        ResizeGrip(width: $trackWidth, onEnd: saveWidths)
+                        ResizeGrip(width: $trackWidth,
+                                   minWidth: minBar,
+                                   maxWidth: maxNumeric,
+                                   onEnd: onWidthsChange)
                     }
                 sortHeader("\u{0394}", column: .delta)
                     .frame(width: deltaWidth, alignment: .trailing)

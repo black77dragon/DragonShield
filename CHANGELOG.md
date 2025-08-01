@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Add segmented display mode toggle for Asset Classes tile
 - Make Asset Allocation columns resizable with widths saved per user
+- Fix compile errors for column resize feature
 - Move Asset Allocation Errors panel beside legacy targets table
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
