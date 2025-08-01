@@ -497,18 +497,24 @@ struct AllocationTargetsTableView: View {
         HStack(alignment: .top, spacing: 16) {
             List {
                 headerRow
+                    .listRowInsets(.init())
                 totalsRow
+                    .listRowInsets(.init())
                 OutlineGroup(activeAssets, children: \.children) { asset in
                     tableRow(for: asset)
+                        .listRowInsets(.init())
                 }
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
+                            .listRowInsets(.init())
                         OutlineGroup(inactiveAssets, children: \.children) { asset in
                             tableRow(for: asset)
+                                .listRowInsets(.init())
                         }
                     }
             }
+            .listStyle(.plain)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
