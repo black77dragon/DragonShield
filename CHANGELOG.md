@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Add segmented display mode toggle for Asset Classes tile
 - Move Asset Allocation Errors panel beside legacy targets table
+- Allow resizing Target/Actual/Deviation columns in Asset Allocation view (#PR)
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards

@@ -169,41 +169,21 @@ struct AllocationTreeCard: View {
 
     private func updateWidths(for tableWidth: CGFloat) {
         let spacing: CGFloat = 16 + gap * 4 + 4
-        let available = tableWidth - spacing
+        var available = tableWidth - spacing
         guard available > 0 else { return }
-        let oldTotal = widths.total
-        if oldTotal == 0 { return }
-        let ratio = available / oldTotal
-        widths.name *= ratio
-        widths.target *= ratio
-        widths.actual *= ratio
-        widths.bar *= ratio
-        widths.delta *= ratio
 
-        widths.name = max(minName, widths.name)
-        widths.target = max(minNumeric, widths.target)
-        widths.actual = max(minNumeric, widths.actual)
-        widths.bar = max(minBar, widths.bar)
-        widths.delta = max(minNumeric, widths.delta)
+        widths.target = min(max(80, widths.target), 250)
+        widths.actual = min(max(80, widths.actual), 250)
+        widths.bar = min(max(80, widths.bar), 250)
 
-        var diff = available - widths.total
-        if abs(diff) > 0.1 {
-            let adj = max(0, widths.total - (minName + minNumeric * 3 + minBar))
-            guard adj > 0 else { return }
-            let f = diff / adj
-            widths.name += (widths.name - minName) * f
-            widths.target += (widths.target - minNumeric) * f
-            widths.actual += (widths.actual - minNumeric) * f
-            widths.bar += (widths.bar - minBar) * f
-            widths.delta += (widths.delta - minNumeric) * f
-            diff = available - widths.total
-            if abs(diff) > 0.1 {
-                widths.name += diff
-            }
-        }
+        available -= widths.target + widths.actual + widths.bar
+
+        let idealDelta: CGFloat = 80
+        widths.delta = min(max(minNumeric, idealDelta), max(minNumeric, available - minName))
+        widths.name = max(minName, available - widths.delta)
     }
 
-    private struct ColumnWidths {
+    private struct ColumnWidths: Codable {
         var name: CGFloat
         var target: CGFloat
         var actual: CGFloat
@@ -213,7 +193,39 @@ struct AllocationTreeCard: View {
         var total: CGFloat { name + target + actual + bar + delta }
     }
 
-    @State private var widths = ColumnWidths(name: 160, target: 90, actual: 90, bar: 200, delta: 80)
+    private static let widthsKey = UserDefaultsKeys.assetAllocationColumnWidths
+    private static let defaultNumeric: CGFloat = 110
+    private static let defaultWidths = ColumnWidths(name: 160,
+                                                   target: defaultNumeric,
+                                                   actual: defaultNumeric,
+                                                   bar: defaultNumeric,
+                                                   delta: 80)
+
+    @State private var widths = Self.loadWidths()
+
+    static func loadWidths() -> ColumnWidths {
+        if let data = UserDefaults.standard.data(forKey: widthsKey),
+           let saved = try? JSONDecoder().decode(ColumnWidths.self, from: data) {
+            return ColumnWidths(name: defaultWidths.name,
+                                target: saved.target,
+                                actual: saved.actual,
+                                bar: saved.bar,
+                                delta: defaultWidths.delta)
+        }
+        return defaultWidths
+    }
+
+    private func persistWidths() {
+        let save = ColumnWidths(name: 0, target: widths.target, actual: widths.actual, bar: widths.bar, delta: 0)
+        if let data = try? JSONEncoder().encode(save) {
+            UserDefaults.standard.set(data, forKey: Self.widthsKey)
+        }
+    }
+
+    private func resetWidths() {
+        UserDefaults.standard.removeObject(forKey: Self.widthsKey)
+        widths = Self.defaultWidths
+    }
 
     var body: some View {
         Card {
@@ -230,13 +242,16 @@ struct AllocationTreeCard: View {
                 VStack(spacing: 0) {
                     HeaderBar()
                     CaptionRow(nameWidth: widths.name,
-                               targetWidth: widths.target,
-                               actualWidth: widths.actual,
-                               trackWidth: widths.bar,
+                               targetWidth: $widths.target,
+                               actualWidth: $widths.actual,
+                               trackWidth: $widths.bar,
                                deltaWidth: widths.delta,
                                gap: gap,
                                sortColumn: $sortColumn,
-                               sortAscending: $sortAscending)
+                               sortAscending: $sortAscending,
+                               onResizeEnd: {
+                                   persistWidths()
+                               })
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
@@ -249,7 +264,10 @@ struct AllocationTreeCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .onAppear { initializeExpanded() }
+        .onAppear {
+            widths = Self.loadWidths()
+            initializeExpanded()
+        }
         .onChange(of: displayMode) { _, _ in saveMode() }
     }
 
@@ -350,30 +368,130 @@ struct AllocationTreeCard: View {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
 
+    struct ResizeGrip: View {
+        @Binding var width: CGFloat
+        let onEnd: () -> Void
+
+        var body: some View {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 6)
+                .overlay(Text("\u{22EE}").font(.caption2).foregroundColor(.secondary))
+                .contentShape(Rectangle())
+                .cursor(.resizeLeftRight)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            width = min(250, max(80, width + value.translation.width))
+                        }
+                        .onEnded { _ in onEnd() }
+                )
+                .focusable()
+                .accessibilityLabel("Resize column")
+                .onMoveCommand { direction in
+                    if direction == .left { width = max(80, width - 8) }
+                    if direction == .right { width = min(250, width + 8) }
+                }
+        }
+    }
+
+    struct ResizableSortHeader: View {
+        let title: String
+        let column: SortColumn
+        @Binding var width: CGFloat
+        @Binding var sortColumn: SortColumn
+        @Binding var sortAscending: Bool
+        let onResizeEnd: () -> Void
+
+        var body: some View {
+            ZStack(alignment: .trailing) {
+                sortButton
+                    .padding(.trailing, 6)
+                ResizeGrip(width: $width, onEnd: onResizeEnd)
+            }
+            .frame(width: width, alignment: .trailing)
+        }
+
+        private var sortButton: some View {
+            Button(action: { toggle() }) {
+                HStack(spacing: 2) {
+                    Text(title)
+                    Image(systemName: icon())
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(column == sortColumn ? Color.primary : Color.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+
+        private func icon() -> String {
+            if column != sortColumn { return "arrow.up.arrow.down" }
+            return sortAscending ? "arrow.up" : "arrow.down"
+        }
+
+        private func toggle() {
+            if sortColumn == column { sortAscending.toggle() } else {
+                sortColumn = column
+                sortAscending = false
+            }
+        }
+    }
+
+    struct ResizableTextHeader: View {
+        let title: String
+        @Binding var width: CGFloat
+        let onResizeEnd: () -> Void
+
+        var body: some View {
+            ZStack(alignment: .trailing) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.trailing, 6)
+                ResizeGrip(width: $width, onEnd: onResizeEnd)
+            }
+            .frame(width: width, alignment: .center)
+        }
+    }
+
     struct CaptionRow: View {
         let nameWidth: CGFloat
-        let targetWidth: CGFloat
-        let actualWidth: CGFloat
-        let trackWidth: CGFloat
+        @Binding var targetWidth: CGFloat
+        @Binding var actualWidth: CGFloat
+        @Binding var trackWidth: CGFloat
         let deltaWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
+        let onResizeEnd: () -> Void
 
         var body: some View {
             HStack(spacing: gap) {
                 Spacer().frame(width: nameWidth + 16)
-                sortHeader("TARGET", column: .target)
-                    .frame(width: targetWidth, alignment: .trailing)
-                sortHeader("ACTUAL", column: .actual)
-                    .frame(width: actualWidth, alignment: .trailing)
-                Text("DEVIATION")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: trackWidth, alignment: .center)
-                    .lineLimit(1)
+                ResizableSortHeader(title: "TARGET",
+                                   column: .target,
+                                   width: $targetWidth,
+                                   sortColumn: $sortColumn,
+                                   sortAscending: $sortAscending,
+                                   onResizeEnd: onResizeEnd)
+                ResizableSortHeader(title: "ACTUAL",
+                                   column: .actual,
+                                   width: $actualWidth,
+                                   sortColumn: $sortColumn,
+                                   sortAscending: $sortAscending,
+                                   onResizeEnd: onResizeEnd)
+                ResizableTextHeader(title: "DEVIATION",
+                                    width: $trackWidth,
+                                    onResizeEnd: onResizeEnd)
                 sortHeader("\u{0394}", column: .delta)
                     .frame(width: deltaWidth, alignment: .trailing)
+                Button(action: { resetWidths(); onResizeEnd() }) {
+                    Text("\u21BA")
+                        .font(.caption)
+                        .help("Reset column widths")
+                }
+                .buttonStyle(.plain)
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
@@ -584,7 +702,7 @@ struct DeviationBar: View {
         return (actual - target) / target * 100
     }
 
-    private var track: CGFloat { trackWidth - 24 }
+    private var track: CGFloat { trackWidth - 8 }
 
     private var span: CGFloat {
         let mag = min(abs(diffPercent), 100)
@@ -601,13 +719,13 @@ struct DeviationBar: View {
         ZStack {
             Capsule().fill(Color.systemGray5)
                 .frame(height: 6)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 4)
             Rectangle().fill(Color.black)
                 .frame(width: 1, height: 8)
             Capsule().fill(barColor(diffPercent))
                 .frame(width: span, height: 6)
                 .offset(x: offset)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 4)
         }
         .frame(width: trackWidth)
     }
