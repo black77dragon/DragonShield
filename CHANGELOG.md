@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
 - Show both Target % and Target CHF fields in edit pop-over with automatic conversion
+- Persist target_amount_chf alongside target_percent when saving class and sub-class targets
 - Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
 - Fix Target CHF not loading in edit pop-over and allow saving with non-zero remaining
 - Fix compile errors in Asset Allocation dashboard views
