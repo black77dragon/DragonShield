@@ -40,7 +40,6 @@ class DatabaseManager: ObservableObject {
     @Published var dbCreated: Date?
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
-    @Published var directRealEstateTargetCHF: Double = 0.0
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 

@@ -19,7 +19,7 @@ extension DatabaseManager {
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
-                'include_direct_re', 'direct_re_target_chf', 'db_version'
+                'include_direct_re', 'db_version'
             );
         """
         var statement: OpaquePointer?
@@ -60,8 +60,6 @@ extension DatabaseManager {
                         self.tableRowPadding = Double(value) ?? 12.0
                     case "include_direct_re":
                         self.includeDirectRealEstate = value.lowercased() == "true"
-                    case "direct_re_target_chf":
-                        self.directRealEstateTargetCHF = Double(value) ?? 0
                     case "db_version":
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")

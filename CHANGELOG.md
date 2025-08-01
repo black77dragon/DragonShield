@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
 - Show both Target % and Target CHF fields in edit pop-over with automatic conversion
+- Store direct real estate target CHF in TargetAllocation instead of Configuration
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view

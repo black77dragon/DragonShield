@@ -20,8 +20,7 @@ INSERT INTO Configuration VALUES ('8', 'table_row_spacing', '1.0', 'number', 'Sp
 INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('11', 'include_direct_re', 'true', 'boolean', 'Include direct real estate in allocation views', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('12', 'direct_re_target_chf', '0', 'number', 'Target CHF amount for direct real estate', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('13', 'db_version', '4.18', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('12', 'db_version', '4.18', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 CREATE TABLE Currencies (
     currency_code TEXT PRIMARY KEY,
     currency_name TEXT NOT NULL,
