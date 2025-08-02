@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 - Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
 - Load stored Target CHF in edit pop-over, computing from portfolio total only if missing, and allow saving with non-zero remaining
 - Add detailed logging and validation to Edit Targets panel
-- Correct Edit Targets validation to enforce parent and sub-class totals
+- Refine Edit Targets validation to trace parent and sub-class sums, cap allocations at 100%, and ignore zero-target classes
 - Pre-populate target amount fields from the database and format CHF values with
   thousands separators on blur
 - Fix compile errors in Asset Allocation dashboard views

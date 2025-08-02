@@ -74,9 +74,11 @@ struct TargetEditPanel: View {
                             .disabled(kind != .percent)
                             .onChange(of: parentPercent) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .percent else { return }
-                                parentAmount = portfolioTotal * newVal / 100
-                                let ratio = String(format: "%.2f", newVal / 100)
-                                log("DEBUG", "Changed percent \(oldVal)→\(newVal) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                                let clamped = min(max(newVal, 0), 100)
+                                if clamped != newVal { parentPercent = clamped }
+                                parentAmount = portfolioTotal * clamped / 100
+                                let ratio = String(format: "%.2f", clamped / 100)
+                                log("DEBUG", "Changed percent \(oldVal)→\(clamped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
                             }
                     }
                     VStack(alignment: .leading) {
@@ -89,8 +91,10 @@ struct TargetEditPanel: View {
                             .focused($focusedChfField, equals: "parent")
                             .onChange(of: parentAmount) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .amount else { return }
-                                parentPercent = portfolioTotal > 0 ? newVal / portfolioTotal * 100 : 0
-                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(newVal)) ⇒ percent=(\(formatChf(newVal))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                                let clamped = min(max(newVal, 0), portfolioTotal)
+                                if clamped != newVal { parentAmount = clamped }
+                                parentPercent = portfolioTotal > 0 ? clamped / portfolioTotal * 100 : 0
+                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(clamped)) ⇒ percent=(\(formatChf(clamped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
                             }
                     }
                 }
@@ -130,9 +134,11 @@ struct TargetEditPanel: View {
                         .frame(width: 80)
                         .onChange(of: row.kind) { _, newKind in
                             if newKind == .percent {
-                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                                let pct = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                                row.percent = min(max(pct, 0), 100)
                             } else {
-                                row.amount = parentAmount * row.percent / 100
+                                let amt = parentAmount * row.percent / 100
+                                row.amount = min(max(amt, 0), parentAmount)
                             }
                         }
 
@@ -143,9 +149,11 @@ struct TargetEditPanel: View {
                             .disabled(row.kind != .percent)
                             .onChange(of: row.percent) { oldVal, newVal in
                                 guard !isInitialLoad, row.kind == .percent else { return }
-                                row.amount = parentAmount * newVal / 100
-                                let ratio = String(format: "%.2f", newVal / 100)
-                                log("DEBUG", "Changed percent \(oldVal)→\(newVal) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                                let clamped = min(max(newVal, 0), 100)
+                                if clamped != newVal { row.percent = clamped }
+                                row.amount = parentAmount * clamped / 100
+                                let ratio = String(format: "%.2f", clamped / 100)
+                                log("DEBUG", "Changed percent \(oldVal)→\(clamped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
                             }
 
                         TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -156,8 +164,10 @@ struct TargetEditPanel: View {
                             .focused($focusedChfField, equals: "row-\(row.id)")
                             .onChange(of: row.amount) { oldVal, newVal in
                                 guard !isInitialLoad, row.kind == .amount else { return }
-                                row.percent = parentAmount > 0 ? newVal / parentAmount * 100 : 0
-                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(newVal)) ⇒ percent=(\(formatChf(newVal))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                                let clamped = min(max(newVal, 0), parentAmount)
+                                if clamped != newVal { row.amount = clamped }
+                                row.percent = parentAmount > 0 ? clamped / parentAmount * 100 : 0
+                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(clamped)) ⇒ percent=(\(formatChf(clamped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -276,9 +286,13 @@ struct TargetEditPanel: View {
     private func updateRows() {
         for idx in rows.indices {
             if rows[idx].kind == .percent {
-                rows[idx].amount = parentAmount * rows[idx].percent / 100
+                let pct = min(max(rows[idx].percent, 0), 100)
+                if pct != rows[idx].percent { rows[idx].percent = pct }
+                rows[idx].amount = parentAmount * pct / 100
             } else {
-                rows[idx].percent = parentAmount > 0 ? rows[idx].amount / parentAmount * 100 : 0
+                let amt = min(max(rows[idx].amount, 0), parentAmount)
+                if amt != rows[idx].amount { rows[idx].amount = amt }
+                rows[idx].percent = parentAmount > 0 ? amt / parentAmount * 100 : 0
             }
         }
         refreshDrafts()
@@ -305,58 +319,67 @@ struct TargetEditPanel: View {
         var warnings: [String] = []
 
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
+        let classes = db.fetchAssetClassesDetailed()
 
-        // Collect parent level targets
         var classPercents: [Int: Double] = [:]
         var classAmounts: [Int: Double] = [:]
-        for rec in records where rec.subClassId == nil {
-            guard let cid = rec.classId else { continue }
-            let percent = cid == classId ? parentPercent : rec.percent
-            let amount = cid == classId ? parentAmount : (rec.amountCHF ?? portfolioTotal * rec.percent / 100)
-            classPercents[cid] = percent
-            classAmounts[cid] = amount
+        for cls in classes {
+            let rec = records.first { $0.classId == cls.id && $0.subClassId == nil }
+            let percent = cls.id == classId ? parentPercent : (rec?.percent ?? 0)
+            let amount = cls.id == classId ? parentAmount : (rec?.amountCHF ?? portfolioTotal * (rec?.percent ?? 0) / 100)
+            classPercents[cls.id] = percent
+            classAmounts[cls.id] = amount
+            log("DEBUG", "Read parent \"\(cls.name)\" id=\(cls.id): percent=\(percent), CHF=\(amount)", type: .debug)
         }
-        // Ensure current class is included even if no record existed
-        classPercents[classId] = parentPercent
-        classAmounts[classId] = parentAmount
 
-        // Parent level validation
         let pctSum = classPercents.values.reduce(0, +)
+        log("DEBUG", "Parent % sum=\(pctSum) (expected 100)", type: .debug)
         if abs(pctSum - 100) > 0.01 {
             warnings.append(String(format: "asset-class %% sum=%.1f%% (expected 100%%)", pctSum))
         }
+
         let chfSum = classAmounts.values.reduce(0, +)
+        log("DEBUG", "Parent CHF sum=\(formatChf(chfSum)) (expected \(formatChf(portfolioTotal)))", type: .debug)
         if abs(chfSum - portfolioTotal) > 0.01 {
             warnings.append("asset-class CHF sum=\(formatChf(chfSum)) (expected \(formatChf(portfolioTotal)))")
         }
 
-        // Collect child level targets
-        var subPercentSums: [Int: Double] = [:]
-        var subAmountSums: [Int: Double] = [:]
-        for rec in records where rec.subClassId != nil {
-            guard let cid = rec.classId, cid != classId else { continue }
-            let parentAmt = classAmounts[cid] ?? 0
-            let pct = rec.percent
-            let amt = rec.amountCHF ?? parentAmt * pct / 100
-            subPercentSums[cid, default: 0] += pct
-            subAmountSums[cid, default: 0] += amt
-        }
-        // Current class subclasses
-        subPercentSums[classId] = rows.map { $0.percent }.reduce(0, +)
-        subAmountSums[classId] = rows.map { $0.amount }.reduce(0, +)
-
-        // Child level validation
-        for (cid, sum) in subPercentSums {
-            if abs(sum - 100) > 0.01 {
-                let name = db.fetchAssetClassDetails(id: cid)?.name ?? "id \(cid)"
-                warnings.append(String(format: "\"%\(name)\" sub-class %% sum=%.1f%% (expected 100%%)", sum))
+        for cls in classes {
+            let parentPct = classPercents[cls.id] ?? 0
+            let parentAmt = classAmounts[cls.id] ?? 0
+            var pctSum: Double = 0
+            var amtSum: Double = 0
+            if cls.id == classId {
+                for r in rows {
+                    log("DEBUG", "Read child \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount)", type: .debug)
+                    pctSum += r.percent
+                    amtSum += r.amount
+                }
+            } else {
+                for rec in records where rec.classId == cls.id && rec.subClassId != nil {
+                    let pct = rec.percent
+                    let amt = rec.amountCHF ?? parentAmt * pct / 100
+                    log("DEBUG", "Read child id=\(rec.subClassId ?? 0) for \"\(cls.name)\": percent=\(pct), CHF=\(amt)", type: .debug)
+                    pctSum += pct
+                    amtSum += amt
+                }
             }
-        }
-        for (cid, sum) in subAmountSums {
-            let parentAmt = classAmounts[cid] ?? 0
-            if abs(sum - parentAmt) > 0.01 {
-                let name = db.fetchAssetClassDetails(id: cid)?.name ?? "id \(cid)"
-                warnings.append("\"\(name)\" sub-class CHF sum=\(formatChf(sum)) (expected \(formatChf(parentAmt)))")
+            log("DEBUG", "\"\(cls.name)\" sub-class % sum=\(pctSum) (expected \(parentPct > 0 || parentAmt > 0 ? 100 : 0))", type: .debug)
+            log("DEBUG", "\"\(cls.name)\" sub-class CHF sum=\(formatChf(amtSum)) (expected \(formatChf(parentAmt)))", type: .debug)
+            if parentPct > 0 || parentAmt > 0 {
+                if abs(pctSum - 100) > 0.01 {
+                    warnings.append(String(format: "\"%\(cls.name)\" sub-class %% sum=%.1f%% (expected 100%%)", pctSum))
+                }
+                if abs(amtSum - parentAmt) > 0.01 {
+                    warnings.append("\"\(cls.name)\" sub-class CHF sum=\(formatChf(amtSum)) (expected \(formatChf(parentAmt)))")
+                }
+            } else {
+                if abs(pctSum) > 0.01 {
+                    warnings.append(String(format: "\"%\(cls.name)\" sub-class %% sum=%.1f%% (expected 0%%)", pctSum))
+                }
+                if abs(amtSum) > 0.01 {
+                    warnings.append("\"\(cls.name)\" sub-class CHF sum=\(formatChf(amtSum)) (expected 0)")
+                }
             }
         }
 
