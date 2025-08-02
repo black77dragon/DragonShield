@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct TargetEditPanel: View {
     @EnvironmentObject var db: DatabaseManager
@@ -69,9 +70,16 @@ struct TargetEditPanel: View {
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .percent)
-                            .onChange(of: parentPercent) { newVal in
+                            .onChange(of: parentPercent) { oldVal, newVal in
                                 guard kind == .percent else { return }
                                 parentAmount = portfolioTotal * newVal / 100
+                                let msg = String(format: "Changed percent %.1f→%.1f ⇒ CHF=%.2f×%@=%@",
+                                                 oldVal,
+                                                 newVal,
+                                                 newVal / 100,
+                                                 formatChf(portfolioTotal),
+                                                 formatChf(parentAmount))
+                                LoggingService.shared.log(msg, type: .debug, logger: .ui)
                             }
                     }
                     VStack(alignment: .leading) {
@@ -82,9 +90,16 @@ struct TargetEditPanel: View {
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .amount)
                             .focused($focusedChfField, equals: "parent")
-                            .onChange(of: parentAmount) { newVal in
+                            .onChange(of: parentAmount) { oldVal, newVal in
                                 guard kind == .amount else { return }
                                 parentPercent = portfolioTotal > 0 ? newVal / portfolioTotal * 100 : 0
+                                let msg = String(format: "Changed CHF %@→%@ ⇒ percent=(%@÷%@)×100=%.1f",
+                                                 formatChf(oldVal),
+                                                 formatChf(newVal),
+                                                 formatChf(newVal),
+                                                 formatChf(portfolioTotal),
+                                                 parentPercent)
+                                LoggingService.shared.log(msg, type: .debug, logger: .ui)
                             }
                     }
                 }
@@ -135,9 +150,17 @@ struct TargetEditPanel: View {
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(row.kind != .percent)
-                            .onChange(of: row.percent) { newVal in
+                            .onChange(of: row.percent) { oldVal, newVal in
                                 guard row.kind == .percent else { return }
                                 row.amount = parentAmount * newVal / 100
+                                let msg = String(format: "Changed percent %.1f→%.1f for sub-class id=%d ⇒ CHF=%.2f×%@=%@",
+                                                 oldVal,
+                                                 newVal,
+                                                 row.id,
+                                                 newVal / 100,
+                                                 formatChf(parentAmount),
+                                                 formatChf(row.amount))
+                                LoggingService.shared.log(msg, type: .debug, logger: .ui)
                             }
 
                         TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -146,9 +169,17 @@ struct TargetEditPanel: View {
                             .textFieldStyle(.roundedBorder)
                             .disabled(row.kind != .amount)
                             .focused($focusedChfField, equals: "row-\(row.id)")
-                            .onChange(of: row.amount) { newVal in
+                            .onChange(of: row.amount) { oldVal, newVal in
                                 guard row.kind == .amount else { return }
                                 row.percent = parentAmount > 0 ? newVal / parentAmount * 100 : 0
+                                let msg = String(format: "Changed CHF %@→%@ for sub-class id=%d ⇒ percent=(%@÷%@)×100=%.1f",
+                                                 formatChf(oldVal),
+                                                 formatChf(newVal),
+                                                 row.id,
+                                                 formatChf(newVal),
+                                                 formatChf(parentAmount),
+                                                 row.percent)
+                                LoggingService.shared.log(msg, type: .debug, logger: .ui)
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -212,6 +243,14 @@ struct TargetEditPanel: View {
             parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
         }
+        let loadMsg = String(format: "Loading \"%@\" id=%d: percent=%.1f, CHF=%@, kind=%@, tol=%.1f",
+                              className,
+                              classId,
+                              parentPercent,
+                              formatChf(parentAmount),
+                              kind.rawValue,
+                              tolerance)
+        LoggingService.shared.log(loadMsg, type: .info, logger: .ui)
 
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
@@ -225,6 +264,16 @@ struct TargetEditPanel: View {
                        amount: amt,
                        kind: rk,
                        tolerance: rec?.tolerance ?? tolerance)
+        }
+        for row in rows {
+            let msg = String(format: "Loading sub-class \"%@\" id=%d: percent=%.1f, CHF=%@, kind=%@, tol=%.1f",
+                              row.name,
+                              row.id,
+                              row.percent,
+                              formatChf(row.amount),
+                              row.kind.rawValue,
+                              row.tolerance)
+            LoggingService.shared.log(msg, type: .info, logger: .ui)
         }
 
         updateRows()
@@ -280,13 +329,105 @@ struct TargetEditPanel: View {
         }
     }
 
+    private func validateTotals() -> Bool {
+        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
+        var classPct: [Int: Double] = [:]
+        var classChf: [Int: Double] = [:]
+        var subPct: [Int: [Int: Double]] = [:]
+        var subChf: [Int: [Int: Double]] = [:]
+
+        for rec in records {
+            let cid = rec.classId ?? 0
+            if let sid = rec.subClassId {
+                subPct[cid, default: [:]][sid] = rec.percent
+                if let amt = rec.amountCHF { subChf[cid, default: [:]][sid] = amt }
+            } else {
+                classPct[cid] = rec.percent
+                if let amt = rec.amountCHF { classChf[cid] = amt }
+            }
+        }
+
+        classPct[classId] = parentPercent
+        classChf[classId] = parentAmount
+        subPct[classId] = [:]
+        subChf[classId] = [:]
+        for row in rows {
+            subPct[classId]?[row.id] = row.percent
+            subChf[classId]?[row.id] = row.amount
+        }
+
+        var issues: [String] = []
+        let pctTotal = classPct.values.reduce(0, +)
+        if abs(pctTotal - 100) > 0.001 {
+            let msg = String(format: "asset-class %% sum=%.1f%% (expected 100%%)", pctTotal)
+            LoggingService.shared.log(msg, type: .default, logger: .ui)
+            issues.append(msg)
+        }
+        let chfTotal = classChf.values.reduce(0, +)
+        if abs(chfTotal - portfolioTotal) > 0.01 {
+            let msg = "asset-class CHF sum=\(formatChf(chfTotal)) (expected \(formatChf(portfolioTotal)))"
+            LoggingService.shared.log(msg, type: .default, logger: .ui)
+            issues.append(msg)
+        }
+
+        for (cid, _) in classPct {
+            let name = cid == classId ? className : db.fetchAssetClassDetails(id: cid)?.name ?? "Class \(cid)"
+            if let subs = subPct[cid], !subs.isEmpty {
+                let sumPct = subs.values.reduce(0, +)
+                if abs(sumPct - 100) > 0.001 {
+                    let msg = String(format: "\"%@\" sub-class %% sum=%.1f%% (expected 100%%)", name, sumPct)
+                    LoggingService.shared.log(msg, type: .default, logger: .ui)
+                    issues.append(msg)
+                }
+            }
+            if let subs = subChf[cid], !subs.isEmpty {
+                let parentAmt = classChf[cid] ?? 0
+                let sumAmt = subs.values.reduce(0, +)
+                if parentAmt > 0 && abs(sumAmt - parentAmt) > 0.01 {
+                    let msg = String(format: "\"%@\" sub-class CHF sum=%@ (expected %@)", name, formatChf(sumAmt), formatChf(parentAmt))
+                    LoggingService.shared.log(msg, type: .default, logger: .ui)
+                    issues.append(msg)
+                }
+            }
+        }
+
+        if !issues.isEmpty {
+            let alert = NSAlert()
+            alert.messageText = "Validation Failed"
+            alert.informativeText = issues.joined(separator: "\n")
+            alert.alertStyle = .warning
+            alert.runModal()
+            return false
+        }
+        return true
+    }
+
     private func save() {
+        guard validateTotals() else { return }
+
+        let msg = String(format: "Saving \"%@\" id=%d: percent=%.1f, CHF=%@, kind=%@, tol=%.1f",
+                          className,
+                          classId,
+                          parentPercent,
+                          formatChf(parentAmount),
+                          kind.rawValue,
+                          tolerance)
+        LoggingService.shared.log(msg, type: .info, logger: .ui)
+
         db.upsertClassTarget(portfolioId: 1,
                              classId: classId,
                              percent: parentPercent,
                              amountChf: parentAmount,
                              tolerance: tolerance)
         for row in rows {
+            let subMsg = String(format: "Saving sub-class \"%@\" id=%d: percent=%.1f, CHF=%@, kind=%@, tol=%.1f",
+                                row.name,
+                                row.id,
+                                row.percent,
+                                formatChf(row.amount),
+                                row.kind.rawValue,
+                                row.tolerance)
+            LoggingService.shared.log(subMsg, type: .info, logger: .ui)
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
                                     percent: row.percent,

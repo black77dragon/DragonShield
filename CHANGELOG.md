@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
+- Log load, conversion, validation and save steps in Target edit panel with warnings for total mismatches
 - Added persistent edit buttons & dbl-click shortcut for target rows (PR #XXX)
 - Target editor pops up below row with white background and tolerance field (PR #XXX)
 - Document Target Allocation edit panel workflow
