@@ -256,51 +256,96 @@ struct TargetEditPanel: View {
     }
 
     private func load() {
-        className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
-        portfolioTotal = calculatePortfolioTotal()
-        validationWarnings = []
+    className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
+    portfolioTotal = calculatePortfolioTotal()
+    validationWarnings = []
 
+    var rawUpdatedAt: String? = nil
+    
+    // Try to get parent class record
+    if let parent = db.fetchClassTargetRecord(classId: classId) {
+        // Found parent record - use it
+        kind = parent.targetKind == "amount" ? .amount : .percent
+        parentPercent = parent.percent
+        parentAmount = parent.amountCHF ?? (portfolioTotal * parent.percent / 100)
+        tolerance = parent.tolerance
+        rawUpdatedAt = parent.updatedAt
+        
+        log("LOAD", "✅ Found parent record: \(parentPercent)% / \(parentAmount) CHF", type: .info)
+    } else {
+        // No parent record found - calculate from sub-classes
+        log("LOAD", "⚠️ No parent record found - calculating from sub-classes", type: .info)
+        
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
-            kind = parent.targetKind == "amount" ? .amount : .percent
-            parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
-            tolerance = parent.tolerance
-            initialKind = kind
-            initialPercent = parentPercent
-            initialAmount = parentAmount
-            initialTolerance = tolerance
+        let subRecords = records.filter { $0.classId == classId && $0.subClassId != nil }
+        
+        if !subRecords.isEmpty {
+            // Calculate parent from existing sub-class data
+            let totalSubPercent = subRecords.map { $0.percent }.reduce(0, +)
+            let totalSubAmount = subRecords.compactMap { $0.amountCHF }.reduce(0, +)
+            
+            if totalSubAmount > 0 {
+                // Use amount-based calculation
+                kind = .amount
+                parentAmount = totalSubAmount
+                parentPercent = portfolioTotal > 0 ? totalSubAmount / portfolioTotal * 100 : 0
+            } else {
+                // Use percent-based calculation
+                kind = .percent
+                parentPercent = min(totalSubPercent, 100) // Cap at 100%
+                parentAmount = portfolioTotal * parentPercent / 100
+            }
+            
+            tolerance = 5.0 // Default tolerance
+            log("LOAD", "📊 Calculated parent from subs: \(parentPercent)% / \(parentAmount) CHF", type: .info)
+        } else {
+            // No data at all - use defaults
+            kind = .percent
+            parentPercent = 0
+            parentAmount = 0
+            tolerance = 5.0
+            log("LOAD", "🆕 No data found - using defaults", type: .info)
         }
-
-        let subs = db.subAssetClasses(for: classId)
-        rows = subs.map { sub in
-            let rec = records.first { $0.subClassId == sub.id }
-            let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
-            let pct = rec?.percent ?? 0
-            let amt = rec?.amountCHF ?? parentAmount * pct / 100
-            return Row(id: sub.id,
-                       name: sub.name,
-                       percent: pct,
-                       amount: amt,
-                       kind: rk,
-                       tolerance: rec?.tolerance ?? tolerance)
-        }
-        initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
-
-        updateRows()
-        if focusedChfField == nil {
-            refreshDrafts()
-        }
-        let childPct = rows.map(\.percent).reduce(0, +)
-        let childChf = rows.map(\.amount).reduce(0, +)
-        log("INFO", "EditTargetsPanel load → parent \(String(format: "%.1f", parentPercent))% / \(formatChf(parentAmount)) CHF; children sum \(String(format: "%.1f", childPct))% / \(formatChf(childChf)) CHF", type: .info)
-        for r in rows {
-            log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
-        }
-        validationWarnings = validateAll()
-        isInitialLoad = false
     }
+    
+    updatedAt = formatTimestamp(rawUpdatedAt)
+    initialKind = kind
+    initialPercent = parentPercent
+    initialAmount = parentAmount
+    initialTolerance = tolerance
 
+    // Load sub-class data
+    let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
+    let subs = db.subAssetClasses(for: classId)
+    rows = subs.map { sub in
+        let rec = records.first { $0.subClassId == sub.id }
+        let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
+        let pct = rec?.percent ?? 0
+        let amt = rec?.amountCHF ?? (parentAmount * pct / 100)
+        return Row(id: sub.id,
+                   name: sub.name,
+                   percent: pct,
+                   amount: amt,
+                   kind: rk,
+                   tolerance: rec?.tolerance ?? tolerance)
+    }
+    initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
+
+    updateRows()
+    if focusedChfField == nil {
+        refreshDrafts()
+    }
+    
+    let kindStr = kind == .percent ? "%" : "CHF"
+    log("INFO", "EditTargetsPanel load AssetClass=\(className) → kind=\(kindStr), percent=\(parentPercent), CHF=\(parentAmount), tol=\(tolerance), updated=\(rawUpdatedAt ?? "none")", type: .info)
+    
+    for r in rows {
+        log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
+    }
+    
+    validationWarnings = validateAll()
+    isInitialLoad = false
+}
     private func calculatePortfolioTotal() -> Double {
         var total = 0.0
         var rateCache: [String: Double] = [:]
