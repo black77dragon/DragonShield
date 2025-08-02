@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Fix Edit Targets panel to preload stored target values before validation
+- Format CHF values in Edit Targets load logs and align metadata label casing
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel
 - Show stored target metadata with last updated timestamp in Edit Targets panel

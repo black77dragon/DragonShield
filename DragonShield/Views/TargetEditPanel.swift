@@ -126,7 +126,7 @@ struct TargetEditPanel: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text("KIND: \(initialKind == .percent ? "%" : "CHF")")
+                    Text("Kind: \(initialKind == .percent ? "%" : "CHF")")
                     Spacer()
                     Text("Target %: \(String(format: "%.1f%%", initialPercent))")
                 }
@@ -310,7 +310,7 @@ struct TargetEditPanel: View {
             refreshDrafts()
         }
         let kindStr = kind == .percent ? "%" : "CHF"
-        log("INFO", "EditTargetsPanel load AssetClass=\(className) → kind=\(kindStr), percent=\(parentPercent), CHF=\(parentAmount), tol=\(tolerance), updated=\(updatedAt)", type: .info)
+        log("INFO", "EditTargetsPanel load AssetClass=\(className) → kind=\(kindStr), percent=\(parentPercent), CHF=\(formatChf(parentAmount)), tol=\(tolerance), updated=\(updatedAt)", type: .info)
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
