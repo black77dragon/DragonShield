@@ -28,6 +28,7 @@ struct TargetEditPanel: View {
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
     @State private var validationWarnings: [String] = []
+    @State private var updatedAt: String = ""
     @State private var isInitialLoad = true
     @State private var initialPercent: Double = 0
     @State private var initialAmount: Double = 0
@@ -523,6 +524,18 @@ struct TargetEditPanel: View {
 
     private func formatChf(_ value: Double) -> String {
         Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func formatTimestamp(_ value: String?) -> String {
+        guard let value else { return "" }
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: value) {
+            let f = DateFormatter()
+            f.dateStyle = .medium
+            f.timeStyle = .short
+            return f.string(from: date)
+        }
+        return value
     }
 
     private func chfBinding(key: String, value: Binding<Double>) -> Binding<String> {

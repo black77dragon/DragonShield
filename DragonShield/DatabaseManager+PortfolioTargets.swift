@@ -170,6 +170,44 @@ extension DatabaseManager {
         return results
     }
 
+    /// Fetch the target record for a specific asset class.
+    /// Returns `nil` when no class-level target is stored.
+    func fetchClassTargetRecord(classId: Int) -> (
+        percent: Double,
+        amountCHF: Double?,
+        targetKind: String,
+        tolerance: Double,
+        updatedAt: String?
+    )? {
+        let query = """
+            SELECT target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at
+            FROM TargetAllocation
+            WHERE asset_class_id = ? AND sub_class_id IS NULL
+            LIMIT 1;
+        """
+        var statement: OpaquePointer?
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            LoggingService.shared.log("Failed to prepare fetchClassTargetRecord: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return nil
+        }
+
+        sqlite3_bind_int(statement, 1, Int32(classId))
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+
+        let percent = sqlite3_column_double(statement, 0)
+        let amount = sqlite3_column_type(statement, 1) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 1)
+        let kind = String(cString: sqlite3_column_text(statement, 2))
+        let tolerance = sqlite3_column_double(statement, 3)
+        let updatedAt = sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil : String(cString: sqlite3_column_text(statement, 4))
+
+        return (percent: percent,
+                amountCHF: amount,
+                targetKind: kind,
+                tolerance: tolerance,
+                updatedAt: updatedAt)
+    }
+
     /// Upsert a class-level target percentage.
     func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         let query = """
