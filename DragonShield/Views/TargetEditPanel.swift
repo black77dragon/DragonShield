@@ -303,47 +303,63 @@ struct TargetEditPanel: View {
 
     private func validateAll() -> [String] {
         var warnings: [String] = []
-        var classData: [Int: (percent: Double, amount: Double)] = [:]
-        var subData: [Int: [(percent: Double, amount: Double?)]] = [:]
+
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        for rec in records {
-            if let cid = rec.classId, rec.subClassId == nil {
-                let amt = rec.amountCHF ?? portfolioTotal * rec.percent / 100
-                classData[cid] = (rec.percent, amt)
-            } else if let cid = rec.classId, rec.subClassId != nil {
-                subData[cid, default: []].append((rec.percent, rec.amountCHF))
-            }
+
+        // Collect parent level targets
+        var classPercents: [Int: Double] = [:]
+        var classAmounts: [Int: Double] = [:]
+        for rec in records where rec.subClassId == nil {
+            guard let cid = rec.classId else { continue }
+            let percent = cid == classId ? parentPercent : rec.percent
+            let amount = cid == classId ? parentAmount : (rec.amountCHF ?? portfolioTotal * rec.percent / 100)
+            classPercents[cid] = percent
+            classAmounts[cid] = amount
         }
-        classData[classId] = (parentPercent, parentAmount)
-        subData[classId] = rows.map { ($0.percent, Optional($0.amount)) }
-        for (cid, list) in subData {
-            if let parent = classData[cid] {
-                subData[cid] = list.map { (pct, amt) in
-                    (pct, amt ?? parent.amount * pct / 100)
-                }
-            }
-        }
-        let pctSum = classData.values.map { $0.percent }.reduce(0, +)
+        // Ensure current class is included even if no record existed
+        classPercents[classId] = parentPercent
+        classAmounts[classId] = parentAmount
+
+        // Parent level validation
+        let pctSum = classPercents.values.reduce(0, +)
         if abs(pctSum - 100) > 0.01 {
             warnings.append(String(format: "asset-class %% sum=%.1f%% (expected 100%%)", pctSum))
         }
-        let chfSum = classData.values.map { $0.amount }.reduce(0, +)
+        let chfSum = classAmounts.values.reduce(0, +)
         if abs(chfSum - portfolioTotal) > 0.01 {
             warnings.append("asset-class CHF sum=\(formatChf(chfSum)) (expected \(formatChf(portfolioTotal)))")
         }
-        for (cid, subs) in subData {
-            let subPct = subs.map { $0.percent }.reduce(0, +)
-            if abs(subPct - 100) > 0.01 {
+
+        // Collect child level targets
+        var subPercentSums: [Int: Double] = [:]
+        var subAmountSums: [Int: Double] = [:]
+        for rec in records where rec.subClassId != nil {
+            guard let cid = rec.classId, cid != classId else { continue }
+            let parentAmt = classAmounts[cid] ?? 0
+            let pct = rec.percent
+            let amt = rec.amountCHF ?? parentAmt * pct / 100
+            subPercentSums[cid, default: 0] += pct
+            subAmountSums[cid, default: 0] += amt
+        }
+        // Current class subclasses
+        subPercentSums[classId] = rows.map { $0.percent }.reduce(0, +)
+        subAmountSums[classId] = rows.map { $0.amount }.reduce(0, +)
+
+        // Child level validation
+        for (cid, sum) in subPercentSums {
+            if abs(sum - 100) > 0.01 {
                 let name = db.fetchAssetClassDetails(id: cid)?.name ?? "id \(cid)"
-                warnings.append(String(format: "\"%\(name)\" sub-class %% sum=%.1f%% (expected 100%%)", subPct))
-            }
-            let parentAmt = classData[cid]?.amount ?? 0
-            let subAmt = subs.map { $0.amount ?? 0 }.reduce(0, +)
-            if abs(subAmt - parentAmt) > max(parentAmt * 0.01, 0.01) {
-                let name = db.fetchAssetClassDetails(id: cid)?.name ?? "id \(cid)"
-                warnings.append("\"\(name)\" sub-class CHF sum=\(formatChf(subAmt)) (expected \(formatChf(parentAmt)))")
+                warnings.append(String(format: "\"%\(name)\" sub-class %% sum=%.1f%% (expected 100%%)", sum))
             }
         }
+        for (cid, sum) in subAmountSums {
+            let parentAmt = classAmounts[cid] ?? 0
+            if abs(sum - parentAmt) > 0.01 {
+                let name = db.fetchAssetClassDetails(id: cid)?.name ?? "id \(cid)"
+                warnings.append("\"\(name)\" sub-class CHF sum=\(formatChf(sum)) (expected \(formatChf(parentAmt)))")
+            }
+        }
+
         return warnings
     }
 
@@ -352,7 +368,7 @@ struct TargetEditPanel: View {
         if !warnings.isEmpty {
             for w in warnings { log("WARN", w, type: .default) }
             log("ERROR", "Save aborted due to validation errors", type: .error)
-            validationError = warnings.joined(separator: "\n")
+            validationError = warnings.map { "Validation Failed: \($0)" }.joined(separator: "\n")
             return
         }
         db.upsertClassTarget(portfolioId: 1,
