@@ -20,8 +20,12 @@ struct TargetEditPanel: View {
 
     @State private var className: String = ""
     @State private var kind: TargetKind = .percent
-    @State private var parentPercent: Double = 0
-    @State private var parentAmount: Double = 0
+    @State private var targetPercent: Double = 0
+    @State private var targetCHF: Double = 0
+    @State private var initialTargetPercent: Double = 0
+    @State private var initialTargetCHF: Double = 0
+    @State private var initialKind: TargetKind = .percent
+    @State private var initialTolerance: Double = 0
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
     @State private var portfolioTotal: Double = 0
@@ -42,7 +46,7 @@ struct TargetEditPanel: View {
         if kind == .percent {
             100 - subTotal
         } else {
-            parentAmount - subTotal
+            targetCHF - subTotal
         }
     }
 
@@ -67,36 +71,36 @@ struct TargetEditPanel: View {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading) {
                         Text("Target %")
-                        TextField("", value: $parentPercent, formatter: Self.percentFormatter)
+                        TextField("", value: $targetPercent, formatter: Self.percentFormatter)
                             .frame(width: 80)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .percent)
                             .foregroundColor(kind == .percent ? .primary : .secondary)
-                            .onChange(of: parentPercent) { oldVal, newVal in
+                            .onChange(of: targetPercent) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .percent else { return }
                                 let capped = min(newVal, 100)
-                                if capped != newVal { parentPercent = capped }
-                                parentAmount = portfolioTotal * capped / 100
+                                if capped != newVal { targetPercent = capped }
+                                targetCHF = portfolioTotal * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
-                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(targetCHF))", type: .debug)
                             }
                     }
                     VStack(alignment: .leading) {
                         Text("Target CHF")
-                        TextField("", text: chfBinding(key: "parent", value: $parentAmount))
+                        TextField("", text: chfBinding(key: "target", value: $targetCHF))
                             .frame(width: 100)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .amount)
                             .foregroundColor(kind == .amount ? .primary : .secondary)
-                            .focused($focusedChfField, equals: "parent")
-                            .onChange(of: parentAmount) { oldVal, newVal in
+                            .focused($focusedChfField, equals: "target")
+                            .onChange(of: targetCHF) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .amount else { return }
                                 let capped = min(newVal, portfolioTotal)
-                                if capped != newVal { parentAmount = capped }
-                                parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : 0
-                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                                if capped != newVal { targetCHF = capped }
+                                targetPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : 0
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", targetPercent))", type: .debug)
                             }
                     }
                 }
@@ -136,9 +140,9 @@ struct TargetEditPanel: View {
                         .frame(width: 80)
                         .onChange(of: row.kind) { _, newKind in
                             if newKind == .percent {
-                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                                row.percent = targetCHF > 0 ? row.amount / targetCHF * 100 : 0
                             } else {
-                                row.amount = parentAmount * row.percent / 100
+                                row.amount = targetCHF * row.percent / 100
                             }
                         }
 
@@ -152,9 +156,9 @@ struct TargetEditPanel: View {
                                 guard !isInitialLoad, row.kind == .percent else { return }
                                 let capped = min(newVal, 100)
                                 if capped != newVal { row.percent = capped }
-                                row.amount = parentAmount * capped / 100
+                                row.amount = targetCHF * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
-                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(targetCHF))=\(formatChf(row.amount))", type: .debug)
                             }
 
                         TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -166,10 +170,10 @@ struct TargetEditPanel: View {
                             .focused($focusedChfField, equals: "row-\(row.id)")
                             .onChange(of: row.amount) { oldVal, newVal in
                                 guard !isInitialLoad, row.kind == .amount else { return }
-                                let capped = min(newVal, parentAmount)
+                                let capped = min(newVal, targetCHF)
                                 if capped != newVal { row.amount = capped }
-                                row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
-                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                                row.percent = targetCHF > 0 ? capped / targetCHF * 100 : 0
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(targetCHF)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -210,20 +214,22 @@ struct TargetEditPanel: View {
         .frame(minWidth: 360)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
+            guard !isInitialLoad else { return }
             if kind == .percent {
-                parentAmount = portfolioTotal * parentPercent / 100
+                targetCHF = portfolioTotal * targetPercent / 100
             } else {
-                parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
+                targetPercent = portfolioTotal > 0 ? targetCHF / portfolioTotal * 100 : 0
             }
             updateRows()
         }
-        .onChange(of: parentAmount) { _, _ in
+        .onChange(of: targetCHF) { _, _ in
+            guard !isInitialLoad else { return }
             updateRows()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
             if let old = oldValue, old != newValue {
-                if old == "parent" {
-                    chfDrafts[old] = formatChf(parentAmount)
+                if old == "target" {
+                    chfDrafts[old] = formatChf(targetCHF)
                 } else if let id = Int(old.dropFirst(4)), let row = rows.first(where: { $0.id == id }) {
                     chfDrafts[old] = formatChf(row.amount)
                 }
@@ -242,17 +248,21 @@ struct TargetEditPanel: View {
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
             kind = parent.targetKind == "amount" ? .amount : .percent
-            parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
+            targetPercent = parent.percent
+            targetCHF = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
         }
+        initialTargetPercent = targetPercent
+        initialTargetCHF = targetCHF
+        initialKind = kind
+        initialTolerance = tolerance
 
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first { $0.subClassId == sub.id }
             let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
             let pct = rec?.percent ?? 0
-            let amt = rec?.amountCHF ?? parentAmount * pct / 100
+            let amt = rec?.amountCHF ?? targetCHF * pct / 100
             return Row(id: sub.id,
                        name: sub.name,
                        percent: pct,
@@ -265,9 +275,10 @@ struct TargetEditPanel: View {
         if focusedChfField == nil {
             refreshDrafts()
         }
-        log("EDIT PANEL LOAD", "Loading \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
+        validationWarnings = validateAll()
+        log("EDIT PANEL LOAD", "Loaded \(className) → percent=\(targetPercent), CHF=\(targetCHF), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for r in rows {
-            log("EDIT PANEL LOAD", "Loading sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
+            log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
         isInitialLoad = false
     }
@@ -295,10 +306,10 @@ struct TargetEditPanel: View {
         for idx in rows.indices {
             if rows[idx].kind == .percent {
                 rows[idx].percent = min(rows[idx].percent, 100)
-                rows[idx].amount = min(parentAmount * rows[idx].percent / 100, parentAmount)
+                rows[idx].amount = min(targetCHF * rows[idx].percent / 100, targetCHF)
             } else {
-                rows[idx].amount = min(rows[idx].amount, parentAmount)
-                rows[idx].percent = parentAmount > 0 ? min(rows[idx].amount / parentAmount * 100, 100) : 0
+                rows[idx].amount = min(rows[idx].amount, targetCHF)
+                rows[idx].percent = targetCHF > 0 ? min(rows[idx].amount / targetCHF * 100, 100) : 0
             }
         }
         refreshDrafts()
@@ -333,10 +344,10 @@ struct TargetEditPanel: View {
         // Read parent targets
         for cls in classes {
             let rec = records.first { $0.classId == cls.id && $0.subClassId == nil }
-            let percent = cls.id == classId ? parentPercent : (rec?.percent ?? 0)
+            let percent = cls.id == classId ? targetPercent : (rec?.percent ?? 0)
             let amount: Double
             if cls.id == classId {
-                amount = parentAmount
+                amount = targetCHF
             } else if let amt = rec?.amountCHF {
                 amount = amt
             } else {
@@ -409,13 +420,14 @@ struct TargetEditPanel: View {
     }
 
     private func save() {
+        log("EDIT PANEL SAVE", "Loaded percent=\(initialTargetPercent), CHF=\(initialTargetCHF), kind=\(initialKind.rawValue), tol=\(initialTolerance) → saving percent=\(targetPercent), CHF=\(targetCHF), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         db.upsertClassTarget(portfolioId: 1,
                              classId: classId,
-                             percent: parentPercent,
-                             amountChf: parentAmount,
+                             percent: targetPercent,
+                             amountChf: targetCHF,
                              kind: kind.rawValue,
                              tolerance: tolerance)
-        log("DB WRITE", "Saving \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
+        log("DB WRITE", "Saving \"\(className)\" id=\(classId): percent=\(targetPercent), CHF=\(targetCHF), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for row in rows {
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
@@ -452,7 +464,7 @@ struct TargetEditPanel: View {
     }
 
     private func refreshDrafts() {
-        chfDrafts["parent"] = formatChf(parentAmount)
+        chfDrafts["target"] = formatChf(targetCHF)
         for row in rows {
             chfDrafts["row-\(row.id)"] = formatChf(row.amount)
         }
