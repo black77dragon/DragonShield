@@ -207,7 +207,7 @@ struct TargetEditPanel: View {
             HStack {
                 Button("Auto-balance") { autoBalance() }
                 Spacer()
-                Button("Cancel") { onClose() }
+                Button("Cancel") { cancel() }
                 Button("Save") { save() }
             }
         }
@@ -215,6 +215,7 @@ struct TargetEditPanel: View {
         .frame(minWidth: 360)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
+            guard !isInitialLoad else { return }
             if kind == .percent {
                 parentAmount = portfolioTotal * parentPercent / 100
             } else {
@@ -223,6 +224,7 @@ struct TargetEditPanel: View {
             updateRows()
         }
         .onChange(of: parentAmount) { _, _ in
+            guard !isInitialLoad else { return }
             updateRows()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
@@ -417,6 +419,20 @@ struct TargetEditPanel: View {
         }
 
         return warnings
+    }
+
+    private func cancel() {
+        isInitialLoad = true
+        log("EDIT PANEL CANCEL", "Discarded changes for \(className)", type: .info)
+        kind = initialKind
+        parentPercent = initialPercent
+        parentAmount = initialAmount
+        tolerance = initialTolerance
+        rows = Array(initialRows.values).sorted { $0.id < $1.id }
+        refreshDrafts()
+        validationWarnings = []
+        isInitialLoad = false
+        onClose()
     }
 
     private func save() {
