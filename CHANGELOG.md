@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - Fix Edit Targets validation to sum all asset- and sub-class targets with detailed logging
 - Pre-populate target amount fields from the database and format CHF values with
   thousands separators on blur
+- Load existing target values into Edit Targets panel with dual-field editing and post-save validation warnings
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view

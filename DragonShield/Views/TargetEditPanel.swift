@@ -27,7 +27,7 @@ struct TargetEditPanel: View {
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
-    @State private var validationError: String?
+    @State private var validationWarnings: [String] = []
     @State private var isInitialLoad = true
 
     private var subTotal: Double {
@@ -78,7 +78,7 @@ struct TargetEditPanel: View {
                                 if capped != newVal { parentPercent = capped }
                                 parentAmount = portfolioTotal * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
-                                log("DEBUG", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
                             }
                     }
                     VStack(alignment: .leading) {
@@ -94,7 +94,7 @@ struct TargetEditPanel: View {
                                 let capped = min(newVal, portfolioTotal)
                                 if capped != newVal { parentAmount = capped }
                                 parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : 0
-                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
                             }
                     }
                 }
@@ -151,7 +151,7 @@ struct TargetEditPanel: View {
                                 if capped != newVal { row.percent = capped }
                                 row.amount = parentAmount * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
-                                log("DEBUG", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
                             }
 
                         TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -165,7 +165,7 @@ struct TargetEditPanel: View {
                                 let capped = min(newVal, parentAmount)
                                 if capped != newVal { row.amount = capped }
                                 row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
-                                log("DEBUG", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -182,6 +182,16 @@ struct TargetEditPanel: View {
 
             Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                 .foregroundColor(remaining == 0 ? .primary : .red)
+
+            if !validationWarnings.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Validation Warnings:").font(.headline)
+                    ForEach(validationWarnings, id: \.self) { warning in
+                        Text(warning)
+                    }
+                }
+                .foregroundColor(.orange)
+            }
 
             HStack {
                 Button("Auto-balance") { autoBalance() }
@@ -216,13 +226,6 @@ struct TargetEditPanel: View {
                 chfDrafts[key] = chfDrafts[key]?.replacingOccurrences(of: "'", with: "")
             }
         }
-        .alert("Validation Error",
-               isPresented: Binding(get: { validationError != nil },
-                                    set: { _ in validationError = nil })) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(validationError ?? "")
-        }
     }
 
     private func load() {
@@ -255,9 +258,9 @@ struct TargetEditPanel: View {
         if focusedChfField == nil {
             refreshDrafts()
         }
-        log("INFO", "Loading \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
+        log("EDIT PANEL LOAD", "Loading \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for r in rows {
-            log("INFO", "Loading sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
+            log("EDIT PANEL LOAD", "Loading sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
         isInitialLoad = false
     }
@@ -334,23 +337,23 @@ struct TargetEditPanel: View {
             }
             classPercents[cls.id] = percent
             classAmounts[cls.id] = amount
-            log("DEBUG", "Read asset-class \"\(cls.name)\" id=\(cls.id): percent=\(percent), CHF=\(amount)", type: .debug)
+            log("VALIDATION", "Read asset-class \"\(cls.name)\" id=\(cls.id): percent=\(percent), CHF=\(amount)", type: .debug)
         }
 
         let pctSum = classPercents.values.reduce(0, +)
-        log("DEBUG", String(format: "Parent %% sum=%.1f%%", pctSum), type: .debug)
+        log("VALIDATION", String(format: "Parent %% sum=%.1f%%", pctSum), type: .debug)
         if abs(pctSum - 100) > 0.01 {
             let msg = String(format: "asset-class %% sum=%.1f%% (expected 100%%)", pctSum)
             warnings.append(msg)
-            log("WARN", msg, type: .default)
+            log("VALIDATION WARN", msg, type: .default)
         }
 
         let chfSum = classAmounts.values.reduce(0, +)
-        log("DEBUG", "Parent CHF sum=\(formatChf(chfSum))", type: .debug)
+        log("VALIDATION", "Parent CHF sum=\(formatChf(chfSum))", type: .debug)
         if abs(chfSum - portfolioTotal) > 0.01 {
             let msg = "asset-class CHF sum=\(formatChf(chfSum)) (expected \(formatChf(portfolioTotal)))"
             warnings.append(msg)
-            log("WARN", msg, type: .default)
+            log("VALIDATION WARN", msg, type: .default)
         }
 
         // Child level validation per class
@@ -364,7 +367,7 @@ struct TargetEditPanel: View {
                 for row in rows {
                     subPct += row.percent
                     subAmt += row.amount
-                    log("DEBUG", "Read sub-class \"\(row.name)\" id=\(row.id) of \"\(cls.name)\": percent=\(row.percent), CHF=\(row.amount)", type: .debug)
+                    log("VALIDATION", "Read sub-class \"\(row.name)\" id=\(row.id) of \"\(cls.name)\": percent=\(row.percent), CHF=\(row.amount)", type: .debug)
                 }
             } else {
                 let subRecords = records.filter { $0.classId == cls.id && $0.subClassId != nil }
@@ -374,24 +377,24 @@ struct TargetEditPanel: View {
                     subPct += rec.percent
                     subAmt += amt
                     let name = subNames[rec.subClassId ?? 0] ?? "id \(rec.subClassId ?? 0)"
-                    log("DEBUG", "Read sub-class \"\(name)\" id=\(rec.subClassId ?? 0) of \"\(cls.name)\": percent=\(rec.percent), CHF=\(amt)", type: .debug)
+                    log("VALIDATION", "Read sub-class \"\(name)\" id=\(rec.subClassId ?? 0) of \"\(cls.name)\": percent=\(rec.percent), CHF=\(amt)", type: .debug)
                 }
             }
 
-            log("DEBUG", String(format: "\"%@\" sub-class %% sum=%.1f%%", cls.name, subPct), type: .debug)
+            log("VALIDATION", String(format: "\"%@\" sub-class %% sum=%.1f%%", cls.name, subPct), type: .debug)
             let expectedPct = (parentPct > 0 || parentAmt > 0) ? 100.0 : 0.0
             if abs(subPct - expectedPct) > 0.01 {
                 let msg = String(format: "\"%@\" sub-class %% sum=%.1f%% (expected %.1f%%)", cls.name, subPct, expectedPct)
                 warnings.append(msg)
-                log("WARN", msg, type: .default)
+                log("VALIDATION WARN", msg, type: .default)
             }
 
-            log("DEBUG", "\"\(cls.name)\" sub-class CHF sum=\(formatChf(subAmt))", type: .debug)
+            log("VALIDATION", "\"\(cls.name)\" sub-class CHF sum=\(formatChf(subAmt))", type: .debug)
             let expectedAmt = (parentPct > 0 || parentAmt > 0) ? parentAmt : 0
             if abs(subAmt - expectedAmt) > 0.01 {
                 let msg = "\"\(cls.name)\" sub-class CHF sum=\(formatChf(subAmt)) (expected \(formatChf(expectedAmt)))"
                 warnings.append(msg)
-                log("WARN", msg, type: .default)
+                log("VALIDATION WARN", msg, type: .default)
             }
         }
 
@@ -399,28 +402,27 @@ struct TargetEditPanel: View {
     }
 
     private func save() {
-        let warnings = validateAll()
-        if !warnings.isEmpty {
-            for w in warnings { log("WARN", w, type: .default) }
-            log("ERROR", "Save aborted due to validation errors", type: .error)
-            validationError = warnings.map { "Validation Failed: \($0)" }.joined(separator: "\n")
-            return
-        }
         db.upsertClassTarget(portfolioId: 1,
                              classId: classId,
                              percent: parentPercent,
                              amountChf: parentAmount,
+                             kind: kind.rawValue,
                              tolerance: tolerance)
-        log("INFO", "Saving \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
+        log("DB WRITE", "Saving \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for row in rows {
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
                                     percent: row.percent,
                                     amountChf: row.amount,
+                                    kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
-            log("INFO", "Saving sub-class \"\(row.name)\" id=\(row.id): percent=\(row.percent), CHF=\(row.amount), kind=\(row.kind.rawValue), tol=\(row.tolerance)", type: .info)
+            log("DB WRITE", "Saving sub-class \"\(row.name)\" id=\(row.id): percent=\(row.percent), CHF=\(row.amount), kind=\(row.kind.rawValue), tol=\(row.tolerance)", type: .info)
         }
-        onClose()
+        let warnings = validateAll()
+        validationWarnings = warnings.map { "Validation Failed: \($0)" }
+        if validationWarnings.isEmpty {
+            onClose()
+        }
     }
 
     private func formatChf(_ value: Double) -> String {
