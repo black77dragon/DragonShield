@@ -29,6 +29,11 @@ struct TargetEditPanel: View {
     @State private var rows: [Row] = []
     @State private var validationWarnings: [String] = []
     @State private var isInitialLoad = true
+    @State private var initialPercent: Double = 0
+    @State private var initialAmount: Double = 0
+    @State private var initialKind: TargetKind = .percent
+    @State private var initialTolerance: Double = 0
+    @State private var initialRows: [Int: Row] = [:]
 
     private var subTotal: Double {
         if kind == .percent {
@@ -245,6 +250,10 @@ struct TargetEditPanel: View {
             parentPercent = parent.percent
             parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
+            initialKind = kind
+            initialPercent = parentPercent
+            initialAmount = parentAmount
+            initialTolerance = tolerance
         }
 
         let subs = db.subAssetClasses(for: classId)
@@ -260,15 +269,17 @@ struct TargetEditPanel: View {
                        kind: rk,
                        tolerance: rec?.tolerance ?? tolerance)
         }
+        initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
 
         updateRows()
         if focusedChfField == nil {
             refreshDrafts()
         }
-        log("EDIT PANEL LOAD", "Loading \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
+        log("EDIT PANEL LOAD", "Loaded \(className) → percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for r in rows {
-            log("EDIT PANEL LOAD", "Loading sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
+            log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
+        validationWarnings = validateAll()
         isInitialLoad = false
     }
 
@@ -409,21 +420,22 @@ struct TargetEditPanel: View {
     }
 
     private func save() {
+        log("EDIT PANEL SAVE", "\(className): percent \(initialPercent)→\(parentPercent), CHF \(initialAmount)→\(parentAmount), kind \(initialKind.rawValue)→\(kind.rawValue), tol \(initialTolerance)→\(tolerance)", type: .info)
         db.upsertClassTarget(portfolioId: 1,
                              classId: classId,
                              percent: parentPercent,
                              amountChf: parentAmount,
                              kind: kind.rawValue,
                              tolerance: tolerance)
-        log("DB WRITE", "Saving \"\(className)\" id=\(classId): percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
         for row in rows {
+            let initial = initialRows[row.id]
+            log("EDIT PANEL SAVE", "sub-class \"\(row.name)\" id=\(row.id): percent \(initial?.percent ?? 0)→\(row.percent), CHF \(initial?.amount ?? 0)→\(row.amount), kind \(initial?.kind.rawValue ?? row.kind.rawValue)→\(row.kind.rawValue), tol \(initial?.tolerance ?? row.tolerance)→\(row.tolerance)", type: .info)
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
                                     percent: row.percent,
                                     amountChf: row.amount,
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
-            log("DB WRITE", "Saving sub-class \"\(row.name)\" id=\(row.id): percent=\(row.percent), CHF=\(row.amount), kind=\(row.kind.rawValue), tol=\(row.tolerance)", type: .info)
         }
         let warnings = validateAll()
         validationWarnings = warnings
