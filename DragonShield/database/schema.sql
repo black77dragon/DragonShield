@@ -1,6 +1,6 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.18 - Add target_kind and tolerance_percent columns
+-- Version 4.19 - Remove target_allocation_percent column
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
@@ -182,7 +182,6 @@ CREATE TABLE PortfolioInstruments (
     portfolio_id INTEGER NOT NULL,
     instrument_id INTEGER NOT NULL,
     assigned_date DATE DEFAULT CURRENT_DATE,
-    target_allocation_percent REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (portfolio_id, instrument_id),
     FOREIGN KEY (portfolio_id) REFERENCES Portfolios(portfolio_id) ON DELETE CASCADE,
