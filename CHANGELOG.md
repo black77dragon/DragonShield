@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 - Fix Edit Targets panel to preload stored target values before validation
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel
+- Show stored target metadata with last updated timestamp in Edit Targets panel
+- Format Edit Targets panel load log values without trailing decimals
 - Add segmented display mode toggle for Asset Classes tile
 - Move Asset Allocation Errors panel beside legacy targets table
 - Show database schema version in Database Management view and include it in backup file names

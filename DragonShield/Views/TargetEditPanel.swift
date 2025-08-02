@@ -34,6 +34,7 @@ struct TargetEditPanel: View {
     @State private var initialKind: TargetKind = .percent
     @State private var initialTolerance: Double = 0
     @State private var initialRows: [Int: Row] = [:]
+    @State private var updatedAt: String = ""
 
     private var subTotal: Double {
         if kind == .percent {
@@ -121,6 +122,22 @@ struct TargetEditPanel: View {
             }
             .padding(8)
             .background(Color.sectionBlue)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("KIND: \(initialKind == .percent ? "%" : "CHF")")
+                    Spacer()
+                    Text("Target %: \(String(format: "%.1f%%", initialPercent))")
+                }
+                HStack {
+                    Text("Target CHF: \(formatChf(initialAmount))")
+                    Spacer()
+                    Text("Last updated: \(updatedAt)")
+                }
+            }
+            .padding(8)
+            .background(Color.yellow.opacity(0.3))
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
             HStack {
@@ -260,18 +277,19 @@ struct TargetEditPanel: View {
         portfolioTotal = calculatePortfolioTotal()
         validationWarnings = []
 
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
+        if let parent = db.fetchClassTargetRecord(classId: classId) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
             parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
             tolerance = parent.tolerance
+            updatedAt = parent.updatedAt ?? ""
             initialKind = kind
             initialPercent = parentPercent
             initialAmount = parentAmount
             initialTolerance = tolerance
         }
 
+        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first { $0.subClassId == sub.id }
@@ -291,9 +309,11 @@ struct TargetEditPanel: View {
         if focusedChfField == nil {
             refreshDrafts()
         }
-        let childPct = rows.map(\.percent).reduce(0, +)
-        let childChf = rows.map(\.amount).reduce(0, +)
-        log("INFO", "EditTargetsPanel load → parent \(String(format: "%.1f", parentPercent))% / \(formatChf(parentAmount)) CHF; children sum \(String(format: "%.1f", childPct))% / \(formatChf(childChf)) CHF", type: .info)
+        let kindStr = kind == .percent ? "%" : "CHF"
+        let percentStr = String(format: "%.1f", parentPercent)
+        let chfStr = String(format: "%.0f", parentAmount)
+        let tolStr = String(format: "%.1f", tolerance)
+        log("INFO", "EditTargetsPanel load AssetClass=\(className) → kind=\(kindStr), percent=\(percentStr), CHF=\(chfStr), tol=\(tolStr), updated=\(updatedAt)", type: .info)
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
@@ -438,16 +458,7 @@ struct TargetEditPanel: View {
     }
 
     private func cancel() {
-        isInitialLoad = true
-        log("EDIT PANEL CANCEL", "Discarded changes for \(className)", type: .info)
-        kind = initialKind
-        parentPercent = initialPercent
-        parentAmount = initialAmount
-        tolerance = initialTolerance
-        rows = Array(initialRows.values).sorted { $0.id < $1.id }
-        refreshDrafts()
-        validationWarnings = []
-        isInitialLoad = false
+        log("INFO", "EditTargetsPanel canceled for AssetClass=\(className)", type: .info)
         onClose()
     }
 
