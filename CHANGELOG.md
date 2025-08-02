@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Fix Edit Targets panel to preload stored target values before validation
+- Resolve compile errors in Target Edit panel by adding timestamp formatting and class target fetch helper
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel
 - Add segmented display mode toggle for Asset Classes tile

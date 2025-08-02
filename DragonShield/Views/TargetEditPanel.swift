@@ -34,6 +34,7 @@ struct TargetEditPanel: View {
     @State private var initialKind: TargetKind = .percent
     @State private var initialTolerance: Double = 0
     @State private var initialRows: [Int: Row] = [:]
+    @State private var updatedAt: String = ""
 
     private var subTotal: Double {
         if kind == .percent {
@@ -523,6 +524,19 @@ struct TargetEditPanel: View {
 
     private func formatChf(_ value: Double) -> String {
         Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func formatTimestamp(_ raw: String?) -> String {
+        guard let raw else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let date = formatter.date(from: raw) {
+            let output = DateFormatter()
+            output.dateStyle = .medium
+            output.timeStyle = .short
+            return output.string(from: date)
+        }
+        return raw
     }
 
     private func chfBinding(key: String, value: Binding<Double>) -> Binding<String> {
