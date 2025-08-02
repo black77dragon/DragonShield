@@ -34,6 +34,7 @@ struct TargetEditPanel: View {
     @State private var initialKind: TargetKind = .percent
     @State private var initialTolerance: Double = 0
     @State private var initialRows: [Int: Row] = [:]
+    @State private var updatedAt: String = ""
 
     private var subTotal: Double {
         if kind == .percent {
@@ -58,8 +59,6 @@ struct TargetEditPanel: View {
     private var sumChildAmount: Double {
         rows.map(\.amount).reduce(0, +)
     }
-
-
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -121,6 +120,22 @@ struct TargetEditPanel: View {
             }
             .padding(8)
             .background(Color.sectionBlue)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Kind: \(initialKind == .percent ? "%" : "CHF")")
+                    Spacer()
+                    Text("Target %: \(String(format: "%.1f%%", initialPercent))")
+                }
+                HStack {
+                    Text("Target CHF: \(formatChf(initialAmount))")
+                    Spacer()
+                    Text("Last updated: \(updatedAt)")
+                }
+            }
+            .padding(8)
+            .background(Color.yellow.opacity(0.3))
             .clipShape(RoundedRectangle(cornerRadius: 6))
 
             HStack {
@@ -260,24 +275,49 @@ struct TargetEditPanel: View {
         portfolioTotal = calculatePortfolioTotal()
         validationWarnings = []
 
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
+        var rawUpdatedAt: String? = nil
+        if let parent = db.fetchClassTargetRecord(classId: classId) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
+            
+            // 🔧 FIX: Always use the stored amountCHF if available
+            if let storedAmount = parent.amountCHF {
+                parentAmount = storedAmount
+            } else {
+                // Only calculate if no amount was stored
+                parentAmount = portfolioTotal * parent.percent / 100
+            }
+            
             tolerance = parent.tolerance
+            rawUpdatedAt = parent.updatedAt
+            updatedAt = formatTimestamp(parent.updatedAt)
             initialKind = kind
             initialPercent = parentPercent
             initialAmount = parentAmount
             initialTolerance = tolerance
+            
+            // 🔧 ADDITIONAL FIX: Ensure consistency between percent and amount
+            if kind == .percent {
+                // If target kind is percent, recalculate amount based on current portfolio total
+                parentAmount = portfolioTotal * parentPercent / 100
+            } else {
+                // If target kind is amount, recalculate percent based on stored amount
+                parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
+            }
         }
 
+        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         let subs = db.subAssetClasses(for: classId)
         rows = subs.map { sub in
             let rec = records.first { $0.subClassId == sub.id }
             let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
             let pct = rec?.percent ?? 0
-            let amt = rec?.amountCHF ?? parentAmount * pct / 100
+            let amt: Double
+            if let storedAmount = rec?.amountCHF {
+                amt = storedAmount
+            } else {
+                amt = parentAmount * pct / 100
+            }
             return Row(id: sub.id,
                        name: sub.name,
                        percent: pct,
@@ -291,9 +331,8 @@ struct TargetEditPanel: View {
         if focusedChfField == nil {
             refreshDrafts()
         }
-        let childPct = rows.map(\.percent).reduce(0, +)
-        let childChf = rows.map(\.amount).reduce(0, +)
-        log("INFO", "EditTargetsPanel load → parent \(String(format: "%.1f", parentPercent))% / \(formatChf(parentAmount)) CHF; children sum \(String(format: "%.1f", childPct))% / \(formatChf(childChf)) CHF", type: .info)
+        let kindStr = kind == .percent ? "%" : "CHF"
+        log("INFO", "EditTargetsPanel load AssetClass=\(className) → kind=\(kindStr), percent=\(parentPercent), CHF=\(parentAmount), tol=\(tolerance), updated=\(rawUpdatedAt ?? "")", type: .info)
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
@@ -438,16 +477,8 @@ struct TargetEditPanel: View {
     }
 
     private func cancel() {
-        isInitialLoad = true
-        log("EDIT PANEL CANCEL", "Discarded changes for \(className)", type: .info)
-        kind = initialKind
-        parentPercent = initialPercent
-        parentAmount = initialAmount
-        tolerance = initialTolerance
-        rows = Array(initialRows.values).sorted { $0.id < $1.id }
-        refreshDrafts()
+        log("INFO", "EditTargetsPanel canceled for AssetClass=\(className)", type: .info)
         validationWarnings = []
-        isInitialLoad = false
         onClose()
     }
 
@@ -474,6 +505,15 @@ struct TargetEditPanel: View {
         if warnings.isEmpty {
             onClose()
         }
+    }
+
+    private func formatTimestamp(_ raw: String?) -> String {
+        guard let raw else { return "" }
+        var ts = raw
+        if ts.contains("T") {
+            ts = ts.replacingOccurrences(of: "T", with: " ")
+        }
+        return String(ts.prefix(16))
     }
 
     private func formatChf(_ value: Double) -> String {
@@ -532,6 +572,11 @@ struct TargetEditPanel: View {
         f.maximumFractionDigits = 0
         return f
     }()
+}
+
+extension Color {
+    static let sectionBlue = Color(red: 0.9, green: 0.95, blue: 1.0)
+    static let systemGray4 = Color(red: 0.82, green: 0.82, blue: 0.84)
 }
 
 struct TargetEditPanel_Previews: PreviewProvider {
