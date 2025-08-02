@@ -51,6 +51,14 @@ struct TargetEditPanel: View {
         }
     }
 
+    private var sumChildPercent: Double {
+        rows.map(\.percent).reduce(0, +)
+    }
+
+    private var sumChildChf: Double {
+        rows.map(\.amount).reduce(0, +)
+    }
+
 
 
     var body: some View {
@@ -105,19 +113,25 @@ struct TargetEditPanel: View {
                             }
                     }
                 }
-                HStack {
-                    Text("Tolerance")
-                    Spacer()
-                    TextField("", value: $tolerance, formatter: Self.numberFormatter)
-                        .frame(width: 60)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.roundedBorder)
-                    Text("%")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Σ Sub-class %  = \(String(format: "%.1f", sumChildPercent))%")
+                    Text("Σ Sub-class CHF = \(formatChf(sumChildChf))")
                 }
+                .foregroundColor(.secondary)
             }
             .padding(8)
             .background(Color.sectionBlue)
             .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            HStack {
+                Text("Tolerance")
+                Spacer()
+                TextField("", value: $tolerance, formatter: Self.numberFormatter)
+                    .frame(width: 60)
+                    .multilineTextAlignment(.trailing)
+                    .textFieldStyle(.roundedBorder)
+                Text("%")
+            }
 
             Text("Sub-Class Targets:")
                 .font(.headline)
@@ -277,10 +291,9 @@ struct TargetEditPanel: View {
         if focusedChfField == nil {
             refreshDrafts()
         }
-        log("EDIT PANEL LOAD", "Loaded \(className) → percent=\(parentPercent), CHF=\(parentAmount), kind=\(kind.rawValue), tol=\(tolerance)", type: .info)
-        for r in rows {
-            log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
-        }
+        let childPercentSum = rows.map(\.percent).reduce(0, +)
+        let childAmountSum = rows.map(\.amount).reduce(0, +)
+        log("INFO", "EditTargetsPanel load → parent \(String(format: \"%.1f\", parentPercent))% / \(formatChf(parentAmount)) CHF; children sum \(String(format: \"%.1f\", childPercentSum))% / \(formatChf(childAmountSum)) CHF", type: .info)
         validationWarnings = validateAll()
         isInitialLoad = false
     }
