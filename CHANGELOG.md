@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Resolve TargetEditPanel build errors by adding class target fetch helper and removing duplicate color definitions
 - Fix Edit Targets panel to preload stored target values before validation
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel
