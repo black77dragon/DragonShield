@@ -573,12 +573,6 @@ struct TargetEditPanel: View {
         return f
     }()
 }
-
-extension Color {
-    static let sectionBlue = Color(red: 0.9, green: 0.95, blue: 1.0)
-    static let systemGray4 = Color(red: 0.82, green: 0.82, blue: 0.84)
-}
-
 struct TargetEditPanel_Previews: PreviewProvider {
     static var previews: some View {
         TargetEditPanel(classId: 1, onClose: {})
