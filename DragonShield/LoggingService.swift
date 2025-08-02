@@ -35,7 +35,7 @@ final class LoggingService {
         case .error: level = "ERROR"
         case .fault: level = "FAULT"
         case .info: level = "INFO"
-        default: level = "DEFAULT"
+        default: level = "WARN"
         }
         let line = "[\(timestamp)] [\(level)] \(message)\n"
         logger.log(level: type, "\(message, privacy: .public)")

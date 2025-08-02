@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Target editor pops up below row with white background and tolerance field (PR #XXX)
 - Document Target Allocation edit panel workflow
 - Implement side-panel editor for Asset Class targets
+- Validate target totals and log percent/CHF conversions in Edit Targets panel
 - Activate pencil edit button in Allocation Targets table
 - Fix edit pencil visibility in Allocation Targets table and place it next to Target column
 - Style pencil button for visibility and ensure it opens the edit panel
