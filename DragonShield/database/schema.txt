@@ -1,9 +1,10 @@
 -- DragonShield/docs/schema.txt
 -- Dragon Shield Seed Data
 -- Created: 2025-05-24
--- Updated: 2025-07-13
+-- Updated: 2025-07-17
 --
 -- RECENT HISTORY:
+-- - v4.19 -> v4.20: Move db_version entry to schema.sql and bump version
 -- - v4.7 -> v4.8: Added Institutions table and updated Accounts seed data.
 -- - v4.6 -> v4.7: Added db_version configuration row.
 -- - v4.5 -> v4.6: Seed data split from schema.sql
@@ -29,7 +30,6 @@ INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'V
 INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('11', 'include_direct_re', 'true', 'boolean', 'Include direct real estate in allocation views', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('12', 'direct_re_target_chf', '0', 'number', 'Target CHF amount for direct real estate', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('13', 'db_version', '4.19', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('CHF', 'Swiss Franc', 'CHF', '1', '0', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('EUR', 'Euro', '€', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('USD', 'US Dollar', '$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');

@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.19 - Remove target_allocation_percent column
+-- Version 4.20 - bump db_version configuration
 -- Created: 2025-05-24
--- Updated: 2025-07-13
+-- Updated: 2025-07-17
 --
 -- RECENT HISTORY:
+-- - v4.19 -> v4.20: Update db_version configuration value
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
@@ -623,6 +624,10 @@ HAVING SUM(CASE
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 ANALYZE;
+
+-- Seed database version
+INSERT OR REPLACE INTO Configuration (config_id, key, value, data_type, description)
+VALUES (13, 'db_version', '4.20', 'string', 'Database schema version');
 
 --=============================================================================
 -- DATABASE CREATION COMPLETED SUCCESSFULLY
