@@ -61,20 +61,20 @@ INSERT INTO PositionReports VALUES (
 );
 
 -- Target allocations (class level)
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, NULL, 40, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, NULL, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, NULL, 35, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (1, NULL, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (3, NULL, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES (1, 4, 'percent', 40, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES (2, 7, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES (3, 2, 'percent', 35, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES (4, 1, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES (5, 3, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
 
 -- Target allocations (sub-class level)
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, 11, 30, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (4, 14, 10, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, 18, 10, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (7, 21, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, 3, 20, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (2, 4, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (1, 1, 15, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
-INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at) VALUES (3, 7, 5, NULL, 'percent', 5.0, '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (1, 1, 11, 'percent', 30, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (2, 1, 14, 'percent', 10, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (3, 2, 18, 'percent', 10, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (4, 2, 21, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (5, 3, 3, 'percent', 20, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (6, 3, 4, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (7, 4, 1, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES (8, 5, 7, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
 
 PRAGMA foreign_keys=ON;

@@ -98,4 +98,12 @@ def test_apply_migrations_and_insert_dates():
     assert 'target_kind' in cols
     assert 'tolerance_percent' in cols
 
+    # Apply seventh migration
+    conn.executescript(read_sql('007_add_class_target_tables.sql'))
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+    assert 'ClassTargets' in tables
+    assert 'SubClassTargets' in tables
+    assert 'TargetChangeLog' in tables
+    assert 'TargetAllocation' not in tables
+
     conn.close()
