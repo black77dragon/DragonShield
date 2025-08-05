@@ -31,14 +31,6 @@ class BackupService: ObservableObject {
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
 
-    let fullTables = [
-        "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
-        "AssetClasses", "AssetSubClasses", "Instruments", "Portfolios",
-        "PortfolioInstruments", "AccountTypes", "Institutions", "Accounts",
-        "TransactionTypes", "Transactions", "ImportSessions", "PositionReports",
-        "ImportSessionValueReports", "TargetAllocation"
-    ]
-
     let referenceTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
         "AssetClasses", "AssetSubClasses", "TransactionTypes", "AccountTypes",
@@ -50,6 +42,10 @@ class BackupService: ObservableObject {
         "PositionReports", "ImportSessions", "ImportSessionValueReports",
         "ExchangeRates", "TargetAllocation"
     ]
+
+    var fullTables: [String] {
+        Array(Set(referenceTables + transactionTables)).sorted()
+    }
 
     init() {
         self.timeFormatter = DateFormatter()

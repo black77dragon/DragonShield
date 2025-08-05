@@ -7,8 +7,10 @@ from DragonShield.python_scripts.backup_restore import backup_database, restore_
 
 def setup_db(path: Path):
     conn = sqlite3.connect(path)
-    conn.execute("CREATE TABLE t1(id INTEGER)")
-    conn.execute("INSERT INTO t1 VALUES (1),(2)")
+    conn.execute("CREATE TABLE t1(id INTEGER PRIMARY KEY AUTOINCREMENT, val TEXT)")
+    conn.execute("INSERT INTO t1(val) VALUES ('a'),('b')")
+    conn.execute("CREATE TABLE t2(id INTEGER)")
+    conn.execute("INSERT INTO t2 VALUES (1),(2)")
     conn.commit()
     conn.close()
 
@@ -21,17 +23,21 @@ def test_backup_and_restore(tmp_path):
     backup_file, counts = backup_database(db, backup_dir, "test")
 
     assert backup_file.exists()
-    assert counts == {"t1": 2}
+    assert counts["t1"] == 2
+    assert counts["t2"] == 2
+    assert "sqlite_sequence" in counts
 
     # remove one row so restore has effect
     conn = sqlite3.connect(db)
     conn.execute("DELETE FROM t1 WHERE id=1")
+    conn.execute("DELETE FROM t2 WHERE id=1")
     conn.commit()
     conn.close()
 
     summary = restore_database(db, backup_file)
 
     assert summary["t1"] == (1, 2)
+    assert summary["t2"] == (1, 2)
 
     # check old file preserved
     old_files = list(tmp_path.glob("dragonshield.sqlite.old.*"))
