@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.19 - Remove target_allocation_percent column
+-- Version 4.20 - Introduce ClassTargets and SubClassTargets tables
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.19 -> v4.20: Replace TargetAllocation with ClassTargets/SubClassTargets and add TargetChangeLog.
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
 -- - v4.6 -> v4.7: Added db_version configuration row in seed data.
@@ -38,6 +39,10 @@ DROP TABLE IF EXISTS AccountTypes; -- Dropping new table if it exists
 DROP TABLE IF EXISTS PortfolioInstruments;
 DROP TABLE IF EXISTS Portfolios;
 DROP TABLE IF EXISTS Instruments;
+DROP TABLE IF EXISTS TargetChangeLog;
+DROP TABLE IF EXISTS SubClassTargets;
+DROP TABLE IF EXISTS ClassTargets;
+DROP TABLE IF EXISTS TargetAllocation;
 DROP TABLE IF EXISTS AssetSubClasses;
 DROP TABLE IF EXISTS AssetClasses;
 DROP TABLE IF EXISTS FxRateUpdates;
@@ -189,18 +194,42 @@ CREATE TABLE PortfolioInstruments (
 );
 
 CREATE INDEX idx_portfolio_instruments_instrument ON PortfolioInstruments(instrument_id);
-CREATE TABLE TargetAllocation (
-    allocation_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    asset_class_id INTEGER NOT NULL,
-    sub_class_id INTEGER,
-    target_percent REAL,
-    target_amount_chf REAL,
-    target_kind TEXT NOT NULL DEFAULT 'percent' CHECK(target_kind IN('percent','amount')),
-    tolerance_percent REAL NOT NULL DEFAULT 5.0,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(asset_class_id, sub_class_id),
-    FOREIGN KEY (asset_class_id) REFERENCES AssetClasses(class_id),
-    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id)
+CREATE TABLE ClassTargets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_class_id INTEGER NOT NULL REFERENCES AssetClasses(class_id),
+    target_kind TEXT NOT NULL CHECK(target_kind IN('percent','amount')),
+    target_percent REAL DEFAULT 0,
+    target_amount_chf REAL DEFAULT 0,
+    tolerance_percent REAL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_class_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
+    CONSTRAINT uq_class UNIQUE(asset_class_id)
+);
+
+CREATE TABLE SubClassTargets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_target_id INTEGER NOT NULL REFERENCES ClassTargets(id) ON DELETE CASCADE,
+    asset_sub_class_id INTEGER NOT NULL REFERENCES AssetSubClasses(sub_class_id),
+    target_kind TEXT NOT NULL CHECK(target_kind IN('percent','amount')),
+    target_percent REAL DEFAULT 0,
+    target_amount_chf REAL DEFAULT 0,
+    tolerance_percent REAL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_sub_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
+    CONSTRAINT uq_sub UNIQUE(class_target_id, asset_sub_class_id)
+);
+
+CREATE TABLE TargetChangeLog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_type TEXT NOT NULL CHECK(target_type IN('class','subclass')),
+    target_id INTEGER NOT NULL,
+    field_name TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    changed_by TEXT,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 --=============================================================================
