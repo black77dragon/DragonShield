@@ -13,12 +13,12 @@ from typing import Dict, Tuple
 
 def _row_counts(conn: sqlite3.Connection) -> Dict[str, int]:
     cur = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+        "SELECT name FROM sqlite_master WHERE type='table';"
     )
     tables = [r[0] for r in cur.fetchall()]
     counts = {}
     for tbl in tables:
-        cur = conn.execute(f"SELECT COUNT(*) FROM {tbl};")
+        cur = conn.execute(f'SELECT COUNT(*) FROM "{tbl}";')
         counts[tbl] = cur.fetchone()[0]
     return counts
 
