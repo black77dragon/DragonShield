@@ -354,7 +354,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performBackup(dbManager: dbManager, dbPath: dbManager.dbFilePath, to: url, tables: backupService.fullTables, label: "Full")
+                _ = try backupService.performBackup(dbManager: dbManager, dbPath: dbManager.dbFilePath, to: url, label: "Full")
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -440,7 +440,7 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                let result = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                let result = try backupService.performRestore(dbManager: dbManager, from: url, label: "Full")
                 DispatchQueue.main.async {
                     processing = false
                     restoreDeltas = result

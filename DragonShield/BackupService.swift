@@ -31,14 +31,6 @@ class BackupService: ObservableObject {
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
 
-    let fullTables = [
-        "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
-        "AssetClasses", "AssetSubClasses", "Instruments", "Portfolios",
-        "PortfolioInstruments", "AccountTypes", "Institutions", "Accounts",
-        "TransactionTypes", "Transactions", "ImportSessions", "PositionReports",
-        "ImportSessionValueReports", "TargetAllocation"
-    ]
-
     let referenceTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
         "AssetClasses", "AssetSubClasses", "TransactionTypes", "AccountTypes",
@@ -159,7 +151,7 @@ class BackupService: ObservableObject {
 
 
 
-    func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
+    func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, label: String) throws -> URL {
         var src: OpaquePointer?
         var dst: OpaquePointer?
         guard sqlite3_open_v2(dbPath, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let src else {
@@ -183,6 +175,7 @@ class BackupService: ObservableObject {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
         }
 
+        let tables = allTables(dbPath: dbPath)
         let counts = rowCounts(db: dst, tables: tables)
 
         let ts = Date()
@@ -273,7 +266,7 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
+    func performRestore(dbManager: DatabaseManager, from url: URL, label: String) throws -> [RestoreDelta] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
@@ -281,7 +274,8 @@ class BackupService: ObservableObject {
         let oldName = dbURL.lastPathComponent + ".old." + ts
         let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
 
-        let preCounts = rowCounts(dbPath: dbPath, tables: tables)
+        let preTables = allTables(dbPath: dbPath)
+        let preCounts = rowCounts(dbPath: dbPath, tables: preTables)
 
         guard checkIntegrity(path: url.path) else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
@@ -325,6 +319,8 @@ class BackupService: ObservableObject {
 
         dbManager.reopenDatabase()
 
+        let postTables = allTables(dbPath: dbPath)
+        let tables = Array(Set(preTables).union(postTables)).sorted()
         let postCounts = rowCounts(dbPath: dbPath, tables: tables)
         var comparisons: [RestoreDelta] = []
         func pad(_ value: String, _ len: Int) -> String {
@@ -517,6 +513,24 @@ class BackupService: ObservableObject {
             UserDefaults.standard.set(self.logMessages, forKey: UserDefaultsKeys.backupLog)
         }
 
+    }
+
+    private func allTables(dbPath: String) -> [String] {
+        var db: OpaquePointer?
+        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        var stmt: OpaquePointer?
+        var names: [String] = []
+        let sql = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let cString = sqlite3_column_text(stmt, 0) {
+                    names.append(String(cString: cString))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return names
     }
 
     private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
