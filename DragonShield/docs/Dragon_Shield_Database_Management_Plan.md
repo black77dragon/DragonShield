@@ -60,6 +60,11 @@ The system must track the version of the database schema in use. This allows com
 - Add "Create Backup" button that saves the current database file.
 - Provide a restore picker to load a selected backup.
 - Include safety warnings before overwriting data.
+- Full database backups now capture every table and row, including Configuration,
+  Currencies, ExchangeRates, FxRateUpdates, AssetClasses, AssetSubClasses,
+  Instruments, Portfolios, PortfolioInstruments, AccountTypes, Institutions,
+  Accounts, TransactionTypes, Transactions, ImportSessions, PositionReports,
+  ImportSessionValueReports and TargetAllocation.
 
 ### Step 3: Reference Data Management in UI
 - Build editor views for currencies, institutions, and account types.
