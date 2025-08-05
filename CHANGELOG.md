@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce ClassTargets and SubClassTargets tables with migration logging
+- Add script to reset database and import legacy data
+- Fix legacy data import script to preserve new tables when loading old data
+- Fix legacy import script to handle column mismatches when copying data
 - Fix Edit Targets panel to preload stored target values before validation
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel

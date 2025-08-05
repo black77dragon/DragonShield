@@ -64,7 +64,7 @@ The system must track the version of the database schema in use. This allows com
   Currencies, ExchangeRates, FxRateUpdates, AssetClasses, AssetSubClasses,
   Instruments, Portfolios, PortfolioInstruments, AccountTypes, Institutions,
   Accounts, TransactionTypes, Transactions, ImportSessions, PositionReports,
-  ImportSessionValueReports and TargetAllocation.
+  ImportSessionValueReports, ClassTargets, SubClassTargets and TargetChangeLog.
 
 ### Step 3: Reference Data Management in UI
 - Build editor views for currencies, institutions, and account types.
