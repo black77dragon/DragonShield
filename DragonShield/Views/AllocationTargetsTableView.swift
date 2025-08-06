@@ -741,6 +741,10 @@ struct AllocationTargetsTableView: View {
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 4) {
+            if viewModel.rowHasWarning(asset) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+            }
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }

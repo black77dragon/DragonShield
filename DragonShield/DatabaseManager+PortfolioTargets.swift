@@ -236,4 +236,30 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
     }
+
+    /// Validates that class and sub-class target sums meet expected totals.
+    /// Returns a list of warning messages but does not block saves.
+    func validateTargetSums(portfolioId: Int, globalTolerance: Double = 0.1) -> [String] {
+        var warnings: [String] = []
+        let records = fetchPortfolioTargetRecords(portfolioId: portfolioId)
+
+        // Parent-level percentage sum
+        let parentPercents = records.filter { $0.subClassId == nil }.map { $0.percent }
+        let parentSum = parentPercents.reduce(0, +)
+        if abs(parentSum - 100) > globalTolerance {
+            warnings.append(String(format: "asset-class %% sum=%.1f%% (expected 100%%)", parentSum))
+        }
+
+        // Child-level per class
+        let classGroups = Dictionary(grouping: records, by: { $0.classId })
+        for (classId, rows) in classGroups {
+            guard let parent = rows.first(where: { $0.subClassId == nil }) else { continue }
+            let subs = rows.filter { $0.subClassId != nil }
+            let childSum = subs.map { $0.percent }.reduce(0, +)
+            if abs(childSum - 100) > parent.tolerance {
+                warnings.append(String(format: "class %d sub-class %% sum=%.1f%% (expected 100%%)", classId, childSum))
+            }
+        }
+        return warnings
+    }
 }
