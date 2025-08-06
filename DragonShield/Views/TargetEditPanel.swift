@@ -257,7 +257,7 @@ struct TargetEditPanel: View {
 
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
-        portfolioTotal = calculatePortfolioTotal()
+        portfolioTotal = db.portfolioMarketValue()
         validationWarnings = []
 
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
@@ -297,27 +297,9 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
-        validationWarnings = validateAll()
+        let validation = db.validateAllocationTargets()
+        validationWarnings = validation.global + (validation.perClass[classId].map { [$0] } ?? [])
         isInitialLoad = false
-    }
-
-    private func calculatePortfolioTotal() -> Double {
-        var total = 0.0
-        var rateCache: [String: Double] = [:]
-        for p in db.fetchPositionReports() {
-            guard let price = p.currentPrice else { continue }
-            var value = p.quantity * price
-            let currency = p.instrumentCurrency.uppercased()
-            if currency != "CHF" {
-                if rateCache[currency] == nil {
-                    rateCache[currency] = db.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
-                }
-                guard let r = rateCache[currency] else { continue }
-                value *= r
-            }
-            total += value
-        }
-        return total
     }
 
     private func updateRows() {
@@ -350,92 +332,6 @@ struct TargetEditPanel: View {
         }
     }
 
-    private func validateAll() -> [String] {
-        var warnings: [String] = []
-
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        let classes = db.fetchAssetClassesDetailed()
-
-        var classPercents: [Int: Double] = [:]
-        var classAmounts: [Int: Double] = [:]
-
-        // Read parent targets
-        for cls in classes {
-            let rec = records.first { $0.classId == cls.id && $0.subClassId == nil }
-            let percent = cls.id == classId ? parentPercent : (rec?.percent ?? 0)
-            let amount: Double
-            if cls.id == classId {
-                amount = parentAmount
-            } else if let amt = rec?.amountCHF {
-                amount = amt
-            } else {
-                amount = portfolioTotal * percent / 100
-            }
-            classPercents[cls.id] = percent
-            classAmounts[cls.id] = amount
-            log("VALIDATION", "Read asset-class \"\(cls.name)\" id=\(cls.id): percent=\(percent), CHF=\(amount)", type: .debug)
-        }
-
-        let pctSum = classPercents.values.reduce(0, +)
-        log("VALIDATION", String(format: "Parent %% sum=%.1f%%", pctSum), type: .debug)
-        if abs(pctSum - 100) > 0.01 {
-            let msg = String(format: "asset-class %% sum=%.1f%% (expected 100%%)", pctSum)
-            warnings.append(msg)
-            log("VALIDATION WARN", msg, type: .default)
-        }
-
-        let chfSum = classAmounts.values.reduce(0, +)
-        log("VALIDATION", "Parent CHF sum=\(formatChf(chfSum))", type: .debug)
-        if abs(chfSum - portfolioTotal) > 0.01 {
-            let msg = "asset-class CHF sum=\(formatChf(chfSum)) (expected \(formatChf(portfolioTotal)))"
-            warnings.append(msg)
-            log("VALIDATION WARN", msg, type: .default)
-        }
-
-        // Child level validation per class
-        for cls in classes {
-            let parentPct = classPercents[cls.id] ?? 0
-            let parentAmt = classAmounts[cls.id] ?? 0
-            var subPct = 0.0
-            var subAmt = 0.0
-
-            if cls.id == classId {
-                for row in rows {
-                    subPct += row.percent
-                    subAmt += row.amount
-                    log("VALIDATION", "Read sub-class \"\(row.name)\" id=\(row.id) of \"\(cls.name)\": percent=\(row.percent), CHF=\(row.amount)", type: .debug)
-                }
-            } else {
-                let subRecords = records.filter { $0.classId == cls.id && $0.subClassId != nil }
-                let subNames = Dictionary(uniqueKeysWithValues: db.subAssetClasses(for: cls.id).map { ($0.id, $0.name) })
-                for rec in subRecords {
-                    let amt = rec.amountCHF ?? parentAmt * rec.percent / 100
-                    subPct += rec.percent
-                    subAmt += amt
-                    let name = subNames[rec.subClassId ?? 0] ?? "id \(rec.subClassId ?? 0)"
-                    log("VALIDATION", "Read sub-class \"\(name)\" id=\(rec.subClassId ?? 0) of \"\(cls.name)\": percent=\(rec.percent), CHF=\(amt)", type: .debug)
-                }
-            }
-
-            log("VALIDATION", String(format: "\"%@\" sub-class %% sum=%.1f%%", cls.name, subPct), type: .debug)
-            let expectedPct = (parentPct > 0 || parentAmt > 0) ? 100.0 : 0.0
-            if abs(subPct - expectedPct) > 0.01 {
-                let msg = String(format: "\"%@\" sub-class %% sum=%.1f%% (expected %.1f%%)", cls.name, subPct, expectedPct)
-                warnings.append(msg)
-                log("VALIDATION WARN", msg, type: .default)
-            }
-
-            log("VALIDATION", "\"\(cls.name)\" sub-class CHF sum=\(formatChf(subAmt))", type: .debug)
-            let expectedAmt = (parentPct > 0 || parentAmt > 0) ? parentAmt : 0
-            if abs(subAmt - expectedAmt) > 0.01 {
-                let msg = "\"\(cls.name)\" sub-class CHF sum=\(formatChf(subAmt)) (expected \(formatChf(expectedAmt)))"
-                warnings.append(msg)
-                log("VALIDATION WARN", msg, type: .default)
-            }
-        }
-
-        return warnings
-    }
 
     private func cancel() {
         isInitialLoad = true
@@ -469,9 +365,9 @@ struct TargetEditPanel: View {
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
-        let warnings = validateAll()
-        validationWarnings = warnings
-        if warnings.isEmpty {
+        let validation = db.validateAllocationTargets()
+        validationWarnings = validation.global + (validation.perClass[classId].map { [$0] } ?? [])
+        if validationWarnings.isEmpty {
             onClose()
         }
     }

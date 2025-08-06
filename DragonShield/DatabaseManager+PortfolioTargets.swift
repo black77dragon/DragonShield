@@ -236,4 +236,87 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
     }
+
+    /// Calculate the current portfolio market value in CHF.
+    func portfolioMarketValue() -> Double {
+        var total = 0.0
+        var rateCache: [String: Double] = [:]
+        for p in fetchPositionReports() {
+            guard let price = p.currentPrice else { continue }
+            var value = p.quantity * price
+            let currency = p.instrumentCurrency.uppercased()
+            if currency != "CHF" {
+                if rateCache[currency] == nil {
+                    rateCache[currency] = fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
+                }
+                guard let r = rateCache[currency] else { continue }
+                value *= r
+            }
+            total += value
+        }
+        return total
+    }
+
+    /// Validate class and sub-class targets, returning parent-level and per-class warnings.
+    func validateAllocationTargets() -> (global: [String], perClass: [Int: String]) {
+        var globalWarnings: [String] = []
+        var classWarnings: [Int: String] = [:]
+
+        // Fetch class-level targets with names
+        var classRows: [(id: Int, classId: Int, name: String, percent: Double, amount: Double, tolerance: Double)] = []
+        let classQuery = "SELECT ct.id, ct.asset_class_id, ac.class_name, ct.target_percent, ct.target_amount_chf, ct.tolerance_percent FROM ClassTargets ct JOIN AssetClasses ac ON ct.asset_class_id = ac.class_id;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, classQuery, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let classId = Int(sqlite3_column_int(stmt, 1))
+                let name = String(cString: sqlite3_column_text(stmt, 2))
+                let pct = sqlite3_column_double(stmt, 3)
+                let amt = sqlite3_column_double(stmt, 4)
+                let tol = sqlite3_column_double(stmt, 5)
+                classRows.append((id, classId, name, pct, amt, tol))
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        // Parent level validation
+        let pctSum = classRows.map { $0.percent }.reduce(0, +)
+        LoggingService.shared.log("[VALIDATE PARENT] sum% = \(String(format: "%.1f", pctSum))", type: .info, logger: .database)
+        if abs(pctSum - 100.0) > 0.1 {
+            globalWarnings.append(String(format: "class % sum=%.1f%% (expected 100%%)", pctSum))
+        }
+
+        let chfSum = classRows.map { $0.amount }.reduce(0, +)
+        let total = portfolioMarketValue()
+        LoggingService.shared.log("[VALIDATE PARENT] sumCHF = \(chfSum)", type: .info, logger: .database)
+        if abs(chfSum - total) > max(0.001 * total, 0.01) {
+            globalWarnings.append("class CHF sum=\(chfSum) (expected \(total))")
+        }
+
+        // Child level per class
+        for row in classRows {
+            var subPct = 0.0
+            var subChf = 0.0
+            let subQuery = "SELECT target_percent, target_amount_chf FROM SubClassTargets WHERE class_target_id = ?;"
+            var subStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, subQuery, -1, &subStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(subStmt, 1, Int32(row.id))
+                while sqlite3_step(subStmt) == SQLITE_ROW {
+                    subPct += sqlite3_column_double(subStmt, 0)
+                    subChf += sqlite3_column_double(subStmt, 1)
+                }
+            }
+            sqlite3_finalize(subStmt)
+
+            let pctValid = abs(subPct - 100.0) <= row.tolerance
+            let chfTol = row.amount * row.tolerance / 100.0
+            let chfValid = abs(subChf - row.amount) <= chfTol
+            LoggingService.shared.log("[VALIDATE CHILD] \(row.name) child% = \(String(format: "%.1f", subPct))", type: .info, logger: .database)
+            if !(pctValid && chfValid) {
+                classWarnings[row.classId] = String(format: "\(row.name) child%% = %.1f%%", subPct)
+            }
+        }
+
+        return (globalWarnings, classWarnings)
+    }
 }

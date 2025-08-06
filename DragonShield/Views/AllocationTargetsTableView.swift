@@ -113,27 +113,12 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     private func updateValidation() {
-        var invalid: Set<String> = []
-        for asset in assets where asset.id.hasPrefix("class-") {
-            guard let children = asset.children else { continue }
-            let parentZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
-            if parentZero {
-                // When the parent has no target but subclasses do, don't flag as invalid
-                continue
-            }
-
-            let sumPct = children.map(\.targetPct).reduce(0, +)
-            // Sub-class target percentages are relative to their parent so totals must be ~100%
-            let pctValid = abs(sumPct - 100) <= 1
-            let sumChf = children.map(\.targetChf).reduce(0, +)
-            // CHF targets should equal the parent target within ±1%
-            let tol = abs(asset.targetChf) * 0.01
-            let chfValid = abs(sumChf - asset.targetChf) <= tol
-            if !(pctValid && chfValid) {
-                invalid.insert(asset.id)
-            }
+        guard let db else {
+            invalidClassIds = []
+            return
         }
-        invalidClassIds = invalid
+        let validation = db.validateAllocationTargets()
+        invalidClassIds = Set(validation.perClass.keys.map { "class-\($0)" })
     }
 
     func rowHasWarning(_ asset: AllocationAsset) -> Bool {

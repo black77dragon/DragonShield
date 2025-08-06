@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - Load and persist target edits with dual-field mode and non-blocking validation warnings
 - Pre-populate target amount fields from the database and format CHF values with
   thousands separators on blur
+- Centralize target allocation validation and surface warnings in dashboard and editor
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
 - Remove Double Donut chart from legacy Asset Allocation view
