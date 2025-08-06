@@ -252,8 +252,9 @@ extension DatabaseManager {
 
         // Child-level per class
         let classGroups = Dictionary(grouping: records, by: { $0.classId })
-        for (classId, rows) in classGroups {
-            guard let parent = rows.first(where: { $0.subClassId == nil }) else { continue }
+        for (classIdOpt, rows) in classGroups {
+            guard let classId = classIdOpt,
+                  let parent = rows.first(where: { $0.subClassId == nil }) else { continue }
             let subs = rows.filter { $0.subClassId != nil }
             let childSum = subs.map { $0.percent }.reduce(0, +)
             if abs(childSum - 100) > parent.tolerance {
