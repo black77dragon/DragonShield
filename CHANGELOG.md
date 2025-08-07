@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Display validation warning icon next to Target values in Asset Classes table
 - Show bold, left-aligned "Asset Allocation for <Class>" title in target edit panel
 - Ensure backup routines include TargetChangeLog and full reference data
 - Remove legacy Asset Allocation view and navigation link

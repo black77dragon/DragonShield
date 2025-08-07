@@ -20,6 +20,7 @@ struct AllocationAsset: Identifiable {
     var targetChf: Double
     var mode: AllocationInputMode
     var children: [AllocationAsset]? = nil
+    var hasValidationErrors: Bool = false
 
     /// Difference between target and actual percentage.
     var deviationPct: Double { targetPct - actualPct }
@@ -134,17 +135,22 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             }
         }
         invalidClassIds = invalid
-    }
-
-    func rowHasWarning(_ asset: AllocationAsset) -> Bool {
-        if asset.id.hasPrefix("class-") {
-            return invalidClassIds.contains(asset.id)
-        } else if asset.id.hasPrefix("sub-") {
-            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
-                return invalidClassIds.contains("class-\(parent)")
+        for idx in assets.indices {
+            let asset = assets[idx]
+            let hasWarning: Bool
+            if asset.id.hasPrefix("class-") {
+                hasWarning = invalidClassIds.contains(asset.id)
+            } else if asset.id.hasPrefix("sub-") {
+                if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
+                    hasWarning = invalidClassIds.contains("class-\(parent)")
+                } else {
+                    hasWarning = false
+                }
+            } else {
+                hasWarning = false
             }
+            assets[idx].hasValidationErrors = hasWarning
         }
-        return false
     }
 
     private func isZeroPct(_ value: Double) -> Bool { abs(value) < 0.0001 }
@@ -477,7 +483,7 @@ struct AllocationTargetsTableView: View {
         }
         for asset in viewModel.assets {
             if asset.id.hasPrefix("class-") {
-                if viewModel.rowHasWarning(asset) {
+                if asset.hasValidationErrors {
                     let sumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
                     issues.append("Total Target % for Asset Class '\(asset.name)' is \(formatPercent(sumPct))%, which is outside the 99\u{2013}101% tolerance")
                 } else if viewModel.rowNeedsOrange(asset) {
@@ -703,7 +709,7 @@ struct AllocationTargetsTableView: View {
         if let cid = editingClassId, asset.id == "class-\(cid)" {
             return .rowHighlight
         }
-        if viewModel.rowHasWarning(asset) {
+        if asset.hasValidationErrors {
             return .paleRed
         }
         if viewModel.rowHasActualButNoTarget(asset) {
@@ -713,7 +719,7 @@ struct AllocationTargetsTableView: View {
     }
 
     private func statusText(for asset: AllocationAsset) -> String {
-        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+        if asset.id.hasPrefix("class-") && asset.hasValidationErrors {
             return "Sub-class totals mismatch"
         }
         if abs(asset.deviationPct) < 0.01 { return "OK" }
@@ -753,7 +759,7 @@ struct AllocationTargetsTableView: View {
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 4) {
-            if viewModel.rowHasWarning(asset) {
+            if asset.hasValidationErrors {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.orange)
             }
@@ -791,7 +797,7 @@ struct AllocationTargetsTableView: View {
                         }
                     }
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(formatChf(asset.targetChf))
+                        TargetValueCell(text: formatChf(asset.targetChf), hasValidationErrors: asset.hasValidationErrors)
                             .frame(width: 100, alignment: .trailing)
                         if isClass {
                             HStack(spacing: 4) {
@@ -806,7 +812,7 @@ struct AllocationTargetsTableView: View {
                     }
                 } else {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(formatPercent(asset.targetPct))
+                        TargetValueCell(text: formatPercent(asset.targetPct), hasValidationErrors: asset.hasValidationErrors)
                             .frame(width: 80, alignment: .trailing)
                         if isClass {
                             Text("Σ \(formatPercent(subclassSumPct))%")
@@ -883,7 +889,7 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+                if asset.id.hasPrefix("class-") && asset.hasValidationErrors {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
                         .frame(width: 16, height: 16)
