@@ -39,10 +39,6 @@ struct SidebarView: View {
                     Label("Asset Allocation", systemImage: "chart.pie")
                 }
 
-                NavigationLink(destination: TargetAllocationMaintenanceView()) {
-                    Label("Legacy Asset Allocation", systemImage: "clock.arrow.circlepath")
-                }
-
                 NavigationLink(destination: RebalancingView()) {
                     Label("Rebalancing", systemImage: "arrow.left.arrow.right")
                 }
