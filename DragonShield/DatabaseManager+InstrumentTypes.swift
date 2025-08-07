@@ -225,7 +225,7 @@ extension DatabaseManager {
             print("❌ Failed to prepare instrument usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
         }
 
-        let allocationQuery = "SELECT COUNT(*) FROM TargetAllocation WHERE sub_class_id = ?"
+        let allocationQuery = "SELECT COUNT(*) FROM SubClassTargets WHERE asset_sub_class_id = ?"
         if sqlite3_prepare_v2(db, allocationQuery, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(id))
             if sqlite3_step(statement) == SQLITE_ROW {
@@ -250,7 +250,7 @@ extension DatabaseManager {
         }
 
         if info.allocationCount > 0 {
-            details.append(("TargetAllocation", "sub_class_id", info.allocationCount))
+            details.append(("SubClassTargets", "asset_sub_class_id", info.allocationCount))
         }
 
         return details

@@ -265,30 +265,35 @@ struct TargetEditPanel: View {
         portfolioTotal = calculatePortfolioTotal()
         parentWarning = nil
 
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
+        log("FETCH", "Fetching ClassTargets for id=\(classId)", type: .info)
+        if let parent = db.fetchClassTarget(classId: classId) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
-            parentAmount = parent.amountCHF ?? portfolioTotal * parent.percent / 100
+            parentAmount = parent.amountCHF
             tolerance = parent.tolerance
-            initialKind = kind
-            initialPercent = parentPercent
-            initialAmount = parentAmount
-            initialTolerance = tolerance
+        } else {
+            kind = .percent
+            parentPercent = 0
+            parentAmount = 0
+            tolerance = 0
         }
+        initialKind = kind
+        initialPercent = parentPercent
+        initialAmount = parentAmount
+        initialTolerance = tolerance
 
-        let subs = db.subAssetClasses(for: classId)
-        rows = subs.map { sub in
-            let rec = records.first { $0.subClassId == sub.id }
-            let rk = rec?.targetKind == "amount" ? TargetKind.amount : TargetKind.percent
-            let pct = rec?.percent ?? 0
-            let amt = rec?.amountCHF ?? parentAmount * pct / 100
-            return Row(id: sub.id,
-                       name: sub.name,
-                       percent: pct,
+        log("FETCH", "Fetching SubClassTargets for class id=\(classId)", type: .info)
+        let subRecs = db.fetchSubClassTargets(classId: classId)
+        rows = subRecs.map { rec in
+            let rk = TargetKind(rawValue: rec.targetKind) ?? .percent
+            let amt = rk == .amount && rec.amountCHF > 0 ? rec.amountCHF : parentAmount * rec.percent / 100
+            let tol = rec.tolerance != 0 ? rec.tolerance : tolerance
+            return Row(id: rec.id,
+                       name: rec.name,
+                       percent: rec.percent,
                        amount: amt,
                        kind: rk,
-                       tolerance: rec?.tolerance ?? tolerance)
+                       tolerance: tol)
         }
         initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
 
@@ -370,7 +375,7 @@ struct TargetEditPanel: View {
     }
 
     private func save() {
-        log("EDIT PANEL SAVE", "\(className): percent \(initialPercent)→\(parentPercent), CHF \(initialAmount)→\(parentAmount), kind \(initialKind.rawValue)→\(kind.rawValue), tol \(initialTolerance)→\(tolerance)", type: .info)
+        log("UPSERT", "Upserting ClassTargets id=\(classId)", type: .info)
         db.upsertClassTarget(portfolioId: 1,
                              classId: classId,
                              percent: parentPercent,
@@ -379,7 +384,7 @@ struct TargetEditPanel: View {
                              tolerance: tolerance)
         for row in rows {
             let initial = initialRows[row.id]
-            log("EDIT PANEL SAVE", "sub-class \"\(row.name)\" id=\(row.id): percent \(initial?.percent ?? 0)→\(row.percent), CHF \(initial?.amount ?? 0)→\(row.amount), kind \(initial?.kind.rawValue ?? row.kind.rawValue)→\(row.kind.rawValue), tol \(initial?.tolerance ?? row.tolerance)→\(row.tolerance)", type: .info)
+            log("UPSERT", "Upserting SubClassTargets id=\(row.id) (\(row.name)): percent \(initial?.percent ?? 0)→\(row.percent), CHF \(initial?.amount ?? 0)→\(row.amount), kind \(initial?.kind.rawValue ?? row.kind.rawValue)→\(row.kind.rawValue), tol \(initial?.tolerance ?? row.tolerance)→\(row.tolerance)", type: .info)
             db.upsertSubClassTarget(portfolioId: 1,
                                     subClassId: row.id,
                                     percent: row.percent,

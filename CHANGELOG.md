@@ -81,6 +81,7 @@ All notable changes to this project will be documented in this file.
 - Show per-table row count comparison after restore in a modal window
 - Auto-expand stale account sections and open editable account detail window from Dashboard
 - Add validation triggers for ClassTargets/SubClassTargets and surface warnings in allocation editor
+- Bind asset allocation views to ClassTargets and SubClassTargets tables
 - Allow dashboard tiles to resize adaptively with a responsive grid
 - Arrange dashboard tiles in a masonry layout with half-spacing gaps vertically
 - Provide Save/Cancel buttons in Account Detail window with quick saved status
