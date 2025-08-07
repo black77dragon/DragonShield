@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Reorder columns and restyle header in Edit Targets panel to show full sub-class names
 - Fix optional class ID handling in target sum validation warnings
 - Persist parent class targets and warn on total allocation without blocking saves
 - Introduce ClassTargets and SubClassTargets tables with migration logging
