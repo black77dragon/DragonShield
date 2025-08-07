@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.20 - Introduce ClassTargets and SubClassTargets tables
+-- Version 4.21 - Add validation triggers for ClassTargets and SubClassTargets
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.20 -> v4.21: Add validation triggers for ClassTargets and SubClassTargets sums.
 -- - v4.19 -> v4.20: Replace TargetAllocation with ClassTargets/SubClassTargets and add TargetChangeLog.
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
 -- - v4.7 -> v4.8: Added Institutions table and linked Accounts to it.
@@ -231,6 +232,59 @@ CREATE TABLE TargetChangeLog (
     changed_by TEXT,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Triggers to validate target sums and record warnings
+CREATE TRIGGER trg_validate_class_targets_insert
+AFTER INSERT ON ClassTargets
+BEGIN
+    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
+    SELECT 'class', NEW.id, 'parent_sum_percent',
+           printf('%.2f', total_pct), 'trigger'
+    FROM (SELECT SUM(target_percent) AS total_pct FROM ClassTargets)
+    WHERE ABS(total_pct - 100.0) > 0.1;
+END;
+
+CREATE TRIGGER trg_validate_class_targets_update
+AFTER UPDATE ON ClassTargets
+BEGIN
+    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
+    SELECT 'class', NEW.id, 'parent_sum_percent',
+           printf('%.2f', total_pct), 'trigger'
+    FROM (SELECT SUM(target_percent) AS total_pct FROM ClassTargets)
+    WHERE ABS(total_pct - 100.0) > 0.1;
+END;
+
+CREATE TRIGGER trg_validate_subclass_targets_insert
+AFTER INSERT ON SubClassTargets
+BEGIN
+    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
+    SELECT 'class', NEW.class_target_id, 'child_sum_percent',
+           printf('%.2f', total_pct), 'trigger'
+    FROM (
+        SELECT SUM(target_percent) AS total_pct
+        FROM SubClassTargets
+        WHERE class_target_id = NEW.class_target_id
+    ), (
+        SELECT tolerance_percent AS tol FROM ClassTargets WHERE id = NEW.class_target_id
+    )
+    WHERE ABS(total_pct - 100.0) > tol;
+END;
+
+CREATE TRIGGER trg_validate_subclass_targets_update
+AFTER UPDATE ON SubClassTargets
+BEGIN
+    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
+    SELECT 'class', NEW.class_target_id, 'child_sum_percent',
+           printf('%.2f', total_pct), 'trigger'
+    FROM (
+        SELECT SUM(target_percent) AS total_pct
+        FROM SubClassTargets
+        WHERE class_target_id = NEW.class_target_id
+    ), (
+        SELECT tolerance_percent AS tol FROM ClassTargets WHERE id = NEW.class_target_id
+    )
+    WHERE ABS(total_pct - 100.0) > tol;
+END;
 
 --=============================================================================
 -- ACCOUNT MANAGEMENT (MODIFIED)

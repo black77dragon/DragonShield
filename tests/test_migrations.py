@@ -49,6 +49,21 @@ def setup_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE Configuration (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            data_type TEXT,
+            description TEXT,
+            created_at DATETIME,
+            updated_at DATETIME
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO Configuration (key, value, data_type, description) VALUES ('db_version','4.20','string','Database schema version')"
+    )
     return conn
 
 
@@ -105,5 +120,13 @@ def test_apply_migrations_and_insert_dates():
     assert 'SubClassTargets' in tables
     assert 'TargetChangeLog' in tables
     assert 'TargetAllocation' not in tables
+
+    # Apply eighth migration
+    conn.executescript(read_sql('008_add_target_validation_triggers.sql'))
+    triggers = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'")]
+    assert 'trg_validate_class_targets_insert' in triggers
+    assert 'trg_validate_class_targets_update' in triggers
+    assert 'trg_validate_subclass_targets_insert' in triggers
+    assert 'trg_validate_subclass_targets_update' in triggers
 
     conn.close()
