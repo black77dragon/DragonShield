@@ -40,7 +40,7 @@ class BackupService: ObservableObject {
     let transactionTables = [
         "Portfolios", "PortfolioInstruments", "Transactions",
         "PositionReports", "ImportSessions", "ImportSessionValueReports",
-        "ExchangeRates", "ClassTargets", "SubClassTargets"
+        "ExchangeRates", "ClassTargets", "SubClassTargets", "TargetChangeLog"
     ]
 
     var fullTables: [String] {
