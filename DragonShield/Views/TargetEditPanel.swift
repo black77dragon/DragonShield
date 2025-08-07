@@ -27,7 +27,8 @@ struct TargetEditPanel: View {
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
-    @State private var validationWarnings: [String] = []
+    @State private var parentWarning: String? = nil
+    @State private var totalClassPercent: Double = 0
     @State private var isInitialLoad = true
     @State private var initialPercent: Double = 0
     @State private var initialAmount: Double = 0
@@ -88,12 +89,16 @@ struct TargetEditPanel: View {
                             .foregroundColor(kind == .percent ? .primary : .secondary)
                             .onChange(of: parentPercent) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .percent else { return }
-                                let capped = min(newVal, 100)
+                                let capped = max(0, min(newVal, 100))
                                 if capped != newVal { parentPercent = capped }
                                 parentAmount = portfolioTotal * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
                                 log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                                updateClassTotals()
                             }
+                        Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                     VStack(alignment: .leading) {
                         Text("Target CHF")
@@ -106,10 +111,11 @@ struct TargetEditPanel: View {
                             .focused($focusedChfField, equals: "parent")
                             .onChange(of: parentAmount) { oldVal, newVal in
                                 guard !isInitialLoad, kind == .amount else { return }
-                                let capped = min(newVal, portfolioTotal)
+                                let capped = max(0, min(newVal, portfolioTotal))
                                 if capped != newVal { parentAmount = capped }
-                                parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : 0
+                                parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
                                 log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                                updateClassTotals()
                             }
                     }
                 }
@@ -169,7 +175,7 @@ struct TargetEditPanel: View {
                             .foregroundColor(row.kind == .percent ? .primary : .secondary)
                             .onChange(of: row.percent) { oldVal, newVal in
                                 guard !isInitialLoad, row.kind == .percent else { return }
-                                let capped = min(newVal, 100)
+                                let capped = max(0, min(newVal, 100))
                                 if capped != newVal { row.percent = capped }
                                 row.amount = parentAmount * capped / 100
                                 let ratio = String(format: "%.2f", capped / 100)
@@ -185,7 +191,7 @@ struct TargetEditPanel: View {
                             .focused($focusedChfField, equals: "row-\(row.id)")
                             .onChange(of: row.amount) { oldVal, newVal in
                                 guard !isInitialLoad, row.kind == .amount else { return }
-                                let capped = min(newVal, parentAmount)
+                                let capped = max(0, min(newVal, parentAmount))
                                 if capped != newVal { row.amount = capped }
                                 row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
                                 log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
@@ -206,12 +212,12 @@ struct TargetEditPanel: View {
             Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                 .foregroundColor(remaining == 0 ? .primary : .red)
 
-            if !validationWarnings.isEmpty {
-                Text("Warnings: \(validationWarnings.joined(separator: "; "))")
+            if let warning = parentWarning {
+                Text(warning)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.red.opacity(0.1))
-                    .foregroundColor(.red)
+                    .background(Color.red)
+                    .foregroundColor(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
@@ -233,10 +239,12 @@ struct TargetEditPanel: View {
                 parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
             }
             updateRows()
+            updateClassTotals()
         }
         .onChange(of: parentAmount) { _, _ in
             guard !isInitialLoad else { return }
             updateRows()
+            updateClassTotals()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
             if let old = oldValue, old != newValue {
@@ -255,7 +263,7 @@ struct TargetEditPanel: View {
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         portfolioTotal = calculatePortfolioTotal()
-        validationWarnings = []
+        parentWarning = nil
 
         let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
         if let parent = records.first(where: { $0.classId == classId && $0.subClassId == nil }) {
@@ -294,7 +302,7 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
-        validationWarnings = db.validateTargetSums(portfolioId: 1)
+        updateClassTotals()
         isInitialLoad = false
     }
 
@@ -320,11 +328,11 @@ struct TargetEditPanel: View {
     private func updateRows() {
         for idx in rows.indices {
             if rows[idx].kind == .percent {
-                rows[idx].percent = min(rows[idx].percent, 100)
-                rows[idx].amount = min(parentAmount * rows[idx].percent / 100, parentAmount)
+                rows[idx].percent = max(0, min(rows[idx].percent, 100))
+                rows[idx].amount = max(0, min(parentAmount * rows[idx].percent / 100, parentAmount))
             } else {
-                rows[idx].amount = min(rows[idx].amount, parentAmount)
-                rows[idx].percent = parentAmount > 0 ? min(rows[idx].amount / parentAmount * 100, 100) : 0
+                rows[idx].amount = max(0, min(rows[idx].amount, parentAmount))
+                rows[idx].percent = parentAmount > 0 ? max(0, min(rows[idx].amount / parentAmount * 100, 100)) : 0
             }
         }
         refreshDrafts()
@@ -356,7 +364,7 @@ struct TargetEditPanel: View {
         tolerance = initialTolerance
         rows = Array(initialRows.values).sorted { $0.id < $1.id }
         refreshDrafts()
-        validationWarnings = []
+        parentWarning = nil
         isInitialLoad = false
         onClose()
     }
@@ -379,10 +387,18 @@ struct TargetEditPanel: View {
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
-        let warnings = db.validateTargetSums(portfolioId: 1)
-        validationWarnings = warnings
-        if warnings.isEmpty {
-            onClose()
+        onClose()
+    }
+
+    private func updateClassTotals() {
+        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
+        let others = records.filter { $0.subClassId == nil && $0.classId != classId }.map(\.percent).reduce(0, +)
+        totalClassPercent = others + parentPercent
+        let tol = 0.1
+        if abs(totalClassPercent - 100) > tol {
+            parentWarning = String(format: "Warning: Total Asset Class %% = %.1f%% (expected 100%% ± %.1f%%)", totalClassPercent, tol)
+        } else {
+            parentWarning = nil
         }
     }
 

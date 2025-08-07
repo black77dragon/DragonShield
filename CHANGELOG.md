@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Fix optional class ID handling in target sum validation warnings
+- Persist parent class targets and warn on total allocation without blocking saves
 - Introduce ClassTargets and SubClassTargets tables with migration logging
 - Add script to reset database and import legacy data
 - Fix legacy data import script to preserve new tables when loading old data
