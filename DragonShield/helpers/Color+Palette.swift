@@ -14,6 +14,8 @@ extension Color {
     static let softBlue = Color(red: 229/255, green: 241/255, blue: 255/255)
     /// Blue tint used for target editor headers.
     static let sectionBlue = Color(red: 230/255, green: 244/255, blue: 255/255)
+    /// Dark blue used for asset allocation titles.
+    static let darkBlue = Color(red: 0/255, green: 51/255, blue: 102/255)
     /// Row highlight used when editing in tables.
     static let rowHighlight = Color(red: 245/255, green: 249/255, blue: 255/255)
 

@@ -64,8 +64,9 @@ struct TargetEditPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit \"\(className)\" Targets")
-                .font(.headline)
+            (Text("Asset Allocations : ") + Text(className).foregroundColor(.darkBlue))
+                .font(.system(size: 20, weight: .bold))
+                .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(spacing: 8) {
                 HStack {
@@ -144,15 +145,19 @@ struct TargetEditPanel: View {
 
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                 GridRow {
+                    Text("Name")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     Text("Kind").frame(width: 80)
                     Text("Target %").frame(width: 80, alignment: .trailing)
                     Text("Target CHF").frame(width: 100, alignment: .trailing)
                     Text("Tol %").frame(width: 60, alignment: .trailing)
-                    Text("")
                 }
                 Divider().gridCellColumns(5)
                 ForEach($rows) { $row in
                     GridRow {
+                        Text(row.name)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                         Picker("", selection: $row.kind) {
                             Text("%").tag(TargetKind.percent)
                             Text("CHF").tag(TargetKind.amount)
@@ -201,9 +206,6 @@ struct TargetEditPanel: View {
                             .frame(width: 60)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-
-                        Text(row.name)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     Divider().background(Color.systemGray4).gridCellColumns(5)
                 }
@@ -229,7 +231,7 @@ struct TargetEditPanel: View {
             }
         }
         .padding()
-        .frame(minWidth: 360)
+        .frame(minWidth: 560)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }
