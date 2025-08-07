@@ -67,13 +67,13 @@ struct TargetEditPanel: View {
             let spacing: CGFloat = 8
             let contentWidth = geo.size.width - 32
             let availableWidth = contentWidth - spacing * 4
-            let nameWidth = availableWidth * 0.4
-            let kindWidth = availableWidth * 0.1
-            let percentWidth = availableWidth * 0.15
-            let chfWidth = availableWidth * 0.2
-            let tolWidth = availableWidth * 0.15
+            let nameWidth = max(availableWidth * 0.4, 200)
+            let kindWidth = max(availableWidth * 0.1, 80)
+            let percentWidth = max(availableWidth * 0.15, 120)
+            let chfWidth = max(availableWidth * 0.2, 160)
+            let tolWidth = max(availableWidth * 0.15, 120)
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .center, spacing: 16) {
             (Text("Asset Allocations : ") +
              Text(className).foregroundColor(Color(red: 0/255, green: 51/255, blue: 102/255)))
                 .font(.system(size: 20, weight: .bold))
@@ -88,13 +88,13 @@ struct TargetEditPanel: View {
                         Text("CHF").tag(TargetKind.amount)
                     }
                     .pickerStyle(.radioGroup)
-                    .frame(width: 120)
+                    .frame(maxWidth: .infinity)
                 }
                 HStack(spacing: 16) {
                     VStack(alignment: .leading) {
                         Text("Target %")
                         TextField("", value: $parentPercent, formatter: Self.percentFormatter)
-                            .frame(width: 80)
+                            .frame(maxWidth: .infinity)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .percent)
@@ -112,10 +112,11 @@ struct TargetEditPanel: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .frame(maxWidth: .infinity)
                     VStack(alignment: .leading) {
                         Text("Target CHF")
                         TextField("", text: chfBinding(key: "parent", value: $parentAmount))
-                            .frame(width: 100)
+                            .frame(maxWidth: .infinity)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(kind != .amount)
@@ -130,6 +131,7 @@ struct TargetEditPanel: View {
                                 updateClassTotals()
                             }
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
@@ -146,7 +148,7 @@ struct TargetEditPanel: View {
                 Text("Tolerance")
                 Spacer()
                 TextField("", value: $tolerance, formatter: Self.numberFormatter)
-                    .frame(width: 60)
+                    .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.trailing)
                     .textFieldStyle(.roundedBorder)
                 Text("%")
@@ -246,7 +248,7 @@ struct TargetEditPanel: View {
             }
             .frame(maxWidth: .infinity)
             }
-            .frame(width: contentWidth, alignment: .leading)
+            .frame(maxWidth: .infinity)
             .padding()
         }
         .frame(minWidth: 800)

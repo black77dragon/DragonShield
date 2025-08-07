@@ -263,7 +263,7 @@ struct AllocationTreeCard: View {
                     withAnimation { editingClassId = nil }
                 }
                 .environmentObject(dbManager)
-                .frame(maxWidth: 420)
+                .frame(minWidth: 800)
                 .padding()
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
