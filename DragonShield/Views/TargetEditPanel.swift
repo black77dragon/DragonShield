@@ -66,8 +66,12 @@ struct TargetEditPanel: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Edit \"\(className)\" Targets")
-                        .font(.headline)
+                    Text("Asset Allocation for \(className)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
+                        .accessibilityLabel("Asset Allocation for \(className)")
 
                     VStack(spacing: 16) {
                         HStack(spacing: 24) {
