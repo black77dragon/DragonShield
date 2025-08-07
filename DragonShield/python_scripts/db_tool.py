@@ -34,12 +34,15 @@ DEFAULT_TARGET_DIR = (
 )
 
 REFERENCE_TABLES = [
+    "Configuration",
     "Currencies",
-    "Institutions",
-    "AccountTypes",
-    "TransactionTypes",
+    "ExchangeRates",
+    "FxRateUpdates",
     "AssetClasses",
     "AssetSubClasses",
+    "TransactionTypes",
+    "AccountTypes",
+    "Institutions",
     "Instruments",
     "Accounts",
 ]
