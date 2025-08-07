@@ -137,6 +137,7 @@ struct TargetEditPanel: View {
                 }
                 .foregroundColor(.secondary)
             }
+            .frame(maxWidth: .infinity)
             .padding(8)
             .background(Color.sectionBlue)
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -150,9 +151,11 @@ struct TargetEditPanel: View {
                     .textFieldStyle(.roundedBorder)
                 Text("%")
             }
+            .frame(maxWidth: .infinity)
 
             Text("Sub-Class Targets:")
                 .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Grid(alignment: .leading, horizontalSpacing: spacing, verticalSpacing: 4) {
                 GridRow {
@@ -220,9 +223,10 @@ struct TargetEditPanel: View {
                     Divider().background(Color.systemGray4).gridCellColumns(5)
                 }
             }
-            .frame(width: contentWidth)
+            .frame(maxWidth: .infinity)
 
             Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundColor(remaining == 0 ? .primary : .red)
 
             if let warning = parentWarning {
@@ -240,7 +244,9 @@ struct TargetEditPanel: View {
                 Button("Cancel") { cancel() }
                 Button("Save") { save() }
             }
+            .frame(maxWidth: .infinity)
             }
+            .frame(width: contentWidth, alignment: .leading)
             .padding()
         }
         .frame(minWidth: 800)
