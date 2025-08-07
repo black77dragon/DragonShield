@@ -159,6 +159,8 @@ struct AllocationTreeCard: View {
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
     @State private var editingClassId: Int?
+    @State private var panelOffset: CGSize = .zero
+    @State private var lastPanelOffset: CGSize = .zero
     @EnvironmentObject private var dbManager: DatabaseManager
 
     enum SortColumn { case target, actual, delta }
@@ -263,11 +265,21 @@ struct AllocationTreeCard: View {
                     withAnimation { editingClassId = nil }
                 }
                 .environmentObject(dbManager)
-                .frame(maxWidth: 420)
-                .padding()
+                .frame(width: 800, height: 600)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(radius: 20)
+                .offset(panelOffset)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            panelOffset = CGSize(width: lastPanelOffset.width + value.translation.width,
+                                                 height: lastPanelOffset.height + value.translation.height)
+                        }
+                        .onEnded { _ in
+                            lastPanelOffset = panelOffset
+                        }
+                )
             }
         }
     }

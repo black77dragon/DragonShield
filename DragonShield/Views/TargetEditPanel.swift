@@ -234,7 +234,7 @@ struct TargetEditPanel: View {
             }
             .padding([.leading, .trailing, .bottom], 24)
         }
-        .frame(minWidth: 700, maxWidth: 700)
+        .frame(width: 800, height: 600)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }

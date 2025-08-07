@@ -402,6 +402,8 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
     @State private var editingClassId: Int?
+    @State private var panelOffset: CGSize = .zero
+    @State private var lastPanelOffset: CGSize = .zero
     @Environment(\.colorScheme) private var scheme
 
     private let percentFormatter: NumberFormatter = {
@@ -555,11 +557,21 @@ struct AllocationTargetsTableView: View {
                     withAnimation { editingClassId = nil }
                 }
                 .environmentObject(dbManager)
-                .frame(maxWidth: 420)
-                .padding()
+                .frame(width: 800, height: 600)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(radius: 20)
+                .offset(panelOffset)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            panelOffset = CGSize(width: lastPanelOffset.width + value.translation.width,
+                                                 height: lastPanelOffset.height + value.translation.height)
+                        }
+                        .onEnded { _ in
+                            lastPanelOffset = panelOffset
+                        }
+                )
             }
         }
         .onAppear {
