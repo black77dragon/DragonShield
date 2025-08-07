@@ -98,4 +98,24 @@ def test_apply_migrations_and_insert_dates():
     assert 'target_kind' in cols
     assert 'tolerance_percent' in cols
 
+    # Seed TargetAllocation data for backfill
+    conn.execute("INSERT INTO TargetAllocation (asset_class_id, target_percent, target_kind, tolerance_percent) VALUES (1, 50, 'percent', 5)")
+    conn.execute("INSERT INTO TargetAllocation (asset_class_id, sub_class_id, target_percent, target_kind, tolerance_percent) VALUES (1, 1, 25, 'percent', 5)")
+
+    # Apply sixth migration
+    conn.executescript(read_sql('007_split_target_allocation.sql'))
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ClassTargets'")]
+    assert 'ClassTargets' in tables
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='SubClassTargets'")]
+    assert 'SubClassTargets' in tables
+    tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='TargetChangeLog'")]
+    assert 'TargetChangeLog' in tables
+
+    class_rows = list(conn.execute("SELECT asset_class_id, target_percent FROM ClassTargets"))
+    assert class_rows == [(1, 50.0)]
+    subclass_rows = list(conn.execute("SELECT asset_sub_class_id, target_percent FROM SubClassTargets"))
+    assert subclass_rows == [(1, 25.0)]
+    log_count = conn.execute("SELECT COUNT(*) FROM TargetChangeLog").fetchone()[0]
+    assert log_count == 2
+
     conn.close()
