@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Ensure backup routines include TargetChangeLog and full reference data
+- Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
 - Expand target edit panel to 800×600 and allow dragging to reposition
 - Fix optional class ID handling in target sum validation warnings
@@ -16,7 +17,6 @@ All notable changes to this project will be documented in this file.
 - Fix Cancel button in Edit Targets panel to discard changes without saving
 - Display sub-class target sums and log totals in Edit Targets panel
 - Add segmented display mode toggle for Asset Classes tile
-- Move Asset Allocation Errors panel beside legacy targets table
 - Show database schema version in Database Management view and include it in backup file names
 - Polish Crypto Allocations tile visuals and reduce row spacing
 - Redesign Asset Allocation dashboard with modern cards
@@ -41,9 +41,6 @@ All notable changes to this project will be documented in this file.
   thousands separators on blur
 - Fix compile errors in Asset Allocation dashboard views
 - Fix caption row overlay placement in Asset Allocation table
-- Remove Double Donut chart from legacy Asset Allocation view
-- Remove Delta Bar section from legacy Asset Allocation view
-- Display overview bar in legacy Asset Allocation view
 - Migrate width update onChange to new two-parameter closure
 - Redesign overview bar layout with dedicated tiles
 - Fix color scheme handling in overview bar and card components
@@ -77,7 +74,6 @@ All notable changes to this project will be documented in this file.
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning
 - Add Asset Allocation dashboard with interactive bubble chart
-- Restore link to legacy Asset Allocation view in sidebar
 - Mention language code console warnings and how to silence them
 - Log database version correctly at startup
 - Label green stale account range as "<1 month / today"
