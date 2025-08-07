@@ -63,7 +63,17 @@ struct TargetEditPanel: View {
 
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        GeometryReader { geo in
+            let spacing: CGFloat = 8
+            let contentWidth = geo.size.width - 32
+            let availableWidth = contentWidth - spacing * 4
+            let nameWidth = availableWidth * 0.4
+            let kindWidth = availableWidth * 0.1
+            let percentWidth = availableWidth * 0.15
+            let chfWidth = availableWidth * 0.2
+            let tolWidth = availableWidth * 0.15
+
+            VStack(alignment: .leading, spacing: 16) {
             (Text("Asset Allocations : ") +
              Text(className).foregroundColor(Color(red: 0/255, green: 51/255, blue: 102/255)))
                 .font(.system(size: 20, weight: .bold))
@@ -144,26 +154,26 @@ struct TargetEditPanel: View {
             Text("Sub-Class Targets:")
                 .font(.headline)
 
-            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
+            Grid(alignment: .leading, horizontalSpacing: spacing, verticalSpacing: 4) {
                 GridRow {
-                    Text("Name").frame(minWidth: 200, alignment: .leading)
-                    Text("Kind").frame(width: 80)
-                    Text("Target %").frame(width: 80, alignment: .trailing)
-                    Text("Target CHF").frame(width: 100, alignment: .trailing)
-                    Text("Tol %").frame(width: 60, alignment: .trailing)
+                    Text("Name").frame(width: nameWidth, alignment: .leading)
+                    Text("Kind").frame(width: kindWidth)
+                    Text("Target %").frame(width: percentWidth, alignment: .trailing)
+                    Text("Target CHF").frame(width: chfWidth, alignment: .trailing)
+                    Text("Tol %").frame(width: tolWidth, alignment: .trailing)
                 }
                 Divider().gridCellColumns(5)
                 ForEach($rows) { $row in
                     GridRow {
                         Text(row.name)
-                            .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                            .frame(width: nameWidth, alignment: .leading)
 
                         Picker("", selection: $row.kind) {
                             Text("%").tag(TargetKind.percent)
                             Text("CHF").tag(TargetKind.amount)
                         }
                         .pickerStyle(.radioGroup)
-                        .frame(width: 80)
+                        .frame(width: kindWidth)
                         .onChange(of: row.kind) { _, newKind in
                             if newKind == .percent {
                                 row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
@@ -173,7 +183,7 @@ struct TargetEditPanel: View {
                         }
 
                         TextField("", value: $row.percent, formatter: Self.percentFormatter)
-                            .frame(width: 80)
+                            .frame(width: percentWidth)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(row.kind != .percent)
@@ -188,7 +198,7 @@ struct TargetEditPanel: View {
                             }
 
                         TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
-                            .frame(width: 100)
+                            .frame(width: chfWidth)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .disabled(row.kind != .amount)
@@ -203,13 +213,14 @@ struct TargetEditPanel: View {
                             }
 
                         TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
-                            .frame(width: 60)
+                            .frame(width: tolWidth)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                     }
                     Divider().background(Color.systemGray4).gridCellColumns(5)
                 }
             }
+            .frame(width: contentWidth)
 
             Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                 .foregroundColor(remaining == 0 ? .primary : .red)
@@ -229,9 +240,10 @@ struct TargetEditPanel: View {
                 Button("Cancel") { cancel() }
                 Button("Save") { save() }
             }
+            }
+            .padding()
         }
-        .padding()
-        .frame(minWidth: 560)
+        .frame(minWidth: 800)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }
