@@ -64,8 +64,10 @@ struct TargetEditPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit \"\(className)\" Targets")
-                .font(.headline)
+            (Text("Asset Allocations : ") +
+             Text(className).foregroundColor(Color(red: 0/255, green: 51/255, blue: 102/255)))
+                .font(.system(size: 20, weight: .bold))
+                .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(spacing: 8) {
                 HStack {
@@ -142,70 +144,79 @@ struct TargetEditPanel: View {
             Text("Sub-Class Targets:")
                 .font(.headline)
 
-            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
-                GridRow {
-                    Text("Kind").frame(width: 80)
-                    Text("Target %").frame(width: 80, alignment: .trailing)
-                    Text("Target CHF").frame(width: 100, alignment: .trailing)
-                    Text("Tol %").frame(width: 60, alignment: .trailing)
-                    Text("")
-                }
-                Divider().gridCellColumns(5)
-                ForEach($rows) { $row in
+
+            GeometryReader { geo in
+                let nameWidth = geo.size.width * 0.40
+                let kindWidth = geo.size.width * 0.10
+                let percentWidth = geo.size.width * 0.15
+                let chfWidth = geo.size.width * 0.20
+                let tolWidth = geo.size.width * 0.15
+
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                     GridRow {
-                        Picker("", selection: $row.kind) {
-                            Text("%").tag(TargetKind.percent)
-                            Text("CHF").tag(TargetKind.amount)
-                        }
-                        .pickerStyle(.radioGroup)
-                        .frame(width: 80)
-                        .onChange(of: row.kind) { _, newKind in
-                            if newKind == .percent {
-                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
-                            } else {
-                                row.amount = parentAmount * row.percent / 100
-                            }
-                        }
-
-                        TextField("", value: $row.percent, formatter: Self.percentFormatter)
-                            .frame(width: 80)
-                            .multilineTextAlignment(.trailing)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(row.kind != .percent)
-                            .foregroundColor(row.kind == .percent ? .primary : .secondary)
-                            .onChange(of: row.percent) { oldVal, newVal in
-                                guard !isInitialLoad, row.kind == .percent else { return }
-                                let capped = max(0, min(newVal, 100))
-                                if capped != newVal { row.percent = capped }
-                                row.amount = parentAmount * capped / 100
-                                let ratio = String(format: "%.2f", capped / 100)
-                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
-                            }
-
-                        TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
-                            .frame(width: 100)
-                            .multilineTextAlignment(.trailing)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(row.kind != .amount)
-                            .foregroundColor(row.kind == .amount ? .primary : .secondary)
-                            .focused($focusedChfField, equals: "row-\(row.id)")
-                            .onChange(of: row.amount) { oldVal, newVal in
-                                guard !isInitialLoad, row.kind == .amount else { return }
-                                let capped = max(0, min(newVal, parentAmount))
-                                if capped != newVal { row.amount = capped }
-                                row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
-                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
-                            }
-
-                        TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
-                            .frame(width: 60)
-                            .multilineTextAlignment(.trailing)
-                            .textFieldStyle(.roundedBorder)
-
-                        Text(row.name)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Name").frame(width: nameWidth, alignment: .leading)
+                        Text("Kind").frame(width: kindWidth)
+                        Text("Target %").frame(width: percentWidth, alignment: .trailing)
+                        Text("Target CHF").frame(width: chfWidth, alignment: .trailing)
+                        Text("Tol %").frame(width: tolWidth, alignment: .trailing)
                     }
-                    Divider().background(Color.systemGray4).gridCellColumns(5)
+                    Divider().gridCellColumns(5)
+                    ForEach($rows) { $row in
+                        GridRow {
+                            Text(row.name)
+                                .frame(width: nameWidth, alignment: .leading)
+
+                            Picker("", selection: $row.kind) {
+                                Text("%").tag(TargetKind.percent)
+                                Text("CHF").tag(TargetKind.amount)
+                            }
+                            .pickerStyle(.radioGroup)
+                            .frame(width: kindWidth)
+                            .onChange(of: row.kind) { _, newKind in
+                                if newKind == .percent {
+                                    row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                                } else {
+                                    row.amount = parentAmount * row.percent / 100
+                                }
+                            }
+
+                            TextField("", value: $row.percent, formatter: Self.percentFormatter)
+                                .frame(width: percentWidth)
+                                .multilineTextAlignment(.trailing)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(row.kind != .percent)
+                                .foregroundColor(row.kind == .percent ? .primary : .secondary)
+                                .onChange(of: row.percent) { oldVal, newVal in
+                                    guard !isInitialLoad, row.kind == .percent else { return }
+                                    let capped = max(0, min(newVal, 100))
+                                    if capped != newVal { row.percent = capped }
+                                    row.amount = parentAmount * capped / 100
+                                    let ratio = String(format: "%.2f", capped / 100)
+                                    log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                                }
+
+                            TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
+                                .frame(width: chfWidth)
+                                .multilineTextAlignment(.trailing)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(row.kind != .amount)
+                                .foregroundColor(row.kind == .amount ? .primary : .secondary)
+                                .focused($focusedChfField, equals: "row-\(row.id)")
+                                .onChange(of: row.amount) { oldVal, newVal in
+                                    guard !isInitialLoad, row.kind == .amount else { return }
+                                    let capped = max(0, min(newVal, parentAmount))
+                                    if capped != newVal { row.amount = capped }
+                                    row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
+                                    log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                                }
+
+                            TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
+                                .frame(width: tolWidth)
+                                .multilineTextAlignment(.trailing)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        Divider().background(Color.systemGray4).gridCellColumns(5)
+                    }
                 }
             }
 
@@ -229,7 +240,7 @@ struct TargetEditPanel: View {
             }
         }
         .padding()
-        .frame(minWidth: 360)
+        .frame(minWidth: 800)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }
