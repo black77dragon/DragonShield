@@ -11,6 +11,20 @@ enum SortColumn {
     case deltaPct
 }
 
+enum ValidationStatus: String {
+    case compliant
+    case warning
+    case error
+
+    var icon: String {
+        switch self {
+        case .compliant: return "🟢"
+        case .warning: return "🟠"
+        case .error: return "🔴"
+        }
+    }
+}
+
 struct AllocationAsset: Identifiable {
     let id: String
     var name: String
@@ -19,6 +33,7 @@ struct AllocationAsset: Identifiable {
     var targetPct: Double
     var targetChf: Double
     var mode: AllocationInputMode
+    var status: ValidationStatus
     var children: [AllocationAsset]? = nil
 
     /// Difference between target and actual percentage.
@@ -45,6 +60,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     private var subToClass: [Int: Int] = [:]
     /// Asset class IDs that fail sub-class sum validation.
     @Published var invalidClassIds: Set<String> = []
+    @Published var portfolioStatus: ValidationStatus = .compliant
 
     /// Locate an asset within the top-level list and return the index path.
     /// The second tuple element is the child index if the asset is a sub-class.
@@ -110,6 +126,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
         updateValidation()
+        portfolioStatus = worstStatus(assets.filter { $0.id.hasPrefix("class-") }.map(\.status))
     }
 
     private func updateValidation() {
@@ -189,8 +206,14 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     func rowHasActualButNoTarget(_ asset: AllocationAsset) -> Bool {
         let noTarget = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
-        let hasActual = !(isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf))
-        return noTarget && hasActual
+       let hasActual = !(isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf))
+       return noTarget && hasActual
+    }
+
+    private func worstStatus(_ statuses: [ValidationStatus]) -> ValidationStatus {
+        if statuses.contains(.error) { return .error }
+        if statuses.contains(.warning) { return .warning }
+        return .compliant
     }
 
     private static func key(for id: String) -> String { "allocMode-\(id)" }
@@ -245,13 +268,18 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         var classTargetChf: [Int: Double] = [:]
         var subTargetPct: [Int: Double] = [:]
         var subTargetChf: [Int: Double] = [:]
+        var classStatus: [Int: ValidationStatus] = [:]
+        var subStatus: [Int: ValidationStatus] = [:]
         for row in targetRows {
+            let status = ValidationStatus(rawValue: row.validationStatus) ?? .warning
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                subStatus[sub] = status
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                classStatus[cls] = status
             }
         }
 
@@ -290,10 +318,14 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
-                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
+                let status = subStatus[sub.id] ?? .compliant
+                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), status: status, children: nil)
             }
-            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
+            let ownStatus = classStatus[cls.id] ?? .compliant
+            let aggStatus = worstStatus([ownStatus] + children.map(\.status))
+            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), status: aggStatus, children: children)
         }
+        portfolioStatus = worstStatus(assets.map(\.status))
         sortAssets()
     }
 
@@ -496,56 +528,59 @@ struct AllocationTargetsTableView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            List {
-                headerRow
-                totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
-                    tableRow(for: asset)
-                }
-                    if !inactiveAssets.isEmpty {
-                        Divider()
-                        inactiveHeader
-                        OutlineGroup(inactiveAssets, children: \.children) { asset in
-                            tableRow(for: asset)
-                        }
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Portfolio Validation: \(viewModel.portfolioStatus.icon)")
+            HStack(alignment: .top, spacing: 16) {
+                List {
+                    headerRow
+                    totalsRow
+                    OutlineGroup(activeAssets, children: \.children) { asset in
+                        tableRow(for: asset)
                     }
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    DisclosureGroup(isExpanded: $showDetails) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            if validationMessages.isEmpty {
-                                Text("No issues")
-                                    .font(.caption)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            } else {
-                                ForEach(validationMessages, id: \.self) { msg in
-                                    Text("• \(msg)")
-                                        .font(.caption)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
+                        if !inactiveAssets.isEmpty {
+                            Divider()
+                            inactiveHeader
+                            OutlineGroup(inactiveAssets, children: \.children) { asset in
+                                tableRow(for: asset)
                             }
                         }
-                    } label: {
-                        Text("Asset Allocation Errors")
-                            .font(.headline)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.softBlue)
-                    }
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        DisclosureGroup(isExpanded: $showDetails) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                if validationMessages.isEmpty {
+                                    Text("No issues")
+                                        .font(.caption)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                } else {
+                                    ForEach(validationMessages, id: \.self) { msg in
+                                        Text("• \(msg)")
+                                            .font(.caption)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text("Asset Allocation Errors")
+                                .font(.headline)
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.softBlue)
+                        }
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
+
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(width: 320)
+                .background(cardBackground)
             }
-            .frame(width: 320)
-            .background(cardBackground)
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 24)
         .overlay {
             if let cid = editingClassId {
                 Color.black.opacity(0.4)
@@ -584,7 +619,7 @@ struct AllocationTargetsTableView: View {
 
     private var headerRow: some View {
         HStack(spacing: 0) {
-            Text("Asset")
+            Text("Class/Sub-Class")
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
@@ -608,8 +643,13 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+            }
+            Divider()
+            HStack {
+                Text("St")
+                    .frame(width: 24)
+                Text("%-Deviation Bar")
+                    .frame(width: 120)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -641,8 +681,11 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Spacer()
                     .frame(width: 100)
-                Spacer()
-                    .frame(width: 60)
+            }
+            Divider()
+            HStack {
+                Spacer().frame(width: 24)
+                Spacer().frame(width: 120)
             }
         }
         .font(.subheadline)
@@ -713,12 +756,11 @@ struct AllocationTargetsTableView: View {
     }
 
     private func statusText(for asset: AllocationAsset) -> String {
-        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-            return "Sub-class totals mismatch"
+        switch asset.status {
+        case .compliant: return "Compliant"
+        case .warning: return "Warning"
+        case .error: return "Error"
         }
-        if abs(asset.deviationPct) < 0.01 { return "OK" }
-        if abs(asset.deviationPct) > 5 { return "Large deviation" }
-        return asset.deviationPct > 0 ? "Above target" : "Below target"
     }
 
     private var cardBackground: some View {
@@ -758,6 +800,7 @@ struct AllocationTargetsTableView: View {
                     .foregroundColor(.orange)
             }
             Text(asset.name)
+                .padding(.leading, asset.id.hasPrefix("sub-") ? 12 : 0)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }
         .frame(width: 200, alignment: .leading)
@@ -883,19 +926,14 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+            }
+            Divider()
+            HStack {
+                Text(asset.status.icon)
+                    .frame(width: 24)
+                    .help(statusText(for: asset))
+                DeviationBar(target: asset.targetPct, actual: asset.actualPct, trackWidth: 120)
+                    .frame(width: 120)
             }
         }
         .frame(height: isClass ? 60 : 48)

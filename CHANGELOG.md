@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Show bold, left-aligned "Asset Allocation for <Class>" title in target edit panel
+- Display validation status icons and deviation bars in Asset Allocation table
 - Ensure backup routines include TargetChangeLog and full reference data
 - Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
