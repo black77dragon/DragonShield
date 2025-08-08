@@ -71,6 +71,7 @@ All notable changes to this project will be documented in this file.
 - Update deviation bar display in Asset Allocation tile
 - Shorten deviation bars to half length in Asset Allocation tile
 - Remove plus/minus icons from deviation column in Asset Allocation tile
+- Display validation status column with traffic-light icons and deviation bars in Asset Allocation table
 - Prompt to confirm option quantity multiplier during position import
 - Show institutions ranked by AUM in new dashboard tile
 - Document troubleshooting steps for missing `default.metallib` warning

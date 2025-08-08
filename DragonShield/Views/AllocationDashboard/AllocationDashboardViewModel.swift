@@ -15,6 +15,14 @@ final class AllocationDashboardViewModel: ObservableObject {
 
         var deviationPct: Double { actualPct - targetPct }
         var deviationChf: Double { actualChf - targetChf }
+        var deviationPercent: Double { abs(deviationPct) }
+        var validationStatus: String {
+            let dev = deviationPercent
+            let tol = tolerancePercent
+            if dev > tol * 2 { return "error" }
+            if dev > tol { return "warning" }
+            return "compliant"
+        }
         var relativeDev: Double {
             guard targetPct != 0 else { return 0 }
             return (actualPct - targetPct) / targetPct
