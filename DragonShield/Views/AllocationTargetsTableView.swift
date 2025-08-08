@@ -604,12 +604,10 @@ struct AllocationTargetsTableView: View {
             }
             Divider()
             HStack {
-                sortHeader(title: "Δ %", column: .deltaPct)
-                    .frame(width: 80)
-                Text("Δ CHF")
-                    .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+                Text("St")
+                    .frame(width: 30)
+                Text("%-Deviation")
+                    .frame(width: 120)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -638,11 +636,9 @@ struct AllocationTargetsTableView: View {
             Divider()
             HStack {
                 Spacer()
-                    .frame(width: 80)
+                    .frame(width: 30)
                 Spacer()
-                    .frame(width: 100)
-                Spacer()
-                    .frame(width: 60)
+                    .frame(width: 120)
             }
         }
         .font(.subheadline)
@@ -692,13 +688,6 @@ struct AllocationTargetsTableView: View {
         .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
     }
 
-    private func deltaColor(_ value: Double) -> Color {
-        if abs(value) > 5 { return .warning }
-        if value > 0 { return .success }
-        if value < 0 { return .error }
-        return .gray
-    }
-
     private func rowBackground(for asset: AllocationAsset) -> Color {
         if let cid = editingClassId, asset.id == "class-\(cid)" {
             return .rowHighlight
@@ -712,13 +701,38 @@ struct AllocationTargetsTableView: View {
         return .white
     }
 
-    private func statusText(for asset: AllocationAsset) -> String {
-        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-            return "Sub-class totals mismatch"
+    private enum ValidationStatus { case compliant, warning, error }
+
+    private func validationStatus(for asset: AllocationAsset) -> ValidationStatus {
+        var status: ValidationStatus
+        if viewModel.rowHasWarning(asset) {
+            status = .warning
+        } else {
+            let diff = abs(asset.deviationPct)
+            if diff <= 5 {
+                status = .compliant
+            } else if diff <= 10 {
+                status = .warning
+            } else {
+                status = .error
+            }
         }
-        if abs(asset.deviationPct) < 0.01 { return "OK" }
-        if abs(asset.deviationPct) > 5 { return "Large deviation" }
-        return asset.deviationPct > 0 ? "Above target" : "Below target"
+        if let children = asset.children {
+            for child in children {
+                let childStatus = validationStatus(for: child)
+                if childStatus == .error { return .error }
+                if childStatus == .warning { status = .warning }
+            }
+        }
+        return status
+    }
+
+    private func statusIcon(for asset: AllocationAsset) -> String {
+        switch validationStatus(for: asset) {
+        case .compliant: return "🟢"
+        case .warning: return "🟠"
+        case .error: return "🔴"
+        }
     }
 
     private var cardBackground: some View {
@@ -870,32 +884,12 @@ struct AllocationTargetsTableView: View {
             }
             Divider()
             HStack {
-                let dColor = deltaColor(asset.deviationPct)
-                Text("\(formatSignedPercent(asset.deviationPct))%")
-                    .frame(width: 80, alignment: .trailing)
-                    .padding(4)
-                    .background(dColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-                Text(formatSignedChf(asset.deviationChf))
-                    .frame(width: 100, alignment: .trailing)
-                    .padding(4)
-                    .background(dColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+                Text(statusIcon(for: asset))
+                    .frame(width: 30, alignment: .center)
+                DeviationBar(target: asset.targetPct,
+                             actual: asset.actualPct,
+                             trackWidth: 120)
+                    .frame(width: 120)
             }
         }
         .frame(height: isClass ? 60 : 48)
@@ -917,4 +911,50 @@ struct AllocationTargetsTableView_Previews: PreviewProvider {
 }
 
 // MARK: - Comparative Visual Components
+
+fileprivate func barColor(_ diffPercent: Double) -> Color {
+    let mag = abs(diffPercent)
+    if mag <= 10 { return .numberGreen }
+    if mag <= 20 { return .numberAmber }
+    return .numberRed
+}
+
+struct DeviationBar: View {
+    let target: Double
+    let actual: Double
+    var trackWidth: CGFloat
+
+    private var diffPercent: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target * 100
+    }
+
+    private var track: CGFloat { trackWidth - 24 }
+
+    private var span: CGFloat {
+        let mag = min(abs(diffPercent), 100)
+        return track * CGFloat(mag) / 100 * 0.5
+    }
+
+    private var offset: CGFloat {
+        if diffPercent < 0 { return span / 2 }
+        if diffPercent > 0 { return -span / 2 }
+        return 0
+    }
+
+    var body: some View {
+        ZStack {
+            Capsule().fill(Color.systemGray5)
+                .frame(height: 6)
+                .padding(.horizontal, 12)
+            Rectangle().fill(Color.black)
+                .frame(width: 1, height: 8)
+            Capsule().fill(barColor(diffPercent))
+                .frame(width: span, height: 6)
+                .offset(x: offset)
+                .padding(.horizontal, 12)
+        }
+        .frame(width: trackWidth)
+    }
+}
 
