@@ -1,27 +1,16 @@
-```sql
 -- migrate:up
 
-PRAGMA foreign_keys = OFF;
-
---=============================================================================
--- CONFIGURATION AND STATIC DATA TABLES
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS Configuration (
+CREATE TABLE Configuration (
     config_id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
     value TEXT NOT NULL,
-    data_type TEXT NOT NULL CHECK (data_type IN ('string', 'number', 'boolean', 'date')),
+    data_type TEXT NOT NULL CHECK (data_type IN ('string','number','boolean','date')),
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
---=============================================================================
--- CURRENCY AND EXCHANGE RATE MANAGEMENT
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS Currencies (
+CREATE TABLE Currencies (
     currency_code TEXT PRIMARY KEY,
     currency_name TEXT NOT NULL,
     currency_symbol TEXT,
@@ -31,7 +20,7 @@ CREATE TABLE IF NOT EXISTS Currencies (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ExchangeRates (
+CREATE TABLE ExchangeRates (
     rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
     currency_code TEXT NOT NULL,
     rate_date DATE NOT NULL,
@@ -44,11 +33,12 @@ CREATE TABLE IF NOT EXISTS ExchangeRates (
     UNIQUE(currency_code, rate_date)
 );
 
-CREATE INDEX IF NOT EXISTS idx_exchange_rates_date ON ExchangeRates(rate_date);
-CREATE INDEX IF NOT EXISTS idx_exchange_rates_currency ON ExchangeRates(currency_code);
-CREATE INDEX IF NOT EXISTS idx_exchange_rates_latest ON ExchangeRates(currency_code, is_latest) WHERE is_latest=1;
+CREATE INDEX idx_exchange_rates_date ON ExchangeRates(rate_date);
+CREATE INDEX idx_exchange_rates_currency ON ExchangeRates(currency_code);
+CREATE INDEX idx_exchange_rates_latest
+    ON ExchangeRates(currency_code, is_latest) WHERE is_latest = 1;
 
-CREATE TABLE IF NOT EXISTS FxRateUpdates (
+CREATE TABLE FxRateUpdates (
     update_id INTEGER PRIMARY KEY AUTOINCREMENT,
     update_date DATE NOT NULL,
     api_provider TEXT NOT NULL,
@@ -60,11 +50,7 @@ CREATE TABLE IF NOT EXISTS FxRateUpdates (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
---=============================================================================
--- ASSET MANAGEMENT
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS AssetClasses (
+CREATE TABLE AssetClasses (
     class_id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_code TEXT NOT NULL UNIQUE,
     class_name TEXT NOT NULL,
@@ -74,25 +60,26 @@ CREATE TABLE IF NOT EXISTS AssetClasses (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS AssetSubClasses (
+CREATE TABLE AssetSubClasses (
     sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    class_id INTEGER NOT NULL REFERENCES AssetClasses(class_id),
+    class_id INTEGER NOT NULL,
     sub_class_code TEXT NOT NULL UNIQUE,
     sub_class_name TEXT NOT NULL,
     sub_class_description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES AssetClasses(class_id)
 );
 
-CREATE TABLE IF NOT EXISTS Instruments (
+CREATE TABLE Instruments (
     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
     isin TEXT UNIQUE,
     valor_nr TEXT UNIQUE,
     ticker_symbol TEXT,
     instrument_name TEXT NOT NULL,
-    sub_class_id INTEGER NOT NULL REFERENCES AssetSubClasses(sub_class_id),
-    currency TEXT NOT NULL REFERENCES Currencies(currency_code),
+    sub_class_id INTEGER NOT NULL,
+    currency TEXT NOT NULL,
     country_code TEXT,
     exchange_code TEXT,
     sector TEXT,
@@ -100,19 +87,17 @@ CREATE TABLE IF NOT EXISTS Instruments (
     is_active BOOLEAN DEFAULT 1,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id),
+    FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_instruments_isin ON Instruments(isin);
-CREATE INDEX IF NOT EXISTS idx_instruments_ticker ON Instruments(ticker_symbol);
-CREATE INDEX IF NOT EXISTS idx_instruments_sub_class ON Instruments(sub_class_id);
-CREATE INDEX IF NOT EXISTS idx_instruments_currency ON Instruments(currency);
+CREATE INDEX idx_instruments_isin ON Instruments(isin);
+CREATE INDEX idx_instruments_ticker ON Instruments(ticker_symbol);
+CREATE INDEX idx_instruments_sub_class ON Instruments(sub_class_id);
+CREATE INDEX idx_instruments_currency ON Instruments(currency);
 
---=============================================================================
--- PORTFOLIO MANAGEMENT
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS Portfolios (
+CREATE TABLE Portfolios (
     portfolio_id INTEGER PRIMARY KEY AUTOINCREMENT,
     portfolio_code TEXT NOT NULL UNIQUE,
     portfolio_name TEXT NOT NULL,
@@ -124,21 +109,20 @@ CREATE TABLE IF NOT EXISTS Portfolios (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS PortfolioInstruments (
-    portfolio_id INTEGER NOT NULL REFERENCES Portfolios(portfolio_id) ON DELETE CASCADE,
-    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE CASCADE,
+CREATE TABLE PortfolioInstruments (
+    portfolio_id INTEGER NOT NULL,
+    instrument_id INTEGER NOT NULL,
     assigned_date DATE DEFAULT CURRENT_DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (portfolio_id, instrument_id)
+    PRIMARY KEY (portfolio_id,instrument_id),
+    FOREIGN KEY (portfolio_id) REFERENCES Portfolios(portfolio_id) ON DELETE CASCADE,
+    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_portfolio_instruments_instrument ON PortfolioInstruments(instrument_id);
+CREATE INDEX idx_portfolio_instruments_instrument
+    ON PortfolioInstruments(instrument_id);
 
---=============================================================================
--- TARGET ALLOCATION
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS ClassTargets (
+CREATE TABLE ClassTargets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     asset_class_id INTEGER NOT NULL REFERENCES AssetClasses(class_id),
     target_kind TEXT NOT NULL CHECK(target_kind IN('percent','amount')),
@@ -147,11 +131,11 @@ CREATE TABLE IF NOT EXISTS ClassTargets (
     tolerance_percent REAL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_class_nonneg CHECK(target_percent>=0 AND target_amount_chf>=0),
+    CONSTRAINT ck_class_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
     CONSTRAINT uq_class UNIQUE(asset_class_id)
 );
 
-CREATE TABLE IF NOT EXISTS SubClassTargets (
+CREATE TABLE SubClassTargets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_target_id INTEGER NOT NULL REFERENCES ClassTargets(id) ON DELETE CASCADE,
     asset_sub_class_id INTEGER NOT NULL REFERENCES AssetSubClasses(sub_class_id),
@@ -161,11 +145,11 @@ CREATE TABLE IF NOT EXISTS SubClassTargets (
     tolerance_percent REAL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_sub_nonneg CHECK(target_percent>=0 AND target_amount_chf>=0),
-    CONSTRAINT uq_sub UNIQUE(class_target_id, asset_sub_class_id)
+    CONSTRAINT ck_sub_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
+    CONSTRAINT uq_sub UNIQUE(class_target_id,asset_sub_class_id)
 );
 
-CREATE TABLE IF NOT EXISTS TargetChangeLog (
+CREATE TABLE TargetChangeLog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     target_type TEXT NOT NULL CHECK(target_type IN('class','subclass')),
     target_id INTEGER NOT NULL,
@@ -176,51 +160,7 @@ CREATE TABLE IF NOT EXISTS TargetChangeLog (
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- validation triggers
-
-CREATE TRIGGER IF NOT EXISTS trg_validate_class_targets_insert
-AFTER INSERT ON ClassTargets
-BEGIN
-  INSERT INTO TargetChangeLog(target_type,target_id,field_name,new_value,changed_by)
-  SELECT 'class', NEW.id, 'parent_sum_percent', printf('%.2f',SUM(target_percent)), 'trigger'
-  FROM ClassTargets
-  WHERE ABS(SUM(target_percent)-100.0)>0.1;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_validate_class_targets_update
-AFTER UPDATE ON ClassTargets
-BEGIN
-  INSERT INTO TargetChangeLog(target_type,target_id,field_name,new_value,changed_by)
-  SELECT 'class', NEW.id, 'parent_sum_percent', printf('%.2f',SUM(target_percent)), 'trigger'
-  FROM ClassTargets
-  WHERE ABS(SUM(target_percent)-100.0)>0.1;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_validate_subclass_targets_insert
-AFTER INSERT ON SubClassTargets
-BEGIN
-  INSERT INTO TargetChangeLog(target_type,target_id,field_name,new_value,changed_by)
-  SELECT 'class', NEW.class_target_id, 'child_sum_percent', printf('%.2f',SUM(target_percent)), 'trigger'
-  FROM SubClassTargets JOIN ClassTargets ON class_target_id=ClassTargets.id
-  WHERE class_target_id=NEW.class_target_id
-    AND ABS(SUM(target_percent)-ClassTargets.tolerance_percent)>0;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_validate_subclass_targets_update
-AFTER UPDATE ON SubClassTargets
-BEGIN
-  INSERT INTO TargetChangeLog(target_type,target_id,field_name,new_value,changed_by)
-  SELECT 'class', NEW.class_target_id, 'child_sum_percent', printf('%.2f',SUM(target_percent)), 'trigger'
-  FROM SubClassTargets JOIN ClassTargets ON class_target_id=ClassTargets.id
-  WHERE class_target_id=NEW.class_target_id
-    AND ABS(SUM(target_percent)-ClassTargets.tolerance_percent)>0;
-END;
-
---=============================================================================
--- ACCOUNT & TRANSACTION MANAGEMENT
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS AccountTypes (
+CREATE TABLE AccountTypes (
     account_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
     type_code TEXT NOT NULL UNIQUE,
     type_name TEXT NOT NULL,
@@ -230,7 +170,7 @@ CREATE TABLE IF NOT EXISTS AccountTypes (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS Institutions (
+CREATE TABLE Institutions (
     institution_id INTEGER PRIMARY KEY AUTOINCREMENT,
     institution_name TEXT NOT NULL,
     institution_type TEXT,
@@ -245,13 +185,13 @@ CREATE TABLE IF NOT EXISTS Institutions (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS Accounts (
+CREATE TABLE Accounts (
     account_id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_number TEXT UNIQUE,
     account_name TEXT NOT NULL,
-    institution_id INTEGER NOT NULL REFERENCES Institutions(institution_id),
-    account_type_id INTEGER NOT NULL REFERENCES AccountTypes(account_type_id),
-    currency_code TEXT NOT NULL REFERENCES Currencies(currency_code),
+    institution_id INTEGER NOT NULL,
+    account_type_id INTEGER NOT NULL,
+    currency_code TEXT NOT NULL,
     is_active BOOLEAN DEFAULT 1,
     include_in_portfolio BOOLEAN DEFAULT 1,
     opening_date DATE,
@@ -259,10 +199,13 @@ CREATE TABLE IF NOT EXISTS Accounts (
     earliest_instrument_last_updated_at DATE,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
+    FOREIGN KEY (account_type_id) REFERENCES AccountTypes(account_type_id),
+    FOREIGN KEY (currency_code) REFERENCES Currencies(currency_code)
 );
 
-CREATE TABLE IF NOT EXISTS TransactionTypes (
+CREATE TABLE TransactionTypes (
     transaction_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
     type_code TEXT NOT NULL UNIQUE,
     type_name TEXT NOT NULL,
@@ -273,12 +216,12 @@ CREATE TABLE IF NOT EXISTS TransactionTypes (
     sort_order INTEGER DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS Transactions (
+CREATE TABLE Transactions (
     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    account_id INTEGER NOT NULL REFERENCES Accounts(account_id),
-    instrument_id INTEGER REFERENCES Instruments(instrument_id),
-    transaction_type_id INTEGER NOT NULL REFERENCES TransactionTypes(transaction_type_id),
-    portfolio_id INTEGER REFERENCES Portfolios(portfolio_id),
+    account_id INTEGER NOT NULL,
+    instrument_id INTEGER,
+    transaction_type_id INTEGER NOT NULL,
+    portfolio_id INTEGER,
     transaction_date DATE NOT NULL,
     value_date DATE,
     booking_date DATE,
@@ -288,29 +231,32 @@ CREATE TABLE IF NOT EXISTS Transactions (
     fee REAL DEFAULT 0,
     tax REAL DEFAULT 0,
     net_amount REAL NOT NULL,
-    transaction_currency TEXT NOT NULL REFERENCES Currencies(currency_code),
+    transaction_currency TEXT NOT NULL,
     exchange_rate_to_chf REAL DEFAULT 1.0,
     amount_chf REAL,
     import_source TEXT DEFAULT 'manual' CHECK(import_source IN('manual','csv','xlsx','pdf','api')),
-    import_session_id INTEGER REFERENCES ImportSessions(import_session_id),
+    import_session_id INTEGER,
     external_reference TEXT,
     order_reference TEXT,
     description TEXT,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id),
+    FOREIGN KEY (transaction_type_id) REFERENCES TransactionTypes(transaction_type_id),
+    FOREIGN KEY (portfolio_id) REFERENCES Portfolios(portfolio_id),
+    FOREIGN KEY (transaction_currency) REFERENCES Currencies(currency_code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_transactions_date ON Transactions(transaction_date);
-CREATE INDEX IF NOT EXISTS idx_transactions_account ON Transactions(account_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_instrument ON Transactions(instrument_id);
-CREATE INDEX IF NOT_EXISTS idx_transactions_currency ON Transactions(transaction_currency);
+CREATE INDEX idx_transactions_date ON Transactions(transaction_date);
+CREATE INDEX idx_transactions_account ON Transactions(account_id);
+CREATE INDEX idx_transactions_instrument ON Transactions(instrument_id);
+CREATE INDEX idx_transactions_portfolio ON Transactions(portfolio_id);
+CREATE INDEX idx_transactions_type ON Transactions(transaction_type_id);
+CREATE INDEX idx_transactions_currency ON Transactions(transaction_currency);
 
---=============================================================================
--- IMPORT & REPORTS
---=============================================================================
-
-CREATE TABLE IF NOT EXISTS ImportSessions (
+CREATE TABLE ImportSessions (
     import_session_id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_name TEXT NOT NULL,
     file_name TEXT NOT NULL,
@@ -318,7 +264,7 @@ CREATE TABLE IF NOT EXISTS ImportSessions (
     file_type TEXT NOT NULL CHECK(file_type IN('CSV','XLSX','PDF')),
     file_size INTEGER,
     file_hash TEXT,
-    institution_id INTEGER REFERENCES Institutions(institution_id),
+    institution_id INTEGER,
     import_status TEXT DEFAULT 'PENDING' CHECK(import_status IN('PENDING','PROCESSING','COMPLETED','FAILED','CANCELLED')),
     total_rows INTEGER DEFAULT 0,
     successful_rows INTEGER DEFAULT 0,
@@ -328,200 +274,78 @@ CREATE TABLE IF NOT EXISTS ImportSessions (
     processing_notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     started_at DATETIME,
-    completed_at DATETIME
+    completed_at DATETIME,
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id)
 );
 
-CREATE TABLE IF NOT EXISTS PositionReports (
+CREATE TABLE PositionReports (
     position_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    import_session_id INTEGER REFERENCES ImportSessions(import_session_id),
-    account_id INTEGER NOT NULL REFERENCES Accounts(account_id),
-    institution_id INTEGER NOT NULL REFERENCES Institutions(institution_id),
-    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id),
+    import_session_id INTEGER,
+    account_id INTEGER NOT NULL,
+    institution_id INTEGER NOT NULL,
+    instrument_id INTEGER NOT NULL,
     quantity REAL NOT NULL,
     purchase_price REAL,
     current_price REAL,
     instrument_updated_at DATE,
     notes TEXT,
     report_date DATE NOT NULL,
-    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),
+    FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
+    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
 );
 
-CREATE TABLE IF NOT EXISTS ImportSessionValueReports (
+CREATE TABLE ImportSessionValueReports (
     report_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    import_session_id INTEGER NOT NULL REFERENCES ImportSessions(import_session_id),
+    import_session_id INTEGER NOT NULL,
     instrument_name TEXT NOT NULL,
     currency TEXT NOT NULL,
     value_orig REAL NOT NULL,
-    value_chf REAL NOT NULL
+    value_chf REAL NOT NULL,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id)
 );
 
---=============================================================================
--- AUTOMATIC CALCULATIONS & VIEWS
---=============================================================================
-
-CREATE TRIGGER IF NOT EXISTS tr_calculate_chf_amount
+CREATE TRIGGER tr_calculate_chf_amount
 AFTER INSERT ON Transactions
 WHEN NEW.amount_chf IS NULL
 BEGIN
-  UPDATE Transactions
-  SET amount_chf = NEW.net_amount *
-      COALESCE((SELECT rate_to_chf FROM ExchangeRates
-                WHERE currency_code=NEW.transaction_currency
-                  AND rate_date<=NEW.transaction_date
-                ORDER BY rate_date DESC LIMIT 1),1.0),
-      exchange_rate_to_chf = COALESCE((SELECT rate_to_chf FROM ExchangeRates
-                WHERE currency_code=NEW.transaction_currency
-                  AND rate_date<=NEW.transaction_date
-                ORDER BY rate_date DESC LIMIT 1),1.0)
-  WHERE transaction_id=NEW.transaction_id;
+    UPDATE Transactions
+    SET
+        amount_chf = NEW.net_amount *
+          COALESCE(
+            (SELECT rate_to_chf FROM ExchangeRates
+             WHERE currency_code = NEW.transaction_currency
+               AND rate_date <= NEW.transaction_date
+             ORDER BY rate_date DESC LIMIT 1),
+             1.0
+          ),
+        exchange_rate_to_chf = COALESCE(
+            (SELECT rate_to_chf FROM ExchangeRates
+             WHERE currency_code = NEW.transaction_currency
+               AND rate_date <= NEW.transaction_date
+             ORDER BY rate_date DESC LIMIT 1),
+             1.0
+          )
+    WHERE transaction_id = NEW.transaction_id;
 END;
 
-CREATE VIEW IF NOT EXISTS Positions AS
-SELECT
-  p.portfolio_id,
-  p.portfolio_name,
-  i.instrument_id,
-  i.instrument_name,
-  i.isin,
-  i.ticker_symbol,
-  ac.class_name AS asset_class,
-  asc.sub_class_name AS asset_sub_class,
-  a.account_id,
-  a.account_name,
-  i.currency AS instrument_currency,
-  SUM(CASE WHEN tt.type_code IN('BUY','TRANSFER_IN') THEN t.quantity
-           WHEN tt.type_code IN('SELL','TRANSFER_OUT') THEN -t.quantity
-           ELSE 0 END) AS total_quantity,
-  CASE WHEN SUM(CASE WHEN tt.type_code='BUY' THEN t.quantity ELSE 0 END)>0
-       THEN SUM(CASE WHEN tt.type_code='BUY' THEN ABS(t.amount_chf) ELSE 0 END)
-            /SUM(CASE WHEN tt.type_code='BUY' THEN t.quantity ELSE 0 END)
-       ELSE 0 END AS avg_cost_chf_per_unit,
-  SUM(CASE WHEN tt.type_code='BUY' THEN ABS(t.amount_chf) ELSE 0 END) AS total_invested_chf,
-  SUM(CASE WHEN tt.type_code='SELL' THEN t.amount_chf ELSE 0 END)       AS total_sold_chf,
-  SUM(CASE WHEN tt.type_code='DIVIDEND' THEN t.amount_chf ELSE 0 END)   AS total_dividends_chf,
-  SUM(CASE WHEN tt.type_code='FEE' THEN t.amount_chf ELSE 0 END)        AS total_fees_chf,
-  COUNT(t.transaction_id) AS transaction_count,
-  MIN(t.transaction_date) AS first_transaction_date,
-  MAX(t.transaction_date) AS last_transaction_date
-FROM Transactions t
-JOIN Instruments i ON t.instrument_id=i.instrument_id
-JOIN AssetSubClasses asc ON i.sub_class_id=asc.sub_class_id
-JOIN AssetClasses ac ON asc.class_id=ac.class_id
-JOIN Accounts a ON t.account_id=a.account_id
-JOIN TransactionTypes tt ON t.transaction_type_id=tt.transaction_type_id
-LEFT JOIN PortfolioInstruments pi ON i.instrument_id=pi.instrument_id
-LEFT JOIN Portfolios p ON pi.portfolio_id=p.portfolio_id
-WHERE t.transaction_date<=(SELECT value FROM Configuration WHERE key='as_of_date')
-  AND i.include_in_portfolio=1
-  AND a.include_in_portfolio=1
-  AND i.is_active=1
-  AND (p.include_in_total=1 OR p.include_in_total IS NULL)
-  AND asc.sub_class_code!='CASH'
-GROUP BY p.portfolio_id,i.instrument_id,a.account_id
-HAVING total_quantity>0;
+CREATE TRIGGER tr_config_updated_at
+AFTER UPDATE ON Configuration
+BEGIN
+    UPDATE Configuration
+       SET updated_at = CURRENT_TIMESTAMP
+     WHERE config_id = NEW.config_id;
+END;
 
-CREATE VIEW IF NOT EXISTS PortfolioSummary AS
-SELECT
-  COALESCE(p.portfolio_name,'Unassigned') AS portfolio_name,
-  p.asset_class,
-  COUNT(DISTINCT p.instrument_id) AS instrument_count,
-  SUM(p.transaction_count)        AS total_transactions,
-  SUM(p.total_quantity*p.avg_cost_chf_per_unit) AS current_market_value_chf,
-  SUM(p.total_invested_chf)       AS total_invested_chf,
-  SUM(p.total_sold_chf)           AS total_sold_chf,
-  SUM(p.total_dividends_chf)      AS total_dividends_chf,
-  SUM(p.total_fees_chf)           AS total_fees_chf,
-  ROUND((SUM(p.total_quantity*p.avg_cost_chf_per_unit)-SUM(p.total_invested_chf)+SUM(p.total_sold_chf))
-        /NULLIF(SUM(p.total_invested_chf),0)*100,2) AS unrealized_return_percent,
-  ROUND(SUM(p.total_dividends_chf)/NULLIF(SUM(p.total_invested_chf),0)*100,2)       AS dividend_yield_percent
-FROM Positions p
-WHERE p.asset_sub_class!='Cash'
-GROUP BY p.portfolio_name,p.asset_class
-ORDER BY p.portfolio_name,p.asset_class;
-
-CREATE VIEW IF NOT EXISTS AccountSummary AS
-SELECT
-  a.account_id,
-  a.account_name,
-  i.institution_name,
-  act.type_name AS account_type,
-  a.currency_code AS account_currency,
-  COUNT(DISTINCT t.instrument_id) AS instruments_count,
-  COUNT(t.transaction_id)       AS transactions_count,
-  SUM(CASE WHEN tt.type_code IN('DEPOSIT','DIVIDEND','INTEREST') THEN t.amount_chf ELSE 0 END)
-    AS total_inflows_chf,
-  SUM(CASE WHEN tt.type_code IN('WITHDRAWAL','FEE','TAX') THEN ABS(t.amount_chf) ELSE 0 END)
-    AS total_outflows_chf,
-  SUM(CASE WHEN tt.type_code='BUY' THEN ABS(t.amount_chf) ELSE 0 END)  AS total_purchases_chf,
-  SUM(CASE WHEN tt.type_code='SELL' THEN t.amount_chf ELSE 0 END)       AS total_sales_chf,
-  MIN(t.transaction_date) AS first_transaction_date,
-  MAX(t.transaction_date) AS last_transaction_date
-FROM Accounts a
-JOIN AccountTypes act ON a.account_type_id=act.account_type_id
-LEFT JOIN Transactions t ON a.account_id=t.account_id
-LEFT JOIN TransactionTypes tt ON t.transaction_type_id=tt.transaction_type_id
-LEFT JOIN Institutions i ON a.institution_id=i.institution_id
-WHERE a.is_active=1
-  AND (t.transaction_date IS NULL OR t.transaction_date<=(SELECT value FROM Configuration WHERE key='as_of_date'))
-GROUP BY a.account_id,a.account_name,i.institution_name,act.type_name,a.currency_code
-ORDER BY a.account_name;
-
-CREATE VIEW IF NOT EXISTS LatestExchangeRates AS
-SELECT
-  c.currency_code,
-  c.currency_name,
-  c.currency_symbol,
-  COALESCE(er.rate_to_chf,1.0) AS current_rate_to_chf,
-  COALESCE(er.rate_date,CURRENT_DATE) AS rate_date,
-  COALESCE(er.rate_source,'manual') AS rate_source
-FROM Currencies c
-LEFT JOIN ExchangeRates er ON c.currency_code=er.currency_code
-  AND er.rate_date=(SELECT MAX(rate_date) FROM ExchangeRates er2 WHERE er2.currency_code=c.currency_code)
-WHERE c.is_active=1
-ORDER BY c.currency_code;
-
-CREATE VIEW IF NOT EXISTS InstrumentPerformance AS
-SELECT
-  i.instrument_id,
-  i.instrument_name,
-  i.ticker_symbol,
-  i.isin,
-  ac.class_name,
-  i.currency,
-  COALESCE(SUM(CASE WHEN tt.type_code IN('BUY','TRANSFER_IN') THEN t.quantity
-                    WHEN tt.type_code IN('SELL','TRANSFER_OUT') THEN -t.quantity
-                    ELSE 0 END),0) AS current_quantity,
-  CASE WHEN SUM(CASE WHEN tt.type_code='BUY' THEN t.quantity ELSE 0 END)>0
-       THEN SUM(CASE WHEN tt.type_code='BUY' THEN ABS(t.amount_chf) ELSE 0 END)
-            /SUM(CASE WHEN tt.type_code='BUY' THEN t.quantity ELSE 0 END)
-       ELSE 0 END AS avg_cost_basis_chf,
-  COALESCE(SUM(CASE WHEN tt.type_code='BUY' THEN ABS(t.amount_chf) ELSE 0 END),0)
-    AS total_invested_chf,
-  COALESCE(SUM(CASE WHEN tt.type_code='SELL' THEN t.amount_chf ELSE 0 END),0)
-    AS total_sold_chf,
-  COALESCE(SUM(CASE WHEN tt.type_code='DIVIDEND' THEN t.amount_chf ELSE 0 END),0)
-    AS total_dividends_chf,
-  COUNT(CASE WHEN t.transaction_id IS NOT NULL THEN 1 END) AS transaction_count,
-  MIN(t.transaction_date) AS first_purchase_date,
-  MAX(t.transaction_date) AS last_purchase_date,
-  i.include_in_portfolio,
-  i.is_active
-FROM Instruments i
-JOIN AssetSubClasses asc ON i.sub_class_id=asc.sub_class_id
-JOIN AssetClasses ac ON asc.class_id=ac.class_id
-LEFT JOIN Transactions t ON i.instrument_id=t.instrument_id
-  AND t.transaction_date<=(SELECT value FROM Configuration WHERE key='as_of_date')
-LEFT JOIN TransactionTypes tt ON t.transaction_type_id=tt.transaction_type_id
-GROUP BY i.instrument_id,i.instrument_name,i.ticker_symbol,i.isin,ac.class_name,i.currency,i.include_in_portfolio,i.is_active
-ORDER BY i.instrument_name;
-
---=============================================================================
--- FINAL OPTIMIZATIONS
---=============================================================================
-
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
-ANALYZE;
+CREATE TRIGGER tr_instruments_updated_at
+AFTER UPDATE ON Instruments
+BEGIN
+    UPDATE Instruments
+       SET updated_at = CURRENT_TIMESTAMP
+     WHERE instrument_id = NEW.instrument_id;
+END;
 
 -- migrate:down
-```
+-- (baseline is irreversible)
