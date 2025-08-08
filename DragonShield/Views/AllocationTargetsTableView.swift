@@ -608,8 +608,13 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+            }
+            Divider()
+            HStack {
+                Text("St")
+                    .frame(width: 20)
+                Text("%-Deviation")
+                    .frame(width: 100)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -641,8 +646,13 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Spacer()
                     .frame(width: 100)
+            }
+            Divider()
+            HStack {
                 Spacer()
-                    .frame(width: 60)
+                    .frame(width: 20)
+                Spacer()
+                    .frame(width: 100)
             }
         }
         .font(.subheadline)
@@ -719,6 +729,37 @@ struct AllocationTargetsTableView: View {
         if abs(asset.deviationPct) < 0.01 { return "OK" }
         if abs(asset.deviationPct) > 5 { return "Large deviation" }
         return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
+    private func statusIcon(for asset: AllocationAsset) -> String {
+        if viewModel.rowHasWarning(asset) { return "🔴" }
+        let diff = abs(asset.deviationPct)
+        switch diff {
+        case 0..<5: return "🟢"
+        case 5..<15: return "🟠"
+        default: return "🔴"
+        }
+    }
+
+    private func statusColor(for asset: AllocationAsset) -> Color {
+        if viewModel.rowHasWarning(asset) { return .error }
+        return asset.ragColor
+    }
+
+    private struct DeviationPercentBar: View {
+        let percent: Double
+        let color: Color
+        var body: some View {
+            GeometryReader { geo in
+                let width = min(abs(percent) / 100.0 * geo.size.width, geo.size.width)
+                ZStack(alignment: percent >= 0 ? .leading : .trailing) {
+                    Capsule().fill(Color.systemGray5)
+                    Capsule()
+                        .fill(color)
+                        .frame(width: width)
+                }
+            }
+        }
     }
 
     private var cardBackground: some View {
@@ -869,8 +910,8 @@ struct AllocationTargetsTableView: View {
                     .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
             }
             Divider()
+            let dColor = deltaColor(asset.deviationPct)
             HStack {
-                let dColor = deltaColor(asset.deviationPct)
                 Text("\(formatSignedPercent(asset.deviationPct))%")
                     .frame(width: 80, alignment: .trailing)
                     .padding(4)
@@ -883,19 +924,14 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+            }
+            Divider()
+            HStack {
+                Text(statusIcon(for: asset))
+                    .frame(width: 20, alignment: .center)
+                DeviationPercentBar(percent: asset.deviationPct, color: statusColor(for: asset))
+                    .frame(width: 100, height: 10)
+                    .help(statusText(for: asset))
             }
         }
         .frame(height: isClass ? 60 : 48)
