@@ -608,8 +608,10 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+                Text("St")
+                    .frame(width: 24)
+                Text("%-Deviation")
+                    .frame(width: 120, alignment: .leading)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -642,7 +644,9 @@ struct AllocationTargetsTableView: View {
                 Spacer()
                     .frame(width: 100)
                 Spacer()
-                    .frame(width: 60)
+                    .frame(width: 24)
+                Spacer()
+                    .frame(width: 120)
             }
         }
         .font(.subheadline)
@@ -719,6 +723,13 @@ struct AllocationTargetsTableView: View {
         if abs(asset.deviationPct) < 0.01 { return "OK" }
         if abs(asset.deviationPct) > 5 { return "Large deviation" }
         return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
+    private func statusIcon(for asset: AllocationAsset) -> String {
+        if viewModel.rowHasWarning(asset) { return "🔴" }
+        if viewModel.rowNeedsOrange(asset) { return "🟠" }
+        if abs(asset.deviationPct) > 5 { return "🟠" }
+        return "🟢"
     }
 
     private var cardBackground: some View {
@@ -883,19 +894,15 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+            }
+            Divider()
+            HStack {
+                Text(statusIcon(for: asset))
+                    .frame(width: 24, alignment: .center)
+                PercentDeviationBar(percent: asset.deviationPct,
+                                     color: deltaColor(asset.deviationPct))
+                    .frame(width: 120, height: 8)
+                    .help(statusText(for: asset))
             }
         }
         .frame(height: isClass ? 60 : 48)
@@ -904,6 +911,22 @@ struct AllocationTargetsTableView: View {
         .onTapGesture(count: 2) {
             if isClass, let id = Int(asset.id.dropFirst(6)) {
                 editingClassId = id
+            }
+        }
+    }
+}
+
+struct PercentDeviationBar: View {
+    let percent: Double
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let magnitude = min(abs(percent), 100)
+            let width = geo.size.width * CGFloat(magnitude) / 100
+            ZStack(alignment: percent >= 0 ? .leading : .trailing) {
+                Capsule().fill(Color.gray.opacity(0.2))
+                Capsule().fill(color).frame(width: width)
             }
         }
     }
