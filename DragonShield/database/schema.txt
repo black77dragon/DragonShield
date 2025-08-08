@@ -1,9 +1,10 @@
 -- DragonShield/docs/schema.txt
 -- Dragon Shield Seed Data
 -- Created: 2025-05-24
--- Updated: 2025-07-13
+-- Updated: 2025-08-08
 --
 -- RECENT HISTORY:
+-- - v4.21 -> v4.22: Add validation status columns to ClassTargets and SubClassTargets
 -- - v4.20 -> v4.21: Add validation triggers for ClassTargets and SubClassTargets
 -- - v4.19 -> v4.20: Replace TargetAllocation with ClassTargets/SubClassTargets and add TargetChangeLog
 -- - v4.7 -> v4.8: Added Institutions table and updated Accounts seed data.
@@ -31,7 +32,7 @@ INSERT INTO Configuration VALUES ('9', 'table_row_padding', '12.0', 'number', 'V
 INSERT INTO Configuration VALUES ('10', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('11', 'include_direct_re', 'true', 'boolean', 'Include direct real estate in allocation views', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('12', 'direct_re_target_chf', '0', 'number', 'Target CHF amount for direct real estate', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('13', 'db_version', '4.21', 'string', 'Database schema version', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO Configuration VALUES ('13', 'db_version', '4.22', 'string', 'Database schema version', '2025-08-08 09:04:29', '2025-08-08 09:04:29');
 INSERT INTO Currencies VALUES ('CHF', 'Swiss Franc', 'CHF', '1', '0', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('EUR', 'Euro', '€', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Currencies VALUES ('USD', 'US Dollar', '$', '1', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
@@ -350,18 +351,18 @@ INSERT INTO PositionReports VALUES (
 );
 
 -- Target allocations (class level)
-INSERT INTO ClassTargets VALUES ('1', 4, 'percent', 40, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO ClassTargets VALUES ('2', 7, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO ClassTargets VALUES ('3', 2, 'percent', 35, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO ClassTargets VALUES ('4', 1, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO ClassTargets VALUES ('5', 3, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES ('1', 4, 'percent', 40, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES ('2', 7, 'percent', 15, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES ('3', 2, 'percent', 35, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES ('4', 1, 'percent', 15, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO ClassTargets VALUES ('5', 3, 'percent', 5, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
 
 -- Target allocations (sub-class level)
-INSERT INTO SubClassTargets VALUES ('1', 1, 11, 'percent', 30, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('2', 1, 14, 'percent', 10, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('3', 2, 18, 'percent', 10, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('4', 2, 21, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('5', 3, 3, 'percent', 20, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('6', 3, 4, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('7', 4, 1, 'percent', 15, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
-INSERT INTO SubClassTargets VALUES ('8', 5, 7, 'percent', 5, 0, 5.0, '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('1', 1, 11, 'percent', 30, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('2', 1, 14, 'percent', 10, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('3', 2, 18, 'percent', 10, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('4', 2, 21, 'percent', 5, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('5', 3, 3, 'percent', 20, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('6', 3, 4, 'percent', 15, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('7', 4, 1, 'percent', 15, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');
+INSERT INTO SubClassTargets VALUES ('8', 5, 7, 'percent', 5, 0, 5.0, 'warning', '2025-07-13 10:00:00', '2025-07-13 10:00:00');

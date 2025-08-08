@@ -19,6 +19,7 @@ struct AllocationAsset: Identifiable {
     var targetPct: Double
     var targetChf: Double
     var mode: AllocationInputMode
+    var validationStatus: String
     var children: [AllocationAsset]? = nil
 
     /// Difference between target and actual percentage.
@@ -243,15 +244,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         let targetRows = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
         var classTargetChf: [Int: Double] = [:]
+        var classStatus: [Int: String] = [:]
         var subTargetPct: [Int: Double] = [:]
         var subTargetChf: [Int: Double] = [:]
+        var subStatus: [Int: String] = [:]
         for row in targetRows {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                subStatus[sub] = row.validationStatus
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                classStatus[cls] = row.validationStatus
             }
         }
 
@@ -290,9 +295,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
-                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
+                let status = subStatus[sub.id] ?? "warning"
+                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), validationStatus: status, children: nil)
             }
-            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
+            let status = classStatus[cls.id] ?? "warning"
+            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), validationStatus: status, children: children)
         }
         sortAssets()
     }
@@ -753,10 +760,7 @@ struct AllocationTargetsTableView: View {
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 4) {
-            if viewModel.rowHasWarning(asset) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-            }
+            ValidationStatusDot(status: asset.validationStatus)
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }

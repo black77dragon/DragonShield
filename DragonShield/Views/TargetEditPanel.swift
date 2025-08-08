@@ -15,6 +15,7 @@ struct TargetEditPanel: View {
         var amount: Double
         var kind: TargetKind
         var tolerance: Double
+        var validationStatus: String
         var locked: Bool = false
     }
 
@@ -158,6 +159,7 @@ struct TargetEditPanel: View {
                         Divider()
                         ForEach($rows) { $row in
                             HStack {
+                                ValidationStatusDot(status: row.validationStatus)
                                 Text(row.name)
                                     .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
 
@@ -302,7 +304,8 @@ struct TargetEditPanel: View {
                        percent: rec.percent,
                        amount: amt,
                        kind: rk,
-                       tolerance: tol)
+                       tolerance: tol,
+                       validationStatus: rec.validationStatus)
         }
         initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
 
