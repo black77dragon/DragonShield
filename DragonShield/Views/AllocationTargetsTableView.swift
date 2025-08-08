@@ -608,8 +608,10 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+                Text("St")
+                    .frame(width: 24)
+                Text("%-Deviation Bar")
+                    .frame(width: 100, alignment: .leading)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -642,7 +644,9 @@ struct AllocationTargetsTableView: View {
                 Spacer()
                     .frame(width: 100)
                 Spacer()
-                    .frame(width: 60)
+                    .frame(width: 24)
+                Spacer()
+                    .frame(width: 100)
             }
         }
         .font(.subheadline)
@@ -719,6 +723,22 @@ struct AllocationTargetsTableView: View {
         if abs(asset.deviationPct) < 0.01 { return "OK" }
         if abs(asset.deviationPct) > 5 { return "Large deviation" }
         return asset.deviationPct > 0 ? "Above target" : "Below target"
+    }
+
+    private func statusIcon(for asset: AllocationAsset) -> String {
+        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
+            return "🔴"
+        }
+        let dev = abs(asset.deviationPct)
+        if dev >= 15 { return "🔴" }
+        if dev >= 5 { return "🟠" }
+        return "🟢"
+    }
+
+    private func deviationBar(for asset: AllocationAsset) -> String {
+        let dev = abs(asset.deviationPct)
+        let filled = min(10, Int((dev / 10).rounded()))
+        return String(repeating: "■", count: filled) + String(repeating: "□", count: 10 - filled)
     }
 
     private var cardBackground: some View {
@@ -883,19 +903,12 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+                Text(statusIcon(for: asset))
+                    .frame(width: 24, alignment: .center)
+                    .help(statusText(for: asset))
+                Text("[\(deviationBar(for: asset))]")
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 100, alignment: .leading)
             }
         }
         .frame(height: isClass ? 60 : 48)
