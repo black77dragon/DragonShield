@@ -129,17 +129,18 @@ extension DatabaseManager {
 
     // MARK: - New persistence helpers
 
-    /// Fetch the class-level target for a given asset class.
+    /// Fetch the class-level target for a given asset class, including its validation status.
     func fetchClassTarget(classId: Int) -> (
         percent: Double,
         amountCHF: Double,
         targetKind: String,
-        tolerance: Double
+        tolerance: Double,
+        validationStatus: String
     )? {
         LoggingService.shared.log("Fetching ClassTargets for id=\(classId)", type: .info, logger: .database)
-        let query = "SELECT target_percent, target_amount_chf, target_kind, tolerance_percent FROM ClassTargets WHERE asset_class_id = ?;"
+        let query = "SELECT target_percent, target_amount_chf, target_kind, tolerance_percent, validation_status FROM ClassTargets WHERE asset_class_id = ?;"
         var statement: OpaquePointer?
-        var result: (Double, Double, String, Double)?
+        var result: (Double, Double, String, Double, String)?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(classId))
             if sqlite3_step(statement) == SQLITE_ROW {
@@ -147,13 +148,49 @@ extension DatabaseManager {
                 let amt = sqlite3_column_double(statement, 1)
                 let kind = String(cString: sqlite3_column_text(statement, 2))
                 let tol = sqlite3_column_double(statement, 3)
-                result = (pct, amt, kind, tol)
+                let status = String(cString: sqlite3_column_text(statement, 4))
+                result = (pct, amt, kind, tol, status)
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchClassTarget: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
-        return result.map { (percent: $0.0, amountCHF: $0.1, targetKind: $0.2, tolerance: $0.3) }
+        return result.map { (percent: $0.0, amountCHF: $0.1, targetKind: $0.2, tolerance: $0.3, validationStatus: $0.4) }
+    }
+
+    /// Fetch validation statuses for all asset classes.
+    func fetchClassValidationStatuses() -> [Int: String] {
+        var results: [Int: String] = [:]
+        let query = "SELECT asset_class_id, validation_status FROM ClassTargets"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                let status = String(cString: sqlite3_column_text(statement, 1))
+                results[id] = status
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare fetchClassValidationStatuses: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return results
+    }
+
+    /// Fetch validation status for a single asset class.
+    func fetchClassValidationStatus(classId: Int) -> String? {
+        let query = "SELECT validation_status FROM ClassTargets WHERE asset_class_id = ?"
+        var statement: OpaquePointer?
+        var status: String?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(classId))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                status = String(cString: sqlite3_column_text(statement, 0))
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare fetchClassValidationStatus: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return status
     }
 
     /// Fetch all sub-class targets for a given asset class.

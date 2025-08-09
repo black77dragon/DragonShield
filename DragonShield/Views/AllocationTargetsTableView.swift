@@ -21,19 +21,12 @@ struct AllocationAsset: Identifiable {
     var targetChf: Double
     var mode: AllocationInputMode
     var children: [AllocationAsset]? = nil
+    var validationStatus: String = "compliant"
 
     /// Difference between target and actual percentage.
     var deviationPct: Double { targetPct - actualPct }
     /// Difference between target and actual CHF amount.
     var deviationChf: Double { targetChf - actualChf }
-    var ragColor: Color {
-        let diff = abs(deviationPct)
-        switch diff {
-        case 0..<5: return .success
-        case 5..<15: return .warning
-        default: return .error
-        }
-    }
 }
 
 final class AllocationTargetsTableViewModel: ObservableObject {
@@ -44,8 +37,6 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     private var portfolioValue: Double = 0
     /// Mapping of sub-class IDs to their parent class IDs for validation.
     private var subToClass: [Int: Int] = [:]
-    /// Asset class IDs that fail sub-class sum validation.
-    @Published var invalidClassIds: Set<String> = []
 
     /// Locate an asset within the top-level list and return the index path.
     /// The second tuple element is the child index if the asset is a sub-class.
@@ -110,42 +101,6 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if lhsVal == rhsVal { return lhs.name < rhs.name }
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
-        updateValidation()
-    }
-
-    private func updateValidation() {
-        var invalid: Set<String> = []
-        for asset in assets where asset.id.hasPrefix("class-") {
-            guard let children = asset.children else { continue }
-            let parentZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf)
-            if parentZero {
-                // When the parent has no target but subclasses do, don't flag as invalid
-                continue
-            }
-
-            let sumPct = children.map(\.targetPct).reduce(0, +)
-            // Sub-class target percentages are relative to their parent so totals must be ~100%
-            let pctValid = abs(sumPct - 100) <= 1
-            let sumChf = children.map(\.targetChf).reduce(0, +)
-            // CHF targets should equal the parent target within ±1%
-            let tol = abs(asset.targetChf) * 0.01
-            let chfValid = abs(sumChf - asset.targetChf) <= tol
-            if !(pctValid && chfValid) {
-                invalid.insert(asset.id)
-            }
-        }
-        invalidClassIds = invalid
-    }
-
-    func rowHasWarning(_ asset: AllocationAsset) -> Bool {
-        if asset.id.hasPrefix("class-") {
-            return invalidClassIds.contains(asset.id)
-        } else if asset.id.hasPrefix("sub-") {
-            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId] {
-                return invalidClassIds.contains("class-\(parent)")
-            }
-        }
-        return false
     }
 
     private func isZeroPct(_ value: Double) -> Bool { abs(value) < 0.0001 }
@@ -162,27 +117,6 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                       isZeroPct(child.actualPct) && isZeroChf(child.actualChf)) {
                     return true
                 }
-            }
-        }
-        return false
-    }
-
-    private func parentHasSubActivity(_ asset: AllocationAsset) -> Bool {
-        guard asset.id.hasPrefix("class-"), let children = asset.children else { return false }
-        let assetZero = isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf) &&
-            isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf)
-        guard assetZero else { return false }
-        return children.contains { !(isZeroPct($0.targetPct) && isZeroChf($0.targetChf) &&
-                                     isZeroPct($0.actualPct) && isZeroChf($0.actualChf)) }
-    }
-
-    func rowNeedsOrange(_ asset: AllocationAsset) -> Bool {
-        if asset.id.hasPrefix("class-") {
-            return parentHasSubActivity(asset)
-        } else if asset.id.hasPrefix("sub-") {
-            if let subId = Int(asset.id.dropFirst(4)), let parent = subToClass[subId],
-               let idx = assets.firstIndex(where: { $0.id == "class-\(parent)" }) {
-                return parentHasSubActivity(assets[idx])
             }
         }
         return false
@@ -241,6 +175,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         }
         self.subToClass = subToClass
 
+        let statusMap = dbManager.fetchClassValidationStatuses()
         let targetRows = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
         var classTargetChf: [Int: Double] = [:]
@@ -291,9 +226,10 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
-                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
+                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil, validationStatus: "compliant")
             }
-            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
+            let status = statusMap[cls.id] ?? "compliant"
+            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children, validationStatus: status)
         }
         sortAssets()
     }
@@ -401,7 +337,6 @@ struct AllocationTargetsTableView: View {
     @State private var chfDrafts: [String: String] = [:]
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
-    @State private var showDetails = true
     @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var scheme
 
@@ -469,29 +404,26 @@ struct AllocationTargetsTableView: View {
     }
 
 
-    private var validationMessages: [String] {
+    private var portfolioIssues: [String] {
         var issues: [String] = []
         if !viewModel.totalsValid {
-            issues.append(String(format: "Overall Target %% total is %.1f%%, which is outside the 99\u{2013}101%% tolerance", viewModel.targetPctTotal))
-        }
-        for asset in viewModel.assets {
-            if asset.id.hasPrefix("class-") {
-                if viewModel.rowHasWarning(asset) {
-                    let sumPct = asset.children?.map(\.targetPct).reduce(0, +) ?? 0
-                    issues.append("Total Target % for Asset Class '\(asset.name)' is \(formatPercent(sumPct))%, which is outside the 99\u{2013}101% tolerance")
-                } else if viewModel.rowNeedsOrange(asset) {
-                    issues.append("No sub-asset class allocation defined for Asset Class '\(asset.name)'")
-                }
-                if asset.actualChf > 0 && abs(asset.targetChf) < 0.01 && abs(asset.targetPct) < 0.0001 {
-                    issues.append("Asset Class '\(asset.name)' has actual CHF but no target defined")
-                }
-            } else if asset.id.hasPrefix("sub-") {
-                if asset.actualChf > 0 && abs(asset.targetChf) < 0.01 && abs(asset.targetPct) < 0.0001 {
-                    issues.append("Asset Sub-Class '\(asset.name)' has actual CHF but no target defined")
-                }
-            }
+            issues.append(String(format: "WARNING: Total Asset Class %% = %.1f%% (expected 100%% ± 1%%)", viewModel.targetPctTotal))
         }
         return issues
+    }
+
+    private var classFindings: [AllocationAsset] {
+        viewModel.assets.filter { $0.id.hasPrefix("class-") && $0.validationStatus.lowercased() != "compliant" }
+    }
+
+    private var overallStatus: String {
+        if classFindings.contains(where: { $0.validationStatus.lowercased() == "error" }) {
+            return "error"
+        }
+        if !portfolioIssues.isEmpty || classFindings.contains(where: { $0.validationStatus.lowercased() == "warning" }) {
+            return "warning"
+        }
+        return "compliant"
     }
 
     var body: some View {
@@ -512,31 +444,40 @@ struct AllocationTargetsTableView: View {
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    DisclosureGroup(isExpanded: $showDetails) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            if validationMessages.isEmpty {
-                                Text("No issues")
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Validation Status")
+                            .font(.headline)
+                        Spacer()
+                        Text(overallStatus.capitalized)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(colorForStatus(overallStatus))
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                    }
+                    if !portfolioIssues.isEmpty {
+                        ForEach(portfolioIssues, id: \.self) { msg in
+                            Text("• \(msg)")
+                                .font(.caption)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    if !classFindings.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        ForEach(classFindings, id: \.id) { asset in
+                            Button {
+                                if let id = Int(asset.id.dropFirst(6)) {
+                                    openWindow(id: "targetEdit", value: id)
+                                }
+                            } label: {
+                                Text("• \(asset.validationStatus.uppercased()) – \(asset.name)")
                                     .font(.caption)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                            } else {
-                                ForEach(validationMessages, id: \.self) { msg in
-                                    Text("• \(msg)")
-                                        .font(.caption)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
                             }
+                            .buttonStyle(.plain)
                         }
-                    } label: {
-                        Text("Asset Allocation Errors")
-                            .font(.headline)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.softBlue)
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -674,23 +615,32 @@ struct AllocationTargetsTableView: View {
         return .gray
     }
 
+    private func colorForStatus(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "warning": return .warning
+        case "error": return .error
+        default: return .success
+        }
+    }
+
     private func rowBackground(for asset: AllocationAsset) -> Color {
-        if viewModel.rowHasWarning(asset) {
-            return .paleRed
+        switch asset.validationStatus.lowercased() {
+        case "error": return .paleRed
+        case "warning": return .paleOrange
+        default:
+            if viewModel.rowHasActualButNoTarget(asset) {
+                return .paleOrange
+            }
+            return .white
         }
-        if viewModel.rowHasActualButNoTarget(asset) {
-            return .paleOrange
-        }
-        return .white
     }
 
     private func statusText(for asset: AllocationAsset) -> String {
-        if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-            return "Sub-class totals mismatch"
+        switch asset.validationStatus.lowercased() {
+        case "warning": return "Warning"
+        case "error": return "Error"
+        default: return "Compliant"
         }
-        if abs(asset.deviationPct) < 0.01 { return "OK" }
-        if abs(asset.deviationPct) > 5 { return "Large deviation" }
-        return asset.deviationPct > 0 ? "Above target" : "Below target"
     }
 
     private var cardBackground: some View {
@@ -725,10 +675,6 @@ struct AllocationTargetsTableView: View {
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 4) {
-            if viewModel.rowHasWarning(asset) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-            }
             Text(asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }
@@ -855,19 +801,11 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+                Circle()
+                    .fill(colorForStatus(asset.validationStatus))
+                    .frame(width: 16, height: 16)
+                    .frame(width: 60, alignment: .center)
+                    .help(statusText(for: asset))
             }
         }
         .frame(height: isClass ? 60 : 48)
