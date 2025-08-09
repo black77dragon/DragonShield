@@ -264,6 +264,28 @@ extension DatabaseManager {
         return results
     }
 
+    /// Resolve the class_target_id for a given sub-class.
+    private func classTargetId(for subClassId: Int) -> Int? {
+        let query = """
+            SELECT ct.id
+            FROM ClassTargets ct
+            JOIN AssetSubClasses asc ON ct.asset_class_id = asc.class_id
+            WHERE asc.sub_class_id = ?;
+        """
+        var statement: OpaquePointer?
+        var result: Int?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(subClassId))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                result = Int(sqlite3_column_int(statement, 0))
+            }
+        } else {
+            LoggingService.shared.log("Failed to resolve class_target_id: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return result
+    }
+
     /// Upsert a class-level target percentage.
     func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting ClassTargets id=\(classId)", type: .info, logger: .database)
@@ -301,9 +323,13 @@ extension DatabaseManager {
     /// Upsert a sub-class-level target percentage.
     func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting SubClassTargets id=\(subClassId)", type: .info, logger: .database)
+        guard let classTargetId = classTargetId(for: subClassId) else {
+            LoggingService.shared.log("Cannot find class_target_id for subClassId=\(subClassId)", type: .error, logger: .database)
+            return
+        }
         let query = """
             INSERT INTO SubClassTargets (class_target_id, asset_sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at)
-            VALUES ((SELECT id FROM ClassTargets WHERE asset_class_id = (SELECT class_id FROM AssetSubClasses WHERE sub_class_id = ?)), ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(class_target_id, asset_sub_class_id)
             DO UPDATE SET target_percent = excluded.target_percent,
                          target_amount_chf = excluded.target_amount_chf,
@@ -314,7 +340,7 @@ extension DatabaseManager {
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_int(statement, 1, Int32(subClassId))
+            sqlite3_bind_int(statement, 1, Int32(classTargetId))
             sqlite3_bind_int(statement, 2, Int32(subClassId))
             sqlite3_bind_double(statement, 3, percent)
             if let amt = amountChf {

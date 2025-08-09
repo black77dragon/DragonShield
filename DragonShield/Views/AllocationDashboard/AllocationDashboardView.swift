@@ -170,9 +170,11 @@ struct AllocationTreeCard: View {
     private let minName: CGFloat = 120
     private let minNumeric: CGFloat = 60
     private let minBar: CGFloat = 120
+    private let statusColumnWidth: CGFloat = 28
+    private let deviationBarColumnWidth: CGFloat = 120
 
     private func updateWidths(for tableWidth: CGFloat) {
-        let spacing: CGFloat = 16 + gap * 4 + 4
+        let spacing: CGFloat = 16 + gap * 6 + 4 + statusColumnWidth + deviationBarColumnWidth
         let available = tableWidth - spacing
         guard available > 0 else { return }
         let oldTotal = widths.total
@@ -238,13 +240,15 @@ struct AllocationTreeCard: View {
                                actualWidth: widths.actual,
                                trackWidth: widths.bar,
                                deltaWidth: widths.delta,
+                               statusWidth: statusColumnWidth,
+                               barWidth: deviationBarColumnWidth,
                                gap: gap,
                                sortColumn: $sortColumn,
                                sortAscending: $sortAscending)
                     Divider()
                     ScrollView {
                         VStack(spacing: 0) {
-                            rows(widths.name, widths.target, widths.actual, widths.bar, widths.delta, compact)
+                            rows(widths.name, widths.target, widths.actual, widths.bar, widths.delta, statusColumnWidth, deviationBarColumnWidth, compact)
                         }
                     }
                 }
@@ -314,6 +318,8 @@ struct AllocationTreeCard: View {
                       _ actualWidth: CGFloat,
                       _ trackWidth: CGFloat,
                       _ deltaWidth: CGFloat,
+                      _ statusWidth: CGFloat,
+                      _ barWidth: CGFloat,
                       _ compact: Bool) -> some View {
         ForEach(sortedAssets) { parent in
             VStack(spacing: 0) {
@@ -327,6 +333,8 @@ struct AllocationTreeCard: View {
                          actualWidth: actualWidth,
                          trackWidth: trackWidth,
                          deltaWidth: deltaWidth,
+                         statusWidth: statusWidth,
+                         barWidth: barWidth,
                          gap: gap)
             }
             if expanded[parent.id] == true, let children = parent.children {
@@ -341,6 +349,8 @@ struct AllocationTreeCard: View {
                              actualWidth: actualWidth,
                              trackWidth: trackWidth,
                              deltaWidth: deltaWidth,
+                             statusWidth: statusWidth,
+                             barWidth: barWidth,
                              gap: gap)
                 }
             }
@@ -391,6 +401,8 @@ struct AllocationTreeCard: View {
         let actualWidth: CGFloat
         let trackWidth: CGFloat
         let deltaWidth: CGFloat
+        let statusWidth: CGFloat
+        let barWidth: CGFloat
         let gap: CGFloat
         @Binding var sortColumn: SortColumn
         @Binding var sortAscending: Bool
@@ -409,6 +421,14 @@ struct AllocationTreeCard: View {
                     .lineLimit(1)
                 sortHeader("\u{0394}", column: .delta)
                     .frame(width: deltaWidth, alignment: .trailing)
+                Text("St")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: statusWidth, alignment: .center)
+                Text("%-Deviation Bar")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: barWidth, alignment: .leading)
             }
             .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
@@ -456,6 +476,8 @@ struct AssetRow: View {
     let actualWidth: CGFloat
     let trackWidth: CGFloat
     let deltaWidth: CGFloat
+    let statusWidth: CGFloat
+    let barWidth: CGFloat
     let gap: CGFloat
 
     private var classId: Int? {
@@ -551,6 +573,11 @@ struct AssetRow: View {
                     .foregroundStyle(barColor(diffPct))
                     .frame(width: deltaWidth, alignment: .trailing)
                     .lineLimit(1)
+                Text(statusEmoji(for: node))
+                    .frame(width: statusWidth, alignment: .center)
+                Text(percentBar(for: node))
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(width: barWidth, alignment: .leading)
             }
 
         }
@@ -618,6 +645,41 @@ struct AssetRow: View {
 
     private func formatDeviation(_ value: Double) -> String {
         mode == .percent ? formatSignedPercent(value) : formatSignedChf(value)
+    }
+
+    private enum ValidationStatus { case compliant, warning, error }
+
+    private func statusEmoji(for asset: AllocationDashboardViewModel.Asset) -> String {
+        switch status(for: asset) {
+        case .compliant: return "🟢"
+        case .warning: return "🟠"
+        case .error: return "🔴"
+        }
+    }
+
+    private func status(for asset: AllocationDashboardViewModel.Asset) -> ValidationStatus {
+        let own = status(from: abs(asset.deviationPct), tolerance: asset.tolerancePercent)
+        guard let children = asset.children else { return own }
+        return children.map { status(for: $0) }.reduce(own) { worst($0, $1) }
+    }
+
+    private func status(from deviation: Double, tolerance: Double) -> ValidationStatus {
+        if deviation <= tolerance { return .compliant }
+        if deviation <= tolerance * 2 { return .warning }
+        return .error
+    }
+
+    private func worst(_ a: ValidationStatus, _ b: ValidationStatus) -> ValidationStatus {
+        if a == .error || b == .error { return .error }
+        if a == .warning || b == .warning { return .warning }
+        return .compliant
+    }
+
+    private func percentBar(for asset: AllocationDashboardViewModel.Asset) -> String {
+        let dev = abs(asset.deviationPct)
+        let filled = min(10, Int(round(dev / 10)))
+        let empty = max(0, 10 - filled)
+        return "[" + String(repeating: "■", count: filled) + String(repeating: "□", count: empty) + "]"
     }
 
 }
