@@ -32,10 +32,12 @@ struct TargetEditPanel: View {
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
-    @State private var parentWarning: String? = nil
-    @State private var totalClassPercent: Double = 0
+    @State private var validationStatus: String = "compliant"
     @State private var isInitialLoad = true
     @State private var initialRows: [Int: Row] = [:]
+    @State private var reasons: [String] = []
+    @State private var showReasons = false
+    @State private var statusFetchError = false
 
     private var subTotal: Double {
         if kind == .percent {
@@ -65,7 +67,7 @@ struct TargetEditPanel: View {
             headerSection
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("Sub-Class Targets:")
                         .font(.headline)
 
@@ -96,6 +98,7 @@ struct TargetEditPanel: View {
                                     } else {
                                         row.amount = parentAmount * row.percent / 100
                                     }
+                                    updateReasons()
                                 }
 
                                 TextField("", value: $row.percent, formatter: Self.percentFormatter)
@@ -111,6 +114,7 @@ struct TargetEditPanel: View {
                                         row.amount = parentAmount * capped / 100
                                         let ratio = String(format: "%.2f", capped / 100)
                                         log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                                        updateReasons()
                                     }
 
                                 TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -126,6 +130,7 @@ struct TargetEditPanel: View {
                                         if capped != newVal { row.amount = capped }
                                         row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
                                         log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                                        updateReasons()
                                     }
 
                                 TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -133,22 +138,13 @@ struct TargetEditPanel: View {
                                     .multilineTextAlignment(.trailing)
                                     .textFieldStyle(.roundedBorder)
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                             Divider()
                         }
                     }
 
                     Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                         .foregroundColor(remaining == 0 ? .primary : .red)
-
-                    if let warning = parentWarning {
-                        Text(warning)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
                 }
                 .padding(24)
             }
@@ -166,12 +162,10 @@ struct TargetEditPanel: View {
                 parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
             }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: parentAmount) { _, _ in
             guard !isInitialLoad else { return }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
             if let old = oldValue, old != newValue {
@@ -215,7 +209,6 @@ struct TargetEditPanel: View {
                             parentAmount = portfolioTotal * capped / 100
                             let ratio = String(format: "%.2f", capped / 100)
                             log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -234,7 +227,6 @@ struct TargetEditPanel: View {
                             if capped != newVal { parentAmount = capped }
                             parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
                             log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -244,11 +236,43 @@ struct TargetEditPanel: View {
                         .frame(width: 60)
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
+                        .onChange(of: tolerance) { _, _ in updateReasons() }
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading) {
+                    Text("Validation Status")
+                    HStack(spacing: 8) {
+                        Text(validationStatus.capitalized)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(colorForStatus(validationStatus))
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                            .help(statusFetchError ? "Couldn't load validation status" : "")
+                        if ["warning", "error"].contains(validationStatus.lowercased()) {
+                            Button("Why?") { toggleReasons() }
+                                .buttonStyle(.plain)
+                                .font(.caption)
+                        }
+                    }
+                    if showReasons {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(reasons, id: \.self) { reason in
+                                Text("• \(reason)")
+                                    .font(.caption)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.white)
+                        .cornerRadius(4)
+                    }
                 }
             }
             Divider()
             HStack(spacing: 32) {
-                Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
             }
@@ -272,20 +296,25 @@ struct TargetEditPanel: View {
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         portfolioTotal = calculatePortfolioTotal()
-        parentWarning = nil
-
         log("FETCH", "Fetching ClassTargets for id=\(classId)", type: .info)
         if let parent = db.fetchClassTarget(classId: classId) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
             parentAmount = parent.amountCHF
             tolerance = parent.tolerance
+            validationStatus = parent.validationStatus
+            statusFetchError = false
+            if validationStatus.lowercased() == "compliant" { showReasons = false }
         } else {
             kind = .percent
             parentPercent = 0
             parentAmount = 0
             tolerance = 0
+            validationStatus = "unknown"
+            statusFetchError = true
+            showReasons = false
         }
+        log("VALIDATION STATUS", "Loaded validation status \(validationStatus) for class id=\(classId)", type: .info)
         log("FETCH", "Fetching SubClassTargets for class id=\(classId)", type: .info)
         let subRecs = db.fetchSubClassTargets(classId: classId)
         rows = subRecs.map { rec in
@@ -302,6 +331,7 @@ struct TargetEditPanel: View {
         initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
 
         updateRows()
+        updateReasons()
         if focusedChfField == nil {
             refreshDrafts()
         }
@@ -311,7 +341,6 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
-        updateClassTotals()
         isInitialLoad = false
     }
 
@@ -345,6 +374,7 @@ struct TargetEditPanel: View {
             }
         }
         refreshDrafts()
+        updateReasons()
     }
 
     private func autoBalance() {
@@ -362,6 +392,7 @@ struct TargetEditPanel: View {
                 rows[last].amount += remaining - share * Double(unlocked.count)
             }
         }
+        updateReasons()
     }
 
     private func cancel() {
@@ -388,19 +419,70 @@ struct TargetEditPanel: View {
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
+        let oldStatus = validationStatus
+        if let status = db.fetchClassValidationStatus(classId: classId) {
+            validationStatus = status
+            statusFetchError = false
+        } else {
+            validationStatus = "unknown"
+            statusFetchError = true
+        }
+        if validationStatus.lowercased() == "compliant" { showReasons = false }
+        log("VALIDATION STATUS", "Saved class id=\(classId) status \(oldStatus)→\(validationStatus)", type: .info)
+        updateReasons()
         NotificationCenter.default.post(name: .targetsUpdated, object: nil)
         dismiss()
     }
 
-    private func updateClassTotals() {
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        let others = records.filter { $0.subClassId == nil && $0.classId != classId }.map(\.percent).reduce(0, +)
-        totalClassPercent = others + parentPercent
-        let tol = 0.1
-        if abs(totalClassPercent - 100) > tol {
-            parentWarning = String(format: "Warning: Total Asset Class %% = %.1f%% (expected 100%% ± %.1f%%)", totalClassPercent, tol)
-        } else {
-            parentWarning = nil
+    private func toggleReasons() {
+        showReasons.toggle()
+        if showReasons {
+            log("WHY PANEL", "Reasons for class id=\(classId): \(reasons.joined(separator: "; "))", type: .info)
+        }
+    }
+
+    private func updateReasons() {
+        reasons = computeReasons()
+    }
+
+    private func computeReasons() -> [String] {
+        var msgs: [String] = []
+        let tolStr = String(format: "%.1f", tolerance)
+        // Sub-class % sum
+        let pctSum = rows.map(\.percent).reduce(0, +)
+        if abs(pctSum - 100) > tolerance {
+            msgs.append("Sub-class % sum is \(String(format: "%.1f", pctSum))% (expected 100% ± \(tolStr)%).")
+        }
+        // Sub-class CHF sum
+        if kind == .amount || rows.contains(where: { $0.kind == .amount }) {
+            let chfSum = rows.map(\.amount).reduce(0, +)
+            let tolAmt = parentAmount * tolerance / 100
+            if abs(chfSum - parentAmount) > tolAmt {
+                msgs.append("Sub-class CHF sum is \(formatChf(chfSum)) (expected \(formatChf(parentAmount)) ± \(tolStr)%).")
+            }
+        }
+        // Remaining to allocate
+        if kind == .percent {
+            if abs(remaining) > tolerance {
+                msgs.append("Remaining to allocate is \(String(format: "%.1f", remaining))% (expected 0% ± \(tolStr)%).")
+            }
+        }
+        // Mixed kind inconsistencies
+        if kind == .percent {
+            let allSubsAmount = rows.allSatisfy { $0.kind == .amount }
+            if allSubsAmount && parentAmount == 0 {
+                msgs.append("Class target is %, but sub-targets are CHF without a defined class CHF baseline.")
+            }
+        }
+        return msgs
+    }
+
+    private func colorForStatus(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "warning": return .warning
+        case "error": return .error
+        case "unknown": return .gray
+        default: return .success
         }
     }
 
