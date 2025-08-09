@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Show validation badge for selected asset class and remove portfolio totals from editor
 - Replace faulty allocation validation triggers with non-blocking versions and update validation_status
 - Convert Edit Targets panel into resizable floating window with scrollable content
 - Show bold, left-aligned "Asset Allocation for <Class>" title in target edit panel

@@ -32,8 +32,7 @@ struct TargetEditPanel: View {
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
-    @State private var parentWarning: String? = nil
-    @State private var totalClassPercent: Double = 0
+    @State private var validationStatus: String = "compliant"
     @State private var isInitialLoad = true
     @State private var initialRows: [Int: Row] = [:]
 
@@ -59,6 +58,24 @@ struct TargetEditPanel: View {
 
     private var sumChildAmount: Double {
         rows.map(\.amount).reduce(0, +)
+    }
+
+    private var statusLabel: String {
+        switch validationStatus.lowercased() {
+        case "compliant": return "Compliant"
+        case "warning": return "Warning"
+        case "error": return "Error"
+        default: return validationStatus
+        }
+    }
+
+    private var statusColor: Color {
+        switch validationStatus.lowercased() {
+        case "compliant": return .green
+        case "warning": return .orange
+        case "error": return .red
+        default: return .gray
+        }
     }
     var body: some View {
         VStack(spacing: 0) {
@@ -133,22 +150,13 @@ struct TargetEditPanel: View {
                                     .multilineTextAlignment(.trailing)
                                     .textFieldStyle(.roundedBorder)
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                             Divider()
                         }
                     }
 
                     Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                         .foregroundColor(remaining == 0 ? .primary : .red)
-
-                    if let warning = parentWarning {
-                        Text(warning)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
                 }
                 .padding(24)
             }
@@ -166,12 +174,10 @@ struct TargetEditPanel: View {
                 parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
             }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: parentAmount) { _, _ in
             guard !isInitialLoad else { return }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
             if let old = oldValue, old != newValue {
@@ -189,7 +195,7 @@ struct TargetEditPanel: View {
 
     private var headerSection: some View {
         VStack(spacing: 16) {
-            HStack(spacing: 24) {
+            HStack(alignment: .top, spacing: 24) {
                 VStack(alignment: .leading) {
                     Text("Target Kind")
                     Picker("", selection: $kind) {
@@ -215,7 +221,6 @@ struct TargetEditPanel: View {
                             parentAmount = portfolioTotal * capped / 100
                             let ratio = String(format: "%.2f", capped / 100)
                             log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -234,7 +239,6 @@ struct TargetEditPanel: View {
                             if capped != newVal { parentAmount = capped }
                             parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
                             log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -245,10 +249,19 @@ struct TargetEditPanel: View {
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
                 }
+                Spacer()
+                VStack(alignment: .trailing) {
+                    Text("Validation Status")
+                    Text(statusLabel)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(statusColor)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                }
             }
             Divider()
             HStack(spacing: 32) {
-                Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
             }
@@ -272,7 +285,6 @@ struct TargetEditPanel: View {
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         portfolioTotal = calculatePortfolioTotal()
-        parentWarning = nil
 
         log("FETCH", "Fetching ClassTargets for id=\(classId)", type: .info)
         if let parent = db.fetchClassTarget(classId: classId) {
@@ -280,11 +292,13 @@ struct TargetEditPanel: View {
             parentPercent = parent.percent
             parentAmount = parent.amountCHF
             tolerance = parent.tolerance
+            validationStatus = parent.validationStatus
         } else {
             kind = .percent
             parentPercent = 0
             parentAmount = 0
             tolerance = 0
+            validationStatus = "compliant"
         }
         log("FETCH", "Fetching SubClassTargets for class id=\(classId)", type: .info)
         let subRecs = db.fetchSubClassTargets(classId: classId)
@@ -311,7 +325,6 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
-        updateClassTotals()
         isInitialLoad = false
     }
 
@@ -390,18 +403,6 @@ struct TargetEditPanel: View {
         }
         NotificationCenter.default.post(name: .targetsUpdated, object: nil)
         dismiss()
-    }
-
-    private func updateClassTotals() {
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        let others = records.filter { $0.subClassId == nil && $0.classId != classId }.map(\.percent).reduce(0, +)
-        totalClassPercent = others + parentPercent
-        let tol = 0.1
-        if abs(totalClassPercent - 100) > tol {
-            parentWarning = String(format: "Warning: Total Asset Class %% = %.1f%% (expected 100%% ± %.1f%%)", totalClassPercent, tol)
-        } else {
-            parentWarning = nil
-        }
     }
 
     private func formatChf(_ value: Double) -> String {
