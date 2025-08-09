@@ -213,7 +213,8 @@ extension DatabaseManager {
         percent: Double,
         amountCHF: Double?,
         targetKind: String,
-        tolerance: Double
+        tolerance: Double,
+        validationStatus: String
     )] {
         var results: [(
             classId: Int?,
@@ -221,7 +222,8 @@ extension DatabaseManager {
             percent: Double,
             amountCHF: Double?,
             targetKind: String,
-            tolerance: Double
+            tolerance: Double,
+            validationStatus: String
         )] = []
         let query = """
             SELECT asset_class_id,
@@ -229,7 +231,8 @@ extension DatabaseManager {
                    target_percent,
                    target_amount_chf,
                    target_kind,
-                   tolerance_percent
+                   tolerance_percent,
+                   validation_status
             FROM ClassTargets
             UNION ALL
             SELECT ct.asset_class_id,
@@ -237,7 +240,8 @@ extension DatabaseManager {
                    s.target_percent,
                    s.target_amount_chf,
                    s.target_kind,
-                   s.tolerance_percent
+                   s.tolerance_percent,
+                   s.validation_status
             FROM SubClassTargets s
             JOIN ClassTargets ct ON s.class_target_id = ct.id;
         """
@@ -250,12 +254,14 @@ extension DatabaseManager {
                 let amount = sqlite3_column_type(statement, 3) == SQLITE_NULL ? nil : sqlite3_column_double(statement, 3)
                 let kind = String(cString: sqlite3_column_text(statement, 4))
                 let tolerance = sqlite3_column_double(statement, 5)
+                let status = String(cString: sqlite3_column_text(statement, 6))
                 results.append((classId: classId,
                                 subClassId: subId,
                                 percent: pct,
                                 amountCHF: amount,
                                 targetKind: kind,
-                                tolerance: tolerance))
+                                tolerance: tolerance,
+                                validationStatus: status))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetch ClassTargets/SubClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)

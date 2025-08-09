@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.21 - Add validation triggers for ClassTargets and SubClassTargets
+-- Version 4.22 - Add validation_status columns and triggers for ClassTargets and SubClassTargets
 -- Created: 2025-05-24
 -- Updated: 2025-07-13
 --
 -- RECENT HISTORY:
+-- - v4.21 -> v4.22: Add validation_status columns to ClassTargets and SubClassTargets.
 -- - v4.20 -> v4.21: Add validation triggers for ClassTargets and SubClassTargets sums.
 -- - v4.19 -> v4.20: Replace TargetAllocation with ClassTargets/SubClassTargets and add TargetChangeLog.
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
@@ -202,6 +203,7 @@ CREATE TABLE ClassTargets (
     target_percent REAL DEFAULT 0,
     target_amount_chf REAL DEFAULT 0,
     tolerance_percent REAL DEFAULT 0,
+    validation_status TEXT NOT NULL DEFAULT 'compliant' CHECK(validation_status IN('compliant','warning','error')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_class_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
@@ -216,6 +218,7 @@ CREATE TABLE SubClassTargets (
     target_percent REAL DEFAULT 0,
     target_amount_chf REAL DEFAULT 0,
     tolerance_percent REAL DEFAULT 0,
+    validation_status TEXT NOT NULL DEFAULT 'compliant' CHECK(validation_status IN('compliant','warning','error')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_sub_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
