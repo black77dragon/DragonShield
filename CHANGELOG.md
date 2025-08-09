@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Show pencil button next to the Target column and open the edit panel on
   double-click
 - Make pencil buttons persistent with row highlight and keyboard activation
+- Warn when sub-class target kind differs from its asset class and auto-align sub-class kinds on class kind changes
 - Show both Target % and Target CHF fields in edit pop-over with automatic conversion
 - Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
 - Load stored Target CHF in edit pop-over, computing from portfolio total only if missing, and allow saving with non-zero remaining

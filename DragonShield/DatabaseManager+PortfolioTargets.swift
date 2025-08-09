@@ -296,6 +296,20 @@ extension DatabaseManager {
 
         let subs = fetchSubClassTargets(classId: classId)
         var findings: [(String, String, String)] = []
+        var subFindings: [(Int, String, String, String)] = []
+
+        // Detect target kind mismatches between class and sub-classes
+        let mismatches = subs.filter { $0.targetKind != classKind }
+        if !mismatches.isEmpty {
+            let names = mismatches.map { $0.name }.joined(separator: ", ")
+            let msg = "Class uses \(classKind); \(mismatches.count) sub-class(es) use a different kind: \(names)."
+            findings.append(("warning", "CLS_KIND_INCONSISTENT", msg))
+            for sub in mismatches {
+                let subMsg = "Class uses \(classKind); this sub-class uses \(sub.targetKind)."
+                subFindings.append((sub.id, "warning", "CLS_KIND_INCONSISTENT", subMsg))
+            }
+        }
+
         let tolStr = String(format: "%.1f", tolerance)
         let pctSum = subs.map { $0.percent }.reduce(0, +)
         if abs(pctSum - 100) > tolerance {
@@ -316,11 +330,6 @@ extension DatabaseManager {
                 let msg = "Remaining to allocate is \(String(format: "%.1f", remaining))% (expected 0% ± \(tolStr)%)."
                 findings.append(("warning", "CLS_REMAINING_PCT_NOT_ZERO", msg))
             }
-            let allSubsAmount = subs.allSatisfy { $0.targetKind == "amount" }
-            if allSubsAmount && classAmount == 0 {
-                let msg = "Target kind configuration is inconsistent between class and sub-classes."
-                findings.append(("warning", "CLS_KIND_INCONSISTENT", msg))
-            }
         }
         let newStatus = findings.isEmpty ? "compliant" : "warning"
 
@@ -335,7 +344,7 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statusStmt)
 
-        // Replace findings
+        // Replace class-level findings
         let delQuery = "DELETE FROM ValidationFindings WHERE entity_type='class' AND entity_id=?"
         var delStmt: OpaquePointer?
         if sqlite3_prepare_v2(db, delQuery, -1, &delStmt, nil) == SQLITE_OK {
@@ -356,6 +365,31 @@ extension DatabaseManager {
                 }
             }
             sqlite3_finalize(insStmt)
+        }
+
+        // Replace sub-class-level kind inconsistency findings
+        let delSubQuery = "DELETE FROM ValidationFindings WHERE entity_type='subclass' AND entity_id=? AND code='CLS_KIND_INCONSISTENT'"
+        for sub in subs {
+            var delSubStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, delSubQuery, -1, &delSubStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(delSubStmt, 1, Int32(sub.id))
+                sqlite3_step(delSubStmt)
+            }
+            sqlite3_finalize(delSubStmt)
+        }
+        let insSubQuery = "INSERT INTO ValidationFindings (entity_type, entity_id, severity, code, message) VALUES ('subclass', ?, ?, ?, ?)"
+        for f in subFindings {
+            var insSubStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insSubQuery, -1, &insSubStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(insSubStmt, 1, Int32(f.0))
+                sqlite3_bind_text(insSubStmt, 2, f.1, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(insSubStmt, 3, f.2, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(insSubStmt, 4, f.3, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if sqlite3_step(insSubStmt) != SQLITE_DONE {
+                    LoggingService.shared.log("Failed to insert subclass validation finding: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
+            }
+            sqlite3_finalize(insSubStmt)
         }
     }
 
@@ -496,6 +530,22 @@ extension DatabaseManager {
     /// Upsert a class-level target percentage.
     func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting ClassTargets id=\(classId)", type: .info, logger: .database)
+
+        // Fetch existing kind to detect changes
+        var existingKind: String?
+        var classTargetId: Int?
+        var kindStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT id, target_kind FROM ClassTargets WHERE asset_class_id = ?", -1, &kindStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(kindStmt, 1, Int32(classId))
+            if sqlite3_step(kindStmt) == SQLITE_ROW {
+                classTargetId = Int(sqlite3_column_int(kindStmt, 0))
+                existingKind = String(cString: sqlite3_column_text(kindStmt, 1))
+            }
+        } else {
+            LoggingService.shared.log("Failed to fetch existing class target kind: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(kindStmt)
+
         let query = """
             INSERT INTO ClassTargets (asset_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -525,6 +575,35 @@ extension DatabaseManager {
             LoggingService.shared.log("Failed to prepare upsert ClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
+
+        // Auto-align sub-class target kinds if class kind changed
+        if existingKind == nil || existingKind != kind {
+            if classTargetId == nil {
+                var idStmt: OpaquePointer?
+                if sqlite3_prepare_v2(db, "SELECT id FROM ClassTargets WHERE asset_class_id = ?", -1, &idStmt, nil) == SQLITE_OK {
+                    sqlite3_bind_int(idStmt, 1, Int32(classId))
+                    if sqlite3_step(idStmt) == SQLITE_ROW {
+                        classTargetId = Int(sqlite3_column_int(idStmt, 0))
+                    }
+                }
+                sqlite3_finalize(idStmt)
+            }
+            if let ctId = classTargetId {
+                let updQuery = "UPDATE SubClassTargets SET target_kind = ?, updated_at = CURRENT_TIMESTAMP WHERE class_target_id = ?"
+                var updStmt: OpaquePointer?
+                if sqlite3_prepare_v2(db, updQuery, -1, &updStmt, nil) == SQLITE_OK {
+                    let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    sqlite3_bind_text(updStmt, 1, kind, -1, SQLITE_TRANSIENT)
+                    sqlite3_bind_int(updStmt, 2, Int32(ctId))
+                    if sqlite3_step(updStmt) != SQLITE_DONE {
+                        LoggingService.shared.log("Failed to align subclass target kinds: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                    }
+                } else {
+                    LoggingService.shared.log("Failed to prepare subclass kind alignment: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
+                sqlite3_finalize(updStmt)
+            }
+        }
     }
 
     /// Upsert a sub-class-level target percentage.
