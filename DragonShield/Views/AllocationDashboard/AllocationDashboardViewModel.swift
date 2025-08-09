@@ -40,8 +40,11 @@ final class AllocationDashboardViewModel: ObservableObject {
     @Published var bubbles: [Bubble] = []
     @Published var actions: [Action] = []
     @Published var highlightedId: String?
+    @Published var validationFindings: [DatabaseManager.ValidationFinding] = []
 
     private(set) var portfolioValue: Double = 0
+    private(set) var classNames: [Int: String] = [:]
+    private(set) var subClassNames: [Int: String] = [:]
 
     private let tolerance: Double = 5.0
 
@@ -71,16 +74,31 @@ final class AllocationDashboardViewModel: ObservableObject {
         NumberFormatter.localizedString(from: NSNumber(value: rebalanceAmount), number: .decimal)
     }
 
+    var totalTargetPercent: Double { assets.reduce(0) { $0 + $1.targetPct } }
+    var totalTargetChf: Double { assets.reduce(0) { $0 + $1.targetChf } }
+    var totalActualChf: Double { assets.reduce(0) { $0 + $1.actualChf } }
+
+    enum FindingSeverity { case none, warning, error }
+    var worstSeverity: FindingSeverity {
+        if validationFindings.contains(where: { $0.severity == "error" }) { return .error }
+        if validationFindings.contains(where: { $0.severity == "warning" }) { return .warning }
+        return .none
+    }
+
     func load(using db: DatabaseManager) {
         let classes = db.fetchAssetClassesDetailed()
         var classIdMap: [String: Int] = [:]
         var subIdMap: [String: Int] = [:]
         var subToClass: [Int: Int] = [:]
+        classNames = [:]
+        subClassNames = [:]
         for cls in classes {
             classIdMap[cls.name] = cls.id
+            classNames[cls.id] = cls.name
             for sub in db.subAssetClasses(for: cls.id) {
                 subIdMap[sub.name] = sub.id
                 subToClass[sub.id] = cls.id
+                subClassNames[sub.id] = sub.name
             }
         }
 
@@ -180,6 +198,9 @@ final class AllocationDashboardViewModel: ObservableObject {
             let amount = asset.deviationChf
             return Action(label: asset.name, amount: NumberFormatter.localizedString(from: NSNumber(value: amount), number: .decimal))
         }
+
+        db.refreshValidationFindings()
+        validationFindings = db.fetchValidationFindings()
     }
 
     private func bubbleColor(for deviation: Double) -> Color {
