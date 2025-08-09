@@ -11,6 +11,20 @@ enum SortColumn {
     case deltaPct
 }
 
+enum ValidationStatus: String {
+    case compliant
+    case warning
+    case error
+
+    var icon: String {
+        switch self {
+        case .compliant: return "🟢"
+        case .warning: return "🟠"
+        case .error: return "🔴"
+        }
+    }
+}
+
 struct AllocationAsset: Identifiable {
     let id: String
     var name: String
@@ -19,6 +33,8 @@ struct AllocationAsset: Identifiable {
     var targetPct: Double
     var targetChf: Double
     var mode: AllocationInputMode
+    var tolerance: Double = 5
+    var validationStatus: ValidationStatus = .compliant
     var children: [AllocationAsset]? = nil
 
     /// Difference between target and actual percentage.
@@ -76,6 +92,16 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     var totalsValid: Bool {
         targetPctTotal >= 99 && targetPctTotal <= 101
+    }
+
+    private let portfolioTolerance: Double = 5
+
+    var portfolioStatus: ValidationStatus {
+        let pctStatus = status(for: abs(targetPctTotal - 100), tolerance: portfolioTolerance)
+        let chfTol = portfolioValue * portfolioTolerance / 100
+        let chfStatus = status(for: abs(targetChfTotal - portfolioValue), tolerance: chfTol)
+        let classStatuses = assets.filter { $0.id.hasPrefix("class-") }.map(\.validationStatus)
+        return worstStatus([pctStatus, chfStatus] + classStatuses)
     }
 
     func toggleSort(column: SortColumn) {
@@ -193,6 +219,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         return noTarget && hasActual
     }
 
+    private func status(for deviation: Double, tolerance: Double) -> ValidationStatus {
+        let absDev = abs(deviation)
+        if absDev > tolerance * 2 { return .error }
+        if absDev > tolerance { return .warning }
+        return .compliant
+    }
+
+    private func worstStatus(_ statuses: [ValidationStatus]) -> ValidationStatus {
+        if statuses.contains(.error) { return .error }
+        if statuses.contains(.warning) { return .warning }
+        return .compliant
+    }
+
     private static func key(for id: String) -> String { "allocMode-\(id)" }
     static func loadMode(id: String) -> AllocationInputMode {
         if let raw = UserDefaults.standard.string(forKey: key(for: id)),
@@ -243,15 +282,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         let targetRows = dbManager.fetchPortfolioTargetRecords(portfolioId: 1)
         var classTargetPct: [Int: Double] = [:]
         var classTargetChf: [Int: Double] = [:]
+        var classTol: [Int: Double] = [:]
         var subTargetPct: [Int: Double] = [:]
         var subTargetChf: [Int: Double] = [:]
+        var subTol: [Int: Double] = [:]
         for row in targetRows {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                subTol[sub] = row.tolerance
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                 classTol[cls] = row.tolerance
             }
         }
 
@@ -290,9 +333,18 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
-                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
+                let tol = subTol[sub.id] ?? (classTol[cls.id] ?? 5)
+                let status = status(for: tp - sPct, tolerance: tol)
+                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), tolerance: tol, validationStatus: status, children: nil)
             }
-            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
+            let tol = classTol[cls.id] ?? 5
+            let ownStatus = status(for: tPct - actualPct, tolerance: tol)
+            let childStatuses = children.map(\.validationStatus)
+            let aggStatus: ValidationStatus
+            if childStatuses.contains(.error) { aggStatus = .error }
+            else if childStatuses.contains(.warning) { aggStatus = .warning }
+            else { aggStatus = ownStatus }
+            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), tolerance: tol, validationStatus: aggStatus, children: children)
         }
         sortAssets()
     }
@@ -384,11 +436,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         guard let db else { return }
         if asset.id.hasPrefix("class-") {
             if let classId = Int(asset.id.dropFirst(6)) {
-                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: 5)
+                db.upsertClassTarget(portfolioId: 1, classId: classId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: asset.tolerance)
             }
         } else if asset.id.hasPrefix("sub-") {
             if let subId = Int(asset.id.dropFirst(4)) {
-                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: 5)
+                db.upsertSubClassTarget(portfolioId: 1, subClassId: subId, percent: asset.targetPct, amountChf: asset.targetChf, tolerance: asset.tolerance)
             }
         }
     }
@@ -497,12 +549,15 @@ struct AllocationTargetsTableView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            List {
-                headerRow
-                totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
-                    tableRow(for: asset)
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Portfolio Validation: \(viewModel.portfolioStatus.icon)")
+                    .font(.headline)
+                List {
+                    headerRow
+                    totalsRow
+                    OutlineGroup(activeAssets, children: \.children) { asset in
+                        tableRow(for: asset)
+                    }
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
@@ -510,6 +565,7 @@ struct AllocationTargetsTableView: View {
                             tableRow(for: asset)
                         }
                     }
+                }
             }
 
             ScrollView {
@@ -608,8 +664,10 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+                Text("St")
+                    .frame(width: 24)
+                Text("%-Deviation Bar")
+                    .frame(width: 120)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -642,7 +700,9 @@ struct AllocationTargetsTableView: View {
                 Spacer()
                     .frame(width: 100)
                 Spacer()
-                    .frame(width: 60)
+                    .frame(width: 24)
+                Spacer()
+                    .frame(width: 120)
             }
         }
         .font(.subheadline)
@@ -883,19 +943,12 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                }
+                Text(asset.validationStatus.icon)
+                    .frame(width: 24, alignment: .center)
+                DeviationBar(target: asset.targetPct,
+                             actual: asset.actualPct,
+                             trackWidth: 120)
+                    .frame(width: 120)
             }
         }
         .frame(height: isClass ? 60 : 48)
@@ -917,4 +970,50 @@ struct AllocationTargetsTableView_Previews: PreviewProvider {
 }
 
 // MARK: - Comparative Visual Components
+
+struct DeviationBar: View {
+    let target: Double
+    let actual: Double
+    var trackWidth: CGFloat
+
+    private var diffPercent: Double {
+        guard target != 0 else { return 0 }
+        return (actual - target) / target * 100
+    }
+
+    private var track: CGFloat { trackWidth - 24 }
+
+    private var span: CGFloat {
+        let mag = min(abs(diffPercent), 100)
+        return track * CGFloat(mag) / 100 * 0.5
+    }
+
+    private var offset: CGFloat {
+        if diffPercent < 0 { return span / 2 }
+        if diffPercent > 0 { return -span / 2 }
+        return 0
+    }
+
+    var body: some View {
+        ZStack {
+            Capsule().fill(Color.systemGray5)
+                .frame(height: 6)
+                .padding(.horizontal, 12)
+            Rectangle().fill(Color.black)
+                .frame(width: 1, height: 8)
+            Capsule().fill(barColor(diffPercent))
+                .frame(width: span, height: 6)
+                .offset(x: offset)
+                .padding(.horizontal, 12)
+        }
+        .frame(width: trackWidth)
+    }
+}
+
+fileprivate func barColor(_ diffPercent: Double) -> Color {
+    let mag = abs(diffPercent)
+    if mag <= 10 { return .numberGreen }
+    if mag <= 20 { return .numberAmber }
+    return .numberRed
+}
 
