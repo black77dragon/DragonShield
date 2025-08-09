@@ -19,6 +19,7 @@ struct AllocationAsset: Identifiable {
     var targetPct: Double
     var targetChf: Double
     var mode: AllocationInputMode
+    var validationStatus: String
     var children: [AllocationAsset]? = nil
 
     /// Difference between target and actual percentage.
@@ -245,13 +246,17 @@ final class AllocationTargetsTableViewModel: ObservableObject {
         var classTargetChf: [Int: Double] = [:]
         var subTargetPct: [Int: Double] = [:]
         var subTargetChf: [Int: Double] = [:]
+        var classStatus: [Int: String] = [:]
+        var subStatus: [Int: String] = [:]
         for row in targetRows {
             if let sub = row.subClassId {
                 subTargetPct[sub] = row.percent
                 if let amt = row.amountCHF { subTargetChf[sub] = amt }
+                subStatus[sub] = row.validationStatus
             } else if let cls = row.classId {
                 classTargetPct[cls] = row.percent
                 if let amt = row.amountCHF { classTargetChf[cls] = amt }
+                classStatus[cls] = row.validationStatus
             }
         }
 
@@ -290,9 +295,11 @@ final class AllocationTargetsTableViewModel: ObservableObject {
                 let sPct = actualCHF > 0 ? sChf / actualCHF * 100 : 0
                 let tp = subTargetPct[sub.id] ?? 0
                 let tc = subTargetChf[sub.id] ?? tChf * tp / 100
-                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), children: nil)
+                let status = subStatus[sub.id] ?? "compliant"
+                return AllocationAsset(id: "sub-\(sub.id)", name: sub.name, actualPct: sPct, actualChf: sChf, targetPct: tp, targetChf: tc, mode: Self.loadMode(id: "sub-\(sub.id)"), validationStatus: status, children: nil)
             }
-            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children)
+            let status = classStatus[cls.id] ?? "compliant"
+            return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), validationStatus: status, children: children)
         }
         sortAssets()
     }
@@ -608,8 +615,13 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Text("Δ CHF")
                     .frame(width: 100)
-                Text("Status")
-                    .frame(width: 60)
+            }
+            Divider()
+            HStack {
+                Text("St")
+                    .frame(width: 30)
+                Text("%-Deviation Bar")
+                    .frame(width: 120)
             }
         }
         .font(.system(size: 12, weight: .semibold))
@@ -641,8 +653,13 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 Spacer()
                     .frame(width: 100)
+            }
+            Divider()
+            HStack {
                 Spacer()
-                    .frame(width: 60)
+                    .frame(width: 30)
+                Spacer()
+                    .frame(width: 120)
             }
         }
         .font(.subheadline)
@@ -699,6 +716,14 @@ struct AllocationTargetsTableView: View {
         return .gray
     }
 
+    private func statusEmoji(for status: String) -> String {
+        switch status {
+        case "error": return "🔴"
+        case "warning": return "🟠"
+        default: return "🟢"
+        }
+    }
+
     private func rowBackground(for asset: AllocationAsset) -> Color {
         if let cid = editingClassId, asset.id == "class-\(cid)" {
             return .rowHighlight
@@ -753,11 +778,7 @@ struct AllocationTargetsTableView: View {
         let aggregateDeltaColor: Color = abs(deltaChf) > deltaTol ? .red : .secondary
 
         HStack(spacing: 4) {
-            if viewModel.rowHasWarning(asset) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-            }
-            Text(asset.name)
+            Text(asset.id.hasPrefix("sub-") ? "  \(asset.name)" : asset.name)
                 .fontWeight((abs(asset.targetPct) > 0.0001 || abs(asset.targetChf) > 0.01) ? .bold : .regular)
         }
         .frame(width: 200, alignment: .leading)
@@ -869,8 +890,8 @@ struct AllocationTargetsTableView: View {
                     .foregroundColor(asset.actualChf == 0 ? .secondary : .primary)
             }
             Divider()
+            let dColor = deltaColor(asset.deviationPct)
             HStack {
-                let dColor = deltaColor(asset.deviationPct)
                 Text("\(formatSignedPercent(asset.deviationPct))%")
                     .frame(width: 80, alignment: .trailing)
                     .padding(4)
@@ -883,19 +904,21 @@ struct AllocationTargetsTableView: View {
                     .background(dColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
-                if asset.id.hasPrefix("class-") && viewModel.rowHasWarning(asset) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
-                } else {
-                    Circle()
-                        .fill(dColor)
-                        .frame(width: 16, height: 16)
-                        .frame(width: 60, alignment: .center)
-                        .help(statusText(for: asset))
+            }
+            Divider()
+            HStack {
+                Text(statusEmoji(for: asset.validationStatus))
+                    .frame(width: 30, alignment: .center)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                        Rectangle()
+                            .fill(dColor)
+                            .frame(width: geo.size.width * min(abs(asset.deviationPct), 100) / 100)
+                    }
                 }
+                .frame(width: 120, height: 10)
             }
         }
         .frame(height: isClass ? 60 : 48)

@@ -78,6 +78,7 @@ All notable changes to this project will be documented in this file.
 - Mention language code console warnings and how to silence them
 - Log database version correctly at startup
 - Label green stale account range as "<1 month / today"
+- Display validation status icons and deviation bars in Asset Allocation table
 - Show per-table row count comparison after restore in a modal window
 - Auto-expand stale account sections and open editable account detail window from Dashboard
 - Add validation triggers for ClassTargets/SubClassTargets and surface warnings in allocation editor
