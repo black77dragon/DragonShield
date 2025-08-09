@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Replace faulty allocation validation triggers with non-blocking versions and update validation_status
+- Convert Edit Targets panel into resizable floating window with scrollable content
 - Show bold, left-aligned "Asset Allocation for <Class>" title in target edit panel
 - Add validation status column with traffic-light icons and deviation bars in Asset Allocation table
 - Fix failed ClassTargets/SubClassTargets upserts so edited targets persist

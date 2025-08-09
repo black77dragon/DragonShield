@@ -1,10 +1,15 @@
 import SwiftUI
 import OSLog
+import Foundation
+
+extension Notification.Name {
+    static let targetsUpdated = Notification.Name("targetsUpdated")
+}
 
 struct TargetEditPanel: View {
     @EnvironmentObject var db: DatabaseManager
+    @Environment(\.dismiss) private var dismiss
     let classId: Int
-    let onClose: () -> Void
 
     enum TargetKind: String, CaseIterable { case percent, amount }
 
@@ -30,10 +35,6 @@ struct TargetEditPanel: View {
     @State private var parentWarning: String? = nil
     @State private var totalClassPercent: Double = 0
     @State private var isInitialLoad = true
-    @State private var initialPercent: Double = 0
-    @State private var initialAmount: Double = 0
-    @State private var initialKind: TargetKind = .percent
-    @State private var initialTolerance: Double = 0
     @State private var initialRows: [Int: Row] = [:]
 
     private var subTotal: Double {
@@ -59,90 +60,12 @@ struct TargetEditPanel: View {
     private var sumChildAmount: Double {
         rows.map(\.amount).reduce(0, +)
     }
-
-
-
     var body: some View {
         VStack(spacing: 0) {
+            headerSection
+            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Asset Allocation for \(className)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(1)
-                        .accessibilityLabel("Asset Allocation for \(className)")
-
-                    VStack(spacing: 16) {
-                        HStack(spacing: 24) {
-                            VStack(alignment: .leading) {
-                                Text("Target Kind")
-                                Picker("", selection: $kind) {
-                                    Text("%").tag(TargetKind.percent)
-                                    Text("CHF").tag(TargetKind.amount)
-                                }
-                                .pickerStyle(.radioGroup)
-                                .frame(width: 120)
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Target %")
-                                TextField("", value: $parentPercent, formatter: Self.percentFormatter)
-                                    .frame(width: 80)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(kind != .percent)
-                                    .foregroundColor(kind == .percent ? .primary : .secondary)
-                                    .onChange(of: parentPercent) { oldVal, newVal in
-                                        guard !isInitialLoad, kind == .percent else { return }
-                                        let capped = max(0, min(newVal, 100))
-                                        if capped != newVal { parentPercent = capped }
-                                        parentAmount = portfolioTotal * capped / 100
-                                        let ratio = String(format: "%.2f", capped / 100)
-                                        log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
-                                        updateClassTotals()
-                                    }
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Target CHF")
-                                TextField("", text: chfBinding(key: "parent", value: $parentAmount))
-                                    .frame(width: 100)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(kind != .amount)
-                                    .foregroundColor(kind == .amount ? .primary : .secondary)
-                                    .focused($focusedChfField, equals: "parent")
-                                    .onChange(of: parentAmount) { oldVal, newVal in
-                                        guard !isInitialLoad, kind == .amount else { return }
-                                        let capped = max(0, min(newVal, portfolioTotal))
-                                        if capped != newVal { parentAmount = capped }
-                                        parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
-                                        log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
-                                        updateClassTotals()
-                                    }
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Tolerance %")
-                                TextField("", value: $tolerance, formatter: Self.numberFormatter)
-                                    .frame(width: 60)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                        }
-                        Divider()
-                        HStack(spacing: 32) {
-                            Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
-                            Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
-                            Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
-                        }
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    }
-                    .padding(24)
-                    .background(Color.sectionBlue.cornerRadius(8))
-
                     Text("Sub-Class Targets:")
                         .font(.headline)
 
@@ -227,18 +150,13 @@ struct TargetEditPanel: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
-                .padding([.top, .horizontal], 24)
+                .padding(24)
             }
-
-            HStack {
-                Button("Auto-balance") { autoBalance() }
-                Spacer()
-                Button("Cancel") { cancel() }
-                Button("Save") { save() }
-            }
-            .padding([.leading, .trailing, .bottom], 24)
+            Divider()
+            footerSection
         }
-        .frame(width: 800, height: 600)
+        .frame(minWidth: 600, minHeight: 400)
+        .navigationTitle("Asset Allocation for \(className)")
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }
@@ -269,6 +187,88 @@ struct TargetEditPanel: View {
         }
     }
 
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 24) {
+                VStack(alignment: .leading) {
+                    Text("Target Kind")
+                    Picker("", selection: $kind) {
+                        Text("%").tag(TargetKind.percent)
+                        Text("CHF").tag(TargetKind.amount)
+                    }
+                    .pickerStyle(.radioGroup)
+                    .frame(width: 120)
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Target %")
+                    TextField("", value: $parentPercent, formatter: Self.percentFormatter)
+                        .frame(width: 80)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(kind != .percent)
+                        .foregroundColor(kind == .percent ? .primary : .secondary)
+                        .onChange(of: parentPercent) { oldVal, newVal in
+                            guard !isInitialLoad, kind == .percent else { return }
+                            let capped = max(0, min(newVal, 100))
+                            if capped != newVal { parentPercent = capped }
+                            parentAmount = portfolioTotal * capped / 100
+                            let ratio = String(format: "%.2f", capped / 100)
+                            log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                            updateClassTotals()
+                        }
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Target CHF")
+                    TextField("", text: chfBinding(key: "parent", value: $parentAmount))
+                        .frame(width: 100)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(kind != .amount)
+                        .foregroundColor(kind == .amount ? .primary : .secondary)
+                        .focused($focusedChfField, equals: "parent")
+                        .onChange(of: parentAmount) { oldVal, newVal in
+                            guard !isInitialLoad, kind == .amount else { return }
+                            let capped = max(0, min(newVal, portfolioTotal))
+                            if capped != newVal { parentAmount = capped }
+                            parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
+                            log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                            updateClassTotals()
+                        }
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Tolerance %")
+                    TextField("", value: $tolerance, formatter: Self.numberFormatter)
+                        .frame(width: 60)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+            Divider()
+            HStack(spacing: 32) {
+                Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
+                Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
+                Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
+            }
+            .font(.footnote)
+            .foregroundColor(.secondary)
+        }
+        .padding(24)
+        .background(Color.sectionBlue.cornerRadius(8))
+    }
+
+    private var footerSection: some View {
+        HStack {
+            Button("Auto-balance") { autoBalance() }
+            Spacer()
+            Button("Cancel") { cancel() }
+            Button("Save") { save() }
+        }
+        .padding([.leading, .trailing, .bottom], 24)
+    }
+
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         portfolioTotal = calculatePortfolioTotal()
@@ -286,11 +286,6 @@ struct TargetEditPanel: View {
             parentAmount = 0
             tolerance = 0
         }
-        initialKind = kind
-        initialPercent = parentPercent
-        initialAmount = parentAmount
-        initialTolerance = tolerance
-
         log("FETCH", "Fetching SubClassTargets for class id=\(classId)", type: .info)
         let subRecs = db.fetchSubClassTargets(classId: classId)
         rows = subRecs.map { rec in
@@ -370,17 +365,9 @@ struct TargetEditPanel: View {
     }
 
     private func cancel() {
-        isInitialLoad = true
         log("EDIT PANEL CANCEL", "Discarded changes for \(className)", type: .info)
-        kind = initialKind
-        parentPercent = initialPercent
-        parentAmount = initialAmount
-        tolerance = initialTolerance
-        rows = Array(initialRows.values).sorted { $0.id < $1.id }
-        refreshDrafts()
-        parentWarning = nil
-        isInitialLoad = false
-        onClose()
+        NotificationCenter.default.post(name: .targetsUpdated, object: nil)
+        dismiss()
     }
 
     private func save() {
@@ -401,7 +388,8 @@ struct TargetEditPanel: View {
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
-        onClose()
+        NotificationCenter.default.post(name: .targetsUpdated, object: nil)
+        dismiss()
     }
 
     private func updateClassTotals() {
@@ -476,7 +464,7 @@ struct TargetEditPanel: View {
 
 struct TargetEditPanel_Previews: PreviewProvider {
     static var previews: some View {
-        TargetEditPanel(classId: 1, onClose: {})
+        TargetEditPanel(classId: 1)
             .environmentObject(DatabaseManager())
     }
 }
