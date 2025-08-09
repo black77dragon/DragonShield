@@ -1,10 +1,12 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.21 - Add validation triggers for ClassTargets and SubClassTargets
+-- Version 4.23 - Fix allocation validation triggers and update validation_status
 -- Created: 2025-05-24
--- Updated: 2025-07-13
+-- Updated: 2025-08-08
 --
 -- RECENT HISTORY:
+-- - v4.22 -> v4.23: Replace faulty allocation validation triggers with non-blocking versions and update validation_status.
+-- - v4.21 -> v4.22: Add validation status columns to ClassTargets and SubClassTargets.
 -- - v4.20 -> v4.21: Add validation triggers for ClassTargets and SubClassTargets sums.
 -- - v4.19 -> v4.20: Replace TargetAllocation with ClassTargets/SubClassTargets and add TargetChangeLog.
 -- - v4.17 -> v4.18: Added target_kind and tolerance_percent columns to TargetAllocation.
@@ -234,56 +236,64 @@ CREATE TABLE TargetChangeLog (
 );
 
 -- Triggers to validate target sums and record warnings
-CREATE TRIGGER trg_validate_class_targets_insert
-AFTER INSERT ON ClassTargets
+CREATE TRIGGER trg_ct_after_aiu
+AFTER INSERT OR UPDATE ON ClassTargets
 BEGIN
-    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
-    SELECT 'class', NEW.id, 'parent_sum_percent',
-           printf('%.2f', total_pct), 'trigger'
-    FROM (SELECT SUM(target_percent) AS total_pct FROM ClassTargets)
-    WHERE ABS(total_pct - 100.0) > 0.1;
+INSERT INTO TargetChangeLog(target_type, target_id, field_name, old_value, new_value, changed_by)
+SELECT 'class', NEW.id, 'portfolio_class_percent_sum',
+NULL,
+printf('%.4f', (SELECT COALESCE(SUM(ct2.target_percent),0.0) FROM ClassTargets ct2)),
+'trigger'
+WHERE ABS((SELECT COALESCE(SUM(ct2.target_percent),0.0) FROM ClassTargets ct2) - 100.0) > 0.1;
+
+UPDATE ClassTargets
+SET validation_status =
+CASE
+WHEN NEW.target_percent < 0.0 OR NEW.target_amount_chf < 0.0 THEN 'error'
+WHEN ABS((SELECT COALESCE(SUM(ct3.target_percent),0.0) FROM ClassTargets ct3) - 100.0) > 0.1 THEN 'warning'
+ELSE 'compliant'
+END,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.id;
 END;
 
-CREATE TRIGGER trg_validate_class_targets_update
-AFTER UPDATE ON ClassTargets
+CREATE TRIGGER trg_sct_after_aiu
+AFTER INSERT OR UPDATE ON SubClassTargets
 BEGIN
-    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
-    SELECT 'class', NEW.id, 'parent_sum_percent',
-           printf('%.2f', total_pct), 'trigger'
-    FROM (SELECT SUM(target_percent) AS total_pct FROM ClassTargets)
-    WHERE ABS(total_pct - 100.0) > 0.1;
-END;
+INSERT INTO TargetChangeLog(target_type, target_id, field_name, old_value, new_value, changed_by)
+SELECT 'class', NEW.class_target_id, 'child_percent_sum_vs_tol',
+NULL,
+printf('sum=%.4f tol=%.4f',
+(SELECT COALESCE(SUM(sct2.target_percent),0.0) FROM SubClassTargets sct2 WHERE sct2.class_target_id = NEW.class_target_id),
+(SELECT COALESCE(ct2.tolerance_percent,0.0) FROM ClassTargets ct2 WHERE ct2.id = NEW.class_target_id)
+),
+'trigger'
+WHERE ABS(
+(SELECT COALESCE(SUM(sct3.target_percent),0.0) FROM SubClassTargets sct3 WHERE sct3.class_target_id = NEW.class_target_id)
+- 100.0
+) > (SELECT COALESCE(ct3.tolerance_percent,0.0) FROM ClassTargets ct3 WHERE ct3.id = NEW.class_target_id);
 
-CREATE TRIGGER trg_validate_subclass_targets_insert
-AFTER INSERT ON SubClassTargets
-BEGIN
-    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
-    SELECT 'class', NEW.class_target_id, 'child_sum_percent',
-           printf('%.2f', total_pct), 'trigger'
-    FROM (
-        SELECT SUM(target_percent) AS total_pct
-        FROM SubClassTargets
-        WHERE class_target_id = NEW.class_target_id
-    ), (
-        SELECT tolerance_percent AS tol FROM ClassTargets WHERE id = NEW.class_target_id
-    )
-    WHERE ABS(total_pct - 100.0) > tol;
-END;
+UPDATE SubClassTargets
+SET validation_status =
+CASE
+WHEN NEW.target_percent < 0.0 OR NEW.target_amount_chf < 0.0 THEN 'error'
+ELSE 'compliant'
+END,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.id;
 
-CREATE TRIGGER trg_validate_subclass_targets_update
-AFTER UPDATE ON SubClassTargets
-BEGIN
-    INSERT INTO TargetChangeLog(target_type, target_id, field_name, new_value, changed_by)
-    SELECT 'class', NEW.class_target_id, 'child_sum_percent',
-           printf('%.2f', total_pct), 'trigger'
-    FROM (
-        SELECT SUM(target_percent) AS total_pct
-        FROM SubClassTargets
-        WHERE class_target_id = NEW.class_target_id
-    ), (
-        SELECT tolerance_percent AS tol FROM ClassTargets WHERE id = NEW.class_target_id
-    )
-    WHERE ABS(total_pct - 100.0) > tol;
+UPDATE ClassTargets
+SET validation_status =
+CASE
+WHEN validation_status = 'error' THEN 'error'
+ELSE 'warning'
+END,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.class_target_id
+AND ABS(
+(SELECT COALESCE(SUM(sct4.target_percent),0.0) FROM SubClassTargets sct4 WHERE sct4.class_target_id = NEW.class_target_id)
+- 100.0
+) > (SELECT COALESCE(ct4.tolerance_percent,0.0) FROM ClassTargets ct4 WHERE ct4.id = NEW.class_target_id);
 END;
 
 --=============================================================================

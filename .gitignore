@@ -1,36 +1,75 @@
-# macOS
+# --- macOS ---
 .DS_Store
 .localized
+.AppleDouble
+.LSOverride
 
-# Xcode
+# --- Xcode / Swift ---
 *.xcodeproj/project.xcworkspace/xcshareddata/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
-/build/
-/DerivedData/
+build/
+DerivedData/
 *.xccheckout
 *.moved-aside
+*.xcuserstate
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
 
-# Local Database File - IMPORTANT
-# We version the schema, but not the live user data.
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# --- dbmate snapshot (schema dump) ---
+db/
+db/schema.sql
+
+# --- SQLite / local DB files ---
+# We version the schema and migrations, not live data
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+*.db
+*.db-shm
+*.db-wal
+
+# Explicit old paths (kept for safety; redundant with patterns above)
 dragonshield.sqlite
 DragonShield/dragonshield.sqlite
 dragonshield.sqlite-shm
 dragonshield.sqlite-wal
 
-# Python virtual environment
+# --- Env / secrets ---
+.env
+.env.*
+*.local
+
+# --- Python ---
 .venv/
 __pycache__/
 *.pyc
 
-# User-specific files
+# --- User-specific files ---
 *.user
 
-# Auto-generated version file
+# --- Generated source ---
 DragonShield/Helpers/Version.swift
-# Version History
-# 1.1: Ignore generated database
 
-# Import logs
+# --- Logs / backups ---
 import.log
+*.log
+*.old
+*.bak
+*~
 
+# NOTE: Do NOT ignore migrations!
+# Keep: DragonShield/DragonShield/migrations/*.sql
