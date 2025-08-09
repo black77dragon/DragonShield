@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import Foundation
 
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -43,6 +44,9 @@ struct AllocationDashboardView: View {
             }
         }
         .onAppear { viewModel.load(using: dbManager) }
+        .onReceive(NotificationCenter.default.publisher(for: .targetsUpdated)) { _ in
+            viewModel.load(using: dbManager)
+        }
     }
 
 }
@@ -158,9 +162,6 @@ struct AllocationTreeCard: View {
     @State private var expanded: [String: Bool] = [:]
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
-    @State private var editingClassId: Int?
-    @State private var panelOffset: CGSize = .zero
-    @State private var lastPanelOffset: CGSize = .zero
     @EnvironmentObject private var dbManager: DatabaseManager
 
     enum SortColumn { case target, actual, delta }
@@ -259,33 +260,6 @@ struct AllocationTreeCard: View {
         }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
-        .overlay {
-            if let cid = editingClassId {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                TargetEditPanel(classId: cid) {
-                    viewModel.load(using: dbManager)
-                    withAnimation { editingClassId = nil }
-                }
-                .environmentObject(dbManager)
-                .frame(width: 800, height: 600)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .shadow(radius: 20)
-                .offset(panelOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            panelOffset = CGSize(width: lastPanelOffset.width + value.translation.width,
-                                                 height: lastPanelOffset.height + value.translation.height)
-                        }
-                        .onEnded { _ in
-                            lastPanelOffset = panelOffset
-                        }
-                )
-            }
-        }
     }
 
     private var SegmentedPicker: some View {
@@ -327,7 +301,6 @@ struct AllocationTreeCard: View {
                          mode: displayMode,
                          compact: compact,
                          expanded: binding(for: parent.id),
-                         editingClassId: $editingClassId,
                          nameWidth: nameWidth,
                          targetWidth: targetWidth,
                          actualWidth: actualWidth,
@@ -343,7 +316,6 @@ struct AllocationTreeCard: View {
                              mode: displayMode,
                              compact: compact,
                              expanded: .constant(false),
-                             editingClassId: $editingClassId,
                              nameWidth: nameWidth,
                              targetWidth: targetWidth,
                              actualWidth: actualWidth,
@@ -470,7 +442,7 @@ struct AssetRow: View {
     let mode: DisplayMode
     let compact: Bool
     @Binding var expanded: Bool
-    @Binding var editingClassId: Int?
+    @Environment(\.openWindow) private var openWindow
     let nameWidth: CGFloat
     let targetWidth: CGFloat
     let actualWidth: CGFloat
@@ -543,8 +515,8 @@ struct AssetRow: View {
                         .foregroundStyle(.primary)
                 }
                 if let cid = classId {
-                    Button { editingClassId = cid } label: {
-                        Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                    Button { openWindow(id: "targetEdit", value: cid) } label: {
+                        Image(systemName: "pencil.circle")
                             .foregroundColor(.accentColor)
                             .frame(width: 16, height: 16)
                     }
@@ -582,9 +554,9 @@ struct AssetRow: View {
 
         }
         .padding(.vertical, node.children != nil ? 6 : 4)
-        .background(editingClassId == classId ? Color.rowHighlight : (node.children != nil ? Color.systemGray6 : .clear))
+        .background(node.children != nil ? Color.systemGray6 : .clear)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { if let cid = classId { editingClassId = cid } }
+        .onTapGesture(count: 2) { if let cid = classId { openWindow(id: "targetEdit", value: cid) } }
         .focusable()
         .accessibilityElement(children: .combine)
     }

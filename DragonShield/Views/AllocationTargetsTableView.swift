@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 enum AllocationInputMode: String {
     case percent
@@ -401,9 +402,7 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
     @State private var showDetails = true
-    @State private var editingClassId: Int?
-    @State private var panelOffset: CGSize = .zero
-    @State private var lastPanelOffset: CGSize = .zero
+    @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var scheme
 
     private let percentFormatter: NumberFormatter = {
@@ -546,35 +545,11 @@ struct AllocationTargetsTableView: View {
             .background(cardBackground)
         }
         .padding(.horizontal, 24)
-        .overlay {
-            if let cid = editingClassId {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                TargetEditPanel(classId: cid) {
-                    viewModel.load(using: dbManager)
-                    refreshDrafts()
-                    withAnimation { editingClassId = nil }
-                }
-                .environmentObject(dbManager)
-                .frame(width: 800, height: 600)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .shadow(radius: 20)
-                .offset(panelOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            panelOffset = CGSize(width: lastPanelOffset.width + value.translation.width,
-                                                 height: lastPanelOffset.height + value.translation.height)
-                        }
-                        .onEnded { _ in
-                            lastPanelOffset = panelOffset
-                        }
-                )
-            }
-        }
         .onAppear {
+            viewModel.load(using: dbManager)
+            refreshDrafts()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .targetsUpdated)) { _ in
             viewModel.load(using: dbManager)
             refreshDrafts()
         }
@@ -700,9 +675,6 @@ struct AllocationTargetsTableView: View {
     }
 
     private func rowBackground(for asset: AllocationAsset) -> Color {
-        if let cid = editingClassId, asset.id == "class-\(cid)" {
-            return .rowHighlight
-        }
         if viewModel.rowHasWarning(asset) {
             return .paleRed
         }
@@ -849,9 +821,9 @@ struct AllocationTargetsTableView: View {
             if isClass {
                 let cid = Int(asset.id.dropFirst(6))
                 Button {
-                    if let id = cid { editingClassId = id }
+                    if let id = cid { openWindow(id: "targetEdit", value: id) }
                 } label: {
-                    Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
+                    Image(systemName: "pencil.circle")
                         .foregroundColor(.accentColor)
                         .frame(width: 16, height: 16)
                 }
@@ -903,7 +875,7 @@ struct AllocationTargetsTableView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             if isClass, let id = Int(asset.id.dropFirst(6)) {
-                editingClassId = id
+                openWindow(id: "targetEdit", value: id)
             }
         }
     }

@@ -32,5 +32,15 @@ struct DragonShieldApp: App {
                 Text("Account not found")
             }
         }
+        WindowGroup(id: "targetEdit", for: Int.self) { $classId in
+            if let cid = classId {
+                TargetEditPanel(classId: cid)
+                    .environmentObject(databaseManager)
+            } else {
+                Text("Asset class not found")
+            }
+        }
+        .defaultSize(width: 800, height: 600)
+        .windowResizability(.contentSize)
     }
 }
