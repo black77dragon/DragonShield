@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add asset allocation totals, validation details and findings backfill spec
 - Move portfolio total validation from class editor to main dashboard and show validation badges for asset classes
 - Persist class-level validation findings and show them via "Why?" in target edit panel
 - Replace faulty allocation validation triggers with non-blocking versions and update validation_status

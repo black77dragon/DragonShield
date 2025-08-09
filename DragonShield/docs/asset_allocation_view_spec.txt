@@ -1,0 +1,91 @@
+TITLE: Asset Allocation View — Totals + Validation Details + Findings Backfill
+
+GOAL
+•Make the Asset Allocation main view actionable by showing column totals.
+•Add a single “Validation Details” entry point that summarizes ALL current validation problems.
+•Ensure the ValidationFindings table is populated/maintained whenever validations change so the UI has authoritative data.
+
+SCOPE
+•Main Asset Allocation screen (table of Asset Classes).
+•Edit Target popup: no change here except it must no longer be the only place that hints at validation.
+•Data/validation layer: create + maintain ValidationFindings records.
+
+⸻
+
+A) MAIN VIEW — COLUMN TOTALS
+1. Columns to total
+•Target %      -> sum of ClassTargets.target_percent across ALL visible Asset Classes.
+•Target CHF    -> sum of ClassTargets.target_amount_chf across ALL visible Asset Classes.
+•Actual (CHF)  -> sum of actual market value in CHF used today in the table (same source the “Actual” column uses).
+2. Placement/format
+•Add a “Totals” footer row fixed at the bottom of the table (not scrollable out of view).
+•Label in the first column: “TOTAL”.
+•Target % total shows with one decimal (e.g., 100.0 %).
+•CHF totals formatted with grouped thousands and apostrophes (e.g., 2’565’251).
+•Totals MUST respect any future table filtering/sorting (i.e., totals for what is currently shown).
+•If the Display mode toggle (% | CHF) is used elsewhere, do NOT change totals’ definition. The three totals are always visible and computed as above.
+3. Color/validation cue on totals
+•If Target % total is NOT within 100.0% ± global tolerance (0.1% unless configured), render the Target % total in AMBER if warning, RED if error. Otherwise normal text color.
+•Tooltip on the Target % total explains: “Portfolio Target % total = X%; expected 100% ± T.”
+
+⸻
+
+B) MAIN VIEW — “VALIDATION DETAILS” BUTTON
+1. Button location and name
+•Right-aligned above the table header, text: “Validation Details”.
+2. Button state/color (reflects worst current severity across all findings)
+•RED   = there is at least one ValidationFindings.severity = ‘error’.
+•AMBER = there is at least one severity = ‘warning’ and no errors.
+•DISABLED (greyed) = no findings exist.
+•Include an accessible tooltip:
+•RED: “Validation errors present. Click for details.”
+•AMBER: “Validation warnings present. Click for details.”
+•Disabled: “No validation findings.”
+3. On click behavior (if enabled)
+•Open a movable modal sheet titled: “Validation Details”.
+•Contents grouped in this order:
+SECTION 1: Portfolio-level
+•Show findings where entity_type = ‘portfolio’ (if used) OR synthetic row for “Portfolio total %”.
+SECTION 2: Asset Classes
+•Group by each Asset Class (entity_type = ‘class’).
+•For each finding: show colored badge (ERROR/ WARNING), code, message, computed_at.
+SECTION 3: Sub-Classes
+•Group by parent class -> then list (entity_type = ‘subclass’).
+•Default sort: severity (error first), then newest first (computed_at desc).
+•Provide a compact pill filter in the sheet header: [All | Errors | Warnings].
+•Provide a “Copy to clipboard” action that copies a plain-text list of current findings.
+4. Empty state
+•If opened and there are no findings (race condition), show: “No validation findings at this time.”
+
+⸻
+
+C) VALIDATION FINDINGS — DATA POPULATION & HYGIENE
+
+Current table exists:
+ValidationFindings(
+id, entity_type(‘class’|‘subclass’), entity_id, severity(‘warning’|‘error’),
+code, message, details_json, computed_at, UNIQUE(entity_type, entity_id, code)
+)
+1. Triggers for (re)computation — WHEN to (re)write findings
+•On any INSERT/UPDATE/DELETE of:
+•ClassTargets
+•SubClassTargets
+•On any event that can change “Actual” or tolerance interpretation (optional for now):
+•Configuration change that impacts tolerance or display date.
+•The recomputation can be done either:
+•in-app (Swift service) immediately after a successful save, OR
+•via SQL triggers/procs if you prefer (app calls a refresh proc).
+•Choose ONE authoritative place (recommended: Swift-side service named ValidationService) to:
+•recalc validation state,
+•upsert/delete ValidationFindings accordingly,
+•update ClassTargets.validation_status / SubClassTargets.validation_status.
+2. WHAT to compute (minimum set)
+Portfolio-level (entity_type = ‘portfolio’, entity_id = 0) — optional now; can be derived as a class-level rollup
+•CODE: PORTFOLIO_TOTAL_PERCENT
+•severity: warning if abs(sum(Target%)-100) > global_warning_tol (0.1%); error if > global_error_tol (configurable, e.g., 1.0%).
+•message example: “Portfolio Target % total = 101.3%; expected 100% ± 0.1%.”
+•details_json: { “total_percent”: 101.3, “tolerance”: 0.1 }
+Class level (entity_type = ‘class’, entity_id = ClassTargets.id)
+•CODE: CLASS_SUBPCT_SUM
+•Check: sum of SubClassTargets.target_percent for this class equals 100% ± tolerance_percent of the CLASS.
+•severity:
