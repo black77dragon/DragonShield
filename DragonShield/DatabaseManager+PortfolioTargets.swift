@@ -267,33 +267,43 @@ extension DatabaseManager {
     /// Upsert a class-level target percentage.
     func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting ClassTargets id=\(classId)", type: .info, logger: .database)
-        let query = """
-            INSERT INTO ClassTargets (asset_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(asset_class_id)
-            DO UPDATE SET target_percent = excluded.target_percent,
-                         target_amount_chf = excluded.target_amount_chf,
-                         target_kind = excluded.target_kind,
-                         tolerance_percent = excluded.tolerance_percent,
-                         updated_at = CURRENT_TIMESTAMP;
-        """
+
+        // Check if a row already exists for this class
+        let checkQuery = "SELECT id FROM ClassTargets WHERE asset_class_id = ?"
+        var checkStmt: OpaquePointer?
+        var existing = false
+        if sqlite3_prepare_v2(db, checkQuery, -1, &checkStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(checkStmt, 1, Int32(classId))
+            existing = sqlite3_step(checkStmt) == SQLITE_ROW
+        } else {
+            LoggingService.shared.log("Failed to prepare ClassTargets lookup: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(checkStmt)
+
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        let query: String
+        if existing {
+            query = "UPDATE ClassTargets SET target_percent = ?, target_amount_chf = ?, target_kind = ?, tolerance_percent = ?, updated_at = CURRENT_TIMESTAMP WHERE asset_class_id = ?"
+        } else {
+            query = "INSERT INTO ClassTargets (target_percent, target_amount_chf, target_kind, tolerance_percent, asset_class_id, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+        }
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_int(statement, 1, Int32(classId))
-            sqlite3_bind_double(statement, 2, percent)
+            sqlite3_bind_double(statement, 1, percent)
             if let amt = amountChf {
-                sqlite3_bind_double(statement, 3, amt)
+                sqlite3_bind_double(statement, 2, amt)
             } else {
-                sqlite3_bind_null(statement, 3)
+                sqlite3_bind_null(statement, 2)
             }
-            sqlite3_bind_text(statement, 4, kind, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_double(statement, 5, tolerance)
+            sqlite3_bind_text(statement, 3, kind, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(statement, 4, tolerance)
+            sqlite3_bind_int(statement, 5, Int32(classId))
             if sqlite3_step(statement) != SQLITE_DONE {
-                LoggingService.shared.log("Failed to upsert ClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                LoggingService.shared.log("Failed to save ClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
         } else {
-            LoggingService.shared.log("Failed to prepare upsert ClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("Failed to prepare ClassTargets save: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
     }
@@ -301,34 +311,60 @@ extension DatabaseManager {
     /// Upsert a sub-class-level target percentage.
     func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting SubClassTargets id=\(subClassId)", type: .info, logger: .database)
-        let query = """
-            INSERT INTO SubClassTargets (class_target_id, asset_sub_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at)
-            VALUES ((SELECT id FROM ClassTargets WHERE asset_class_id = (SELECT class_id FROM AssetSubClasses WHERE sub_class_id = ?)), ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(class_target_id, asset_sub_class_id)
-            DO UPDATE SET target_percent = excluded.target_percent,
-                         target_amount_chf = excluded.target_amount_chf,
-                         target_kind = excluded.target_kind,
-                         tolerance_percent = excluded.tolerance_percent,
-                         updated_at = CURRENT_TIMESTAMP;
-        """
-        var statement: OpaquePointer?
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_int(statement, 1, Int32(subClassId))
-            sqlite3_bind_int(statement, 2, Int32(subClassId))
-            sqlite3_bind_double(statement, 3, percent)
-            if let amt = amountChf {
-                sqlite3_bind_double(statement, 4, amt)
-            } else {
-                sqlite3_bind_null(statement, 4)
-            }
-            sqlite3_bind_text(statement, 5, kind, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_double(statement, 6, tolerance)
-            if sqlite3_step(statement) != SQLITE_DONE {
-                LoggingService.shared.log("Failed to upsert SubClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+
+        // Resolve parent class_target_id
+        let classQuery = "SELECT id FROM ClassTargets WHERE asset_class_id = (SELECT class_id FROM AssetSubClasses WHERE sub_class_id = ?)"
+        var classStmt: OpaquePointer?
+        var classTargetId: Int32 = 0
+        if sqlite3_prepare_v2(db, classQuery, -1, &classStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(classStmt, 1, Int32(subClassId))
+            if sqlite3_step(classStmt) == SQLITE_ROW {
+                classTargetId = sqlite3_column_int(classStmt, 0)
             }
         } else {
-            LoggingService.shared.log("Failed to prepare upsert SubClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("Failed to prepare class_target lookup: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(classStmt)
+        guard classTargetId != 0 else { return }
+
+        // Check if sub-class target exists
+        let checkQuery = "SELECT id FROM SubClassTargets WHERE class_target_id = ? AND asset_sub_class_id = ?"
+        var checkStmt: OpaquePointer?
+        var existing = false
+        if sqlite3_prepare_v2(db, checkQuery, -1, &checkStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(checkStmt, 1, classTargetId)
+            sqlite3_bind_int(checkStmt, 2, Int32(subClassId))
+            existing = sqlite3_step(checkStmt) == SQLITE_ROW
+        } else {
+            LoggingService.shared.log("Failed to prepare SubClassTargets lookup: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(checkStmt)
+
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        let query: String
+        if existing {
+            query = "UPDATE SubClassTargets SET target_percent = ?, target_amount_chf = ?, target_kind = ?, tolerance_percent = ?, updated_at = CURRENT_TIMESTAMP WHERE class_target_id = ? AND asset_sub_class_id = ?"
+        } else {
+            query = "INSERT INTO SubClassTargets (target_percent, target_amount_chf, target_kind, tolerance_percent, class_target_id, asset_sub_class_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+        }
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_double(statement, 1, percent)
+            if let amt = amountChf {
+                sqlite3_bind_double(statement, 2, amt)
+            } else {
+                sqlite3_bind_null(statement, 2)
+            }
+            sqlite3_bind_text(statement, 3, kind, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(statement, 4, tolerance)
+            sqlite3_bind_int(statement, 5, classTargetId)
+            sqlite3_bind_int(statement, 6, Int32(subClassId))
+            if sqlite3_step(statement) != SQLITE_DONE {
+                LoggingService.shared.log("Failed to save SubClassTargets: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare SubClassTargets save: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
     }
