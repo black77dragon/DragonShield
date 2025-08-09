@@ -65,9 +65,15 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     var actualChfTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualChf).reduce(0, +)
     }
+    let warningTolerance = 0.1
+    let errorTolerance = 1.0
 
-    var totalsValid: Bool {
-        targetPctTotal >= 99 && targetPctTotal <= 101
+    /// Severity for the Target % total compared against 100% ± tolerances.
+    var totalSeverity: String {
+        let diff = abs(targetPctTotal - 100)
+        if diff > errorTolerance { return "error" }
+        if diff > warningTolerance { return "warning" }
+        return "ok"
     }
 
     func toggleSort(column: SortColumn) {
@@ -406,8 +412,9 @@ struct AllocationTargetsTableView: View {
 
     private var portfolioIssues: [String] {
         var issues: [String] = []
-        if !viewModel.totalsValid {
-            issues.append(String(format: "WARNING: Total Asset Class %% = %.1f%% (expected 100%% ± 1%%)", viewModel.targetPctTotal))
+        if viewModel.totalSeverity != "ok" {
+            let prefix = viewModel.totalSeverity.uppercased()
+            issues.append(String(format: "%@: Total Asset Class %% = %.1f%% (expected 100%% ± 0.1%%)", prefix, viewModel.targetPctTotal))
         }
         return issues
     }
@@ -430,18 +437,18 @@ struct AllocationTargetsTableView: View {
         HStack(alignment: .top, spacing: 16) {
             List {
                 headerRow
-                totalsRow
                 OutlineGroup(activeAssets, children: \.children) { asset in
                     tableRow(for: asset)
                 }
-                    if !inactiveAssets.isEmpty {
-                        Divider()
-                        inactiveHeader
-                        OutlineGroup(inactiveAssets, children: \.children) { asset in
-                            tableRow(for: asset)
-                        }
+                if !inactiveAssets.isEmpty {
+                    Divider()
+                    inactiveHeader
+                    OutlineGroup(inactiveAssets, children: \.children) { asset in
+                        tableRow(for: asset)
                     }
+                }
             }
+            .safeAreaInset(edge: .bottom) { totalsRow.background(Color(NSColor.windowBackgroundColor)) }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -533,7 +540,7 @@ struct AllocationTargetsTableView: View {
 
     private var totalsRow: some View {
         HStack(spacing: 0) {
-            Text("Totals")
+            Text("TOTAL")
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
@@ -562,7 +569,6 @@ struct AllocationTargetsTableView: View {
             }
         }
         .font(.subheadline)
-        .background(viewModel.totalsValid ? Color.white : Color.paleRed)
     }
 
     private var inactiveHeader: some View {
@@ -577,16 +583,16 @@ struct AllocationTargetsTableView: View {
     }
 
     private var totalCellPct: some View {
-        HStack(spacing: 2) {
-            Text("\(formatPercent(viewModel.targetPctTotal))%")
-                .fontWeight((99...101).contains(viewModel.targetPctTotal) ? .regular : .bold)
-                .foregroundColor((99...101).contains(viewModel.targetPctTotal) ? .primary : .red)
-            if !(99...101).contains(viewModel.targetPctTotal) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                    .help("Target % total must be between 99% and 101%")
-            }
+        let color: Color
+        switch viewModel.totalSeverity {
+        case "error": color = .numberRed
+        case "warning": color = .numberAmber
+        default: color = .primary
         }
+        return Text("\(formatPercent(viewModel.targetPctTotal))%")
+            .fontWeight(viewModel.totalSeverity == "ok" ? .regular : .bold)
+            .foregroundColor(color)
+            .help(String(format: "Portfolio Target %% total = %.1f%%; expected 100%% ± %.1f%%.", viewModel.targetPctTotal, viewModel.warningTolerance))
     }
 
     private func sortHeader(title: String, column: SortColumn) -> some View {
