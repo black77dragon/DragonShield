@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Warn when sub-class target kind differs from asset class and auto-align sub-class kinds on class kind change
 - Add totals row and validation details modal to Asset Allocation view
 - Move portfolio total validation from class editor to main dashboard and show validation badges for asset classes
 - Persist class-level validation findings and show them via "Why?" in target edit panel

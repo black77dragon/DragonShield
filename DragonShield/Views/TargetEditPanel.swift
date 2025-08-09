@@ -263,7 +263,7 @@ struct TargetEditPanel: View {
                                 .cornerRadius(4)
                         } else {
                             VStack(alignment: .leading, spacing: 4) {
-                                ForEach(reasons, id: \.code) { reason in
+                                ForEach(reasons, id: \.id) { reason in
                                     Text("• \(reason.message)")
                                         .font(.caption)
                                 }
