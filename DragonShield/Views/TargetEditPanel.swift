@@ -32,10 +32,12 @@ struct TargetEditPanel: View {
     @State private var portfolioTotal: Double = 0
     @State private var tolerance: Double = 5
     @State private var rows: [Row] = []
-    @State private var parentWarning: String? = nil
-    @State private var totalClassPercent: Double = 0
+    @State private var validationStatus: String = "compliant"
     @State private var isInitialLoad = true
     @State private var initialRows: [Int: Row] = [:]
+    @State private var reasons: [DatabaseManager.ValidationFinding] = []
+    @State private var showReasons = false
+    @State private var statusFetchError = false
 
     private var subTotal: Double {
         if kind == .percent {
@@ -65,7 +67,7 @@ struct TargetEditPanel: View {
             headerSection
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("Sub-Class Targets:")
                         .font(.headline)
 
@@ -133,22 +135,13 @@ struct TargetEditPanel: View {
                                     .multilineTextAlignment(.trailing)
                                     .textFieldStyle(.roundedBorder)
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                             Divider()
                         }
                     }
 
                     Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
                         .foregroundColor(remaining == 0 ? .primary : .red)
-
-                    if let warning = parentWarning {
-                        Text(warning)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
                 }
                 .padding(24)
             }
@@ -166,12 +159,10 @@ struct TargetEditPanel: View {
                 parentPercent = portfolioTotal > 0 ? parentAmount / portfolioTotal * 100 : 0
             }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: parentAmount) { _, _ in
             guard !isInitialLoad else { return }
             updateRows()
-            updateClassTotals()
         }
         .onChange(of: focusedChfField) { oldValue, newValue in
             if let old = oldValue, old != newValue {
@@ -215,7 +206,6 @@ struct TargetEditPanel: View {
                             parentAmount = portfolioTotal * capped / 100
                             let ratio = String(format: "%.2f", capped / 100)
                             log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -234,7 +224,6 @@ struct TargetEditPanel: View {
                             if capped != newVal { parentAmount = capped }
                             parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
                             log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
-                            updateClassTotals()
                         }
                 }
 
@@ -245,10 +234,49 @@ struct TargetEditPanel: View {
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
                 }
+
+                Spacer()
+
+                VStack(alignment: .leading) {
+                    Text("Validation Status")
+                    HStack(spacing: 8) {
+                        Text(validationStatus.capitalized)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(colorForStatus(validationStatus))
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                            .help(statusFetchError ? "Couldn't load validation status" : "")
+                        if ["warning", "error"].contains(validationStatus.lowercased()) {
+                            Button("Why?") { toggleReasons() }
+                                .buttonStyle(.plain)
+                                .font(.caption)
+                        }
+                    }
+                    if showReasons {
+                        if reasons.isEmpty {
+                            Text("No details available. Please refresh.")
+                                .font(.caption)
+                                .padding(8)
+                                .background(Color.white)
+                                .cornerRadius(4)
+                        } else {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(reasons, id: \.code) { reason in
+                                    Text("• \(reason.message)")
+                                        .font(.caption)
+                                }
+                            }
+                            .padding(8)
+                            .background(Color.white)
+                            .cornerRadius(4)
+                        }
+                    }
+                }
             }
             Divider()
             HStack(spacing: 32) {
-                Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
                 Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
             }
@@ -272,20 +300,25 @@ struct TargetEditPanel: View {
     private func load() {
         className = db.fetchAssetClassDetails(id: classId)?.name ?? ""
         portfolioTotal = calculatePortfolioTotal()
-        parentWarning = nil
-
         log("FETCH", "Fetching ClassTargets for id=\(classId)", type: .info)
         if let parent = db.fetchClassTarget(classId: classId) {
             kind = parent.targetKind == "amount" ? .amount : .percent
             parentPercent = parent.percent
             parentAmount = parent.amountCHF
             tolerance = parent.tolerance
+            validationStatus = parent.validationStatus
+            statusFetchError = false
+            if validationStatus.lowercased() == "compliant" { showReasons = false }
         } else {
             kind = .percent
             parentPercent = 0
             parentAmount = 0
             tolerance = 0
+            validationStatus = "unknown"
+            statusFetchError = true
+            showReasons = false
         }
+        log("VALIDATION STATUS", "Loaded validation status \(validationStatus) for class id=\(classId)", type: .info)
         log("FETCH", "Fetching SubClassTargets for class id=\(classId)", type: .info)
         let subRecs = db.fetchSubClassTargets(classId: classId)
         rows = subRecs.map { rec in
@@ -311,7 +344,7 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
-        updateClassTotals()
+        refreshFindings()
         isInitialLoad = false
     }
 
@@ -388,24 +421,49 @@ struct TargetEditPanel: View {
                                     kind: row.kind.rawValue,
                                     tolerance: row.tolerance)
         }
+        let oldStatus = validationStatus
+        db.recomputeClassValidation(classId: classId)
+        if let status = db.fetchClassValidationStatus(classId: classId) {
+            validationStatus = status
+            statusFetchError = false
+        } else {
+            validationStatus = "unknown"
+            statusFetchError = true
+        }
+        refreshFindings()
+        log("VALIDATION STATUS", "Saved class id=\(classId) status \(oldStatus)→\(validationStatus) findings=\(reasons.count)", type: .info)
+        if validationStatus.lowercased() == "compliant" { showReasons = false }
         NotificationCenter.default.post(name: .targetsUpdated, object: nil)
         dismiss()
     }
 
-    private func updateClassTotals() {
-        let records = db.fetchPortfolioTargetRecords(portfolioId: 1)
-        let others = records.filter { $0.subClassId == nil && $0.classId != classId }.map(\.percent).reduce(0, +)
-        totalClassPercent = others + parentPercent
-        let tol = 0.1
-        if abs(totalClassPercent - 100) > tol {
-            parentWarning = String(format: "Warning: Total Asset Class %% = %.1f%% (expected 100%% ± %.1f%%)", totalClassPercent, tol)
-        } else {
-            parentWarning = nil
+    private func toggleReasons() {
+        showReasons.toggle()
+        if showReasons {
+            let codes = reasons.map { $0.code }.joined(separator: ",")
+            log("WHY PANEL", "Displayed \(reasons.count) findings for class id=\(classId): \(codes)", type: .info)
+        }
+    }
+
+
+    private func colorForStatus(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "warning": return .warning
+        case "error": return .error
+        case "unknown": return .gray
+        default: return .success
         }
     }
 
     private func formatChf(_ value: Double) -> String {
         Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func refreshFindings() {
+        reasons = db.fetchClassValidationFindings(classId: classId)
+        if ["warning", "error"].contains(validationStatus.lowercased()) && reasons.isEmpty {
+            log("WHY PANEL", "No findings returned for class id=\(classId) despite status=\(validationStatus)", type: .error)
+        }
     }
 
     private func chfBinding(key: String, value: Binding<Double>) -> Binding<String> {
