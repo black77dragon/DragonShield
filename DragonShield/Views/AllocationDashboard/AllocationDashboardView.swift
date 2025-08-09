@@ -159,8 +159,6 @@ struct AllocationTreeCard: View {
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
     @State private var editingClassId: Int?
-    @State private var panelOffset: CGSize = .zero
-    @State private var lastPanelOffset: CGSize = .zero
     @EnvironmentObject private var dbManager: DatabaseManager
 
     enum SortColumn { case target, actual, delta }
@@ -259,32 +257,9 @@ struct AllocationTreeCard: View {
         }
         .onAppear { initializeExpanded() }
         .onChange(of: displayMode) { _, _ in saveMode() }
-        .overlay {
-            if let cid = editingClassId {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                TargetEditPanel(classId: cid) {
-                    viewModel.load(using: dbManager)
-                    withAnimation { editingClassId = nil }
-                }
-                .environmentObject(dbManager)
-                .frame(width: 800, height: 600)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .shadow(radius: 20)
-                .offset(panelOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            panelOffset = CGSize(width: lastPanelOffset.width + value.translation.width,
-                                                 height: lastPanelOffset.height + value.translation.height)
-                        }
-                        .onEnded { _ in
-                            lastPanelOffset = panelOffset
-                        }
-                )
-            }
+        .onReceive(NotificationCenter.default.publisher(for: .targetEditorClosed)) { _ in
+            editingClassId = nil
+            viewModel.load(using: dbManager)
         }
     }
 
@@ -479,6 +454,7 @@ struct AssetRow: View {
     let statusWidth: CGFloat
     let barWidth: CGFloat
     let gap: CGFloat
+    @EnvironmentObject private var dbManager: DatabaseManager
 
     private var classId: Int? {
         guard node.id.hasPrefix("class-") else { return nil }
@@ -543,7 +519,10 @@ struct AssetRow: View {
                         .foregroundStyle(.primary)
                 }
                 if let cid = classId {
-                    Button { editingClassId = cid } label: {
+                    Button {
+                        editingClassId = cid
+                        TargetEditorWindowManager.shared.open(classId: cid, dbManager: dbManager)
+                    } label: {
                         Image(systemName: editingClassId == cid ? "pencil.circle.fill" : "pencil.circle")
                             .foregroundColor(.accentColor)
                             .frame(width: 16, height: 16)
@@ -584,7 +563,12 @@ struct AssetRow: View {
         .padding(.vertical, node.children != nil ? 6 : 4)
         .background(editingClassId == classId ? Color.rowHighlight : (node.children != nil ? Color.systemGray6 : .clear))
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { if let cid = classId { editingClassId = cid } }
+        .onTapGesture(count: 2) {
+            if let cid = classId {
+                editingClassId = cid
+                TargetEditorWindowManager.shared.open(classId: cid, dbManager: dbManager)
+            }
+        }
         .focusable()
         .accessibilityElement(children: .combine)
     }

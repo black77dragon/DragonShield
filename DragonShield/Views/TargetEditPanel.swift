@@ -60,185 +60,19 @@ struct TargetEditPanel: View {
         rows.map(\.amount).reduce(0, +)
     }
 
-
-
     var body: some View {
         VStack(spacing: 0) {
+            header
+            Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("Asset Allocation for \(className)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(1)
-                        .accessibilityLabel("Asset Allocation for \(className)")
-
-                    VStack(spacing: 16) {
-                        HStack(spacing: 24) {
-                            VStack(alignment: .leading) {
-                                Text("Target Kind")
-                                Picker("", selection: $kind) {
-                                    Text("%").tag(TargetKind.percent)
-                                    Text("CHF").tag(TargetKind.amount)
-                                }
-                                .pickerStyle(.radioGroup)
-                                .frame(width: 120)
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Target %")
-                                TextField("", value: $parentPercent, formatter: Self.percentFormatter)
-                                    .frame(width: 80)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(kind != .percent)
-                                    .foregroundColor(kind == .percent ? .primary : .secondary)
-                                    .onChange(of: parentPercent) { oldVal, newVal in
-                                        guard !isInitialLoad, kind == .percent else { return }
-                                        let capped = max(0, min(newVal, 100))
-                                        if capped != newVal { parentPercent = capped }
-                                        parentAmount = portfolioTotal * capped / 100
-                                        let ratio = String(format: "%.2f", capped / 100)
-                                        log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
-                                        updateClassTotals()
-                                    }
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Target CHF")
-                                TextField("", text: chfBinding(key: "parent", value: $parentAmount))
-                                    .frame(width: 100)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(kind != .amount)
-                                    .foregroundColor(kind == .amount ? .primary : .secondary)
-                                    .focused($focusedChfField, equals: "parent")
-                                    .onChange(of: parentAmount) { oldVal, newVal in
-                                        guard !isInitialLoad, kind == .amount else { return }
-                                        let capped = max(0, min(newVal, portfolioTotal))
-                                        if capped != newVal { parentAmount = capped }
-                                        parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
-                                        log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
-                                        updateClassTotals()
-                                    }
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("Tolerance %")
-                                TextField("", value: $tolerance, formatter: Self.numberFormatter)
-                                    .frame(width: 60)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                        }
-                        Divider()
-                        HStack(spacing: 32) {
-                            Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
-                            Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
-                            Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
-                        }
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    }
-                    .padding(24)
-                    .background(Color.sectionBlue.cornerRadius(8))
-
-                    Text("Sub-Class Targets:")
-                        .font(.headline)
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Text("Name")
-                                .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
-                            Text("Kind").frame(width: 80)
-                            Text("Target %").frame(width: 80, alignment: .trailing)
-                            Text("Target CHF").frame(width: 100, alignment: .trailing)
-                            Text("Tol %").frame(width: 60, alignment: .trailing)
-                        }
-                        Divider()
-                        ForEach($rows) { $row in
-                            HStack {
-                                Text(row.name)
-                                    .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
-
-                                Picker("", selection: $row.kind) {
-                                    Text("%").tag(TargetKind.percent)
-                                    Text("CHF").tag(TargetKind.amount)
-                                }
-                                .pickerStyle(.radioGroup)
-                                .frame(width: 80)
-                                .onChange(of: row.kind) { _, newKind in
-                                    if newKind == .percent {
-                                        row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
-                                    } else {
-                                        row.amount = parentAmount * row.percent / 100
-                                    }
-                                }
-
-                                TextField("", value: $row.percent, formatter: Self.percentFormatter)
-                                    .frame(width: 80)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(row.kind != .percent)
-                                    .foregroundColor(row.kind == .percent ? .primary : .secondary)
-                                    .onChange(of: row.percent) { oldVal, newVal in
-                                        guard !isInitialLoad, row.kind == .percent else { return }
-                                        let capped = max(0, min(newVal, 100))
-                                        if capped != newVal { row.percent = capped }
-                                        row.amount = parentAmount * capped / 100
-                                        let ratio = String(format: "%.2f", capped / 100)
-                                        log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
-                                    }
-
-                                TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
-                                    .frame(width: 100)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(row.kind != .amount)
-                                    .foregroundColor(row.kind == .amount ? .primary : .secondary)
-                                    .focused($focusedChfField, equals: "row-\(row.id)")
-                                    .onChange(of: row.amount) { oldVal, newVal in
-                                        guard !isInitialLoad, row.kind == .amount else { return }
-                                        let capped = max(0, min(newVal, parentAmount))
-                                        if capped != newVal { row.amount = capped }
-                                        row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
-                                        log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
-                                    }
-
-                                TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
-                                    .frame(width: 60)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                            .padding(.vertical, 8)
-                            Divider()
-                        }
-                    }
-
-                    Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
-                        .foregroundColor(remaining == 0 ? .primary : .red)
-
-                    if let warning = parentWarning {
-                        Text(warning)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                }
-                .padding([.top, .horizontal], 24)
+                content
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
             }
-
-            HStack {
-                Button("Auto-balance") { autoBalance() }
-                Spacer()
-                Button("Cancel") { cancel() }
-                Button("Save") { save() }
-            }
-            .padding([.leading, .trailing, .bottom], 24)
+            Divider()
+            footer
         }
-        .frame(width: 800, height: 600)
+        .frame(minWidth: 800, minHeight: 600)
         .onAppear { load() }
         .onChange(of: kind) { _, _ in
             guard !isInitialLoad else { return }
@@ -267,6 +101,187 @@ struct TargetEditPanel: View {
                 chfDrafts[key] = chfDrafts[key]?.replacingOccurrences(of: "'", with: "")
             }
         }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Asset Allocation for \(className)")
+                .font(.title2)
+                .fontWeight(.bold)
+                .multilineTextAlignment(.leading)
+                .lineLimit(1)
+                .accessibilityLabel("Asset Allocation for \(className)")
+
+            VStack(spacing: 16) {
+                HStack(spacing: 24) {
+                    VStack(alignment: .leading) {
+                        Text("Target Kind")
+                        Picker("", selection: $kind) {
+                            Text("%\").tag(TargetKind.percent)
+                            Text("CHF").tag(TargetKind.amount)
+                        }
+                        .pickerStyle(.radioGroup)
+                        .frame(width: 120)
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text("Target %")
+                        TextField("", value: $parentPercent, formatter: Self.percentFormatter)
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .percent)
+                            .foregroundColor(kind == .percent ? .primary : .secondary)
+                            .onChange(of: parentPercent) { oldVal, newVal in
+                                guard !isInitialLoad, kind == .percent else { return }
+                                let capped = max(0, min(newVal, 100))
+                                if capped != newVal { parentPercent = capped }
+                                parentAmount = portfolioTotal * capped / 100
+                                let ratio = String(format: "%.2f", capped / 100)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(portfolioTotal))=\(formatChf(parentAmount))", type: .debug)
+                                updateClassTotals()
+                            }
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text("Target CHF")
+                        TextField("", text: chfBinding(key: "parent", value: $parentAmount))
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(kind != .amount)
+                            .foregroundColor(kind == .amount ? .primary : .secondary)
+                            .focused($focusedChfField, equals: "parent")
+                            .onChange(of: parentAmount) { oldVal, newVal in
+                                guard !isInitialLoad, kind == .amount else { return }
+                                let capped = max(0, min(newVal, portfolioTotal))
+                                if capped != newVal { parentAmount = capped }
+                                parentPercent = portfolioTotal > 0 ? capped / portfolioTotal * 100 : parentPercent
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(portfolioTotal)))×100=\(String(format: "%.1f", parentPercent))", type: .debug)
+                                updateClassTotals()
+                            }
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text("Tolerance %")
+                        TextField("", value: $tolerance, formatter: Self.numberFormatter)
+                            .frame(width: 60)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+                Divider()
+                HStack(spacing: 32) {
+                    Text("Σ Classes % = \(totalClassPercent, format: .number.precision(.fractionLength(1)))%")
+                    Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
+                    Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
+                }
+                .font(.footnote)
+                .foregroundColor(.secondary)
+            }
+            .padding(24)
+            .background(Color.sectionBlue.cornerRadius(8))
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Sub-Class Targets:")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Name")
+                        .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                    Text("Kind").frame(width: 80)
+                    Text("Target %").frame(width: 80, alignment: .trailing)
+                    Text("Target CHF").frame(width: 100, alignment: .trailing)
+                    Text("Tol %").frame(width: 60, alignment: .trailing)
+                }
+                Divider()
+                ForEach($rows) { $row in
+                    HStack {
+                        Text(row.name)
+                            .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+
+                        Picker("", selection: $row.kind) {
+                            Text("%\").tag(TargetKind.percent)
+                            Text("CHF").tag(TargetKind.amount)
+                        }
+                        .pickerStyle(.radioGroup)
+                        .frame(width: 80)
+                        .onChange(of: row.kind) { _, newKind in
+                            if newKind == .percent {
+                                row.percent = parentAmount > 0 ? row.amount / parentAmount * 100 : 0
+                            } else {
+                                row.amount = parentAmount * row.percent / 100
+                            }
+                        }
+
+                        TextField("", value: $row.percent, formatter: Self.percentFormatter)
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .percent)
+                            .foregroundColor(row.kind == .percent ? .primary : .secondary)
+                            .onChange(of: row.percent) { oldVal, newVal in
+                                guard !isInitialLoad, row.kind == .percent else { return }
+                                let capped = max(0, min(newVal, 100))
+                                if capped != newVal { row.percent = capped }
+                                row.amount = parentAmount * capped / 100
+                                let ratio = String(format: "%.2f", capped / 100)
+                                log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
+                            }
+
+                        TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
+                            .frame(width: 100)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(row.kind != .amount)
+                            .foregroundColor(row.kind == .amount ? .primary : .secondary)
+                            .focused($focusedChfField, equals: "row-\(row.id)")
+                            .onChange(of: row.amount) { oldVal, newVal in
+                                guard !isInitialLoad, row.kind == .amount else { return }
+                                let capped = max(0, min(newVal, parentAmount))
+                                if capped != newVal { row.amount = capped }
+                                row.percent = parentAmount > 0 ? max(0, min(capped / parentAmount * 100, 100)) : 0
+                                log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
+                            }
+
+                        TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
+                            .frame(width: 60)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    .padding(.vertical, 8)
+                    Divider()
+                }
+            }
+
+            Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
+                .foregroundColor(remaining == 0 ? .primary : .red)
+
+            if let warning = parentWarning {
+                Text(warning)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.red)
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack {
+            Button("Auto-balance") { autoBalance() }
+            Spacer()
+            Button("Cancel") { cancel() }
+            Button("Save") { save() }
+        }
+        .padding([.leading, .trailing, .bottom], 24)
     }
 
     private func load() {
