@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.23 - Fix allocation validation triggers and update validation_status
+-- Version 4.24 - Add ValidationFindings table for allocation validation reasons
 -- Created: 2025-05-24
 -- Updated: 2025-08-08
 --
 -- RECENT HISTORY:
+-- - v4.23 -> v4.24: Add ValidationFindings table for storing validation reasons.
 -- - v4.22 -> v4.23: Replace faulty allocation validation triggers with non-blocking versions and update validation_status.
 -- - v4.21 -> v4.22: Add validation status columns to ClassTargets and SubClassTargets.
 -- - v4.20 -> v4.21: Add validation triggers for ClassTargets and SubClassTargets sums.
@@ -224,6 +225,18 @@ CREATE TABLE SubClassTargets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_sub_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
     CONSTRAINT uq_sub UNIQUE(class_target_id, asset_sub_class_id)
+);
+
+CREATE TABLE ValidationFindings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL CHECK(entity_type IN('class','subclass')),
+    entity_id INTEGER NOT NULL,
+    severity TEXT NOT NULL CHECK(severity IN('warning','error')),
+    code TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details_json TEXT,
+    computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(entity_type, entity_id, code)
 );
 
 CREATE TABLE TargetChangeLog (

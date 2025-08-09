@@ -25,6 +25,21 @@ extension DatabaseManager {
         var subTargets: [SubClassTarget]
     }
 
+    struct ValidationFinding: Identifiable, Hashable {
+        let id: Int
+        let severity: String
+        let code: String
+        let message: String
+    }
+
+    private static let chfFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 0
+        return f
+    }()
+
     /// Returns current and target allocation percentages grouped by asset class.
     /// This uses sample data from `fetchAssetAllocationVariance()` for now.
     func fetchPortfolioTargets() -> [AllocationTarget] {
@@ -191,6 +206,124 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
         return status
+    }
+
+    /// Fetch validation findings for a class.
+    func fetchClassValidationFindings(classId: Int) -> [ValidationFinding] {
+        var results: [ValidationFinding] = []
+        let query = """
+            SELECT vf.id, vf.severity, vf.code, vf.message
+            FROM ValidationFindings vf
+            JOIN ClassTargets ct ON vf.entity_id = ct.id
+            WHERE vf.entity_type = 'class' AND ct.asset_class_id = ?
+            ORDER BY vf.id;
+        """
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(classId))
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                let severity = String(cString: sqlite3_column_text(statement, 1))
+                let code = String(cString: sqlite3_column_text(statement, 2))
+                let message = String(cString: sqlite3_column_text(statement, 3))
+                results.append(ValidationFinding(id: id, severity: severity, code: code, message: message))
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare fetchClassValidationFindings: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return results
+    }
+
+    /// Recompute validation status and findings for a class based on stored targets.
+    func recomputeClassValidation(classId: Int) {
+        let classQuery = "SELECT id, target_amount_chf, target_kind, tolerance_percent FROM ClassTargets WHERE asset_class_id = ?"
+        var classStmt: OpaquePointer?
+        var classTargetId: Int = 0
+        var classAmount = 0.0
+        var classKind = "percent"
+        var tolerance = 0.0
+        if sqlite3_prepare_v2(db, classQuery, -1, &classStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(classStmt, 1, Int32(classId))
+            if sqlite3_step(classStmt) == SQLITE_ROW {
+                classTargetId = Int(sqlite3_column_int(classStmt, 0))
+                classAmount = sqlite3_column_double(classStmt, 1)
+                classKind = String(cString: sqlite3_column_text(classStmt, 2))
+                tolerance = sqlite3_column_double(classStmt, 3)
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare class query: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(classStmt)
+        if classTargetId == 0 { return }
+
+        let subs = fetchSubClassTargets(classId: classId)
+        var findings: [(String, String, String)] = []
+        let tolStr = String(format: "%.1f", tolerance)
+        let pctSum = subs.map { $0.percent }.reduce(0, +)
+        if abs(pctSum - 100) > tolerance {
+            let msg = "Sub-class % sum is \(String(format: "%.1f", pctSum))% (expected 100% ± \(tolStr)%)."
+            findings.append(("warning", "CLS_SUBPCT_OUT_OF_RANGE", msg))
+        }
+        if classKind == "amount" || subs.contains(where: { $0.targetKind == "amount" }) {
+            let chfSum = subs.map { $0.amountCHF }.reduce(0, +)
+            let tolAmt = classAmount * tolerance / 100
+            if abs(chfSum - classAmount) > tolAmt {
+                let msg = "Sub-class CHF sum is \(formatChf(chfSum)) (expected \(formatChf(classAmount)) ± \(tolStr)%)."
+                findings.append(("warning", "CLS_SUBCHF_MISMATCH", msg))
+            }
+        }
+        if classKind == "percent" {
+            let remaining = 100 - pctSum
+            if abs(remaining) > tolerance {
+                let msg = "Remaining to allocate is \(String(format: "%.1f", remaining))% (expected 0% ± \(tolStr)%)."
+                findings.append(("warning", "CLS_REMAINING_PCT_NOT_ZERO", msg))
+            }
+            let allSubsAmount = subs.allSatisfy { $0.targetKind == "amount" }
+            if allSubsAmount && classAmount == 0 {
+                let msg = "Target kind configuration is inconsistent between class and sub-classes."
+                findings.append(("warning", "CLS_KIND_INCONSISTENT", msg))
+            }
+        }
+        let newStatus = findings.isEmpty ? "compliant" : "warning"
+
+        // Update status
+        var statusStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "UPDATE ClassTargets SET validation_status = ? WHERE id = ?", -1, &statusStmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(statusStmt, 1, newStatus, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+            sqlite3_bind_int(statusStmt, 2, Int32(classTargetId))
+            if sqlite3_step(statusStmt) != SQLITE_DONE {
+                LoggingService.shared.log("Failed to update validation status: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        }
+        sqlite3_finalize(statusStmt)
+
+        // Replace findings
+        let delQuery = "DELETE FROM ValidationFindings WHERE entity_type='class' AND entity_id=?"
+        var delStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, delQuery, -1, &delStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(delStmt, 1, Int32(classTargetId))
+            sqlite3_step(delStmt)
+        }
+        sqlite3_finalize(delStmt)
+        let insQuery = "INSERT INTO ValidationFindings (entity_type, entity_id, severity, code, message) VALUES ('class', ?, ?, ?, ?)"
+        for f in findings {
+            var insStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insQuery, -1, &insStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(insStmt, 1, Int32(classTargetId))
+                sqlite3_bind_text(insStmt, 2, f.0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(insStmt, 3, f.1, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(insStmt, 4, f.2, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if sqlite3_step(insStmt) != SQLITE_DONE {
+                    LoggingService.shared.log("Failed to insert validation finding: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
+            }
+            sqlite3_finalize(insStmt)
+        }
+    }
+
+    private func formatChf(_ value: Double) -> String {
+        Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
     }
 
     /// Fetch all sub-class targets for a given asset class.

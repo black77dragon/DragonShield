@@ -35,7 +35,7 @@ struct TargetEditPanel: View {
     @State private var validationStatus: String = "compliant"
     @State private var isInitialLoad = true
     @State private var initialRows: [Int: Row] = [:]
-    @State private var reasons: [String] = []
+    @State private var reasons: [DatabaseManager.ValidationFinding] = []
     @State private var showReasons = false
     @State private var statusFetchError = false
 
@@ -98,7 +98,6 @@ struct TargetEditPanel: View {
                                     } else {
                                         row.amount = parentAmount * row.percent / 100
                                     }
-                                    updateReasons()
                                 }
 
                                 TextField("", value: $row.percent, formatter: Self.percentFormatter)
@@ -114,7 +113,6 @@ struct TargetEditPanel: View {
                                         row.amount = parentAmount * capped / 100
                                         let ratio = String(format: "%.2f", capped / 100)
                                         log("CALC %→CHF", "Changed percent \(oldVal)→\(capped) ⇒ CHF=\(ratio)×\(formatChf(parentAmount))=\(formatChf(row.amount))", type: .debug)
-                                        updateReasons()
                                     }
 
                                 TextField("", text: chfBinding(key: "row-\(row.id)", value: $row.amount))
@@ -130,7 +128,6 @@ struct TargetEditPanel: View {
                                         if capped != newVal { row.amount = capped }
                                         row.percent = parentAmount > 0 ? capped / parentAmount * 100 : 0
                                         log("CALC CHF→%", "Changed CHF \(formatChf(oldVal))→\(formatChf(capped)) ⇒ percent=(\(formatChf(capped))÷\(formatChf(parentAmount)))×100=\(String(format: "%.1f", row.percent))", type: .debug)
-                                        updateReasons()
                                     }
 
                                 TextField("", value: $row.tolerance, formatter: Self.numberFormatter)
@@ -236,7 +233,6 @@ struct TargetEditPanel: View {
                         .frame(width: 60)
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
-                        .onChange(of: tolerance) { _, _ in updateReasons() }
                 }
 
                 Spacer()
@@ -259,15 +255,23 @@ struct TargetEditPanel: View {
                         }
                     }
                     if showReasons {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(reasons, id: \.self) { reason in
-                                Text("• \(reason)")
-                                    .font(.caption)
+                        if reasons.isEmpty {
+                            Text("No details available. Please refresh.")
+                                .font(.caption)
+                                .padding(8)
+                                .background(Color.white)
+                                .cornerRadius(4)
+                        } else {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(reasons, id: \.code) { reason in
+                                    Text("• \(reason.message)")
+                                        .font(.caption)
+                                }
                             }
+                            .padding(8)
+                            .background(Color.white)
+                            .cornerRadius(4)
                         }
-                        .padding(8)
-                        .background(Color.white)
-                        .cornerRadius(4)
                     }
                 }
             }
@@ -331,7 +335,6 @@ struct TargetEditPanel: View {
         initialRows = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
 
         updateRows()
-        updateReasons()
         if focusedChfField == nil {
             refreshDrafts()
         }
@@ -341,6 +344,7 @@ struct TargetEditPanel: View {
         for r in rows {
             log("EDIT PANEL LOAD", "Loaded sub-class \"\(r.name)\" id=\(r.id): percent=\(r.percent), CHF=\(r.amount), kind=\(r.kind.rawValue), tol=\(r.tolerance)", type: .info)
         }
+        refreshFindings()
         isInitialLoad = false
     }
 
@@ -374,7 +378,6 @@ struct TargetEditPanel: View {
             }
         }
         refreshDrafts()
-        updateReasons()
     }
 
     private func autoBalance() {
@@ -392,7 +395,6 @@ struct TargetEditPanel: View {
                 rows[last].amount += remaining - share * Double(unlocked.count)
             }
         }
-        updateReasons()
     }
 
     private func cancel() {
@@ -420,6 +422,7 @@ struct TargetEditPanel: View {
                                     tolerance: row.tolerance)
         }
         let oldStatus = validationStatus
+        db.recomputeClassValidation(classId: classId)
         if let status = db.fetchClassValidationStatus(classId: classId) {
             validationStatus = status
             statusFetchError = false
@@ -427,9 +430,9 @@ struct TargetEditPanel: View {
             validationStatus = "unknown"
             statusFetchError = true
         }
+        refreshFindings()
+        log("VALIDATION STATUS", "Saved class id=\(classId) status \(oldStatus)→\(validationStatus) findings=\(reasons.count)", type: .info)
         if validationStatus.lowercased() == "compliant" { showReasons = false }
-        log("VALIDATION STATUS", "Saved class id=\(classId) status \(oldStatus)→\(validationStatus)", type: .info)
-        updateReasons()
         NotificationCenter.default.post(name: .targetsUpdated, object: nil)
         dismiss()
     }
@@ -437,45 +440,11 @@ struct TargetEditPanel: View {
     private func toggleReasons() {
         showReasons.toggle()
         if showReasons {
-            log("WHY PANEL", "Reasons for class id=\(classId): \(reasons.joined(separator: "; "))", type: .info)
+            let codes = reasons.map { $0.code }.joined(separator: ",")
+            log("WHY PANEL", "Displayed \(reasons.count) findings for class id=\(classId): \(codes)", type: .info)
         }
     }
 
-    private func updateReasons() {
-        reasons = computeReasons()
-    }
-
-    private func computeReasons() -> [String] {
-        var msgs: [String] = []
-        let tolStr = String(format: "%.1f", tolerance)
-        // Sub-class % sum
-        let pctSum = rows.map(\.percent).reduce(0, +)
-        if abs(pctSum - 100) > tolerance {
-            msgs.append("Sub-class % sum is \(String(format: "%.1f", pctSum))% (expected 100% ± \(tolStr)%).")
-        }
-        // Sub-class CHF sum
-        if kind == .amount || rows.contains(where: { $0.kind == .amount }) {
-            let chfSum = rows.map(\.amount).reduce(0, +)
-            let tolAmt = parentAmount * tolerance / 100
-            if abs(chfSum - parentAmount) > tolAmt {
-                msgs.append("Sub-class CHF sum is \(formatChf(chfSum)) (expected \(formatChf(parentAmount)) ± \(tolStr)%).")
-            }
-        }
-        // Remaining to allocate
-        if kind == .percent {
-            if abs(remaining) > tolerance {
-                msgs.append("Remaining to allocate is \(String(format: "%.1f", remaining))% (expected 0% ± \(tolStr)%).")
-            }
-        }
-        // Mixed kind inconsistencies
-        if kind == .percent {
-            let allSubsAmount = rows.allSatisfy { $0.kind == .amount }
-            if allSubsAmount && parentAmount == 0 {
-                msgs.append("Class target is %, but sub-targets are CHF without a defined class CHF baseline.")
-            }
-        }
-        return msgs
-    }
 
     private func colorForStatus(_ status: String) -> Color {
         switch status.lowercased() {
@@ -488,6 +457,13 @@ struct TargetEditPanel: View {
 
     private func formatChf(_ value: Double) -> String {
         Self.chfFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func refreshFindings() {
+        reasons = db.fetchClassValidationFindings(classId: classId)
+        if ["warning", "error"].contains(validationStatus.lowercased()) && reasons.isEmpty {
+            log("WHY PANEL", "No findings returned for class id=\(classId) despite status=\(validationStatus)", type: .error)
+        }
     }
 
     private func chfBinding(key: String, value: Binding<Double>) -> Binding<String> {
