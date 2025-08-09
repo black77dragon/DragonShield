@@ -33,6 +33,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     @Published var assets: [AllocationAsset] = []
     @Published var sortColumn: SortColumn = .actualPct
     @Published var sortAscending: Bool = false
+    @Published var findings: [DatabaseManager.ValidationFinding] = []
     private var db: DatabaseManager?
     private var portfolioValue: Double = 0
     /// Mapping of sub-class IDs to their parent class IDs for validation.
@@ -68,6 +69,13 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     var totalsValid: Bool {
         targetPctTotal >= 99 && targetPctTotal <= 101
+    }
+
+    var worstSeverity: String? {
+        if findings.contains(where: { $0.severity == "error" }) { return "error" }
+        if findings.contains(where: { $0.severity == "warning" }) { return "warning" }
+        if !totalsValid { return "warning" }
+        return nil
     }
 
     func toggleSort(column: SortColumn) {
@@ -232,6 +240,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             return AllocationAsset(id: "class-\(cls.id)", name: cls.name, actualPct: actualPct, actualChf: actualCHF, targetPct: tPct, targetChf: tChf, mode: Self.loadMode(id: "class-\(cls.id)"), children: children, validationStatus: status)
         }
         sortAssets()
+        findings = dbManager.fetchValidationFindings()
     }
 
     func percentBinding(for asset: AllocationAsset) -> Binding<Double> {
@@ -338,7 +347,7 @@ struct AllocationTargetsTableView: View {
     @FocusState private var focusedChfField: String?
     @FocusState private var focusedPctField: String?
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.colorScheme) private var scheme
+    @State private var showValidationDetails = false
 
     private let percentFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -403,37 +412,45 @@ struct AllocationTargetsTableView: View {
         viewModel.assets.filter { !viewModel.isActive($0) }
     }
 
-
-    private var portfolioIssues: [String] {
-        var issues: [String] = []
-        if !viewModel.totalsValid {
-            issues.append(String(format: "WARNING: Total Asset Class %% = %.1f%% (expected 100%% ± 1%%)", viewModel.targetPctTotal))
+    private var validationDetailsButton: some View {
+        let severity = viewModel.worstSeverity ?? ""
+        let disabled = severity.isEmpty
+        let color: Color
+        let tooltip: String
+        switch severity {
+        case "error":
+            color = .red
+            tooltip = "Validation errors present. Click for details."
+        case "warning":
+            color = .orange
+            tooltip = "Validation warnings present. Click for details."
+        default:
+            color = .gray
+            tooltip = "No validation findings."
         }
-        return issues
+        return Button("Validation Details") { showValidationDetails = true }
+            .disabled(disabled)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(disabled ? Color.gray.opacity(0.3) : color)
+            .foregroundColor(.white)
+            .clipShape(Capsule())
+            .help(tooltip)
     }
 
-    private var classFindings: [AllocationAsset] {
-        viewModel.assets.filter { $0.id.hasPrefix("class-") && $0.validationStatus.lowercased() != "compliant" }
-    }
-
-    private var overallStatus: String {
-        if classFindings.contains(where: { $0.validationStatus.lowercased() == "error" }) {
-            return "error"
-        }
-        if !portfolioIssues.isEmpty || classFindings.contains(where: { $0.validationStatus.lowercased() == "warning" }) {
-            return "warning"
-        }
-        return "compliant"
-    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            List {
-                headerRow
-                totalsRow
-                OutlineGroup(activeAssets, children: \.children) { asset in
-                    tableRow(for: asset)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Spacer()
+                validationDetailsButton
+            }
+            ZStack(alignment: .bottom) {
+                List {
+                    headerRow
+                    OutlineGroup(activeAssets, children: \.children) { asset in
+                        tableRow(for: asset)
+                    }
                     if !inactiveAssets.isEmpty {
                         Divider()
                         inactiveHeader
@@ -441,49 +458,10 @@ struct AllocationTargetsTableView: View {
                             tableRow(for: asset)
                         }
                     }
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Validation Status")
-                            .font(.headline)
-                        Spacer()
-                        Text(overallStatus.capitalized)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(colorForStatus(overallStatus))
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
-                    }
-                    if !portfolioIssues.isEmpty {
-                        ForEach(portfolioIssues, id: \.self) { msg in
-                            Text("• \(msg)")
-                                .font(.caption)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    if !classFindings.isEmpty {
-                        Divider().padding(.vertical, 4)
-                        ForEach(classFindings, id: \.id) { asset in
-                            Button {
-                                if let id = Int(asset.id.dropFirst(6)) {
-                                    openWindow(id: "targetEdit", value: id)
-                                }
-                            } label: {
-                                Text("• \(asset.validationStatus.uppercased()) – \(asset.name)")
-                                    .font(.caption)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 44)
+                totalsRow
             }
-            .frame(width: 320)
-            .background(cardBackground)
         }
         .padding(.horizontal, 24)
         .onAppear {
@@ -496,6 +474,9 @@ struct AllocationTargetsTableView: View {
         }
         .onDisappear { viewModel.persistAll() }
         .navigationTitle("Allocation Targets")
+        .sheet(isPresented: $showValidationDetails) {
+            ValidationDetailsView(findings: viewModel.findings)
+        }
     }
 
     private var headerRow: some View {
@@ -533,7 +514,7 @@ struct AllocationTargetsTableView: View {
 
     private var totalsRow: some View {
         HStack(spacing: 0) {
-            Text("Totals")
+            Text("TOTAL")
                 .frame(width: 200, alignment: .leading)
             Divider()
             HStack {
@@ -587,6 +568,7 @@ struct AllocationTargetsTableView: View {
                     .help("Target % total must be between 99% and 101%")
             }
         }
+        .help("Portfolio Target % total = \(formatPercent(viewModel.targetPctTotal))%; expected 100% ± 0.1%.")
     }
 
     private func sortHeader(title: String, column: SortColumn) -> some View {
@@ -643,27 +625,6 @@ struct AllocationTargetsTableView: View {
         }
     }
 
-    private var cardBackground: some View {
-        Group {
-            if scheme == .dark {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.tertiary, lineWidth: 1)
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.quaternary, lineWidth: 1)
-                    )
-            }
-        }
-    }
 
     @ViewBuilder
     private func tableRow(for asset: AllocationAsset) -> some View {

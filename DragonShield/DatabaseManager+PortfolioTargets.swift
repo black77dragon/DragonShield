@@ -27,9 +27,12 @@ extension DatabaseManager {
 
     struct ValidationFinding: Identifiable, Hashable {
         let id: Int
+        let entityType: String
+        let entityId: Int
         let severity: String
         let code: String
         let message: String
+        let computedAt: Date
     }
 
     private static let chfFormatter: NumberFormatter = {
@@ -38,6 +41,13 @@ extension DatabaseManager {
         f.groupingSeparator = "'"
         f.maximumFractionDigits = 0
         return f
+    }()
+
+    private static let tsFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        return df
     }()
 
     /// Returns current and target allocation percentages grouped by asset class.
@@ -212,7 +222,7 @@ extension DatabaseManager {
     func fetchClassValidationFindings(classId: Int) -> [ValidationFinding] {
         var results: [ValidationFinding] = []
         let query = """
-            SELECT vf.id, vf.severity, vf.code, vf.message
+            SELECT vf.id, vf.entity_type, vf.entity_id, vf.severity, vf.code, vf.message, vf.computed_at
             FROM ValidationFindings vf
             JOIN ClassTargets ct ON vf.entity_id = ct.id
             WHERE vf.entity_type = 'class' AND ct.asset_class_id = ?
@@ -223,13 +233,45 @@ extension DatabaseManager {
             sqlite3_bind_int(statement, 1, Int32(classId))
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
-                let severity = String(cString: sqlite3_column_text(statement, 1))
-                let code = String(cString: sqlite3_column_text(statement, 2))
-                let message = String(cString: sqlite3_column_text(statement, 3))
-                results.append(ValidationFinding(id: id, severity: severity, code: code, message: message))
+                let type = String(cString: sqlite3_column_text(statement, 1))
+                let entityId = Int(sqlite3_column_int(statement, 2))
+                let severity = String(cString: sqlite3_column_text(statement, 3))
+                let code = String(cString: sqlite3_column_text(statement, 4))
+                let message = String(cString: sqlite3_column_text(statement, 5))
+                let ts = String(cString: sqlite3_column_text(statement, 6))
+                let date = Self.tsFormatter.date(from: ts) ?? Date()
+                results.append(ValidationFinding(id: id, entityType: type, entityId: entityId, severity: severity, code: code, message: message, computedAt: date))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchClassValidationFindings: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return results
+    }
+
+    /// Fetch all validation findings across portfolio, classes and subclasses.
+    func fetchValidationFindings() -> [ValidationFinding] {
+        var results: [ValidationFinding] = []
+        let query = """
+            SELECT id, entity_type, entity_id, severity, code, message, computed_at
+            FROM ValidationFindings
+            ORDER BY CASE severity WHEN 'error' THEN 0 ELSE 1 END, computed_at DESC;
+        """
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                let type = String(cString: sqlite3_column_text(statement, 1))
+                let entityId = Int(sqlite3_column_int(statement, 2))
+                let severity = String(cString: sqlite3_column_text(statement, 3))
+                let code = String(cString: sqlite3_column_text(statement, 4))
+                let message = String(cString: sqlite3_column_text(statement, 5))
+                let ts = String(cString: sqlite3_column_text(statement, 6))
+                let date = Self.tsFormatter.date(from: ts) ?? Date()
+                results.append(ValidationFinding(id: id, entityType: type, entityId: entityId, severity: severity, code: code, message: message, computedAt: date))
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare fetchValidationFindings: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
         return results
