@@ -1,6 +1,9 @@
 import SwiftUI
 import Charts
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
 
 struct AllocationDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -162,6 +165,7 @@ struct AllocationTreeCard: View {
     @State private var expanded: [String: Bool] = [:]
     @State private var sortColumn: SortColumn = .actual
     @State private var sortAscending = false
+    @State private var showValidationDetails = false
     @EnvironmentObject private var dbManager: DatabaseManager
 
     enum SortColumn { case target, actual, delta }
@@ -252,6 +256,18 @@ struct AllocationTreeCard: View {
                             rows(widths.name, widths.target, widths.actual, widths.bar, widths.delta, statusColumnWidth, deviationBarColumnWidth, compact)
                         }
                     }
+                    Divider()
+                    TotalsRow(nameWidth: widths.name,
+                              targetWidth: widths.target,
+                              actualWidth: widths.actual,
+                              trackWidth: widths.bar,
+                              deltaWidth: widths.delta,
+                              statusWidth: statusColumnWidth,
+                              barWidth: deviationBarColumnWidth,
+                              gap: gap,
+                              totalTargetPct: viewModel.totalTargetPercent,
+                              totalTargetChf: viewModel.totalTargetChf,
+                              totalActualChf: viewModel.totalActualChf)
                 }
                 .frame(width: tableWidth, alignment: .leading)
                 .padding(.horizontal, sidePad)
@@ -276,6 +292,10 @@ struct AllocationTreeCard: View {
             Text("Asset Classes")
                 .font(.headline)
             Spacer()
+            Button("Validation Details") { showValidationDetails = true }
+                .disabled(viewModel.validationFindings.isEmpty)
+                .foregroundColor(validationColor)
+                .help(validationTooltip)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Display mode")
                     .font(.caption2)
@@ -284,6 +304,27 @@ struct AllocationTreeCard: View {
             }
         }
         .padding(.horizontal, 16)
+        .sheet(isPresented: $showValidationDetails) {
+            ValidationDetailsSheet(findings: viewModel.validationFindings,
+                                   classNames: viewModel.classNames,
+                                   subClassNames: viewModel.subClassNames)
+        }
+    }
+
+    private var validationColor: Color {
+        switch viewModel.worstSeverity {
+        case .error: return .red
+        case .warning: return .orange
+        case .none: return .gray
+        }
+    }
+
+    private var validationTooltip: String {
+        switch viewModel.worstSeverity {
+        case .error: return "Validation errors present. Click for details."
+        case .warning: return "Validation warnings present. Click for details."
+        case .none: return "No validation findings."
+        }
     }
 
     @ViewBuilder
@@ -434,6 +475,61 @@ struct AllocationTreeCard: View {
                 sortAscending = false
             }
         }
+    }
+}
+
+struct TotalsRow: View {
+    let nameWidth: CGFloat
+    let targetWidth: CGFloat
+    let actualWidth: CGFloat
+    let trackWidth: CGFloat
+    let deltaWidth: CGFloat
+    let statusWidth: CGFloat
+    let barWidth: CGFloat
+    let gap: CGFloat
+    let totalTargetPct: Double
+    let totalTargetChf: Double
+    let totalActualChf: Double
+    private let warningTol: Double = 0.1
+    private let errorTol: Double = 1.0
+
+    private var chfFormatter: NumberFormatter {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 0
+        return f
+    }
+
+    private var targetColor: Color {
+        let diff = abs(totalTargetPct - 100)
+        if diff > errorTol { return .red }
+        if diff > warningTol { return .orange }
+        return .primary
+    }
+
+    var body: some View {
+        HStack(spacing: gap) {
+            Spacer().frame(width: 16)
+            Text("TOTAL")
+                .font(.caption.bold())
+                .frame(width: nameWidth, alignment: .leading)
+            Text(String(format: "%.1f %%", totalTargetPct))
+                .font(.caption.bold())
+                .foregroundColor(targetColor)
+                .frame(width: targetWidth, alignment: .trailing)
+                .help("Portfolio Target % total = \(String(format: "%.1f", totalTargetPct))%; expected 100% ± \(warningTol).")
+            Text(chfFormatter.string(from: NSNumber(value: totalTargetChf)) ?? "")
+                .font(.caption.bold())
+                .frame(width: actualWidth, alignment: .trailing)
+            Spacer().frame(width: trackWidth)
+            Text(chfFormatter.string(from: NSNumber(value: totalActualChf)) ?? "")
+                .font(.caption.bold())
+                .frame(width: deltaWidth, alignment: .trailing)
+            Spacer().frame(width: statusWidth)
+            Spacer().frame(width: barWidth)
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -720,6 +816,87 @@ struct DeviationChartsCard: View {
             .chartYScale(domain: 0...40)
             .frame(height: 240)
         }
+    }
+}
+
+struct ValidationDetailsSheet: View {
+    let findings: [DatabaseManager.ValidationFinding]
+    let classNames: [Int: String]
+    let subClassNames: [Int: String]
+    @State private var filter: SeverityFilter = .all
+
+    enum SeverityFilter: String, CaseIterable { case all = "All", errors = "Errors", warnings = "Warnings" }
+
+    private var filtered: [DatabaseManager.ValidationFinding] {
+        switch filter {
+        case .all: return findings
+        case .errors: return findings.filter { $0.severity == "error" }
+        case .warnings: return findings.filter { $0.severity == "warning" }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("", selection: $filter) {
+                ForEach(SeverityFilter.allCases, id: \.rawValue) { f in
+                    Text(f.rawValue).tag(f)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if filtered.isEmpty {
+                Text("No validation findings at this time.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    Section("Portfolio-level") {
+                        ForEach(filtered.filter { $0.entityType == "portfolio" }) { f in
+                            findingRow(f)
+                        }
+                    }
+                    Section("Asset Classes") {
+                        ForEach(filtered.filter { $0.entityType == "class" }) { f in
+                            findingRow(f, name: classNames[f.entityId])
+                        }
+                    }
+                    Section("Sub-Classes") {
+                        ForEach(filtered.filter { $0.entityType == "subclass" }) { f in
+                            findingRow(f, name: subClassNames[f.entityId])
+                        }
+                    }
+                }
+                Button("Copy to clipboard") { copyToClipboard() }
+                    .padding(.top, 8)
+            }
+        }
+        .padding()
+        .frame(minWidth: 400, minHeight: 300)
+    }
+
+    @ViewBuilder
+    private func findingRow(_ f: DatabaseManager.ValidationFinding, name: String? = nil) -> some View {
+        HStack {
+            Text(f.severity.uppercased())
+                .font(.caption.bold())
+                .foregroundColor(f.severity == "error" ? .red : .orange)
+                .padding(4)
+                .background((f.severity == "error" ? Color.red.opacity(0.1) : Color.orange.opacity(0.1)))
+                .cornerRadius(4)
+            VStack(alignment: .leading) {
+                Text("\(f.code): \(f.message)")
+                if let name = name { Text(name).font(.caption).foregroundColor(.secondary) }
+                Text(f.computedAt).font(.caption2).foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func copyToClipboard() {
+        let text = filtered.map { "[\($0.severity.uppercased())] \($0.code): \($0.message)" }.joined(separator: "\n")
+        #if os(macOS)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        #endif
     }
 }
 

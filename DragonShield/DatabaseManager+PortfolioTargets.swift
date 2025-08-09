@@ -27,9 +27,12 @@ extension DatabaseManager {
 
     struct ValidationFinding: Identifiable, Hashable {
         let id: Int
+        let entityType: String
+        let entityId: Int
         let severity: String
         let code: String
         let message: String
+        let computedAt: String
     }
 
     private static let chfFormatter: NumberFormatter = {
@@ -212,7 +215,7 @@ extension DatabaseManager {
     func fetchClassValidationFindings(classId: Int) -> [ValidationFinding] {
         var results: [ValidationFinding] = []
         let query = """
-            SELECT vf.id, vf.severity, vf.code, vf.message
+            SELECT vf.id, vf.entity_type, vf.entity_id, vf.severity, vf.code, vf.message, IFNULL(vf.computed_at, '')
             FROM ValidationFindings vf
             JOIN ClassTargets ct ON vf.entity_id = ct.id
             WHERE vf.entity_type = 'class' AND ct.asset_class_id = ?
@@ -223,16 +226,50 @@ extension DatabaseManager {
             sqlite3_bind_int(statement, 1, Int32(classId))
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
-                let severity = String(cString: sqlite3_column_text(statement, 1))
-                let code = String(cString: sqlite3_column_text(statement, 2))
-                let message = String(cString: sqlite3_column_text(statement, 3))
-                results.append(ValidationFinding(id: id, severity: severity, code: code, message: message))
+                let eType = String(cString: sqlite3_column_text(statement, 1))
+                let eId = Int(sqlite3_column_int(statement, 2))
+                let severity = String(cString: sqlite3_column_text(statement, 3))
+                let code = String(cString: sqlite3_column_text(statement, 4))
+                let message = String(cString: sqlite3_column_text(statement, 5))
+                let computed = String(cString: sqlite3_column_text(statement, 6))
+                results.append(ValidationFinding(id: id, entityType: eType, entityId: eId, severity: severity, code: code, message: message, computedAt: computed))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchClassValidationFindings: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(statement)
         return results
+    }
+
+    /// Fetch all validation findings for portfolio, classes and sub-classes.
+    func fetchValidationFindings() -> [ValidationFinding] {
+        var results: [ValidationFinding] = []
+        let query = "SELECT id, entity_type, entity_id, severity, code, message, IFNULL(computed_at, '') FROM ValidationFindings ORDER BY severity DESC, computed_at DESC"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                let eType = String(cString: sqlite3_column_text(statement, 1))
+                let eId = Int(sqlite3_column_int(statement, 2))
+                let severity = String(cString: sqlite3_column_text(statement, 3))
+                let code = String(cString: sqlite3_column_text(statement, 4))
+                let message = String(cString: sqlite3_column_text(statement, 5))
+                let computed = String(cString: sqlite3_column_text(statement, 6))
+                results.append(ValidationFinding(id: id, entityType: eType, entityId: eId, severity: severity, code: code, message: message, computedAt: computed))
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare fetchValidationFindings: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(statement)
+        return results
+    }
+
+    /// Recompute validation state for all asset classes and refresh findings.
+    func refreshValidationFindings() {
+        let classes = fetchAssetClassesDetailed()
+        for cls in classes {
+            recomputeClassValidation(classId: cls.id)
+        }
     }
 
     /// Recompute validation status and findings for a class based on stored targets.
