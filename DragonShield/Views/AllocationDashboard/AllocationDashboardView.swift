@@ -824,6 +824,7 @@ struct ValidationDetailsSheet: View {
     let classNames: [Int: String]
     let subClassNames: [Int: String]
     @State private var filter: SeverityFilter = .all
+    @Environment(\.dismiss) private var dismiss
 
     enum SeverityFilter: String, CaseIterable { case all = "All", errors = "Errors", warnings = "Warnings" }
 
@@ -837,6 +838,24 @@ struct ValidationDetailsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Validation Details")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.gray)
+                        .frame(width: 32, height: 32)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                }
+                .buttonStyle(ScaleButtonStyle())
+            }
+
             Picker("", selection: $filter) {
                 ForEach(SeverityFilter.allCases, id: \.rawValue) { f in
                     Text(f.rawValue).tag(f)
@@ -870,7 +889,7 @@ struct ValidationDetailsSheet: View {
             }
         }
         .padding()
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 640, minHeight: 500)
     }
 
     @ViewBuilder
