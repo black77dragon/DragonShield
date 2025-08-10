@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Skip validation for asset classes without target allocation and clear related findings
+- Sync ClassTargets validation_status with ValidationFindings and show GREEN when no findings
 - Enlarge validation details modal and add close button
 - Add totals row and validation details modal to Asset Allocation view
 - Move portfolio total validation from class editor to main dashboard and show validation badges for asset classes

@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.25 - Apply zero-target skip rule for allocation validation
+-- Version 4.26 - Sync validation status with ValidationFindings
 -- Created: 2025-05-24
--- Updated: 2025-08-08
+-- Updated: 2025-08-10
 --
 -- RECENT HISTORY:
+-- - v4.25 -> v4.26: Sync validation_status with ValidationFindings via triggers.
 -- - v4.24 -> v4.25: Apply zero-target skip rule for classes with no allocation.
 -- - v4.23 -> v4.24: Add ValidationFindings table for storing validation reasons.
 -- - v4.22 -> v4.23: Replace faulty allocation validation triggers with non-blocking versions and update validation_status.
@@ -206,6 +207,7 @@ CREATE TABLE ClassTargets (
     target_percent REAL DEFAULT 0,
     target_amount_chf REAL DEFAULT 0,
     tolerance_percent REAL DEFAULT 0,
+    validation_status TEXT NOT NULL DEFAULT 'compliant' CHECK(validation_status IN('compliant','warning','error')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_class_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
@@ -220,6 +222,7 @@ CREATE TABLE SubClassTargets (
     target_percent REAL DEFAULT 0,
     target_amount_chf REAL DEFAULT 0,
     tolerance_percent REAL DEFAULT 0,
+    validation_status TEXT NOT NULL DEFAULT 'compliant' CHECK(validation_status IN('compliant','warning','error')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_sub_nonneg CHECK(target_percent >= 0 AND target_amount_chf >= 0),
@@ -249,65 +252,173 @@ CREATE TABLE TargetChangeLog (
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Triggers to validate target sums and record warnings
-CREATE TRIGGER trg_ct_after_aiu
-AFTER INSERT OR UPDATE ON ClassTargets
+-- Triggers to sync validation_status with ValidationFindings
+CREATE TRIGGER trg_vf_after_insert
+AFTER INSERT ON ValidationFindings
 BEGIN
-INSERT INTO TargetChangeLog(target_type, target_id, field_name, old_value, new_value, changed_by)
-SELECT 'class', NEW.id, 'portfolio_class_percent_sum',
-NULL,
-printf('%.4f', (SELECT COALESCE(SUM(ct2.target_percent),0.0) FROM ClassTargets ct2)),
-'trigger'
-WHERE ABS((SELECT COALESCE(SUM(ct2.target_percent),0.0) FROM ClassTargets ct2) - 100.0) > 0.1;
+  UPDATE SubClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings
+          WHERE entity_type='subclass' AND entity_id=NEW.entity_id
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE NEW.entity_type='subclass' AND id=NEW.entity_id;
 
-UPDATE ClassTargets
-SET validation_status =
-CASE
-WHEN NEW.target_percent < 0.0 OR NEW.target_amount_chf < 0.0 THEN 'error'
-WHEN ABS((SELECT COALESCE(SUM(ct3.target_percent),0.0) FROM ClassTargets ct3) - 100.0) > 0.1 THEN 'warning'
-ELSE 'compliant'
-END,
-updated_at = CURRENT_TIMESTAMP
-WHERE id = NEW.id;
+  UPDATE ClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings vf
+          WHERE (vf.entity_type='class' AND vf.entity_id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END)
+             OR (vf.entity_type='subclass' AND vf.entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END))
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END;
 END;
 
-CREATE TRIGGER trg_sct_after_aiu
-AFTER INSERT OR UPDATE ON SubClassTargets
+CREATE TRIGGER trg_vf_after_delete
+AFTER DELETE ON ValidationFindings
 BEGIN
-INSERT INTO TargetChangeLog(target_type, target_id, field_name, old_value, new_value, changed_by)
-SELECT 'class', NEW.class_target_id, 'child_percent_sum_vs_tol',
-NULL,
-printf('sum=%.4f tol=%.4f',
-(SELECT COALESCE(SUM(sct2.target_percent),0.0) FROM SubClassTargets sct2 WHERE sct2.class_target_id = NEW.class_target_id),
-(SELECT COALESCE(ct2.tolerance_percent,0.0) FROM ClassTargets ct2 WHERE ct2.id = NEW.class_target_id)
-),
-'trigger'
-WHERE ABS(
-(SELECT COALESCE(SUM(sct3.target_percent),0.0) FROM SubClassTargets sct3 WHERE sct3.class_target_id = NEW.class_target_id)
-- 100.0
-) > (SELECT COALESCE(ct3.tolerance_percent,0.0) FROM ClassTargets ct3 WHERE ct3.id = NEW.class_target_id);
+  UPDATE SubClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings
+          WHERE entity_type='subclass' AND entity_id=OLD.entity_id
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE OLD.entity_type='subclass' AND id=OLD.entity_id;
 
-UPDATE SubClassTargets
-SET validation_status =
-CASE
-WHEN NEW.target_percent < 0.0 OR NEW.target_amount_chf < 0.0 THEN 'error'
-ELSE 'compliant'
-END,
-updated_at = CURRENT_TIMESTAMP
-WHERE id = NEW.id;
+  UPDATE ClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings vf
+          WHERE (vf.entity_type='class' AND vf.entity_id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END)
+             OR (vf.entity_type='subclass' AND vf.entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END))
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END;
+END;
 
-UPDATE ClassTargets
-SET validation_status =
-CASE
-WHEN validation_status = 'error' THEN 'error'
-ELSE 'warning'
-END,
-updated_at = CURRENT_TIMESTAMP
-WHERE id = NEW.class_target_id
-AND ABS(
-(SELECT COALESCE(SUM(sct4.target_percent),0.0) FROM SubClassTargets sct4 WHERE sct4.class_target_id = NEW.class_target_id)
-- 100.0
-) > (SELECT COALESCE(ct4.tolerance_percent,0.0) FROM ClassTargets ct4 WHERE ct4.id = NEW.class_target_id);
+CREATE TRIGGER trg_vf_after_update
+AFTER UPDATE ON ValidationFindings
+BEGIN
+  UPDATE SubClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings
+          WHERE entity_type='subclass' AND entity_id=OLD.entity_id
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE OLD.entity_type='subclass' AND id=OLD.entity_id;
+
+  UPDATE ClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings vf
+          WHERE (vf.entity_type='class' AND vf.entity_id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END)
+             OR (vf.entity_type='subclass' AND vf.entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END))
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE id = CASE WHEN OLD.entity_type='class' THEN OLD.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=OLD.entity_id) END;
+
+  UPDATE SubClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings
+          WHERE entity_type='subclass' AND entity_id=NEW.entity_id
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE NEW.entity_type='subclass' AND id=NEW.entity_id;
+
+  UPDATE ClassTargets
+  SET validation_status = (
+      WITH sev AS (
+          SELECT MAX(CASE severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) AS rank
+          FROM ValidationFindings vf
+          WHERE (vf.entity_type='class' AND vf.entity_id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END)
+             OR (vf.entity_type='subclass' AND vf.entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END))
+      )
+      SELECT CASE COALESCE(rank,0)
+             WHEN 2 THEN 'error'
+             WHEN 1 THEN 'warning'
+             ELSE 'compliant' END
+      FROM sev
+  ),
+  updated_at = CURRENT_TIMESTAMP
+  WHERE id = CASE WHEN NEW.entity_type='class' THEN NEW.entity_id ELSE (SELECT class_target_id FROM SubClassTargets WHERE id=NEW.entity_id) END;
+END;
+
+CREATE TRIGGER trg_ct_zero_insert
+AFTER INSERT ON ClassTargets
+WHEN NEW.target_percent = 0 AND COALESCE(NEW.target_amount_chf,0)=0
+BEGIN
+  DELETE FROM ValidationFindings
+  WHERE (entity_type='class' AND entity_id=NEW.id)
+     OR (entity_type='subclass' AND entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id=NEW.id));
+
+  UPDATE ClassTargets SET validation_status='compliant', updated_at=CURRENT_TIMESTAMP WHERE id=NEW.id;
+  UPDATE SubClassTargets SET validation_status='compliant', updated_at=CURRENT_TIMESTAMP WHERE class_target_id=NEW.id;
+END;
+
+CREATE TRIGGER trg_ct_zero_update
+AFTER UPDATE ON ClassTargets
+WHEN NEW.target_percent = 0 AND COALESCE(NEW.target_amount_chf,0)=0
+BEGIN
+  DELETE FROM ValidationFindings
+  WHERE (entity_type='class' AND entity_id=NEW.id)
+     OR (entity_type='subclass' AND entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id=NEW.id));
+
+  UPDATE ClassTargets SET validation_status='compliant', updated_at=CURRENT_TIMESTAMP WHERE id=NEW.id;
+  UPDATE SubClassTargets SET validation_status='compliant', updated_at=CURRENT_TIMESTAMP WHERE class_target_id=NEW.id;
 END;
 
 --=============================================================================

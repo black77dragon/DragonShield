@@ -217,13 +217,16 @@ extension DatabaseManager {
         let query = """
             SELECT vf.id, vf.entity_type, vf.entity_id, vf.severity, vf.code, vf.message, IFNULL(vf.computed_at, '')
             FROM ValidationFindings vf
-            JOIN ClassTargets ct ON vf.entity_id = ct.id
-            WHERE vf.entity_type = 'class' AND ct.asset_class_id = ?
-            ORDER BY vf.id;
+            WHERE (vf.entity_type='class' AND vf.entity_id = (SELECT id FROM ClassTargets WHERE asset_class_id=?))
+               OR (vf.entity_type='subclass' AND vf.entity_id IN (
+                    SELECT id FROM SubClassTargets WHERE class_target_id = (SELECT id FROM ClassTargets WHERE asset_class_id=?)
+               ))
+            ORDER BY (CASE vf.severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) DESC, vf.computed_at DESC;
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(classId))
+            sqlite3_bind_int(statement, 2, Int32(classId))
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
                 let eType = String(cString: sqlite3_column_text(statement, 1))
