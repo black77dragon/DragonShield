@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Sync stored validation status with current findings via database triggers
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
 - Add totals row and validation details modal to Asset Allocation view
