@@ -1,10 +1,11 @@
 -- DragonShield/docs/schema.sql
 -- Dragon Shield Database Creation Script
--- Version 4.24 - Add ValidationFindings table for allocation validation reasons
+-- Version 4.25 - Apply zero-target skip rule for allocation validation
 -- Created: 2025-05-24
 -- Updated: 2025-08-08
 --
 -- RECENT HISTORY:
+-- - v4.24 -> v4.25: Apply zero-target skip rule for classes with no allocation.
 -- - v4.23 -> v4.24: Add ValidationFindings table for storing validation reasons.
 -- - v4.22 -> v4.23: Replace faulty allocation validation triggers with non-blocking versions and update validation_status.
 -- - v4.21 -> v4.22: Add validation status columns to ClassTargets and SubClassTargets.

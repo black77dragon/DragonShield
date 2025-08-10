@@ -274,9 +274,10 @@ extension DatabaseManager {
 
     /// Recompute validation status and findings for a class based on stored targets.
     func recomputeClassValidation(classId: Int) {
-        let classQuery = "SELECT id, target_amount_chf, target_kind, tolerance_percent FROM ClassTargets WHERE asset_class_id = ?"
+        let classQuery = "SELECT id, target_percent, target_amount_chf, target_kind, tolerance_percent FROM ClassTargets WHERE asset_class_id = ?"
         var classStmt: OpaquePointer?
         var classTargetId: Int = 0
+        var classPercent = 0.0
         var classAmount = 0.0
         var classKind = "percent"
         var tolerance = 0.0
@@ -284,15 +285,50 @@ extension DatabaseManager {
             sqlite3_bind_int(classStmt, 1, Int32(classId))
             if sqlite3_step(classStmt) == SQLITE_ROW {
                 classTargetId = Int(sqlite3_column_int(classStmt, 0))
-                classAmount = sqlite3_column_double(classStmt, 1)
-                classKind = String(cString: sqlite3_column_text(classStmt, 2))
-                tolerance = sqlite3_column_double(classStmt, 3)
+                classPercent = sqlite3_column_double(classStmt, 1)
+                classAmount = sqlite3_column_double(classStmt, 2)
+                classKind = String(cString: sqlite3_column_text(classStmt, 3))
+                tolerance = sqlite3_column_double(classStmt, 4)
             }
         } else {
             LoggingService.shared.log("Failed to prepare class query: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(classStmt)
         if classTargetId == 0 { return }
+
+        if classPercent == 0 && classAmount == 0 {
+            var statusStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "UPDATE ClassTargets SET validation_status = 'compliant' WHERE id = ?", -1, &statusStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(statusStmt, 1, Int32(classTargetId))
+                if sqlite3_step(statusStmt) != SQLITE_DONE {
+                    LoggingService.shared.log("Failed to update validation status: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
+            }
+            sqlite3_finalize(statusStmt)
+
+            var subStatusStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "UPDATE SubClassTargets SET validation_status = 'compliant' WHERE class_target_id = ?", -1, &subStatusStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(subStatusStmt, 1, Int32(classTargetId))
+                sqlite3_step(subStatusStmt)
+            }
+            sqlite3_finalize(subStatusStmt)
+
+            let delClass = "DELETE FROM ValidationFindings WHERE entity_type='class' AND entity_id=?"
+            var delStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, delClass, -1, &delStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(delStmt, 1, Int32(classTargetId))
+                sqlite3_step(delStmt)
+            }
+            sqlite3_finalize(delStmt)
+
+            let delSub = "DELETE FROM ValidationFindings WHERE entity_type='subclass' AND entity_id IN (SELECT id FROM SubClassTargets WHERE class_target_id=?)"
+            if sqlite3_prepare_v2(db, delSub, -1, &delStmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(delStmt, 1, Int32(classTargetId))
+                sqlite3_step(delStmt)
+            }
+            sqlite3_finalize(delStmt)
+            return
+        }
 
         let subs = fetchSubClassTargets(classId: classId)
         var findings: [(String, String, String)] = []
