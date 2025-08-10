@@ -55,6 +55,10 @@ struct TargetEditPanel: View {
         }
     }
 
+    private var isZeroTarget: Bool {
+        parentPercent == 0 && parentAmount == 0
+    }
+
     private var sumChildPercent: Double {
         rows.map(\.percent).reduce(0, +)
     }
@@ -140,8 +144,10 @@ struct TargetEditPanel: View {
                         }
                     }
 
-                    Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
-                        .foregroundColor(remaining == 0 ? .primary : .red)
+                    if !isZeroTarget {
+                        Text("Remaining to allocate: \(remaining, format: .number.precision(.fractionLength(1))) \(kind == .percent ? "%" : "CHF")")
+                            .foregroundColor(remaining == 0 ? .primary : .red)
+                    }
                 }
                 .padding(24)
             }
@@ -276,12 +282,14 @@ struct TargetEditPanel: View {
                 }
             }
             Divider()
-            HStack(spacing: 32) {
-                Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
-                Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
+            if !isZeroTarget {
+                HStack(spacing: 32) {
+                    Text("Σ Sub-class % = \(sumChildPercent, format: .number.precision(.fractionLength(1)))%")
+                    Text("Σ Sub-class CHF = \(formatChf(sumChildAmount))")
+                }
+                .font(.footnote)
+                .foregroundColor(.secondary)
             }
-            .font(.footnote)
-            .foregroundColor(.secondary)
         }
         .padding(24)
         .background(Color.sectionBlue.cornerRadius(8))
