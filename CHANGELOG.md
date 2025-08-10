@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Sync validation status with current findings and show green when no issues
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
 - Add totals row and validation details modal to Asset Allocation view
