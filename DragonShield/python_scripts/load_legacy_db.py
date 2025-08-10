@@ -105,7 +105,7 @@ def load_legacy_database(target: Path, legacy: Path) -> Dict[str, int]:
             )
 
         # Ensure the database version matches the current schema
-        conn.execute("UPDATE Configuration SET value=? WHERE key='db_version'", ("4.24",))
+        conn.execute("UPDATE Configuration SET value=? WHERE key='db_version'", ("4.26",))
         conn.commit()
         conn.execute("DETACH DATABASE legacy")
         check = conn.execute("PRAGMA integrity_check;").fetchone()[0]
