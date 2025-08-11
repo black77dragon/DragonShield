@@ -1,0 +1,182 @@
+================================================================
+DRAGONSHIELD CODEX SCRIPT v1.1  (macOS + Xcode + SQLite + Dbmate)
+================================================================
+
+MISSION
+- Generate production-ready Swift (macOS app) and SQL migrations that compile, run, and pass checks on the first go.
+
+OUTPUT RULES
+- ASCII only. No smart quotes/dashes.
+- Always name files and show full, final file contents (not diffs).
+  Example header:  DragonShield/App/Versioning/BuildVersion.swift — NEW
+- If multiple files: list them in a top “File Plan” block, then output each file in full.
+- For shell steps: emit exact zsh commands, one per line, quoting paths with spaces.
+- When touching schema or triggers: include a short “Why/Assumptions” line.
+
+STYLE & QUALITY GATES
+- SwiftPM only. No CocoaPods.
+- SwiftLint + SwiftFormat compliant. Avoid force-unwraps; use dependency injection.
+- No SQL in SwiftUI views. DB access via a dedicated layer (Core/DB).
+- Concurrency: MainActor for UI; background serial queue for DB.
+- Logging: structured (PII-safe). Provide toggles via launch args/env.
+
+ENVIRONMENT (PINNED)
+- OS: macOS Sonoma 14.x (developer machines)
+- Xcode: 16.x, Swift toolchain 5.10+
+- Min macOS target: 14.0
+- Shell: zsh
+- Homebrew deps: dbmate, sqlite, git, swiftlint, swiftformat
+- SQLite runtime PRAGMAs (enforce at app start):
+  - foreign_keys=ON
+  - journal_mode=WAL
+  - synchronous=NORMAL
+  - busy_timeout=5000
+
+REPO BOOTSTRAP (EXPECTATIONS)
+- Brewfile and Makefile with targets: setup, lint, fmt, build, test, migrate, status, release.
+- .env.example with:
+  - DRAGONSHIELD_HOME="$HOME/Projects/DragonShield"
+  - DBFILE="$HOME/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield/dragonshield.sqlite"
+  - DATABASE_URL="sqlite:////Users/renekeller/Library/Containers/com.rene.DragonShield/Data/Library/Application Support/DragonShield/dragonshield.sqlite"
+- Pre-commit hooks: swiftlint, swiftformat --lint, commitlint; block *.sqlite/*.dSYM/secrets.
+
+BRANCH MODEL (TRUNK-BASED)
+- main = single trunk.
+- Short-lived feature branches: feat/*, fix/*, chore/*, hotfix/*.
+- Hotfixes branch from main; merge back after tag.
+- Conventional Commits enforced (commitlint).
+
+SEMVER + VERSION INJECTION
+- Source of truth = Git tag (e.g., v1.3.0).
+- CFBundleShortVersionString = SemVer from tag.
+- CFBundleVersion = CI build number or commit count.
+- Build fails if tag/branch doesn’t map to a valid version.
+- Pre-releases (rc/beta/alpha) go to TestFlight or notarized DMG, not App Store.
+
+RELEASE FLOW (TAGGED)
+1) Stabilize main; CHANGELOG updated.
+2) Commit: docs: prepare release vX.Y.Z
+3) Tag: git tag -a vX.Y.Z -m "Release vX.Y.Z"
+4) Push: git push origin main --follow-tags
+5) CI builds, tests, notarizes/uploads, publishes release notes from CHANGELOG.
+
+DBMATE + SQLITE — RULES
+- All schema changes via Dbmate migrations in: $DRAGONSHIELD_HOME/DragonShield/migrations
+- File naming: 3-digit increasing prefix + snake_case title:
+  001_baseline_schema.sql
+  002_add_validation_status.sql
+  ...
+  006_sync_validation_status.sql
+- schema_migrations stores prefixes only (“001”). Matching is by prefix.
+- Never edit past migrations. Add a new one.
+- Keep each migration single-concern, minimal, reversible if feasible.
+- No BEGIN/COMMIT in files (Dbmate manages transactions).
+- Triggers explicit; no nested transactions; fully-qualified columns in triggers.
+
+MIGRATION FILE STRUCTURE
+-- migrate:up
+-- Purpose: WHAT/WHY in 1–2 lines.
+<SQL statements>
+
+-- migrate:down
+<reverse SQL>  (or documented no-op if not feasible)
+
+APPLYING / VERIFYING MIGRATIONS
+- Backup first (paths with spaces are quoted):
+  cp -p "$DBFILE" "${DBFILE%.sqlite}_$(date +%Y%m%d%H%M%S)_preNNN.sqlite.bak"
+- Status:
+  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" status
+- Up:
+  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" up
+- Verify:
+  sqlite3 "$DBFILE" "SELECT rowid, version FROM schema_migrations ORDER BY version;"
+  sqlite3 "$DBFILE" ".tables"
+  sqlite3 "$DBFILE" "PRAGMA journal_mode;"
+  sqlite3 "$DBFILE" "SELECT name, tbl_name FROM sqlite_master WHERE type='trigger';"
+
+MERGE / NUMBERING CONFLICTS
+- If two branches use same number: later branch renumbers to next free number.
+- Do NOT force-push to rewrite migration history.
+
+DIALECT CAUTIONS (SQLite)
+- No smart punctuation (“ ” — –).
+- Use CHECK/UNIQUE constraints carefully; backfill data before adding.
+- Use IF EXISTS / IF NOT EXISTS where possible.
+
+APP↔DB COUPLING CONTRACT
+- ValidationStatus in ClassTargets/SubClassTargets derives from ValidationFindings.
+- Zero-target skip rule: if class target is 0% and 0 CHF, ignore validations and purge legacy findings for that class subtree.
+- UI reads status from DB; no status hardcoding in Swift.
+- Startup guard:
+  - MIN_SUPPORTED_SCHEMA vs current; if below, block with upgrade prompt.
+  - If current < TARGET_SCHEMA but >= MIN_SUPPORTED_SCHEMA, run in limited/write-guarded mode.
+
+ZSH GOTCHAS (FOR SHELL SNIPPETS)
+- Never assign to variable named `path` (reserved; mutates $PATH).
+- Enable paste-friendly comments in interactive shells:
+  setopt interactive_comments
+- Always quote paths with spaces. Prefer absolute paths.
+
+DO / DON’T SUMMARY
+DO:
+- Quote all paths; pass --migrations-dir and --url to dbmate.
+- Enforce WAL+synchronous at app start.
+- Provide full file outputs; keep migrations focused and reversible.
+DON’T:
+- Commit *.sqlite, secrets, or dSYM.
+- Edit/rename old migrations.
+- Assume columns exist without guards/feature flags.
+
+----------------------------------------------------------------
+DOCS TO CONSULT (PINNED BY SHA; AUTHORITATIVE ORDER)
+----------------------------------------------------------------
+1) DB migrations policy
+   Path: DragonShield/docs/db_management_incl_migration.md
+   SHA: d5105287b370081f79ea1d1fb64c7c0efbd7d87b
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/d5105287b370081f79ea1d1fb64c7c0efbd7d87b/DragonShield/docs/db_management_incl_migration.md
+
+2) DB management plan
+   Path: DragonShield/docs/Dragon_Shield_Database_Management_Plan.md
+   SHA: 980be5b05ea263de255cff9065c810f866627f43
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/980be5b05ea263de255cff9065c810f866627f43/DragonShield/docs/Dragon_Shield_Database_Management_Plan.md
+
+3) Canonical DB documentation
+   Path: DragonShield/docs/dragon_shield_db_documentation.md
+   SHA: 3b7931abb6529566b2d3f19a2c768a0acb70545e
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/3b7931abb6529566b2d3f19a2c768a0acb70545e/DragonShield/docs/dragon_shield_db_documentation.md
+
+4) Asset class definitions
+   Path: DragonShield/docs/AssetClassDefinitionConcept.md
+   SHA: 8d67e99a3cf2b4af25f1f2b6d5f9548962641e99
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/8d67e99a3cf2b4af25f1f2b6d5f9548962641e99/DragonShield/docs/AssetClassDefinitionConcept.md
+
+5) Versioning & release management  (no .md extension)
+   Path: DragonShield/docs/DS_versioning_release_management
+   SHA: bd4df9920b819ba22b3fcab25e51e4a77b33bf79
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/bd4df9920b819ba22b3fcab25e51e4a77b33bf79/DragonShield/docs/DS_versioning_release_management
+
+6) Logging policy
+   Path: DragonShield/docs/logging_concept_dragonshield.md
+   SHA: 83127658b86a174f052acab4810cf6f56a6e0ac7
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/83127658b86a174f052acab4810cf6f56a6e0ac7/DragonShield/docs/logging_concept_dragonshield.md
+
+7) UI concept (reference only)
+   Path: DragonShield/docs/UI-Concept.md
+   SHA: 299630c8389f0790aefbd74ad4e514a83fec383d
+   Raw: https://raw.githubusercontent.com/black77dragon/DragonShield/299630c8389f0790aefbd74ad4e514a83fec383d/DragonShield/docs/UI-Concept.md
+
+DOC POLICY
+- Treat the above (by order) as source of truth. DB docs override UI guidance.
+- If any Raw URL is unreachable, use pasted excerpts only and annotate:
+  uncertain: missing doc "<path>"
+- Before executing changes, echo which docs were “loaded” (path + SHA).
+
+CHECKLIST WHEN YOU MODIFY CODE/SCHEMA
+1) Confirm WAL and PRAGMAs are enforced on open.
+2) If touching ValidationFindings: ensure status sync and zero-target rule are preserved.
+3) Add a new numbered migration; never edit old files.
+4) Provide post-migration validation queries.
+5) Update CHANGELOG under [Unreleased]; categorize (Added/Changed/Fixed/Security).
+6) If release-worthy: bump version (SemVer), update Info.plist via script, and tag.
+
+END
