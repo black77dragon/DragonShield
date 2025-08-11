@@ -3,7 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Sync validation status of class and subclass targets from findings and purge zero-target data
+### Added
+- Aggregate validation findings via SQLite views and expose APIs for class and sub-class validation status
+
+### Fixed
+- Eliminate ghost validation badges by syncing ClassTargets and SubClassTargets validation_status columns with findings
+
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
 - Add totals row and validation details modal to Asset Allocation view
