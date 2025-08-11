@@ -1,0 +1,117 @@
+================================================================
+DRAGONSHIELD CODEX SCRIPT v1.2 (macOS + Xcode + SQLite + dbmate)
+================================================================
+
+MISSION
+- Generate production-ready Swift and SQL that compiles, runs, and passes checks on first run.
+
+OUTPUT RULES
+- ASCII only (no smart quotes/dashes).
+- Always name files and show full, final file contents (not diffs).
+  Example header: DragonShield/App/Versioning/BuildVersion.swift — NEW
+- Start with a "File Plan" block listing every file to be emitted, then emit files in that order.
+- For shell steps: exact zsh commands; quote paths with spaces.
+- For schema/trigger changes: include a short Why/Assumptions line.
+
+STYLE & QUALITY GATES
+- SwiftPM only; swift-tools-version: 5.10.
+- SwiftLint + SwiftFormat compliant; no force-unwraps; DI for services.
+- No SQL in SwiftUI views; DB access via Core/DB through protocol DBGateway.
+- Concurrency: @MainActor for UI; background serial queue for DB.
+- Logging: structured, PII-safe; runtime toggle via launch args or env.
+- Accessibility: labels on all interactive elements.
+
+ENVIRONMENT (PINNED)
+- OS: macOS 14.x
+- Xcode: 16.x
+- Swift: 5.10+
+- Shell: zsh
+- Homebrew deps: dbmate, sqlite, git, swiftlint, swiftformat
+- SQLite PRAGMAs on open: foreign_keys=ON; journal_mode=WAL; synchronous=NORMAL; busy_timeout=5000
+
+REPO BOOTSTRAP (EXPECTATIONS)
+- Makefile targets: setup, lint, fmt, build, test, migrate, status, release
+- .env.example with DRAGONSHIELD_HOME, DBFILE, DATABASE_URL
+- Pre-commit hooks: swiftlint, swiftformat --lint, commitlint
+- Do not commit *.sqlite, secrets, dSYM
+
+SEMVER & VERSION INJECTION
+- Source of truth: annotated Git tag (vX.Y.Z)
+- CFBundleShortVersionString from tag; CFBundleVersion from CI build or commit count
+- Build fails if version invalid; pre-releases go to TestFlight/notarized DMG
+
+DBMATE + SQLITE RULES
+- All schema changes via dbmate in DragonShield/migrations
+- File naming: 3-digit increasing prefix + snake_case title
+  001_baseline_schema.sql
+  002_add_validation_status.sql
+- schema_migrations stores the numeric prefix (string)
+- Never edit past migrations; one concern per file; reversible if feasible
+- No BEGIN/COMMIT in files; dbmate manages transactions
+- Triggers explicit; fully-qualified columns; no nested transactions
+
+MIGRATION FILE STRUCTURE
+-- migrate:up
+-- Purpose: WHAT and WHY in 1–2 lines
+<SQL statements>
+
+-- migrate:down
+<reverse SQL>  (or documented no-op with reason)
+
+APPLYING AND VERIFYING
+- Backup:
+  cp -p "$DBFILE" "${DBFILE%.sqlite}_$(date +%Y%m%d%H%M%S)_preNNN.sqlite.bak"
+- Status:
+  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" status
+- Up:
+  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" up
+- Verify:
+  sqlite3 "$DBFILE" "SELECT rowid, version FROM schema_migrations ORDER BY version;"
+  sqlite3 "$DBFILE" ".tables"
+  sqlite3 "$DBFILE" "SELECT name, tbl_name FROM sqlite_master WHERE type='trigger';"
+
+MERGE / NUMBERING CONFLICTS
+- If two branches reuse a number, the later branch renumbers to the next free number
+- Never rewrite migration history with force-push
+
+APP ↔ DB CONTRACT
+- ValidationStatus in ClassTargets/SubClassTargets derives from ValidationFindings
+- Zero-target skip rule: if a class target is 0% and 0 CHF, ignore validations and purge legacy findings for that subtree
+- UI reads status from DB; no status hardcoding in Swift
+- Startup guard:
+  - MIN_SUPPORTED_SCHEMA vs current; if below, block with upgrade prompt
+  - If current < TARGET_SCHEMA but >= MIN_SUPPORTED_SCHEMA, run in limited/write-guarded mode
+
+PACKAGE POLICY
+- Package.swift uses swift-tools-version: 5.10
+- Dependencies pinned with exact versions; update Package.resolved and commit on change
+
+ZSH SAFETY
+- Do not assign to variable named "path" (reserved; mutates $PATH)
+- setopt interactive_comments
+- Always quote paths; prefer absolute paths
+
+DO / DO NOT
+DO:
+- Quote all paths; pass --migrations-dir and --url to dbmate
+- Enforce WAL and PRAGMAs at app open
+- Provide full file outputs; keep migrations focused and reversible
+DO NOT:
+- Commit *.sqlite, secrets, or dSYM
+- Edit or rename old migrations
+- Assume columns exist without guards/feature flags
+
+SOURCE DOCS (ORDERED, PINNED BY SHA)
+- Treat the following as the source of truth; DB docs override UI guidance.
+- If a referenced doc is unreachable, proceed with pasted excerpts and annotate: uncertain: missing doc "<path>"
+- Echo which docs were loaded (path + SHA) before executing changes
+
+CHECKLIST WHEN MODIFYING CODE/SCHEMA
+1) Enforce WAL/PRAGMAs on DB open
+2) Preserve status sync and zero-target rules if touching ValidationFindings
+3) Add a new numbered migration; never edit old files
+4) Provide post-migration verification queries
+5) Update CHANGELOG under [Unreleased]; categorize (Added/Changed/Fixed/Security)
+6) If release-worthy: bump version, update Info.plist via script, tag
+
+END
