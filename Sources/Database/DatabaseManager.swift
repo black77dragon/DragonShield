@@ -10,6 +10,14 @@ public struct ValidationFinding: Identifiable, Equatable {
     public let message: String
     public let detailsJSON: String?
     public let computedAt: String
+    public let subClassName: String?
+
+    public var scopeName: String {
+        if entityType == "subclass", let name = subClassName {
+            return name
+        }
+        return "Class"
+    }
 }
 
 public protocol DBGateway {
@@ -57,6 +65,7 @@ public final class DatabaseManager: DBGateway {
                     let id = Int(sqlite3_column_int(stmt, 0))
                     let status = string(from: stmt, index: 1)
                     results[id] = status
+                    syncClassStatus(classId: id, status: status)
                 }
             }
             return results
@@ -74,6 +83,7 @@ public final class DatabaseManager: DBGateway {
                     let id = Int(sqlite3_column_int(stmt, 0))
                     let status = string(from: stmt, index: 1)
                     results[id] = status
+                    syncSubClassStatus(subClassId: id, status: status)
                 }
             }
             return results
@@ -84,13 +94,17 @@ public final class DatabaseManager: DBGateway {
         queue.sync {
             var findings: [ValidationFinding] = []
             let sql = """
-            SELECT id, entity_type, entity_id, severity, code, message, details_json, computed_at
-            FROM ValidationFindings
-            WHERE (entity_type='class' AND entity_id=?)
-               OR (entity_type='subclass' AND entity_id IN (
+            SELECT vf.id, vf.entity_type, vf.entity_id, vf.severity, vf.code, vf.message, vf.details_json, vf.computed_at,
+                   CASE WHEN vf.entity_type='subclass' THEN (
+                     SELECT name FROM AssetSubClasses s WHERE s.sub_class_id=vf.entity_id
+                   ) ELSE NULL END AS sub_class_name
+            FROM ValidationFindings vf
+            WHERE (vf.entity_type='class' AND vf.entity_id=?)
+               OR (vf.entity_type='subclass' AND vf.entity_id IN (
                     SELECT sub_class_id FROM AssetSubClasses WHERE class_id=?
                ))
-            ORDER BY severity DESC, code ASC;
+            ORDER BY CASE vf.severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END DESC,
+                     vf.code ASC, vf.computed_at DESC;
             """
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -109,10 +123,12 @@ public final class DatabaseManager: DBGateway {
         queue.sync {
             var findings: [ValidationFinding] = []
             let sql = """
-            SELECT id, entity_type, entity_id, severity, code, message, details_json, computed_at
-            FROM ValidationFindings
-            WHERE entity_type='subclass' AND entity_id=?
-            ORDER BY severity DESC, code ASC;
+            SELECT vf.id, vf.entity_type, vf.entity_id, vf.severity, vf.code, vf.message, vf.details_json, vf.computed_at,
+                   (SELECT name FROM AssetSubClasses s WHERE s.sub_class_id=vf.entity_id) AS sub_class_name
+            FROM ValidationFindings vf
+            WHERE vf.entity_type='subclass' AND vf.entity_id=?
+            ORDER BY CASE vf.severity WHEN 'error' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END DESC,
+                     vf.code ASC, vf.computed_at DESC;
             """
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -135,7 +151,30 @@ public final class DatabaseManager: DBGateway {
             code: string(from: stmt, index: 4),
             message: string(from: stmt, index: 5),
             detailsJSON: sqlite3_column_text(stmt, 6).map { String(cString: $0) },
-            computedAt: string(from: stmt, index: 7)
+            computedAt: string(from: stmt, index: 7),
+            subClassName: sqlite3_column_text(stmt, 8).map { String(cString: $0) }
         )
+    }
+
+    private func syncClassStatus(classId: Int, status: String) {
+        let sql = "UPDATE ClassTargets SET validation_status=? WHERE class_id=?;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(stmt, 1, status, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_int(stmt, 2, Int32(classId))
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    private func syncSubClassStatus(subClassId: Int, status: String) {
+        let sql = "UPDATE SubClassTargets SET validation_status=? WHERE sub_class_id=?;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(stmt, 1, status, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_int(stmt, 2, Int32(subClassId))
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Database
 
 public struct ValidationDetailsView: View {
     public enum Scope: Identifiable {
@@ -32,8 +33,16 @@ public struct ValidationDetailsView: View {
         NavigationView {
             List(findings) { finding in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(finding.severity.capitalized): \(finding.code)")
-                        .bold()
+                    HStack {
+                        Text("[\(finding.severity.prefix(1).uppercased())]")
+                            .bold()
+                        Text(finding.code)
+                            .bold()
+                        Text(finding.scopeName)
+                        Spacer()
+                        Text(finding.computedAt)
+                            .font(.caption)
+                    }
                     Text(finding.message)
                 }
             }

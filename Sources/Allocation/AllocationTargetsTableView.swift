@@ -1,4 +1,5 @@
 import SwiftUI
+import Database
 
 @MainActor
 public final class AllocationTargetsTableViewModel: ObservableObject {
@@ -36,12 +37,27 @@ public final class AllocationTargetsTableViewModel: ObservableObject {
         }
     }
 
-    public func findings(for scope: ValidationDetailsView.Scope, db: DBGateway) -> [ValidationFinding] {
+    public func fetchFindings(for scope: ValidationDetailsView.Scope, db: DBGateway) -> [ValidationFinding] {
         switch scope {
         case let .class(id, _):
             return db.fetchValidationFindingsForClass(id)
         case let .subClass(id, _):
             return db.fetchValidationFindingsForSubClass(id)
+        }
+    }
+
+    public func updateStatus(_ status: String, for scope: ValidationDetailsView.Scope) {
+        switch scope {
+        case let .class(id, _):
+            if let idx = classes.firstIndex(where: { $0.id == id }) {
+                classes[idx].validationStatus = status
+            }
+        case let .subClass(id, _):
+            for cIdx in classes.indices {
+                if let sIdx = classes[cIdx].subClasses.firstIndex(where: { $0.id == id }) {
+                    classes[cIdx].subClasses[sIdx].validationStatus = status
+                }
+            }
         }
     }
 }
@@ -50,6 +66,7 @@ public struct AllocationTargetsTableView: View {
     @ObservedObject private var viewModel: AllocationTargetsTableViewModel
     private let db: DBGateway
     @State private var presentedScope: ValidationDetailsView.Scope?
+    @State private var sheetFindings: [ValidationFinding] = []
 
     public init(viewModel: AllocationTargetsTableViewModel, db: DBGateway) {
         self.viewModel = viewModel
@@ -67,7 +84,14 @@ public struct AllocationTargetsTableView: View {
                             StatusBadge(status: sub.validationStatus)
                             if sub.validationStatus != "compliant" {
                                 Button("Why?") {
-                                    presentedScope = .subClass(id: sub.id, name: sub.name)
+                                    let scope: ValidationDetailsView.Scope = .subClass(id: sub.id, name: sub.name)
+                                    let findings = viewModel.fetchFindings(for: scope, db: db)
+                                    if findings.isEmpty {
+                                        viewModel.updateStatus("compliant", for: scope)
+                                    } else {
+                                        sheetFindings = findings
+                                        presentedScope = scope
+                                    }
                                 }
                                 .accessibilityLabel("Why? button for \(sub.name)")
                             }
@@ -78,7 +102,7 @@ public struct AllocationTargetsTableView: View {
         }
         .onAppear { viewModel.load(using: db) }
         .sheet(item: $presentedScope) { scope in
-            ValidationDetailsView(scope: scope, findings: viewModel.findings(for: scope, db: db))
+            ValidationDetailsView(scope: scope, findings: sheetFindings)
         }
     }
 
@@ -89,7 +113,14 @@ public struct AllocationTargetsTableView: View {
             StatusBadge(status: cls.validationStatus)
             if cls.validationStatus != "compliant" {
                 Button("Why?") {
-                    presentedScope = .class(id: cls.id, name: cls.name)
+                    let scope: ValidationDetailsView.Scope = .class(id: cls.id, name: cls.name)
+                    let findings = viewModel.fetchFindings(for: scope, db: db)
+                    if findings.isEmpty {
+                        viewModel.updateStatus("compliant", for: scope)
+                    } else {
+                        sheetFindings = findings
+                        presentedScope = scope
+                    }
                 }
                 .accessibilityLabel("Why? button for \(cls.name)")
             }
