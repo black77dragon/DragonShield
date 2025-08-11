@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### Added
+- Ensure asset class badges reflect ValidationFindings and sync target status columns
 - Sync validation status of class and subclass targets from findings and purge zero-target data
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
