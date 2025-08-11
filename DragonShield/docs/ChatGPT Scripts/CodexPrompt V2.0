@@ -1,0 +1,246 @@
+CodexPromptPack V2.0 – Full Template + Completed Example
+
+ASSUMPTIONS
+	•	macOS 14+, Xcode 15+, Swift 5.9, SwiftUI, Combine, SwiftPM are safe defaults unless overridden.
+	•	DB changes use DBMate with SQLite; migrations live under DragonShield/migrations; never edit past migrations; use – migrate:up / – migrate:down.
+	•	ASCII-only output; no images or rich formatting.
+
+RISKS AND GAPS
+	•	If the user’s stack is unspecified, auto-default to Swift stack and also suggest an Alt Stack note.
+	•	If DB state or schema location is unclear, generate minimal, reversible migrations plus verification SQL.
+	•	If third-party packages are required, pin exact versions.
+
+STACK
+	•	Primary: Swift 5.9, SwiftPM, SwiftUI + Combine, XCTest.
+	•	Alt Stack (optional): add a short note with an equivalent implementation path (e.g., Python 3.11 + pytest).
+
+FINAL PROMPT (TEMPLATE TO COPY FOR CODE GENERATION)
+
+BEGIN FINAL PROMPT
+
+Role
+You are a senior engineer.
+
+Goal
+
+Environment
+	•	OS: <macOS 14 or user-specified>
+	•	Toolchain: <Xcode 15 / Swift 5.9 or user-specified>
+	•	Package manager: 
+	•	Database (if any): SQLite via DBMate migrations
+	•	Build assumes no network access.
+
+Constraints
+	•	Architecture: MVVM (for Swift) or equivalent.
+	•	No force-unwraps; thread-safe UI updates; SOLID; accessibility labels on interactive UI.
+	•	Determinism: pin tool/library versions where applicable.
+
+Artifacts (create or edit exactly these files)
+	•	<path1/filename.ext>  // purpose
+	•	<path2/filename.ext>  // purpose
+	•	<tests/…>           // unit/UI tests
+	•	<migrations/NNN_name.sql>  // if DB change
+
+Interfaces
+	•	Public types and signatures you will provide:
+	•	<Type or function signature 1>
+	•	<Type or function signature 2>
+
+I/O Examples (few-shot)
+Input
+
+
+Output
+<Show exact output or UI state, including an ASCII mock if UI>
+
+Tests
+	•	Add unit tests that cover the happy path and at least one edge case.
+	•	For UI, include a minimal snapshot or render-verification test.
+
+Run / Build Commands
+	•	swift build
+	•	swift test
+
+Acceptance Criteria
+	•	Build succeeds and tests pass on first run.
+	•	Outputs match examples.
+	•	No runtime warnings in console on initial render.
+	•	If DB migration present: migration applies cleanly, version table increments, and verification SQL returns expected rows.
+
+Non-Goals
+	•	
+
+<List anything explicitly out of scope>
+
+
+
+
+Deliverable Format
+	•	Return code blocks per file with exact filenames as listed in Artifacts.
+	•	No placeholders like “…” in code.
+	•	Keep code compilable.
+
+Plan First, Then Code
+	•	Provide a short implementation plan in <= 5 bullets before code.
+	•	Do not include internal chain-of-thought; just the high-level plan.
+
+END FINAL PROMPT
+
+VALIDATION CHECKLIST
+	•	Build: swift build
+	•	Tests: swift test
+	•	Lint/format: if configured, run swift-format or swiftlint
+	•	Data: include small inline fixtures for tests
+	•	Exit criteria: build OK, tests pass, console has no runtime warnings
+
+EXAMPLES
+	•	ASCII UI mock (example)
++—————————––+
+| Accounts                      |
+
+[Search …]   (+) Add
+[ ] Main Checking     CHF
+[x] Old Savings        CHF
++—————————––+
+
+
+
+COMMIT MESSAGES
+	•	feat(): short imperative description
+	•	fix(): bugfix summary
+	•	db(): migration summary
+	•	docs: changelog entry
+
+OPEN QUESTIONS
+	1.	Confirm target stack if different from Swift.
+	2.	Confirm file locations and module names.
+	3.	For DB: confirm migration numbering start and directory.
+	4.	Confirm acceptance criteria beyond build/tests.
+	5.	Any performance limits to enforce?
+
+⸻
+
+PromptPackV2-Example-AccountsIsClosed.md – Completed Example
+
+ASSUMPTIONS
+	•	We received a rough ask: “Add an ‘is_closed’ flag to accounts and hide closed accounts in the macOS list. Allow toggling.”
+	•	Swift 5.9 + SwiftPM; SQLite with DBMate; migrations live in DragonShield/migrations.
+	•	View model-driven SwiftUI list; Combine for data flow.
+
+RISKS AND GAPS
+	•	Repository layer details unknown. We will provide a stub repository protocol with in-memory fake for tests.
+	•	DB connection specifics unknown. We will still ship a proper DBMate migration and verification SQL.
+
+STACK
+	•	Primary: Swift 5.9 + SwiftUI + Combine + XCTest
+	•	DB: DBMate migrations targeting SQLite
+
+FINAL PROMPT
+
+BEGIN FINAL PROMPT
+
+Role
+You are a senior Swift engineer.
+
+Goal
+Add an “is_closed” boolean field to Accounts and update the macOS Accounts list so closed accounts are hidden by default, with a toggle to include them. Include tests and a DBMate migration.
+
+Environment
+	•	OS: macOS 14
+	•	Toolchain: Xcode 15, Swift 5.9
+	•	Package manager: SwiftPM
+	•	Database: SQLite with DBMate migrations located at DragonShield/migrations
+	•	Build assumes no network access.
+
+Constraints
+	•	Architecture: MVVM with Combine.
+	•	No force-unwraps; thread-safe UI; SOLID; accessibility labels for list rows and toggle.
+	•	Determinism: exact filenames and paths as below.
+
+Artifacts
+	•	Sources/Accounts/Models/Account.swift                // data model with isClosed
+	•	Sources/Accounts/ViewModels/AccountsViewModel.swift  // filtering logic, includeClosed toggle
+	•	Sources/Accounts/Views/AccountsView.swift            // SwiftUI list and toggle UI
+	•	Tests/AccountsTests/AccountsViewModelTests.swift     // unit tests for filter/toggle
+	•	DragonShield/migrations/047_add_is_closed_to_accounts.sql  // DBMate migration
+
+Interfaces
+	•	struct Account: Identifiable { id: UUID; name: String; currency: String; isClosed: Bool }
+	•	final class AccountsViewModel: ObservableObject
+	•	@Published var includeClosed: Bool
+	•	@Published private(set) var accounts: [Account]
+	•	func load()  // loads all accounts
+	•	func toggleClosed(for id: UUID, to isClosed: Bool)
+	•	View AccountsView: shows list filtered by includeClosed
+
+I/O Examples
+Input
+	•	Accounts: [(“Main”, CHF, false), (“Old Savings”, CHF, true)]
+	•	includeClosed = false
+
+Output
+	•	UI shows only “Main” when includeClosed is false
+	•	When user toggles “Include closed” on, both accounts appear
+	•	Accessibility: each row has accessibilityLabel “account_row_”
+
+Tests
+	•	Unit test: toggling includeClosed recomputes filtered list
+	•	Unit test: toggleClosed updates isClosed and refilters
+	•	Provide in-memory fake repository so tests run without SQLite
+
+Run / Build Commands
+	•	swift build
+	•	swift test
+	•	DB migration (manual step for real DB):
+dbmate –migrations-dir “DragonShield/migrations” –url “$DATABASE_URL” up
+sqlite3 “$DBFILE” “SELECT version FROM schema_migrations ORDER BY version;”
+
+Acceptance Criteria
+	•	Build succeeds; tests pass.
+	•	Default view hides closed accounts; enabling “Include closed” shows them.
+	•	Migration applies cleanly; version table includes “047”.
+	•	Verification SQL: “PRAGMA table_info(Accounts);” shows “is_closed” integer default 0 not null.
+
+Non-Goals
+	•	No persistence wiring beyond the migration; app can still run with in-memory data for tests.
+	•	No search or sorting changes.
+
+Deliverable Format
+	•	Return code blocks for each file listed in Artifacts with exact paths.
+	•	No placeholders; code must compile.
+
+Plan First, Then Code
+	•	Provide a short plan (<= 5 bullets), then the code files.
+
+END FINAL PROMPT
+
+VALIDATION CHECKLIST
+	•	swift build
+	•	swift test
+	•	dbmate up (optional, for real DB) and check schema_migrations
+	•	sqlite3 PRAGMA table_info(Accounts) must show is_closed
+
+EXAMPLES
+ASCII UI sketch
++—————————————––+
+| Accounts                           [ ] [] |
+
+[ ] Include closed
+Main Checking                    CHF
+Old Savings                      CHF  (hidden unless Include closed is on)
++—————————————––+
+
+COMMIT MESSAGES
+	•	db(accounts): add is_closed column with default 0 and not null
+	•	feat(accounts): filter out closed accounts by default; UI toggle to include closed
+	•	test(accounts): add view model tests for includeClosed and toggleClosed
+
+OPEN QUESTIONS
+	1.	Should closed accounts appear grayed-out when shown? a) Yes b) No
+	2.	Persist toggle state across launches? a) Yes (UserDefaults) b) No
+	3.	Exact migration number base? If 047 conflicts, specify next number.
+
+
+END OF Prompt Pack v2
+
+If you want, paste a real rough prompt and I will instantiate this template for your exact feature, including the FINAL PROMPT you can drop directly into Codex.
