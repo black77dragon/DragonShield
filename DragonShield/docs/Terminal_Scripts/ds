@@ -1,42 +1,90 @@
-     1	#!/usr/bin/env bash
-     2	set -euo pipefail
-     3	BRANCH="main"
-     4	REBUILD_DB=false
-     5	while [[ $# -gt 0 ]]; do
-     6	  case "$1" in
-     7	    -b|--branch) BRANCH="$2"; shift 2 ;;
-     8	    -r|--rebuild-db) REBUILD_DB=true; shift ;;
-     9	    -h|--help) sed -n '1,9p' "$0"; exit 0 ;;
-    10	    *) echo "Unknown option: $1" >&2; echo "Use -h for help." >&2; exit 1 ;;
-    11	  esac
-    12	done
-    13	
-    14	PROJECTS_DIR="$HOME/Projects"
-    15	PROJECT_DIR="$PROJECTS_DIR/DragonShield"
-    16	XCODE_PROJ="$PROJECT_DIR/DragonShield.xcodeproj"
-    17	
-    18	mkdir -p "$PROJECTS_DIR"
-    19	cd "$PROJECTS_DIR"
-    20	killall Xcode &>/dev/null || true
-    21	rm -rf "$PROJECT_DIR"
-    22	git clone https://github.com/black77dragon/DragonShield.git
-    23	cd DragonShield
-    24	git fetch origin
-    25	git checkout main
-    26	git pull origin main
-    27	
-    28	if [[ "$BRANCH" != "main" ]]; then
-    29	  git checkout -b "$BRANCH" "origin/$BRANCH"
-    30	else
-    31	  echo "Using default branch: main"
-    32	fi
-    33	
-    34	if $REBUILD_DB; then
-    35	  echo "Rebuilding & populating test database..."
-    36	  cd python_scripts
-    37	  python3 db_tool.py --all
-    38	  cp *.db "$PROJECT_DIR"
-    39	  cd "$PROJECT_DIR"
-    40	fi
-    41	
-    42	xed "$XCODE_PROJ"
+#!/usr/bin/env bash
+# ds — DragonShield bootstrapper
+# Usage:
+#   ds [-b|--branch <name>] [-r|--rebuild-db] [-h|--help]
+# Examples:
+#   ds                          # main branch, no DB rebuild
+#   ds -b codex/feature-x       # switch/track remote branch
+#   ds -r                       # rebuild and copy .db files
+
+set -euo pipefail
+
+usage() {
+  sed -n '2,8p' "$0"
+  exit 0
+}
+
+# Parse args
+BRANCH="main"
+REBUILD_DB=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -b|--branch) BRANCH="${2:-}"; shift 2 ;;
+    -r|--rebuild-db) REBUILD_DB=true; shift ;;
+    -h|--help) usage ;;
+    *) echo "Unknown option: $1" >&2; echo "Use -h for help." >&2; exit 1 ;;
+  esac
+done
+
+# Start from a safe directory even if caller's $PWD is invalid
+cd "${HOME}" 2>/dev/null || cd /
+
+# Paths (allow override via DRAGONSHIELD_HOME)
+PROJECTS_DIR="${DRAGONSHIELD_HOME:-$HOME/Projects}"
+PROJECT_DIR="$PROJECTS_DIR/DragonShield"
+XCODE_PROJ="$PROJECT_DIR/DragonShield.xcodeproj"
+GIT_URL="https://github.com/black77dragon/DragonShield.git"
+
+mkdir -p "$PROJECTS_DIR"
+cd "$PROJECTS_DIR"
+
+# Close Xcode if open (ignore if not running)
+killall Xcode &>/dev/null || true
+
+# Fresh clone
+rm -rf "$PROJECT_DIR"
+echo "Cloning $GIT_URL into $PROJECT_DIR …"
+git clone "$GIT_URL"
+cd "$PROJECT_DIR"
+git fetch --all --prune
+
+# Branch logic
+if [[ "$BRANCH" == "main" ]]; then
+  echo "Using default branch: main"
+  git switch main
+  git pull --ff-only origin main
+else
+  echo "Switching to branch: $BRANCH"
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git switch "$BRANCH"
+    # Try a fast-forward update if tracking is set
+    git pull --ff-only || true
+  elif git ls-remote --exit-code --heads origin "$BRANCH" &>/dev/null; then
+    git switch --track -c "$BRANCH" "origin/$BRANCH"
+  else
+    echo "ERROR: Remote branch 'origin/$BRANCH' not found." >&2
+    exit 2
+  fi
+fi
+
+# Optional: rebuild and copy DB(s)
+if $REBUILD_DB; then
+  echo "Rebuilding & populating test database…"
+  pushd python_scripts >/dev/null
+  python3 db_tool.py --all
+  popd >/dev/null
+
+  echo "Copying generated .db files into project root…"
+  shopt -s nullglob
+  db_files=(python_scripts/*.db)
+  if (( ${#db_files[@]} )); then
+    cp "${db_files[@]}" "$PROJECT_DIR"
+  else
+    echo "WARNING: No .db files found to copy." >&2
+  fi
+  shopt -u nullglob
+fi
+
+# Open in Xcode
+echo "Opening Xcode project: $XCODE_PROJ"
+xed "$XCODE_PROJ"
