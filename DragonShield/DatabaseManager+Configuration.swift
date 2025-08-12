@@ -19,11 +19,10 @@ extension DatabaseManager {
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
-                'include_direct_re', 'direct_re_target_chf', 'db_version'
+                'include_direct_re', 'direct_re_target_chf'
             );
         """
         var statement: OpaquePointer?
-        var loadedVersion = ""
         
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -35,10 +34,6 @@ extension DatabaseManager {
                 let key = String(cString: keyPtr)
                 let value = String(cString: valuePtr)
                 // let dataType = String(cString: dataTypePtr)
-                                
-                if key == "db_version" {
-                    loadedVersion = value
-                }
 
                 DispatchQueue.main.async { // Ensure @Published vars are updated on the main thread
                     switch key {
@@ -62,9 +57,6 @@ extension DatabaseManager {
                         self.includeDirectRealEstate = value.lowercased() == "true"
                     case "direct_re_target_chf":
                         self.directRealEstateTargetCHF = Double(value) ?? 0
-                    case "db_version":
-                        self.dbVersion = value
-                        print("📦 Database version loaded: \(value)")
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -75,7 +67,7 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
         print("⚙️ Configuration loaded/reloaded.")
-        return loadedVersion
+        return schemaVersion()
     }
     
     func updateConfiguration(key: String, value: String) -> Bool {
@@ -98,7 +90,8 @@ extension DatabaseManager {
             print("✅ Configuration updated for key '\(key)' to value '\(value)'")
             // Reload configuration to update @Published properties
             // This ensures that if one part of the app updates config, others see it if observing DatabaseManager
-            let version = loadConfiguration()
+            let _ = loadConfiguration()
+            let version = schemaVersion()
             DispatchQueue.main.async { self.dbVersion = version }
         } else {
             print("❌ Failed to update configuration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")

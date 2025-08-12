@@ -156,6 +156,9 @@ class BackupService: ObservableObject {
 
 
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
+        DispatchQueue.main.async {
+            self.logMessages.append("Starting consistent backup…")
+        }
         var src: OpaquePointer?
         var dst: OpaquePointer?
         guard sqlite3_open_v2(dbPath, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let src else {
@@ -176,6 +179,11 @@ class BackupService: ObservableObject {
         }
 
         guard checkIntegrity(path: destination.path) else {
+            try? FileManager.default.removeItem(at: destination)
+            DispatchQueue.main.async {
+                self.logMessages.append("Backup failed integrity check and was removed")
+                self.appendLog(action: "Backup", file: destination.lastPathComponent, success: false, message: "Integrity check failed")
+            }
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
         }
 
@@ -186,6 +194,7 @@ class BackupService: ObservableObject {
 
         DispatchQueue.main.async {
             self.lastBackup = ts
+            self.logMessages.append("Verified backup integrity: OK")
             func pad(_ value: String, _ len: Int) -> String {
                 value.padding(toLength: len, withPad: " ", startingAt: 0)
             }
@@ -193,6 +202,7 @@ class BackupService: ObservableObject {
             for (tbl, count) in counts {
                 lines.append(pad(tbl, 20) + String(count))
             }
+            self.logMessages.append("Backup saved: \(destination.path)")
             self.logMessages.append("✅ Backed up \(label) data\n" + lines.joined(separator: "\n"))
             self.appendLog(action: "Backup", file: destination.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { tbl in
@@ -539,10 +549,7 @@ class BackupService: ObservableObject {
 
     private func checkIntegrity(path: String) -> Bool {
         var db: OpaquePointer?
-        // opening read-write allows SQLite to create a temporary WAL file if the
-        // database uses WAL mode. Without this, opening a WAL-mode database
-        // read-only fails when the WAL file is missing.
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
         defer { sqlite3_close(db) }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }

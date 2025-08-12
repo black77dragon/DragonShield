@@ -1,9 +1,10 @@
 // DragonShield/LoggingService.swift
-// MARK: - Version 1.0.2.0
+// MARK: - Version 1.0.3.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial logging service writing messages to a log file.
 // - 1.0.0.0 -> 1.0.1.0: Also forward messages to OSLog with categories.
 // - 1.0.1.0 -> 1.0.2.0: Support logging with explicit OSLogType levels.
+// - 1.0.2.0 -> 1.0.3.0: Suppress known noisy system warnings from user logs.
 
 import Foundation
 import OSLog
@@ -14,6 +15,10 @@ final class LoggingService {
     private let fileURL: URL
     private let queue = DispatchQueue(label: "LoggingService")
     private let formatter: ISO8601DateFormatter
+    private let ignoredSubstrings = [
+        "/private/var/db/DetachedSignatures",
+        "default.metallib"
+    ]
 
     private init() {
         let dir = FileManager.default.temporaryDirectory
@@ -28,6 +33,9 @@ final class LoggingService {
     }
 
     func log(_ message: String, type: OSLogType = .info, logger: Logger = .general) {
+        for ignore in ignoredSubstrings where message.contains(ignore) {
+            return
+        }
         let timestamp = formatter.string(from: Date())
         let level: String
         switch type {

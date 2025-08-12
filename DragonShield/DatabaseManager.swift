@@ -69,26 +69,20 @@ class DatabaseManager: ObservableObject {
         #endif
         
         if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                do {
-                    try FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-                    print("✅ Copied database from bundle to: \(dbPath)")
-                } catch {
-                    print("❌ Failed to copy database from bundle: \(error)")
-                }
-            } else {
-                print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
-            }
+            FileManager.default.createFile(atPath: dbPath, contents: nil)
+            print("🆕 Created new empty database at: \(dbPath)")
         } else {
-             print("✅ Using existing database at: \(dbPath)")
+            print("✅ Using existing database at: \(dbPath)")
         }
-        
+
         openDatabase()
-        let version = loadConfiguration()
+        runMigrations()
+        let version = schemaVersion()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
-        print("📂 Database path: \(dbPath) | version: \(version)")
+        let _ = loadConfiguration()
+        print("📂 Database path: \(dbPath) | schema version: \(version)")
     }
     
     func openDatabase() {
@@ -144,9 +138,11 @@ class DatabaseManager: ObservableObject {
     func reopenDatabase() {
         closeConnection()
         openDatabase()
-        let version = loadConfiguration()
+        runMigrations()
+        let version = schemaVersion()
         DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
+        let _ = loadConfiguration()
     }
 
     func rowCount(table: String) throws -> Int {
@@ -167,16 +163,59 @@ class DatabaseManager: ObservableObject {
         dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
 
         if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-            }
+            FileManager.default.createFile(atPath: dbPath, contents: nil)
         }
         reopenDatabase()
+        runMigrations()
     }
 
     func runMigrations() {
-        // Placeholder for future migration logic
-        print("ℹ️ runMigrations called - no migrations to apply")
+        guard let db else { return }
+        let fm = FileManager.default
+        guard let migrationsURL = Bundle.main.resourceURL?.appendingPathComponent("db/migrations") else { return }
+        let createSQL = "CREATE TABLE IF NOT EXISTS schema_migrations(version TEXT PRIMARY KEY);"
+        sqlite3_exec(db, createSQL, nil, nil, nil)
+        var applied: Set<String> = []
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT version FROM schema_migrations;", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) {
+                applied.insert(String(cString: cStr))
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        guard let files = try? fm.contentsOfDirectory(at: migrationsURL, includingPropertiesForKeys: nil) else { return }
+        let sqlFiles = files.filter { $0.pathExtension == "sql" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        for file in sqlFiles {
+            let version = String(file.lastPathComponent.prefix(3))
+            if applied.contains(version) { continue }
+            guard let text = try? String(contentsOf: file) else { continue }
+            guard let upRange = text.range(of: "-- migrate:up") else { continue }
+            let downRange = text.range(of: "-- migrate:down")
+            let upSQL = String(text[upRange.upperBound..<(downRange?.lowerBound ?? text.endIndex)])
+            if sqlite3_exec(db, upSQL, nil, nil, nil) == SQLITE_OK {
+                sqlite3_exec(db, "INSERT INTO schema_migrations(version) VALUES('\(version)');", nil, nil, nil)
+                sqlite3_exec(db, "PRAGMA user_version = \(version);", nil, nil, nil)
+                print("✅ Applied migration \(file.lastPathComponent)")
+            } else {
+                let msg = String(cString: sqlite3_errmsg(db))
+                print("❌ Migration \(file.lastPathComponent) failed: \(msg)")
+            }
+        }
+    }
+
+    func schemaVersion() -> String {
+        guard let db else { return "0" }
+        var stmt: OpaquePointer?
+        var version = "0"
+        if sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                version = String(sqlite3_column_int(stmt, 0))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return version
     }
 
     private static func fileName(for mode: DatabaseMode) -> String {
