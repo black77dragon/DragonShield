@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import sqlite3
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Tuple
@@ -29,15 +30,37 @@ def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict
     backup_path = dest_dir / f"{env}_backup_{ts}.sqlite"
     manifest_path = backup_path.with_suffix(".manifest.json")
 
+    schema_dir = Path(__file__).resolve().parents[1] / "database"
+    schema_files = {
+        "schema_sql": schema_dir / "schema.sql",
+        "schema_txt": schema_dir / "schema.txt",
+    }
+
     with sqlite3.connect(db_path) as src, sqlite3.connect(backup_path) as dst:
         src.backup(dst)
         if dst.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
             backup_path.unlink(missing_ok=True)
             raise RuntimeError("Integrity check failed")
         counts = _row_counts(dst)
+        ver_row = dst.execute(
+            "SELECT value FROM Configuration WHERE key='db_version'"
+        ).fetchone()
+        db_version = ver_row[0] if ver_row else "unknown"
+
+    schema_hashes: Dict[str, str] = {}
+    for label, path in schema_files.items():
+        if path.exists():
+            data = path.read_bytes()
+            schema_hashes[label] = hashlib.sha256(data).hexdigest()
+
+    manifest = {
+        "db_version": db_version,
+        "row_counts": counts,
+        "schema_hashes": schema_hashes,
+    }
 
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump(counts, f, indent=2)
+        json.dump(manifest, f, indent=2)
 
     return backup_path, counts
 
@@ -49,17 +72,31 @@ def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, i
     with sqlite3.connect(db_path) as conn:
         pre_counts = _row_counts(conn)
 
+    manifest_path = backup_file.with_suffix(".manifest.json")
     os.replace(db_path, old_path)
     try:
         shutil.copy2(backup_file, db_path)
         with sqlite3.connect(db_path) as conn:
             post_counts = _row_counts(conn)
+            new_ver = conn.execute(
+                "SELECT value FROM Configuration WHERE key='db_version'"
+            ).fetchone()
+            restored_version = new_ver[0] if new_ver else "unknown"
     except Exception:
         if old_path.exists():
             os.replace(old_path, db_path)
         raise
 
-    summary = {}
+    if manifest_path.exists():
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        if manifest.get("db_version") != restored_version:
+            print(
+                "Warning: restored db_version" , restored_version,
+                "differs from backup", manifest.get("db_version")
+            )
+
+    summary: Dict[str, Tuple[int, int]] = {}
     for tbl in sorted(set(pre_counts) | set(post_counts)):
         pre = pre_counts.get(tbl, 0)
         post = post_counts.get(tbl, 0)
