@@ -1,117 +1,253 @@
-================================================================
-DRAGONSHIELD CODEX SCRIPT v1.2 (macOS + Xcode + SQLite + dbmate)
-================================================================
+DRAGONSHIELD CODEX SCRIPT v2.0 (macOS + Xcode 16 + SQLite + dbmate)
 
 MISSION
-- Generate production-ready Swift and SQL that compiles, runs, and passes checks on first run.
+
+* Emit production-ready Swift 6 + SQL that builds, migrates, runs, and passes tests on first CI attempt.
+
+GOLDEN PATH (must succeed locally and in CI)
+
+* make setup
+* make fmt && make lint
+* make migrate
+* make build
+* make test
 
 OUTPUT RULES
-- ASCII only (no smart quotes/dashes).
-- Always name files and show full, final file contents (not diffs).
-  Example header: DragonShield/App/Versioning/BuildVersion.swift — NEW
-- Start with a "File Plan" block listing every file to be emitted, then emit files in that order.
-- For shell steps: exact zsh commands; quote paths with spaces.
-- For schema/trigger changes: include a short Why/Assumptions line.
 
-STYLE & QUALITY GATES
-- SwiftPM only; swift-tools-version: 5.10.
-- SwiftLint + SwiftFormat compliant; no force-unwraps; DI for services.
-- No SQL in SwiftUI views; DB access via Core/DB through protocol DBGateway.
-- Concurrency: @MainActor for UI; background serial queue for DB.
-- Logging: structured, PII-safe; runtime toggle via launch args or env.
-- Accessibility: labels on all interactive elements.
+* ASCII only.
+* Start with a File Plan (every file to create or edit). Then emit full file contents in that order (no diffs).
+* For shell: exact zsh, absolute paths, quote all paths.
+* For schema or trigger changes: add Purpose and Assumptions (1–2 lines) at top of migration.
 
-ENVIRONMENT (PINNED)
-- OS: macOS 14.x
-- Xcode: 16.x
-- Swift: 5.10+
-- Shell: zsh
-- Homebrew deps: dbmate, sqlite, git, swiftlint, swiftformat
-- SQLite PRAGMAs on open: foreign_keys=ON; journal_mode=WAL; synchronous=NORMAL; busy_timeout=5000
+TOOLCHAIN AND BUILD GUARDS
 
-REPO BOOTSTRAP (EXPECTATIONS)
-- Makefile targets: setup, lint, fmt, build, test, migrate, status, release
-- .env.example with DRAGONSHIELD_HOME, DBFILE, DATABASE_URL
-- Pre-commit hooks: swiftlint, swiftformat --lint, commitlint
-- Do not commit *.sqlite, secrets, dSYM
+* Xcode 16.x, Swift 6.
+* Build settings (project-wide):
 
-SEMVER & VERSION INJECTION
-- Source of truth: annotated Git tag (vX.Y.Z)
-- CFBundleShortVersionString from tag; CFBundleVersion from CI build or commit count
-- Build fails if version invalid; pre-releases go to TestFlight/notarized DMG
+  * Strict Concurrency Checking: Complete
+  * Treat warnings as errors: YES
+  * Enable actor data race checks
+  * Enforce exhaustive switch
+* SwiftPM only; swift-tools-version: 6.0
+* Lint and format pinned; CI uses same versions.
 
-DBMATE + SQLITE RULES
-- All schema changes via dbmate in DragonShield/migrations
-- File naming: 3-digit increasing prefix + snake_case title
-  001_baseline_schema.sql
-  002_add_validation_status.sql
-- schema_migrations stores the numeric prefix (string)
-- Never edit past migrations; one concern per file; reversible if feasible
-- No BEGIN/COMMIT in files; dbmate manages transactions
-- Triggers explicit; fully-qualified columns; no nested transactions
+ARCHITECTURE LAYERS
 
-MIGRATION FILE STRUCTURE
--- migrate:up
--- Purpose: WHAT and WHY in 1–2 lines
-<SQL statements>
+* App (SwiftUI, @MainActor)
+* Core (domain, pure Swift, no IO)
+* Core/DB (SQLite via DBGateway protocol; no third-party)
+* Infra/Logging, Infra/Config, Infra/FeatureFlags
+* Rules:
 
--- migrate:down
-<reverse SQL>  (or documented no-op with reason)
+  * App -> Core -> Infra (no inward imports).
+  * No SQL in UI. All DB through DatabaseActor (single writer).
 
-APPLYING AND VERIFYING
-- Backup:
-  cp -p "$DBFILE" "${DBFILE%.sqlite}_$(date +%Y%m%d%H%M%S)_preNNN.sqlite.bak"
-- Status:
-  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" status
-- Up:
-  dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/migrations" --url "$DATABASE_URL" up
-- Verify:
-  sqlite3 "$DBFILE" "SELECT rowid, version FROM schema_migrations ORDER BY version;"
-  sqlite3 "$DBFILE" ".tables"
-  sqlite3 "$DBFILE" "SELECT name, tbl_name FROM sqlite_master WHERE type='trigger';"
+CONCURRENCY MODEL
 
-MERGE / NUMBERING CONFLICTS
-- If two branches reuse a number, the later branch renumbers to the next free number
-- Never rewrite migration history with force-push
+* UI isolated with @MainActor.
+* actor DatabaseActor provides async APIs; never block main.
+* Cancellation checks for long ops; backpressure via bounded task submission.
 
-APP ↔ DB CONTRACT
-- ValidationStatus in ClassTargets/SubClassTargets derives from ValidationFindings
-- Zero-target skip rule: if a class target is 0% and 0 CHF, ignore validations and purge legacy findings for that subtree
-- UI reads status from DB; no status hardcoding in Swift
-- Startup guard:
-  - MIN_SUPPORTED_SCHEMA vs current; if below, block with upgrade prompt
-  - If current < TARGET_SCHEMA but >= MIN_SUPPORTED_SCHEMA, run in limited/write-guarded mode
+CONFIG AND SECRETS
 
-PACKAGE POLICY
-- Package.swift uses swift-tools-version: 5.10
-- Dependencies pinned with exact versions; update Package.resolved and commit on change
+* Precedence: CLI args > env > .env > defaults.
+* Secrets in Keychain only; never log secrets.
+* SQLite file and directory permissions asserted at startup (restrictive).
+
+LOGGING AND OBSERVABILITY
+
+* Honor your logging concept (categories, redaction, sinks). Codex must load and follow it.
+* OSLog categories: app.ui, core.domain, db.sql, infra.config, sec.
+* Standard metadata keys: request\_id, schema\_version, user\_hash (never raw PII).
+
+ACCESSIBILITY AND I18N
+
+* macOS only; VoiceOver labels on interactive elements, adjustable text sizing, contrast AA.
+* i18n not required; forbid hardcoded locale assumptions.
+
+DATABASE AND DBMATE (NUMBERED)
+
+* All schema changes via dbmate in DragonShield/migrations.
+* Numbering: 3-digit increasing prefix + snake\_case (example: 006\_sync\_validation\_status.sql).
+* schema\_migrations.version stores the numeric prefix (string).
+* One concern per migration; never edit past migrations.
+* Reversible by default; if not possible, document rollback runbook in migration header.
+* No explicit BEGIN or COMMIT in files (dbmate manages transactions).
+
+MIGRATION TEMPLATE
+\-- migrate\:up
+\-- Purpose: <WHAT and WHY>
+\-- Assumptions: \<preconditions, data shape>
+\-- Idempotency: use IF NOT EXISTS and content checks where possible <SQL statements>
+
+\-- migrate\:down <reverse SQL>  -- or no-op plus rollback runbook reference
+
+MIGRATION NUMBER CONFLICT POLICY
+
+* Helper script allocates next NNN:
+
+  * scans repo for highest NNN,
+  * creates NNN\_title.sql with both stanzas,
+  * fails if working tree dirty.
+* CI check: reject PR if a gap or duplicate NNN appears versus main.
+
+SQL OPEN PRAGMAs (on DB open)
+
+* foreign\_keys=ON
+* journal\_mode=WAL
+* synchronous=NORMAL
+* busy\_timeout=5000
+* wal\_autocheckpoint=1000
+
+SCHEMA GUARDS (APP STARTUP)
+
+* MIN\_SUPPORTED\_SCHEMA and TARGET\_SCHEMA constants in app.
+* If current < MIN: block with upgrade dialog.
+* If MIN <= current < TARGET: degraded (write-guarded) mode with banner.
+
+VALIDATIONSTATUS: CANONICAL CONTRACT (ROBUST)
+
+* Severity order: error > warning > compliant.
+* Zero-target skip: if target\_pct = 0 AND target\_amount = 0, ignore new findings and purge legacy findings for that subtree.
+* Primary mechanism: SQLite triggers keep ClassTargets.validation\_status and SubClassTargets.validation\_status in sync on:
+
+  * INSERT, UPDATE, DELETE of ValidationFindings
+  * changes to targets on affected class or subclasses
+* Guard mechanisms:
+
+  * CHECK constraints to restrict status enum.
+  * Cross-check view v\_class\_status\_expected recomputes status live from findings (audit source of truth).
+  * Reconciliation task (CLI or debug action) compares stored status vs view and repairs inconsistencies.
+* Indexing:
+
+  * Index FK columns used by triggers and lookups (e.g., idx\_findings\_class\_id, idx\_targets\_parent\_id).
+* Post-migration verification:
+
+  * Queries assert enum domain, trigger presence, view presence, and recompute parity on samples.
+
+APPLY AND VERIFY (SHELL)
+
+* Backup:
+  cp -p "\$DBFILE" "\${DBFILE%.sqlite}\_\$(date +%Y%m%d%H%M%S)\_preNNN.sqlite.bak"
+* Status:
+  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/migrations" --url "\$DATABASE\_URL" status
+* Up:
+  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/migrations" --url "\$DATABASE\_URL" up
+* Verify (examples):
+  sqlite3 "\$DBFILE" "SELECT version FROM schema\_migrations ORDER BY version;"
+  sqlite3 "\$DBFILE" "SELECT name FROM sqlite\_master WHERE type='trigger' AND name LIKE 'trg\_%';"
+  sqlite3 "\$DBFILE" "SELECT name FROM sqlite\_master WHERE type='view' AND name='v\_class\_status\_expected';"
+
+APP TO DB CONTRACT (ENFORCED)
+
+* UI reads status from DB; no hardcoded status in Swift.
+* Any change touching ValidationFindings or targets must:
+
+  * include status recomputation trigger updates,
+  * include updated tests and verification queries,
+  * keep zero-target rule intact.
+
+TESTING (PRAGMATIC)
+
+* Suites:
+
+  * Unit (Core and domain)
+  * DB integration (temp DB)
+  * UI smoke (critical flows)
+* Coverage baseline about 70 percent lines (raise gradually).
+* Golden tests for ValidationStatus:
+
+  * no findings -> GREEN
+  * warning present -> AMBER
+  * error present -> RED
+  * zero-target subtree -> GREEN and findings pruned
+  * add or remove finding flips status accordingly
+  * target change triggers recompute
+* Accessibility smoke: verify labels exist on key controls.
+
+CI GATES
+
+* Jobs: lint, build, db-migrate-temp, unit-and-db-tests, UI-smoke, a11y-check, release-dryrun.
+* Artifacts: schema dump, lint reports, coverage.
+* Merge blocked on all green.
+
+RELEASE MANAGEMENT
+
+* Version source: annotated tag vX.Y.Z.
+* CFBundleShortVersionString from tag; CFBundleVersion from CI build or commit count.
+* Release blocked if:
+
+  * schema drift vs expected dump,
+  * non-reversible migration without approved runbook,
+  * version injection mismatch.
+* Pre-releases to TestFlight or notarized DMG only.
 
 ZSH SAFETY
-- Do not assign to variable named "path" (reserved; mutates $PATH)
-- setopt interactive_comments
-- Always quote paths; prefer absolute paths
 
-DO / DO NOT
-DO:
-- Quote all paths; pass --migrations-dir and --url to dbmate
-- Enforce WAL and PRAGMAs at app open
-- Provide full file outputs; keep migrations focused and reversible
-DO NOT:
-- Commit *.sqlite, secrets, or dSYM
-- Edit or rename old migrations
-- Assume columns exist without guards/feature flags
+* Scripts start with shebang: #!/usr/bin/env zsh -f
+* Then: set -euo pipefail
+* Never assign to variable named path; always quote paths; prefer absolute paths.
 
-SOURCE DOCS (ORDERED, PINNED BY SHA)
-- Treat the following as the source of truth; DB docs override UI guidance.
-- If a referenced doc is unreachable, proceed with pasted excerpts and annotate: uncertain: missing doc "<path>"
-- Echo which docs were loaded (path + SHA) before executing changes
+DOCS MANIFEST (PINNED BY SHA)
 
-CHECKLIST WHEN MODIFYING CODE/SCHEMA
-1) Enforce WAL/PRAGMAs on DB open
-2) Preserve status sync and zero-target rules if touching ValidationFindings
-3) Add a new numbered migration; never edit old files
-4) Provide post-migration verification queries
-5) Update CHANGELOG under [Unreleased]; categorize (Added/Changed/Fixed/Security)
-6) If release-worthy: bump version, update Info.plist via script, tag
+* docs/manifest.json lists objects with path and sha for all normative docs, including logging concept.
+* Codex prints which docs were loaded (path plus SHA) before emitting code or migrations.
 
-END
+CHECKLISTS (CODEx MUST SELF-TICK)
+
+Spec completeness
+
+* [ ] File Plan
+* [ ] Acceptance tests
+* [ ] Migration and rollback clarified
+* [ ] Feature flags if risky
+* [ ] Non-functional notes (a11y, logging)
+
+Emission and quality
+
+* [ ] Full files only, lint and format clean
+* [ ] Build and tests pass
+* [ ] Migrations idempotent and reversible (or runbook documented)
+* [ ] Post-migration verification queries included
+* [ ] CHANGELOG updated under \[Unreleased]
+
+TEMPLATES (EDIT WHEN EMITTING)
+
+Trigger naming examples
+
+* trg\_findings\_aiud\_update\_status
+* trg\_targets\_au\_recompute\_status
+* trg\_zero\_target\_purge\_subtree
+
+Enum constraint example
+ALTER TABLE ClassTargets
+ADD COLUMN validation\_status TEXT NOT NULL DEFAULT 'compliant'
+CHECK (validation\_status IN ('compliant','warning','error'));
+
+Cross-check view sketch
+CREATE VIEW v\_class\_status\_expected AS
+SELECT c.id,
+CASE
+WHEN EXISTS(SELECT 1 FROM ValidationFindings f WHERE f.class\_id = c.id AND f.severity = 'error') THEN 'error'
+WHEN EXISTS(SELECT 1 FROM ValidationFindings f WHERE f.class\_id = c.id AND f.severity = 'warning') THEN 'warning'
+ELSE 'compliant'
+END AS expected\_status
+FROM ClassTargets c;
+
+Reconcile query sketch
+SELECT c.id, c.validation\_status, v.expected\_status
+FROM ClassTargets c
+JOIN v\_class\_status\_expected v ON v.id = c.id
+WHERE c.validation\_status <> v.expected\_status;
+
+WHAT CODEX MUST OUTPUT FOR ANY TASK
+
+1. File Plan
+2. Why and assumptions
+3. Full code files
+4. Tests (unit and DB integration; UI if UI touched)
+5. Migrations plus verify queries
+6. Runbook (exact commands)
+7. Self-audit with any items marked as "uncertain:" clearly listed
+
+I am on standby, waiting for your instructions.
