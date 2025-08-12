@@ -176,6 +176,7 @@ class BackupService: ObservableObject {
         }
 
         guard checkIntegrity(path: destination.path) else {
+            try? FileManager.default.removeItem(at: destination)
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
         }
 
@@ -504,9 +505,18 @@ class BackupService: ObservableObject {
         value.replacingOccurrences(of: "'", with: "''")
     }
 
+    func shouldDisplayLog(_ message: String) -> Bool {
+        let suppressed = [
+            "/private/var/db/DetachedSignatures",
+            "default.metallib"
+        ]
+        return !suppressed.contains { message.contains($0) }
+    }
+
     private func appendLog(action: String, file: String, success: Bool, message: String? = nil) {
         var entry = "[\(isoFormatter.string(from: Date()))] \(action) \(file) \(success ? "Success" : "Error")"
         if let message = message { entry += " - \(message)" }
+        guard shouldDisplayLog(entry) else { return }
         DispatchQueue.main.async {
             self.logMessages.insert(entry, at: 0)
             if self.logMessages.count > 10 { self.logMessages = Array(self.logMessages.prefix(10)) }
@@ -539,10 +549,8 @@ class BackupService: ObservableObject {
 
     private func checkIntegrity(path: String) -> Bool {
         var db: OpaquePointer?
-        // opening read-write allows SQLite to create a temporary WAL file if the
-        // database uses WAL mode. Without this, opening a WAL-mode database
-        // read-only fails when the WAL file is missing.
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
+        // open the backup read-only and verify integrity
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
         defer { sqlite3_close(db) }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }

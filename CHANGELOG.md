@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Verify SQLite backups read-only, discard corrupt files, and suppress known system warnings in backup logs
 - Sync validation status of class and subclass targets from findings and purge zero-target data
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
