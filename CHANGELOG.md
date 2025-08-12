@@ -45,6 +45,7 @@ All notable changes to this project will be documented in this file.
 - Store all asset allocation targets solely in TargetAllocation table and drop obsolete column from PortfolioInstruments
 - Load stored Target CHF in edit pop-over, computing from portfolio total only if missing, and allow saving with non-zero remaining
 - Include all tables and SQLite metadata in full database backup and restore
+- Build databases from migration set and filter unrelated system warnings from logs
 - Add detailed logging and validation to Edit Targets panel
 - Fix Edit Targets validation to sum all asset- and sub-class targets with detailed logging
 - Load and persist target edits with dual-field mode and non-blocking validation warnings

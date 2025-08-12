@@ -23,7 +23,6 @@ extension DatabaseManager {
             );
         """
         var statement: OpaquePointer?
-        var loadedVersion = ""
         
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -36,10 +35,6 @@ extension DatabaseManager {
                 let value = String(cString: valuePtr)
                 // let dataType = String(cString: dataTypePtr)
                                 
-                if key == "db_version" {
-                    loadedVersion = value
-                }
-
                 DispatchQueue.main.async { // Ensure @Published vars are updated on the main thread
                     switch key {
                     case "base_currency":
@@ -63,8 +58,7 @@ extension DatabaseManager {
                     case "direct_re_target_chf":
                         self.directRealEstateTargetCHF = Double(value) ?? 0
                     case "db_version":
-                        self.dbVersion = value
-                        print("📦 Database version loaded: \(value)")
+                        print("📦 db_version config found: \(value)")
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -74,8 +68,19 @@ extension DatabaseManager {
             print("❌ Failed to prepare loadConfiguration: \(String(cString: sqlite3_errmsg(db)))")
         }
         sqlite3_finalize(statement)
+        var userVersion = ""
+        var stmt2: OpaquePointer?
+        if sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &stmt2, nil) == SQLITE_OK {
+            if sqlite3_step(stmt2) == SQLITE_ROW {
+                let val = sqlite3_column_int(stmt2, 0)
+                userVersion = String(format: "%03d", val)
+                DispatchQueue.main.async { self.dbVersion = userVersion }
+                print("📦 Database version loaded: \(userVersion)")
+            }
+        }
+        sqlite3_finalize(stmt2)
         print("⚙️ Configuration loaded/reloaded.")
-        return loadedVersion
+        return userVersion
     }
     
     func updateConfiguration(key: String, value: String) -> Bool {

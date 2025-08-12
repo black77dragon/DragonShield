@@ -28,6 +28,11 @@ final class LoggingService {
     }
 
     func log(_ message: String, type: OSLogType = .info, logger: Logger = .general) {
+        let ignored = ["/private/var/db/DetachedSignatures", "default.metallib"]
+        if ignored.contains(where: { message.contains($0) }) {
+            logger.log(level: .debug, "Suppressed log: \(message, privacy: .public)")
+            return
+        }
         let timestamp = formatter.string(from: Date())
         let level: String
         switch type {
