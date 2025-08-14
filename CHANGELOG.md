@@ -78,6 +78,7 @@ All notable changes to this project will be documented in this file.
 - Fix compile error referencing systemGray6 in tolerance pill background
 - Fix compile errors referencing system gray colours and deprecated onChange API
 - Provide fallback colours for systemGray4-6 on macOS to resolve compile errors
+- Compare restored database table counts with backup and enumerate tables dynamically
 - Refine deviation bar logic in Asset Allocation view
 - Update deviation bar display in Asset Allocation tile
 - Shorten deviation bars to half length in Asset Allocation tile

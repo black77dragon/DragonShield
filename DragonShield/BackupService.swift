@@ -12,9 +12,9 @@ struct TableActionSummary: Identifiable {
 struct RestoreDelta: Identifiable {
     let id = UUID()
     let table: String
-    let preCount: Int
+    let backupCount: Int
     let postCount: Int
-    var delta: Int { postCount - preCount }
+    var delta: Int { postCount - backupCount }
 }
 
 class BackupService: ObservableObject {
@@ -269,7 +269,7 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
+    func performRestore(dbManager: DatabaseManager, from url: URL, label: String) throws -> [RestoreDelta] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
@@ -277,7 +277,8 @@ class BackupService: ObservableObject {
         let oldName = dbURL.lastPathComponent + ".old." + ts
         let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
 
-        let preCounts = rowCounts(dbPath: dbPath, tables: tables)
+        let tables = userTables(at: url.path)
+        let backupCounts = rowCounts(dbPath: url.path, tables: tables)
 
         guard checkIntegrity(path: url.path) else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
@@ -326,13 +327,13 @@ class BackupService: ObservableObject {
         func pad(_ value: String, _ len: Int) -> String {
             value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
-        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
-        for (tbl, post) in postCounts {
-            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
-            let delta = post - pre
-            comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
+        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Backup", 12) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, backup) in backupCounts {
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            let delta = post - backup
+            comparisons.append(RestoreDelta(table: tbl, backupCount: backup, postCount: post))
             let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            lines.append(pad(tbl, 20) + pad(String(backup), 12) + pad(String(post), 14) + sign + String(delta))
         }
         let summary = lines.joined(separator: "\n")
 
@@ -514,6 +515,22 @@ class BackupService: ObservableObject {
         }
 
     }
+    func userTables(at path: String) -> [String] {
+        var db: OpaquePointer?
+        guard sqlite3_open(path, &db) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        var stmt: OpaquePointer?
+        var names: [String] = []
+        let sql = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) {
+                names.append(String(cString: cStr))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return names.sorted()
+    }
+
 
     private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
         var db: OpaquePointer?
