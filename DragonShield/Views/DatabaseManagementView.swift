@@ -114,11 +114,11 @@ struct DatabaseManagementView: View {
                         if processing { ProgressView() } else { Text("Backup Reference Data") }
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(processing)
+                    .disabled(true)
 
                     Button("Restore Reference Data") { showingReferenceImporter = true }
                         .buttonStyle(SecondaryButtonStyle())
-                        .disabled(processing)
+                        .disabled(true)
                         .fileImporter(isPresented: $showingReferenceImporter, allowedContentTypes: [UTType(filenameExtension: "sql")!]) { result in
                             switch result {
                             case .success(let url):
@@ -139,11 +139,11 @@ struct DatabaseManagementView: View {
                         if processing { ProgressView() } else { Text("Backup Transaction Data") }
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(processing)
+                    .disabled(true)
 
                     Button("Restore Transaction Data") { showingTransactionImporter = true }
                         .buttonStyle(SecondaryButtonStyle())
-                        .disabled(processing)
+                        .disabled(true)
                         .fileImporter(isPresented: $showingTransactionImporter, allowedContentTypes: [UTType(filenameExtension: "sql")!]) { result in
                             switch result {
                             case .success(let url):

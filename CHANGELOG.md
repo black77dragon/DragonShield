@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Redesign full database backup and restore with robust logging and disable partial backup options
 - Sync validation status of class and subclass targets from findings and purge zero-target data
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button
