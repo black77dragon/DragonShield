@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Implement side-panel editor for Asset Class targets
 - Activate pencil edit button in Allocation Targets table
 - Fix edit pencil visibility in Allocation Targets table and place it next to Target column
+- Ensure full database restore performs WAL-safe atomic replacement with per-table verification
 - Style pencil button for visibility and ensure it opens the edit panel
 - Show pencil button next to the Target column and open the edit panel on
   double-click
