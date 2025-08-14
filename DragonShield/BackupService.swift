@@ -158,14 +158,17 @@ class BackupService: ObservableObject {
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
         var src: OpaquePointer?
         var dst: OpaquePointer?
+        defer {
+            if let s = src { sqlite3_close(s) }
+            if let d = dst { sqlite3_close(d) }
+        }
+
         guard sqlite3_open_v2(dbPath, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let src else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open source database"])
         }
-        defer { sqlite3_close(src) }
         guard sqlite3_open_v2(destination.path, &dst, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let dst else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to create backup database"])
         }
-        defer { sqlite3_close(dst) }
 
         guard let backup = sqlite3_backup_init(dst, "main", src, "main") else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup init failed"])
@@ -175,11 +178,14 @@ class BackupService: ObservableObject {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup finish failed"])
         }
 
+        let counts = rowCounts(db: dst, tables: tables)
+
+        sqlite3_close(dst); dst = nil
+        sqlite3_close(src); src = nil
+
         guard checkIntegrity(path: destination.path) else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
         }
-
-        let counts = rowCounts(db: dst, tables: tables)
 
         let ts = Date()
         UserDefaults.standard.set(ts, forKey: UserDefaultsKeys.lastBackupTimestamp)
