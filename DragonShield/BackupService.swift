@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import SQLite3
+import CryptoKit
 
 struct TableActionSummary: Identifiable {
     let id = UUID()
@@ -12,9 +13,9 @@ struct TableActionSummary: Identifiable {
 struct RestoreDelta: Identifiable {
     let id = UUID()
     let table: String
-    let preCount: Int
+    let backupCount: Int
     let postCount: Int
-    var delta: Int { postCount - preCount }
+    var delta: Int { postCount - backupCount }
 }
 
 class BackupService: ObservableObject {
@@ -269,52 +270,43 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
+    func performRestore(dbManager: DatabaseManager, from url: URL, label: String) throws -> [RestoreDelta] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
-        let ts = isoFormatter.string(from: Date()).replacingOccurrences(of: ":", with: "").replacingOccurrences(of: "-", with: "")
-        let oldName = dbURL.lastPathComponent + ".old." + ts
-        let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
 
-        let preCounts = rowCounts(dbPath: dbPath, tables: tables)
+        // Preflight validation
+        let (tables, backupCounts) = try preflightBackup(at: url, dbManager: dbManager)
 
-        guard checkIntegrity(path: url.path) else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
+        // Quiesce and close
+        if let db = dbManager.db {
+            sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", nil, nil, nil)
         }
-
         if !dbManager.closeConnection() || dbManager.db != nil {
             print("⚠️ Database connection still open before restore")
         }
 
-        let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
+        // WAL hygiene
+        let walURL = dbURL.appendingPathExtension("wal")
+        let shmURL = dbURL.appendingPathExtension("shm")
+        let journalURL = dbURL.appendingPathExtension("journal")
+        try? fm.removeItem(at: walURL)
+        try? fm.removeItem(at: shmURL)
+        try? fm.removeItem(at: journalURL)
+
+        // Atomic replace
+        let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent(dbURL.lastPathComponent + ".restoring")
         try? fm.removeItem(at: tempURL)
         try fm.copyItem(at: url, to: tempURL)
+        let fd = open(tempURL.path, O_RDONLY)
+        if fd >= 0 { fsync(fd); close(fd) }
+        try? fm.removeItem(at: dbURL)
+        try fm.moveItem(at: tempURL, to: dbURL)
+        let dirFD = open(dbURL.deletingLastPathComponent().path, O_RDONLY)
+        if dirFD >= 0 { fsync(dirFD); close(dirFD) }
 
-        var usedOldURL = false
-        do {
-            _ = try fm.replaceItem(at: dbURL,
-                                   withItemAt: tempURL,
-                                   backupItemName: oldName,
-                                   options: [],
-                                   resultingItemURL: nil)
-        } catch {
-            do {
-                try fm.moveItem(at: dbURL, to: oldURL)
-                try fm.copyItem(at: url, to: dbURL)
-                usedOldURL = true
-            } catch {
-                try? fm.moveItem(at: oldURL, to: dbURL)
-                throw error
-            }
-        }
-        try? fm.removeItem(at: tempURL)
-
+        // Reopen and verify
         guard checkIntegrity(path: dbPath) else {
-            if usedOldURL {
-                try? fm.removeItem(at: dbURL)
-                try? fm.moveItem(at: oldURL, to: dbURL)
-            }
             dbManager.reopenDatabase()
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Restored file failed integrity check"])
         }
@@ -326,24 +318,74 @@ class BackupService: ObservableObject {
         func pad(_ value: String, _ len: Int) -> String {
             value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
-        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
-        for (tbl, post) in postCounts {
-            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
-            let delta = post - pre
-            comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
+        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Backup Count", 14) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, backup) in backupCounts {
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            let delta = post - backup
+            comparisons.append(RestoreDelta(table: tbl, backupCount: backup, postCount: post))
             let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            lines.append(pad(tbl, 20) + pad(String(backup), 14) + pad(String(post), 14) + sign + String(delta))
         }
         let summary = lines.joined(separator: "\n")
+        let checksum: String
+        if let data = try? Data(contentsOf: dbURL) {
+            checksum = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        } else {
+            checksum = ""
+        }
 
         DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored \(label) data\n" + summary)
+            self.logMessages.append("✅ Restored \(label) data (sha256: \(checksum))\n" + summary)
             self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
             self.lastActionSummaries = tables.map { tbl in
                 TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
             }
         }
         return comparisons
+    }
+
+    private func preflightBackup(at url: URL, dbManager: DatabaseManager) throws -> ([String], [(String, Int)]) {
+        let path = url.path
+        guard FileManager.default.isReadableFile(atPath: path) else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup not readable"])
+        }
+        let header = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard header.count >= 16 && header.prefix(16) == Data("SQLite format 3\0".utf8) else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid backup file"])
+        }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot open backup"])
+        }
+        defer { sqlite3_close(db) }
+
+        // schema version
+        var stmt: OpaquePointer?
+        var version = ""
+        if sqlite3_prepare_v2(db, "SELECT value FROM Configuration WHERE key='db_version';", -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW, let cstr = sqlite3_column_text(stmt, 0) {
+                version = String(cString: cstr)
+            }
+        }
+        sqlite3_finalize(stmt)
+        if !version.isEmpty && version != dbManager.dbVersion {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup schema version \(version) incompatible with runtime \(dbManager.dbVersion)"])
+        }
+
+        // table list and counts
+        var tables: [String] = []
+        if sqlite3_prepare_v2(db, "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let cstr = sqlite3_column_text(stmt, 0) {
+                    tables.append(String(cString: cstr))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        tables.sort()
+
+        let counts = rowCounts(db: db, tables: tables)
+        return (tables, counts)
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
@@ -522,6 +564,23 @@ class BackupService: ObservableObject {
         return rowCounts(db: db, tables: tables)
     }
 
+    func userTables(in path: String) -> [String] {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        var stmt: OpaquePointer?
+        var names: [String] = []
+        if sqlite3_prepare_v2(db, "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let cstr = sqlite3_column_text(stmt, 0) {
+                    names.append(String(cString: cstr))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return names.sorted()
+    }
+
     private func rowCounts(db: OpaquePointer, tables: [String]) -> [(String, Int)] {
         var result: [(String, Int)] = []
         var stmt: OpaquePointer?
@@ -539,14 +598,11 @@ class BackupService: ObservableObject {
 
     private func checkIntegrity(path: String) -> Bool {
         var db: OpaquePointer?
-        // opening read-write allows SQLite to create a temporary WAL file if the
-        // database uses WAL mode. Without this, opening a WAL-mode database
-        // read-only fails when the WAL file is missing.
         guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
         defer { sqlite3_close(db) }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
-        if sqlite3_prepare_v2(db, "PRAGMA integrity_check;", -1, &stmt, nil) != SQLITE_OK { return false }
+        if sqlite3_prepare_v2(db, "PRAGMA integrity_check=FULL;", -1, &stmt, nil) != SQLITE_OK { return false }
         guard sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) else { return false }
         return String(cString: cStr) == "ok"
     }

@@ -26,8 +26,8 @@ struct RestoreComparisonView: View {
                     Text(row.table)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                TableColumn("Pre-Restore Count") { row in
-                    Text(fmt(row.preCount))
+                TableColumn("Backup Count") { row in
+                    Text(fmt(row.backupCount))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 TableColumn("Post-Restore Count") { row in
