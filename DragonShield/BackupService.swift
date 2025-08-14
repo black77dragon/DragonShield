@@ -12,9 +12,9 @@ struct TableActionSummary: Identifiable {
 struct RestoreDelta: Identifiable {
     let id = UUID()
     let table: String
-    let preCount: Int
+    let backupCount: Int
     let postCount: Int
-    var delta: Int { postCount - preCount }
+    var delta: Int { postCount - backupCount }
 }
 
 class BackupService: ObservableObject {
@@ -269,7 +269,7 @@ class BackupService: ObservableObject {
     }
 
 
-    func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
+    func performRestore(dbManager: DatabaseManager, from url: URL, label: String) throws -> [RestoreDelta] {
         let fm = FileManager.default
         let dbPath = dbManager.dbFilePath
         let dbURL = URL(fileURLWithPath: dbPath)
@@ -277,15 +277,25 @@ class BackupService: ObservableObject {
         let oldName = dbURL.lastPathComponent + ".old." + ts
         let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
 
-        let preCounts = rowCounts(dbPath: dbPath, tables: tables)
+        guard isValidSQLite(url: url) else {
+            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid backup file"])
+        }
+
+        let tables = userTables(at: url.path)
+        let backupCounts = rowCounts(dbPath: url.path, tables: tables)
 
         guard checkIntegrity(path: url.path) else {
             throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
         }
 
+        if let db = dbManager.db {
+            sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", nil, nil, nil)
+        }
         if !dbManager.closeConnection() || dbManager.db != nil {
             print("⚠️ Database connection still open before restore")
         }
+
+        deleteSidecarFiles(at: dbURL)
 
         let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
         try? fm.removeItem(at: tempURL)
@@ -326,13 +336,13 @@ class BackupService: ObservableObject {
         func pad(_ value: String, _ len: Int) -> String {
             value.padding(toLength: len, withPad: " ", startingAt: 0)
         }
-        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
-        for (tbl, post) in postCounts {
-            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
-            let delta = post - pre
-            comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
+        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Backup", 12) + pad("Post-Restore", 14) + "Delta"]
+        for (tbl, backup) in backupCounts {
+            let post = postCounts.first { $0.0 == tbl }?.1 ?? 0
+            let delta = post - backup
+            comparisons.append(RestoreDelta(table: tbl, backupCount: backup, postCount: post))
             let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            lines.append(pad(tbl, 20) + pad(String(backup), 12) + pad(String(post), 14) + sign + String(delta))
         }
         let summary = lines.joined(separator: "\n")
 
@@ -549,5 +559,38 @@ class BackupService: ObservableObject {
         if sqlite3_prepare_v2(db, "PRAGMA integrity_check;", -1, &stmt, nil) != SQLITE_OK { return false }
         guard sqlite3_step(stmt) == SQLITE_ROW, let cStr = sqlite3_column_text(stmt, 0) else { return false }
         return String(cString: cStr) == "ok"
+    }
+
+    private func deleteSidecarFiles(at dbURL: URL) {
+        let fm = FileManager.default
+        for suffix in ["-wal", "-shm", "-journal"] {
+            let url = URL(fileURLWithPath: dbURL.path + suffix)
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    func userTables(at path: String) -> [String] {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return [] }
+        defer { sqlite3_close(db) }
+        var result: [String] = []
+        var stmt: OpaquePointer?
+        let sql = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let cStr = sqlite3_column_text(stmt, 0) {
+                    result.append(String(cString: cStr))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return result.sorted()
+    }
+
+    private func isValidSQLite(url: URL) -> Bool {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return false }
+        let signature = Data("SQLite format 3\0".utf8)
+        let data = try? fh.read(upToCount: signature.count)
+        return data == signature
     }
 }
