@@ -155,52 +155,67 @@ class BackupService: ObservableObject {
 
 
 
+    private let backupQueue = DispatchQueue(label: "com.rene.DragonShield.backup")
+
     func performBackup(dbManager: DatabaseManager, dbPath: String, to destination: URL, tables: [String], label: String) throws -> URL {
-        var src: OpaquePointer?
-        var dst: OpaquePointer?
-        guard sqlite3_open_v2(dbPath, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let src else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open source database"])
-        }
-        defer { sqlite3_close(src) }
-        guard sqlite3_open_v2(destination.path, &dst, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let dst else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to create backup database"])
-        }
-        defer { sqlite3_close(dst) }
-
-        guard let backup = sqlite3_backup_init(dst, "main", src, "main") else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup init failed"])
-        }
-        while sqlite3_backup_step(backup, -1) == SQLITE_OK {}
-        guard sqlite3_backup_finish(backup) == SQLITE_OK else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup finish failed"])
-        }
-
-        guard checkIntegrity(path: destination.path) else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
-        }
-
-        let counts = rowCounts(db: dst, tables: tables)
-
-        let ts = Date()
-        UserDefaults.standard.set(ts, forKey: UserDefaultsKeys.lastBackupTimestamp)
-
-        DispatchQueue.main.async {
-            self.lastBackup = ts
-            func pad(_ value: String, _ len: Int) -> String {
-                value.padding(toLength: len, withPad: " ", startingAt: 0)
+        try backupQueue.sync {
+            let fm = FileManager.default
+            if fm.fileExists(atPath: destination.path) {
+                try fm.removeItem(at: destination)
             }
-            var lines: [String] = ["Backup Summary", pad("Table", 20) + "Rows"]
-            for (tbl, count) in counts {
-                lines.append(pad(tbl, 20) + String(count))
-            }
-            self.logMessages.append("✅ Backed up \(label) data\n" + lines.joined(separator: "\n"))
-            self.appendLog(action: "Backup", file: destination.lastPathComponent, success: true)
-            self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
-            }
-        }
 
-        return destination
+            var src: OpaquePointer?
+            var dst: OpaquePointer?
+            guard sqlite3_open_v2(dbPath, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let src else {
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to open source database"])
+            }
+            defer { sqlite3_close(src) }
+            guard sqlite3_open_v2(destination.path, &dst, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let dst else {
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to create backup database"])
+            }
+
+            guard let bk = sqlite3_backup_init(dst, "main", src, "main") else {
+                sqlite3_close(dst)
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup init failed"])
+            }
+            var stepResult: Int32 = SQLITE_OK
+            repeat {
+                stepResult = sqlite3_backup_step(bk, -1)
+            } while stepResult == SQLITE_OK || stepResult == SQLITE_BUSY || stepResult == SQLITE_LOCKED
+            guard sqlite3_backup_finish(bk) == SQLITE_OK, stepResult == SQLITE_DONE else {
+                sqlite3_close(dst)
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "backup failed"])
+            }
+
+            sqlite3_close(dst)
+
+            guard checkIntegrity(path: destination.path) else {
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Integrity check failed"])
+            }
+
+            let counts = rowCounts(dbPath: destination.path, tables: tables)
+
+            let ts = Date()
+            UserDefaults.standard.set(ts, forKey: UserDefaultsKeys.lastBackupTimestamp)
+
+            DispatchQueue.main.async {
+                self.lastBackup = ts
+                func pad(_ value: String, _ len: Int) -> String {
+                    value.padding(toLength: len, withPad: " ", startingAt: 0)
+                }
+                var lines: [String] = ["Backup Summary", pad("Table", 20) + "Rows"]
+                for (tbl, count) in counts {
+                    lines.append(pad(tbl, 20) + String(count))
+                }
+                self.logMessages.append("✅ Backed up \(label) data\n" + lines.joined(separator: "\n"))
+                self.appendLog(action: "Backup", file: destination.lastPathComponent, success: true)
+                self.lastActionSummaries = tables.map { tbl in
+                    TableActionSummary(table: tbl, action: "Backed up", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+                }
+            }
+
+            return destination
+        }
     }
 
     // MARK: – Reference Data Backup/Restore
@@ -270,80 +285,82 @@ class BackupService: ObservableObject {
 
 
     func performRestore(dbManager: DatabaseManager, from url: URL, tables: [String], label: String) throws -> [RestoreDelta] {
-        let fm = FileManager.default
-        let dbPath = dbManager.dbFilePath
-        let dbURL = URL(fileURLWithPath: dbPath)
-        let ts = isoFormatter.string(from: Date()).replacingOccurrences(of: ":", with: "").replacingOccurrences(of: "-", with: "")
-        let oldName = dbURL.lastPathComponent + ".old." + ts
-        let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
+        try backupQueue.sync {
+            let fm = FileManager.default
+            let dbPath = dbManager.dbFilePath
+            let dbURL = URL(fileURLWithPath: dbPath)
+            let ts = isoFormatter.string(from: Date()).replacingOccurrences(of: ":", with: "").replacingOccurrences(of: "-", with: "")
+            let oldName = dbURL.lastPathComponent + ".old." + ts
+            let oldURL = dbURL.deletingLastPathComponent().appendingPathComponent(oldName)
 
-        let preCounts = rowCounts(dbPath: dbPath, tables: tables)
+            let preCounts = rowCounts(dbPath: dbPath, tables: tables)
 
-        guard checkIntegrity(path: url.path) else {
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
-        }
+            guard checkIntegrity(path: url.path) else {
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Backup integrity check failed"])
+            }
 
-        if !dbManager.closeConnection() || dbManager.db != nil {
-            print("⚠️ Database connection still open before restore")
-        }
+            if !dbManager.closeConnection() || dbManager.db != nil {
+                print("⚠️ Database connection still open before restore")
+            }
 
-        let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
-        try? fm.removeItem(at: tempURL)
-        try fm.copyItem(at: url, to: tempURL)
+            let tempURL = dbURL.deletingLastPathComponent().appendingPathComponent("restore_temp_" + ts + ".sqlite")
+            try? fm.removeItem(at: tempURL)
+            try fm.copyItem(at: url, to: tempURL)
 
-        var usedOldURL = false
-        do {
-            _ = try fm.replaceItem(at: dbURL,
-                                   withItemAt: tempURL,
-                                   backupItemName: oldName,
-                                   options: [],
-                                   resultingItemURL: nil)
-        } catch {
+            var usedOldURL = false
             do {
-                try fm.moveItem(at: dbURL, to: oldURL)
-                try fm.copyItem(at: url, to: dbURL)
-                usedOldURL = true
+                _ = try fm.replaceItem(at: dbURL,
+                                       withItemAt: tempURL,
+                                       backupItemName: oldName,
+                                       options: [],
+                                       resultingItemURL: nil)
             } catch {
-                try? fm.moveItem(at: oldURL, to: dbURL)
-                throw error
+                do {
+                    try fm.moveItem(at: dbURL, to: oldURL)
+                    try fm.copyItem(at: url, to: dbURL)
+                    usedOldURL = true
+                } catch {
+                    try? fm.moveItem(at: oldURL, to: dbURL)
+                    throw error
+                }
             }
-        }
-        try? fm.removeItem(at: tempURL)
+            try? fm.removeItem(at: tempURL)
 
-        guard checkIntegrity(path: dbPath) else {
-            if usedOldURL {
-                try? fm.removeItem(at: dbURL)
-                try? fm.moveItem(at: oldURL, to: dbURL)
+            guard checkIntegrity(path: dbPath) else {
+                if usedOldURL {
+                    try? fm.removeItem(at: dbURL)
+                    try? fm.moveItem(at: oldURL, to: dbURL)
+                }
+                dbManager.reopenDatabase()
+                throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Restored file failed integrity check"])
             }
+
             dbManager.reopenDatabase()
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: "Restored file failed integrity check"])
-        }
 
-        dbManager.reopenDatabase()
-
-        let postCounts = rowCounts(dbPath: dbPath, tables: tables)
-        var comparisons: [RestoreDelta] = []
-        func pad(_ value: String, _ len: Int) -> String {
-            value.padding(toLength: len, withPad: " ", startingAt: 0)
-        }
-        var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
-        for (tbl, post) in postCounts {
-            let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
-            let delta = post - pre
-            comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
-            let sign = delta >= 0 ? "+" : ""
-            lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
-        }
-        let summary = lines.joined(separator: "\n")
-
-        DispatchQueue.main.async {
-            self.logMessages.append("✅ Restored \(label) data\n" + summary)
-            self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
-            self.lastActionSummaries = tables.map { tbl in
-                TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+            let postCounts = rowCounts(dbPath: dbPath, tables: tables)
+            var comparisons: [RestoreDelta] = []
+            func pad(_ value: String, _ len: Int) -> String {
+                value.padding(toLength: len, withPad: " ", startingAt: 0)
             }
+            var lines: [String] = ["Restore Summary", pad("Table", 20) + pad("Pre-Restore", 12) + pad("Post-Restore", 14) + "Delta"]
+            for (tbl, post) in postCounts {
+                let pre = preCounts.first { $0.0 == tbl }?.1 ?? 0
+                let delta = post - pre
+                comparisons.append(RestoreDelta(table: tbl, preCount: pre, postCount: post))
+                let sign = delta >= 0 ? "+" : ""
+                lines.append(pad(tbl, 20) + pad(String(pre), 12) + pad(String(post), 14) + sign + String(delta))
+            }
+            let summary = lines.joined(separator: "\n")
+
+            DispatchQueue.main.async {
+                self.logMessages.append("✅ Restored \(label) data\n" + summary)
+                self.appendLog(action: "Restore", file: url.lastPathComponent, success: true)
+                self.lastActionSummaries = tables.map { tbl in
+                    TableActionSummary(table: tbl, action: "Restored", count: (try? dbManager.rowCount(table: tbl)) ?? 0)
+                }
+            }
+            return comparisons
         }
-        return comparisons
     }
 
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
@@ -517,7 +534,7 @@ class BackupService: ObservableObject {
 
     private func rowCounts(dbPath: String, tables: [String]) -> [(String, Int)] {
         var db: OpaquePointer?
-        guard sqlite3_open(dbPath, &db) == SQLITE_OK, let db else { return [] }
+        guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return [] }
         defer { sqlite3_close(db) }
         return rowCounts(db: db, tables: tables)
     }
@@ -539,10 +556,7 @@ class BackupService: ObservableObject {
 
     private func checkIntegrity(path: String) -> Bool {
         var db: OpaquePointer?
-        // opening read-write allows SQLite to create a temporary WAL file if the
-        // database uses WAL mode. Without this, opening a WAL-mode database
-        // read-only fails when the WAL file is missing.
-        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let db else { return false }
         defer { sqlite3_close(db) }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }

@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
 - Expand target edit panel to 800×600 and allow dragging to reposition
+- Ensure backup and restore routines close SQLite handles before manipulating files
 - Fix optional class ID handling in target sum validation warnings
 - Persist parent class targets and warn on total allocation without blocking saves
 - Introduce ClassTargets and SubClassTargets tables with migration logging
