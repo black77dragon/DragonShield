@@ -12,9 +12,7 @@ from typing import Dict, Tuple
 
 
 def _row_counts(conn: sqlite3.Connection) -> Dict[str, int]:
-    cur = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table';"
-    )
+    cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [r[0] for r in cur.fetchall()]
     counts = {}
     for tbl in tables:
@@ -23,7 +21,23 @@ def _row_counts(conn: sqlite3.Connection) -> Dict[str, int]:
     return counts
 
 
-def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict[str, int]]:
+def _verify_and_counts(path: Path) -> Dict[str, int]:
+    """Run PRAGMA integrity_check on *path* and return table row counts.
+
+    Raises RuntimeError if the database is corrupt or cannot be opened.
+    """
+    try:
+        with sqlite3.connect(path) as conn:
+            if conn.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
+                raise RuntimeError("Integrity check failed")
+            return _row_counts(conn)
+    except sqlite3.Error as e:
+        raise RuntimeError(f"Integrity check failed: {e}") from e
+
+
+def backup_database(
+    db_path: Path, dest_dir: Path, env: str
+) -> Tuple[Path, Dict[str, int]]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = dest_dir / f"{env}_backup_{ts}.sqlite"
@@ -31,10 +45,12 @@ def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict
 
     with sqlite3.connect(db_path) as src, sqlite3.connect(backup_path) as dst:
         src.backup(dst)
-        if dst.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
-            backup_path.unlink(missing_ok=True)
-            raise RuntimeError("Integrity check failed")
-        counts = _row_counts(dst)
+
+    try:
+        counts = _verify_and_counts(backup_path)
+    except Exception:
+        backup_path.unlink(missing_ok=True)
+        raise
 
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(counts, f, indent=2)
@@ -46,14 +62,15 @@ def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, i
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     old_path = db_path.with_name(db_path.name + f".old.{ts}")
 
+    _verify_and_counts(backup_file)
+
     with sqlite3.connect(db_path) as conn:
         pre_counts = _row_counts(conn)
 
     os.replace(db_path, old_path)
     try:
         shutil.copy2(backup_file, db_path)
-        with sqlite3.connect(db_path) as conn:
-            post_counts = _row_counts(conn)
+        post_counts = _verify_and_counts(db_path)
     except Exception:
         if old_path.exists():
             os.replace(old_path, db_path)
@@ -69,7 +86,9 @@ def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, i
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Backup or restore dragonshield.sqlite")
+    parser = argparse.ArgumentParser(
+        description="Backup or restore dragonshield.sqlite"
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     b = sub.add_parser("backup", help="Create a backup")
@@ -97,7 +116,7 @@ def main(argv=None) -> int:
         print(f"{'Table':20}{'Pre-Restore':12}{'Post-Restore':14}Delta")
         for tbl, (pre, post) in summary.items():
             delta = post - pre
-            sign = '+' if delta >= 0 else ''
+            sign = "+" if delta >= 0 else ""
             print(f"{tbl:20}{pre:<12}{post:<14}{sign}{delta}")
         return 0
 

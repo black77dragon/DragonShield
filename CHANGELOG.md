@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Add validation status column with traffic-light icons and deviation bars in Asset Allocation table
 - Fix failed ClassTargets/SubClassTargets upserts so edited targets persist
 - Ensure backup routines include TargetChangeLog and full reference data
+- Fix backup script to verify and close database before deleting corrupt backup
 - Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
 - Expand target edit panel to 800×600 and allow dragging to reposition
