@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Close backup database before integrity checks and verify restores to prevent 'vnode unlinked while in use' errors
 - Sync validation status of class and subclass targets from findings and purge zero-target data
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button

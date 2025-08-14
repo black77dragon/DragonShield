@@ -31,10 +31,12 @@ def backup_database(db_path: Path, dest_dir: Path, env: str) -> Tuple[Path, Dict
 
     with sqlite3.connect(db_path) as src, sqlite3.connect(backup_path) as dst:
         src.backup(dst)
-        if dst.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
+        counts = _row_counts(dst)
+
+    with sqlite3.connect(backup_path) as conn:
+        if conn.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
             backup_path.unlink(missing_ok=True)
             raise RuntimeError("Integrity check failed")
-        counts = _row_counts(dst)
 
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(counts, f, indent=2)
@@ -49,10 +51,16 @@ def restore_database(db_path: Path, backup_file: Path) -> Dict[str, Tuple[int, i
     with sqlite3.connect(db_path) as conn:
         pre_counts = _row_counts(conn)
 
+    with sqlite3.connect(backup_file) as verify:
+        if verify.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
+            raise RuntimeError("Backup file failed integrity check")
+
     os.replace(db_path, old_path)
     try:
         shutil.copy2(backup_file, db_path)
         with sqlite3.connect(db_path) as conn:
+            if conn.execute("PRAGMA integrity_check;").fetchone()[0] != "ok":
+                raise RuntimeError("Restored database failed integrity check")
             post_counts = _row_counts(conn)
     except Exception:
         if old_path.exists():
