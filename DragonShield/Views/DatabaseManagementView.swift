@@ -130,6 +130,8 @@ struct DatabaseManagementView: View {
                         }
                 }
             }
+            .disabled(true)
+            .opacity(0.5)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Transaction Data")
@@ -156,6 +158,8 @@ struct DatabaseManagementView: View {
                         }
                 }
             }
+            .disabled(true)
+            .opacity(0.5)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reports")
@@ -354,7 +358,7 @@ struct DatabaseManagementView: View {
         DispatchQueue.global().async {
             do {
                 try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performBackup(dbManager: dbManager, dbPath: dbManager.dbFilePath, to: url, tables: backupService.fullTables, label: "Full")
+                _ = try backupService.performBackup(dbManager: dbManager, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -440,7 +444,7 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                let result = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                let result = try backupService.performRestore(dbManager: dbManager, from: url)
                 DispatchQueue.main.async {
                     processing = false
                     restoreDeltas = result
