@@ -1,8 +1,6 @@
 -- migrate:up
 -- Fix critical backup/restore safety issues in database structure
 
-BEGIN TRANSACTION;
-
 -- 1. ADD CONFLICT RESOLUTION FOR UNIQUE CONSTRAINTS
 -- Current problem: UNIQUE constraints fail during restore with duplicates
 -- Solution: Add backup columns and conflict resolution logic
@@ -170,13 +168,9 @@ FROM Instruments;
 -- Update database version
 UPDATE Configuration SET value = '4.26' WHERE key = 'db_version';
 
-COMMIT;
-
 -- migrate:down
 -- WARNING: This down migration will lose the safety features!
 -- Only run if you're absolutely sure you want to remove the safety nets.
-
-BEGIN TRANSACTION;
 
 -- Drop safety triggers
 DROP TRIGGER IF EXISTS trg_instruments_restore_tracking;
@@ -197,5 +191,3 @@ DROP TABLE IF EXISTS InstrumentsBackup;
 -- If you really need to revert, you'll need to manually recreate the table
 
 UPDATE Configuration SET value = '4.25' WHERE key = 'db_version';
-
-COMMIT;
