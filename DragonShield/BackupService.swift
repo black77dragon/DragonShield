@@ -19,7 +19,6 @@ struct RestoreDelta: Identifiable {
     var delta: Int { postCount - preCount }
 }
 
-// CHANGED: Added Codable structs to parse the JSON manifest from the Python script.
 struct BackupManifest: Codable {
     let backupInfo: BackupInfo
     let rowCounts: [String: Int]
@@ -52,8 +51,6 @@ class BackupService: ObservableObject {
     private var isAccessing = false
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
-
-    // --- No changes needed to tables, init, or scheduling ---
 
     let referenceTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
@@ -177,9 +174,7 @@ class BackupService: ObservableObject {
         return "DragonShield_Transaction_\(modeTag)_v\(version)_\(df.string(from: Date())).sql"
     }
 
-    // CHANGED: This is a new helper function to run the Python script.
     private func runPythonScript(arguments: [String]) throws -> String {
-        // IMPORTANT: Update this path to the correct location of your Python script.
         let scriptPath = "/Users/renekeller/Projects/DragonShield/DragonShield/DragonShield/python_scripts/backup_restore.py"
 
         let process = Process()
@@ -203,7 +198,6 @@ class BackupService: ObservableObject {
         return output
     }
 
-    // CHANGED: Replaced the entire function to call the Python script.
     func performBackup(dbManager: DatabaseManager, to destination: URL) throws {
         let dbPath = dbManager.dbFilePath
         let destDir = destination.deletingLastPathComponent().path
@@ -216,7 +210,6 @@ class BackupService: ObservableObject {
             self.appendLog(action: "Full Backup", file: destination.lastPathComponent, success: true)
         }
         
-        // After backup, read the manifest for validation results
         let manifestURL = destination.appendingPathExtension("manifest.json")
         if FileManager.default.fileExists(atPath: manifestURL.path) {
             let data = try Data(contentsOf: manifestURL)
@@ -231,39 +224,88 @@ class BackupService: ObservableObject {
             }
         }
     }
-
-    // CHANGED: Replaced the entire function to call the Python script.
+    
+    // ==============================================================================
+    // == REWRITTEN SAFER RESTORE METHOD                                           ==
+    // ==============================================================================
     func performRestore(dbManager: DatabaseManager, from backupURL: URL) throws -> [RestoreDelta] {
         let dbPath = dbManager.dbFilePath
-
-        // Close the connection before restore
-        if !dbManager.closeConnection() {
-            throw NSError(domain: "BackupServiceError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not close database connection before restore."])
+        
+        // --- Stage 1: Python prepares a temporary, validated restore file ---
+        let pythonOutput = try runPythonScript(arguments: ["restore", dbPath, backupURL.path])
+        
+        // The Python script prints the path of the temporary file as its last line.
+        guard let tempPath = pythonOutput.split(separator: "\n").last.map(String.init),
+              FileManager.default.fileExists(atPath: tempPath) else {
+            throw NSError(domain: "BackupServiceError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Python script failed to create a temporary restore file."])
+        }
+        
+        let tempURL = URL(fileURLWithPath: tempPath)
+        defer {
+            // Clean up the temporary file when we're done.
+            try? FileManager.default.removeItem(at: tempURL)
         }
 
-        let output = try runPythonScript(arguments: ["restore", dbPath, backupURL.path])
+        // --- Stage 2: Swift performs a live, atomic restore using SQLite's Backup API ---
         
-        // Reopen connection after restore
-        dbManager.reopenDatabase()
+        // Get pre-restore counts from the live database
+        let preCounts = rowCounts(db: dbManager.db!, tables: fullTables)
+        
+        var pBackup: OpaquePointer?
+        var pSrc: OpaquePointer?
+        
+        // Open a connection to the temporary source database
+        guard sqlite3_open(tempPath, &pSrc) == SQLITE_OK else {
+            throw NSError(domain: "SQLite", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not open temporary restore database."])
+        }
+        defer { sqlite3_close(pSrc) }
+        
+        // Initialize the backup process from the temp file ("main") to the live DB ("main")
+        pBackup = sqlite3_backup_init(dbManager.db!, "main", pSrc, "main")
+        guard pBackup != nil else {
+            let msg = String(cString: sqlite3_errmsg(dbManager.db!))
+            throw NSError(domain: "SQLite", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize restore: \(msg)"])
+        }
+        
+        // Perform the restore in one step (-1 means copy all pages)
+        let result = sqlite3_backup_step(pBackup, -1)
+        if result != SQLITE_DONE {
+            let msg = String(cString: sqlite3_errmsg(dbManager.db!))
+            sqlite3_backup_finish(pBackup)
+            throw NSError(domain: "SQLite", code: 5, userInfo: [NSLocalizedDescriptionKey: "Restore failed during copy step: \(msg) (Code: \(result))"])
+        }
+        
+        // Finalize the backup process
+        sqlite3_backup_finish(pBackup)
+        
+        // Get post-restore counts and create the delta summary
+        let postCounts = rowCounts(db: dbManager.db!, tables: fullTables)
+        
+        var deltas: [RestoreDelta] = []
+        let allTables = Set(preCounts.map { $0.0 } + postCounts.map { $0.0 })
+        for table in allTables.sorted() {
+            let pre = preCounts.first { $0.0 == table }?.1 ?? 0
+            let post = postCounts.first { $0.0 == table }?.1 ?? 0
+            deltas.append(RestoreDelta(table: table, preCount: pre, postCount: post))
+        }
 
         DispatchQueue.main.async {
-            self.logMessages.insert(output, at: 0)
+            self.logMessages.insert(pythonOutput, at: 0)
             self.appendLog(action: "Full Restore", file: backupURL.lastPathComponent, success: true)
         }
 
-        // Parse the summary table from the Python script's output
-        return parseRestoreDeltas(from: output)
+        // Reload app state after successful restore
+        dbManager.reopenDatabase()
+
+        return deltas
     }
-    
-    // CHANGED: New helper to parse the text table from the script's output.
+
     private func parseRestoreDeltas(from output: String) -> [RestoreDelta] {
         var deltas: [RestoreDelta] = []
         let lines = output.split(separator: "\n")
-        guard let summaryIndex = lines.firstIndex(where: { $0.contains("Restore Summary") }) else {
-            return []
-        }
+        guard let summaryIndex = lines.firstIndex(where: { $0.contains("Restore Summary") }) else { return [] }
         
-        for line in lines.suffix(from: summaryIndex + 2) { // Skip header and separator
+        for line in lines.suffix(from: summaryIndex + 2) {
             let components = line.split(whereSeparator: \.isWhitespace)
             if components.count >= 4 {
                 let table = String(components[0])
@@ -274,8 +316,6 @@ class BackupService: ObservableObject {
         }
         return deltas
     }
-
-    // --- No changes needed to Reference/Transaction data backup/restore ---
 
     func backupReferenceData(dbManager: DatabaseManager, to destination: URL) throws -> URL {
         let dbPath = dbManager.dbFilePath
