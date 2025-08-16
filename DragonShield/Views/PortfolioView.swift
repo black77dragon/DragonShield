@@ -755,7 +755,8 @@ struct InstrumentParticle {
 // MARK: - Preview
 struct PortfolioView_Previews: PreviewProvider {
     static var previews: some View {
-        PortfolioView()
-            .environmentObject(AssetManager())
+        let dbManager = DatabaseManager()
+        return PortfolioView()
+            .environmentObject(AssetManager(dbManager: dbManager))
     }
 }

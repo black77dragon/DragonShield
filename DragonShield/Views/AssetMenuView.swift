@@ -8,7 +8,7 @@ struct AssetMenuView: View {
     @State private var showingModifyAsset = false
     @State private var showingDeleteAsset = false
     @State private var selectedAsset: DragonAsset? = nil
-    @StateObject private var assetManager = AssetManager()
+    @EnvironmentObject var assetManager: AssetManager
     
     var body: some View {
         VStack {

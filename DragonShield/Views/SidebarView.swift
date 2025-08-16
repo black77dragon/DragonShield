@@ -95,12 +95,13 @@ struct SidebarView: View {
 
 struct SidebarView_Previews: PreviewProvider {
     static var previews: some View {
-        NavigationSplitView {
+        let dbManager = DatabaseManager()
+        return NavigationSplitView {
             SidebarView()
         } detail: {
             DashboardView()
         }
-        .environmentObject(DatabaseManager())
-        .environmentObject(AssetManager())
+        .environmentObject(dbManager)
+        .environmentObject(AssetManager(dbManager: dbManager))
     }
 }
