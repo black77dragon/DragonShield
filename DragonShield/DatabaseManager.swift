@@ -44,52 +44,60 @@ class DatabaseManager: ObservableObject {
     // Add other config items as @Published if they need to be globally observable
     // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
-    init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        self.appDir = appSupport.appendingPathComponent("DragonShield")
+    // MARK: - CORRECTED INIT METHOD
 
-        try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
+init() {
+    // CHANGED: This now correctly finds the sandboxed container directory.
+    guard let containerURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+        fatalError("Could not find the user's Library directory.")
+    }
+    
+    // We construct the path to the correct Application Support folder inside the container.
+    let appSupport = containerURL.appendingPathComponent("Application Support")
+    self.appDir = appSupport.appendingPathComponent("DragonShield")
 
-        let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
-        let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
-        self.dbMode = mode
-        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+    try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
-        
-        #if DEBUG
-        let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-        if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
-            do {
-                try FileManager.default.removeItem(atPath: dbPath)
-                print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
-            } catch {
-                print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
-            }
+    let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
+    let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
+    self.dbMode = mode
+    self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+
+    
+    #if DEBUG
+    let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
+    if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
+        do {
+            try FileManager.default.removeItem(atPath: dbPath)
+            print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
+        } catch {
+            print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
         }
-        #endif
-        
-        if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                do {
-                    try FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-                    print("✅ Copied database from bundle to: \(dbPath)")
-                } catch {
-                    print("❌ Failed to copy database from bundle: \(error)")
-                }
-            } else {
-                print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
+    }
+    #endif
+    
+    if !FileManager.default.fileExists(atPath: dbPath) {
+        if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+            do {
+                try FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
+                print("✅ Copied database from bundle to: \(dbPath)")
+            } catch {
+                print("❌ Failed to copy database from bundle: \(error)")
             }
         } else {
-             print("✅ Using existing database at: \(dbPath)")
+            print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
         }
-        
-        openDatabase()
-        let version = loadConfiguration()
-        self.dbVersion = version
-        DispatchQueue.main.async { self.dbVersion = version }
-        updateFileMetadata()
-        print("📂 Database path: \(dbPath) | version: \(version)")
+    } else {
+         print("✅ Using existing database at: \(dbPath)")
     }
+    
+    openDatabase()
+    let version = loadConfiguration()
+    self.dbVersion = version
+    DispatchQueue.main.async { self.dbVersion = version }
+    updateFileMetadata()
+    print("📂 Database path: \(dbPath) | version: \(version)")
+}
     
     func openDatabase() {
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
