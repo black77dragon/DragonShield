@@ -1,0 +1,84 @@
+# DragonShield: Backup & Restore System Documentation
+
+**Version:** 2.0  
+**Date:** 2025-08-16  
+**Author:** DragonShield Development
+
+---
+
+## 1. Overview
+This document details the architecture and implementation of the backup and restore system for the DragonShield macOS application. The primary goal of this system is to provide a robust, safe, and user-friendly mechanism for data protection and recovery, addressing initial challenges related to data integrity and application sandboxing.
+
+---
+
+## 2. System Architecture
+The backup and restore functionality is built on a hybrid architecture that leverages the strengths of both Swift (for the native UI) and Python (for the backend processing).
+
+- **Frontend (UI):** A native SwiftUI view (`DatabaseManagementView.swift`) provides the user interface for all backup and restore operations.  
+- **Service Layer (Swift):** A service class (`BackupService.swift`) acts as a bridge, handling user interactions from the UI and orchestrating the backend operations.  
+- **Backend (Processing):** A command-line Python script (`backup_restore.py`) is called by the Swift service layer to perform the heavy lifting of database validation, backup creation, and restore preparation.  
+- **Database:** A single-file SQLite database (`dragonshield.sqlite`) stores all application data.
+
+---
+
+## 3. Background & Problem Statement
+The initial implementation of the backup and restore feature faced several critical challenges:
+
+- **Data Integrity Issues:** The primary user-facing problem was the apparent “deletion” of data (specifically from the `Instruments` table) during a restore. A deep analysis revealed this was not a deletion but a failure to restore, caused by underlying data corruption (orphaned records) in the `PositionReports` table.
+- **Unsafe Restore Process:** The original restore method involved closing the live database connection, renaming files on disk, and then reopening the connection. This process was fragile and led to a critical race condition, identified by the SQLite error:  
+  `database integrity compromised by API violation: vnode renamed while in use`.  
+  The Swift app still had a file lock on the database when the Python script tried to replace it, leading to a corrupted state.
+- **macOS App Sandbox Restrictions:** As a modern macOS application, DragonShield runs inside a security sandbox. This sandbox blocked the Swift application from executing the Python script, leading to  
+  `xcrun: error: cannot be used within an App Sandbox` errors.
+
+The final, implemented solution was designed to solve all three of these core problems.
+
+---
+
+## 4. Implementation Details
+The backup and restore process is now a robust, multi-stage operation that prioritizes data safety.
+
+### 4.1. The Python Backend (`backup_restore.py`)
+The Python script serves as the core processing engine. It is designed to be called from the Swift layer and has three main commands: `validate`, `backup`, and `restore`.
+
+**Key Features**
+
+**Comprehensive Validation (`validate`):**
+- Checks for the presence of four critical safety views and tables in the database.
+- Runs `PRAGMA foreign_key_check` to find and report any orphaned records.
+- Uses the `InstrumentsDuplicateCheck` view to find any instruments with conflicting `isin` or `valor_nr` values.
+- Uses the `InstrumentsValidationReport` view to find instruments with broken links to `AssetSubClasses` or `Currencies`.
+
+**Safe Backup (`backup`):**
+- **Pre-Backup Validation:** Automatically runs the full validation check on the live database before starting.
+- **Warning System:** If critical issues are found, it prints a clear warning but will still create the backup. This ensures the user can always back up their data, even if it’s in a problematic state.
+- **Atomic Operation:** Uses SQLite’s native backup API to create a bit-for-bit perfect copy, which is fast and safe.
+- **Post-Backup Verification:** After creating the backup file, it immediately runs the full validation check on the new backup file. If this check fails, the script aborts and deletes the corrupted backup to prevent its use.
+- **JSON Manifest:** Creates a `.manifest.json` file alongside every backup, containing a full summary of the validation report, table row counts, and other metadata.
+
+**Safe Restore Preparation (`restore`):**
+- **Verification:** Runs the full validation check on the selected backup file. If any critical issues are found, the script will abort to prevent restoring a corrupted database.
+- **Temporary File Creation:** The script does not touch the live database. Its only job is to copy the validated backup file to a temporary location (`dragonshield.sqlite.restore_temp`).
+- **Output:** Prints the path of this temporary file to standard output, which is then captured by the Swift `BackupService`.
+
+### 4.2. The Swift Service Layer (`BackupService.swift`)
+The Swift service layer orchestrates the entire process from within the app.
+
+- **Calling the Script:** Uses `Process` to run the Python script, passing the necessary arguments (`backup` or `restore`, file paths, and the `--env` flag).
+- **Error Handling:** Captures the output and termination status of the Python script to report any errors to the user.
+- **The Two-Stage Restore (`performRestore`):**
+  1. Calls the Python script’s `restore` command.  
+  2. Captures the temporary file path that the script prints.  
+  3. Uses SQLite’s native C-based `sqlite3_backup_init`, `sqlite3_backup_step`, and `sqlite3_backup_finish` functions to perform a live “hot” restore—copying the data from the temporary file into the active database without ever closing the main connection, thus avoiding the file lock violation.  
+  4. Cleans up by deleting the temporary restore file.
+
+---
+
+## 5. Configuration & Setup
+To resolve the macOS security issues, the project configuration was modified as follows:
+
+- **App Sandbox:** The App Sandbox capability was completely removed from the Xcode project. This is the definitive solution to allow the Swift application to execute the external Python script.
+- **User Script Sandboxing:** The build setting `ENABLE_USER_SCRIPT_SANDBOXING` was set to `No`. This prevents Xcode from sandboxing the script during the build phase itself.
+- **Database Path:** The `DatabaseManager.swift` file was modified to use a hardcoded path to the application’s sandboxed container directory (`~/Library/Containers/com.rene.DragonShield/...`), ensuring it always connects to the correct production database.
+
+This setup is suitable for a personal application not intended for the Mac App Store.
