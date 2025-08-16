@@ -46,14 +46,13 @@ class DatabaseManager: ObservableObject {
 
     // MARK: - CORRECTED INIT METHOD
 
+// MARK: - CORRECTED INIT METHOD
+
 init() {
-    // CHANGED: This now correctly finds the sandboxed container directory.
-    guard let containerURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
-        fatalError("Could not find the user's Library directory.")
-    }
-    
-    // We construct the path to the correct Application Support folder inside the container.
-    let appSupport = containerURL.appendingPathComponent("Application Support")
+    // CHANGED: This now correctly and permanently points to the sandboxed container directory.
+    let homeDir = FileManager.default.homeDirectoryForCurrentUser
+    let containerPath = "Library/Containers/com.rene.DragonShield/Data/Library/Application Support"
+    let appSupport = homeDir.appendingPathComponent(containerPath)
     self.appDir = appSupport.appendingPathComponent("DragonShield")
 
     try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -90,6 +89,14 @@ init() {
     } else {
          print("✅ Using existing database at: \(dbPath)")
     }
+    
+    openDatabase()
+    let version = loadConfiguration()
+    self.dbVersion = version
+    DispatchQueue.main.async { self.dbVersion = version }
+    updateFileMetadata()
+    print("📂 Database path: \(dbPath) | version: \(version)")
+}
     
     openDatabase()
     let version = loadConfiguration()
