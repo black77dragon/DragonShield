@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Ensure backup routines include TargetChangeLog and full reference data
 - Fix backup script to verify and close database before deleting corrupt backup
 - Remove legacy Asset Allocation view and navigation link
+- Generate full instrument report via read-only SQLite and atomic CSV export
+- Open report database in immutable mode to avoid DetachedSignatures error
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
 - Expand target edit panel to 800×600 and allow dragging to reposition
 - Fix optional class ID handling in target sum validation warnings
