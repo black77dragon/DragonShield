@@ -1,52 +1,54 @@
-// DragonShield/InstrumentReportService.swift
-// MARK: - Version 1.0
-// MARK: - History
-// - 1.0: Execute Python script to generate a full Instruments XLSX report.
-
 import Foundation
 
+struct InstrumentReportResult {
+    let fileURL: URL
+    let size: Int64
+    let duration: TimeInterval
+    let instrumentCount: Int
+    let assetSubClassCount: Int
+    let portfolioAssignmentCount: Int
+}
+
 final class InstrumentReportService {
-    func generateReport(outputPath: String) throws {
-        let scriptPath = try locateScript()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [scriptPath, outputPath]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "InstrumentReportService", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
-        }
-    }
+    func generateReport(databasePath: String, destinationURL: URL) throws -> InstrumentReportResult {
+        let start = Date()
+        let db = try ReportDB(path: databasePath)
 
-    private func locateScript() throws -> String {
-        var checked: [String] = []
+        let instruments = try db.fetchRows(sql: "SELECT id, name FROM Instruments")
+        let instrumentCount = instruments.count
+        let assetSubClassCount = try db.count(table: "AssetSubClasses")
+        let portfolioAssignmentCount = try db.count(table: "PortfolioInstruments")
+
+        var csv = "id,name\n"
+        for row in instruments { csv += row.joined(separator: ",") + "\n" }
+
+        let directory = destinationURL.deletingLastPathComponent()
+        let tmpURL = directory.appendingPathComponent(destinationURL.lastPathComponent + ".tmp")
+        try csv.write(to: tmpURL, atomically: true, encoding: .utf8)
         let fm = FileManager.default
-
-        if let url = Bundle.main.url(forResource: "generate_instrument_report", withExtension: "py", subdirectory: "python_scripts"), fm.fileExists(atPath: url.path) {
-            return url.path
+        if fm.fileExists(atPath: destinationURL.path) {
+            try fm.removeItem(at: destinationURL)
         }
+        try fm.moveItem(at: tmpURL, to: destinationURL)
 
-        let moduleDir = URL(fileURLWithPath: #file).deletingLastPathComponent()
-        let candidates = [
-            moduleDir.appendingPathComponent("python_scripts/generate_instrument_report.py").path,
-            moduleDir.appendingPathComponent("../python_scripts/generate_instrument_report.py").path,
-            moduleDir.appendingPathComponent("../../python_scripts/generate_instrument_report.py").path,
-        ]
+        let attrs = try fm.attributesOfItem(atPath: destinationURL.path)
+        let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        let duration = Date().timeIntervalSince(start)
 
-        for path in candidates {
-            checked.append(path)
-            if fm.fileExists(atPath: path) { return path }
-        }
+        LoggingService.shared.log(
+            "InstrumentReport path=\(destinationURL.path) size=\(size) instruments=\(instrumentCount) duration=\(duration)",
+            type: .info,
+            logger: .general
+        )
 
-        throw NSError(
-            domain: "InstrumentReportService",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Script not found. Checked: \(checked)"]
+        return InstrumentReportResult(
+            fileURL: destinationURL,
+            size: size,
+            duration: duration,
+            instrumentCount: instrumentCount,
+            assetSubClassCount: assetSubClassCount,
+            portfolioAssignmentCount: portfolioAssignmentCount
         )
     }
 }
+

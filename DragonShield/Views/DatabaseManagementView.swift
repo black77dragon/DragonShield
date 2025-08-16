@@ -325,20 +325,23 @@ struct DatabaseManagementView: View {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         if #available(macOS 12.0, *) {
-            if let xlsxType = UTType(filenameExtension: "xlsx") { panel.allowedContentTypes = [xlsxType] }
+            if let csvType = UTType(filenameExtension: "csv") { panel.allowedContentTypes = [csvType] }
         } else {
-            panel.allowedFileTypes = ["xlsx"]
+            panel.allowedFileTypes = ["csv"]
         }
-        panel.nameFieldStringValue = "instrument_report.xlsx"
+        panel.nameFieldStringValue = "instrument_report.csv"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         reportProcessing = true
         appendReportLog("Generating full instrument report…")
-        DispatchQueue.global().async {
+        let dbPath = dbManager.dbFilePath
+        DispatchQueue.global(qos: .userInitiated).async {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             do {
-                try reportService.generateReport(outputPath: url.path)
+                let result = try reportService.generateReport(databasePath: dbPath, destinationURL: url)
                 DispatchQueue.main.async {
                     reportProcessing = false
-                    appendReportLog("Report saved to \(url.path)")
+                    appendReportLog("Report saved to \(result.fileURL.path)")
                 }
             } catch {
                 DispatchQueue.main.async {
