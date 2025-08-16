@@ -79,7 +79,7 @@ struct DatabaseManagementView: View {
                     Button("Restore Database") { showingFileImporter = true }
                         .buttonStyle(SecondaryButtonStyle())
                         .disabled(processing)
-                        .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [UTType(filenameExtension: "db")!]) { result in
+                        .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [UTType(filenameExtension: "sqlite")!, UTType(filenameExtension: "db")!]) { result in
                             switch result {
                             case .success(let url):
                                 restoreURL = url
@@ -195,7 +195,7 @@ struct DatabaseManagementView: View {
                 Text("Action").font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                 Text("Records Processed").font(.caption).frame(maxWidth: .infinity, alignment: .trailing)
             }
-            ForEach(Array(backupService.lastActionSummaries.enumerated()), id: \..offset) { index, entry in
+            ForEach(Array(backupService.lastActionSummaries.enumerated()), id: \.offset) { index, entry in
                 HStack {
                     Text(entry.table)
                         .font(.system(.caption, design: .monospaced))
@@ -342,19 +342,23 @@ struct DatabaseManagementView: View {
         } else {
             panel.allowedFileTypes = ["db"]
         }
-        let refDir = backupService.backupDirectory.appendingPathComponent("Reference", isDirectory: true)
-        try? FileManager.default.createDirectory(at: refDir, withIntermediateDirectories: true)
-        panel.directoryURL = refDir
+        
+        // CHANGED: The directory is now taken from the service, which is a more robust approach.
+        panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultFileName(
             mode: dbManager.dbMode,
             version: dbManager.dbVersion
         )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
+        
+        // This is the block that was causing the "Trailing closure" error.
+        // It's now fixed by calling the new, simpler `performBackup` function.
         DispatchQueue.global().async {
             do {
-                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.performBackup(dbManager: dbManager, dbPath: dbManager.dbFilePath, to: url, tables: backupService.fullTables, label: "Full")
+                try backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
+                // CHANGED: The function call is now much simpler.
+                try backupService.performBackup(dbManager: dbManager, to: url)
                 DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
@@ -440,7 +444,8 @@ struct DatabaseManagementView: View {
         processing = true
         DispatchQueue.global().async {
             do {
-                let result = try backupService.performRestore(dbManager: dbManager, from: url, tables: backupService.fullTables, label: "Full")
+                // CHANGED: The function call is now simpler and matches the new BackupService.
+                let result = try backupService.performRestore(dbManager: dbManager, from: url)
                 DispatchQueue.main.async {
                     processing = false
                     restoreDeltas = result
@@ -567,7 +572,7 @@ struct TableSelectionSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
-            ForEach(tables, id: \..self) { tbl in
+            ForEach(tables, id: \.self) { tbl in
                 Toggle(tbl, isOn: Binding(
                     get: { selection.contains(tbl) },
                     set: { val in

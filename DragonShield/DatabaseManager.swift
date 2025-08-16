@@ -27,7 +27,7 @@ class DatabaseManager: ObservableObject {
     
     // Existing @Published properties
     @Published var baseCurrency: String = "CHF"
-    @Published var asOfDate: Date = Date() // This is loaded, but not typically user-editable in settings in the same way
+    @Published var asOfDate: Date = Date()
     @Published var decimalPrecision: Int = 4
     @Published var autoFxUpdate: Bool = true
 
@@ -41,11 +41,15 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
-    // Add other config items as @Published if they need to be globally observable
-    // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
+    // ==============================================================================
+    // == CORRECTED INIT METHOD                                                    ==
+    // ==============================================================================
     init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        // This now correctly and permanently points to the sandboxed container directory.
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let containerPath = "Library/Containers/com.rene.DragonShield/Data/Library/Application Support"
+        let appSupport = homeDir.appendingPathComponent(containerPath)
         self.appDir = appSupport.appendingPathComponent("DragonShield")
 
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -90,7 +94,8 @@ class DatabaseManager: ObservableObject {
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(version)")
     }
-    
+    // ==============================================================================
+
     func openDatabase() {
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
         if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
@@ -180,11 +185,10 @@ class DatabaseManager: ObservableObject {
     }
 
     private static func fileName(for mode: DatabaseMode) -> String {
-        mode == .production ? "dragonshield.sqlite" : "dragonshield_test.sqlite"
+        return "dragonshield.sqlite"
     }
     
     deinit {
-        // ... (deinit logic remains the same as v1.3) ...
         if let dbPointer = db {
             sqlite3_close_v2(dbPointer)
             print("✅ Database connection closed in deinit.")
