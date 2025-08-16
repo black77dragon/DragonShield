@@ -179,9 +179,9 @@ class DatabaseManager: ObservableObject {
         print("ℹ️ runMigrations called - no migrations to apply")
     }
 
-    private static func fileName(for mode: DatabaseMode) -> String {
-        mode == .production ? "dragonshield.sqlite" : "dragonshield_test.sqlite"
-    }
+private static func fileName(for mode: DatabaseMode) -> String {
+    return "dragonshield.sqlite"
+}
     
     deinit {
         // ... (deinit logic remains the same as v1.3) ...
