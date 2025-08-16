@@ -10,20 +10,10 @@ struct DatabaseManagementView: View {
     @State private var showingFileImporter = false
     @State private var restoreURL: URL?
     @State private var showRestoreConfirm = false
-    @State private var showingReferenceImporter = false
-    @State private var restoreReferenceURL: URL?
-    @State private var showReferenceRestoreConfirm = false
-    @State private var showingTransactionImporter = false
-    @State private var restoreTransactionURL: URL?
-    @State private var showTransactionRestoreConfirm = false
     @State private var errorMessage: String?
     @State private var showLogDetails = false
     @State private var showReferenceInfo = false
     @State private var reportProcessing = false
-    @State private var showTxnBackupSheet = false
-    @State private var showTxnRestoreSheet = false
-    @State private var backupTxnTables: Set<String> = []
-    @State private var restoreTxnTables: Set<String> = []
     @State private var showRestoreComparison = false
     @State private var restoreDeltas: [RestoreDelta] = []
 
@@ -110,24 +100,15 @@ struct DatabaseManagementView: View {
                         }
                 }
                 HStack(spacing: 12) {
-                    Button(action: backupReferenceNow) {
-                        if processing { ProgressView() } else { Text("Backup Reference Data") }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(processing)
+                    Button("Backup Reference Data") {}
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(true)
+                        .opacity(0.5)
 
-                    Button("Restore Reference Data") { showingReferenceImporter = true }
+                    Button("Restore Reference Data") {}
                         .buttonStyle(SecondaryButtonStyle())
-                        .disabled(processing)
-                        .fileImporter(isPresented: $showingReferenceImporter, allowedContentTypes: [UTType(filenameExtension: "sql")!]) { result in
-                            switch result {
-                            case .success(let url):
-                                restoreReferenceURL = url
-                                showReferenceRestoreConfirm = true
-                            case .failure(let error):
-                                errorMessage = error.localizedDescription
-                            }
-                        }
+                        .disabled(true)
+                        .opacity(0.5)
                 }
             }
 
@@ -135,25 +116,15 @@ struct DatabaseManagementView: View {
                 Text("Transaction Data")
                     .font(.system(size: 14, weight: .medium))
                 HStack(spacing: 12) {
-                    Button(action: backupTransactionNow) {
-                        if processing { ProgressView() } else { Text("Backup Transaction Data") }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(processing)
+                    Button("Backup Transaction Data") {}
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(true)
+                        .opacity(0.5)
 
-                    Button("Restore Transaction Data") { showingTransactionImporter = true }
+                    Button("Restore Transaction Data") {}
                         .buttonStyle(SecondaryButtonStyle())
-                        .disabled(processing)
-                        .fileImporter(isPresented: $showingTransactionImporter, allowedContentTypes: [UTType(filenameExtension: "sql")!]) { result in
-                            switch result {
-                            case .success(let url):
-                                restoreTransactionURL = url
-                                restoreTxnTables = Set(backupService.transactionTables)
-                                showTxnRestoreSheet = true
-                            case .failure(let error):
-                                errorMessage = error.localizedDescription
-                            }
-                        }
+                        .disabled(true)
+                        .opacity(0.5)
                 }
             }
 
@@ -281,46 +252,7 @@ struct DatabaseManagementView: View {
         } message: {
             Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
         }
-        .alert("Restore Reference", isPresented: $showReferenceRestoreConfirm) {
-            Button("Restore", role: .destructive) {
-                if let url = restoreReferenceURL { restoreReference(url: url) }
-            }
-            Button("Cancel", role: .cancel) { restoreReferenceURL = nil }
-        } message: {
-            Text("Import reference data from '\(restoreReferenceURL?.lastPathComponent ?? "")'? This will overwrite existing reference tables.")
-        }
-        .alert("Restore Transaction Data", isPresented: $showTransactionRestoreConfirm) {
-            Button("Restore", role: .destructive) {
-                if let url = restoreTransactionURL { restoreTransaction(url: url) }
-            }
-            Button("Cancel", role: .cancel) { restoreTransactionURL = nil }
-        } message: {
-            Text("Import transaction data from '\(restoreTransactionURL?.lastPathComponent ?? "")'? This will overwrite existing tables.")
-        }
-        .sheet(isPresented: $showTxnBackupSheet) {
-            TableSelectionSheet(
-                title: "Select Tables",
-                tables: backupService.transactionTables,
-                selection: $backupTxnTables,
-                onConfirm: {
-                    showTxnBackupSheet = false
-                    performTransactionBackup()
-                },
-                onCancel: { showTxnBackupSheet = false }
-            )
-        }
-        .sheet(isPresented: $showTxnRestoreSheet) {
-            TableSelectionSheet(
-                title: "Select Tables",
-                tables: backupService.transactionTables,
-                selection: $restoreTxnTables,
-                onConfirm: {
-                    showTxnRestoreSheet = false
-                    showTransactionRestoreConfirm = true
-                },
-                onCancel: { showTxnRestoreSheet = false }
-            )
-        }
+        
         .sheet(isPresented: $showRestoreComparison) {
             RestoreComparisonView(rows: restoreDeltas) {
                 showRestoreComparison = false
@@ -369,77 +301,6 @@ struct DatabaseManagementView: View {
         }
     }
 
-    private func backupReferenceNow() {
-        let panel = NSSavePanel()
-        panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
-        }
-        panel.directoryURL = backupService.backupDirectory
-        panel.nameFieldStringValue = BackupService.defaultReferenceFileName(
-            mode: dbManager.dbMode,
-            version: dbManager.dbVersion
-        )
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        processing = true
-        DispatchQueue.global().async {
-            do {
-                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.backupReferenceData(dbManager: dbManager, to: url)
-                DispatchQueue.main.async { processing = false }
-            } catch {
-                DispatchQueue.main.async {
-                    processing = false
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func backupTransactionNow() {
-        backupTxnTables = Set(backupService.transactionTables)
-        showTxnBackupSheet = true
-    }
-
-    private func performTransactionBackup() {
-        let panel = NSSavePanel()
-        panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let sqlType = UTType(filenameExtension: "sql") {
-                panel.allowedContentTypes = [sqlType]
-            }
-        } else {
-            panel.allowedFileTypes = ["sql"]
-        }
-        panel.directoryURL = backupService.backupDirectory
-        panel.nameFieldStringValue = BackupService.defaultTransactionFileName(
-            mode: dbManager.dbMode,
-            version: dbManager.dbVersion
-        )
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        processing = true
-        DispatchQueue.global().async {
-            do {
-                try? backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
-                _ = try backupService.backupTransactionData(
-                    dbManager: dbManager,
-                    to: url,
-                    tables: Array(backupTxnTables)
-                )
-                DispatchQueue.main.async { processing = false }
-            } catch {
-                DispatchQueue.main.async {
-                    processing = false
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
     private func restoreDatabase(url: URL) {
         processing = true
         DispatchQueue.global().async {
@@ -451,44 +312,6 @@ struct DatabaseManagementView: View {
                     restoreDeltas = result
                     showRestoreComparison = true
                 }
-            } catch {
-                DispatchQueue.main.async {
-                    processing = false
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func restoreReference(url: URL) {
-        processing = true
-        DispatchQueue.global().async {
-            let accessGranted = url.startAccessingSecurityScopedResource()
-            defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            do {
-                try backupService.restoreReferenceData(dbManager: dbManager, from: url)
-                DispatchQueue.main.async { processing = false }
-            } catch {
-                DispatchQueue.main.async {
-                    processing = false
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func restoreTransaction(url: URL) {
-        processing = true
-        DispatchQueue.global().async {
-            let accessGranted = url.startAccessingSecurityScopedResource()
-            defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
-            do {
-                try backupService.restoreTransactionData(
-                    dbManager: dbManager,
-                    from: url,
-                    tables: Array(restoreTxnTables)
-                )
-                DispatchQueue.main.async { processing = false }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
@@ -559,35 +382,5 @@ struct DatabaseManagementView_Previews: PreviewProvider {
     static var previews: some View {
         DatabaseManagementView()
             .environmentObject(DatabaseManager())
-    }
-}
-
-struct TableSelectionSheet: View {
-    let title: String
-    let tables: [String]
-    @Binding var selection: Set<String>
-    var onConfirm: () -> Void
-    var onCancel: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.headline)
-            ForEach(tables, id: \.self) { tbl in
-                Toggle(tbl, isOn: Binding(
-                    get: { selection.contains(tbl) },
-                    set: { val in
-                        if val { selection.insert(tbl) } else { selection.remove(tbl) }
-                    }
-                ))
-            }
-            HStack {
-                Spacer()
-                Button("Cancel") { onCancel() }
-                Button("OK") { onConfirm() }
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(20)
-        .frame(width: 300)
     }
 }
