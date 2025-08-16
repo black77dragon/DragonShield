@@ -78,6 +78,7 @@ All notable changes to this project will be documented in this file.
 - Display tolerance pills in Asset Allocation table rows
 - Fix compile error referencing systemGray6 in tolerance pill background
 - Fix compile errors referencing system gray colours and deprecated onChange API
+- Export full instrument report via CSV using read-only database connection and atomic write
 - Provide fallback colours for systemGray4-6 on macOS to resolve compile errors
 - Refine deviation bar logic in Asset Allocation view
 - Update deviation bar display in Asset Allocation tile
