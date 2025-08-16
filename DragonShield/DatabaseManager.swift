@@ -27,7 +27,7 @@ class DatabaseManager: ObservableObject {
     
     // Existing @Published properties
     @Published var baseCurrency: String = "CHF"
-    @Published var asOfDate: Date = Date() // This is loaded, but not typically user-editable in settings in the same way
+    @Published var asOfDate: Date = Date()
     @Published var decimalPrecision: Int = 4
     @Published var autoFxUpdate: Bool = true
 
@@ -41,71 +41,61 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
-    // Add other config items as @Published if they need to be globally observable
-    // For fx_api_provider, fx_update_frequency, we might just display them or use TextFields
 
-    // MARK: - CORRECTED INIT METHOD
+    // ==============================================================================
+    // == CORRECTED INIT METHOD                                                    ==
+    // ==============================================================================
+    init() {
+        // This now correctly and permanently points to the sandboxed container directory.
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let containerPath = "Library/Containers/com.rene.DragonShield/Data/Library/Application Support"
+        let appSupport = homeDir.appendingPathComponent(containerPath)
+        self.appDir = appSupport.appendingPathComponent("DragonShield")
 
-// MARK: - CORRECTED INIT METHOD
+        try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
-init() {
-    // CHANGED: This now correctly and permanently points to the sandboxed container directory.
-    let homeDir = FileManager.default.homeDirectoryForCurrentUser
-    let containerPath = "Library/Containers/com.rene.DragonShield/Data/Library/Application Support"
-    let appSupport = homeDir.appendingPathComponent(containerPath)
-    self.appDir = appSupport.appendingPathComponent("DragonShield")
+        let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
+        let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
+        self.dbMode = mode
+        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
 
-    try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
-
-    let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
-    let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
-    self.dbMode = mode
-    self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
-
-    
-    #if DEBUG
-    let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-    if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
-        do {
-            try FileManager.default.removeItem(atPath: dbPath)
-            print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
-        } catch {
-            print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
-        }
-    }
-    #endif
-    
-    if !FileManager.default.fileExists(atPath: dbPath) {
-        if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+        
+        #if DEBUG
+        let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
+        if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
             do {
-                try FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-                print("✅ Copied database from bundle to: \(dbPath)")
+                try FileManager.default.removeItem(atPath: dbPath)
+                print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
             } catch {
-                print("❌ Failed to copy database from bundle: \(error)")
+                print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
+            }
+        }
+        #endif
+        
+        if !FileManager.default.fileExists(atPath: dbPath) {
+            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
+                do {
+                    try FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
+                    print("✅ Copied database from bundle to: \(dbPath)")
+                } catch {
+                    print("❌ Failed to copy database from bundle: \(error)")
+                }
+            } else {
+                print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
             }
         } else {
-            print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
+             print("✅ Using existing database at: \(dbPath)")
         }
-    } else {
-         print("✅ Using existing database at: \(dbPath)")
+        
+        openDatabase()
+        let version = loadConfiguration()
+        self.dbVersion = version
+        DispatchQueue.main.async { self.dbVersion = version }
+        updateFileMetadata()
+        print("📂 Database path: \(dbPath) | version: \(version)")
     }
-    
-    openDatabase()
-    let version = loadConfiguration()
-    self.dbVersion = version
-    DispatchQueue.main.async { self.dbVersion = version }
-    updateFileMetadata()
-    print("📂 Database path: \(dbPath) | version: \(version)")
-}
-    
-    openDatabase()
-    let version = loadConfiguration()
-    self.dbVersion = version
-    DispatchQueue.main.async { self.dbVersion = version }
-    updateFileMetadata()
-    print("📂 Database path: \(dbPath) | version: \(version)")
-}
-    
+    // ==============================================================================
+
     func openDatabase() {
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
         if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
@@ -194,12 +184,11 @@ init() {
         print("ℹ️ runMigrations called - no migrations to apply")
     }
 
-private static func fileName(for mode: DatabaseMode) -> String {
-    return "dragonshield.sqlite"
-}
+    private static func fileName(for mode: DatabaseMode) -> String {
+        return "dragonshield.sqlite"
+    }
     
     deinit {
-        // ... (deinit logic remains the same as v1.3) ...
         if let dbPointer = db {
             sqlite3_close_v2(dbPointer)
             print("✅ Database connection closed in deinit.")
