@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix backup script to verify and close database before deleting corrupt backup
 - Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
+- Fix instrument report generation by loading schema from db directory and removing pandas dependency
 - Expand target edit panel to 800×600 and allow dragging to reposition
 - Fix optional class ID handling in target sum validation warnings
 - Persist parent class targets and warn on total allocation without blocking saves
