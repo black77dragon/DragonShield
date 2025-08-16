@@ -1,52 +1,41 @@
-// DragonShield/InstrumentReportService.swift
-// MARK: - Version 1.0
-// MARK: - History
-// - 1.0: Execute Python script to generate a full Instruments XLSX report.
-
 import Foundation
+import SQLite3
+import OSLog
 
 final class InstrumentReportService {
-    func generateReport(outputPath: String) throws {
-        let scriptPath = try locateScript()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [scriptPath, outputPath]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "InstrumentReportService", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
-        }
+    struct Summary {
+        let instrumentCount: Int
+        let subClassCount: Int
+        let portfolioInstrumentCount: Int
     }
 
-    private func locateScript() throws -> String {
-        var checked: [String] = []
-        let fm = FileManager.default
+    func generateReport(databasePath: String, destinationURL: URL) throws -> Summary {
+        let logger = LoggingService.shared
+        logger.log("instrument_report.start \(destinationURL.path)", logger: .database)
+        let start = Date()
+        let db = try ReportDB(path: databasePath)
+        defer { db.close() }
 
-        if let url = Bundle.main.url(forResource: "generate_instrument_report", withExtension: "py", subdirectory: "python_scripts"), fm.fileExists(atPath: url.path) {
-            return url.path
-        }
-
-        let moduleDir = URL(fileURLWithPath: #file).deletingLastPathComponent()
-        let candidates = [
-            moduleDir.appendingPathComponent("python_scripts/generate_instrument_report.py").path,
-            moduleDir.appendingPathComponent("../python_scripts/generate_instrument_report.py").path,
-            moduleDir.appendingPathComponent("../../python_scripts/generate_instrument_report.py").path,
-        ]
-
-        for path in candidates {
-            checked.append(path)
-            if fm.fileExists(atPath: path) { return path }
-        }
-
-        throw NSError(
-            domain: "InstrumentReportService",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Script not found. Checked: \(checked)"]
+        let summary = try Summary(
+            instrumentCount: db.count(table: "Instruments"),
+            subClassCount: db.count(table: "AssetSubClasses"),
+            portfolioInstrumentCount: db.count(table: "PortfolioInstruments")
         )
+
+        var csv = "Section,Count\n"
+        csv += "Instruments,\(summary.instrumentCount)\n"
+        csv += "AssetSubClasses,\(summary.subClassCount)\n"
+        csv += "PortfolioInstruments,\(summary.portfolioInstrumentCount)\n"
+
+        let dir = destinationURL.deletingLastPathComponent()
+        let tempURL = dir.appendingPathComponent(UUID().uuidString).appendingPathExtension("tmp")
+        try csv.write(to: tempURL, atomically: true, encoding: .utf8)
+        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+
+        let attrs = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
+        let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
+        let duration = Date().timeIntervalSince(start)
+        logger.log("instrument_report.complete file=\(destinationURL.path) size=\(size) duration=\(duration)", logger: .database)
+        return summary
     }
 }
