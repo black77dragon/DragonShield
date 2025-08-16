@@ -101,6 +101,6 @@ struct SidebarView_Previews: PreviewProvider {
             DashboardView()
         }
         .environmentObject(DatabaseManager())
-        .environmentObject(AssetManager())
+        .environmentObject(AssetManager(dbManager: DatabaseManager()))
     }
 }

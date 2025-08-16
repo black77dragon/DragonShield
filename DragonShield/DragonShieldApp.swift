@@ -3,9 +3,15 @@ import SwiftUI
 
 @main
 struct DragonShieldApp: App {
-    // Create a single instance of DatabaseManager to be used throughout the app
-    @StateObject private var databaseManager = DatabaseManager()
-    @StateObject private var assetManager = AssetManager() // Assuming you also have this
+    // Create single shared instances injected across the app
+    @StateObject private var databaseManager: DatabaseManager
+    @StateObject private var assetManager: AssetManager
+
+    init() {
+        let db = DatabaseManager()
+        _databaseManager = StateObject(wrappedValue: db)
+        _assetManager = StateObject(wrappedValue: AssetManager(dbManager: db))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -14,8 +20,8 @@ struct DragonShieldApp: App {
             } detail: {
                 DashboardView()
             }
-            .environmentObject(assetManager) // Your existing one
-            .environmentObject(databaseManager) // <<<< ADD THIS LINE
+            .environmentObject(assetManager)
+            .environmentObject(databaseManager)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     ModeBadge()

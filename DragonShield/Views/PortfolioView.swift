@@ -756,6 +756,6 @@ struct InstrumentParticle {
 struct PortfolioView_Previews: PreviewProvider {
     static var previews: some View {
         PortfolioView()
-            .environmentObject(AssetManager())
+            .environmentObject(AssetManager(dbManager: DatabaseManager()))
     }
 }

@@ -12,9 +12,10 @@ struct DragonAsset: Identifiable {
 
 class AssetManager: ObservableObject {
     @Published var assets: [DragonAsset] = []
-    private let dbManager = DatabaseManager()
-    
-    init() {
+    private let dbManager: DatabaseManager
+
+    init(dbManager: DatabaseManager) {
+        self.dbManager = dbManager
         loadAssets()
     }
     
