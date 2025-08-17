@@ -325,20 +325,35 @@ struct DatabaseManagementView: View {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         if #available(macOS 12.0, *) {
-            if let xlsxType = UTType(filenameExtension: "xlsx") { panel.allowedContentTypes = [xlsxType] }
+            if let csvType = UTType(filenameExtension: "csv") { panel.allowedContentTypes = [csvType] }
         } else {
-            panel.allowedFileTypes = ["xlsx"]
+            panel.allowedFileTypes = ["csv"]
         }
-        panel.nameFieldStringValue = "instrument_report.xlsx"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        panel.nameFieldStringValue = "Full-Instrument-Report-\(formatter.string(from: Date())).csv"
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard url.startAccessingSecurityScopedResource() else {
+            appendReportLog("Error: Could not access selected folder")
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
         reportProcessing = true
         appendReportLog("Generating full instrument report…")
+        let dbPath = dbManager.dbFilePath
         DispatchQueue.global().async {
             do {
-                try reportService.generateReport(outputPath: url.path)
+                _ = try reportService.generateReport(databasePath: dbPath, destinationURL: url)
                 DispatchQueue.main.async {
                     reportProcessing = false
                     appendReportLog("Report saved to \(url.path)")
+                    let alert = NSAlert()
+                    alert.messageText = "Report saved to \(url.path)"
+                    alert.addButton(withTitle: "OK")
+                    alert.addButton(withTitle: "Show in Finder")
+                    if alert.runModal() == .alertSecondButtonReturn {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
                 }
             } catch {
                 DispatchQueue.main.async {
