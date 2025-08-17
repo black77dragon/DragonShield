@@ -468,6 +468,7 @@ All notable changes to this project will be documented in this file.
 - Show detailed Backup Summary and ensure restore logs publish on main thread
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
+- Replace schema.sql references with dbmate migration instructions in README
 - Close SQLite connection before file moves and update dbVersion on main thread
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
