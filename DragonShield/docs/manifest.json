@@ -1,0 +1,12 @@
+{
+  "docs": [
+    {
+      "path": "UX_UI_concept/dragon_shield_ui_guide.md",
+      "sha": "c6cf9fc2053d2e97c29679ccfafa2f54496ba088"
+    },
+    {
+      "path": "logging_concept_dragonshield.md",
+      "sha": "afa4057bd725e4e8927eed15bc1cf485902ce5e0"
+    }
+  ]
+}

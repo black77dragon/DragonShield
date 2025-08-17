@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Consolidate UI concept notes into the main UI/UX design guide
+- Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view
 - Add button to validate Instruments in Database Management view
@@ -22,7 +24,7 @@ All notable changes to this project will be documented in this file.
 - Fix backup script to verify and close database before deleting corrupt backup
 - Remove legacy Asset Allocation view and navigation link
 - Polish target edit panel layout with fixed width and regrouped inputs for clarity
-- Expand target edit panel to 800×600 and allow dragging to reposition
+- Expand target edit panel to 800x600 and allow dragging to reposition
 - Fix optional class ID handling in target sum validation warnings
 - Persist parent class targets and warn on total allocation without blocking saves
 - Introduce ClassTargets and SubClassTargets tables with migration logging
@@ -39,6 +41,8 @@ All notable changes to this project will be documented in this file.
 - Added persistent edit buttons & dbl-click shortcut for target rows (PR #XXX)
 - Target editor pops up below row with white background and tolerance field (PR #XXX)
 - Document dbmate workflow and require `008_add_backup_restore_safety.sql` in migration sequence
+- Correct Credit-Suisse parser mapping docs to reference Credit-Suisse only, update schema version to 4.25, and align field mappings
+- Document ZKB asset class mappings and replace placeholder codes
 - Document Target Allocation edit panel workflow
 - Implement side-panel editor for Asset Class targets
 - Activate pencil edit button in Allocation Targets table
@@ -70,9 +74,9 @@ All notable changes to this project will be documented in this file.
 - Maintain equal margin around Asset-Class table to prevent bleed
 - Auto-scale Asset Classes columns proportionally when the card is resized
 - Optimise Asset Class tile layout and cap deviation bars in Allocation dashboard
-- Add fixed Δ column and abbreviated numbers in Asset Classes table
-- Fix Δ column layout to stay visible within Asset Classes card
-- Shrink table padding and correct column widths to keep Δ column visible
+- Add fixed delta column and abbreviated numbers in Asset Classes table
+- Fix delta column layout to stay visible within Asset Classes card
+- Shrink table padding and correct column widths to keep delta column visible
 - Add sidebar link to the Kanban board
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
@@ -238,7 +242,7 @@ All notable changes to this project will be documented in this file.
 - Fix redeclaration of `counts` in BackupService
 - Fix compile error when restoring reference data due to undefined `counts`
 - Increase Data Import/Export canvas size and anchor Statement Loading Log at the page bottom
-- Double Data Import/Export canvas to 1600×1200 and keep log pinned to the bottom
+- Double Data Import/Export canvas to 1600x1200 and keep log pinned to the bottom
 - Backup reference data separately via new UI button and CLI flag
 - Enforce three-zone layout on Data Import/Export screen with persistent status line
 - Resolve variable scoping issue in BackupService restore function
@@ -468,6 +472,7 @@ All notable changes to this project will be documented in this file.
 - Show detailed Backup Summary and ensure restore logs publish on main thread
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
+- Replace schema.sql references with dbmate migration instructions in README
 - Close SQLite connection before file moves and update dbVersion on main thread
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
