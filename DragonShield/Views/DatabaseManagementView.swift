@@ -14,6 +14,7 @@ struct DatabaseManagementView: View {
     @State private var showLogDetails = false
     @State private var showReferenceInfo = false
     @State private var reportProcessing = false
+    @State private var validationProcessing = false
     @State private var showRestoreComparison = false
     @State private var restoreDeltas: [RestoreDelta] = []
 
@@ -137,6 +138,18 @@ struct DatabaseManagementView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(reportProcessing)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Validation")
+                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 12) {
+                    Button(action: validateInstruments) {
+                        if validationProcessing { ProgressView() } else { Text("Validate Instruments") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(validationProcessing)
                 }
             }
 
@@ -316,6 +329,24 @@ struct DatabaseManagementView: View {
                 DispatchQueue.main.async {
                     processing = false
                     errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func validateInstruments() {
+        validationProcessing = true
+        DispatchQueue.global().async {
+            do {
+                let output = try backupService.validateInstruments(dbManager: dbManager)
+                DispatchQueue.main.async {
+                    validationProcessing = false
+                    backupService.logMessages.insert(output, at: 0)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    validationProcessing = false
+                    backupService.logMessages.insert("Error: \(error.localizedDescription)", at: 0)
                 }
             }
         }

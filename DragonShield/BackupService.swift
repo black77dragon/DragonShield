@@ -198,6 +198,11 @@ class BackupService: ObservableObject {
         return output
     }
 
+    func validateInstruments(dbManager: DatabaseManager) throws -> String {
+        let dbPath = dbManager.dbFilePath
+        return try runPythonScript(arguments: ["validate", dbPath])
+    }
+
     func performBackup(dbManager: DatabaseManager, to destination: URL) throws {
         let dbPath = dbManager.dbFilePath
         let destDir = destination.deletingLastPathComponent().path
