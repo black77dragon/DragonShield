@@ -66,7 +66,8 @@ DragonShield/
 ├── Views/                         # SwiftUI screens
 ├── Models/ & Services/            # Combine, data access
 ├── python_scripts/                # Parsers, analytics
-├── docs/                          # schema.sql, ADRs
+├── db/                            # database migrations (dbmate)
+├── docs/                          # documentation and ADRs
 ├── tests/                         # Unit & UI tests
 ├── README.md                      # This file
 └── LICENSE
@@ -96,9 +97,9 @@ DragonShield/
    ```
    All required packages are listed in `requirements.txt`.
 
-5. **Generate the local database**
+5. **Run database migrations**
    ```bash
-   python3 python_scripts/deploy_db.py
+   dbmate --migrations-dir DragonShield/db/migrations --url "sqlite:DragonShield/dragonshield.sqlite" up
    ```
 6. **Open the Xcode project**
    ```bash
@@ -116,18 +117,18 @@ DragonShield/
   - Primary database: `dragonshield.sqlite`
   - Test database: `dragonshield_test.sqlite`
   - Backup directory: `Dragonshield DB Backup` (full, reference and transaction backups)
-  - Generate the database with `python3 python_scripts/deploy_db.py`.
+  - Apply migrations with `dbmate --migrations-dir DragonShield/db/migrations --url "$DATABASE_URL" up`.
   - Full database backup/restore via `python3 python_scripts/backup_restore.py`
 - **Encryption**: SQLCipher (AES-256)
-- **Schema**: `docs/schema.sql`
+- **Migrations**: `DragonShield/db/migrations`
 - **Dev Key**: Temporary; do not use for production data
 
 ## Updating the Database
 
-Run the deploy script to rebuild the database from the schema and copy it to the container's Application Support folder. The script prints the schema version and final path:
+Run dbmate to apply migrations and copy the database to the container's Application Support folder. The command prints the applied versions and final path:
 
 ```bash
-python3 python_scripts/deploy_db.py
+dbmate --migrations-dir DragonShield/db/migrations --url "$DATABASE_URL" up
 ```
 
 ### ZKB CSV Import
