@@ -131,11 +131,15 @@ Each instrument record includes:
 
 ## 8. ZKB Mapping
 
-| ZKB               | AssetClass Code | AssetSubClass Code | Notes                         |
-|-------------------------|-----------------|--------------------|-------------------------------|
-| Obligationen und Ähnliches      | FI             | STOCK               | Money market instruments.     |
-| Sonstige Anlagen           | OTHER             | OTHER                | to be further refined            |
-| Equities (EU)           | EQT             | EGM                | European equities.            |
+| ZKB Category               | AssetClass Code | AssetSubClass Code | Notes |
+|---------------------------|-----------------|--------------------|-------|
+| Liquide Mittel            | LIQ             | CASH               | Parser maps category to sub_class_id 1 (cash). |
+| Obligationen und Ähnliches| FIX             | CORP               | Parser maps to sub_class_id 8; GOV vs CORP distinction not provided. |
+| Aktien und Ähnliches      | EQT             | AGM                | Parser maps to sub_class_id 3; regional subclassing pending. |
+| Kollektive Kapitalanlagen | EQT             | EGM                | Not handled by parser; expected for equity funds. |
+| Strukturierte Produkte    | DER             | OPT                | Not handled by parser; example derivative mapping. |
+| Alternative Anlagen       | ALT             | HF                 | Not handled by parser; example hedge fund mapping. |
+| Sonstige Anlagen          | ALT             | —                  | Category not mapped; requires further classification. |
 
 
 ---

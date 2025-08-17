@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Redesign Asset Allocation dashboard with modern cards
 - Added persistent edit buttons & dbl-click shortcut for target rows (PR #XXX)
 - Target editor pops up below row with white background and tolerance field (PR #XXX)
+- Document ZKB asset class mappings and replace placeholder codes
 - Document Target Allocation edit panel workflow
 - Implement side-panel editor for Asset Class targets
 - Activate pencil edit button in Allocation Targets table
