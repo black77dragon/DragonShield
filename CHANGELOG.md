@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Consolidate UI concept notes into the main UI/UX design guide
+- Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view
 - Add button to validate Instruments in Database Management view
@@ -468,6 +469,7 @@ All notable changes to this project will be documented in this file.
 - Show detailed Backup Summary and ensure restore logs publish on main thread
 - Keep original backup file by copying to a temporary location before atomic replace
 - Document python backup_restore script in README
+- Replace schema.sql references with dbmate migration instructions in README
 - Close SQLite connection before file moves and update dbVersion on main thread
 - Ensure published properties update on main thread and migrate onChange syntax
 - Distinct colors for each risk bucket segment and matching legend
