@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Consolidate UI concept notes into the main UI/UX design guide
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view
 - Add button to validate Instruments in Database Management view
