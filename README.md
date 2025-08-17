@@ -5,6 +5,7 @@
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
 The app follows Apple's best-in-class UX conventions while embracing ZEN-minimalism for clarity and focus.
+For detailed interface guidelines, see the [Dragon Shield UI/UX Design Guide](DragonShield/docs/UX_UI_concept/dragon_shield_ui_guide.md).
 
 ## ✨ Key Features (End-Goal Vision)
 
