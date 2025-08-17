@@ -1,34 +1,16 @@
 import SwiftUI
 
-// Local model definitions to ensure this view is self-contained and doesn't affect other files.
-fileprivate struct Tile: Identifiable {
-    let id: String
-    let name: String
-    let icon: String
-}
+// NOTE: This version removes the incorrect, duplicate 'Tile' and 'TileRegistry' structs.
+// It now correctly uses the 'TileInfo' and 'TileRegistry' that already exist in your project.
 
-fileprivate struct TileRegistry {
-    static let all: [Tile] = [
-        Tile(id: "total_value", name: "Total Asset Value", icon: "dollarsign.circle"),
-        Tile(id: "top_positions", name: "Top Positions", icon: "list.number"),
-        Tile(id: "riskBuckets", name: "Risk Buckets", icon: "shield.lefthalf.filled"),
-        Tile(id: "currencyExposure", name: "Currency Exposure", icon: "chart.pie"),
-        Tile(id: "staleAccounts", name: "Accounts Needing Update", icon: "hourglass.bottomhalf.fill"),
-        Tile(id: "cryptoTop5", name: "Top 5 Crypto", icon: "bitcoinsign.circle"),
-        Tile(id: "institutionsAUM", name: "Institutions AUM", icon: "building.columns"),
-        Tile(id: "allocationHeatMap", name: "Allocation Heat Map", icon: "square.stack.3d.up")
-    ]
-}
-
-// The updated view
 struct TilePickerView: View {
     @Binding var tileIDs: [String]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        // Use a VStack for a simple, clean layout instead of NavigationView
+        // Use a VStack for a simple, clean layout.
         VStack(spacing: 0) {
-            // 1. A clear title for the window
+            // 1. A clear title for the window.
             Text("Configure Dashboard")
                 .font(.title2)
                 .fontWeight(.medium)
@@ -36,10 +18,13 @@ struct TilePickerView: View {
 
             Divider()
 
-            // 2. A Form to present the list of toggles cleanly
+            // 2. A Form to present the list of toggles cleanly.
             Form {
+                // The ForEach now correctly iterates over your existing 'TileRegistry.all'
+                // and uses the 'id' property of 'TileInfo' for identification.
+                // This resolves both compiler errors.
                 List {
-                    ForEach(TileRegistry.all) { tile in
+                    ForEach(TileRegistry.all, id: \.id) { tile in
                         Toggle(isOn: binding(for: tile.id)) {
                             Label(tile.name, systemImage: tile.icon)
                         }
@@ -48,20 +33,19 @@ struct TilePickerView: View {
             }
             .padding([.leading, .trailing], 5)
 
-
             Divider()
 
-            // 3. A single, clear "Done" button to close the window
+            // 3. A single, clear "Done" button to close the window.
             HStack {
                 Spacer()
                 Button("Done") {
                     dismiss()
                 }
-                .keyboardShortcut(.defaultAction) // Allows pressing Enter to confirm
+                .keyboardShortcut(.defaultAction) // Allows pressing Enter to confirm.
             }
             .padding()
         }
-        // 4. Set a proper frame size to fix the original issue
+        // 4. Set a proper frame size to fix the original layout issue.
         .frame(minWidth: 350, idealWidth: 400, minHeight: 400, idealHeight: 500)
     }
 
