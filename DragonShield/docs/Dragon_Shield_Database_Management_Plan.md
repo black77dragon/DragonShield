@@ -50,7 +50,9 @@ The project has transitioned from a single `schema.sql` file to an incremental m
 
 **How to Build or Reconstruct the Database**
 
-To create a new database with the most up-to-date schema, you **must** execute the following SQL scripts in their numbered, sequential order.
+Use `dbmate` to construct and migrate the database. See
+[`db_management_DBMate_incl_migration.md`](db_management_DBMate_incl_migration.md)
+for detailed setup and workflow guidance.
 
 **Required Scripts in Order:**
 
@@ -61,20 +63,19 @@ To create a new database with the most up-to-date schema, you **must** execute t
 5.  `005_apply_zero_target_skip_rule.sql`
 6.  `006_sync_validation_status.sql`
 7.  `007_sync_views_and_triggers.sql`
+8.  `008_add_backup_restore_safety.sql`
 
 **Example Command-Line Execution**
 
-This example shows how to create a new database file named `new_database.sqlite` and apply all migrations.
+This example creates a new database file named `new_database.sqlite` and applies all migrations using dbmate.
 
-```bash
-# 1. Create an empty database file
-sqlite3 new_database.sqlite ""
+```zsh
+#!/usr/bin/env zsh -f
+set -euo pipefail
 
-# 2. Apply all migration scripts sequentially
-sqlite3 new_database.sqlite < 001_baseline_schema.sql
-sqlite3 new_database.sqlite < 002_add_validation_status.sql
-# ...continue for all scripts up to 007
-sqlite3 new_database.sqlite < 007_sync_views_and_triggers.sql
+export DRAGONSHIELD_HOME="/absolute/path/to/DragonShield"
+export DATABASE_URL="sqlite:///$DRAGONSHIELD_HOME/new_database.sqlite"
+dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/db/migrations" --url "$DATABASE_URL" up
 ```
 
 **Important Note:** The file `schema.sql` is now **deprecated** and should no longer be used. The authoritative source for the database structure is the sequence of numbered migration scripts.

@@ -465,9 +465,17 @@ TransactionTypes ←→ Transactions (1:N)
 ### Database Creation Process
 
 1. **Initial Setup**
-   ```bash
-   sqlite3 dragonshield.db < create_schema.sql
+   ```zsh
+   #!/usr/bin/env zsh -f
+   set -euo pipefail
+
+   export DRAGONSHIELD_HOME="/absolute/path/to/DragonShield"
+   export DATABASE_URL="sqlite:///$DRAGONSHIELD_HOME/dragonshield.db"
+   dbmate --migrations-dir "$DRAGONSHIELD_HOME/DragonShield/db/migrations" --url "$DATABASE_URL" up
    ```
+
+   See [`db_management_DBMate_incl_migration.md`](db_management_DBMate_incl_migration.md)
+   for the complete dbmate workflow.
 
 2. **Configuration**
    ```sql

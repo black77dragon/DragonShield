@@ -40,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - Redesign Asset Allocation dashboard with modern cards
 - Added persistent edit buttons & dbl-click shortcut for target rows (PR #XXX)
 - Target editor pops up below row with white background and tolerance field (PR #XXX)
+- Document dbmate workflow and require `008_add_backup_restore_safety.sql` in migration sequence
 - Correct Credit-Suisse parser mapping docs to reference Credit-Suisse only, update schema version to 4.25, and align field mappings
 - Document ZKB asset class mappings and replace placeholder codes
 - Document Target Allocation edit panel workflow
