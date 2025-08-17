@@ -1,6 +1,6 @@
 # Credit-Suisse Statement Parser: Data Mapping
 
-This document outlines the mapping logic for parsing the Zürcher Kantonalbank (Credit-Suisse) position statement (`.xlsx` format) and importing its data into the Dragon Shield database schema (v4.4).
+This document outlines the mapping logic for parsing the Credit-Suisse position statement (`.xlsx` format) and importing its data into the Dragon Shield database schema (v4.25).
 
 ## 1. Statement-Level Data
 
@@ -21,13 +21,13 @@ All positions originate from the institution **Credit-Suisse**, so `Institutions
 | `Anlagekategorie` & `Asset-Unterkategorie` | `A`, `B` | `AssetSubClasses.sub_class_id` | Mapped to an `AssetSubClasses.sub_class_id` via a configuration map in DragonShield/docs/AssetClassDefinitionConcept.md defined in the last column Credit-Suisse Parsing |
 | `Beschreibung` | `E` | `Instruments.instrument_name` | Combined with the institution name "Credit-Suisse" and `Whrg.` to form the instrument display name (e.g., `Credit-Suisse Kontokorrent Wertschriften CHF`). |
 | `ISIN` | `W` | `Instruments.isin` | The primary unique identifier used to look up existing instruments or create new ones. |
-| `Valor` | `F` | `Instruments.ticker_symbol` | Used as the ticker symbol for the instrument. |
+| `Valor` | `F` | `Instruments.valor_nr` | Stored as the instrument's `valor_nr` identifier. |
 | `Whrg.` (2nd instance, next to `Kurs`) | `H` | `Instruments.currency` | The trading currency of the instrument itself (e.g., "CHF", "USD"). |
 | `Branche` | `AN` | `Instruments.sector` | Directly mapped to the instrument's sector. |
 | `Anzahl / Nominal` | `D` | `Transactions.quantity` | The quantity of shares or the nominal value for bonds. If the row describes **Credit-Suisse Call Account USD** and this cell is blank, the parser records a value of `0`. |
 | `Einstandskurs` | `K` | `Transactions.price` | **Cost Basis.** Used as the price for the initial transaction. For bonds priced in percent (e.g., "99.50%"), the value is converted to a decimal (0.995). |
-| `Währung(Einstandskurs)` | `J` | `Transactions.transaction_currency` | The currency in which the `Einstandskurs` is denominated. |
-| `Fälligkeit` | `G` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
+| `Waehrung(Einstandskurs)` | `J` | `Transactions.transaction_currency` | The currency in which the `Einstandskurs` is denominated. |
+| `Faelligkeit` | `G` | `Instruments.notes` | Maturity date for bonds. Stored in the `notes` field as the current schema doesn't have a dedicated `maturity_date`. Format `DD.MM.YY` is parsed. |
 | `Kurs`, `Wert in CHF` | `I`, `N` | *(Informational)* | The current market price and value. Not used for the initial cost-basis transaction but are key for P&L calculations and "exits" reconciliation. |
 
 If the parser does not find a matching instrument by `ISIN`, the import workflow presents an "Add Instrument" window pre-filled with the parsed name, ticker, ISIN and currency. The user can modify these values and choose **Save**, **Ignore** or **Abort**. Saving creates the instrument before storing the position; Ignore skips the position and Abort cancels the import.
@@ -40,7 +40,7 @@ This special mapping applies only to rows where `Asset-Unterkategorie` is **"Kon
 
 | Credit-Suisse XLS Column | Dragon Shield Database Target | Transformation / Logic / Notes |
 | :--- | :--- | :--- |
-| `Anlagekategorie` | `InstrumentGroups.group_id` | The corresponding "cash instrument" that holds the balance will be linked to the "Cash & Money Market" group. |
+| `Anlagekategorie` | `AssetSubClasses.sub_class_id` | The balance is assigned to the `CASH` asset sub-class. |
 | `Valor` | `Accounts.account_number` | This (e.g., an IBAN) is used as the unique account number for this new cash account record. |
 | `Beschreibung` | `Accounts.account_name` | Used as the name for the new cash account (e.g., "Kontokorrent Wertschriften"). |
 | `Whrg.` (1st instance) | `Accounts.currency_code` | The currency of this specific cash account. |
