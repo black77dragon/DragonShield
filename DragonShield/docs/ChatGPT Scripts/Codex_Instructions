@@ -67,7 +67,7 @@ ACCESSIBILITY AND I18N
 
 DATABASE AND DBMATE (NUMBERED)
 
-* All schema changes via dbmate in DragonShield/migrations.
+* All schema changes via dbmate in DragonShield/db/migrations.
 * Numbering: 3-digit increasing prefix + snake\_case (example: 006\_sync\_validation\_status.sql).
 * schema\_migrations.version stores the numeric prefix (string).
 * One concern per migration; never edit past migrations.
@@ -130,9 +130,9 @@ APPLY AND VERIFY (SHELL)
 * Backup:
   cp -p "\$DBFILE" "\${DBFILE%.sqlite}\_\$(date +%Y%m%d%H%M%S)\_preNNN.sqlite.bak"
 * Status:
-  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/migrations" --url "\$DATABASE\_URL" status
+  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/db/migrations" --url "\$DATABASE\_URL" status
 * Up:
-  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/migrations" --url "\$DATABASE\_URL" up
+  dbmate --migrations-dir "\$DRAGONSHIELD\_HOME/DragonShield/db/migrations" --url "\$DATABASE\_URL" up
 * Verify (examples):
   sqlite3 "\$DBFILE" "SELECT version FROM schema\_migrations ORDER BY version;"
   sqlite3 "\$DBFILE" "SELECT name FROM sqlite\_master WHERE type='trigger' AND name LIKE 'trg\_%';"
