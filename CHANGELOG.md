@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Expand Backup & Restore log by default in Database Management view
 - Add button to validate Instruments in Database Management view
 - Temporarily disable Reference and Transaction data backup and restore buttons
 - Sync validation status of class and subclass targets from findings and purge zero-target data

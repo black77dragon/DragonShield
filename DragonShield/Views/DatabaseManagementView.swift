@@ -11,7 +11,7 @@ struct DatabaseManagementView: View {
     @State private var restoreURL: URL?
     @State private var showRestoreConfirm = false
     @State private var errorMessage: String?
-    @State private var showLogDetails = false
+    @State private var showLogDetails = true
     @State private var showReferenceInfo = false
     @State private var reportProcessing = false
     @State private var validationProcessing = false
