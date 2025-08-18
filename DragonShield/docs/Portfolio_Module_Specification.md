@@ -139,35 +139,203 @@ This section outlines the underlying technical requirements and data structures 
 
 #### 4.3 API Endpoints
 
-A RESTful API will expose the module's functionality.
+All endpoints use JSON over HTTPS and are prefixed with `/api/v1`. Breaking changes introduce `/api/v{n}`; prior major versions remain available for six months before deprecation.
+
+**Standard Error Envelope**
+
+```json
+{
+  "error": {
+    "code": "STRING",
+    "message": "Human readable description",
+    "request_id": "UUID"
+  }
+}
+```
 
 **4.3.1 Portfolio Theme Management**
-* `POST /api/v1/portfolio-themes`: Create a new Portfolio Theme.
-* `GET /api/v1/portfolio-themes`: List all Portfolio Themes for the authenticated user.
-* `GET /api/v1/portfolio-themes/{theme_id}`: Retrieve a specific Portfolio Theme with all linked data.
-* `PUT /api/v1/portfolio-themes/{theme_id}`: Update an existing Portfolio Theme's details.
-* `DELETE /api/v1/portfolio-themes/{theme_id}`: Delete a Portfolio Theme and its associated data.
+
+`POST /api/v1/portfolio-themes` — Create a new Portfolio Theme.
+  * **201**
+    ```json
+    {"id":"uuid","name":"AI & Robotics"}
+    ```
+  * **400**
+    ```json
+    {"error":{"code":"VALIDATION_ERROR","message":"name required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes` — List Portfolio Themes.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `status` (optional filter)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","name":"AI & Robotics"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **401**
+    ```json
+    {"error":{"code":"UNAUTHORIZED","message":"authentication required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes/{theme_id}` — Retrieve a Portfolio Theme.
+  * **200**
+    ```json
+    {"id":"uuid","name":"AI & Robotics","description":"Theme description"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-themes/{theme_id}` — Update a Portfolio Theme.
+  * **200**
+    ```json
+    {"id":"uuid","name":"AI & Robotics Updated"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-themes/{theme_id}` — Delete a Portfolio Theme.
+  * **204** – empty body
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.2 Portfolio Theme Status Management**
-* `POST /api/v1/portfolio-theme-statuses`: Create a new custom status.
-* `GET /api/v1/portfolio-theme-statuses`: List all custom statuses for the user.
-* `PUT /api/v1/portfolio-theme-statuses/{status_id}`: Update a custom status.
-* `DELETE /api/v1/portfolio-theme-statuses/{status_id}`: Delete a custom status.
+
+`POST /api/v1/portfolio-theme-statuses` — Create a custom status.
+  * **201**
+    ```json
+    {"id":"uuid","label":"To Be Updated","color_code":"#ff0000"}
+    ```
+  * **400**
+    ```json
+    {"error":{"code":"VALIDATION_ERROR","message":"label required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-theme-statuses` — List custom statuses.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","label":"To Be Updated"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **401**
+    ```json
+    {"error":{"code":"UNAUTHORIZED","message":"authentication required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-theme-statuses/{status_id}` — Update a custom status.
+  * **200**
+    ```json
+    {"id":"uuid","label":"Finalized"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"STATUS_NOT_FOUND","message":"status not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-theme-statuses/{status_id}` — Delete a custom status.
+  * **204**
+  * **404**
+    ```json
+    {"error":{"code":"STATUS_NOT_FOUND","message":"status not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.3 Portfolio Theme Asset Management**
-* `POST /api/v1/portfolio-themes/{theme_id}/assets`: Add an instrument to a theme.
-* `PUT /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}/target-allocation`: Manually adjust the user's target allocation for an asset.
-* `DELETE /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}`: Remove an instrument from a theme.
+
+`POST /api/v1/portfolio-themes/{theme_id}/assets` — Add an instrument to a theme.
+  * **201**
+    ```json
+    {"id":"uuid","instrument_id":"uuid","research_target_allocation_weight":0.05,"user_adjusted_target_allocation_weight":0.05}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}/target-allocation` — Adjust target allocation.
+  * **200**
+    ```json
+    {"id":"uuid","user_adjusted_target_allocation_weight":0.07}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}` — Remove an instrument.
+  * **204**
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.4 Update History Management**
-* `POST /api/v1/portfolio-themes/{theme_id}/updates`: Add a new theme-level update.
-* `GET /api/v1/portfolio-themes/{theme_id}/updates`: Get all updates for a theme.
-* `POST /api/v1/portfolio-theme-assets/{asset_id}/updates`: Add a new instrument-level update.
-* `GET /api/v1/portfolio-theme-assets/{asset_id}/updates`: Get all updates for an asset within a theme.
+
+`POST /api/v1/portfolio-themes/{theme_id}/updates` — Add a theme-level update.
+  * **201**
+    ```json
+    {"id":"uuid","update_text":"Theme updated","created_at":"2024-01-01T00:00:00Z"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes/{theme_id}/updates` — List theme updates.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `since` (optional ISO8601 timestamp)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","update_text":"Theme updated"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`POST /api/v1/portfolio-theme-assets/{asset_id}/updates` — Add an asset update.
+  * **201**
+    ```json
+    {"id":"uuid","research_provider_text":"New price target","created_at":"2024-01-01T00:00:00Z"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-theme-assets/{asset_id}/updates` — List updates for an asset.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `since` (optional ISO8601 timestamp)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","research_provider_text":"New price target"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.5 Deviation and Comparison**
-* `GET /api/v1/portfolio-themes/{theme_id}/deviation`: Calculate and retrieve current allocations and deviations.
-* **Response Example:**
+
+`GET /api/v1/portfolio-themes/{theme_id}/deviation` — Calculate and retrieve current allocations and deviations.
+  * **200**
     ```json
     {
       "theme_id": "...",
@@ -187,10 +355,35 @@ A RESTful API will expose the module's functionality.
       ]
     }
     ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.6 File Attachment Management**
-* `POST /api/v1/files/upload`: Upload a file and link it to a resource.
-* `GET /api/v1/files/{file_id}`: Retrieve file metadata or serve the file (authentication required).
+
+`POST /api/v1/files/upload` — Upload a file and link it to a resource.
+  * **201**
+    ```json
+    {"id":"uuid","file_name":"report.pdf","mime_type":"application/pdf"}
+    ```
+  * **400**
+    ```json
+    {"error":{"code":"VALIDATION_ERROR","message":"invalid file","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/files/{file_id}` — Retrieve file metadata or serve the file.
+  * **200**
+    ```json
+    {"id":"uuid","file_name":"report.pdf","mime_type":"application/pdf","download_url":"https://..."}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"FILE_NOT_FOUND","message":"file not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 ---
 
