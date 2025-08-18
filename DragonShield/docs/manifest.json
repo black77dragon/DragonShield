@@ -43,6 +43,10 @@
     {
       "path": "logging_concept_dragonshield.md",
       "sha": "afa4057bd725e4e8927eed15bc1cf485902ce5e0"
+    },
+    {
+      "path": "troubleshooting.md",
+      "sha": "0e9e335f7e0024f5f1b0358446d072c6ce794280"
     }
   ]
 }
