@@ -7,11 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B307908C2DF4D19A00AF445B /* UniformTypeIdentifiers.framework */; };
-		B363B3802D9D921900619C86 /* Asset.swift in Sources */ = {isa = PBXBuildFile; fileRef = B363B37F2D9D921900619C86 /* Asset.swift */; };
-		B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B37E7DA22D988B1D00100262 /* libsqlite3.tbd */; };
-		B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = B3ECBDDF2DF4D581002110F4 /* SQLite */; };
-		B3ECBE992DFC8D26002110F4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B3ECBE982DFC8D26002110F4 /* README.md */; };
+                B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B307908C2DF4D19A00AF445B /* UniformTypeIdentifiers.framework */; };
+                B363B3802D9D921900619C86 /* Asset.swift in Sources */ = {isa = PBXBuildFile; fileRef = B363B37F2D9D921900619C86 /* Asset.swift */; };
+                B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B37E7DA22D988B1D00100262 /* libsqlite3.tbd */; };
+                B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = B3ECBDDF2DF4D581002110F4 /* SQLite */; };
+                B839898A54334DC74BB3C830 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 26F183505F1CB422C026D74F /* Core */; };
+                B3ECBE992DFC8D26002110F4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B3ECBE982DFC8D26002110F4 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,16 +32,17 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		B3933B0C2D98475A00DDA4C2 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */,
-				B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */,
-				B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                B3933B0C2D98475A00DDA4C2 /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                B839898A54334DC74BB3C830 /* Core in Frameworks */,
+                                B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */,
+                                B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */,
+                                B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -95,16 +97,17 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				B3933B112D98475A00DDA4C2 /* DragonShield */,
-			);
-			name = DragonShield;
-			packageProductDependencies = (
-				B3ECBDDF2DF4D581002110F4 /* SQLite */,
-			);
-			productName = DragonShield;
-			productReference = B3933B0F2D98475A00DDA4C2 /* DragonShield.app */;
-			productType = "com.apple.product-type.application";
+                        fileSystemSynchronizedGroups = (
+                                B3933B112D98475A00DDA4C2 /* DragonShield */,
+                        );
+                        name = DragonShield;
+                        packageProductDependencies = (
+                                26F183505F1CB422C026D74F /* Core */,
+                                B3ECBDDF2DF4D581002110F4 /* SQLite */,
+                        );
+                        productName = DragonShield;
+                        productReference = B3933B0F2D98475A00DDA4C2 /* DragonShield.app */;
+                        productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -124,18 +127,19 @@
 			buildConfigurationList = B3933B0A2D98475A00DDA4C2 /* Build configuration list for PBXProject "DragonShield" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (
-				en,
-				Base,
-			);
-			mainGroup = B3933B062D98475A00DDA4C2;
-			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */,
-			);
-			preferredProjectObjectVersion = 77;
-			productRefGroup = B3933B102D98475A00DDA4C2 /* Products */;
-			projectDirPath = "";
+                        knownRegions = (
+                                en,
+                                Base,
+                        );
+                        mainGroup = B3933B062D98475A00DDA4C2;
+                        minimizedProjectReferenceProxies = 1;
+                        packageReferences = (
+                                5EB12EB49B4E8E076C91388D /* XCLocalSwiftPackageReference "DragonShield" */,
+                                B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */,
+                        );
+                        preferredProjectObjectVersion = 77;
+                        productRefGroup = B3933B102D98475A00DDA4C2 /* Products */;
+                        projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				B3933B0E2D98475A00DDA4C2 /* DragonShield */,
@@ -367,11 +371,18 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+                5EB12EB49B4E8E076C91388D /* XCLocalSwiftPackageReference "DragonShield" */ = {
+                        isa = XCLocalSwiftPackageReference;
+                        relativePath = "..";
+                };
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
-		B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/stephencelis/SQLite.swift.git";
-			requirement = {
+                B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */ = {
+                        isa = XCRemoteSwiftPackageReference;
+                        repositoryURL = "https://github.com/stephencelis/SQLite.swift.git";
+                        requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.15.3;
 			};
@@ -379,11 +390,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		B3ECBDDF2DF4D581002110F4 /* SQLite */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */;
-			productName = SQLite;
-		};
+                26F183505F1CB422C026D74F /* Core */ = {
+                        isa = XCSwiftPackageProductDependency;
+                        package = 5EB12EB49B4E8E076C91388D /* XCLocalSwiftPackageReference "DragonShield" */;
+                        productName = Core;
+                };
+                B3ECBDDF2DF4D581002110F4 /* SQLite */ = {
+                        isa = XCSwiftPackageProductDependency;
+                        package = B3ECBDDE2DF4D581002110F4 /* XCRemoteSwiftPackageReference "SQLite.swift" */;
+                        productName = SQLite;
+                };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B3933B072D98475A00DDA4C2 /* Project object */;

@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Add Swift package manifest for Core library
+- Link Core Swift package into Xcode project
 - Move `ToDoItem` model to Core module and expose public API
 - Update parser mapping docs to schema version 4.26 and document maintenance for future schema changes
 - Cache institution name in Position form to avoid repeated lookups
