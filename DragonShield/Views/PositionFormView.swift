@@ -10,9 +10,22 @@ typealias InstrumentInfo = (
     isin: String?
 )
 
+typealias AccountInfo = (
+    id: Int,
+    name: String,
+    institutionId: Int,
+    institutionName: String
+)
+
 func instrumentCurrency(for instrumentId: Int?, instruments: [InstrumentInfo]) -> String? {
     guard let id = instrumentId else { return nil }
     return instruments.first { $0.id == id }?.currency
+}
+
+func accountInstitution(for accountId: Int?, accounts: [AccountInfo]) -> (id: Int, name: String)? {
+    guard let id = accountId else { return nil }
+    guard let account = accounts.first(where: { $0.id == id }) else { return nil }
+    return (account.institutionId, account.institutionName)
 }
 
 struct PositionFormView: View {
@@ -22,8 +35,7 @@ struct PositionFormView: View {
     var position: PositionReportData?
     var onSave: () -> Void
 
-    @State private var accounts: [DatabaseManager.AccountData] = []
-    @State private var institutions: [DatabaseManager.InstitutionData] = []
+    @State private var accounts: [AccountInfo] = []
     @State private var instruments: [InstrumentInfo] = []
 
     @State private var sessionId = ""
@@ -66,6 +78,9 @@ struct PositionFormView: View {
         .padding(24)
         .frame(minWidth: 520, minHeight: 620)
         .onAppear { loadData(); populate() }
+        .onChange(of: accountId) { id in
+            institutionId = accountInstitution(for: id, accounts: accounts)?.id
+        }
         .onChange(of: instrumentId) { id in
             currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
         }
@@ -81,16 +96,18 @@ struct PositionFormView: View {
             Picker("Account", selection: $accountId) {
                 Text("Select Account").tag(Optional<Int>(nil))
                 ForEach(accounts, id: \.id) {
-                    Text($0.accountName).tag(Optional($0.id))
+                    Text($0.name).tag(Optional($0.id))
                 }
             }
             .accessibilityLabel("Account")
 
-            Picker("Institution", selection: $institutionId) {
-                Text("Select Institution").tag(Optional<Int>(nil))
-                ForEach(institutions) { inst in
-                    Text(inst.name).tag(Optional(inst.id))
-                }
+            HStack {
+                Text("Institution")
+                    .font(.headline)
+                Spacer()
+                Text(accountInstitution(for: accountId, accounts: accounts)?.name ?? "")
+                    .frame(width: 200, alignment: .trailing)
+                    .foregroundColor(.secondary)
             }
             .accessibilityLabel("Institution")
 
@@ -183,16 +200,17 @@ struct PositionFormView: View {
     }
 
     private func loadData() {
-        accounts = dbManager.fetchAccounts()
-        institutions = dbManager.fetchInstitutions()
+        accounts = dbManager.fetchAccounts().map {
+            (id: $0.id, name: $0.accountName, institutionId: $0.institutionId, institutionName: $0.institutionName)
+        }
         instruments = dbManager.fetchAssets()
     }
 
     private func populate() {
         guard let p = position else { return }
         sessionId = p.importSessionId.map { String($0) } ?? ""
-        accountId = accounts.first(where: { $0.accountName == p.accountName })?.id
-        institutionId = institutions.first(where: { $0.name == p.institutionName })?.id
+        accountId = accounts.first(where: { $0.name == p.accountName })?.id
+        institutionId = accounts.first(where: { $0.name == p.accountName })?.institutionId
         instrumentId = instruments.first(where: { $0.name == p.instrumentName })?.id
         currencyCode = p.instrumentCurrency
         quantity = String(p.quantity)
