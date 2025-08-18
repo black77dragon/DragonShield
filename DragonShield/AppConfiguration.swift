@@ -20,4 +20,28 @@ struct AppConfiguration {
         }
         return defaultValue
     }
+
+    static func enabledHealthChecks(
+        args: [String] = CommandLine.arguments,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard,
+        default defaultValue: Set<String>? = nil
+    ) -> Set<String>? {
+        if let idx = args.firstIndex(of: "--enabledHealthChecks"),
+           let value = args.dropFirst(idx + 1).first {
+            return parseList(value)
+        }
+        if let value = env["ENABLED_HEALTH_CHECKS"] {
+            return parseList(value)
+        }
+        if let string = defaults.string(forKey: "enabledHealthChecks") {
+            return parseList(string)
+        }
+        return defaultValue
+    }
+
+    private static func parseList(_ value: String) -> Set<String> {
+        Set(value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+    }
 }
+

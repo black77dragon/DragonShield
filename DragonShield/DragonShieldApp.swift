@@ -6,7 +6,7 @@ struct DragonShieldApp: App {
     // Create a single instance of DatabaseManager to be used throughout the app
     @StateObject private var databaseManager = DatabaseManager()
     @StateObject private var assetManager = AssetManager() // Assuming you also have this
-    @StateObject private var healthRunner = HealthCheckRunner()
+    @StateObject private var healthRunner = HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks())
 
     var body: some Scene {
         WindowGroup {

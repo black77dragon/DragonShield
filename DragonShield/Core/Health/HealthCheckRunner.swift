@@ -1,21 +1,24 @@
 import Foundation
 
-/// Executes all registered `HealthCheck`s and publishes their reports.
+/// Executes startup `HealthCheck`s and publishes their reports.
 @MainActor
 public final class HealthCheckRunner: ObservableObject {
-    /// Checks registered for execution.
-    nonisolated(unsafe) public static var registeredChecks: [HealthCheck] = []
-
-    /// Register a new `HealthCheck`.
-    nonisolated public static func register(_ check: HealthCheck) {
-        registeredChecks.append(check)
-    }
-
     @Published private(set) public var reports: [HealthCheckReport] = []
     private let checks: [HealthCheck]
 
-    public init(checks: [HealthCheck] = HealthCheckRunner.registeredChecks) {
-        self.checks = checks
+    public init(
+        checks: [HealthCheck]? = nil,
+        enabledNames: Set<String>? = nil
+    ) {
+        if let provided = checks {
+            if let enabled = enabledNames {
+                self.checks = provided.filter { enabled.contains($0.name) }
+            } else {
+                self.checks = provided
+            }
+        } else {
+            self.checks = HealthCheckRegistry.checks(enabledNames: enabledNames)
+        }
     }
 
     /// Runs all checks sequentially and logs a summary.
@@ -37,3 +40,4 @@ public final class HealthCheckRunner: ObservableObject {
         LoggingService.shared.log("Startup health checks: \(summary)")
     }
 }
+
