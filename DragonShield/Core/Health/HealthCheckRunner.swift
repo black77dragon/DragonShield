@@ -3,11 +3,12 @@ import Foundation
 /// Executes all registered `HealthCheck`s and publishes their reports.
 @MainActor
 public final class HealthCheckRunner: ObservableObject {
-    /// Checks registered for execution.
-    public static var registeredChecks: [HealthCheck] = []
+    /// Checks registered for execution. Access is nonisolated because registration
+    /// may occur before the main actor is running.
+    nonisolated(unsafe) public static var registeredChecks: [HealthCheck] = []
 
     /// Register a new `HealthCheck`.
-    public static func register(_ check: HealthCheck) {
+    nonisolated(unsafe) public static func register(_ check: HealthCheck) {
         registeredChecks.append(check)
     }
 
