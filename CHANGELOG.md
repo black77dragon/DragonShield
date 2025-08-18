@@ -83,6 +83,7 @@ All notable changes to this project will be documented in this file.
 - Fix delta column layout to stay visible within Asset Classes card
 - Shrink table padding and correct column widths to keep delta column visible
 - Add sidebar link to the Kanban board
+- Set position currency automatically from selected instrument and disable manual override
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
 - Rework Asset Classes card header with inline picker
