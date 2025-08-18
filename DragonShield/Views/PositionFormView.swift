@@ -79,13 +79,13 @@ struct PositionFormView: View {
         .padding(24)
         .frame(minWidth: 520, minHeight: 620)
         .onAppear { loadData(); populate() }
-        .onChange(of: accountId) { id in
-            let institution = accountInstitution(for: id, accounts: accounts)
+        .onChange(of: accountId) {
+            let institution = accountInstitution(for: accountId, accounts: accounts)
             institutionId = institution?.id
             institutionName = institution?.name ?? ""
         }
-        .onChange(of: instrumentId) { id in
-            currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
+        .onChange(of: instrumentId) {
+            currencyCode = instrumentCurrency(for: instrumentId, instruments: instruments) ?? ""
         }
     }
 

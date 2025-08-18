@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Resolve macOS 14 onChange deprecation in PositionFormView
 - Update parser mapping docs to schema version 4.26 and document maintenance for future schema changes
 - Cache institution name in Position form to avoid repeated lookups
 - Generate docs manifest and enforce updates via CI workflow
