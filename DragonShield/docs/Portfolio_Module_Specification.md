@@ -109,6 +109,15 @@ This section outlines the underlying technical requirements and data structures 
 * **`label`**: `VARCHAR(50)` (e.g., "To Be Updated", "Finalized")
 * **`color_code`**: `VARCHAR(7)` (Must be a hex color in `#RRGGBB` format)
 
+*Sample SQL:*
+
+```sql
+ALTER TABLE PortfolioThemeStatus
+  ADD CONSTRAINT ck_color_code CHECK (color_code GLOB '#[0-9A-Fa-f]{6}');
+```
+
+*All migrations creating or modifying `PortfolioThemeStatus` must include this CHECK constraint to validate `#RRGGBB` inputs.*
+
 **4.2.3 `PortfolioThemeAsset`**
 * **`id`**: `UUID` (Primary Key)
 * **`portfolio_theme_id`**: `UUID` (Foreign Key to `PortfolioTheme`)
