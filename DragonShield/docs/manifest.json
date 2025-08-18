@@ -10,11 +10,15 @@
     },
     {
       "path": "Parsing_documents/Credit-Suisse_Parser_Mapping.md",
-      "sha": "64779fedaa98cde18f360b01468a64d6c1b6a28c"
+      "sha": "1c9ca6d66a7f3adbe8640c0df51d032101871e0d"
     },
     {
       "path": "Parsing_documents/zkb_parser_mapping.md",
-      "sha": "bff92fc38db7239fd14143c84aa52bcf0385d149"
+      "sha": "8a896648fb21c7576895eac0eb9532ba55abf19a"
+    },
+    {
+      "path": "Portfolio_Module_Specification.md",
+      "sha": "ba61a710340c62e268a8259b987cad3f36663919"
     },
     {
       "path": "UX_UI_concept/allocation_targets_table_spec.md",
@@ -39,6 +43,10 @@
     {
       "path": "dragon_shield_db_documentation.md",
       "sha": "e1b109bdf4a3616c68ff75f75f92a1947b692ef9"
+    },
+    {
+      "path": "Portfolio_Module_Specification.md",
+      "sha": "60b056a64abbec1c435bc4e0fda35f0689cb58d5"
     },
     {
       "path": "logging_concept_dragonshield.md",

@@ -32,7 +32,9 @@ At the top level, you will define a **"Portfolio Theme"** entity. Each theme rep
     * **Attachments:** Ability to attach various files (e.g., PDF research reports, charts, images, presentations) to provide richer context and supporting documentation.
 * **Status Management:**
     * Each Portfolio Theme can be assigned a **customizable status** (e.g., "To Be Updated," "In Review," "Finalized," "Archived").
+    * DragonShield is a single-user application, so `PortfolioThemeStatus` records are global rather than user-specific.
     * Statuses will have a **color code** for quick visual reference on dashboards.
+    * Color codes must use the `#RRGGBB` hexadecimal format and be exactly 7 characters long.
     * You can define and manage these statuses through a dedicated settings interface.
 
 #### 3.2 Portfolio Update History
@@ -74,7 +76,9 @@ This is a core analytical feature, allowing you to compare your actual holdings 
 
 #### 3.5 Status and Customization
 
-* **User-Defined Statuses:** You can define and modify the status labels (e.g., "Draft," "Active," "Review Needed") and assign a unique color to each.
+* **User-Defined Statuses:** You can define and modify the status labels (e.g., "Draft," "Active," "Review Needed") and assign a unique color to each. Because DragonShield serves a single user, `PortfolioThemeStatus` records are global.
+* **Color Validation:** `color_code` values must be in `#RRGGBB` hexadecimal format and exactly 7 characters long.
+* **Default Statuses:** During onboarding the app creates `Draft`, `Active`, and `Archived` statuses. If a theme references a removed status, it automatically reverts to `Active`.
 * **Lifecycle Management:** These statuses provide a flexible way to manage the lifecycle of each Portfolio Theme, from initial concept to active management and eventual archiving.
 
 ---
@@ -103,8 +107,7 @@ This section outlines the underlying technical requirements and data structures 
 **4.2.2 `PortfolioThemeStatus`**
 * **`id`**: `UUID` (Primary Key)
 * **`label`**: `VARCHAR(50)` (e.g., "To Be Updated", "Finalized")
-* **`color_code`**: `VARCHAR(7)` (Hex color, e.g., `#00FF00`)
-* **`user_id`**: `UUID` (Foreign Key to `Users` table – if statuses are user-specific, otherwise remove)
+* **`color_code`**: `VARCHAR(7)` (Must be a hex color in `#RRGGBB` format)
 
 **4.2.3 `PortfolioThemeAsset`**
 * **`id`**: `UUID` (Primary Key)
@@ -139,35 +142,210 @@ This section outlines the underlying technical requirements and data structures 
 * **`mime_type`**: `VARCHAR(50)` (e.g., 'application/pdf', 'image/jpeg')
 * **`uploaded_at`**: `TIMESTAMP`
 
+* **Security & Storage Requirements:**
+    * **Max file size:** 10 MB per file.
+    * **Supported MIME types:** application/pdf, image/png, image/jpeg, text/plain.
+    * **Storage:** Files saved to an encrypted object store in production; local development may use the filesystem.
+    * **Encryption:** Files encrypted at rest and accessed only via HTTPS.
+    * **Access control:** Access to an attachment is determined by the permissions on its parent resource (e.g., the `PortfolioTheme`).
+    * **Cleanup:** Deleting a parent resource removes its attachments; a background job purges orphaned files.
+
 ---
 
 #### 4.3 API Endpoints
 
-A RESTful API will expose the module's functionality.
+All endpoints use JSON over HTTPS and are prefixed with `/api/v1`. Breaking changes introduce `/api/v{n}`; prior major versions remain available for six months before deprecation.
+
+**Standard Error Envelope**
+
+```json
+{
+  "error": {
+    "code": "STRING",
+    "message": "Human readable description",
+    "request_id": "UUID"
+  }
+}
+```
 
 **4.3.1 Portfolio Theme Management**
-* `POST /api/v1/portfolio-themes`: Create a new Portfolio Theme.
-* `GET /api/v1/portfolio-themes`: List all Portfolio Themes for the authenticated user.
-* `GET /api/v1/portfolio-themes/{theme_id}`: Retrieve a specific Portfolio Theme with all linked data.
-* `PUT /api/v1/portfolio-themes/{theme_id}`: Update an existing Portfolio Theme's details.
-* `DELETE /api/v1/portfolio-themes/{theme_id}`: Delete a Portfolio Theme and its associated data.
+
+`POST /api/v1/portfolio-themes` — Create a new Portfolio Theme.
+  * **201**
+    ```json
+    {"id":"uuid","name":"AI & Robotics"}
+    ```
+  * **400**
+    ```json
+    {"error":{"code":"VALIDATION_ERROR","message":"name required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes` — List Portfolio Themes.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `status` (optional filter)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","name":"AI & Robotics"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **401**
+    ```json
+    {"error":{"code":"UNAUTHORIZED","message":"authentication required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes/{theme_id}` — Retrieve a Portfolio Theme.
+  * **200**
+    ```json
+    {"id":"uuid","name":"AI & Robotics","description":"Theme description"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-themes/{theme_id}` — Update a Portfolio Theme.
+  * **200**
+    ```json
+    {"id":"uuid","name":"AI & Robotics Updated"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-themes/{theme_id}` — Delete a Portfolio Theme.
+  * **204** – empty body
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.2 Portfolio Theme Status Management**
-* `POST /api/v1/portfolio-theme-statuses`: Create a new custom status.
-* `GET /api/v1/portfolio-theme-statuses`: List all custom statuses for the user.
-* `PUT /api/v1/portfolio-theme-statuses/{status_id}`: Update a custom status.
-* `DELETE /api/v1/portfolio-theme-statuses/{status_id}`: Delete a custom status.
+
+`POST /api/v1/portfolio-theme-statuses` — Create a custom status.
+  * **201**
+    ```json
+    {"id":"uuid","label":"To Be Updated","color_code":"#ff0000"}
+    ```
+  * **400**
+    ```json
+    {"error":{"code":"VALIDATION_ERROR","message":"label required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-theme-statuses` — List custom statuses.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","label":"To Be Updated"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **401**
+    ```json
+    {"error":{"code":"UNAUTHORIZED","message":"authentication required","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-theme-statuses/{status_id}` — Update a custom status.
+  * **200**
+    ```json
+    {"id":"uuid","label":"Finalized"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"STATUS_NOT_FOUND","message":"status not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-theme-statuses/{status_id}` — Delete a custom status.
+  * **204**
+  * **404**
+    ```json
+    {"error":{"code":"STATUS_NOT_FOUND","message":"status not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.3 Portfolio Theme Asset Management**
-* `POST /api/v1/portfolio-themes/{theme_id}/assets`: Add an instrument to a theme.
-* `PUT /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}/target-allocation`: Manually adjust the user's target allocation for an asset.
-* `DELETE /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}`: Remove an instrument from a theme.
+
+`POST /api/v1/portfolio-themes/{theme_id}/assets` — Add an instrument to a theme.
+  * **201**
+    ```json
+    {"id":"uuid","instrument_id":"uuid","research_target_allocation_weight":0.05,"user_adjusted_target_allocation_weight":0.05}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`PUT /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}/target-allocation` — Adjust target allocation.
+  * **200**
+    ```json
+    {"id":"uuid","user_adjusted_target_allocation_weight":0.07}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`DELETE /api/v1/portfolio-themes/{theme_id}/assets/{asset_id}` — Remove an instrument.
+  * **204**
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.4 Update History Management**
-* `POST /api/v1/portfolio-themes/{theme_id}/updates`: Add a new theme-level update.
-* `GET /api/v1/portfolio-themes/{theme_id}/updates`: Get all updates for a theme.
-* `POST /api/v1/portfolio-theme-assets/{asset_id}/updates`: Add a new instrument-level update.
-* `GET /api/v1/portfolio-theme-assets/{asset_id}/updates`: Get all updates for an asset within a theme.
+
+`POST /api/v1/portfolio-themes/{theme_id}/updates` — Add a theme-level update.
+  * **201**
+    ```json
+    {"id":"uuid","update_text":"Theme updated","created_at":"2024-01-01T00:00:00Z"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-themes/{theme_id}/updates` — List theme updates.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `since` (optional ISO8601 timestamp)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","update_text":"Theme updated"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`POST /api/v1/portfolio-theme-assets/{asset_id}/updates` — Add an asset update.
+  * **201**
+    ```json
+    {"id":"uuid","research_provider_text":"New price target","created_at":"2024-01-01T00:00:00Z"}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
+
+`GET /api/v1/portfolio-theme-assets/{asset_id}/updates` — List updates for an asset.
+  * **Query Parameters:** `page` (default 1), `per_page` (max 100), `since` (optional ISO8601 timestamp)
+  * **200**
+    ```json
+    {"data":[{"id":"uuid","research_provider_text":"New price target"}],"page":1,"per_page":50,"total":1}
+    ```
+  * **404**
+    ```json
+    {"error":{"code":"ASSET_NOT_FOUND","message":"asset not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.5 Deviation and Comparison**
 * `GET /api/v1/portfolio-themes/{theme_id}/deviation`: Calculate and retrieve current allocations and deviations.
@@ -195,10 +373,26 @@ A RESTful API will expose the module's functionality.
       ]
     }
     ```
+  * **404**
+    ```json
+    {"error":{"code":"THEME_NOT_FOUND","message":"theme not found","request_id":"uuid"}}
+    ```
+  * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.6 File Attachment Management**
 * `POST /api/v1/files/upload`: Upload a file and link it to a resource.
 * `GET /api/v1/files/{file_id}`: Retrieve file metadata or serve the file (authentication required).
+* **Error Response Example (File Too Large):**
+    ```http
+    HTTP/1.1 413 Payload Too Large
+    Content-Type: application/json
+
+    {
+      "error": "file_too_large",
+      "message": "Upload exceeds 10 MB limit."
+    }
+    ```
+
 
 ---
 
@@ -209,3 +403,21 @@ A RESTful API will expose the module's functionality.
 * **Data Lookup:** `instrument_id` in `PortfolioThemeAsset` will directly reference the existing `Instruments` table, and the deviation mechanism will query the `positions` table to get current holding values.
 * **Performance:** Queries for deviation analysis must be optimized, possibly using database indexing and caching.
 * **Error Handling:** Robust error handling should be implemented for all API endpoints.
+* **Required Migrations:** Introduce `PortfolioThemeStatus`, `PortfolioTheme`, `PortfolioThemeAsset`, `PortfolioThemeUpdate`, `PortfolioThemeAssetUpdate`, and `FileAttachment` tables. Create them in dependency order and ensure `PortfolioThemeAsset.instrument_id` references `Instruments` while deviation queries join `positions`.
+* **Foreign-key ON DELETE:**
+  * `PortfolioTheme.status_id` -> `PortfolioThemeStatus` (`ON DELETE RESTRICT`)
+  * `PortfolioTheme.user_id` -> `Users` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAsset.portfolio_theme_id` -> `PortfolioTheme` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAsset.instrument_id` -> `Instruments` (`ON DELETE RESTRICT`)
+  * `PortfolioThemeUpdate.portfolio_theme_id` -> `PortfolioTheme` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAssetUpdate.portfolio_theme_asset_id` -> `PortfolioThemeAsset` (`ON DELETE CASCADE`)
+  * `FileAttachment.resource_id` -> parent record (`ON DELETE CASCADE`)
+* **Indexing:** Add indexes on `PortfolioThemeAsset.instrument_id`, `PortfolioThemeAsset.portfolio_theme_id`, and `PortfolioThemeAssetUpdate.portfolio_theme_asset_id`. Consider a composite index on `(portfolio_theme_id, instrument_id)` to speed joins with `Instruments` and `positions`.
+* **Migration Checklist:**
+  1. Allocate next migration number and create DBMate file with up and down sections.
+  2. Write reversible SQL for new tables and indexes using `IF NOT EXISTS` safeguards.
+  3. After `dbmate up`, verify with queries:
+     * `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'PortfolioTheme%';`
+     * `PRAGMA foreign_key_list('PortfolioThemeAsset');`
+     * `PRAGMA index_list('PortfolioThemeAsset');`
+  4. Run `dbmate down` and rerun `dbmate up` to confirm reversibility.
