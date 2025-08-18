@@ -84,6 +84,7 @@ All notable changes to this project will be documented in this file.
 - Shrink table padding and correct column widths to keep delta column visible
 - Add sidebar link to the Kanban board
 - Set position currency automatically from selected instrument and disable manual override
+- Lock position institution to the selected account and auto-fill from account
 - Reorganize sidebar navigation with expandable sections and remove old transaction links
 - Combine Currencies and FX Rates maintenance into one tabbed view
 - Rework Asset Classes card header with inline picker
