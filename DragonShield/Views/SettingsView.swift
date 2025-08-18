@@ -11,12 +11,26 @@ import SwiftUI
 struct SettingsView: View {
     // Inject DatabaseManager to access @Published config properties
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var runner: HealthCheckRunner
 
     @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
     private var forceOverwriteDatabaseOnDebug: Bool = false
 
     @AppStorage(UserDefaultsKeys.enableParsingCheckpoints)
     private var enableParsingCheckpoints: Bool = false
+
+    @AppStorage("runStartupHealthChecks")
+    private var runStartupHealthChecks: Bool = true
+
+    private var okCount: Int {
+        runner.reports.filter { if case .ok = $0.result { return true } else { return false } }.count
+    }
+    private var warningCount: Int {
+        runner.reports.filter { if case .warning = $0.result { return true } else { return false } }.count
+    }
+    private var errorCount: Int {
+        runner.reports.filter { if case .error = $0.result { return true } else { return false } }.count
+    }
 
     // Local state for text fields to allow temporary editing before committing
     @State private var tempBaseCurrency: String = ""
@@ -97,6 +111,16 @@ struct SettingsView: View {
                         in: 0.0...20.0, step: 1.0)
             }
 
+            Section(header: Text("Health Checks")) {
+                Toggle("Run on Startup", isOn: $runStartupHealthChecks)
+                HStack {
+                    Text("Last Result")
+                    Spacer()
+                    Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
+                }
+                NavigationLink("Detailed Report", destination: HealthCheckResultsView())
+            }
+
             #if DEBUG
             Section(header: Text("Development / Debug Options")) {
                 VStack(alignment: .leading) {
@@ -138,8 +162,10 @@ struct SettingsView_Previews: PreviewProvider {
         UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
         UserDefaults.standard.set(false, forKey: "enableParsingCheckpoints")
         let dbManager = DatabaseManager() // Create a preview instance
+        let runner = HealthCheckRunner()
 
         return SettingsView()
             .environmentObject(dbManager)
+            .environmentObject(runner)
     }
 }

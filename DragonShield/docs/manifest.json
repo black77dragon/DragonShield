@@ -37,16 +37,16 @@
       "sha": "2a8acb3aca870fcc67e456ed0b996444d13d5ed8"
     },
     {
+      "path": "adding_health_checks.md",
+      "sha": "020ef990a29b8cc7d60141fbb9bb1e1faa6a6b23"
+    },
+    {
       "path": "db_management_DBMate_incl_migration.md",
       "sha": "31364d073417984434aa67d72e4a0267727432b1"
     },
     {
       "path": "dragon_shield_db_documentation.md",
       "sha": "e1b109bdf4a3616c68ff75f75f92a1947b692ef9"
-    },
-    {
-      "path": "Portfolio_Module_Specification.md",
-      "sha": "ef36fd9c11623db32a5cae0a14626b28c3635843"
     },
     {
       "path": "logging_concept_dragonshield.md",
