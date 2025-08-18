@@ -67,6 +67,10 @@ This is a core analytical feature, allowing you to compare your actual holdings 
     * **Deviation vs. Research:** The difference between your `Current Allocation` and the `Research Target Allocation`. This shows how closely you're following the original research recommendations.
     * **Deviation vs. User Target:** The difference between your `Current Allocation` and your `User-Adjusted Target Allocation`. This shows how well you're adhering to your *own* refined strategy for the theme.
 * **Visualizations:** Clear graphical representations (e.g., bar charts, pie charts) will show these comparisons, making it easy to identify overweights/underweights.
+* **`current_value` Sources and Currency:** `current_value` is aggregated from the `positions` table joined with `instruments`. Amounts are converted into the theme's base currency using spot rates in `fx_rates`; if no rate exists, the instrument's native currency is used and flagged downstream.
+* **Refresh Cadence:** Valuations refresh on-demand when this comparison is requested; there is no background recomputation.
+* **Caching Strategy:** A materialized view `portfolio_theme_valuation` caches aggregated position values and invalidates whenever underlying positions change to avoid recomputing from raw trades on each request.
+* **Failure Modes:** When position data is missing or older than the last trading day, `current_value` falls back to the last known value and marks the affected instruments as stale; absent positions are treated as zero in deviation outputs.
 
 #### 3.5 Status and Customization
 
@@ -167,6 +171,10 @@ A RESTful API will expose the module's functionality.
 
 **4.3.5 Deviation and Comparison**
 * `GET /api/v1/portfolio-themes/{theme_id}/deviation`: Calculate and retrieve current allocations and deviations.
+    * Source tables: `positions`, `instruments`, and `fx_rates` provide `current_value` converted into the theme's base currency.
+    * Refresh cadence: on-demand; invoking the endpoint recomputes valuations only when the cache is invalidated.
+    * Caching: backs onto materialized view `portfolio_theme_valuation` to avoid full recomputation per request.
+    * Failure modes: stale or missing position data sets a `data_stale` flag in the response and assumes `current_value` of 0 for missing positions.
 * **Response Example:**
     ```json
     {
