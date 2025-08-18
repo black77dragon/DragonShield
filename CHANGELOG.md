@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Add troubleshooting guide and fix README link path
 - Deduplicate version history entries in README
 - Consolidate UI concept notes into the main UI/UX design guide
+- Replace Database Management & Backups section with link to consolidated database documentation
 - Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view
