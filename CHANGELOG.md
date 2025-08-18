@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Document attachment limits and access controls in portfolio module spec
+- Document Portfolio module endpoints with status codes, pagination, versioning, and standard error envelope
+- Document migration dependencies and guidelines for Portfolio Module integration
 - Update parser mapping docs to schema version 4.26 and document maintenance for future schema changes
 - Cache institution name in Position form to avoid repeated lookups
 - Generate docs manifest and enforce updates via CI workflow
@@ -11,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Deduplicate version history entries in README
 - Consolidate UI concept notes into the main UI/UX design guide
 - Replace Database Management & Backups section with link to consolidated database documentation
+- Clarify PortfolioThemeStatus scope, color code validation, and default handling in portfolio module docs
 - Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view
