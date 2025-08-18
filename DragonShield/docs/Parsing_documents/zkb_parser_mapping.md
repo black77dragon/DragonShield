@@ -1,6 +1,8 @@
 # ZKB Depot Statement Parser: Data Mapping
 
-This document outlines the mapping logic for parsing the ZKB "Depotauszug" CSV export and importing its data into the Dragon Shield database schema (v4.14).
+This document outlines the mapping logic for parsing the ZKB "Depotauszug" CSV export and importing its data into the Dragon Shield database schema (v4.26).
+
+> **Note:** Update this mapping whenever the Dragon Shield database schema changes to keep the version and field references in sync.
 
 ---
 
