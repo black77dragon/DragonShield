@@ -1,8 +1,44 @@
 {
   "docs": [
     {
+      "path": "AssetClassDefinitionConcept.md",
+      "sha": "1a1a2b6bf2c0551ce6e249e4d2ab520d918e1fd4"
+    },
+    {
+      "path": "Dragon_Shield_Database_Management_Plan.md",
+      "sha": "a4f9ff35e1c799b4cc04e7df0e8fa17a28cd2b81"
+    },
+    {
+      "path": "Parsing_documents/Credit-Suisse_Parser_Mapping.md",
+      "sha": "64779fedaa98cde18f360b01468a64d6c1b6a28c"
+    },
+    {
+      "path": "Parsing_documents/zkb_parser_mapping.md",
+      "sha": "bff92fc38db7239fd14143c84aa52bcf0385d149"
+    },
+    {
+      "path": "UX_UI_concept/allocation_targets_table_spec.md",
+      "sha": "ba5842a4a4072604ef0d85cac8e28cf8b437f15d"
+    },
+    {
+      "path": "UX_UI_concept/data_import_export_view.md",
+      "sha": "bcc15dd2feac7db10deeee57494af3ec6ce9e267"
+    },
+    {
       "path": "UX_UI_concept/dragon_shield_ui_guide.md",
       "sha": "c6cf9fc2053d2e97c29679ccfafa2f54496ba088"
+    },
+    {
+      "path": "UX_UI_concept/target_allocation_edit_panel.md",
+      "sha": "2a8acb3aca870fcc67e456ed0b996444d13d5ed8"
+    },
+    {
+      "path": "db_management_DBMate_incl_migration.md",
+      "sha": "31364d073417984434aa67d72e4a0267727432b1"
+    },
+    {
+      "path": "dragon_shield_db_documentation.md",
+      "sha": "e1b109bdf4a3616c68ff75f75f92a1947b692ef9"
     },
     {
       "path": "logging_concept_dragonshield.md",
