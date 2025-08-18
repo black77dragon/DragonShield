@@ -201,3 +201,21 @@ A RESTful API will expose the module's functionality.
 * **Data Lookup:** `instrument_id` in `PortfolioThemeAsset` will directly reference the existing `Instruments` table, and the deviation mechanism will query the `positions` table to get current holding values.
 * **Performance:** Queries for deviation analysis must be optimized, possibly using database indexing and caching.
 * **Error Handling:** Robust error handling should be implemented for all API endpoints.
+* **Required Migrations:** Introduce `PortfolioThemeStatus`, `PortfolioTheme`, `PortfolioThemeAsset`, `PortfolioThemeUpdate`, `PortfolioThemeAssetUpdate`, and `FileAttachment` tables. Create them in dependency order and ensure `PortfolioThemeAsset.instrument_id` references `Instruments` while deviation queries join `positions`.
+* **Foreign-key ON DELETE:**
+  * `PortfolioTheme.status_id` -> `PortfolioThemeStatus` (`ON DELETE RESTRICT`)
+  * `PortfolioTheme.user_id` -> `Users` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAsset.portfolio_theme_id` -> `PortfolioTheme` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAsset.instrument_id` -> `Instruments` (`ON DELETE RESTRICT`)
+  * `PortfolioThemeUpdate.portfolio_theme_id` -> `PortfolioTheme` (`ON DELETE CASCADE`)
+  * `PortfolioThemeAssetUpdate.portfolio_theme_asset_id` -> `PortfolioThemeAsset` (`ON DELETE CASCADE`)
+  * `FileAttachment.resource_id` -> parent record (`ON DELETE CASCADE`)
+* **Indexing:** Add indexes on `PortfolioThemeAsset.instrument_id`, `PortfolioThemeAsset.portfolio_theme_id`, and `PortfolioThemeAssetUpdate.portfolio_theme_asset_id`. Consider a composite index on `(portfolio_theme_id, instrument_id)` to speed joins with `Instruments` and `positions`.
+* **Migration Checklist:**
+  1. Allocate next migration number and create DBMate file with up and down sections.
+  2. Write reversible SQL for new tables and indexes using `IF NOT EXISTS` safeguards.
+  3. After `dbmate up`, verify with queries:
+     * `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'PortfolioTheme%';`
+     * `PRAGMA foreign_key_list('PortfolioThemeAsset');`
+     * `PRAGMA index_list('PortfolioThemeAsset');`
+  4. Run `dbmate down` and rerun `dbmate up` to confirm reversibility.
