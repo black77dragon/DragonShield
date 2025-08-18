@@ -135,6 +135,14 @@ This section outlines the underlying technical requirements and data structures 
 * **`mime_type`**: `VARCHAR(50)` (e.g., 'application/pdf', 'image/jpeg')
 * **`uploaded_at`**: `TIMESTAMP`
 
+* **Security & Storage Requirements:**
+    * **Max file size:** 10 MB per file.
+    * **Supported MIME types:** application/pdf, image/png, image/jpeg, text/plain.
+    * **Storage:** Files saved to an encrypted object store in production; local development may use the filesystem.
+    * **Encryption:** Files encrypted at rest and accessed only via HTTPS.
+    * **Access control:** ACLs restrict each attachment to its owning user.
+    * **Cleanup:** Deleting a parent resource removes its attachments; a background job purges orphaned files.
+
 ---
 
 #### 4.3 API Endpoints
@@ -191,6 +199,16 @@ A RESTful API will expose the module's functionality.
 **4.3.6 File Attachment Management**
 * `POST /api/v1/files/upload`: Upload a file and link it to a resource.
 * `GET /api/v1/files/{file_id}`: Retrieve file metadata or serve the file (authentication required).
+* **Error Response Example (File Too Large):**
+    ```http
+    HTTP/1.1 413 Payload Too Large
+    Content-Type: application/json
+
+    {
+      "error": "file_too_large",
+      "message": "Upload exceeds 10 MB limit."
+    }
+    ```
 
 ---
 

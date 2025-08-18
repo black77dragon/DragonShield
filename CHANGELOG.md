@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Document attachment limits and access controls in portfolio module spec
 - Update parser mapping docs to schema version 4.26 and document maintenance for future schema changes
 - Cache institution name in Position form to avoid repeated lookups
 - Generate docs manifest and enforce updates via CI workflow
