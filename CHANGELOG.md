@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Document constraints and indexes for `PortfolioThemeAsset` in portfolio module spec
 - Clarify `current_value` sourcing, on-demand refresh, caching, and failure modes in Portfolio Module specification
 - Document attachment limits and access controls in portfolio module spec
 - Document Portfolio module endpoints with status codes, pagination, versioning, and standard error envelope
