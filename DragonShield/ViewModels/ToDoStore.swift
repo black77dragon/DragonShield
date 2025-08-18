@@ -1,4 +1,5 @@
 import SwiftUI
+import Core
 
 class ToDoStore: ObservableObject {
     @Published private(set) var items: [ToDoItem] = []

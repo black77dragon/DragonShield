@@ -1,4 +1,5 @@
 import SwiftUI
+import Core
 import UniformTypeIdentifiers
 
 struct ToDoKanbanView: View {
