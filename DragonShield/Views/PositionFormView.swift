@@ -41,6 +41,7 @@ struct PositionFormView: View {
     @State private var sessionId = ""
     @State private var accountId: Int? = nil
     @State private var institutionId: Int? = nil
+    @State private var institutionName = ""
     @State private var instrumentId: Int? = nil
     @State private var currencyCode = ""
     @State private var quantity = ""
@@ -79,7 +80,9 @@ struct PositionFormView: View {
         .frame(minWidth: 520, minHeight: 620)
         .onAppear { loadData(); populate() }
         .onChange(of: accountId) { id in
-            institutionId = accountInstitution(for: id, accounts: accounts)?.id
+            let institution = accountInstitution(for: id, accounts: accounts)
+            institutionId = institution?.id
+            institutionName = institution?.name ?? ""
         }
         .onChange(of: instrumentId) { id in
             currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
@@ -105,7 +108,7 @@ struct PositionFormView: View {
                 Text("Institution")
                     .font(.headline)
                 Spacer()
-                Text(accountInstitution(for: accountId, accounts: accounts)?.name ?? "")
+                Text(institutionName)
                     .frame(width: 200, alignment: .trailing)
                     .foregroundColor(.secondary)
             }
@@ -209,8 +212,11 @@ struct PositionFormView: View {
     private func populate() {
         guard let p = position else { return }
         sessionId = p.importSessionId.map { String($0) } ?? ""
-        accountId = accounts.first(where: { $0.name == p.accountName })?.id
-        institutionId = accounts.first(where: { $0.name == p.accountName })?.institutionId
+        if let account = accounts.first(where: { $0.name == p.accountName }) {
+            accountId = account.id
+            institutionId = account.institutionId
+            institutionName = account.institutionName
+        }
         instrumentId = instruments.first(where: { $0.name == p.instrumentName })?.id
         currencyCode = p.instrumentCurrency
         quantity = String(p.quantity)
