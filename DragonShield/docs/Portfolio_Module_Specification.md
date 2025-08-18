@@ -112,6 +112,29 @@ This section outlines the underlying technical requirements and data structures 
 * **`created_at`**: `TIMESTAMP`
 * **`updated_at`**: `TIMESTAMP`
 
+*Constraints & Indexes:*
+
+* **UNIQUE** constraint on `(portfolio_theme_id, instrument_id)` to prevent duplicate instrument entries per theme.
+* **CHECK** constraints ensure `0 <= research_target_allocation_weight <= 1` and `0 <= user_adjusted_target_allocation_weight <= 1`.
+* **Recommended indexes** on `portfolio_theme_id` and `instrument_id` for efficient lookups.
+
+*Sample SQL:*
+
+```sql
+-- Unique pair of theme and instrument
+ALTER TABLE PortfolioThemeAsset
+  ADD CONSTRAINT uq_theme_asset UNIQUE (portfolio_theme_id, instrument_id);
+
+-- Enforce allocation weights within [0,1]
+ALTER TABLE PortfolioThemeAsset
+  ADD CONSTRAINT ck_research_weight CHECK (research_target_allocation_weight BETWEEN 0 AND 1),
+  ADD CONSTRAINT ck_user_weight CHECK (user_adjusted_target_allocation_weight BETWEEN 0 AND 1);
+
+-- Recommended indexes for joins and filters
+CREATE INDEX idx_portfolio_theme_asset_theme_id ON PortfolioThemeAsset (portfolio_theme_id);
+CREATE INDEX idx_portfolio_theme_asset_instrument_id ON PortfolioThemeAsset (instrument_id);
+```
+
 **4.2.4 `PortfolioThemeUpdate`**
 * **`id`**: `UUID` (Primary Key)
 * **`portfolio_theme_id`**: `UUID` (Foreign Key to `PortfolioTheme`)
