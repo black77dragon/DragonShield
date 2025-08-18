@@ -138,6 +138,14 @@ This section outlines the underlying technical requirements and data structures 
 * **`mime_type`**: `VARCHAR(50)` (e.g., 'application/pdf', 'image/jpeg')
 * **`uploaded_at`**: `TIMESTAMP`
 
+* **Security & Storage Requirements:**
+    * **Max file size:** 10 MB per file.
+    * **Supported MIME types:** application/pdf, image/png, image/jpeg, text/plain.
+    * **Storage:** Files saved to an encrypted object store in production; local development may use the filesystem.
+    * **Encryption:** Files encrypted at rest and accessed only via HTTPS.
+    * **Access control:** Access to an attachment is determined by the permissions on its parent resource (e.g., the `PortfolioTheme`).
+    * **Cleanup:** Deleting a parent resource removes its attachments; a background job purges orphaned files.
+
 ---
 
 #### 4.3 API Endpoints
@@ -365,28 +373,19 @@ All endpoints use JSON over HTTPS and are prefixed with `/api/v1`. Breaking chan
   * **Version:** v1 (deprecated six months after v2 launch)
 
 **4.3.6 File Attachment Management**
+* `POST /api/v1/files/upload`: Upload a file and link it to a resource.
+* `GET /api/v1/files/{file_id}`: Retrieve file metadata or serve the file (authentication required).
+* **Error Response Example (File Too Large):**
+    ```http
+    HTTP/1.1 413 Payload Too Large
+    Content-Type: application/json
 
-`POST /api/v1/files/upload` — Upload a file and link it to a resource.
-  * **201**
-    ```json
-    {"id":"uuid","file_name":"report.pdf","mime_type":"application/pdf"}
+    {
+      "error": "file_too_large",
+      "message": "Upload exceeds 10 MB limit."
+    }
     ```
-  * **400**
-    ```json
-    {"error":{"code":"VALIDATION_ERROR","message":"invalid file","request_id":"uuid"}}
-    ```
-  * **Version:** v1 (deprecated six months after v2 launch)
 
-`GET /api/v1/files/{file_id}` — Retrieve file metadata or serve the file.
-  * **200**
-    ```json
-    {"id":"uuid","file_name":"report.pdf","mime_type":"application/pdf","download_url":"https://..."}
-    ```
-  * **404**
-    ```json
-    {"error":{"code":"FILE_NOT_FOUND","message":"file not found","request_id":"uuid"}}
-    ```
-  * **Version:** v1 (deprecated six months after v2 launch)
 
 ---
 
