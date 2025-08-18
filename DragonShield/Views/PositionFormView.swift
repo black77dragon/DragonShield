@@ -1,5 +1,20 @@
 import SwiftUI
 
+typealias InstrumentInfo = (
+    id: Int,
+    name: String,
+    subClassId: Int,
+    currency: String,
+    valorNr: String?,
+    tickerSymbol: String?,
+    isin: String?
+)
+
+func instrumentCurrency(for instrumentId: Int?, instruments: [InstrumentInfo]) -> String? {
+    guard let id = instrumentId else { return nil }
+    return instruments.first { $0.id == id }?.currency
+}
+
 struct PositionFormView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
@@ -9,8 +24,7 @@ struct PositionFormView: View {
 
     @State private var accounts: [DatabaseManager.AccountData] = []
     @State private var institutions: [DatabaseManager.InstitutionData] = []
-    @State private var instruments: [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] = []
-    @State private var currencies: [(code: String, name: String, symbol: String)] = []
+    @State private var instruments: [InstrumentInfo] = []
 
     @State private var sessionId = ""
     @State private var accountId: Int? = nil
@@ -52,6 +66,9 @@ struct PositionFormView: View {
         .padding(24)
         .frame(minWidth: 520, minHeight: 620)
         .onAppear { loadData(); populate() }
+        .onChange(of: instrumentId) { id in
+            currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
+        }
     }
 
     private var formFields: some View {
@@ -85,11 +102,13 @@ struct PositionFormView: View {
             }
             .accessibilityLabel("Instrument")
 
-            Picker("Currency", selection: $currencyCode) {
-                Text("Select Currency").tag("")
-                ForEach(currencies, id: \.code) { curr in
-                    Text(curr.code).tag(curr.code)
-                }
+            HStack {
+                Text("Currency")
+                    .font(.headline)
+                Spacer()
+                Text(currencyCode)
+                    .frame(width: 120, alignment: .trailing)
+                    .foregroundColor(.secondary)
             }
             .accessibilityLabel("Currency")
             }
@@ -160,7 +179,6 @@ struct PositionFormView: View {
         accountId != nil &&
         institutionId != nil &&
         instrumentId != nil &&
-        !currencyCode.isEmpty &&
         Double(quantity) != nil
     }
 
@@ -168,7 +186,6 @@ struct PositionFormView: View {
         accounts = dbManager.fetchAccounts()
         institutions = dbManager.fetchInstitutions()
         instruments = dbManager.fetchAssets()
-        currencies = dbManager.fetchActiveCurrencies()
     }
 
     private func populate() {
