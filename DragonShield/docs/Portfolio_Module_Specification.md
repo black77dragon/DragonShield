@@ -32,7 +32,9 @@ At the top level, you will define a **"Portfolio Theme"** entity. Each theme rep
     * **Attachments:** Ability to attach various files (e.g., PDF research reports, charts, images, presentations) to provide richer context and supporting documentation.
 * **Status Management:**
     * Each Portfolio Theme can be assigned a **customizable status** (e.g., "To Be Updated," "In Review," "Finalized," "Archived").
+    * DragonShield is a single-user application, so `PortfolioThemeStatus` records are global rather than user-specific.
     * Statuses will have a **color code** for quick visual reference on dashboards.
+    * Color codes must use the `#RRGGBB` hexadecimal format and be exactly 7 characters long.
     * You can define and manage these statuses through a dedicated settings interface.
 
 #### 3.2 Portfolio Update History
@@ -70,7 +72,9 @@ This is a core analytical feature, allowing you to compare your actual holdings 
 
 #### 3.5 Status and Customization
 
-* **User-Defined Statuses:** You can define and modify the status labels (e.g., "Draft," "Active," "Review Needed") and assign a unique color to each.
+* **User-Defined Statuses:** You can define and modify the status labels (e.g., "Draft," "Active," "Review Needed") and assign a unique color to each. Because DragonShield serves a single user, `PortfolioThemeStatus` records are global.
+* **Color Validation:** `color_code` values must be in `#RRGGBB` hexadecimal format and exactly 7 characters long.
+* **Default Statuses:** During onboarding the app creates `Draft`, `Active`, and `Archived` statuses. If a theme references a removed status, it automatically reverts to `Active`.
 * **Lifecycle Management:** These statuses provide a flexible way to manage the lifecycle of each Portfolio Theme, from initial concept to active management and eventual archiving.
 
 ---
@@ -99,8 +103,7 @@ This section outlines the underlying technical requirements and data structures 
 **4.2.2 `PortfolioThemeStatus`**
 * **`id`**: `UUID` (Primary Key)
 * **`label`**: `VARCHAR(50)` (e.g., "To Be Updated", "Finalized")
-* **`color_code`**: `VARCHAR(7)` (Hex color, e.g., `#00FF00`)
-* **`user_id`**: `UUID` (Foreign Key to `Users` table – if statuses are user-specific, otherwise remove)
+* **`color_code`**: `VARCHAR(7)` (Must be a hex color in `#RRGGBB` format)
 
 **4.2.3 `PortfolioThemeAsset`**
 * **`id`**: `UUID` (Primary Key)
