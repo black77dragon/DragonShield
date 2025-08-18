@@ -34,3 +34,7 @@ All checks run by default. To run a subset, provide a comma-separated list of na
 - UserDefaults key: `enabledHealthChecks`
 
 Checks not listed are skipped.
+
+## Viewing Results
+
+After startup, open **Health Checks** from the sidebar or Settings to review each check and its message.

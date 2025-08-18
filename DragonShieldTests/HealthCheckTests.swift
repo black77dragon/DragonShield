@@ -68,5 +68,20 @@ final class HealthCheckTests: XCTestCase {
         let names = AppConfiguration.enabledHealthChecks(args: args, env: env, defaults: defaults)
         XCTAssertEqual(names, ["alpha", "beta"])
     }
+
+    func testDatabaseFileCheckPassesWhenFileExists() async {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        FileManager.default.createFile(atPath: url.path, contents: Data())
+        let check = DatabaseFileHealthCheck(path: url.path)
+        let result = await check.run()
+        if case .ok = result { } else { XCTFail("expected ok") }
+    }
+
+    func testDatabaseFileCheckFailsWhenMissing() async {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let check = DatabaseFileHealthCheck(path: url.path)
+        let result = await check.run()
+        if case .error = result { } else { XCTFail("expected error") }
+    }
 }
 

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
 - Expose health check summary and toggle in Settings with link to detailed report
+- Show executed health checks with detailed results in dedicated window and verify database file presence
 - Add SQL example for PortfolioThemeStatus color validation and require migrations to include the CHECK constraint
 - Document constraints and indexes for `PortfolioThemeAsset` in portfolio module spec
 - Clarify `current_value` sourcing, on-demand refresh, caching, and failure modes in Portfolio Module specification

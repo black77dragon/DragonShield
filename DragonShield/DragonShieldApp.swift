@@ -3,10 +3,17 @@ import SwiftUI
 
 @main
 struct DragonShieldApp: App {
-    // Create a single instance of DatabaseManager to be used throughout the app
-    @StateObject private var databaseManager = DatabaseManager()
-    @StateObject private var assetManager = AssetManager() // Assuming you also have this
-    @StateObject private var healthRunner = HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks())
+    @StateObject private var databaseManager: DatabaseManager
+    @StateObject private var assetManager: AssetManager
+    @StateObject private var healthRunner: HealthCheckRunner
+
+    init() {
+        let dbManager = DatabaseManager()
+        _databaseManager = StateObject(wrappedValue: dbManager)
+        _assetManager = StateObject(wrappedValue: AssetManager())
+        HealthCheckRegistry.register(DatabaseFileHealthCheck(path: dbManager.dbFilePath))
+        _healthRunner = StateObject(wrappedValue: HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks()))
+    }
 
     var body: some Scene {
         WindowGroup {
