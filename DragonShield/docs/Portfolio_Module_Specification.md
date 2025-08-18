@@ -143,7 +143,7 @@ This section outlines the underlying technical requirements and data structures 
     * **Supported MIME types:** application/pdf, image/png, image/jpeg, text/plain.
     * **Storage:** Files saved to an encrypted object store in production; local development may use the filesystem.
     * **Encryption:** Files encrypted at rest and accessed only via HTTPS.
-    * **Access control:** ACLs restrict each attachment to its owning user.
+    * **Access control:** Access to an attachment is determined by the permissions on its parent resource (e.g., the `PortfolioTheme`).
     * **Cleanup:** Deleting a parent resource removes its attachments; a background job purges orphaned files.
 
 ---
