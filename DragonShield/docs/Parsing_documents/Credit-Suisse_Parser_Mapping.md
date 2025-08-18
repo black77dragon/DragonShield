@@ -1,6 +1,8 @@
 # Credit-Suisse Statement Parser: Data Mapping
 
-This document outlines the mapping logic for parsing the Credit-Suisse position statement (`.xlsx` format) and importing its data into the Dragon Shield database schema (v4.25).
+This document outlines the mapping logic for parsing the Credit-Suisse position statement (`.xlsx` format) and importing its data into the Dragon Shield database schema (v4.26).
+
+> **Note:** Update this mapping whenever the Dragon Shield database schema changes to keep the version and field references in sync.
 
 ## 1. Statement-Level Data
 
