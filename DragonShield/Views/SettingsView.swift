@@ -11,6 +11,7 @@ import SwiftUI
 struct SettingsView: View {
     // Inject DatabaseManager to access @Published config properties
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var healthVM: HealthCheckViewModel
 
     @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
     private var forceOverwriteDatabaseOnDebug: Bool = false
@@ -97,6 +98,27 @@ struct SettingsView: View {
                         in: 0.0...20.0, step: 1.0)
             }
 
+            Section(header: Text("Health Checks")) {
+                Toggle("Run Startup Health Checks", isOn: Binding(
+                    get: { dbManager.runStartupHealthChecks },
+                    set: { newValue in
+                        _ = dbManager.updateConfiguration(key: "run_startup_health_checks", value: newValue ? "true" : "false")
+                    }
+                ))
+                HStack {
+                    Text("Last Summary")
+                    Spacer()
+                    Text("\(healthVM.summary.ok) ok / \(healthVM.summary.warning) warn / \(healthVM.summary.error) err")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                NavigationLink("View Health Report") {
+                    HealthReportView()
+                        .environmentObject(healthVM)
+                }
+            }
+
+
             #if DEBUG
             Section(header: Text("Development / Debug Options")) {
                 VStack(alignment: .leading) {
@@ -138,8 +160,10 @@ struct SettingsView_Previews: PreviewProvider {
         UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
         UserDefaults.standard.set(false, forKey: "enableParsingCheckpoints")
         let dbManager = DatabaseManager() // Create a preview instance
+        let healthVM = HealthCheckViewModel()
 
         return SettingsView()
             .environmentObject(dbManager)
+            .environmentObject(healthVM)
     }
 }

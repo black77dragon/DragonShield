@@ -2,7 +2,7 @@
 // MARK: - Version 1.6.0.1
 // MARK: - History
 // - 1.5 -> 1.6: Expose database path, creation date and modification date via
-//               @Published properties.
+//              @Published properties.
 // - 1.6 -> 1.6.0.1: Use sqlite3_open_v2 with FULLMUTEX and log errors when opening fails.
 // - 1.3 -> 1.4: Added @Published properties for defaultTimeZone, tableRowSpacing, tableRowPadding.
 // - 1.4 -> 1.5: Added dbVersion property and logging of database version.
@@ -41,6 +41,8 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
+    @Published var runStartupHealthChecks: Bool = true
+
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==

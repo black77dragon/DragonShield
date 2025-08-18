@@ -6,6 +6,7 @@ struct DragonShieldApp: App {
     // Create a single instance of DatabaseManager to be used throughout the app
     @StateObject private var databaseManager = DatabaseManager()
     @StateObject private var assetManager = AssetManager() // Assuming you also have this
+    @StateObject private var healthManager = HealthCheckViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,12 @@ struct DragonShieldApp: App {
             }
             .environmentObject(assetManager) // Your existing one
             .environmentObject(databaseManager) // <<<< ADD THIS LINE
+            .environmentObject(healthManager)
+            .onAppear {
+                if databaseManager.runStartupHealthChecks {
+                    healthManager.runChecks()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     ModeBadge()
