@@ -9,10 +9,13 @@ struct HealthCheckResultsView: View {
                 Text(report.name)
                 Spacer()
                 switch report.result {
-                case .success(let message):
+                case .ok(let message):
                     Label(message, systemImage: "checkmark.circle")
                         .foregroundColor(.green)
-                case .failure(let message):
+                case .warning(let message):
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .foregroundColor(.yellow)
+                case .error(let message):
                     Label(message, systemImage: "xmark.octagon")
                         .foregroundColor(.red)
                 }

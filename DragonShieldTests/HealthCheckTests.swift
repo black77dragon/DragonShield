@@ -2,25 +2,39 @@ import XCTest
 @testable import DragonShield
 
 final class HealthCheckTests: XCTestCase {
-    struct SuccessCheck: HealthCheck {
-        let name = "success"
-        func run() async -> HealthCheckResult { .success(message: "ok") }
+    struct OkCheck: HealthCheck {
+        let name = "ok"
+        func run() async -> HealthCheckResult { .ok(message: "ok") }
     }
 
-    struct FailureCheck: HealthCheck {
-        let name = "failure"
-        func run() async -> HealthCheckResult { .failure(message: "bad") }
+    struct WarningCheck: HealthCheck {
+        let name = "warn"
+        func run() async -> HealthCheckResult { .warning(message: "warn") }
+    }
+
+    struct ErrorCheck: HealthCheck {
+        let name = "error"
+        func run() async -> HealthCheckResult { .error(message: "bad") }
     }
 
     func testRunnerAggregatesReports() async {
-        let runner = HealthCheckRunner(checks: [SuccessCheck(), FailureCheck()])
+        let runner = HealthCheckRunner(checks: [OkCheck(), WarningCheck(), ErrorCheck()])
         await runner.runAll()
-        XCTAssertEqual(runner.reports.count, 2)
+        XCTAssertEqual(runner.reports.count, 3)
     }
 
     func testConfigPrecedence() {
         let args = ["app", "--runStartupHealthChecks", "false"]
         let env = ["RUN_STARTUP_HEALTH_CHECKS": "true"]
-        XCTAssertFalse(AppConfiguration.runStartupHealthChecks(args: args, env: env))
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        XCTAssertFalse(AppConfiguration.runStartupHealthChecks(args: args, env: env, defaults: defaults))
+    }
+
+    func testUserDefaultsOverride() {
+        let args = ["app"]
+        let env: [String: String] = [:]
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults.set(false, forKey: "runStartupHealthChecks")
+        XCTAssertFalse(AppConfiguration.runStartupHealthChecks(args: args, env: env, defaults: defaults))
     }
 }

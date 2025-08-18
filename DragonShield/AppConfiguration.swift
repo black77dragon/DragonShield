@@ -5,6 +5,7 @@ struct AppConfiguration {
     static func runStartupHealthChecks(
         args: [String] = CommandLine.arguments,
         env: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard,
         default defaultValue: Bool = true
     ) -> Bool {
         if let idx = args.firstIndex(of: "--runStartupHealthChecks"),
@@ -13,6 +14,9 @@ struct AppConfiguration {
         }
         if let value = env["RUN_STARTUP_HEALTH_CHECKS"] {
             return value.lowercased() != "false"
+        }
+        if defaults.object(forKey: "runStartupHealthChecks") != nil {
+            return defaults.bool(forKey: "runStartupHealthChecks")
         }
         return defaultValue
     }

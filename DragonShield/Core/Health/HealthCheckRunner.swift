@@ -30,10 +30,10 @@ public final class HealthCheckRunner: ObservableObject {
     }
 
     private func logSummary() {
-        let failures = reports.filter {
-            if case .failure = $0.result { return true } else { return false }
-        }.count
-        let summary = "\(reports.count - failures) success, \(failures) failure"
+        let ok = reports.filter { if case .ok = $0.result { return true } else { return false } }.count
+        let warning = reports.filter { if case .warning = $0.result { return true } else { return false } }.count
+        let error = reports.filter { if case .error = $0.result { return true } else { return false } }.count
+        let summary = "\(ok) ok, \(warning) warning, \(error) error"
         LoggingService.shared.log("Startup health checks: \(summary)")
     }
 }

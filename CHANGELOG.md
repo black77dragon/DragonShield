@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Expose health check summary and toggle in Settings with link to detailed report
 - Add SQL example for PortfolioThemeStatus color validation and require migrations to include the CHECK constraint
 - Document constraints and indexes for `PortfolioThemeAsset` in portfolio module spec
 - Clarify `current_value` sourcing, on-demand refresh, caching, and failure modes in Portfolio Module specification

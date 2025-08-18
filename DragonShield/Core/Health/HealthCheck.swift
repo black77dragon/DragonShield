@@ -10,8 +10,9 @@ public protocol HealthCheck {
 
 /// Outcome for a `HealthCheck`.
 public enum HealthCheckResult {
-    case success(message: String)
-    case failure(message: String)
+    case ok(message: String)
+    case warning(message: String)
+    case error(message: String)
 }
 
 /// Summary produced by `HealthCheckRunner`.
