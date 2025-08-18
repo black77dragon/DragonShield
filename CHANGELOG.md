@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Generate docs manifest and enforce updates via CI workflow
 - Add troubleshooting guide and fix README link path
 - Deduplicate version history entries in README
 - Consolidate UI concept notes into the main UI/UX design guide
