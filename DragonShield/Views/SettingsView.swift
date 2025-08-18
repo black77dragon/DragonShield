@@ -11,6 +11,10 @@ import SwiftUI
 struct SettingsView: View {
     // Inject DatabaseManager to access @Published config properties
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var healthRunner: HealthCheckRunner
+
+    @AppStorage("runStartupHealthChecks")
+    private var runStartupHealthChecks: Bool = true
 
     @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
     private var forceOverwriteDatabaseOnDebug: Bool = false
@@ -25,6 +29,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section(header: Text("Health Checks")) {
+                Toggle("Run at Startup", isOn: $runStartupHealthChecks)
+                if !healthRunner.reports.isEmpty {
+                    let s = healthRunner.summary
+                    Text("Last run: \(s.ok) ok, \(s.warning) warning, \(s.error) error")
+                    NavigationLink("View Detailed Report", destination: HealthCheckResultsView())
+                }
+            }
+
             Section(header: Text("General Application Settings")) {
                 HStack {
                     Text("Base Currency")

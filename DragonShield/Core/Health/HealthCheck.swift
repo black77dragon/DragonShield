@@ -11,6 +11,7 @@ public protocol HealthCheck {
 /// Outcome for a `HealthCheck`.
 public enum HealthCheckResult {
     case success(message: String)
+    case warning(message: String)
     case failure(message: String)
 }
 

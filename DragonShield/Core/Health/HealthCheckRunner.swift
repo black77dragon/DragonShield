@@ -29,11 +29,24 @@ public final class HealthCheckRunner: ObservableObject {
         logSummary()
     }
 
+    public var summary: (ok: Int, warning: Int, error: Int) {
+        var ok = 0, warn = 0, err = 0
+        for report in reports {
+            switch report.result {
+            case .success:
+                ok += 1
+            case .warning:
+                warn += 1
+            case .failure:
+                err += 1
+            }
+        }
+        return (ok, warn, err)
+    }
+
     private func logSummary() {
-        let failures = reports.filter {
-            if case .failure = $0.result { return true } else { return false }
-        }.count
-        let summary = "\(reports.count - failures) success, \(failures) failure"
-        LoggingService.shared.log("Startup health checks: \(summary)")
+        let s = summary
+        let summaryText = "\(s.ok) ok, \(s.warning) warning, \(s.error) error"
+        LoggingService.shared.log("Startup health checks: \(summaryText)")
     }
 }

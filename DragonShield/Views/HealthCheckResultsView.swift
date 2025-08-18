@@ -12,6 +12,9 @@ struct HealthCheckResultsView: View {
                 case .success(let message):
                     Label(message, systemImage: "checkmark.circle")
                         .foregroundColor(.green)
+                case .warning(let message):
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .foregroundColor(.yellow)
                 case .failure(let message):
                     Label(message, systemImage: "xmark.octagon")
                         .foregroundColor(.red)
