@@ -173,10 +173,16 @@ extension DatabaseManager {
     }
 
     func archivePortfolioTheme(id: Int) -> Bool {
-        guard let archivedId = archivedThemeStatusId() else { return false }
+        guard let archivedId = archivedThemeStatusId() else {
+            LoggingService.shared.log("ARCHIVED status id not found", type: .error, logger: .database)
+            return false
+        }
         let sql = "UPDATE PortfolioTheme SET status_id = ?, archived_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare archivePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
         sqlite3_bind_int(stmt, 1, Int32(archivedId))
         sqlite3_bind_int(stmt, 2, Int32(id))
         let rc = sqlite3_step(stmt)
@@ -192,7 +198,10 @@ extension DatabaseManager {
     func unarchivePortfolioTheme(id: Int, statusId: Int) -> Bool {
         let sql = "UPDATE PortfolioTheme SET status_id = ?, archived_at = NULL, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare unarchivePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
         sqlite3_bind_int(stmt, 1, Int32(statusId))
         sqlite3_bind_int(stmt, 2, Int32(id))
         let rc = sqlite3_step(stmt)
@@ -214,6 +223,10 @@ extension DatabaseManager {
             if sqlite3_step(checkStmt) == SQLITE_ROW {
                 archived = sqlite3_column_text(checkStmt, 0) != nil
             }
+        } else {
+            LoggingService.shared.log("prepare softDeletePortfolioTheme check failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            sqlite3_finalize(checkStmt)
+            return false
         }
         sqlite3_finalize(checkStmt)
         if !archived {
@@ -222,7 +235,10 @@ extension DatabaseManager {
         }
         let sql = "UPDATE PortfolioTheme SET soft_delete = 1, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare softDeletePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
         sqlite3_bind_int(stmt, 1, Int32(id))
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
