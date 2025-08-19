@@ -22,8 +22,6 @@ struct SettingsView: View {
     @AppStorage("runStartupHealthChecks")
     private var runStartupHealthChecks: Bool = true
 
-    @AppStorage(UserDefaultsKeys.portfolioThemesEnabled)
-    private var portfolioThemesEnabled: Bool = false
 
     private var okCount: Int {
         runner.reports.filter { if case .ok = $0.result { return true } else { return false } }.count
@@ -124,10 +122,8 @@ struct SettingsView: View {
                 NavigationLink("Detailed Report", destination: HealthCheckResultsView())
             }
 
-            if portfolioThemesEnabled {
-                Section(header: Text("Portfolio Management")) {
-                    NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
-                }
+            Section(header: Text("Portfolio Management")) {
+                NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 
             #if DEBUG

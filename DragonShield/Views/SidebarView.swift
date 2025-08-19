@@ -13,7 +13,6 @@ import AppKit
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var healthRunner: HealthCheckRunner
-    @AppStorage(UserDefaultsKeys.portfolioThemesEnabled) private var portfolioThemesEnabled: Bool = false
 
     @State private var showOverview = true
     @State private var showManagement = true
@@ -53,10 +52,8 @@ struct SidebarView: View {
                     Label("To-Do Board", systemImage: "checklist")
                 }
 
-                if portfolioThemesEnabled {
-                    NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
-                        Label("Portfolio Themes", systemImage: "list.bullet")
-                    }
+                NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
+                    Label("Portfolio Themes", systemImage: "list.bullet")
                 }
             }
 

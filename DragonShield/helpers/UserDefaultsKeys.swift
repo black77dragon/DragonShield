@@ -21,5 +21,4 @@ struct UserDefaultsKeys {
     static let positionsFontSize = "positionsFontSize"
     /// Persist selected segment in Currencies & FX maintenance view.
     static let currenciesFxSegment = "currenciesFxSegment"
-    static let portfolioThemesEnabled = "portfolioThemesEnabled"
 }
