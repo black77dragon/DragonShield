@@ -37,11 +37,12 @@ extension DatabaseManager {
             LoggingService.shared.log("prepare insertPortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
+        defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, code, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 3, colorHex, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 4, isDefault ? 1 : 0)
-        defer { sqlite3_finalize(stmt) }
         if sqlite3_step(stmt) == SQLITE_DONE {
             LoggingService.shared.log("Inserted theme status \(code)", type: .info, logger: .database)
             return true
@@ -61,11 +62,12 @@ extension DatabaseManager {
             LoggingService.shared.log("prepare updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
+        defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, colorHex, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 3, isDefault ? 1 : 0)
         sqlite3_bind_int(stmt, 4, Int32(id))
-        defer { sqlite3_finalize(stmt) }
         if sqlite3_step(stmt) == SQLITE_DONE {
             LoggingService.shared.log("Updated theme status id=\(id)", type: .info, logger: .database)
             return true
