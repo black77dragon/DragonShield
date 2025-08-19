@@ -6,6 +6,7 @@
 import Foundation
 
 struct PortfolioThemeStatus: Identifiable {
+    static let archivedCode = "ARCHIVED"
     let id: Int
     let code: String
     var name: String
