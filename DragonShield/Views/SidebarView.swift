@@ -13,7 +13,6 @@ import AppKit
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var healthRunner: HealthCheckRunner
-    @AppStorage(UserDefaultsKeys.portfolioThemesEnabled) private var portfolioThemesEnabled: Bool = false
 
     @State private var showOverview = true
     @State private var showManagement = true
@@ -33,7 +32,9 @@ struct SidebarView: View {
 
                 NavigationLink(destination: PerformanceView()) {
                     Label("Performance", systemImage: "chart.bar.fill")
+                        .foregroundColor(.gray)
                 }
+                .disabled(true)
             }
 
             DisclosureGroup("Management", isExpanded: $showManagement) {
@@ -43,15 +44,16 @@ struct SidebarView: View {
 
                 NavigationLink(destination: RebalancingView()) {
                     Label("Rebalancing", systemImage: "arrow.left.arrow.right")
+                        .foregroundColor(.gray)
                 }
+                .disabled(true)
 
                 NavigationLink(destination: ToDoKanbanView()) {
                     Label("To-Do Board", systemImage: "checklist")
                 }
-                if portfolioThemesEnabled {
-                    NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
-                        Label("Portfolio Themes", systemImage: "list.bullet")
-                    }
+
+                NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
+                    Label("Portfolio Themes", systemImage: "list.bullet")
                 }
             }
 
