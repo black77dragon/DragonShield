@@ -34,7 +34,7 @@ final class PortfolioThemeTests: XCTestCase {
         INSERT INTO PortfolioThemeStatus (code, name, color_hex, is_default) VALUES
             ('DRAFT','Draft','#9AA0A6',1),
             ('ACTIVE','Active','#34A853',0),
-            ('ARCHIVED','Archived','#B0BEC5',0);
+            ('\(PortfolioThemeStatus.archivedCode)','Archived','#B0BEC5',0);
         """
         sqlite3_exec(manager.db, statusSQL, nil, nil, nil)
         manager.ensurePortfolioThemeTable()

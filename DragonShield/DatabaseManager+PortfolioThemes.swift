@@ -26,11 +26,11 @@ extension DatabaseManager {
             LoggingService.shared.log("ensurePortfolioThemeTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
     }
-    func defaultThemeStatusId() -> Int? {
-        let sql = "SELECT id FROM PortfolioThemeStatus WHERE is_default = 1 LIMIT 1"
+    private func singleIntQuery(_ sql: String, bind: ((OpaquePointer) -> Void)? = nil) -> Int? {
         var stmt: OpaquePointer?
         var result: Int?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            if let bind = bind { bind(stmt!) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 result = Int(sqlite3_column_int(stmt, 0))
             }
@@ -39,17 +39,15 @@ extension DatabaseManager {
         return result
     }
 
+    func defaultThemeStatusId() -> Int? {
+        singleIntQuery("SELECT id FROM PortfolioThemeStatus WHERE is_default = 1 LIMIT 1")
+    }
+
     private func archivedThemeStatusId() -> Int? {
-        let sql = "SELECT id FROM PortfolioThemeStatus WHERE code = 'ARCHIVED' LIMIT 1"
-        var stmt: OpaquePointer?
-        var result: Int?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                result = Int(sqlite3_column_int(stmt, 0))
-            }
+        singleIntQuery("SELECT id FROM PortfolioThemeStatus WHERE code = ? LIMIT 1") { stmt in
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(stmt, 1, PortfolioThemeStatus.archivedCode, -1, SQLITE_TRANSIENT)
         }
-        sqlite3_finalize(stmt)
-        return result
     }
 
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
@@ -174,7 +172,7 @@ extension DatabaseManager {
 
     func archivePortfolioTheme(id: Int) -> Bool {
         guard let archivedId = archivedThemeStatusId() else {
-            LoggingService.shared.log("ARCHIVED status id not found", type: .error, logger: .database)
+            LoggingService.shared.log("\(PortfolioThemeStatus.archivedCode) status id not found", type: .error, logger: .database)
             return false
         }
         let sql = "UPDATE PortfolioTheme SET status_id = ?, archived_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
