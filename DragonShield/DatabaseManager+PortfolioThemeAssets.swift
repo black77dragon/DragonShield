@@ -152,7 +152,7 @@ extension DatabaseManager {
             UPDATE PortfolioThemeAsset
             SET research_target_pct = COALESCE(?, research_target_pct),
                 user_target_pct = COALESCE(?, user_target_pct),
-                notes = ?,
+                notes = COALESCE(?, notes),
                 updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')
             WHERE theme_id = ? AND instrument_id = ?
         """
