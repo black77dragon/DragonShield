@@ -6,11 +6,13 @@ final class PortfolioThemeTests: XCTestCase {
     func testCodeValidation() {
         XCTAssertTrue(PortfolioTheme.isValidCode("THEME_1"))
         XCTAssertFalse(PortfolioTheme.isValidCode("theme"))
+        XCTAssertFalse(PortfolioTheme.isValidCode(""))
     }
 
     func testNameValidation() {
         XCTAssertTrue(PortfolioTheme.isValidName("Core Growth"))
         XCTAssertFalse(PortfolioTheme.isValidName(""))
+        XCTAssertFalse(PortfolioTheme.isValidName("   "))
     }
 
     func testCreateThemePersists() {

@@ -24,9 +24,16 @@ struct PortfolioThemeDetailView: View {
         VStack(alignment: .leading) {
             Form {
                 Section {
-                    TextField("Name", text: $name).textFieldStyle(.roundedBorder)
+                    TextField("Name", text: $name)
+                        .textFieldStyle(.roundedBorder)
                     if isNew {
-                        TextField("Code", text: $code).textFieldStyle(.roundedBorder)
+                        TextField("Code", text: $code)
+                            .textFieldStyle(.roundedBorder)
+                            .onChange(of: code) { code = code.uppercased() }
+                        if !code.isEmpty && !PortfolioTheme.isValidCode(code) {
+                            Text("Code must match ^[A-Z][A-Z0-9_]{1,30}$")
+                                .foregroundColor(.red)
+                        }
                     } else {
                         Text("Code: \(theme.code)")
                     }
@@ -63,9 +70,16 @@ struct PortfolioThemeDetailView: View {
                 Button("Save") {
                     var updated = theme
                     if isNew {
-                        updated = PortfolioTheme(id: 0, name: name, code: code.uppercased(), statusId: statusId, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
+                        updated = PortfolioTheme(id: 0,
+                                                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                 code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                                                 statusId: statusId,
+                                                 createdAt: "",
+                                                 updatedAt: "",
+                                                 archivedAt: nil,
+                                                 softDelete: false)
                     } else {
-                        updated.name = name
+                        updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         updated.statusId = statusId
                     }
                     onSave(updated)
@@ -85,8 +99,8 @@ struct PortfolioThemeDetailView: View {
     }
 
     private var valid: Bool {
-        let nameOk = PortfolioTheme.isValidName(name)
-        let codeOk = isNew ? PortfolioTheme.isValidCode(code.uppercased()) : true
+        let nameOk = PortfolioTheme.isValidName(name.trimmingCharacters(in: .whitespacesAndNewlines))
+        let codeOk = isNew ? PortfolioTheme.isValidCode(code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()) : true
         return nameOk && codeOk
     }
 }

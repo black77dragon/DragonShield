@@ -16,11 +16,13 @@ struct PortfolioTheme: Identifiable {
     var softDelete: Bool
 
     static func isValidName(_ name: String) -> Bool {
-        return !name.isEmpty && name.count <= 64
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.count <= 64
     }
 
     static func isValidCode(_ code: String) -> Bool {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         let pattern = "^[A-Z][A-Z0-9_]{1,30}$"
-        return code.range(of: pattern, options: .regularExpression) != nil
+        return trimmed.range(of: pattern, options: .regularExpression) != nil
     }
 }

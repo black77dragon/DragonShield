@@ -48,8 +48,8 @@ struct PortfolioThemesListView: View {
             HStack {
                 Button("+ New Theme") {
                     let defaultStatus = dbManager.fetchPortfolioThemeStatuses().first { $0.isDefault }?.id ?? 0
-                    editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
                     isNew = true
+                    editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
                 }
                 Spacer()
             }.padding()
