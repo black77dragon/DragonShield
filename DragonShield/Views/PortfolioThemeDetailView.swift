@@ -27,7 +27,7 @@ struct PortfolioThemeDetailView: View {
     @State private var addInstrumentId: Int = 0
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
-    @State private var showMissingAlert = false
+    @State private var alertItem: AlertItem?
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -79,8 +79,8 @@ struct PortfolioThemeDetailView: View {
         .frame(minWidth: 620, minHeight: 420)
         .onAppear(perform: loadTheme)
         .sheet(isPresented: $showAdd) { addSheet }
-        .alert("This theme is no longer available.", isPresented: $showMissingAlert) {
-            Button("OK") { dismiss() }
+        .alert(item: $alertItem) { item in
+            Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
         }
     }
 
@@ -139,10 +139,14 @@ struct PortfolioThemeDetailView: View {
             HStack {
                 Button("Add") {
                     let userPct = addUserPct == addResearchPct ? nil : addUserPct
-                    _ = dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct)
-                    showAdd = false
-                    addResearchPct = 0; addUserPct = 0
-                    loadAssets()
+                    if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct) != nil {
+                        showAdd = false
+                        addResearchPct = 0; addUserPct = 0
+                        loadAssets()
+                    } else {
+                        LoggingService.shared.log("createThemeAsset failed themeId=\(themeId) instrumentId=\(addInstrumentId)", logger: .ui)
+                        alertItem = AlertItem(title: "Error", message: "Failed to add instrument to theme.", action: nil)
+                    }
                 }
                 Button("Cancel") { showAdd = false }
             }
@@ -158,12 +162,12 @@ struct PortfolioThemeDetailView: View {
     private func loadTheme() {
         guard let fetched = dbManager.getPortfolioTheme(id: themeId) else {
             LoggingService.shared.log("open theme detail themeId=\(themeId) origin=\(origin) result=not_found", logger: .ui)
-            showMissingAlert = true
+            alertItem = AlertItem(title: "Theme Unavailable", message: "This theme is no longer available.", action: { dismiss() })
             return
         }
         if fetched.softDelete {
             LoggingService.shared.log("open theme detail themeId=\(themeId) origin=\(origin) result=soft_deleted", logger: .ui)
-            showMissingAlert = true
+            alertItem = AlertItem(title: "Theme Unavailable", message: "This theme is no longer available.", action: { dismiss() })
             return
         }
         theme = fetched
@@ -193,18 +197,39 @@ struct PortfolioThemeDetailView: View {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         current.name = trimmed
         current.statusId = statusId
-        _ = dbManager.updatePortfolioTheme(id: current.id, name: current.name, statusId: current.statusId, archivedAt: current.archivedAt)
-        onSave(current)
-        dismiss()
+        if dbManager.updatePortfolioTheme(id: current.id, name: current.name, statusId: current.statusId, archivedAt: current.archivedAt) {
+            onSave(current)
+            dismiss()
+        } else {
+            LoggingService.shared.log("updatePortfolioTheme failed id=\(current.id)", logger: .ui)
+            alertItem = AlertItem(title: "Error", message: "Failed to save theme.", action: nil)
+        }
     }
 
     private func save(_ asset: PortfolioThemeAsset) {
-        _ = dbManager.updateThemeAsset(themeId: themeId, instrumentId: asset.instrumentId, researchPct: asset.researchTargetPct, userPct: asset.userTargetPct, notes: asset.notes)
-        loadAssets()
+        if dbManager.updateThemeAsset(themeId: themeId, instrumentId: asset.instrumentId, researchPct: asset.researchTargetPct, userPct: asset.userTargetPct, notes: asset.notes) != nil {
+            loadAssets()
+        } else {
+            LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
+            alertItem = AlertItem(title: "Error", message: "Failed to save changes.", action: nil)
+        }
     }
 
-    private func remove(_ asset: PortfolioThemeAsset) {
-        _ = dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId)
+private func remove(_ asset: PortfolioThemeAsset) {
+    if dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId) {
         loadAssets()
+    } else {
+        LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
+        alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
+    }
+}
+}
+
+extension PortfolioThemeDetailView {
+    struct AlertItem: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let action: (() -> Void)?
     }
 }
