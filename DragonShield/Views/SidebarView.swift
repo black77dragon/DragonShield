@@ -32,7 +32,9 @@ struct SidebarView: View {
 
                 NavigationLink(destination: PerformanceView()) {
                     Label("Performance", systemImage: "chart.bar.fill")
+                        .foregroundColor(.gray)
                 }
+                .disabled(true)
             }
 
             DisclosureGroup("Management", isExpanded: $showManagement) {
@@ -42,10 +44,16 @@ struct SidebarView: View {
 
                 NavigationLink(destination: RebalancingView()) {
                     Label("Rebalancing", systemImage: "arrow.left.arrow.right")
+                        .foregroundColor(.gray)
                 }
+                .disabled(true)
 
                 NavigationLink(destination: ToDoKanbanView()) {
                     Label("To-Do Board", systemImage: "checklist")
+                }
+
+                NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
+                    Label("Portfolio Themes", systemImage: "list.bullet")
                 }
             }
 
