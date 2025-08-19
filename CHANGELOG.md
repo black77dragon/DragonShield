@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Persist newly created Portfolio Themes and refine theme editor layout
+- Add PortfolioTheme entity with CRUD UI and migration 010
+- Show Portfolio Themes navigation unconditionally in sidebar
+- Disable Performance and Rebalancing links in sidebar
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
 - Expose health check summary and toggle in Settings with link to detailed report
 - Show executed health checks with detailed results in dedicated window and verify database file presence
