@@ -67,9 +67,7 @@ struct PortfolioThemesListView: View {
         .sheet(item: $editing, onDismiss: load) { theme in
             PortfolioThemeDetailView(theme: theme, isNew: isNew) { updated in
                 if isNew {
-                    if let created = dbManager.createPortfolioTheme(name: updated.name, code: updated.code, statusId: updated.statusId) {
-                        themes.append(created)
-                    } else {
+                    if dbManager.createPortfolioTheme(name: updated.name, code: updated.code, statusId: updated.statusId) == nil {
                         errorMessage = "Failed to create theme"
                         showErrorAlert = true
                     }
