@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Clarify PortfolioThemeStatus scope, color code validation, and default handling in portfolio module docs
 - Introduce PortfolioThemeStatus table with default statuses and basic management UI
 - Fix SQLITE_TRANSIENT compile error in PortfolioThemeStatus database helpers
+- Wrap PortfolioThemeStatus insert/update operations in transactions and log sqlite3_exec errors to preserve default integrity
 - Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view

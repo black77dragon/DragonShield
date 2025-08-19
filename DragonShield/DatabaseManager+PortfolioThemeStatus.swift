@@ -28,9 +28,28 @@ extension DatabaseManager {
     }
 
     func insertPortfolioThemeStatus(code: String, name: String, colorHex: String, isDefault: Bool) -> Bool {
-        if isDefault {
-            sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
+        let beginRc = sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil)
+        guard beginRc == SQLITE_OK else {
+            LoggingService.shared.log("BEGIN insertPortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
         }
+
+        var success = false
+        defer {
+            let endRc = sqlite3_exec(db, success ? "COMMIT" : "ROLLBACK", nil, nil, nil)
+            if endRc != SQLITE_OK {
+                LoggingService.shared.log("Transaction \(success ? "COMMIT" : "ROLLBACK") failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        }
+
+        if isDefault {
+            let rc = sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
+            if rc != SQLITE_OK {
+                LoggingService.shared.log("Failed to clear existing default: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                return false
+            }
+        }
+
         let sql = "INSERT INTO PortfolioThemeStatus (code, name, color_hex, is_default) VALUES (?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -45,6 +64,7 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 4, isDefault ? 1 : 0)
         if sqlite3_step(stmt) == SQLITE_DONE {
             LoggingService.shared.log("Inserted theme status \(code)", type: .info, logger: .database)
+            success = true
             return true
         } else {
             LoggingService.shared.log("Insert theme status failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -53,9 +73,28 @@ extension DatabaseManager {
     }
 
     func updatePortfolioThemeStatus(id: Int, name: String, colorHex: String, isDefault: Bool) -> Bool {
-        if isDefault {
-            sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
+        let beginRc = sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil)
+        guard beginRc == SQLITE_OK else {
+            LoggingService.shared.log("BEGIN updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
         }
+
+        var success = false
+        defer {
+            let endRc = sqlite3_exec(db, success ? "COMMIT" : "ROLLBACK", nil, nil, nil)
+            if endRc != SQLITE_OK {
+                LoggingService.shared.log("Transaction \(success ? "COMMIT" : "ROLLBACK") failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        }
+
+        if isDefault {
+            let rc = sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
+            if rc != SQLITE_OK {
+                LoggingService.shared.log("Failed to clear existing default: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                return false
+            }
+        }
+
         let sql = "UPDATE PortfolioThemeStatus SET name = ?, color_hex = ?, is_default = ? WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -70,6 +109,7 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 4, Int32(id))
         if sqlite3_step(stmt) == SQLITE_DONE {
             LoggingService.shared.log("Updated theme status id=\(id)", type: .info, logger: .database)
+            success = true
             return true
         } else {
             LoggingService.shared.log("Update theme status failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
