@@ -24,17 +24,22 @@ extension DatabaseManager {
     private func themeEditable(themeId: Int) -> Bool {
         let sql = "SELECT archived_at, soft_delete FROM PortfolioTheme WHERE id = ?"
         var stmt: OpaquePointer?
-        var ok = false
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_int(stmt, 1, Int32(themeId))
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                let archived = sqlite3_column_text(stmt, 0)
-                let softDelete = sqlite3_column_int(stmt, 1) == 1
-                ok = archived == nil && !softDelete
-            }
+        defer { sqlite3_finalize(stmt) }
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare themeEditable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
         }
-        sqlite3_finalize(stmt)
-        return ok
+
+        sqlite3_bind_int(stmt, 1, Int32(themeId))
+
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            let archived = sqlite3_column_text(stmt, 0)
+            let softDelete = sqlite3_column_int(stmt, 1) == 1
+            return archived == nil && !softDelete
+        }
+
+        return false
     }
 
     private func instrumentExists(_ instrumentId: Int) -> Bool {
