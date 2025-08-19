@@ -17,18 +17,20 @@ struct PortfolioThemesListView: View {
     @State private var selectedThemeId: PortfolioTheme.ID?
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
+    @State private var navigateThemeId: Int?
 
     // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
 
     var body: some View {
-        VStack {
-            themesTable // The Table view, now correctly defined
-            
-            HStack {
-                Button(action: { showingAddSheet = true }) {
-                    Label("Add Theme", systemImage: "plus")
-                }
+        NavigationStack {
+            VStack {
+                themesTable // The Table view, now correctly defined
+
+                HStack {
+                    Button(action: { showingAddSheet = true }) {
+                        Label("Add Theme", systemImage: "plus")
+                    }
 
                 Button(action: {
                     if let selectedId = selectedThemeId {
@@ -47,8 +49,15 @@ struct PortfolioThemesListView: View {
                     Label("Delete Theme", systemImage: "trash")
                 }
                 .disabled(selectedThemeId == nil)
+                }
+                .padding()
             }
-            .padding()
+            .navigationDestination(isPresented: Binding(get: { navigateThemeId != nil }, set: { if !$0 { navigateThemeId = nil } })) {
+                if let id = navigateThemeId {
+                    PortfolioThemeDetailView(themeId: id, origin: "themesList")
+                        .environmentObject(dbManager)
+                }
+            }
         }
         .navigationTitle("Portfolio Themes")
         .onAppear(perform: loadData)
@@ -68,14 +77,24 @@ struct PortfolioThemesListView: View {
         Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name)
             TableColumn("Code", value: \.code)
-            
-            // CORRECTED: Use `sortUsing` to make a custom column sortable.
-            // This makes the header clickable and associates it with the `statusId` keypath.
+
             TableColumn("Status", sortUsing: KeyPathComparator(\.statusId)) { theme in
                 Text(statusName(for: theme.statusId))
             }
-            
+
             TableColumn("Last Updated", value: \.updatedAt)
+
+            TableColumn("", content: { theme in
+                Button {
+                    open(theme)
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.plain)
+                .help("Open Theme Details")
+                .accessibilityLabel("Open details for \(theme.name)")
+            })
+            .width(30)
         }
         .onChange(of: sortOrder) { newOrder in
             // This custom logic sorts the table correctly when any header is clicked
@@ -97,6 +116,11 @@ struct PortfolioThemesListView: View {
                 themes.sort(using: newOrder)
             }
         }
+        .onDoubleClick { openSelected() }
+        .onKeyPress(.return) { _ in openSelected(); return .handled }
+        .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
+            Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
+        }
     }
     
     private func loadData() {
@@ -117,5 +141,15 @@ struct PortfolioThemesListView: View {
         } else {
             print("Error: Failed to delete theme with ID \(theme.id)")
         }
+    }
+
+    private func openSelected() {
+        if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
+            open(theme)
+        }
+    }
+
+    private func open(_ theme: PortfolioTheme) {
+        navigateThemeId = theme.id
     }
 }

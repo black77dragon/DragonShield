@@ -122,7 +122,7 @@ extension DatabaseManager {
     }
 
     func getPortfolioTheme(id: Int) -> PortfolioTheme? {
-        let sql = "SELECT id,name,code,status_id,created_at,updated_at,archived_at,soft_delete FROM PortfolioTheme WHERE id = ?"
+        let sql = "SELECT id,name,code,status_id,created_at,updated_at,archived_at,soft_delete FROM PortfolioTheme WHERE id = ? AND soft_delete = 0"
         var stmt: OpaquePointer?
         var theme: PortfolioTheme?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
