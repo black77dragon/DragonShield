@@ -1,46 +1,38 @@
+// DragonShield/Views/AddPortfolioThemeView.swift
+
 import SwiftUI
 
 struct AddPortfolioThemeView: View {
+    // Environment and Bindings
+    @EnvironmentObject var dbManager: DatabaseManager
     @Binding var isPresented: Bool
-    @ObservedObject var dbManager: DatabaseManager
+    var onSave: () -> Void // Callback to reload the list view
 
-    // Internal state for the form, ensuring it's fresh every time.
+    // Form State
     @State private var name: String = ""
     @State private var code: String = ""
-    @State private var description: String = ""
-    @State private var statusId: Int64
-    
+    @State private var statusId: Int = 0 // Use Int, not Int64
+    @State private var statuses: [PortfolioThemeStatus] = []
     @State private var errorMessage: String?
-
-    // Initialize with a default status from the database
-    init(isPresented: Binding<Bool>, dbManager: DatabaseManager) {
-        self._isPresented = isPresented
-        self.dbManager = dbManager
-        // Set initial state for the statusId, defaulting to the first available status
-        self._statusId = State(initialValue: dbManager.portfolioThemeStatuses.first?.id ?? 1)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // 1. Header
             Text("Add New Portfolio Theme")
                 .font(.title2)
                 .fontWeight(.medium)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(Color(.windowBackgroundColor)) // Adapts to light/dark mode
+                .background(Color(.windowBackgroundColor))
 
             Divider()
 
-            // 2. Form for data entry
             Form {
                 Section {
                     TextField("Name*", text: $name)
                     TextField("Code*", text: $code)
-                    TextField("Description (Optional)", text: $description)
                     
                     Picker("Status", selection: $statusId) {
-                        ForEach(dbManager.portfolioThemeStatuses) { status in
+                        ForEach(statuses) { status in
                             Text(status.name).tag(status.id)
                         }
                     }
@@ -48,7 +40,6 @@ struct AddPortfolioThemeView: View {
             }
             .padding()
 
-            // 3. Error Message Area
             if let errorMessage = errorMessage {
                 Text(errorMessage)
                     .foregroundColor(.red)
@@ -56,8 +47,7 @@ struct AddPortfolioThemeView: View {
             }
 
             Divider()
-            
-            // 4. Action Buttons
+
             HStack {
                 Spacer()
                 Button("Cancel") {
@@ -73,33 +63,34 @@ struct AddPortfolioThemeView: View {
             }
             .padding()
         }
-        .frame(minWidth: 450, idealWidth: 500, minHeight: 320, idealHeight: 350)
+        .frame(minWidth: 450, idealWidth: 500, minHeight: 280, idealHeight: 300)
+        .onAppear(perform: loadInitialData)
+    }
+
+    private func loadInitialData() {
+        self.statuses = dbManager.fetchPortfolioThemeStatuses()
+        // Default to the first status if available
+        if let firstStatus = self.statuses.first {
+            self.statusId = firstStatus.id
+        }
     }
 
     private func saveTheme() {
-        // Validate required fields
-        guard !name.trimmingCharacters(in: .whitespaces).isEmpty,
-              !code.trimmingCharacters(in: .whitespaces).isEmpty else {
-            errorMessage = "Please fill in all required fields (*)."
-            return
-        }
-        
         errorMessage = nil // Clear previous errors
 
-        let newTheme = PortfolioTheme(
-            id: 0, // Database will assign the ID
-            name: name,
-            code: code,
-            description: description.isEmpty ? nil : description,
-            statusId: statusId
+        // The create method returns an optional PortfolioTheme, so we check for nil
+        let newTheme = dbManager.createPortfolioTheme(
+            name: self.name,
+            code: self.code,
+            statusId: self.statusId
         )
 
-        do {
-            try dbManager.addPortfolioTheme(theme: newTheme)
-            isPresented = false // Dismiss sheet on success
-        } catch {
-            errorMessage = "Failed to save theme: \(error.localizedDescription)"
-            print("Error saving theme: \(error)")
+        if newTheme != nil {
+            onSave() // Trigger the reload in the parent view
+            isPresented = false // Dismiss on success
+        } else {
+            errorMessage = "Failed to save the theme to the database."
+            print("Error: dbManager.createPortfolioTheme returned nil.")
         }
     }
 }
