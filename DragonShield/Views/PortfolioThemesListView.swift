@@ -1,97 +1,96 @@
 // DragonShield/Views/PortfolioThemesListView.swift
-// MARK: - Version 2.0
+// MARK: - Version 2.1
 // MARK: - History
-// - Refactored to correctly manage state and data fetching.
-// - Separated Add/Edit logic into dedicated views.
-// - Fixed all compilation and runtime errors.
+// - Replaced List with Table for proper column display.
+// - Implemented a functional Edit sheet.
+// - Added Status column and data loading.
 
 import SwiftUI
 
 struct PortfolioThemesListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     
-    // Local state for the themes displayed in this view
+    // Local state for the data displayed in this view
     @State private var themes: [PortfolioTheme] = []
-    @State private var selectedTheme: PortfolioTheme?
+    @State private var statuses: [PortfolioThemeStatus] = []
     
-    // State for sheet presentation
+    // State for selection and launching sheets
+    @State private var selectedThemeId: PortfolioTheme.ID?
+    @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
-    @State private var showingEditSheet = false
 
     var body: some View {
         VStack {
-            List(themes, id: \.self, selection: $selectedTheme) { theme in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(theme.name).font(.headline)
-                        Text(theme.code).font(.subheadline).foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    // You can add more details here if needed
+            // Use a Table for a clean, column-based layout with headers
+            Table(themes, selection: $selectedThemeId) {
+                TableColumn("Name", value: \.name)
+                TableColumn("Code", value: \.code)
+                
+                // Add the Status column by looking up the status name
+                TableColumn("Status") { theme in
+                    Text(statusName(for: theme.statusId))
                 }
-                .padding(.vertical, 4)
-                .tag(theme)
+                
+                TableColumn("Last Updated", value: \.updatedAt)
             }
             
             HStack {
-                Button(action: {
-                    showingAddSheet = true
-                }) {
+                Button(action: { showingAddSheet = true }) {
                     Label("Add Theme", systemImage: "plus")
                 }
 
                 Button(action: {
-                    if selectedTheme != nil {
-                        showingEditSheet = true
+                    // Find the selected theme and set it to trigger the edit sheet
+                    if let selectedId = selectedThemeId {
+                        themeToEdit = themes.first { $0.id == selectedId }
                     }
                 }) {
                     Label("Edit Theme", systemImage: "pencil")
                 }
-                .disabled(selectedTheme == nil)
+                .disabled(selectedThemeId == nil)
 
                 Button(action: {
-                    if let themeToDelete = selectedTheme {
-                        deleteTheme(themeToDelete)
+                    if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
+                        deleteTheme(theme)
                     }
                 }) {
                     Label("Delete Theme", systemImage: "trash")
                 }
-                .disabled(selectedTheme == nil)
+                .disabled(selectedThemeId == nil)
             }
             .padding()
         }
         .navigationTitle("Portfolio Themes")
-        .onAppear(perform: loadThemes)
-        .sheet(isPresented: $showingAddSheet) {
-            AddPortfolioThemeView(isPresented: $showingAddSheet, onSave: loadThemes)
+        .onAppear(perform: loadData)
+        .sheet(isPresented: $showingAddSheet, onDismiss: loadData) {
+            AddPortfolioThemeView(isPresented: $showingAddSheet, onSave: {})
                 .environmentObject(dbManager)
         }
-        .sheet(isPresented: $showingEditSheet) {
-            // Placeholder for a future EditPortfolioThemeView
-            if let themeToEdit = selectedTheme {
-                Text("Editing \(themeToEdit.name)")
-                // Pass the theme, a binding, and the reload callback
-                // EditPortfolioThemeView(theme: themeToEdit, isPresented: $showingEditSheet, onSave: loadThemes)
-                //     .environmentObject(dbManager)
-            }
+        // Use .sheet(item:) to present the edit view when `themeToEdit` is not nil
+        .sheet(item: $themeToEdit) { theme in
+            EditPortfolioThemeView(theme: theme, onSave: loadData)
+                .environmentObject(dbManager)
         }
     }
 
-    /// Fetches themes from the database and updates the local state.
-    private func loadThemes() {
-        // Fetches all themes, including archived but not soft-deleted ones.
-        // Adjust the parameters as needed for your business logic.
+    /// Fetches all necessary data from the database.
+    private func loadData() {
+        self.statuses = dbManager.fetchPortfolioThemeStatuses()
         self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
     }
 
-    /// Soft-deletes the selected theme and reloads the list.
+    /// Finds the name for a given status ID.
+    private func statusName(for id: Int) -> String {
+        return statuses.first { $0.id == id }?.name ?? "N/A"
+    }
+    
+    /// Deletes the selected theme and reloads the table.
     private func deleteTheme(_ theme: PortfolioTheme) {
         if dbManager.softDeletePortfolioTheme(id: theme.id) {
-            selectedTheme = nil // Deselect after deletion
-            loadThemes() // Refresh the list from the database
+            selectedThemeId = nil
+            loadData()
         } else {
-            // Optionally, show an error alert to the user
-            print("Error: Failed to soft-delete theme with ID \(theme.id)")
+            print("Error: Failed to delete theme with ID \(theme.id)")
         }
     }
 }
