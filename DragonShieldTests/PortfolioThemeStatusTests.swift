@@ -7,4 +7,15 @@ final class PortfolioThemeStatusTests: XCTestCase {
         XCTAssertFalse(PortfolioThemeStatus.isValidColor("#1234"))
         XCTAssertFalse(PortfolioThemeStatus.isValidColor("blue"))
     }
+
+    func testCodeValidation() {
+        XCTAssertTrue(PortfolioThemeStatus.isValidCode("VALID1"))
+        XCTAssertFalse(PortfolioThemeStatus.isValidCode("invalid"))
+    }
+
+    func testNameValidation() {
+        XCTAssertTrue(PortfolioThemeStatus.isValidName("Valid Name"))
+        XCTAssertFalse(PortfolioThemeStatus.isValidName(""))
+        XCTAssertFalse(PortfolioThemeStatus.isValidName(String(repeating: "a", count: 65)))
+    }
 }

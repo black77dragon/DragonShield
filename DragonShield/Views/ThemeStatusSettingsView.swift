@@ -10,6 +10,8 @@ struct ThemeStatusSettingsView: View {
     @State private var statuses: [PortfolioThemeStatus] = []
     @State private var editing: PortfolioThemeStatus?
     @State private var isNew: Bool = false
+    @State private var showErrorAlert: Bool = false
+    @State private var errorMessage: String = ""
 
     var body: some View {
         VStack {
@@ -42,12 +44,22 @@ struct ThemeStatusSettingsView: View {
         .onAppear(perform: load)
         .sheet(item: $editing, onDismiss: load) { status in
             ThemeStatusEditView(status: status, isNew: isNew) { updated in
+                let ok: Bool
                 if isNew {
-                    _ = dbManager.insertPortfolioThemeStatus(code: updated.code, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault)
+                    ok = dbManager.insertPortfolioThemeStatus(code: updated.code, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault)
                 } else {
-                    _ = dbManager.updatePortfolioThemeStatus(id: updated.id, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault)
+                    ok = dbManager.updatePortfolioThemeStatus(id: updated.id, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault)
+                }
+                if !ok {
+                    errorMessage = "Failed to save theme status"
+                    showErrorAlert = true
                 }
             }
+        }
+        .alert("Database Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
         }
     }
 
@@ -80,12 +92,17 @@ struct ThemeStatusEditView: View {
             HStack {
                 Spacer()
                 Button("Save") {
-                    var updated = status
-                    updated.name = name
-                    updated.colorHex = color
-                    updated.isDefault = isDefault
-                    if isNew { updated = PortfolioThemeStatus(id: status.id, code: code.uppercased(), name: name, colorHex: color, isDefault: isDefault) }
-                    onSave(updated)
+                    let updatedStatus: PortfolioThemeStatus
+                    if isNew {
+                        updatedStatus = PortfolioThemeStatus(id: 0, code: code.uppercased(), name: name, colorHex: color, isDefault: isDefault)
+                    } else {
+                        var updated = status
+                        updated.name = name
+                        updated.colorHex = color
+                        updated.isDefault = isDefault
+                        updatedStatus = updated
+                    }
+                    onSave(updatedStatus)
                     dismiss()
                 }
                 .disabled(!valid)

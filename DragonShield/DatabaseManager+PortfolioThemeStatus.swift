@@ -158,8 +158,12 @@ extension DatabaseManager {
         }
         sqlite3_finalize(stmt)
         if count == 0 {
-            sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 1 WHERE code = 'DRAFT'", nil, nil, nil)
-            LoggingService.shared.log("Default theme status was missing and restored to Draft", type: .error, logger: .database)
+            let rc = sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 1 WHERE code = 'DRAFT'", nil, nil, nil)
+            if rc == SQLITE_OK {
+                LoggingService.shared.log("Default theme status was missing and restored to Draft", type: .warning, logger: .database)
+            } else {
+                LoggingService.shared.log("Failed to restore default theme status: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
         }
     }
 }
