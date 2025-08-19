@@ -20,6 +20,12 @@ All notable changes to this project will be documented in this file.
 - Consolidate UI concept notes into the main UI/UX design guide
 - Replace Database Management & Backups section with link to consolidated database documentation
 - Clarify PortfolioThemeStatus scope, color code validation, and default handling in portfolio module docs
+- Introduce PortfolioThemeStatus table with default statuses and basic management UI
+- Fix SQLITE_TRANSIENT compile error in PortfolioThemeStatus database helpers
+- Wrap PortfolioThemeStatus insert/update operations in transactions and log sqlite3_exec errors to preserve default integrity
+- Harden PortfolioThemeStatus update transaction to rollback on commit failure
+- Surface Theme Status save failures and handle default restoration errors
+- Log default restoration as info to match OSLog levels
 - Add search bar to Positions view to filter positions across all fields
 - Disable Generate Full Instrument Report button with hover notice in Database Management view
 - Expand Backup & Restore log by default in Database Management view

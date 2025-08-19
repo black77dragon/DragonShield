@@ -88,6 +88,7 @@ class DatabaseManager: ObservableObject {
         }
         
         openDatabase()
+        ensurePortfolioThemeStatusDefault()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
