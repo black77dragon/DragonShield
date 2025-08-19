@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add PortfolioTheme entity with CRUD UI and migration 010
+- Gate Portfolio Themes navigation behind feature flag
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
 - Expose health check summary and toggle in Settings with link to detailed report
 - Show executed health checks with detailed results in dedicated window and verify database file presence
