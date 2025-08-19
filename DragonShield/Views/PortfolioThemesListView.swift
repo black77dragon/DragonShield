@@ -1,9 +1,8 @@
 // DragonShield/Views/PortfolioThemesListView.swift
-// MARK: - Version 2.1
+// MARK: - Version 2.2
 // MARK: - History
-// - Replaced List with Table for proper column display.
-// - Implemented a functional Edit sheet.
-// - Added Status column and data loading.
+// - Implemented column sorting for the table.
+// - Fixed bug where the view would not refresh after editing a theme.
 
 import SwiftUI
 
@@ -19,19 +18,26 @@ struct PortfolioThemesListView: View {
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
 
+    // State to manage the table's sort order
+    @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
+
     var body: some View {
         VStack {
-            // Use a Table for a clean, column-based layout with headers
-            Table(themes, selection: $selectedThemeId) {
+            // Use a sortable Table by binding it to the `sortOrder` state
+            Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
                 TableColumn("Name", value: \.name)
                 TableColumn("Code", value: \.code)
                 
-                // Add the Status column by looking up the status name
-                TableColumn("Status") { theme in
+                // Make the Status column sortable by its name
+                TableColumn("Status", comparator: KeyPathComparator(\.statusId)) { theme in
                     Text(statusName(for: theme.statusId))
                 }
                 
                 TableColumn("Last Updated", value: \.updatedAt)
+            }
+            // This modifier detects clicks on column headers and applies the sort
+            .onChange(of: sortOrder) { newOrder in
+                themes.sort(using: newOrder)
             }
             
             HStack {
@@ -40,7 +46,6 @@ struct PortfolioThemesListView: View {
                 }
 
                 Button(action: {
-                    // Find the selected theme and set it to trigger the edit sheet
                     if let selectedId = selectedThemeId {
                         themeToEdit = themes.first { $0.id == selectedId }
                     }
@@ -63,20 +68,23 @@ struct PortfolioThemesListView: View {
         .navigationTitle("Portfolio Themes")
         .onAppear(perform: loadData)
         .sheet(isPresented: $showingAddSheet, onDismiss: loadData) {
+            // onDismiss here ensures the list reloads after adding a new theme
             AddPortfolioThemeView(isPresented: $showingAddSheet, onSave: {})
                 .environmentObject(dbManager)
         }
-        // Use .sheet(item:) to present the edit view when `themeToEdit` is not nil
-        .sheet(item: $themeToEdit) { theme in
-            EditPortfolioThemeView(theme: theme, onSave: loadData)
+        // Add onDismiss to the edit sheet to ensure it reloads data on close
+        .sheet(item: $themeToEdit, onDismiss: loadData) { theme in
+            EditPortfolioThemeView(theme: theme, onSave: {})
                 .environmentObject(dbManager)
         }
     }
 
-    /// Fetches all necessary data from the database.
+    /// Fetches and sorts all necessary data from the database.
     private func loadData() {
         self.statuses = dbManager.fetchPortfolioThemeStatuses()
         self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
+        // Apply the current sort order to the newly fetched data
+        self.themes.sort(using: self.sortOrder)
     }
 
     /// Finds the name for a given status ID.
