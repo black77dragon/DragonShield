@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix Portfolio Theme creation to persist records and improve theme editor layout
 - Add PortfolioTheme entity with CRUD UI and migration 010
 - Show Portfolio Themes navigation unconditionally in sidebar
 - Disable Performance and Rebalancing links in sidebar

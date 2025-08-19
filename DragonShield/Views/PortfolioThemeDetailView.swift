@@ -9,7 +9,7 @@ struct PortfolioThemeDetailView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @State var theme: PortfolioTheme
     let isNew: Bool
-    var onSave: (PortfolioTheme) -> Void
+    var onSave: (PortfolioTheme) -> Bool
     var onArchive: () -> Void
     var onUnarchive: (Int) -> Void
     var onSoftDelete: () -> Void
@@ -19,37 +19,45 @@ struct PortfolioThemeDetailView: View {
     @State private var code: String = ""
     @State private var statusId: Int = 0
     @State private var statuses: [PortfolioThemeStatus] = []
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     var body: some View {
-        Form {
-            TextField("Name", text: $name)
-            if isNew {
-                TextField("Code", text: $code)
-            } else {
-                Text("Code: \(theme.code)")
-            }
-            Picker("Status", selection: $statusId) {
-                ForEach(statuses) { status in
-                    Text(status.name).tag(status.id)
-                }
-            }
-            Text("Archived at: \(theme.archivedAt ?? "—")")
-            if !isNew {
-                Section("Danger Zone") {
-                    if theme.archivedAt == nil {
-                        Button("Archive Theme") {
-                            onArchive()
-                            dismiss()
-                        }
+        VStack {
+            Form {
+                Section {
+                    TextField("Name", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                    if isNew {
+                        TextField("Code", text: $code)
+                            .textFieldStyle(.roundedBorder)
                     } else {
-                        Button("Unarchive") {
-                            let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
-                            onUnarchive(defaultStatus)
-                            dismiss()
+                        Text("Code: \(theme.code)")
+                    }
+                    Picker("Status", selection: $statusId) {
+                        ForEach(statuses) { status in
+                            Text(status.name).tag(status.id)
                         }
-                        Button("Soft Delete") {
-                            onSoftDelete()
-                            dismiss()
+                    }
+                    Text("Archived at: \(theme.archivedAt ?? "—")")
+                }
+                if !isNew {
+                    Section("Danger Zone") {
+                        if theme.archivedAt == nil {
+                            Button("Archive Theme") {
+                                onArchive()
+                                dismiss()
+                            }
+                        } else {
+                            Button("Unarchive") {
+                                let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
+                                onUnarchive(defaultStatus)
+                                dismiss()
+                            }
+                            Button("Soft Delete") {
+                                onSoftDelete()
+                                dismiss()
+                            }
                         }
                     }
                 }
@@ -64,18 +72,29 @@ struct PortfolioThemeDetailView: View {
                         updated.name = name
                         updated.statusId = statusId
                     }
-                    onSave(updated)
-                    dismiss()
-                }.disabled(!valid)
+                    if onSave(updated) {
+                        dismiss()
+                    } else {
+                        errorMessage = "Failed to save theme"
+                        showErrorAlert = true
+                    }
+                }
+                .disabled(!valid)
                 Button("Cancel") { dismiss() }
             }
+            .padding()
         }
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 500, minHeight: 400)
         .onAppear {
             statuses = dbManager.fetchPortfolioThemeStatuses()
             name = theme.name
             code = theme.code
             statusId = theme.statusId
+        }
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
         }
     }
 

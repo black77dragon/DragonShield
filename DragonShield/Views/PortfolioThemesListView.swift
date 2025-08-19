@@ -47,8 +47,12 @@ struct PortfolioThemesListView: View {
             }
             HStack {
                 Button("+ New Theme") {
-                    let defaultStatus = dbManager.fetchPortfolioThemeStatuses().first { $0.isDefault }?.id ?? 0
-                    editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
+                    guard let defaultStatus = dbManager.fetchPortfolioThemeStatuses().first(where: { $0.isDefault }) else {
+                        errorMessage = "No default Theme Status found"
+                        showErrorAlert = true
+                        return
+                    }
+                    editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus.id, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
                     isNew = true
                 }
                 Spacer()
@@ -59,9 +63,9 @@ struct PortfolioThemesListView: View {
         .sheet(item: $editing, onDismiss: load) { theme in
             PortfolioThemeDetailView(theme: theme, isNew: isNew) { updated in
                 if isNew {
-                    _ = dbManager.createPortfolioTheme(name: updated.name, code: updated.code, statusId: updated.statusId)
+                    return dbManager.createPortfolioTheme(name: updated.name, code: updated.code, statusId: updated.statusId) != nil
                 } else {
-                    _ = dbManager.updatePortfolioTheme(id: updated.id, name: updated.name, statusId: updated.statusId, archivedAt: updated.archivedAt)
+                    return dbManager.updatePortfolioTheme(id: updated.id, name: updated.name, statusId: updated.statusId, archivedAt: updated.archivedAt)
                 }
             } onArchive: {
                 _ = dbManager.archivePortfolioTheme(id: theme.id)
