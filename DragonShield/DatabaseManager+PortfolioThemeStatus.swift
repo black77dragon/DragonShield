@@ -79,18 +79,14 @@ extension DatabaseManager {
             return false
         }
 
-        var success = false
-        defer {
-            let endRc = sqlite3_exec(db, success ? "COMMIT" : "ROLLBACK", nil, nil, nil)
-            if endRc != SQLITE_OK {
-                LoggingService.shared.log("Transaction \(success ? "COMMIT" : "ROLLBACK") failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-            }
-        }
-
         if isDefault {
             let rc = sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
             if rc != SQLITE_OK {
                 LoggingService.shared.log("Failed to clear existing default: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                let rbRc = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
+                if rbRc != SQLITE_OK {
+                    LoggingService.shared.log("ROLLBACK after default clear failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
                 return false
             }
         }
@@ -99,22 +95,40 @@ extension DatabaseManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            let rbRc = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
+            if rbRc != SQLITE_OK {
+                LoggingService.shared.log("ROLLBACK after prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
             return false
         }
-        defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, colorHex, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 3, isDefault ? 1 : 0)
         sqlite3_bind_int(stmt, 4, Int32(id))
-        if sqlite3_step(stmt) == SQLITE_DONE {
-            LoggingService.shared.log("Updated theme status id=\(id)", type: .info, logger: .database)
-            success = true
-            return true
-        } else {
+        let stepRc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if stepRc != SQLITE_DONE {
             LoggingService.shared.log("Update theme status failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            let rbRc = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
+            if rbRc != SQLITE_OK {
+                LoggingService.shared.log("ROLLBACK after update failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
             return false
         }
+
+        let commitRc = sqlite3_exec(db, "COMMIT", nil, nil, nil)
+        if commitRc != SQLITE_OK {
+            LoggingService.shared.log("COMMIT updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            let rbRc = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
+            if rbRc != SQLITE_OK {
+                LoggingService.shared.log("ROLLBACK after COMMIT failure failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+            return false
+        }
+
+        LoggingService.shared.log("Updated theme status id=\(id)", type: .info, logger: .database)
+        return true
     }
 
     func setDefaultThemeStatus(id: Int) {
