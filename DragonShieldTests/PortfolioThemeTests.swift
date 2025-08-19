@@ -20,9 +20,24 @@ final class PortfolioThemeTests: XCTestCase {
         var memdb: OpaquePointer?
         sqlite3_open(":memory:", &memdb)
         manager.db = memdb
-        sqlite3_exec(manager.db, "CREATE TABLE PortfolioThemeStatus(id INTEGER PRIMARY KEY, code TEXT, name TEXT, is_default INTEGER);", nil, nil, nil)
-        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeStatus(id, code, name, is_default) VALUES(1,'DRAFT','Draft',1);", nil, nil, nil)
-        sqlite3_exec(manager.db, "CREATE TABLE PortfolioTheme(id INTEGER PRIMARY KEY, name TEXT, code TEXT, status_id INTEGER, created_at TEXT, updated_at TEXT, archived_at TEXT, soft_delete INTEGER);", nil, nil, nil)
+        let statusSQL = """
+        CREATE TABLE IF NOT EXISTS PortfolioThemeStatus (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE CHECK (code GLOB '[A-Z][A-Z0-9_]*'),
+            name TEXT NOT NULL UNIQUE,
+            color_hex TEXT NOT NULL CHECK (color_hex GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'),
+            is_default BOOLEAN NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_theme_status_default ON PortfolioThemeStatus(is_default) WHERE is_default = 1;
+        INSERT INTO PortfolioThemeStatus (code, name, color_hex, is_default) VALUES
+            ('DRAFT','Draft','#9AA0A6',1),
+            ('ACTIVE','Active','#34A853',0),
+            ('ARCHIVED','Archived','#B0BEC5',0);
+        """
+        sqlite3_exec(manager.db, statusSQL, nil, nil, nil)
+        manager.ensurePortfolioThemeTable()
         let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", statusId: 1)
         XCTAssertNotNil(theme)
         let fetched = manager.fetchPortfolioThemes()
