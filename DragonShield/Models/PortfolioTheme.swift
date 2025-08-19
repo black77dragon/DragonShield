@@ -1,32 +1,35 @@
 // DragonShield/Models/PortfolioTheme.swift
 // MARK: - Version 1.1
 // MARK: - History
-// - Conformed to Hashable and Equatable for SwiftUI compatibility.
+// - Conformed to Hashable for SwiftUI List selection compatibility.
 // - Initial creation: Represents user-defined portfolio themes.
 
 import Foundation
 
-// Add Hashable conformance here
+// Add Hashable conformance
 struct PortfolioTheme: Identifiable, Hashable {
     let id: Int
     var name: String
     let code: String
+    // This property does not exist in the database table or creation method,
+    // so it should be removed from the main struct if not used elsewhere.
+    // For now, we will assume it might be used in other contexts.
+    // var description: String? 
     var statusId: Int
     var createdAt: String
     var updatedAt: String
     var archivedAt: String?
     var softDelete: Bool
 
-    // Add Equatable conformance (required for Hashable)
+    // Required for Hashable
     static func == (lhs: PortfolioTheme, rhs: PortfolioTheme) -> Bool {
-        return lhs.id == rhs.id
+        lhs.id == rhs.id
     }
 
-    // Implement the hash(into:) method
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-    
+
     static func isValidName(_ name: String) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed.count <= 64
