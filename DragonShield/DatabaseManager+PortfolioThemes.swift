@@ -26,7 +26,7 @@ extension DatabaseManager {
             LoggingService.shared.log("ensurePortfolioThemeTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
     }
-    private func defaultThemeStatusId() -> Int? {
+    func defaultThemeStatusId() -> Int? {
         let sql = "SELECT id FROM PortfolioThemeStatus WHERE is_default = 1 LIMIT 1"
         var stmt: OpaquePointer?
         var result: Int?

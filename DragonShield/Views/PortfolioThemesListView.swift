@@ -33,23 +33,31 @@ struct PortfolioThemesListView: View {
                                 load()
                             }
                         } else {
-                            Button("Unarchive") {
-                                let defaultStatus = dbManager.fetchPortfolioThemeStatuses().first { $0.isDefault }?.id ?? theme.statusId
-                                if !dbManager.unarchivePortfolioTheme(id: theme.id, statusId: defaultStatus) {
-                                    errorMessage = "Failed to unarchive theme"
-                                    showErrorAlert = true
-                                }
-                                load()
-                            }
+                Button("Unarchive") {
+                    if let defaultStatus = dbManager.defaultThemeStatusId() {
+                        if !dbManager.unarchivePortfolioTheme(id: theme.id, statusId: defaultStatus) {
+                            errorMessage = "Failed to unarchive theme"
+                            showErrorAlert = true
+                        }
+                        load()
+                    } else {
+                        errorMessage = "Cannot unarchive theme: No default status is configured."
+                        showErrorAlert = true
+                    }
+                }
                         }
                     }
                 }
             }
             HStack {
                 Button("+ New Theme") {
-                    isNew = true
-                    let defaultStatus = dbManager.fetchPortfolioThemeStatuses().first { $0.isDefault }?.id ?? 0
-                    editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
+                    if let defaultStatus = dbManager.defaultThemeStatusId() {
+                        isNew = true
+                        editing = PortfolioTheme(id: 0, name: "", code: "", statusId: defaultStatus, createdAt: "", updatedAt: "", archivedAt: nil, softDelete: false)
+                    } else {
+                        errorMessage = "Cannot create a new theme: No default status is configured."
+                        showErrorAlert = true
+                    }
                 }
                 Spacer()
             }.padding()
