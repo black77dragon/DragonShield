@@ -1,4 +1,88 @@
-// DragonShield/Views/PortfolioThemesListView.swift
+import SwiftUI
+
+struct PortfolioThemesListView: View {
+    @StateObject private var dbManager = DatabaseManager.shared
+    @State private var showingAddThemeSheet = false
+    @State private var selectedTheme: PortfolioTheme?
+    @State private var showingEditSheet = false // This can be refactored later
+
+    var body: some View {
+        VStack {
+            // The list remains largely the same
+            List(selection: $selectedTheme) {
+                ForEach(dbManager.portfolioThemes) { theme in
+                    VStack(alignment: .leading) {
+                        Text(theme.name).font(.headline)
+                        Text(theme.code).font(.subheadline).foregroundColor(.secondary)
+                        if let description = theme.description, !description.isEmpty {
+                            Text(description).font(.caption).foregroundColor(.gray)
+                        }
+                    }
+                    .tag(theme)
+                    .padding(.vertical, 4)
+                }
+            }
+            .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in } primaryAction: { items in
+                guard let themeId = items.first, let theme = dbManager.portfolioThemes.first(where: { $0.id == themeId }) else { return }
+                self.selectedTheme = theme
+                self.showingEditSheet = true
+            }
+            
+            HStack {
+                Button(action: {
+                    showingAddThemeSheet = true
+                }) {
+                    Label("Add Theme", systemImage: "plus")
+                }
+
+                Button(action: {
+                    if selectedTheme != nil {
+                        showingEditSheet = true
+                    }
+                }) {
+                    Label("Edit Theme", systemImage: "pencil")
+                }
+                .disabled(selectedTheme == nil)
+
+                Button(action: {
+                    if let themeToDelete = selectedTheme {
+                        deleteTheme(themeToDelete)
+                    }
+                }) {
+                    Label("Delete Theme", systemImage: "trash")
+                }
+                .disabled(selectedTheme == nil)
+            }
+            .padding()
+        }
+        .sheet(isPresented: $showingAddThemeSheet) {
+            // Use the new, dedicated view for the sheet content
+            AddPortfolioThemeView(isPresented: $showingAddThemeSheet, dbManager: dbManager)
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            // The edit sheet logic can be similarly refactored into its own view
+            if let themeToEdit = selectedTheme {
+                // An `EditPortfolioThemeView` would go here
+                Text("Edit View for \(themeToEdit.name)")
+            }
+        }
+        .onAppear {
+            dbManager.fetchPortfolioThemes()
+            dbManager.fetchPortfolioThemeStatuses()
+        }
+        .navigationTitle("Portfolio Themes")
+    }
+
+    private func deleteTheme(_ theme: PortfolioTheme) {
+        do {
+            try dbManager.deletePortfolioTheme(id: theme.id)
+            selectedTheme = nil // Deselect after deletion
+        } catch {
+            print("Error deleting theme: \(error.localizedDescription)")
+            // Consider showing an error alert to the user
+        }
+    }
+}// DragonShield/Views/PortfolioThemesListView.swift
 // MARK: - Version 1.0
 // MARK: - History
 // - Initial creation: List and manage PortfolioTheme records.
