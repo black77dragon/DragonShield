@@ -27,6 +27,14 @@ struct PortfolioThemesListView: View {
             VStack {
                 themesTable // The Table view, now correctly defined
 
+                // Invisible button to handle Return key opening the selected theme
+                Button(action: openSelected) {
+                    EmptyView()
+                }
+                .keyboardShortcut(.return)
+                .hidden()
+                .disabled(selectedThemeId == nil)
+
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
@@ -116,8 +124,7 @@ struct PortfolioThemesListView: View {
                 themes.sort(using: newOrder)
             }
         }
-        .onDoubleClick { openSelected() }
-        .onKeyPress(.return) { _ in openSelected(); return .handled }
+        .onTapGesture(count: 2) { openSelected() }
         .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
             Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
         }
