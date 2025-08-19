@@ -1,9 +1,8 @@
 // DragonShield/Views/PortfolioThemesListView.swift
-// MARK: - Version 2.3
+// MARK: - Version 2.4
 // MARK: - History
-// - Refactored the Table into a separate computed property to fix compiler performance issues.
-// - Implemented column sorting for the table.
-// - Fixed bug where the view would not refresh after editing a theme.
+// - Fixed compilation error by using the correct 'sortUsing' parameter for TableColumn.
+// - Implemented custom sorting logic to sort the 'Status' column alphabetically by name.
 
 import SwiftUI
 
@@ -19,15 +18,13 @@ struct PortfolioThemesListView: View {
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
 
-    // State for table sorting
+    // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
 
     var body: some View {
         VStack {
-            // The main view body is now simplified, referencing the table property below
-            themesTable
+            themesTable // The Table view, now correctly defined
             
-            // Toolbar buttons remain the same
             HStack {
                 Button(action: { showingAddSheet = true }) {
                     Label("Add Theme", systemImage: "plus")
@@ -65,27 +62,47 @@ struct PortfolioThemesListView: View {
         }
     }
 
-    // --- Helper Properties and Methods ---
+    // --- Subviews and Helper Methods ---
 
-    /// A private computed property for the Table view.
-    /// Extracting this complex view prevents the compiler from timing out.
     private var themesTable: some View {
         Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name)
             TableColumn("Code", value: \.code)
-            TableColumn("Status", comparator: KeyPathComparator(\.statusId)) { theme in
+            
+            // CORRECTED: Use `sortUsing` to make a custom column sortable.
+            // This makes the header clickable and associates it with the `statusId` keypath.
+            TableColumn("Status", sortUsing: KeyPathComparator(\.statusId)) { theme in
                 Text(statusName(for: theme.statusId))
             }
+            
             TableColumn("Last Updated", value: \.updatedAt)
         }
         .onChange(of: sortOrder) { newOrder in
-            themes.sort(using: newOrder)
+            // This custom logic sorts the table correctly when any header is clicked
+            guard let comparator = newOrder.first else { return }
+
+            if comparator.keyPath == \.statusId {
+                // If the "Status" column is clicked, sort by the status name string
+                themes.sort { lhs, rhs in
+                    let nameLHS = statusName(for: lhs.statusId)
+                    let nameRHS = statusName(for: rhs.statusId)
+                    if comparator.order == .forward {
+                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedAscending
+                    } else {
+                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedDescending
+                    }
+                }
+            } else {
+                // For all other columns, use the default sorting
+                themes.sort(using: newOrder)
+            }
         }
     }
     
     private func loadData() {
         self.statuses = dbManager.fetchPortfolioThemeStatuses()
         self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
+        // Ensure data is sorted when first loaded
         self.themes.sort(using: self.sortOrder)
     }
 
