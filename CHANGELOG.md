@@ -3,9 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce PortfolioThemeAsset table linking themes to instruments with target allocations
 - Add PortfolioTheme entity with CRUD UI and migration 010
 - Fix Portfolio Theme creation to persist database records and improve new theme editor layout
-- Show Portfolio Themes navigation unconditionally in sidebar
+- Remove Portfolio Themes feature flag; navigation and Theme Status settings are always visible
+- Navigate from Portfolio Themes list to detail view with keyboard, icon, or context menu; archived themes open read-only
 - Disable Performance and Rebalancing links in sidebar
 - Ensure new theme popup accepts a theme code and disable Save until required fields are valid
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
