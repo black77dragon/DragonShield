@@ -3,10 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add on-demand Portfolio Valuation service with refreshable theme snapshot
+- Include instrument notes in valuation snapshot output
+- Fix valuation to aggregate instrument holdings across the entire estate
 - Require archiving a theme before deletion with archive-and-delete alert flow
 - Polish Portfolio Theme maintenance layouts and add instrument notes field
 - Normalize empty instrument notes to nil in theme detail editor and add-instrument sheet
 - Fix Portfolio Theme allocation edits not persisting and log updates
+- Fix instrument notes edits not saving in theme detail view
+- Present valuation status and notes in dedicated columns to avoid confusion
 - Introduce PortfolioThemeAsset table linking themes to instruments with target allocations
 - Add PortfolioTheme entity with CRUD UI and migration 010
 - Fix Portfolio Theme creation to persist database records and improve new theme editor layout
