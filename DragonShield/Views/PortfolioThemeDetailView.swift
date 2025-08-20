@@ -324,7 +324,9 @@ struct PortfolioThemeDetailView: View {
 
     private func addInstrument() {
         let userPct = addUserPct == addResearchPct ? nil : addUserPct
-        if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: addNotes.isEmpty ? nil : addNotes) != nil {
+        let trimmedNotes = addNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notesToSave = trimmedNotes.isEmpty ? nil : trimmedNotes
+        if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: notesToSave) != nil {
             showAdd = false
             addResearchPct = 0
             addUserPct = 0
