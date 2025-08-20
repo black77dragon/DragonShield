@@ -122,7 +122,10 @@ struct PortfolioThemeDetailView: View {
                             .onSubmit { save($asset.wrappedValue) }
                         TextField("", text: Binding(
                             get: { $asset.wrappedValue.notes ?? "" },
-                            set: { $asset.wrappedValue.notes = $0 }
+                            set: { newValue in
+                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
+                            }
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
