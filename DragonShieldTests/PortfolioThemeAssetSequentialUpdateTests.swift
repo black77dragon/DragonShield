@@ -3,10 +3,17 @@ import SQLite3
 @testable import DragonShield
 
 final class PortfolioThemeAssetSequentialUpdateTests: XCTestCase {
-    private func setupDb(_ manager: DatabaseManager) {
+    private var manager: DatabaseManager!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        manager = DatabaseManager()
+        manager.closeConnection()
+
         var mem: OpaquePointer?
         sqlite3_open(":memory:", &mem)
         manager.db = mem
+
         let sql = """
         CREATE TABLE PortfolioThemeStatus (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,16 +48,32 @@ final class PortfolioThemeAssetSequentialUpdateTests: XCTestCase {
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('Apple',1,'USD');", nil, nil, nil)
     }
 
-    func testSequentialUpdatesPersist() {
-        let manager = DatabaseManager()
-        setupDb(manager)
-        guard let theme = manager.fetchPortfolioThemes().first else { XCTFail(); return }
+    override func tearDownWithError() throws {
+        if let db = manager.db {
+            sqlite3_close(db)
+            manager.db = nil
+        }
+        manager = nil
+        try super.tearDownWithError()
+    }
+
+    func testSequentialUpdatesPersist() throws {
+        guard let theme = manager.fetchPortfolioThemes().first else {
+            XCTFail("Failed to fetch theme")
+            return
+        }
         _ = manager.createThemeAsset(themeId: theme.id, instrumentId: 1, researchPct: 10.0, userPct: 10.0)
-        for pct in [20.0, 30.0, 40.0] {
+
+        let percentages = [20.0, 30.0, 40.0]
+        for pct in percentages {
             let updated = manager.updateThemeAsset(themeId: theme.id, instrumentId: 1, researchPct: pct, userPct: pct, notes: nil)
             XCTAssertEqual(updated?.researchTargetPct, pct)
             XCTAssertEqual(updated?.userTargetPct, pct)
         }
-        sqlite3_close(manager.db)
+
+        let finalAsset = manager.getThemeAsset(themeId: theme.id, instrumentId: 1)
+        XCTAssertNotNil(finalAsset)
+        XCTAssertEqual(finalAsset?.researchTargetPct, percentages.last)
+        XCTAssertEqual(finalAsset?.userTargetPct, percentages.last)
     }
 }
