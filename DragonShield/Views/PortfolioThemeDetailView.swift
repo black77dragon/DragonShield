@@ -129,11 +129,11 @@ struct PortfolioThemeDetailView: View {
                             set: { newValue in
                                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                                 $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
-                                save($asset.wrappedValue)
                             }
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
+                        .onSubmit { save($asset.wrappedValue) }
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
                                 Image(systemName: "trash")
