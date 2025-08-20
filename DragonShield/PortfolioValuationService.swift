@@ -77,9 +77,9 @@ final class PortfolioValuationService {
                 let user = sqlite3_column_double(stmt, 3)
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
                 let nativeValue = sqlite3_column_double(stmt, 5)
+                let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 var flag: String? = nil
                 var valueBase: Double = 0
-                var note: String? = nil
                 if nativeValue == 0 {
                     flag = "No position"
                 } else if currency == dbManager.baseCurrency {
