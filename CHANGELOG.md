@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Navigate from Portfolio Themes list to detail view with keyboard, icon, or context menu; archived themes open read-only
 - Disable Performance and Rebalancing links in sidebar
 - Ensure new theme popup accepts a theme code and disable Save until required fields are valid
+- Polish Portfolio Theme maintenance layout for edit modal, detail view, and add instrument sheet
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
 - Expose health check summary and toggle in Settings with link to detailed report
 - Show executed health checks with detailed results in dedicated window and verify database file presence
