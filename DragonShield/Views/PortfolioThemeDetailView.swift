@@ -114,22 +114,26 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onSubmit { save($asset.wrappedValue) }
+                            .onChange(of: asset.researchTargetPct) { _ in
+                                save($asset.wrappedValue)
+                            }
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onSubmit { save($asset.wrappedValue) }
+                            .onChange(of: asset.userTargetPct) { _ in
+                                save($asset.wrappedValue)
+                            }
                         TextField("", text: Binding(
                             get: { $asset.wrappedValue.notes ?? "" },
                             set: { newValue in
                                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                                 $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
+                                save($asset.wrappedValue)
                             }
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
-                        .onSubmit { save($asset.wrappedValue) }
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
                                 Image(systemName: "trash")
@@ -305,8 +309,17 @@ struct PortfolioThemeDetailView: View {
     }
 
     private func save(_ asset: PortfolioThemeAsset) {
-        if dbManager.updateThemeAsset(themeId: themeId, instrumentId: asset.instrumentId, researchPct: asset.researchTargetPct, userPct: asset.userTargetPct, notes: asset.notes) != nil {
-            loadAssets()
+        if let updated = dbManager.updateThemeAsset(
+            themeId: themeId,
+            instrumentId: asset.instrumentId,
+            researchPct: asset.researchTargetPct,
+            userPct: asset.userTargetPct,
+            notes: asset.notes
+        ) {
+            if let idx = assets.firstIndex(where: { $0.instrumentId == updated.instrumentId }) {
+                assets[idx] = updated
+            }
+            LoggingService.shared.log("updateThemeAsset themeId=\(themeId) instrumentId=\(asset.instrumentId) research=\(asset.researchTargetPct) user=\(asset.userTargetPct)", logger: .ui)
         } else {
             LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
             alertItem = AlertItem(title: "Error", message: "Failed to save changes.", action: nil)
