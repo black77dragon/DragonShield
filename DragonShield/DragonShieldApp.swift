@@ -11,7 +11,7 @@ struct DragonShieldApp: App {
         let dbManager = DatabaseManager()
         _databaseManager = StateObject(wrappedValue: dbManager)
         _assetManager = StateObject(wrappedValue: AssetManager())
-        HealthCheckRegistry.register(DatabaseFileHealthCheck(path: dbManager.dbFilePath))
+        HealthCheckRegistry.register(DatabaseFileHealthCheck(pathProvider: { dbManager.dbFilePath }))
         _healthRunner = StateObject(wrappedValue: HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks()))
     }
 

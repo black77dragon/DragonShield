@@ -26,6 +26,7 @@ public final class HealthCheckRunner: ObservableObject {
         var results: [HealthCheckReport] = []
         for check in checks {
             let outcome = await check.run()
+            logOutcome(name: check.name, result: outcome)
             results.append(HealthCheckReport(name: check.name, result: outcome))
         }
         reports = results
@@ -38,6 +39,17 @@ public final class HealthCheckRunner: ObservableObject {
         let error = reports.filter { if case .error = $0.result { return true } else { return false } }.count
         let summary = "\(ok) ok, \(warning) warning, \(error) error"
         LoggingService.shared.log("Startup health checks: \(summary)")
+    }
+
+    private func logOutcome(name: String, result: HealthCheckResult) {
+        switch result {
+        case .ok(let message):
+            LoggingService.shared.log("[\(name)] \(message)")
+        case .warning(let message):
+            LoggingService.shared.log("[\(name)] warning: \(message)")
+        case .error(let message):
+            LoggingService.shared.log("[\(name)] error: \(message)", type: .error)
+        }
     }
 }
 
