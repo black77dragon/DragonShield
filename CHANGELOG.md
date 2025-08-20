@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fix Portfolio Themes list total value spinner by fetching valuations per-row on appearance
+- Add Total Value and Instruments columns with sortable headers to Portfolio Themes list
 - Add on-demand Portfolio Valuation service with refreshable theme snapshot
 - Include instrument notes in valuation snapshot output
 - Fix valuation to aggregate instrument holdings across the entire estate
