@@ -131,12 +131,8 @@ final class PortfolioValuationService {
                 result = sqlite3_column_double(stmt, 0)
                 if let cString = sqlite3_column_text(stmt, 1) {
                     let date = Self.dateFormatter.date(from: String(cString: cString))
-                    if let d = date {
-                        if let existing = fxAsOf {
-                            if d > existing { fxAsOf = d }
-                        } else {
-                            fxAsOf = d
-                        }
+                    if let d = date, d > (fxAsOf ?? .distantPast) {
+                        fxAsOf = d
                     }
                 }
             }
