@@ -20,6 +20,8 @@ struct PortfolioThemeDetailView: View {
     @State private var statuses: [PortfolioThemeStatus] = []
 
     @State private var assets: [PortfolioThemeAsset] = []
+    @State private var valuation: ValuationSnapshot?
+    @State private var valuating = false
     @State private var allInstruments: [(id: Int, name: String)] = []
     @State private var showAdd = false
     @State private var addInstrumentId: Int = 0
@@ -43,6 +45,7 @@ struct PortfolioThemeDetailView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     headerBlock
                     compositionSection
+                    valuationSection
                     dangerZone
                 }
                 .padding(24)
@@ -60,7 +63,10 @@ struct PortfolioThemeDetailView: View {
             .padding(24)
         }
         .frame(minWidth: 960)
-        .onAppear(perform: loadTheme)
+        .onAppear {
+            loadTheme()
+            runValuation()
+        }
         .sheet(isPresented: $showAdd) { addSheet }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
@@ -133,7 +139,9 @@ struct PortfolioThemeDetailView: View {
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
-                        .onSubmit { save($asset.wrappedValue) }
+                        .onChange(of: asset.notes) { _ in
+                            save($asset.wrappedValue)
+                        }
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
                                 Image(systemName: "trash")
@@ -153,7 +161,69 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
-    private var dangerZone: some View {
+
+private var valuationSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+        HStack {
+            Text("Valuation").font(.headline)
+            Spacer()
+            Button("Refresh") { runValuation() }
+                .disabled(valuating)
+            if valuating {
+                ProgressView().controlSize(.small)
+            }
+        }
+        if let snap = valuation {
+            let pos = snap.positionsAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
+            let fx = snap.fxAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
+            Text("As of: Positions \(pos)  |  FX \(fx)")
+            Text("Total Value (\(dbManager.baseCurrency)): \(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency))")
+            if snap.excludedFxCount > 0 {
+                Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+            }
+            if snap.totalValueBase == 0 {
+                Text("No valued positions in the latest snapshot.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.gray.opacity(0.1))
+            } else {
+                HStack {
+                    Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Research %").frame(width: 72, alignment: .trailing)
+                    Text("User %").frame(width: 72, alignment: .trailing)
+                    Text("Current Value").frame(width: 120, alignment: .trailing)
+                    Text("Actual %").frame(width: 72, alignment: .trailing)
+                    Text("Notes").frame(minWidth: 100, alignment: .leading)
+                }
+                ForEach(snap.rows) { row in
+                    HStack {
+                        Text(row.instrumentName).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(row.researchTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
+                        Text(row.userTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
+                        Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
+                        Text(row.actualPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
+                        Text(row.flag ?? "").frame(minWidth: 100, alignment: .leading)
+                    }
+                }
+                HStack {
+                    Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer().frame(width: 72)
+                    Spacer().frame(width: 72)
+                    Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
+                    Text(100, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
+                    Spacer().frame(minWidth: 100)
+                }
+            }
+        } else {
+            Text("No valued positions in the latest snapshot.")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(Color.gray.opacity(0.1))
+        }
+    }
+}
+
+private var dangerZone: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Danger Zone").font(.headline)
             HStack {
@@ -172,6 +242,18 @@ struct PortfolioThemeDetailView: View {
                     Button("Soft Delete") { onSoftDelete(); dismiss() }
                         .tint(.red)
                 }
+            }
+        }
+    }
+
+    private func runValuation() {
+        valuating = true
+        Task {
+            let service = PortfolioValuationService(dbManager: dbManager)
+            let snap = service.snapshot(themeId: themeId)
+            await MainActor.run {
+                self.valuation = snap
+                self.valuating = false
             }
         }
     }
