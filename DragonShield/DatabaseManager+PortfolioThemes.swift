@@ -76,7 +76,10 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
                 let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 7) == 1
-                themes.append(PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete))
+                let count = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?") { bindStmt in
+                    sqlite3_bind_int(bindStmt, 1, Int32(id))
+                } ?? 0
+                themes.append(PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -136,7 +139,10 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
                 let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 7) == 1
-                theme = PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete)
+                let count = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?") { bindStmt in
+                    sqlite3_bind_int(bindStmt, 1, Int32(id))
+                } ?? 0
+                theme = PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
