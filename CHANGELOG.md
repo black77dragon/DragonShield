@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Add on-demand Portfolio Valuation service with refreshable theme snapshot
+- Include instrument notes in valuation snapshot output
 - Fix valuation to aggregate instrument holdings across the entire estate
 - Require archiving a theme before deletion with archive-and-delete alert flow
 - Polish Portfolio Theme maintenance layouts and add instrument notes field

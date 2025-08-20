@@ -61,12 +61,12 @@ final class PortfolioValuationService {
         var missing: Set<String> = []
 
         let sql = """
-        SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, COALESCE(SUM(pr.quantity * pr.current_price),0)
+        SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, COALESCE(SUM(pr.quantity * pr.current_price),0), a.notes
           FROM PortfolioThemeAsset a
           JOIN Instruments i ON a.instrument_id = i.instrument_id
           LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id
          WHERE a.theme_id = ?
-         GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency
+         GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, a.notes
         """
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(themeId))
@@ -77,9 +77,9 @@ final class PortfolioValuationService {
                 let user = sqlite3_column_double(stmt, 3)
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
                 let nativeValue = sqlite3_column_double(stmt, 5)
+                let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 var flag: String? = nil
                 var valueBase: Double = 0
-                var note: String? = nil
                 if nativeValue == 0 {
                     flag = "No position"
                 } else if currency == dbManager.baseCurrency {

@@ -16,7 +16,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         INSERT INTO PortfolioTheme VALUES (1,'Core','CORE',1,NULL,0);
         CREATE TABLE PortfolioThemeAsset (theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, PRIMARY KEY(theme_id,instrument_id));
         INSERT INTO PortfolioThemeAsset VALUES (1,1,25,25,NULL);
-        INSERT INTO PortfolioThemeAsset VALUES (1,2,25,20,NULL);
+        INSERT INTO PortfolioThemeAsset VALUES (1,2,25,20,'Tech');
         INSERT INTO PortfolioThemeAsset VALUES (1,3,30,35,NULL);
         INSERT INTO PortfolioThemeAsset VALUES (1,4,20,20,NULL);
         CREATE TABLE Instruments (instrument_id INTEGER PRIMARY KEY, instrument_name TEXT, currency TEXT);
@@ -45,6 +45,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         let rows = Dictionary(uniqueKeysWithValues: snap.rows.map { ($0.instrumentId, $0) })
         XCTAssertEqual(rows[1]?.currentValueBase, 1500, accuracy: 0.01)
         XCTAssertEqual(rows[2]?.currentValueBase, 450, accuracy: 0.01)
+        XCTAssertEqual(rows[2]?.notes, "Tech")
         XCTAssertEqual(rows[3]?.flag, "FX missing — excluded")
         XCTAssertEqual(rows[4]?.flag, "No position")
         sqlite3_close(manager.db)
