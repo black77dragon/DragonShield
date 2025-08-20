@@ -1,28 +1,22 @@
-// DragonShield/Views/EditPortfolioThemeView.swift
-
 import SwiftUI
 
 struct EditPortfolioThemeView: View {
-    // Environment
-    @Environment(\.dismiss) private var dismiss // Handles closing the sheet
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dbManager: DatabaseManager
-    
-    // The theme to edit, passed from the list view
+
     let theme: PortfolioTheme
-    
-    // Callback to reload the list after saving
     var onSave: () -> Void
 
-    // Local state for the form, initialized from the theme
     @State private var name: String
     @State private var statusId: Int
     @State private var statuses: [PortfolioThemeStatus] = []
     @State private var errorMessage: String?
 
+    private let labelWidth: CGFloat = 140
+
     init(theme: PortfolioTheme, onSave: @escaping () -> Void) {
         self.theme = theme
         self.onSave = onSave
-        // Initialize the view's state with the theme's current values
         _name = State(initialValue: theme.name)
         _statusId = State(initialValue: theme.statusId)
     }
@@ -38,66 +32,78 @@ struct EditPortfolioThemeView: View {
 
             Divider()
 
-            Form {
-                Section {
-                    // Display the code, but don't allow it to be edited
-                    LabeledContent("Code") {
-                        Text(theme.code).foregroundColor(.secondary)
-                    }
-                    
-                    TextField("Name", text: $name)
-                    
-                    Picker("Status", selection: $statusId) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Name")
+                        .frame(width: labelWidth, alignment: .trailing)
+                    TextField("", text: $name)
+                        .accessibilityLabel("Name")
+                }
+                if name.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Text("Name is required")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding(.leading, labelWidth + 8)
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Code")
+                        .frame(width: labelWidth, alignment: .trailing)
+                    Text(theme.code)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Status")
+                        .frame(width: labelWidth, alignment: .trailing)
+                    Picker("", selection: $statusId) {
                         ForEach(statuses) { status in
                             Text(status.name).tag(status.id)
                         }
                     }
+                    .labelsHidden()
+                }
+                if let errorMessage = errorMessage {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding(.leading, labelWidth + 8)
                 }
             }
-            .padding()
-
-            if let errorMessage = errorMessage {
-                Text(errorMessage).foregroundColor(.red).padding()
-            }
+            .padding(24)
 
             Divider()
 
             HStack {
                 Spacer()
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Button("Save Changes") {
-                    updateTheme()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save Changes") { updateTheme() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .padding()
+            .padding(24)
         }
-        .frame(minWidth: 450, idealWidth: 500, minHeight: 280, idealHeight: 300)
+        .frame(minWidth: 560, idealWidth: 620, maxWidth: 680)
         .onAppear(perform: loadStatuses)
     }
 
     private func loadStatuses() {
-        self.statuses = dbManager.fetchPortfolioThemeStatuses()
+        statuses = dbManager.fetchPortfolioThemeStatuses()
     }
 
     private func updateTheme() {
         errorMessage = nil
-        
         let success = dbManager.updatePortfolioTheme(
             id: theme.id,
-            name: self.name,
-            statusId: self.statusId,
+            name: name,
+            statusId: statusId,
             archivedAt: theme.archivedAt
         )
-
         if success {
-            onSave()  // Reload the main list
-            dismiss() // Close the sheet
+            onSave()
+            dismiss()
         } else {
             errorMessage = "Failed to update the theme."
         }
