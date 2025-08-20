@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Polish Portfolio Theme maintenance layouts and add instrument notes field
 - Normalize empty instrument notes to nil in theme detail editor and add-instrument sheet
 - Fix Portfolio Theme allocation edits not persisting and log updates
+- Persist instrument notes edits in Portfolio Theme detail view
 - Include theme asset notes in valuation query results
 - Introduce PortfolioThemeAsset table linking themes to instruments with target allocations
 - Add PortfolioTheme entity with CRUD UI and migration 010

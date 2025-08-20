@@ -133,6 +133,9 @@ struct PortfolioThemeDetailView: View {
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
+                        .onChange(of: asset.notes) { _ in
+                            save($asset.wrappedValue)
+                        }
                         .onSubmit { save($asset.wrappedValue) }
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
