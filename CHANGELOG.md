@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fetch PortfolioThemeAsset notes in PortfolioValuationService so valuations surface comments
 - Require archiving a theme before deletion with archive-and-delete alert flow
 - Polish Portfolio Theme maintenance layouts and add instrument notes field
 - Normalize empty instrument notes to nil in theme detail editor and add-instrument sheet
