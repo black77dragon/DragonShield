@@ -193,6 +193,7 @@ private var valuationSection: some View {
                     Text("User %").frame(width: 72, alignment: .trailing)
                     Text("Current Value").frame(width: 120, alignment: .trailing)
                     Text("Actual %").frame(width: 72, alignment: .trailing)
+                    Text("Status").frame(width: 120, alignment: .leading)
                     Text("Notes").frame(minWidth: 100, alignment: .leading)
                 }
                 ForEach(snap.rows) { row in
@@ -202,7 +203,8 @@ private var valuationSection: some View {
                         Text(row.userTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
                         Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
                         Text(row.actualPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                        Text(row.flag ?? "").frame(minWidth: 100, alignment: .leading)
+                        Text(row.flag ?? "").frame(width: 120, alignment: .leading)
+                        Text(row.notes ?? "").frame(minWidth: 100, alignment: .leading)
                     }
                 }
                 HStack {
@@ -211,6 +213,7 @@ private var valuationSection: some View {
                     Spacer().frame(width: 72)
                     Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
                     Text(100, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
+                    Spacer().frame(width: 120)
                     Spacer().frame(minWidth: 100)
                 }
             }
