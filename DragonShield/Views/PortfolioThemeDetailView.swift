@@ -27,56 +27,36 @@ struct PortfolioThemeDetailView: View {
     @State private var addInstrumentId: Int = 0
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
+    @State private var addNotes: String = ""
     @State private var alertItem: AlertItem?
 
     var body: some View {
-        VStack(alignment: .leading) {
-            if let theme = theme {
-                Form {
-                    Section {
-                        TextField("Name", text: $name).textFieldStyle(.roundedBorder)
-                        Text("Code: \(code)")
-                        Picker("Status", selection: $statusId) {
-                            ForEach(statuses) { status in
-                                Text(status.name).tag(status.id)
-                            }
-                        }
-                        Text("Archived at: \(theme.archivedAt ?? "—")")
+        VStack(spacing: 0) {
+            if theme != nil {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        if isReadOnly { readOnlyBanner }
+                        headerBlock
+                        compositionSection
+                        dangerZone
                     }
-                    if isReadOnly {
-                        Section {
-                            Text("Archived themes are read-only.")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    compositionSection
-                    Section("Danger Zone") {
-                        if theme.archivedAt == nil {
-                            Button("Archive Theme") { onArchive(); dismiss() }
-                        } else {
-                            Button("Unarchive") {
-                                let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
-                                onUnarchive(defaultStatus)
-                                dismiss()
-                            }
-                            Button("Soft Delete") { onSoftDelete(); dismiss() }
-                        }
-                    }
+                    .padding(24)
                 }
+                Divider()
                 HStack {
                     Spacer()
-                    Button("Save") {
-                        saveTheme()
-                    }
-                    .disabled(!valid || isReadOnly)
                     Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save") { saveTheme() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!valid || isReadOnly)
                 }
-                .padding([.top, .leading, .trailing])
+                .padding(16)
             } else {
                 Text("This theme is no longer available.")
             }
         }
-        .frame(minWidth: 620, minHeight: 420)
+        .frame(minWidth: 960, minHeight: 600)
         .onAppear(perform: loadTheme)
         .sheet(isPresented: $showAdd) { addSheet }
         .alert(item: $alertItem) { item in
@@ -84,75 +64,221 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
-    private var valid: Bool {
-        PortfolioTheme.isValidName(name)
-    }
-
+    private var valid: Bool { PortfolioTheme.isValidName(name) }
     private var isReadOnly: Bool { theme?.archivedAt != nil }
-
     private var researchTotal: Double { assets.reduce(0) { $0 + $1.researchTargetPct } }
     private var userTotal: Double { assets.reduce(0) { $0 + $1.userTargetPct } }
 
+    private var readOnlyBanner: some View {
+        Text("Archived theme — read only")
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.fieldGray)
+            .cornerRadius(4)
+    }
+
+    private var headerBlock: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+            Text(code)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Color.fieldGray))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Picker("Status", selection: $statusId) {
+                ForEach(statuses) { status in
+                    Text(status.name).tag(status.id)
+                }
+            }
+            .labelsHidden()
+            Text("Archived at: \(theme?.archivedAt ?? "—")")
+                .foregroundColor(.secondary)
+        }
+    }
+
     @ViewBuilder
     private var compositionSection: some View {
-        Section("Composition") {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Composition")
+                .font(.headline)
+            if !isReadOnly {
+                Button("+ Add Instrument") { showAdd = true }
+            }
             if assets.isEmpty {
                 Text("No instruments attached")
             } else {
-                ForEach($assets) { $asset in
-                    HStack {
-                        Text(instrumentName(asset.instrumentId))
-                        TextField("Research %", value: $asset.researchTargetPct, format: .number)
-                            .frame(width: 80)
+                Grid(horizontalSpacing: 12, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Instrument").fontWeight(.semibold)
+                        Text("Research %").frame(width: 72, alignment: .trailing).fontWeight(.semibold)
+                        Text("User %").frame(width: 72, alignment: .trailing).fontWeight(.semibold)
+                        Text("Notes").frame(minWidth: 200, alignment: .leading).fontWeight(.semibold)
+                        Text("Actions").fontWeight(.semibold)
+                    }
+                    ForEach($assets) { $asset in
+                        GridRow {
+                            Text(instrumentName(asset.instrumentId))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            TextField("", value: $asset.researchTargetPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 72)
+                                .disabled(isReadOnly)
+                                .onSubmit { save(asset) }
+                            TextField("", value: $asset.userTargetPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 72)
+                                .disabled(isReadOnly)
+                                .onSubmit { save(asset) }
+                            TextField("", text: Binding(
+                                get: { asset.notes ?? "" },
+                                set: { asset.notes = $0.isEmpty ? nil : $0 }
+                            ))
+                            .frame(minWidth: 200, alignment: .leading)
                             .disabled(isReadOnly)
                             .onSubmit { save(asset) }
-                        TextField("User %", value: $asset.userTargetPct, format: .number)
-                            .frame(width: 80)
-                            .disabled(isReadOnly)
-                            .onSubmit { save(asset) }
-                        if !isReadOnly {
-                            Button("Remove") { remove(asset) }
+                            if !isReadOnly {
+                                Button("Remove") { remove(asset) }
+                            } else {
+                                Spacer().frame(width: 60)
+                            }
                         }
                     }
                 }
-                HStack {
-                    Text(String(format: "Research sum %.1f%%", researchTotal))
-                    Text(String(format: "| User sum %.1f%%", userTotal))
-                        .foregroundColor(abs(userTotal - 100.0) > 0.1 ? .orange : .primary)
-                }
+                totalsBar
             }
-            if !isReadOnly {
-                Button("+ Add Instrument") { showAdd = true }
+        }
+    }
+
+    private var totalsBar: some View {
+        HStack(spacing: 8) {
+            Text(String(format: "Research sum %.1f%%", researchTotal))
+            badge(for: researchTotal)
+            Text("|")
+            Text(String(format: "User sum %.1f%%", userTotal))
+            badge(for: userTotal)
+        }
+    }
+
+    @ViewBuilder
+    private func badge(for total: Double) -> some View {
+        if abs(total - 100.0) < 0.1 {
+            Text("OK")
+                .padding(4)
+                .background(Capsule().fill(Color.success.opacity(0.2)))
+                .foregroundColor(.success)
+        } else {
+            Text("Warning")
+                .padding(4)
+                .background(Capsule().fill(Color.warning.opacity(0.2)))
+                .foregroundColor(.warning)
+        }
+    }
+
+    private var dangerZone: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Danger Zone")
+                .font(.headline)
+            HStack {
+                Text("Destructive actions. Proceed with caution.")
+                    .foregroundColor(.secondary)
+                Spacer()
+                if theme?.archivedAt == nil {
+                    Button("Archive Theme", role: .destructive) { onArchive(); dismiss() }
+                } else {
+                    Button("Unarchive") {
+                        let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
+                        onUnarchive(defaultStatus)
+                        dismiss()
+                    }
+                    Button("Soft Delete", role: .destructive) { onSoftDelete(); dismiss() }
+                }
             }
         }
     }
 
     private var addSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Picker("Instrument", selection: $addInstrumentId) {
-                ForEach(availableInstruments, id: \.id) { item in
-                    Text(item.name).tag(item.id)
+        VStack(spacing: 0) {
+            Form {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 12) {
+                    GridRow {
+                        Text("Instrument")
+                            .frame(width: 140, alignment: .trailing)
+                        Picker("", selection: $addInstrumentId) {
+                            ForEach(availableInstruments, id: \.id) { item in
+                                Text(item.name).tag(item.id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    GridRow {
+                        Text("Research %")
+                            .frame(width: 140, alignment: .trailing)
+                        TextField("", value: $addResearchPct, format: .number)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    if !PortfolioThemeAsset.isValidPercentage(addResearchPct) {
+                        GridRow {
+                            Spacer().frame(width: 140)
+                            Text("0–100")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    GridRow {
+                        Text("User %")
+                            .frame(width: 140, alignment: .trailing)
+                        TextField("", value: $addUserPct, format: .number)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    if !PortfolioThemeAsset.isValidPercentage(addUserPct) {
+                        GridRow {
+                            Spacer().frame(width: 140)
+                            Text("0–100")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    GridRow {
+                        Text("Notes")
+                            .frame(width: 140, alignment: .trailing)
+                        TextField("", text: $addNotes)
+                    }
                 }
+                .padding(24)
             }
-            TextField("Research %", value: $addResearchPct, format: .number)
-            TextField("User %", value: $addUserPct, format: .number)
+            Divider()
             HStack {
+                Spacer()
+                Button("Cancel") { showAdd = false }
+                    .keyboardShortcut(.cancelAction)
                 Button("Add") {
                     let userPct = addUserPct == addResearchPct ? nil : addUserPct
-                    if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct) != nil {
+                    if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: addNotes.isEmpty ? nil : addNotes) != nil {
                         showAdd = false
-                        addResearchPct = 0; addUserPct = 0
+                        addResearchPct = 0
+                        addUserPct = 0
+                        addNotes = ""
                         loadAssets()
                     } else {
                         LoggingService.shared.log("createThemeAsset failed themeId=\(themeId) instrumentId=\(addInstrumentId)", logger: .ui)
                         alertItem = AlertItem(title: "Error", message: "Failed to add instrument to theme.", action: nil)
                     }
                 }
-                Button("Cancel") { showAdd = false }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!addValid)
             }
+            .padding(24)
         }
-        .padding()
-        .frame(minWidth: 300)
+        .frame(width: 520)
+    }
+
+    private var addValid: Bool {
+        PortfolioThemeAsset.isValidPercentage(addResearchPct) && PortfolioThemeAsset.isValidPercentage(addUserPct)
     }
 
     private var availableInstruments: [(id: Int, name: String)] {
@@ -215,14 +341,14 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
-private func remove(_ asset: PortfolioThemeAsset) {
-    if dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId) {
-        loadAssets()
-    } else {
-        LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
-        alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
+    private func remove(_ asset: PortfolioThemeAsset) {
+        if dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId) {
+            loadAssets()
+        } else {
+            LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
+            alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
+        }
     }
-}
 }
 
 extension PortfolioThemeDetailView {
