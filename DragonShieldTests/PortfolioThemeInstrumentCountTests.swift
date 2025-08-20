@@ -50,4 +50,17 @@ final class PortfolioThemeInstrumentCountTests: XCTestCase {
         XCTAssertEqual(fetched.first?.instrumentCount, 2)
         sqlite3_close(manager.db)
     }
+
+    func testGetThemeReturnsInstrumentCount() {
+        let manager = DatabaseManager()
+        setup(manager)
+        guard let theme = manager.createPortfolioTheme(name: "Income", code: "INCOME", statusId: 1) else { XCTFail(); return }
+        sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('BondA',1,'USD');", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('BondB',1,'USD');", nil, nil, nil)
+        _ = manager.createThemeAsset(themeId: theme.id, instrumentId: 1, researchPct: 50.0)
+        _ = manager.createThemeAsset(themeId: theme.id, instrumentId: 2, researchPct: 50.0)
+        let fetched = manager.getPortfolioTheme(id: theme.id)
+        XCTAssertEqual(fetched?.instrumentCount, 2)
+        sqlite3_close(manager.db)
+    }
 }
