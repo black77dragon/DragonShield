@@ -1,6 +1,7 @@
 // DragonShield/Models/PortfolioTheme.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
+// - Added optional totalValueBase and instrumentCount for list overview metrics.
 // - Conformed to Hashable for SwiftUI List selection compatibility.
 // - Initial creation: Represents user-defined portfolio themes.
 
@@ -20,6 +21,8 @@ struct PortfolioTheme: Identifiable, Hashable {
     var updatedAt: String
     var archivedAt: String?
     var softDelete: Bool
+    var totalValueBase: Double? = nil
+    var instrumentCount: Int = 0
 
     // Required for Hashable
     static func == (lhs: PortfolioTheme, rhs: PortfolioTheme) -> Bool {

@@ -52,7 +52,7 @@ extension DatabaseManager {
 
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
-        var sql = "SELECT id,name,code,status_id,created_at,updated_at,archived_at,soft_delete FROM PortfolioTheme WHERE 1=1"
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
         if !includeArchived { sql += " AND archived_at IS NULL" }
         if !includeSoftDeleted { sql += " AND soft_delete = 0" }
         if let s = search, !s.isEmpty {
@@ -76,7 +76,8 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
                 let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 7) == 1
-                themes.append(PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete))
+                let count = Int(sqlite3_column_int(stmt, 8))
+                themes.append(PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -122,7 +123,7 @@ extension DatabaseManager {
     }
 
     func getPortfolioTheme(id: Int) -> PortfolioTheme? {
-        let sql = "SELECT id,name,code,status_id,created_at,updated_at,archived_at,soft_delete FROM PortfolioTheme WHERE id = ? AND soft_delete = 0"
+        let sql = "SELECT pt.id,pt.name,pt.code,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
         var stmt: OpaquePointer?
         var theme: PortfolioTheme?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -136,7 +137,8 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
                 let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 7) == 1
-                theme = PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete)
+                let count = Int(sqlite3_column_int(stmt, 8))
+                theme = PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
