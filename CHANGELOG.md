@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Show total value and instrument count in Portfolio Themes list with sortable columns and archived row styling
 - Add on-demand Portfolio Valuation service with refreshable theme snapshot
 - Include instrument notes in valuation snapshot output
 - Fix valuation to aggregate instrument holdings across the entire estate

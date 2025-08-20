@@ -146,6 +146,22 @@ extension DatabaseManager {
         return assets
     }
 
+    func themeAssetCount(themeId: Int) -> Int {
+        let sql = "SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                count = Int(sqlite3_column_int(stmt, 0))
+            }
+        } else {
+            LoggingService.shared.log("prepare themeAssetCount failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
     func updateThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> PortfolioThemeAsset? {
         guard themeEditable(themeId: themeId) else {
             LoggingService.shared.log("Theme \(themeId) not editable", type: .info, logger: .database)

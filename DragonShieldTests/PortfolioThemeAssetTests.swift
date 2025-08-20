@@ -92,4 +92,14 @@ final class PortfolioThemeAssetTests: XCTestCase {
         XCTAssertEqual(updated?.notes, "Keep")
         sqlite3_close(manager.db)
     }
+
+    func testThemeAssetCount() {
+        let manager = DatabaseManager()
+        setupDb(manager)
+        guard let theme = manager.fetchPortfolioThemes().first else { XCTFail(); return }
+        XCTAssertEqual(manager.themeAssetCount(themeId: theme.id), 0)
+        _ = manager.createThemeAsset(themeId: theme.id, instrumentId: 1, researchPct: 25.0)
+        XCTAssertEqual(manager.themeAssetCount(themeId: theme.id), 1)
+        sqlite3_close(manager.db)
+    }
 }

@@ -1,26 +1,34 @@
-// DragonShield/Views/PortfolioThemesListView.swift
-// MARK: - Version 2.4
-// MARK: - History
-// - Fixed compilation error by using the correct 'sortUsing' parameter for TableColumn.
-// - Implemented custom sorting logic to sort the 'Status' column alphabetically by name.
-
 import SwiftUI
+
+struct ThemeRow: Identifiable, Hashable {
+    var theme: PortfolioTheme
+    var status: PortfolioThemeStatus?
+    var instrumentCount: Int
+    var totalValue: Double?
+    var excludedFx: Int
+    var id: Int { theme.id }
+    var statusName: String { status?.name ?? "" }
+    var statusCode: String { status?.code ?? "" }
+    var isArchived: Bool { statusCode == PortfolioThemeStatus.archivedCode || theme.archivedAt != nil }
+    var updatedDate: Date { Self.dateFormatter.date(from: theme.updatedAt) ?? .distantPast }
+    private static let dateFormatter = ISO8601DateFormatter()
+}
 
 struct PortfolioThemesListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
-    
-    // Local state for the data
-    @State private var themes: [PortfolioTheme] = []
+
+    @AppStorage("PortfolioThemesList.sortKey") private var sortKey = "updatedAt"
+    @AppStorage("PortfolioThemesList.sortAsc") private var sortAsc = false
+
+    @State private var rows: [ThemeRow] = []
     @State private var statuses: [PortfolioThemeStatus] = []
-    
-    // State for selection and sheets
+
     @State private var selectedThemeId: PortfolioTheme.ID?
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
     @State private var navigateThemeId: Int?
 
-    // State to manage the table's sort order
-    @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
+    @State private var sortOrder = [KeyPathComparator<ThemeRow>]()
     @State private var themeToDelete: PortfolioTheme?
     @State private var showArchiveAlert = false
     @State private var alertMessage = ""
@@ -29,38 +37,31 @@ struct PortfolioThemesListView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                themesTable // The Table view, now correctly defined
-
-                // Invisible button to handle Return key opening the selected theme
-                Button(action: openSelected) {
-                    EmptyView()
-                }
-                .keyboardShortcut(.return)
-                .hidden()
-                .disabled(selectedThemeId == nil)
-
+                themesTable
+                Button(action: openSelected) { EmptyView() }
+                    .keyboardShortcut(.return)
+                    .hidden()
+                    .disabled(selectedThemeId == nil)
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
-
-                Button(action: {
-                    if let selectedId = selectedThemeId {
-                        themeToEdit = themes.first { $0.id == selectedId }
+                    Button(action: {
+                        if let selectedId = selectedThemeId {
+                            themeToEdit = rows.first { $0.id == selectedId }?.theme
+                        }
+                    }) {
+                        Label("Edit Theme", systemImage: "pencil")
                     }
-                }) {
-                    Label("Edit Theme", systemImage: "pencil")
-                }
-                .disabled(selectedThemeId == nil)
-
-                Button(action: {
-                    if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
-                        handleDelete(theme)
+                    .disabled(selectedThemeId == nil)
+                    Button(action: {
+                        if let selectedId = selectedThemeId, let row = rows.first(where: { $0.id == selectedId }) {
+                            handleDelete(row.theme)
+                        }
+                    }) {
+                        Label("Delete Theme", systemImage: "trash")
                     }
-                }) {
-                    Label("Delete Theme", systemImage: "trash")
-                }
-                .disabled(selectedThemeId == nil)
+                    .disabled(selectedThemeId == nil)
                 }
                 .padding()
             }
@@ -94,68 +95,127 @@ struct PortfolioThemesListView: View {
         }
     }
 
-    // --- Subviews and Helper Methods ---
-
     private var themesTable: some View {
-        Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
-            TableColumn("Name", value: \.name)
-            TableColumn("Code", value: \.code)
-
-            TableColumn("Status", sortUsing: KeyPathComparator(\.statusId)) { theme in
-                Text(statusName(for: theme.statusId))
+        Table(rows, selection: $selectedThemeId, sortOrder: $sortOrder) {
+            TableColumn("Name", value: \.theme.name) { row in
+                Text(row.theme.name)
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
             }
 
-            TableColumn("Last Updated", value: \.updatedAt)
+            TableColumn("Code", value: \.theme.code) { row in
+                Text(row.theme.code)
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
+            }
 
-            TableColumn("", content: { theme in
-                Button {
-                    open(theme)
-                } label: {
+            TableColumn("Status", value: \.statusName) { row in
+                Text(row.statusName)
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
+            }
+
+            TableColumn("Last Updated", value: \.updatedDate) { row in
+                Text(row.updatedDate, format: .dateTime.year().month().day().hour().minute())
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
+            }
+
+            TableColumn("Total Value", sortUsing: KeyPathComparator(\.totalValue)) { row in
+                if let value = row.totalValue {
+                    Text(value, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .foregroundStyle(row.isArchived ? .secondary : .primary)
+                        .help(row.excludedFx > 0 ? "Partial valuation (FX missing for \(row.excludedFx) instruments)." : "")
+                } else {
+                    HStack(spacing: 4) {
+                        Text("—")
+                        ProgressView().scaleEffect(0.5)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
+                    .help("Valuation not available.")
+                }
+            }
+            .width(min: 120)
+
+            TableColumn("Instruments", value: \.instrumentCount) { row in
+                Text("\(row.instrumentCount)")
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .foregroundStyle(row.isArchived ? .secondary : .primary)
+            }
+            .width(min: 80)
+
+            TableColumn("") { row in
+                Button { open(row.theme) } label: {
                     Image(systemName: "chevron.right")
+                        .foregroundStyle(row.isArchived ? .secondary : .primary)
                 }
                 .buttonStyle(.plain)
                 .help("Open Theme Details")
-                .accessibilityLabel("Open details for \(theme.name)")
-            })
+                .accessibilityLabel("Open details for \(row.theme.name)")
+            }
             .width(30)
         }
         .onChange(of: sortOrder) { newOrder in
-            // This custom logic sorts the table correctly when any header is clicked
             guard let comparator = newOrder.first else { return }
-
-            if comparator.keyPath == \.statusId {
-                // If the "Status" column is clicked, sort by the status name string
-                themes.sort { lhs, rhs in
-                    let nameLHS = statusName(for: lhs.statusId)
-                    let nameRHS = statusName(for: rhs.statusId)
-                    if comparator.order == .forward {
-                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedAscending
-                    } else {
-                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedDescending
-                    }
-                }
-            } else {
-                // For all other columns, use the default sorting
-                themes.sort(using: newOrder)
-            }
+            rows.sort(using: newOrder)
+            if comparator.keyPath == \ThemeRow.theme.name { sortKey = "name" }
+            else if comparator.keyPath == \ThemeRow.theme.code { sortKey = "code" }
+            else if comparator.keyPath == \ThemeRow.statusName { sortKey = "status" }
+            else if comparator.keyPath == \ThemeRow.updatedDate { sortKey = "updatedAt" }
+            else if comparator.keyPath == \ThemeRow.totalValue { sortKey = "totalValue" }
+            else if comparator.keyPath == \ThemeRow.instrumentCount { sortKey = "instrumentCount" }
+            sortAsc = comparator.order == .forward
         }
         .onTapGesture(count: 2) { openSelected() }
         .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
             Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
         }
     }
-    
+
     private func loadData() {
-        self.statuses = dbManager.fetchPortfolioThemeStatuses()
-        self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
-        // Ensure data is sorted when first loaded
-        self.themes.sort(using: self.sortOrder)
+        statuses = dbManager.fetchPortfolioThemeStatuses()
+        let statusDict = Dictionary(uniqueKeysWithValues: statuses.map { ($0.id, $0) })
+        let themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
+        rows = themes.map { theme in
+            let status = statusDict[theme.statusId]
+            let count = dbManager.themeAssetCount(themeId: theme.id)
+            return ThemeRow(theme: theme, status: status, instrumentCount: count, totalValue: nil, excludedFx: 0)
+        }
+        applyStoredSort()
+        rows.sort(using: sortOrder)
+        for row in rows {
+            startValuation(for: row.id)
+        }
     }
 
-    private func statusName(for id: Int) -> String {
-        return statuses.first { $0.id == id }?.name ?? "N/A"
+    private func applyStoredSort() {
+        let order: SortOrder = sortAsc ? .forward : .reverse
+        let comparator: KeyPathComparator<ThemeRow>
+        switch sortKey {
+        case "name": comparator = .init(\.theme.name, order: order)
+        case "code": comparator = .init(\.theme.code, order: order)
+        case "status": comparator = .init(\.statusName, order: order)
+        case "totalValue": comparator = .init(\.totalValue, order: order)
+        case "instrumentCount": comparator = .init(\.instrumentCount, order: order)
+        default: comparator = .init(\.updatedDate, order: order)
+        }
+        sortOrder = [comparator]
     }
-    
+
+    private func startValuation(for themeId: Int) {
+        Task {
+            let service = PortfolioValuationService(dbManager: dbManager)
+            let snap = service.snapshot(themeId: themeId)
+            await MainActor.run {
+                if let idx = rows.firstIndex(where: { $0.id == themeId }) {
+                    rows[idx].totalValue = snap.totalValueBase
+                    rows[idx].excludedFx = snap.excludedFxCount
+                    rows.sort(using: sortOrder)
+                }
+            }
+        }
+    }
+
     func handleDelete(_ theme: PortfolioTheme) {
         if theme.archivedAt == nil {
             themeToDelete = theme
@@ -189,8 +249,8 @@ struct PortfolioThemesListView: View {
     }
 
     private func openSelected() {
-        if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
-            open(theme)
+        if let selectedId = selectedThemeId, let row = rows.first(where: { $0.id == selectedId }) {
+            open(row.theme)
         }
     }
 
