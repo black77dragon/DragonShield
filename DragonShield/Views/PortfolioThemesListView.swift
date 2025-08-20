@@ -1,26 +1,42 @@
 // DragonShield/Views/PortfolioThemesListView.swift
-// MARK: - Version 2.4
+// MARK: - Version 3.0
 // MARK: - History
-// - Fixed compilation error by using the correct 'sortUsing' parameter for TableColumn.
-// - Implemented custom sorting logic to sort the 'Status' column alphabetically by name.
+// - Add Total Value and Instruments columns with sortable headers.
+// - Persist sort selection and render archived themes in gray.
 
 import SwiftUI
 
+struct ThemeRow: Identifiable {
+    var theme: PortfolioTheme
+    var instrumentCount: Int
+    var totalValue: Double?
+    var loading: Bool
+
+    var id: Int { theme.id }
+    var name: String { theme.name }
+    var code: String { theme.code }
+    var statusId: Int { theme.statusId }
+    var updatedAt: String { theme.updatedAt }
+}
+
 struct PortfolioThemesListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
-    
-    // Local state for the data
-    @State private var themes: [PortfolioTheme] = []
+
+    @State private var rows: [ThemeRow] = []
     @State private var statuses: [PortfolioThemeStatus] = []
-    
-    // State for selection and sheets
+
     @State private var selectedThemeId: PortfolioTheme.ID?
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
     @State private var navigateThemeId: Int?
 
-    // State to manage the table's sort order
-    @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
+    enum SortKey: String {
+        case name, code, status, updated, totalValue, instruments
+    }
+    @AppStorage("PortfolioThemesSortKey") private var storedSortKey = SortKey.updated.rawValue
+    @AppStorage("PortfolioThemesSortAsc") private var storedSortAsc: Bool = false
+    @State private var sortOrder: [KeyPathComparator<ThemeRow>] = []
+
     @State private var themeToDelete: PortfolioTheme?
     @State private var showArchiveAlert = false
     @State private var alertMessage = ""
@@ -29,38 +45,36 @@ struct PortfolioThemesListView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                themesTable // The Table view, now correctly defined
+                themesTable
 
-                // Invisible button to handle Return key opening the selected theme
-                Button(action: openSelected) {
-                    EmptyView()
-                }
-                .keyboardShortcut(.return)
-                .hidden()
-                .disabled(selectedThemeId == nil)
+                Button(action: openSelected) { EmptyView() }
+                    .keyboardShortcut(.return)
+                    .hidden()
+                    .disabled(selectedThemeId == nil)
 
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
 
-                Button(action: {
-                    if let selectedId = selectedThemeId {
-                        themeToEdit = themes.first { $0.id == selectedId }
+                    Button(action: {
+                        if let selectedId = selectedThemeId {
+                            themeToEdit = rows.first { $0.id == selectedId }?.theme
+                        }
+                    }) {
+                        Label("Edit Theme", systemImage: "pencil")
                     }
-                }) {
-                    Label("Edit Theme", systemImage: "pencil")
-                }
-                .disabled(selectedThemeId == nil)
+                    .disabled(selectedThemeId == nil)
 
-                Button(action: {
-                    if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
-                        handleDelete(theme)
+                    Button(action: {
+                        if let selectedId = selectedThemeId,
+                           let theme = rows.first(where: { $0.id == selectedId })?.theme {
+                            handleDelete(theme)
+                        }
+                    }) {
+                        Label("Delete Theme", systemImage: "trash")
                     }
-                }) {
-                    Label("Delete Theme", systemImage: "trash")
-                }
-                .disabled(selectedThemeId == nil)
+                    .disabled(selectedThemeId == nil)
                 }
                 .padding()
             }
@@ -72,7 +86,11 @@ struct PortfolioThemesListView: View {
             }
         }
         .navigationTitle("Portfolio Themes")
-        .onAppear(perform: loadData)
+        .onAppear {
+            let key = SortKey(rawValue: storedSortKey) ?? .updated
+            sortOrder = [comparator(for: key, asc: storedSortAsc)]
+            loadData()
+        }
         .sheet(isPresented: $showingAddSheet, onDismiss: loadData) {
             AddPortfolioThemeView(isPresented: $showingAddSheet, onSave: {})
                 .environmentObject(dbManager)
@@ -94,68 +112,157 @@ struct PortfolioThemesListView: View {
         }
     }
 
-    // --- Subviews and Helper Methods ---
-
     private var themesTable: some View {
-        Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
-            TableColumn("Name", value: \.name)
-            TableColumn("Code", value: \.code)
-
-            TableColumn("Status", sortUsing: KeyPathComparator(\.statusId)) { theme in
-                Text(statusName(for: theme.statusId))
+        Table(rows, selection: $selectedThemeId, sortOrder: $sortOrder) {
+            TableColumn("Name", value: \.name) { row in
+                Text(row.name)
+                    .foregroundStyle(color(for: row))
             }
-
-            TableColumn("Last Updated", value: \.updatedAt)
-
-            TableColumn("", content: { theme in
-                Button {
-                    open(theme)
-                } label: {
+            TableColumn("Code", value: \.code) { row in
+                Text(row.code)
+                    .foregroundStyle(color(for: row))
+            }
+            TableColumn("Status", sortUsing: KeyPathComparator(\.statusId, comparator: { lhs, rhs in
+                let nameLHS = statusName(for: lhs)
+                let nameRHS = statusName(for: rhs)
+                return nameLHS.localizedStandardCompare(nameRHS)
+            })) { row in
+                Text(statusName(for: row.statusId))
+                    .foregroundStyle(color(for: row))
+            }
+            TableColumn("Last Updated", value: \.updatedAt) { row in
+                Text(row.updatedAt)
+                    .foregroundStyle(color(for: row))
+            }
+            TableColumn("Total Value", sortUsing: KeyPathComparator(\.totalValue, comparator: totalValueComparator)) { row in
+                totalValueView(for: row)
+            }
+            TableColumn("Instruments", value: \.instrumentCount) { row in
+                Text("\(row.instrumentCount)")
+                    .monospacedDigit()
+                    .foregroundStyle(color(for: row))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            TableColumn("", content: { row in
+                Button { open(row.theme) } label: {
                     Image(systemName: "chevron.right")
                 }
                 .buttonStyle(.plain)
                 .help("Open Theme Details")
-                .accessibilityLabel("Open details for \(theme.name)")
+                .accessibilityLabel("Open details for \(row.name)")
+                .foregroundStyle(color(for: row))
             })
             .width(30)
         }
         .onChange(of: sortOrder) { newOrder in
-            // This custom logic sorts the table correctly when any header is clicked
             guard let comparator = newOrder.first else { return }
-
-            if comparator.keyPath == \.statusId {
-                // If the "Status" column is clicked, sort by the status name string
-                themes.sort { lhs, rhs in
-                    let nameLHS = statusName(for: lhs.statusId)
-                    let nameRHS = statusName(for: rhs.statusId)
-                    if comparator.order == .forward {
-                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedAscending
-                    } else {
-                        return nameLHS.localizedStandardCompare(nameRHS) == .orderedDescending
-                    }
-                }
-            } else {
-                // For all other columns, use the default sorting
-                themes.sort(using: newOrder)
-            }
+            rows.sort(using: newOrder)
+            storedSortAsc = comparator.order == .forward
+            if comparator.keyPath == \ThemeRow.name { storedSortKey = SortKey.name.rawValue }
+            else if comparator.keyPath == \ThemeRow.code { storedSortKey = SortKey.code.rawValue }
+            else if comparator.keyPath == \ThemeRow.statusId { storedSortKey = SortKey.status.rawValue }
+            else if comparator.keyPath == \ThemeRow.updatedAt { storedSortKey = SortKey.updated.rawValue }
+            else if comparator.keyPath == \ThemeRow.totalValue { storedSortKey = SortKey.totalValue.rawValue }
+            else if comparator.keyPath == \ThemeRow.instrumentCount { storedSortKey = SortKey.instruments.rawValue }
         }
         .onTapGesture(count: 2) { openSelected() }
         .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
             Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
         }
     }
-    
+
     private func loadData() {
-        self.statuses = dbManager.fetchPortfolioThemeStatuses()
-        self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
-        // Ensure data is sorted when first loaded
-        self.themes.sort(using: self.sortOrder)
+        statuses = dbManager.fetchPortfolioThemeStatuses()
+        let themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
+        rows = themes.map { theme in
+            ThemeRow(theme: theme,
+                     instrumentCount: dbManager.countThemeAssets(themeId: theme.id),
+                     totalValue: nil,
+                     loading: true)
+        }
+        rows.sort(using: sortOrder)
+        loadValuations()
+    }
+
+    private func loadValuations() {
+        let service = PortfolioValuationService(dbManager: dbManager)
+        for row in rows {
+            let id = row.id
+            Task {
+                let snap = service.snapshot(themeId: id)
+                await MainActor.run {
+                    if let idx = rows.firstIndex(where: { $0.id == id }) {
+                        rows[idx].totalValue = snap.totalValueBase
+                        rows[idx].loading = false
+                        if sortOrder.first?.keyPath == \ThemeRow.totalValue {
+                            rows.sort(using: sortOrder)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func statusName(for id: Int) -> String {
-        return statuses.first { $0.id == id }?.name ?? "N/A"
+        statuses.first { $0.id == id }?.name ?? "N/A"
     }
-    
+
+    private func statusCode(for id: Int) -> String {
+        statuses.first { $0.id == id }?.code ?? ""
+    }
+
+    private func isArchived(_ row: ThemeRow) -> Bool {
+        statusCode(for: row.statusId) == PortfolioThemeStatus.archivedCode
+    }
+
+    private func color(for row: ThemeRow) -> Color {
+        isArchived(row) ? .secondary : .primary
+    }
+
+    private func totalValueView(for row: ThemeRow) -> some View {
+        Group {
+            if row.loading {
+                HStack(spacing: 4) {
+                    Text("—")
+                    ProgressView().controlSize(.small)
+                }
+            } else if let value = row.totalValue {
+                Text(formatValue(value))
+            } else {
+                Text("—")
+            }
+        }
+        .monospacedDigit()
+        .foregroundStyle(color(for: row))
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private var totalValueComparator: (Double?, Double?) -> ComparisonResult {
+        { lhs, rhs in
+            switch (lhs, rhs) {
+            case let (l?, r?):
+                if l < r { return .orderedAscending }
+                if l > r { return .orderedDescending }
+                return .orderedSame
+            case (.none, .none):
+                return .orderedSame
+            case (.none, _):
+                return .orderedAscending
+            case (_, .none):
+                return .orderedDescending
+            }
+        }
+    }
+
+    private func formatValue(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = dbManager.baseCurrency
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
     func handleDelete(_ theme: PortfolioTheme) {
         if theme.archivedAt == nil {
             themeToDelete = theme
@@ -189,7 +296,8 @@ struct PortfolioThemesListView: View {
     }
 
     private func openSelected() {
-        if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
+        if let selectedId = selectedThemeId,
+           let theme = rows.first(where: { $0.id == selectedId })?.theme {
             open(theme)
         }
     }
@@ -197,4 +305,27 @@ struct PortfolioThemesListView: View {
     private func open(_ theme: PortfolioTheme) {
         navigateThemeId = theme.id
     }
+
+    private func comparator(for key: SortKey, asc: Bool) -> KeyPathComparator<ThemeRow> {
+        let order: SortOrder = asc ? .forward : .reverse
+        switch key {
+        case .name:
+            return KeyPathComparator(\.name, order: order)
+        case .code:
+            return KeyPathComparator(\.code, order: order)
+        case .status:
+            return KeyPathComparator(\.statusId, order: order, comparator: { lhs, rhs in
+                let l = statusName(for: lhs)
+                let r = statusName(for: rhs)
+                return l.localizedStandardCompare(r)
+            })
+        case .updated:
+            return KeyPathComparator(\.updatedAt, order: order)
+        case .totalValue:
+            return KeyPathComparator(\.totalValue, order: order, comparator: totalValueComparator)
+        case .instruments:
+            return KeyPathComparator(\.instrumentCount, order: order)
+        }
+    }
 }
+

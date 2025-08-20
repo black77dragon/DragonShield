@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Fix Portfolio Theme creation to persist database records and improve new theme editor layout
 - Remove Portfolio Themes feature flag; navigation and Theme Status settings are always visible
 - Navigate from Portfolio Themes list to detail view with keyboard, icon, or context menu; archived themes open read-only
+- Show Total Value and instrument count in Portfolio Themes list with persistent sorting and archived-row styling
 - Disable Performance and Rebalancing links in sidebar
 - Ensure new theme popup accepts a theme code and disable Save until required fields are valid
 - Introduce HealthCheckRegistry for startup diagnostics with per-check configuration
