@@ -21,6 +21,10 @@ struct PortfolioThemesListView: View {
 
     // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
+    @State private var themeToDelete: PortfolioTheme?
+    @State private var showArchiveAlert = false
+    @State private var alertMessage = ""
+    @State private var showingResultAlert = false
 
     var body: some View {
         NavigationStack {
@@ -51,7 +55,7 @@ struct PortfolioThemesListView: View {
 
                 Button(action: {
                     if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
-                        deleteTheme(theme)
+                        handleDelete(theme)
                     }
                 }) {
                     Label("Delete Theme", systemImage: "trash")
@@ -76,6 +80,17 @@ struct PortfolioThemesListView: View {
         .sheet(item: $themeToEdit, onDismiss: loadData) { theme in
             EditPortfolioThemeView(theme: theme, onSave: {})
                 .environmentObject(dbManager)
+        }
+        .alert("Delete Theme", isPresented: $showArchiveAlert) {
+            Button("Archive and Delete") { archiveAndDelete() }
+            Button("Cancel", role: .cancel) { themeToDelete = nil }
+        } message: {
+            Text("Theme must be archived before deletion.")
+        }
+        .alert("Result", isPresented: $showingResultAlert) {
+            Button("OK") { showingResultAlert = false }
+        } message: {
+            Text(alertMessage)
         }
     }
 
@@ -141,12 +156,35 @@ struct PortfolioThemesListView: View {
         return statuses.first { $0.id == id }?.name ?? "N/A"
     }
     
-    private func deleteTheme(_ theme: PortfolioTheme) {
+    func handleDelete(_ theme: PortfolioTheme) {
+        if theme.archivedAt == nil {
+            themeToDelete = theme
+            showArchiveAlert = true
+        } else {
+            performDelete(theme)
+        }
+    }
+
+    func archiveAndDelete() {
+        guard let theme = themeToDelete else { return }
+        if dbManager.archivePortfolioTheme(id: theme.id) {
+            performDelete(theme)
+        } else {
+            alertMessage = "❌ Failed to archive theme"
+            showingResultAlert = true
+        }
+        themeToDelete = nil
+    }
+
+    private func performDelete(_ theme: PortfolioTheme) {
         if dbManager.softDeletePortfolioTheme(id: theme.id) {
+            alertMessage = "✅ Theme deleted"
+            showingResultAlert = true
             selectedThemeId = nil
             loadData()
         } else {
-            print("Error: Failed to delete theme with ID \(theme.id)")
+            alertMessage = "❌ Failed to delete theme"
+            showingResultAlert = true
         }
     }
 
