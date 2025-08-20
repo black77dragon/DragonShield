@@ -42,14 +42,12 @@ final class PortfolioValuationService {
 
         let theme = dbManager.getPortfolioTheme(id: themeId)
 
-        var sessionId: Int32 = -1
         var positionsAsOf: Date?
         var stmt: OpaquePointer?
-        let sessionSql = "SELECT import_session_id, completed_at FROM ImportSessions WHERE import_status='COMPLETED' ORDER BY completed_at DESC LIMIT 1"
-        if sqlite3_prepare_v2(db, sessionSql, -1, &stmt, nil) == SQLITE_OK {
+        let asOfSql = "SELECT MAX(report_date) FROM PositionReports"
+        if sqlite3_prepare_v2(db, asOfSql, -1, &stmt, nil) == SQLITE_OK {
             if sqlite3_step(stmt) == SQLITE_ROW {
-                sessionId = sqlite3_column_int(stmt, 0)
-                if let cString = sqlite3_column_text(stmt, 1) {
+                if let cString = sqlite3_column_text(stmt, 0) {
                     positionsAsOf = Self.dateFormatter.date(from: String(cString: cString))
                 }
             }
@@ -66,13 +64,12 @@ final class PortfolioValuationService {
         SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, COALESCE(SUM(pr.quantity * pr.current_price),0)
           FROM PortfolioThemeAsset a
           JOIN Instruments i ON a.instrument_id = i.instrument_id
-          LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id AND pr.import_session_id = ?
+          LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id
          WHERE a.theme_id = ?
          GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency
         """
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_int(stmt, 1, sessionId)
-            sqlite3_bind_int(stmt, 2, Int32(themeId))
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let instrId = Int(sqlite3_column_int(stmt, 0))
                 let name = String(cString: sqlite3_column_text(stmt, 1))
