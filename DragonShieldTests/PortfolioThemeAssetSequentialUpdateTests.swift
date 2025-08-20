@@ -14,6 +14,12 @@ final class PortfolioThemeAssetSequentialUpdateTests: XCTestCase {
         sqlite3_open(":memory:", &mem)
         manager.db = mem
 
+        sqlite3_exec(manager.db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+        sqlite3_exec(manager.db, "PRAGMA journal_mode = WAL;", nil, nil, nil)
+        sqlite3_exec(manager.db, "PRAGMA synchronous = NORMAL;", nil, nil, nil)
+        sqlite3_exec(manager.db, "PRAGMA busy_timeout = 5000;", nil, nil, nil)
+        sqlite3_exec(manager.db, "PRAGMA wal_autocheckpoint = 1000;", nil, nil, nil)
+
         let sql = """
         CREATE TABLE PortfolioThemeStatus (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
