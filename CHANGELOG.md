@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 - Polish Portfolio Theme maintenance layouts and add instrument notes field
 - Normalize empty instrument notes to nil in theme detail editor and add-instrument sheet
+- Fix Portfolio Theme allocation edits not persisting and log updates
 - Introduce PortfolioThemeAsset table linking themes to instruments with target allocations
 - Add PortfolioTheme entity with CRUD UI and migration 010
 - Fix Portfolio Theme creation to persist database records and improve new theme editor layout
@@ -41,6 +42,7 @@ All notable changes to this project will be documented in this file.
 - Add button to validate Instruments in Database Management view
 - Temporarily disable Reference and Transaction data backup and restore buttons
 - Add configurable startup health checks with UI summary
+- Log individual startup health check results and ensure database file check passes by reading the path lazily
 - Sync validation status of class and subclass targets from findings and purge zero-target data
 - Skip validation for asset classes without target allocation and clear related findings
 - Enlarge validation details modal and add close button

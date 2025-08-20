@@ -72,16 +72,27 @@ final class HealthCheckTests: XCTestCase {
     func testDatabaseFileCheckPassesWhenFileExists() async {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         FileManager.default.createFile(atPath: url.path, contents: Data())
-        let check = DatabaseFileHealthCheck(path: url.path)
+        let check = DatabaseFileHealthCheck(pathProvider: { url.path })
         let result = await check.run()
         if case .ok = result { } else { XCTFail("expected ok") }
     }
 
     func testDatabaseFileCheckFailsWhenMissing() async {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let check = DatabaseFileHealthCheck(path: url.path)
+        let check = DatabaseFileHealthCheck(pathProvider: { url.path })
         let result = await check.run()
         if case .error = result { } else { XCTFail("expected error") }
+    }
+
+    func testDatabaseFileCheckUsesLatestPath() async {
+        let dir = FileManager.default.temporaryDirectory
+        var path = ""
+        let check = DatabaseFileHealthCheck(pathProvider: { path })
+        let fileURL = dir.appendingPathComponent(UUID().uuidString)
+        path = fileURL.path
+        FileManager.default.createFile(atPath: fileURL.path, contents: Data())
+        let result = await check.run()
+        if case .ok = result { } else { XCTFail("expected ok") }
     }
 }
 
