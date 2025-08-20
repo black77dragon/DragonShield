@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Fix Portfolio Theme allocation edits not persisting and log updates
 - Fix instrument notes edits not saving in theme detail view
 - Present valuation status and notes in dedicated columns to avoid confusion
+- Show total value and instrument count columns with sortable headers in Portfolio Themes list
 - Introduce PortfolioThemeAsset table linking themes to instruments with target allocations
 - Add PortfolioTheme entity with CRUD UI and migration 010
 - Fix Portfolio Theme creation to persist database records and improve new theme editor layout

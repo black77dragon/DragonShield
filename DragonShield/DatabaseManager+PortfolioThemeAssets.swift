@@ -198,4 +198,18 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return ok
     }
+
+    func countThemeAssets(themeId: Int) -> Int {
+        let sql = "SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?"
+        var stmt: OpaquePointer?
+        var result = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                result = Int(sqlite3_column_int(stmt, 0))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return result
+    }
 }
