@@ -1,7 +1,5 @@
 // DragonShield/Views/PortfolioThemeDetailView.swift
-// MARK: - Version 1.2
-// MARK: - History
-// - 1.1 -> 1.2: Allow navigation via themeId, fetch fresh data, handle archived/read-only and soft-deleted themes.
+// Layout-polished detail editor for portfolio themes.
 
 import SwiftUI
 
@@ -27,56 +25,41 @@ struct PortfolioThemeDetailView: View {
     @State private var addInstrumentId: Int = 0
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
+    @State private var addNotes: String = ""
     @State private var alertItem: AlertItem?
 
+    private let labelWidth: CGFloat = 140
+
     var body: some View {
-        VStack(alignment: .leading) {
-            if let theme = theme {
-                Form {
-                    Section {
-                        TextField("Name", text: $name).textFieldStyle(.roundedBorder)
-                        Text("Code: \(code)")
-                        Picker("Status", selection: $statusId) {
-                            ForEach(statuses) { status in
-                                Text(status.name).tag(status.id)
-                            }
-                        }
-                        Text("Archived at: \(theme.archivedAt ?? "—")")
-                    }
-                    if isReadOnly {
-                        Section {
-                            Text("Archived themes are read-only.")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    compositionSection
-                    Section("Danger Zone") {
-                        if theme.archivedAt == nil {
-                            Button("Archive Theme") { onArchive(); dismiss() }
-                        } else {
-                            Button("Unarchive") {
-                                let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
-                                onUnarchive(defaultStatus)
-                                dismiss()
-                            }
-                            Button("Soft Delete") { onSoftDelete(); dismiss() }
-                        }
-                    }
-                }
-                HStack {
-                    Spacer()
-                    Button("Save") {
-                        saveTheme()
-                    }
-                    .disabled(!valid || isReadOnly)
-                    Button("Cancel") { dismiss() }
-                }
-                .padding([.top, .leading, .trailing])
-            } else {
-                Text("This theme is no longer available.")
+        VStack(spacing: 0) {
+            if isReadOnly {
+                Text("Archived theme – read only")
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.yellow.opacity(0.1))
             }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    headerBlock
+                    compositionSection
+                    dangerZone
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Save") { saveTheme() }
+                    .disabled(!valid || isReadOnly)
+                Button("Cancel") { dismiss() }
+            }
+            .padding(24)
         }
-        .frame(minWidth: 620, minHeight: 420)
+        .frame(minWidth: 960)
         .onAppear(perform: loadTheme)
         .sheet(isPresented: $showAdd) { addSheet }
         .alert(item: $alertItem) { item in
@@ -84,75 +67,190 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
-    private var valid: Bool {
-        PortfolioTheme.isValidName(name)
+    // MARK: - Sections
+
+    private var headerBlock: some View {
+        HStack(spacing: 16) {
+            TextField("Name", text: $name)
+            Text(code)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().stroke(Color.secondary))
+            Picker("Status", selection: $statusId) {
+                ForEach(statuses) { status in
+                    Text(status.name).tag(status.id)
+                }
+            }
+            .labelsHidden()
+            Text("Archived at: \(theme?.archivedAt ?? "—")")
+                .foregroundColor(.secondary)
+        }
     }
 
-    private var isReadOnly: Bool { theme?.archivedAt != nil }
-
-    private var researchTotal: Double { assets.reduce(0) { $0 + $1.researchTargetPct } }
-    private var userTotal: Double { assets.reduce(0) { $0 + $1.userTargetPct } }
-
-    @ViewBuilder
     private var compositionSection: some View {
-        Section("Composition") {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Composition").font(.headline)
+            Button("+ Add Instrument") { showAdd = true }
+                .buttonStyle(.borderedProminent)
+                .disabled(isReadOnly || availableInstruments.isEmpty)
+
             if assets.isEmpty {
                 Text("No instruments attached")
             } else {
+                HStack {
+                    Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Research %").frame(width: 72, alignment: .trailing)
+                    Text("User %").frame(width: 72, alignment: .trailing)
+                    Text("Notes").frame(minWidth: 200, alignment: .leading)
+                    Spacer().frame(width: 40)
+                }
                 ForEach($assets) { $asset in
-                    HStack {
-                        Text(instrumentName(asset.instrumentId))
-                        TextField("Research %", value: $asset.researchTargetPct, format: .number)
-                            .frame(width: 80)
+                    HStack(alignment: .center) {
+                        Text(instrumentName($asset.wrappedValue.instrumentId))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        TextField("", value: $asset.researchTargetPct, format: .number)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onSubmit { save(asset) }
-                        TextField("User %", value: $asset.userTargetPct, format: .number)
-                            .frame(width: 80)
+                            .onSubmit { save($asset.wrappedValue) }
+                        TextField("", value: $asset.userTargetPct, format: .number)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onSubmit { save(asset) }
+                            .onSubmit { save($asset.wrappedValue) }
+                        TextField("", text: Binding(
+                            get: { $asset.wrappedValue.notes ?? "" },
+                            set: { newValue in
+                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
+                            }
+                        ))
+                        .frame(minWidth: 200)
+                        .disabled(isReadOnly)
+                        .onSubmit { save($asset.wrappedValue) }
                         if !isReadOnly {
-                            Button("Remove") { remove(asset) }
+                            Button(action: { remove($asset.wrappedValue) }) {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
                         }
                     }
                 }
                 HStack {
-                    Text(String(format: "Research sum %.1f%%", researchTotal))
-                    Text(String(format: "| User sum %.1f%%", userTotal))
-                        .foregroundColor(abs(userTotal - 100.0) > 0.1 ? .orange : .primary)
+                    Label("Research sum \(researchTotal, format: .number)%", systemImage: researchTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundColor(researchTotalWarning ? .orange : .green)
+                    Label("User sum \(userTotal, format: .number)%", systemImage: userTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundColor(userTotalWarning ? .orange : .green)
                 }
-            }
-            if !isReadOnly {
-                Button("+ Add Instrument") { showAdd = true }
+                .padding(.top, 8)
             }
         }
     }
 
-    private var addSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Picker("Instrument", selection: $addInstrumentId) {
-                ForEach(availableInstruments, id: \.id) { item in
-                    Text(item.name).tag(item.id)
-                }
-            }
-            TextField("Research %", value: $addResearchPct, format: .number)
-            TextField("User %", value: $addUserPct, format: .number)
+    private var dangerZone: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Danger Zone").font(.headline)
             HStack {
-                Button("Add") {
-                    let userPct = addUserPct == addResearchPct ? nil : addUserPct
-                    if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct) != nil {
-                        showAdd = false
-                        addResearchPct = 0; addUserPct = 0
-                        loadAssets()
-                    } else {
-                        LoggingService.shared.log("createThemeAsset failed themeId=\(themeId) instrumentId=\(addInstrumentId)", logger: .ui)
-                        alertItem = AlertItem(title: "Error", message: "Failed to add instrument to theme.", action: nil)
+                Text(theme?.archivedAt == nil ? "Archive theme to prevent edits." : "Unarchive theme to allow edits.")
+                    .foregroundColor(.secondary)
+                Spacer()
+                if theme?.archivedAt == nil {
+                    Button("Archive Theme") { onArchive(); dismiss() }
+                        .tint(.red)
+                } else {
+                    Button("Unarchive") {
+                        let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
+                        onUnarchive(defaultStatus)
+                        dismiss()
                     }
+                    Button("Soft Delete") { onSoftDelete(); dismiss() }
+                        .tint(.red)
                 }
-                Button("Cancel") { showAdd = false }
             }
         }
-        .padding()
-        .frame(minWidth: 300)
+    }
+
+    // MARK: - Add Instrument Sheet
+
+    private var addSheet: some View {
+        VStack(spacing: 0) {
+            Form {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 12) {
+                    GridRow {
+                        Text("Instrument")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        Picker("Instrument", selection: $addInstrumentId) {
+                            ForEach(availableInstruments, id: \.id) { item in
+                                Text(item.name).tag(item.id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    GridRow {
+                        Text("Research %")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("", value: $addResearchPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                            if let err = researchError {
+                                Text(err).foregroundColor(.red)
+                            }
+                        }
+                    }
+                    GridRow {
+                        Text("User %")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("", value: $addUserPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                            if let err = userError {
+                                Text(err).foregroundColor(.red)
+                            }
+                        }
+                    }
+                    GridRow {
+                        Text("Notes")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        TextField("Notes", text: $addNotes)
+                    }
+                }
+            }
+            .padding(.vertical, 24)
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Cancel") { showAdd = false }
+                Button("Add") { addInstrument() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!addValid)
+            }
+            .padding(24)
+        }
+        .frame(width: 520)
+        .onAppear { addUserPct = addResearchPct }
+    }
+
+    // MARK: - Helpers
+
+    private var valid: Bool { PortfolioTheme.isValidName(name) }
+    private var isReadOnly: Bool { theme?.archivedAt != nil }
+    private var researchTotal: Double { assets.reduce(0) { $0 + $1.researchTargetPct } }
+    private var userTotal: Double { assets.reduce(0) { $0 + $1.userTargetPct } }
+    private var researchTotalWarning: Bool { abs(researchTotal - 100.0) > 0.1 }
+    private var userTotalWarning: Bool { abs(userTotal - 100.0) > 0.1 }
+    private var addValid: Bool {
+        PortfolioThemeAsset.isValidPercentage(addResearchPct) &&
+        PortfolioThemeAsset.isValidPercentage(addUserPct)
+    }
+    private var researchError: String? {
+        PortfolioThemeAsset.isValidPercentage(addResearchPct) ? nil : "0-100% required"
+    }
+    private var userError: String? {
+        PortfolioThemeAsset.isValidPercentage(addUserPct) ? nil : "0-100% required"
     }
 
     private var availableInstruments: [(id: Int, name: String)] {
@@ -215,17 +313,33 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
-private func remove(_ asset: PortfolioThemeAsset) {
-    if dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId) {
-        loadAssets()
-    } else {
-        LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
-        alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
+    private func remove(_ asset: PortfolioThemeAsset) {
+        if dbManager.removeThemeAsset(themeId: themeId, instrumentId: asset.instrumentId) {
+            loadAssets()
+        } else {
+            LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
+            alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
+        }
     }
-}
-}
 
-extension PortfolioThemeDetailView {
+    private func addInstrument() {
+        let userPct = addUserPct == addResearchPct ? nil : addUserPct
+        let trimmedNotes = addNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notesToSave = trimmedNotes.isEmpty ? nil : trimmedNotes
+        if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: notesToSave) != nil {
+            showAdd = false
+            addResearchPct = 0
+            addUserPct = 0
+            addNotes = ""
+            loadAssets()
+        } else {
+            LoggingService.shared.log("createThemeAsset failed themeId=\(themeId) instrumentId=\(addInstrumentId)", logger: .ui)
+            alertItem = AlertItem(title: "Error", message: "Failed to add instrument to theme.", action: nil)
+        }
+    }
+
+    // MARK: - Alert
+
     struct AlertItem: Identifiable {
         let id = UUID()
         let title: String
@@ -233,3 +347,4 @@ extension PortfolioThemeDetailView {
         let action: (() -> Void)?
     }
 }
+
