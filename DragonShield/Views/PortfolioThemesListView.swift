@@ -15,7 +15,7 @@ struct PortfolioThemesListView: View {
     private let sortDefaultsKey = "PortfolioThemesListView.sort"
     
     // Local state for the data
-    @State private var themes: [PortfolioTheme] = []
+    @State var themes: [PortfolioTheme] = []
     @State private var statuses: [PortfolioThemeStatus] = []
     
     // State for selection and sheets
@@ -246,15 +246,15 @@ struct PortfolioThemesListView: View {
         }
     }
 
-    private func loadValuations() {
+    func loadValuations() {
         let service = PortfolioValuationService(dbManager: dbManager)
         for theme in themes {
             Task.detached {
                 let value = service.snapshot(themeId: theme.id).totalValueBase
                 await MainActor.run {
-                    if let idx = themes.firstIndex(where: { $0.id == theme.id }) {
-                        themes[idx].totalValueBase = value
-                        themes.sort(using: sortOrder)
+                    if let idx = self.themes.firstIndex(where: { $0.id == theme.id }) {
+                        self.themes[idx].totalValueBase = value
+                        self.themes.sort(using: self.sortOrder)
                     }
                 }
             }
