@@ -95,6 +95,7 @@ final class PortfolioValuationService {
                 if flag == nil { total += valueBase }
             }
         }
+        
         sqlite3_finalize(stmt)
 
         var valuedCount = 0
