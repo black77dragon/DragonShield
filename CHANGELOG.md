@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Apply SQLite PRAGMAs in test DB setup to mirror production behavior
+- Ensure sequential theme asset updates persist and close test DB handles
 - Polish Portfolio Theme maintenance layouts and add instrument notes field
 - Normalize empty instrument notes to nil in theme detail editor and add-instrument sheet
 - Fix Portfolio Theme allocation edits not persisting and log updates
