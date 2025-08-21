@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
 - Fix Portfolio Themes list not updating Total Value after valuations load
 - Add Total Value and Instruments columns with sortable headers to Portfolio Themes list
 - Fix theme total value spinner by loading valuations sequentially
