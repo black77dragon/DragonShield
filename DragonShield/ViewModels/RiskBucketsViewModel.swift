@@ -35,23 +35,15 @@ final class RiskBucketsViewModel: ObservableObject {
 
     private func computeBuckets() {
         guard let db else { return }
-        var rateCache: [String: Double] = [:]
         var groups: [String: Double] = [:]
         var total = 0.0
 
         for p in positions {
             guard let price = p.currentPrice else { continue }
-            var value = p.quantity * price
             let currency = p.instrumentCurrency.uppercased()
-            if currency != "CHF" {
-                var rate = rateCache[currency]
-                if rate == nil {
-                    rate = db.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
-                    rateCache[currency] = rate
-                }
-                guard let r = rate else { continue }
-                value *= r
-            }
+            let valueOrig = p.quantity * price
+            guard let conv = db.convert(amount: valueOrig, from: currency, asOf: nil) else { continue }
+            let value = conv.value
             total += value
             let key: String
             switch selectedRiskDimension {

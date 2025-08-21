@@ -16,25 +16,14 @@ class CurrencyExposureViewModel: ObservableObject {
         DispatchQueue.global().async {
             let positions = db.fetchPositionReports()
             var totals: [String: Double] = [:]
-            var rateCache: [String: Double] = [:]
             var total: Double = 0
             for p in positions {
                 guard let price = p.currentPrice else { continue }
                 let currency = p.instrumentCurrency.uppercased()
-                var value = p.quantity * price
-                if currency != "CHF" {
-                    if rateCache[currency] == nil {
-                        let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-                        if let rate = rates.first?.rateToChf {
-                            rateCache[currency] = rate
-                        } else {
-                            continue
-                        }
-                    }
-                    if let rate = rateCache[currency] { value *= rate }
-                }
-                totals[currency, default: 0] += value
-                total += value
+                let valueOrig = p.quantity * price
+                guard let conv = db.convert(amount: valueOrig, from: currency, asOf: nil) else { continue }
+                totals[currency, default: 0] += conv.value
+                total += conv.value
             }
             var breakdown = totals.map { CurrencyBreakdown(currencyCode: $0.key, percentage: 0, totalCHF: $0.value) }
             breakdown.sort { $0.totalCHF > $1.totalCHF }

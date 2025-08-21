@@ -67,18 +67,12 @@ struct InstitutionsAUMTile: DashboardTile {
         DispatchQueue.global().async {
             let positions = dbManager.fetchPositionReports()
             var totals: [String: Double] = [:]
-            var rateCache: [String: Double] = [:]
             for p in positions {
                 guard let price = p.currentPrice else { continue }
-                var value = p.quantity * price
                 let currency = p.instrumentCurrency.uppercased()
-                if currency != "CHF" {
-                    if rateCache[currency] == nil {
-                        rateCache[currency] = dbManager.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
-                    }
-                    if let rate = rateCache[currency] { value *= rate } else { continue }
-                }
-                totals[p.institutionName, default: 0] += value
+                let valueOrig = p.quantity * price
+                guard let conv = dbManager.convert(amount: valueOrig, from: currency, asOf: nil) else { continue }
+                totals[p.institutionName, default: 0] += conv.value
             }
             let sorted = totals.sorted { $0.value > $1.value }
             let result = sorted.map { Row(name: $0.key, valueCHF: $0.value) }
