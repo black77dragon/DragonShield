@@ -148,6 +148,7 @@ final class PortfolioValuationService {
                        let d = Self.dateFormatter.date(from: String(cString: cString)) {
                         date = d
                     } else {
+                        LoggingService.shared.log("Failed to parse rate_date for currency '\(ccy)', falling back to position date.", type: .warning, logger: .database)
                         date = asOf ?? Date()
                     }
                     return (rate, date)

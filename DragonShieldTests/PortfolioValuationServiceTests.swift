@@ -83,4 +83,34 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertEqual(df.string(from: snap.fxAsOf!), "2025-08-20T14:00:00Z")
         sqlite3_close(manager.db)
     }
+
+    func testLogsWarningWhenRateDateInvalid() {
+        LoggingService.shared.clearLog()
+        let manager = DatabaseManager()
+        var db: OpaquePointer?
+        sqlite3_open(":memory:", &db)
+        manager.db = db
+        manager.baseCurrency = "CHF"
+        let sql = """
+        CREATE TABLE PortfolioThemeStatus (id INTEGER PRIMARY KEY, code TEXT, name TEXT, color_hex TEXT, is_default INTEGER);
+        INSERT INTO PortfolioThemeStatus VALUES (1,'ACTIVE','Active','#fff',1);
+        CREATE TABLE PortfolioTheme (id INTEGER PRIMARY KEY, name TEXT, code TEXT, status_id INTEGER, archived_at TEXT, soft_delete INTEGER DEFAULT 0);
+        INSERT INTO PortfolioTheme VALUES (1,'Core','CORE',1,NULL,0);
+        CREATE TABLE PortfolioThemeAsset (theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, PRIMARY KEY(theme_id,instrument_id));
+        INSERT INTO PortfolioThemeAsset VALUES (1,1,100,100,NULL);
+        CREATE TABLE Instruments (instrument_id INTEGER PRIMARY KEY, instrument_name TEXT, currency TEXT);
+        INSERT INTO Instruments VALUES (1,'MSFT','USD');
+        CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY AUTOINCREMENT, import_session_id INTEGER, instrument_id INTEGER, quantity REAL, current_price REAL, report_date TEXT);
+        INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,1,50,10,'2025-08-20T14:05:00Z');
+        CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL);
+        INSERT INTO ExchangeRates VALUES ('USD','invalid',0.9);
+        """
+        sqlite3_exec(db, sql, nil, nil, nil)
+        let service = PortfolioValuationService(dbManager: manager)
+        _ = service.snapshot(themeId: 1)
+        Thread.sleep(forTimeInterval: 0.1)
+        let log = LoggingService.shared.readLog()
+        XCTAssertTrue(log.contains("Failed to parse rate_date for currency 'USD'"))
+        sqlite3_close(manager.db)
+    }
 }
