@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
+- Share FXConversionService between Positions and Portfolio valuation to ensure FX parity and explicit missing rate handling
 - Log warning when FX rate_date cannot be parsed and fallback is used
 - Handle valuation event serialization errors with explicit logging
 - Fix Portfolio Themes list not updating Total Value after valuations load

@@ -69,14 +69,15 @@ class PositionsViewModel: ObservableObject {
       var total: Double = 0
       var orig: [Int: Double] = [:]
       var chf: [Int: Double?] = [:]
-      var rateCache: [String: Double] = [:]
+      var rateCache: [String: Double?] = [:]
       var symbolCache: [String: String] = [:]
       var missingRate = false
 
+      let fxService = FXConversionService(dbManager: db)
+      let positionsAsOf = positions.map { $0.reportDate }.max() ?? Date()
       for p in positions {
         guard let price = p.currentPrice else { continue }
         let key = p.id
-
         let currency = p.instrumentCurrency.uppercased()
         let valueOrig = p.quantity * price
         orig[key] = valueOrig
@@ -91,21 +92,26 @@ class PositionsViewModel: ObservableObject {
 
         var valueCHF = valueOrig
         if currency != "CHF" {
-          var rate = rateCache[currency]
-          if rate == nil {
-            let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-            if let r = rates.first?.rateToChf {
-              rateCache[currency] = r
-              rate = r
+          if let cached = rateCache[currency] {
+            if let r = cached {
+              valueCHF *= r
+              chf[key] = valueCHF
+              total += valueCHF
+            } else {
+              missingRate = true
+              chf[key] = nil
             }
-          }
-          if let r = rate {
-            valueCHF *= r
-            chf[key] = valueCHF
-            total += valueCHF
           } else {
-            missingRate = true
-            chf[key] = nil
+            if let result = fxService.convert(amount: 1.0, from: currency, to: "CHF", asOf: positionsAsOf) {
+              rateCache[currency] = result.rate
+              valueCHF *= result.rate
+              chf[key] = valueCHF
+              total += valueCHF
+            } else {
+              rateCache[currency] = nil
+              missingRate = true
+              chf[key] = nil
+            }
           }
         } else {
           chf[key] = valueCHF

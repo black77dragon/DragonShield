@@ -202,7 +202,11 @@ private var valuationSection: some View {
                     Text(row.instrumentName).frame(maxWidth: .infinity, alignment: .leading)
                     Text(row.researchTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
                     Text(row.userTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                    Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
+                    if row.status == "FX missing — excluded" {
+                        Text("—").frame(width: 120, alignment: .trailing)
+                    } else {
+                        Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
+                    }
                     Text(row.actualPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
                     Text(row.status).frame(width: 120, alignment: .leading)
                     Text(row.notes ?? "").frame(minWidth: 100, alignment: .leading)
