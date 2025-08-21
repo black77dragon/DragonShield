@@ -1,9 +1,10 @@
 // DragonShield/LoggingService.swift
-// MARK: - Version 1.0.2.0
+// MARK: - Version 1.0.3.0
 // MARK: - History
 // - 0.0.0.0 -> 1.0.0.0: Initial logging service writing messages to a log file.
 // - 1.0.0.0 -> 1.0.1.0: Also forward messages to OSLog with categories.
 // - 1.0.1.0 -> 1.0.2.0: Support logging with explicit OSLogType levels.
+// - 1.0.2.0 -> 1.0.3.0: Add warning level support.
 
 import Foundation
 import OSLog
@@ -35,6 +36,7 @@ final class LoggingService {
         case .error: level = "ERROR"
         case .fault: level = "FAULT"
         case .info: level = "INFO"
+        case .warning: level = "WARNING"
         default: level = "DEFAULT"
         }
         let line = "[\(timestamp)] [\(level)] \(message)\n"
