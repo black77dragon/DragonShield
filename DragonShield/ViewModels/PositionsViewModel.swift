@@ -69,9 +69,9 @@ class PositionsViewModel: ObservableObject {
       var total: Double = 0
       var orig: [Int: Double] = [:]
       var chf: [Int: Double?] = [:]
-      var rateCache: [String: Double] = [:]
       var symbolCache: [String: String] = [:]
       var missingRate = false
+      let asOf = positions.map { $0.reportDate }.max() ?? Date()
 
       for p in positions {
         guard let price = p.currentPrice else { continue }
@@ -89,27 +89,12 @@ class PositionsViewModel: ObservableObject {
           symbolCache[currency] = currency
         }
 
-        var valueCHF = valueOrig
-        if currency != "CHF" {
-          var rate = rateCache[currency]
-          if rate == nil {
-            let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-            if let r = rates.first?.rateToChf {
-              rateCache[currency] = r
-              rate = r
-            }
-          }
-          if let r = rate {
-            valueCHF *= r
-            chf[key] = valueCHF
-            total += valueCHF
-          } else {
-            missingRate = true
-            chf[key] = nil
-          }
+        if let conv = FXConversionService.convert(amount: valueOrig, from: currency, to: "CHF", asOf: asOf, db: db.db) {
+          chf[key] = conv.value
+          total += conv.value
         } else {
-          chf[key] = valueCHF
-          total += valueCHF
+          missingRate = true
+          chf[key] = nil
         }
       }
 

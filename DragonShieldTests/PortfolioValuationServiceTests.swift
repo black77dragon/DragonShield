@@ -50,6 +50,10 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertEqual(rows[2]?.status, "OK")
         XCTAssertEqual(rows[3]?.status, "FX missing — excluded")
         XCTAssertEqual(rows[4]?.status, "No position")
+        if let posAsOf = snap.positionsAsOf {
+            let conv = FXConversionService.convert(amount: 50 * 10, from: "USD", to: "CHF", asOf: posAsOf, db: manager.db)
+            XCTAssertEqual(conv?.value, rows[2]?.currentValueBase, accuracy: 0.01)
+        }
         sqlite3_close(manager.db)
     }
 
@@ -121,7 +125,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         _ = service.snapshot(themeId: 1)
         Thread.sleep(forTimeInterval: 0.1)
         let log = LoggingService.shared.readLog()
-        XCTAssertTrue(log.contains("\"themeId\":1"))
+        XCTAssertTrue(log.contains("\"fx_source\":\"PositionsParity\""))
         sqlite3_close(manager.db)
     }
 }
