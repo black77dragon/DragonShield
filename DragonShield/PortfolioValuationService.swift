@@ -9,7 +9,7 @@ struct ValuationRow: Identifiable {
     let currentValueBase: Double
     let actualPct: Double
     let notes: String?
-    let flag: String?
+    let status: String
     var id: Int { instrumentId }
 }
 
@@ -61,15 +61,18 @@ final class PortfolioValuationService {
         var missing: Set<String> = []
 
         let sql = """
-        SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, COALESCE(SUM(pr.quantity * pr.current_price),0), a.notes
+        SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency,
+               COALESCE(SUM(pr.quantity * pr.current_price),0), a.notes
           FROM PortfolioThemeAsset a
           JOIN Instruments i ON a.instrument_id = i.instrument_id
-          LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id
+          LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id AND pr.report_date = ?
          WHERE a.theme_id = ?
          GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, a.notes
         """
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            let posStr = positionsAsOf.map { Self.dateFormatter.string(from: $0) } ?? ""
+            sqlite3_bind_text(stmt, 1, posStr, -1, nil)
+            sqlite3_bind_int(stmt, 2, Int32(themeId))
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let instrId = Int(sqlite3_column_int(stmt, 0))
                 let name = String(cString: sqlite3_column_text(stmt, 1))
@@ -78,34 +81,32 @@ final class PortfolioValuationService {
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
                 let nativeValue = sqlite3_column_double(stmt, 5)
                 let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                var flag: String? = nil
+                var status = "OK"
                 var valueBase: Double = 0
                 if nativeValue == 0 {
-                    flag = "No position"
-                } else if currency == dbManager.baseCurrency {
-                    valueBase = nativeValue
-                } else if let rate = fetchRate(for: currency, asOf: positionsAsOf, fxAsOf: &fxAsOf) {
+                    status = "No position"
+                } else if let rate = fetchRate(from: currency, to: dbManager.baseCurrency, asOf: positionsAsOf, fxAsOf: &fxAsOf) {
                     valueBase = nativeValue * rate
                 } else {
-                    flag = "FX missing — excluded"
+                    status = "FX missing — excluded"
                     excludedFx += 1
                     missing.insert(currency)
                 }
-                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, flag: flag))
-                if flag == nil { total += valueBase }
+                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, status: status))
+                if status == "OK" { total += valueBase }
             }
         }
-        
+
         sqlite3_finalize(stmt)
 
         var valuedCount = 0
         rows = rows.map { row in
             var pct: Double = 0
-            if total > 0 && row.flag == nil {
+            if total > 0 && row.status == "OK" {
                 pct = row.currentValueBase / total * 100
                 valuedCount += 1
             }
-            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, flag: row.flag)
+            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, status: row.status)
         }
 
         let duration = Int(Date().timeIntervalSince(start) * 1000)
@@ -118,27 +119,34 @@ final class PortfolioValuationService {
         return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing))
     }
 
-    private func fetchRate(for currency: String, asOf: Date?, fxAsOf: inout Date?) -> Double? {
+    private func fetchRate(from currency: String, to base: String, asOf: Date?, fxAsOf: inout Date?) -> Double? {
         guard let db = dbManager.db else { return nil }
+        if currency == base { return 1.0 }
         let dateStr = asOf.map { Self.dateFormatter.string(from: $0) } ?? Self.dateFormatter.string(from: Date())
         let sql = "SELECT rate_to_chf, rate_date FROM ExchangeRates WHERE currency_code = ? AND rate_date <= ? ORDER BY rate_date DESC LIMIT 1"
-        var stmt: OpaquePointer?
-        var result: Double?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_text(stmt, 1, currency, -1, nil)
-            sqlite3_bind_text(stmt, 2, dateStr, -1, nil)
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                result = sqlite3_column_double(stmt, 0)
-                if let cString = sqlite3_column_text(stmt, 1) {
-                    let date = Self.dateFormatter.date(from: String(cString: cString))
-                    if let d = date, d > (fxAsOf ?? .distantPast) {
-                        fxAsOf = d
+
+        func query(_ code: String) -> (Double, Date)? {
+            var stmt: OpaquePointer?
+            var result: (Double, Date)?
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, code, -1, nil)
+                sqlite3_bind_text(stmt, 2, dateStr, -1, nil)
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    let rate = sqlite3_column_double(stmt, 0)
+                    if let cString = sqlite3_column_text(stmt, 1), let d = Self.dateFormatter.date(from: String(cString: cString)) {
+                        result = (rate, d)
                     }
                 }
             }
+            sqlite3_finalize(stmt)
+            return result
         }
-        sqlite3_finalize(stmt)
-        return result
+
+        guard let fromData = query(currency) else { return nil }
+        let baseData = base == "CHF" ? (1.0, fromData.1) : query(base)
+        guard let baseInfo = baseData else { return nil }
+        fxAsOf = max(fromData.1, baseInfo.1)
+        return fromData.0 / baseInfo.0
     }
 }
 
