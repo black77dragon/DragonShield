@@ -9,7 +9,7 @@ struct ValuationRow: Identifiable {
     let currentValueBase: Double
     let actualPct: Double
     let notes: String?
-    let flag: String?
+    let status: String?
     var id: Int { instrumentId }
 }
 
@@ -58,6 +58,7 @@ final class PortfolioValuationService {
         var total: Double = 0
         var fxAsOf: Date? = nil
         var excludedFx = 0
+        var noPosition = 0
         var missing: Set<String> = []
 
         let sql = """
@@ -78,55 +79,66 @@ final class PortfolioValuationService {
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
                 let nativeValue = sqlite3_column_double(stmt, 5)
                 let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                var flag: String? = nil
+                var status: String? = nil
                 var valueBase: Double = 0
                 if nativeValue == 0 {
-                    flag = "No position"
+                    status = "No position"
+                    noPosition += 1
                 } else if currency == dbManager.baseCurrency {
                     valueBase = nativeValue
-                } else if let rate = fetchRate(for: currency, asOf: positionsAsOf, fxAsOf: &fxAsOf) {
+                } else if let rate = resolveFx(valueCurrency: currency, baseCurrency: dbManager.baseCurrency, asOf: positionsAsOf, fxAsOf: &fxAsOf) {
                     valueBase = nativeValue * rate
+                } else if isCrypto(code: currency), let usdRate = resolveFx(valueCurrency: "USD", baseCurrency: dbManager.baseCurrency, asOf: positionsAsOf, fxAsOf: &fxAsOf) {
+                    valueBase = nativeValue * usdRate
                 } else {
-                    flag = "FX missing — excluded"
+                    status = "FX missing — excluded"
                     excludedFx += 1
                     missing.insert(currency)
                 }
-                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, flag: flag))
-                if flag == nil { total += valueBase }
+                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, status: status))
+                if status == nil { total += valueBase }
             }
         }
-        
+
         sqlite3_finalize(stmt)
 
         var valuedCount = 0
         rows = rows.map { row in
             var pct: Double = 0
-            if total > 0 && row.flag == nil {
+            if total > 0 && row.status == nil {
                 pct = row.currentValueBase / total * 100
                 valuedCount += 1
             }
-            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, flag: row.flag)
+            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, status: row.status)
         }
 
         let duration = Int(Date().timeIntervalSince(start) * 1000)
         if let t = theme {
             let posStr = positionsAsOf.map { Self.dateFormatter.string(from: $0) } ?? ""
             let fxStr = fxAsOf.map { Self.dateFormatter.string(from: $0) } ?? ""
-            LoggingService.shared.log("valuation themeId=\(t.id) themeCode=\(t.code) positions_asof=\(posStr) fx_asof=\(fxStr) instrumentsN=\(rows.count) valuedN=\(valuedCount) excludedFxN=\(excludedFx) totalBase=\(String(format: "%.2f", total)) duration_ms=\(duration)", logger: .database)
+            LoggingService.shared.log("valuation themeId=\(t.id) positions_asof=\(posStr) fx_asof=\(fxStr) rows_total=\(rows.count) rows_no_position=\(noPosition) rows_fx_missing=\(excludedFx) rows_included=\(valuedCount) total_base=\(String(format: "%.2f", total)) duration_ms=\(duration)", logger: .database)
         }
 
         return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing))
     }
 
-    private func fetchRate(for currency: String, asOf: Date?, fxAsOf: inout Date?) -> Double? {
+    private func resolveFx(valueCurrency: String, baseCurrency: String, asOf: Date?, fxAsOf: inout Date?) -> Double? {
+        if valueCurrency == baseCurrency { return 1.0 }
         guard let db = dbManager.db else { return nil }
         let dateStr = asOf.map { Self.dateFormatter.string(from: $0) } ?? Self.dateFormatter.string(from: Date())
+        guard let valueRate = fetchRateToChf(db: db, currency: valueCurrency, date: dateStr, fxAsOf: &fxAsOf) else { return nil }
+        let baseRate = fetchRateToChf(db: db, currency: baseCurrency, date: dateStr, fxAsOf: &fxAsOf) ?? 1.0
+        return valueRate / baseRate
+    }
+
+    private func fetchRateToChf(db: OpaquePointer, currency: String, date: String, fxAsOf: inout Date?) -> Double? {
+        if currency == "CHF" { return 1.0 }
         let sql = "SELECT rate_to_chf, rate_date FROM ExchangeRates WHERE currency_code = ? AND rate_date <= ? ORDER BY rate_date DESC LIMIT 1"
         var stmt: OpaquePointer?
         var result: Double?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_text(stmt, 1, currency, -1, nil)
-            sqlite3_bind_text(stmt, 2, dateStr, -1, nil)
+            sqlite3_bind_text(stmt, 2, date, -1, nil)
             if sqlite3_step(stmt) == SQLITE_ROW {
                 result = sqlite3_column_double(stmt, 0)
                 if let cString = sqlite3_column_text(stmt, 1) {
@@ -139,6 +151,11 @@ final class PortfolioValuationService {
         }
         sqlite3_finalize(stmt)
         return result
+    }
+
+    private func isCrypto(code: String) -> Bool {
+        let fiat: Set<String> = ["USD", "CHF", "EUR", "GBP", "JPY", "AUD", "CAD", "CNY", "HKD"]
+        return !fiat.contains(code)
     }
 }
 
