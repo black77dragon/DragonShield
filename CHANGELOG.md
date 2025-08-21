@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Cover mixed-case currency codes in portfolio valuation snapshot tests
 - Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
 - Log warning when FX rate_date cannot be parsed and fallback is used
 - Handle valuation event serialization errors with explicit logging
