@@ -9,20 +9,20 @@ import Foundation
 
 // Hashable conformance is synthesized; equality must reflect valuation updates.
 struct PortfolioTheme: Identifiable, Hashable {
-  let id: Int
-  var name: String
-  let code: String
-  // This property does not exist in the database table or creation method,
-  // so it should be removed from the main struct if not used elsewhere.
-  // For now, we will assume it might be used in other contexts.
-  // var description: String?
-  var statusId: Int
-  var createdAt: String
-  var updatedAt: String
-  var archivedAt: String?
-  var softDelete: Bool
-  var totalValueBase: Double? = nil
-  var instrumentCount: Int = 0
+    let id: Int
+    var name: String
+    let code: String
+    // This property does not exist in the database table or creation method,
+    // so it should be removed from the main struct if not used elsewhere.
+    // For now, we will assume it might be used in other contexts.
+    // var description: String?
+    var statusId: Int
+    var createdAt: String
+    var updatedAt: String
+    var archivedAt: String?
+    var softDelete: Bool
+    var totalValueBase: Double? = nil
+    var instrumentCount: Int = 0
 
   static func isValidName(_ name: String) -> Bool {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
