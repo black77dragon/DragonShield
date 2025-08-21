@@ -29,8 +29,18 @@ final class PortfolioValuationServiceTests: XCTestCase {
         INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,1,5,100,'2025-08-20T14:05:00Z');
         INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,2,50,10,'2025-08-20T14:05:00Z');
         INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,3,7,100,'2025-08-20T14:05:00Z');
-        CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL);
-        INSERT INTO ExchangeRates VALUES ('USD','2025-08-20T14:00:00Z',0.9);
+        CREATE TABLE ExchangeRates (
+            rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            currency_code TEXT,
+            rate_date TEXT,
+            rate_to_chf REAL,
+            rate_source TEXT,
+            api_provider TEXT,
+            is_latest INTEGER,
+            created_at TEXT
+        );
+        INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, api_provider, is_latest, created_at)
+        VALUES ('USD','2025-08-20',0.9,'manual',NULL,1,'2025-08-20 00:00:00');
         """
         sqlite3_exec(db, sql, nil, nil, nil)
         return manager
@@ -70,9 +80,18 @@ final class PortfolioValuationServiceTests: XCTestCase {
         INSERT INTO Instruments VALUES (1,'AAPL','CHF');
         CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY AUTOINCREMENT, import_session_id INTEGER, instrument_id INTEGER, quantity REAL, current_price REAL, report_date TEXT);
         INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,1,10,10,'2025-08-20T14:05:00Z');
-        CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL);
-        INSERT INTO ExchangeRates VALUES ('USD','2025-08-20T14:00:00Z',0.8);
-        INSERT INTO ExchangeRates VALUES ('CHF','2025-08-20T14:00:00Z',1.0);
+        CREATE TABLE ExchangeRates (
+            rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            currency_code TEXT,
+            rate_date TEXT,
+            rate_to_chf REAL,
+            rate_source TEXT,
+            api_provider TEXT,
+            is_latest INTEGER,
+            created_at TEXT
+        );
+        INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, api_provider, is_latest, created_at)
+        VALUES ('USD','2025-08-20',0.8,'manual',NULL,1,'2025-08-20 00:00:00');
         """
         sqlite3_exec(db, sql, nil, nil, nil)
         let service = PortfolioValuationService(dbManager: manager)
@@ -80,7 +99,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertEqual(snap.rows.first?.currentValueBase, 125, accuracy: 0.01)
         XCTAssertEqual(snap.rows.first?.status, "OK")
         let df = ISO8601DateFormatter()
-        XCTAssertEqual(df.string(from: snap.fxAsOf!), "2025-08-20T14:00:00Z")
+        XCTAssertEqual(df.string(from: snap.fxAsOf!), "2025-08-20T00:00:00Z")
         sqlite3_close(manager.db)
     }
 
@@ -102,8 +121,18 @@ final class PortfolioValuationServiceTests: XCTestCase {
         INSERT INTO Instruments VALUES (1,'MSFT','USD');
         CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY AUTOINCREMENT, import_session_id INTEGER, instrument_id INTEGER, quantity REAL, current_price REAL, report_date TEXT);
         INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (10,1,50,10,'2025-08-20T14:05:00Z');
-        CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL);
-        INSERT INTO ExchangeRates VALUES ('USD','invalid',0.9);
+        CREATE TABLE ExchangeRates (
+            rate_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            currency_code TEXT,
+            rate_date TEXT,
+            rate_to_chf REAL,
+            rate_source TEXT,
+            api_provider TEXT,
+            is_latest INTEGER,
+            created_at TEXT
+        );
+        INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, api_provider, is_latest, created_at)
+        VALUES ('USD','invalid',0.9,'manual',NULL,1,'2025-08-20 00:00:00');
         """
         sqlite3_exec(db, sql, nil, nil, nil)
         let service = PortfolioValuationService(dbManager: manager)
@@ -125,3 +154,4 @@ final class PortfolioValuationServiceTests: XCTestCase {
         sqlite3_close(manager.db)
     }
 }
+

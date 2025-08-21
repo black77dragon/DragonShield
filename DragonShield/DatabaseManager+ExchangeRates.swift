@@ -50,7 +50,13 @@ extension DatabaseManager {
                 let id = Int(sqlite3_column_int(statement, 0))
                 let code = String(cString: sqlite3_column_text(statement, 1))
                 let dateStr = String(cString: sqlite3_column_text(statement, 2))
-                let rateDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
+                let rateDate: Date
+                if let d = DateFormatter.iso8601DateOnly.date(from: dateStr) {
+                    rateDate = d
+                } else {
+                    LoggingService.shared.log("Failed to parse rate_date for currency \(code)", type: .warning, logger: .database)
+                    rateDate = Date()
+                }
                 let rateToChf = sqlite3_column_double(statement, 3)
                 let source = String(cString: sqlite3_column_text(statement, 4))
                 let apiProv = sqlite3_column_text(statement, 5).map { String(cString: $0) }
@@ -83,7 +89,13 @@ extension DatabaseManager {
                 let id = Int(sqlite3_column_int(statement, 0))
                 let code = String(cString: sqlite3_column_text(statement, 1))
                 let dateStr = String(cString: sqlite3_column_text(statement, 2))
-                let rateDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
+                let rateDate: Date
+                if let d = DateFormatter.iso8601DateOnly.date(from: dateStr) {
+                    rateDate = d
+                } else {
+                    LoggingService.shared.log("Failed to parse rate_date for currency \(code)", type: .warning, logger: .database)
+                    rateDate = Date()
+                }
                 let rateToChf = sqlite3_column_double(statement, 3)
                 let source = String(cString: sqlite3_column_text(statement, 4))
                 let apiProv = sqlite3_column_text(statement, 5).map { String(cString: $0) }
