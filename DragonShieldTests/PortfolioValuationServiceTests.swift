@@ -113,4 +113,15 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertTrue(log.contains("Failed to parse rate_date for currency 'USD'"))
         sqlite3_close(manager.db)
     }
+
+    func testLogsStructuredValuationEvent() {
+        LoggingService.shared.clearLog()
+        let manager = setupManager()
+        let service = PortfolioValuationService(dbManager: manager)
+        _ = service.snapshot(themeId: 1)
+        Thread.sleep(forTimeInterval: 0.1)
+        let log = LoggingService.shared.readLog()
+        XCTAssertTrue(log.contains("\"themeId\":1"))
+        sqlite3_close(manager.db)
+    }
 }

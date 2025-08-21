@@ -120,9 +120,13 @@ final class PortfolioValuationService {
                 "total_base": total,
                 "duration_ms": duration
             ]
-            if let data = try? JSONSerialization.data(withJSONObject: event),
-               let json = String(data: data, encoding: .utf8) {
-                LoggingService.shared.log(json, logger: .database)
+            do {
+                let data = try JSONSerialization.data(withJSONObject: event)
+                if let json = String(data: data, encoding: .utf8) {
+                    LoggingService.shared.log(json, logger: .database)
+                }
+            } catch {
+                LoggingService.shared.log("Failed to serialize valuation event to JSON: \(error.localizedDescription)", type: .error, logger: .database)
             }
         }
 
