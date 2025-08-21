@@ -89,18 +89,16 @@ class PositionsViewModel: ObservableObject {
           symbolCache[currency] = currency
         }
 
-        var valueCHF = valueOrig
         if currency != "CHF" {
           var rate = rateCache[currency]
           if rate == nil {
-            let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-            if let r = rates.first?.rateToChf {
-              rateCache[currency] = r
-              rate = r
+            if let conv = FXConversionService.convert(amount: 1, fromCcy: currency, toCcy: "CHF", asOf: Date(), db: db) {
+              rate = conv.rate
+              rateCache[currency] = conv.rate
             }
           }
           if let r = rate {
-            valueCHF *= r
+            let valueCHF = valueOrig * r
             chf[key] = valueCHF
             total += valueCHF
           } else {
@@ -108,8 +106,8 @@ class PositionsViewModel: ObservableObject {
             chf[key] = nil
           }
         } else {
-          chf[key] = valueCHF
-          total += valueCHF
+          chf[key] = valueOrig
+          total += valueOrig
         }
       }
 

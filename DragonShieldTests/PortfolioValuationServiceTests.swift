@@ -43,12 +43,13 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertEqual(snap.totalValueBase, 1950, accuracy: 0.01)
         XCTAssertEqual(snap.excludedFxCount, 1)
         let rows = Dictionary(uniqueKeysWithValues: snap.rows.map { ($0.instrumentId, $0) })
-        XCTAssertEqual(rows[1]?.currentValueBase, 1500, accuracy: 0.01)
+        XCTAssertEqual(rows[1]?.currentValueBase ?? 0, 1500, accuracy: 0.01)
         XCTAssertEqual(rows[1]?.status, "OK")
-        XCTAssertEqual(rows[2]?.currentValueBase, 450, accuracy: 0.01)
+        XCTAssertEqual(rows[2]?.currentValueBase ?? 0, 450, accuracy: 0.01)
         XCTAssertEqual(rows[2]?.notes, "Tech")
         XCTAssertEqual(rows[2]?.status, "OK")
         XCTAssertEqual(rows[3]?.status, "FX missing — excluded")
+        XCTAssertNil(rows[3]?.currentValueBase)
         XCTAssertEqual(rows[4]?.status, "No position")
         sqlite3_close(manager.db)
     }
@@ -77,7 +78,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         sqlite3_exec(db, sql, nil, nil, nil)
         let service = PortfolioValuationService(dbManager: manager)
         let snap = service.snapshot(themeId: 1)
-        XCTAssertEqual(snap.rows.first?.currentValueBase, 125, accuracy: 0.01)
+        XCTAssertEqual(snap.rows.first?.currentValueBase ?? 0, 125, accuracy: 0.01)
         XCTAssertEqual(snap.rows.first?.status, "OK")
         let df = ISO8601DateFormatter()
         XCTAssertEqual(df.string(from: snap.fxAsOf!), "2025-08-20T14:00:00Z")
@@ -122,6 +123,7 @@ final class PortfolioValuationServiceTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.1)
         let log = LoggingService.shared.readLog()
         XCTAssertTrue(log.contains("\"themeId\":1"))
+        XCTAssertTrue(log.contains("\"fx_source\":\"PositionsParity\""))
         sqlite3_close(manager.db)
     }
 }
