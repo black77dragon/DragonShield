@@ -90,13 +90,12 @@ class PositionsViewModel: ObservableObject {
         }
 
         var valueCHF = valueOrig
-        if currency != "CHF" {
+        if currency != db.baseCurrency {
           var rate = rateCache[currency]
           if rate == nil {
-            let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-            if let r = rates.first?.rateToChf {
-              rateCache[currency] = r
-              rate = r
+            if let info = db.exchangeRate(from: currency, to: db.baseCurrency, asOf: nil) {
+              rateCache[currency] = info.rate
+              rate = info.rate
             }
           }
           if let r = rate {

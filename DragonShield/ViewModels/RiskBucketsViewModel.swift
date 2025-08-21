@@ -43,11 +43,13 @@ final class RiskBucketsViewModel: ObservableObject {
             guard let price = p.currentPrice else { continue }
             var value = p.quantity * price
             let currency = p.instrumentCurrency.uppercased()
-            if currency != "CHF" {
+            if currency != db.baseCurrency {
                 var rate = rateCache[currency]
                 if rate == nil {
-                    rate = db.fetchExchangeRates(currencyCode: currency, upTo: nil).first?.rateToChf
-                    rateCache[currency] = rate
+                    if let info = db.exchangeRate(from: currency, to: db.baseCurrency, asOf: nil) {
+                        rateCache[currency] = info.rate
+                        rate = info.rate
+                    }
                 }
                 guard let r = rate else { continue }
                 value *= r

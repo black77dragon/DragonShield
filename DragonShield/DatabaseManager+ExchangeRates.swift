@@ -185,5 +185,69 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return result
     }
+
+    /// Resolve an FX rate between two currencies as of an optional date.
+    /// - Returns: Tuple of rate and the rate's date, or nil if not found.
+    func exchangeRate(from fromCode: String, to toCode: String, asOf: Date? = nil) -> (rate: Double, rateDate: Date)? {
+        let from = fromCode.uppercased()
+        let to = toCode.uppercased()
+        if from == to { return (1.0, asOf ?? Date()) }
+        guard let db else { return nil }
+
+        let df = ISO8601DateFormatter()
+        let dateStr = df.string(from: asOf ?? Date())
+        let query = "SELECT rate_to_chf, rate_date FROM ExchangeRates WHERE currency_code = ? AND rate_date <= ? ORDER BY rate_date DESC LIMIT 1"
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+        func fetch(_ ccy: String) -> (Double, Date)? {
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            sqlite3_bind_text(stmt, 1, (ccy as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, (dateStr as NSString).utf8String, -1, SQLITE_TRANSIENT)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            let rate = sqlite3_column_double(stmt, 0)
+            if let cString = sqlite3_column_text(stmt, 1),
+               let d = df.date(from: String(cString: cString)) {
+                return (rate, d)
+            } else {
+                LoggingService.shared.log("Failed to parse rate_date for currency '\(ccy)', falling back to as-of date.", type: .warning, logger: .database)
+                return (rate, asOf ?? Date())
+            }
+        }
+
+        guard let fromInfo = fetch(from) else { return nil }
+        let toInfo: (Double, Date)
+        if to == "CHF" {
+            toInfo = (1.0, fromInfo.1)
+        } else if let info = fetch(to) {
+            toInfo = info
+        } else {
+            return nil
+        }
+
+        let usedDate = max(fromInfo.1, toInfo.1)
+        let rate: Double
+        if to == "CHF" {
+            rate = fromInfo.0
+        } else if from == "CHF" {
+            rate = 1.0 / toInfo.0
+        } else {
+            rate = fromInfo.0 / toInfo.0
+        }
+        return (rate, usedDate)
+    }
+
+    /// Convert an amount from a given currency to the manager's base currency.
+    /// - Parameters:
+    ///   - amount: Nominal amount in the source currency.
+    ///   - currencyCode: ISO currency code of the amount.
+    ///   - asOf: Optional valuation date.
+    /// - Returns: Tuple of converted value and FX rate date, or nil if rate missing.
+    func convertToBase(amount: Double, currencyCode: String, asOf: Date? = nil) -> (value: Double, rateDate: Date)? {
+        let base = baseCurrency
+        guard let (rate, date) = exchangeRate(from: currencyCode, to: base, asOf: asOf) else { return nil }
+        return (amount * rate, date)
+    }
 }
 

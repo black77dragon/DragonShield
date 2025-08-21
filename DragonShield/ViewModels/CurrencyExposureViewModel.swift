@@ -22,11 +22,10 @@ class CurrencyExposureViewModel: ObservableObject {
                 guard let price = p.currentPrice else { continue }
                 let currency = p.instrumentCurrency.uppercased()
                 var value = p.quantity * price
-                if currency != "CHF" {
+                if currency != db.baseCurrency {
                     if rateCache[currency] == nil {
-                        let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
-                        if let rate = rates.first?.rateToChf {
-                            rateCache[currency] = rate
+                        if let info = db.exchangeRate(from: currency, to: db.baseCurrency, asOf: nil) {
+                            rateCache[currency] = info.rate
                         } else {
                             continue
                         }
