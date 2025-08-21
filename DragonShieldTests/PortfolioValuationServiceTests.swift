@@ -49,7 +49,9 @@ final class PortfolioValuationServiceTests: XCTestCase {
         XCTAssertEqual(rows[2]?.notes, "Tech")
         XCTAssertEqual(rows[2]?.status, "OK")
         XCTAssertEqual(rows[3]?.status, "FX missing — excluded")
+        XCTAssertNil(rows[3]?.currentValueBase)
         XCTAssertEqual(rows[4]?.status, "No position")
+        XCTAssertEqual(rows[4]?.currentValueBase, 0, accuracy: 0.01)
         sqlite3_close(manager.db)
     }
 
