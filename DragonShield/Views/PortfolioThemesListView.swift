@@ -139,7 +139,7 @@ struct PortfolioThemesListView: View {
             })
             .width(30)
         }
-        .onChange(of: sortOrder) { newOrder in
+        .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
             persistSortOrder()
             if comparator.keyPath == \.statusId {
@@ -248,7 +248,8 @@ struct PortfolioThemesListView: View {
 
     func loadValuations() {
         Task(priority: .background) {
-            let service = PortfolioValuationService(dbManager: dbManager)
+            let fxService = FXConversionService(dbManager: dbManager)
+            let service = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
             let ids = await MainActor.run { themes.map(\.id) }
             for id in ids {
                 if Task.isCancelled { break }
