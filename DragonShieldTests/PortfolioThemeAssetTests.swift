@@ -37,7 +37,7 @@ final class PortfolioThemeAssetTests: XCTestCase {
         """
         sqlite3_exec(manager.db, sql, nil, nil, nil)
         manager.ensurePortfolioThemeAssetTable()
-        _ = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", statusId: 1)
+        _ = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: nil, institutionId: nil, statusId: 1)
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('Apple',1,'USD');", nil, nil, nil)
     }
 

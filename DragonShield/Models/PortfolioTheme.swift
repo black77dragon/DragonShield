@@ -1,6 +1,7 @@
 // DragonShield/Models/PortfolioTheme.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
+// - Added description and optional institutionId for richer metadata.
 // - Added optional totalValueBase and instrumentCount for list overview metrics.
 // - Conformed to Hashable for SwiftUI List selection compatibility.
 // - Initial creation: Represents user-defined portfolio themes.
@@ -12,10 +13,8 @@ struct PortfolioTheme: Identifiable, Hashable {
     let id: Int
     var name: String
     let code: String
-    // This property does not exist in the database table or creation method,
-    // so it should be removed from the main struct if not used elsewhere.
-    // For now, we will assume it might be used in other contexts.
-    // var description: String?
+    var description: String?
+    var institutionId: Int?
     var statusId: Int
     var createdAt: String
     var updatedAt: String

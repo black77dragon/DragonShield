@@ -13,6 +13,8 @@ extension DatabaseManager {
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 64),
             code TEXT NOT NULL CHECK (code GLOB '[A-Z][A-Z0-9_]*' AND LENGTH(code) BETWEEN 2 AND 31),
+            description TEXT NULL CHECK (LENGTH(description) <= 2000),
+            institution_id INTEGER NULL REFERENCES Institutions(institution_id) ON DELETE SET NULL,
             status_id INTEGER NOT NULL REFERENCES PortfolioThemeStatus(id),
             created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
             updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -21,6 +23,7 @@ extension DatabaseManager {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_theme_name_unique ON PortfolioTheme(LOWER(name)) WHERE soft_delete = 0;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_theme_code_unique ON PortfolioTheme(LOWER(code)) WHERE soft_delete = 0;
+        CREATE INDEX IF NOT EXISTS idx_portfolio_theme_institution_id ON PortfolioTheme(institution_id);
         """
         if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
             LoggingService.shared.log("ensurePortfolioThemeTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -52,7 +55,7 @@ extension DatabaseManager {
 
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
-        var sql = "SELECT pt.id,pt.name,pt.code,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
         if !includeArchived { sql += " AND archived_at IS NULL" }
         if !includeSoftDeleted { sql += " AND soft_delete = 0" }
         if let s = search, !s.isEmpty {
@@ -71,13 +74,15 @@ extension DatabaseManager {
                 let id = Int(sqlite3_column_int(stmt, 0))
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let code = String(cString: sqlite3_column_text(stmt, 2))
-                let statusId = Int(sqlite3_column_int(stmt, 3))
-                let createdAt = String(cString: sqlite3_column_text(stmt, 4))
-                let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
-                let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                let softDelete = sqlite3_column_int(stmt, 7) == 1
-                let count = Int(sqlite3_column_int(stmt, 8))
-                themes.append(PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count))
+                let desc = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+                let instId = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 4))
+                let statusId = Int(sqlite3_column_int(stmt, 5))
+                let createdAt = String(cString: sqlite3_column_text(stmt, 6))
+                let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
+                let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let softDelete = sqlite3_column_int(stmt, 9) == 1
+                let count = Int(sqlite3_column_int(stmt, 10))
+                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -86,7 +91,7 @@ extension DatabaseManager {
         return themes
     }
 
-    func createPortfolioTheme(name: String, code: String, statusId: Int? = nil) -> PortfolioTheme? {
+    func createPortfolioTheme(name: String, code: String, description: String? = nil, institutionId: Int? = nil, statusId: Int? = nil) -> PortfolioTheme? {
         let upperCode = code.uppercased()
         guard PortfolioTheme.isValidName(name) else {
             LoggingService.shared.log("Invalid theme name", type: .info, logger: .database)
@@ -96,12 +101,26 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid theme code", type: .info, logger: .database)
             return nil
         }
+        let trimmedDesc = description?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let d = trimmedDesc, d.count > 2000 {
+            LoggingService.shared.log("Description too long", type: .info, logger: .database)
+            return nil
+        }
+        if let inst = institutionId {
+            let exists = singleIntQuery("SELECT institution_id FROM Institutions WHERE institution_id = ? LIMIT 1") { stmt in
+                sqlite3_bind_int(stmt, 1, Int32(inst))
+            }
+            guard exists != nil else {
+                LoggingService.shared.log("Invalid institution id=\(inst)", type: .error, logger: .database)
+                return nil
+            }
+        }
         let status = statusId ?? defaultThemeStatusId()
         guard let status = status else {
             LoggingService.shared.log("No default Theme Status found", type: .error, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioTheme (name, code, status_id) VALUES (?,?,?)"
+        let sql = "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id) VALUES (?,?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -110,7 +129,17 @@ extension DatabaseManager {
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, upperCode, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 3, Int32(status))
+        if let d = trimmedDesc, !d.isEmpty {
+            sqlite3_bind_text(stmt, 3, d, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 3)
+        }
+        if let inst = institutionId {
+            sqlite3_bind_int(stmt, 4, Int32(inst))
+        } else {
+            sqlite3_bind_null(stmt, 4)
+        }
+        sqlite3_bind_int(stmt, 5, Int32(status))
         if sqlite3_step(stmt) != SQLITE_DONE {
             LoggingService.shared.log("createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             sqlite3_finalize(stmt)
@@ -118,12 +147,12 @@ extension DatabaseManager {
         }
         sqlite3_finalize(stmt)
         let id = Int(sqlite3_last_insert_rowid(db))
-        LoggingService.shared.log("Created theme id=\(id)", type: .info, logger: .database)
+        LoggingService.shared.log("createTheme id=\(id) description nil->\(trimmedDesc ?? "nil") institution nil->\(institutionId.map(String.init) ?? "nil")", logger: .database)
         return getPortfolioTheme(id: id)
     }
 
     func getPortfolioTheme(id: Int) -> PortfolioTheme? {
-        let sql = "SELECT pt.id,pt.name,pt.code,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
+        let sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
         var stmt: OpaquePointer?
         var theme: PortfolioTheme?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -132,21 +161,48 @@ extension DatabaseManager {
                 let id = Int(sqlite3_column_int(stmt, 0))
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let code = String(cString: sqlite3_column_text(stmt, 2))
-                let statusId = Int(sqlite3_column_int(stmt, 3))
-                let createdAt = String(cString: sqlite3_column_text(stmt, 4))
-                let updatedAt = String(cString: sqlite3_column_text(stmt, 5))
-                let archivedAt = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                let softDelete = sqlite3_column_int(stmt, 7) == 1
-                let count = Int(sqlite3_column_int(stmt, 8))
-                theme = PortfolioTheme(id: id, name: name, code: code, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count)
+                let desc = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+                let instId = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 4))
+                let statusId = Int(sqlite3_column_int(stmt, 5))
+                let createdAt = String(cString: sqlite3_column_text(stmt, 6))
+                let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
+                let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let softDelete = sqlite3_column_int(stmt, 9) == 1
+                let count = Int(sqlite3_column_int(stmt, 10))
+                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
         return theme
     }
 
-    func updatePortfolioTheme(id: Int, name: String, statusId: Int, archivedAt: String?) -> Bool {
-        let sql = "UPDATE PortfolioTheme SET name = ?, status_id = ?, archived_at = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+    func updatePortfolioTheme(id: Int, name: String, description: String?, institutionId: Int?, statusId: Int, archivedAt: String?) -> Bool {
+        let trimmedDesc = description?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let d = trimmedDesc, d.count > 2000 {
+            LoggingService.shared.log("Description too long", type: .info, logger: .database)
+            return false
+        }
+        if let inst = institutionId {
+            let exists = singleIntQuery("SELECT institution_id FROM Institutions WHERE institution_id = ? LIMIT 1") { stmt in
+                sqlite3_bind_int(stmt, 1, Int32(inst))
+            }
+            guard exists != nil else {
+                LoggingService.shared.log("Invalid institution id=\(inst)", type: .error, logger: .database)
+                return false
+            }
+        }
+        var prevDesc: String?
+        var prevInst: Int?
+        var sel: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT description, institution_id FROM PortfolioTheme WHERE id = ?", -1, &sel, nil) == SQLITE_OK {
+            sqlite3_bind_int(sel, 1, Int32(id))
+            if sqlite3_step(sel) == SQLITE_ROW {
+                prevDesc = sqlite3_column_text(sel, 0).map { String(cString: $0) }
+                prevInst = sqlite3_column_type(sel, 1) == SQLITE_NULL ? nil : Int(sqlite3_column_int(sel, 1))
+            }
+        }
+        sqlite3_finalize(sel)
+        let sql = "UPDATE PortfolioTheme SET name = ?, description = ?, institution_id = ?, status_id = ?, archived_at = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare updatePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -154,17 +210,27 @@ extension DatabaseManager {
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 2, Int32(statusId))
-        if let archivedAt = archivedAt {
-            sqlite3_bind_text(stmt, 3, archivedAt, -1, SQLITE_TRANSIENT)
+        if let d = trimmedDesc, !d.isEmpty {
+            sqlite3_bind_text(stmt, 2, d, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 2)
+        }
+        if let inst = institutionId {
+            sqlite3_bind_int(stmt, 3, Int32(inst))
         } else {
             sqlite3_bind_null(stmt, 3)
         }
-        sqlite3_bind_int(stmt, 4, Int32(id))
+        sqlite3_bind_int(stmt, 4, Int32(statusId))
+        if let archivedAt = archivedAt {
+            sqlite3_bind_text(stmt, 5, archivedAt, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 5)
+        }
+        sqlite3_bind_int(stmt, 6, Int32(id))
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
         if rc == SQLITE_DONE {
-            LoggingService.shared.log("Updated theme id=\(id)", type: .info, logger: .database)
+            LoggingService.shared.log("updateTheme id=\(id) description \(prevDesc ?? "nil")->\(trimmedDesc ?? "nil") institution \(prevInst.map(String.init) ?? "nil")->\(institutionId.map(String.init) ?? "nil")", logger: .database)
             return true
         } else {
             LoggingService.shared.log("updatePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -211,6 +277,33 @@ extension DatabaseManager {
             return true
         }
         LoggingService.shared.log("unarchivePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
+    }
+
+    func clearPortfolioThemeInstitution(id: Int) -> Bool {
+        var prevInst: Int?
+        var sel: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT institution_id FROM PortfolioTheme WHERE id = ?", -1, &sel, nil) == SQLITE_OK {
+            sqlite3_bind_int(sel, 1, Int32(id))
+            if sqlite3_step(sel) == SQLITE_ROW {
+                prevInst = sqlite3_column_type(sel, 0) == SQLITE_NULL ? nil : Int(sqlite3_column_int(sel, 0))
+            }
+        }
+        sqlite3_finalize(sel)
+        let sql = "UPDATE PortfolioTheme SET institution_id = NULL, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare clearPortfolioThemeInstitution failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE {
+            LoggingService.shared.log("clearThemeInstitution id=\(id) institution \(prevInst.map(String.init) ?? "nil")->nil", logger: .database)
+            return true
+        }
+        LoggingService.shared.log("clearPortfolioThemeInstitution failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         return false
     }
 

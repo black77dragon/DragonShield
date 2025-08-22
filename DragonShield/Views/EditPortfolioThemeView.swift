@@ -89,6 +89,8 @@ struct EditPortfolioThemeView: View {
         let success = dbManager.updatePortfolioTheme(
             id: theme.id,
             name: name,
+            description: theme.description,
+            institutionId: theme.institutionId,
             statusId: statusId,
             archivedAt: theme.archivedAt
         )
