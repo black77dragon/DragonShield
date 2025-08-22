@@ -58,7 +58,6 @@ class DatabaseManager: ObservableObject {
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
-
         
         #if DEBUG
         let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
@@ -91,6 +90,7 @@ class DatabaseManager: ObservableObject {
         ensurePortfolioThemeStatusDefault()
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
+        ensurePortfolioThemeUpdateTable()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
