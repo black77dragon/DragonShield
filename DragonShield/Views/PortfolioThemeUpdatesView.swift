@@ -70,7 +70,7 @@ struct PortfolioThemeUpdatesView: View {
                         }
                         Button("Delete", role: .destructive) {
                             DispatchQueue.global(qos: .userInitiated).async {
-                                _ = dbManager.deleteThemeUpdate(id: update.id, themeId: themeId, actor: NSFullUserName())
+                                _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
                                 DispatchQueue.main.async { load() }
                             }
                         }
@@ -129,7 +129,7 @@ struct PortfolioThemeUpdatesView: View {
     }
 
     private func load() {
-        updates = dbManager.listThemeUpdates(themeId: themeId, pinnedFirst: pinnedFirst)
+        updates = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: nil, searchQuery: nil, pinnedFirst: pinnedFirst)
         if let theme = dbManager.getPortfolioTheme(id: themeId) {
             themeName = theme.name
             isArchived = theme.archivedAt != nil
@@ -148,7 +148,7 @@ struct PortfolioThemeUpdatesView: View {
     private func deleteSelected() {
         if let u = selectedUpdate {
             DispatchQueue.global(qos: .userInitiated).async {
-                if dbManager.deleteThemeUpdate(id: u.id, themeId: themeId, actor: NSFullUserName(), source: "footer") {
+                if dbManager.softDeleteThemeUpdate(id: u.id, actor: NSFullUserName(), source: "footer") {
                     DispatchQueue.main.async {
                         load()
                         selectedId = nil
