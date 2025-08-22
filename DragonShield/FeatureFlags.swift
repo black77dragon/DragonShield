@@ -16,11 +16,7 @@ enum FeatureFlags {
         if defaults.object(forKey: "portfolioInstrumentUpdatesEnabled") != nil {
             return defaults.bool(forKey: "portfolioInstrumentUpdatesEnabled")
         }
-        #if DEBUG
         return true
-        #else
-        return false
-        #endif
     }
 }
 
