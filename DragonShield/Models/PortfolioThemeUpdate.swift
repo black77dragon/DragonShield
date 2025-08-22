@@ -1,7 +1,7 @@
 // DragonShield/Models/PortfolioThemeUpdate.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
-// - Initial creation: Represents plain text update entries for a portfolio theme with breadcrumb support.
+// - 1.0 -> 1.1: Add Markdown body and pin flag for Phase 6B updates.
 
 import Foundation
 
@@ -16,9 +16,10 @@ struct PortfolioThemeUpdate: Identifiable, Codable {
     let id: Int
     let themeId: Int
     var title: String
-    var bodyText: String
+    var bodyMarkdown: String
     var type: UpdateType
     let author: String
+    var pinned: Bool
     var positionsAsOf: String?
     var totalValueChf: Double?
     let createdAt: String
