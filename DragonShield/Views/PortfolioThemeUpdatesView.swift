@@ -18,6 +18,9 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedId: Int?
     @State private var showDeleteConfirm = false
     @State private var editingFromFooter = false
+    @State private var searchText: String = ""
+    @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var searchDebounce: DispatchWorkItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,6 +32,21 @@ struct PortfolioThemeUpdatesView: View {
             }
             HStack {
                 Button("+ New Update") { showEditor = true }
+                TextField("Search", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: searchText) { _ in
+                        searchDebounce?.cancel()
+                        let task = DispatchWorkItem { load() }
+                        searchDebounce = task
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: task)
+                    }
+                Picker("Type", selection: $selectedType) {
+                    Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
+                    ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
+                        Text(t.rawValue).tag(Optional(t))
+                    }
+                }
+                    .onChange(of: selectedType) { _ in load() }
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
@@ -70,7 +88,7 @@ struct PortfolioThemeUpdatesView: View {
                         }
                         Button("Delete", role: .destructive) {
                             DispatchQueue.global(qos: .userInitiated).async {
-                                _ = dbManager.deleteThemeUpdate(id: update.id, themeId: themeId, actor: NSFullUserName())
+                                _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
                                 DispatchQueue.main.async { load() }
                             }
                         }
@@ -129,7 +147,8 @@ struct PortfolioThemeUpdatesView: View {
     }
 
     private func load() {
-        updates = dbManager.listThemeUpdates(themeId: themeId, pinnedFirst: pinnedFirst)
+        let query = searchText.isEmpty ? nil : searchText
+        updates = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
         if let theme = dbManager.getPortfolioTheme(id: themeId) {
             themeName = theme.name
             isArchived = theme.archivedAt != nil
@@ -148,7 +167,7 @@ struct PortfolioThemeUpdatesView: View {
     private func deleteSelected() {
         if let u = selectedUpdate {
             DispatchQueue.global(qos: .userInitiated).async {
-                if dbManager.deleteThemeUpdate(id: u.id, themeId: themeId, actor: NSFullUserName(), source: "footer") {
+                if dbManager.softDeleteThemeUpdate(id: u.id, actor: NSFullUserName(), source: "footer") {
                     DispatchQueue.main.async {
                         load()
                         selectedId = nil
