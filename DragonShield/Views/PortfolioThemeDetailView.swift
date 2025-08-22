@@ -120,14 +120,14 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onChange(of: asset.researchTargetPct) { _ in
+                            .onChange(of: asset.researchTargetPct) {
                                 save($asset.wrappedValue)
                             }
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 72)
                             .disabled(isReadOnly)
-                            .onChange(of: asset.userTargetPct) { _ in
+                            .onChange(of: asset.userTargetPct) {
                                 save($asset.wrappedValue)
                             }
                         TextField("", text: Binding(
@@ -139,7 +139,7 @@ struct PortfolioThemeDetailView: View {
                         ))
                         .frame(minWidth: 200)
                         .disabled(isReadOnly)
-                        .onChange(of: asset.notes) { _ in
+                        .onChange(of: asset.notes) {
                             save($asset.wrappedValue)
                         }
                         if !isReadOnly {

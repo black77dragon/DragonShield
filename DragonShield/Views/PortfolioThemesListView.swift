@@ -139,7 +139,7 @@ struct PortfolioThemesListView: View {
             })
             .width(30)
         }
-        .onChange(of: sortOrder) { newOrder in
+        .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
             persistSortOrder()
             if comparator.keyPath == \.statusId {
