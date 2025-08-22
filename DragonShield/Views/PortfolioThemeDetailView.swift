@@ -29,6 +29,8 @@ struct PortfolioThemeDetailView: View {
     @State private var addUserPct: Double = 0
     @State private var addNotes: String = ""
     @State private var alertItem: AlertItem?
+    @State private var editingAsset: PortfolioThemeAsset?
+    @State private var noteDraft: String = ""
 
     private let labelWidth: CGFloat = 140
 
@@ -76,6 +78,22 @@ struct PortfolioThemeDetailView: View {
             runValuation()
         }
         .sheet(isPresented: $showAdd) { addSheet }
+        .sheet(item: $editingAsset) { asset in
+            NoteEditorView(
+                title: "Edit Note — \(instrumentName(asset.instrumentId))",
+                note: $noteDraft,
+                isReadOnly: isReadOnly,
+                onSave: {
+                    let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let idx = assets.firstIndex(where: { $0.id == asset.id }) {
+                        assets[idx].notes = trimmed.isEmpty ? nil : trimmed
+                        save(assets[idx])
+                    }
+                    editingAsset = nil
+                },
+                onCancel: { editingAsset = nil }
+            )
+        }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
         }
@@ -114,11 +132,24 @@ struct PortfolioThemeDetailView: View {
                 Text("No instruments attached")
             } else {
                 HStack(spacing: 12) {
-                    Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Research %").frame(width: 80, alignment: .trailing)
-                    Text("User %").frame(width: 80, alignment: .trailing)
-                    Text("Notes").frame(minWidth: 100, alignment: .leading)
-                    Spacer().frame(width: 40)
+                    Text("Instrument")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("Research %")
+                        .frame(width: 80, alignment: .trailing)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("User %")
+                        .frame(width: 80, alignment: .trailing)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("Notes")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer().frame(width: 28)
+                    Spacer().frame(width: 28)
                 }
                 ForEach($assets) { $asset in
                     HStack(alignment: .center, spacing: 12) {
@@ -156,11 +187,25 @@ struct PortfolioThemeDetailView: View {
                         .onChange(of: asset.notes) {
                             save($asset.wrappedValue)
                         }
+                        Button {
+                            editingAsset = $asset.wrappedValue
+                            noteDraft = $asset.wrappedValue.notes ?? ""
+                        } label: {
+                            Image(systemName: "note.text")
+                        }
+                        .buttonStyle(.borderless)
+                        .frame(width: 28)
+                        .help(isReadOnly ? "Read-only — theme archived" : "Edit note")
+                        .accessibilityLabel("Edit note for \(instrumentName($asset.wrappedValue.instrumentId))")
+                        .disabled(isReadOnly)
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
+                            .frame(width: 28)
+                        } else {
+                            Spacer().frame(width: 28)
                         }
                     }
                 }
