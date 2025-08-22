@@ -22,7 +22,7 @@ struct PortfolioThemesListView: View {
     @State private var selectedThemeId: PortfolioTheme.ID?
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
-    @State private var navigateThemeId: Int?
+    @State private var themeToOpen: PortfolioTheme?
 
     // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
@@ -69,12 +69,6 @@ struct PortfolioThemesListView: View {
                 }
                 .padding()
             }
-            .navigationDestination(isPresented: Binding(get: { navigateThemeId != nil }, set: { if !$0 { navigateThemeId = nil } })) {
-                if let id = navigateThemeId {
-                    PortfolioThemeDetailView(themeId: id, origin: "themesList")
-                        .environmentObject(dbManager)
-                }
-            }
         }
         .navigationTitle("Portfolio Themes")
         .onAppear { restoreSortOrder(); loadData() }
@@ -84,6 +78,10 @@ struct PortfolioThemesListView: View {
         }
         .sheet(item: $themeToEdit, onDismiss: loadData) { theme in
             EditPortfolioThemeView(theme: theme, onSave: {})
+                .environmentObject(dbManager)
+        }
+        .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
+            PortfolioThemeDetailView(themeId: theme.id, origin: "themesList")
                 .environmentObject(dbManager)
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
@@ -319,6 +317,6 @@ struct PortfolioThemesListView: View {
     }
 
     private func open(_ theme: PortfolioTheme) {
-        navigateThemeId = theme.id
+        themeToOpen = theme
     }
 }
