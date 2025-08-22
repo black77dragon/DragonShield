@@ -26,6 +26,7 @@ final class PortfolioValuationService {
     private let dbManager: DatabaseManager
     private let fxService: FXConversionService
     private static let dateFormatter = ISO8601DateFormatter()
+    static let excludedStatus = "FX missing — excluded"
 
     init(dbManager: DatabaseManager, fxService: FXConversionService) {
         self.dbManager = dbManager
@@ -90,7 +91,7 @@ final class PortfolioValuationService {
                     included += 1
                     if result.rateDate > (fxAsOf ?? .distantPast) { fxAsOf = result.rateDate }
                 } else {
-                    status = "FX missing — excluded"
+                    status = Self.excludedStatus
                     excludedFx += 1
                     missing.insert(currency)
                 }

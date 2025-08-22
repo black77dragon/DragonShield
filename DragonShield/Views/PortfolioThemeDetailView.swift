@@ -26,6 +26,12 @@ struct PortfolioThemeDetailView: View {
     @State private var assets: [PortfolioThemeAsset] = []
     @State private var valuation: ValuationSnapshot?
     @State private var valuating = false
+    @State private var tolerance: Double = 2.0
+    @State private var onlyOut = false
+    @State private var showDeltaResearch = true
+    @State private var showDeltaUser = true
+    @State private var sortKey: SortKey? = nil
+    @State private var sortAsc = false
     @State private var allInstruments: [(id: Int, name: String)] = []
     @State private var showAdd = false
     @State private var addInstrumentId: Int = 0
@@ -38,6 +44,7 @@ struct PortfolioThemeDetailView: View {
 
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
+    private enum SortKey { case research, user }
 
     var body: some View {
         NavigationStack {
@@ -274,11 +281,39 @@ private var valuationSection: some View {
                 ProgressView().controlSize(.small)
             }
         }
+        HStack(spacing: 8) {
+            Spacer()
+            Text("Tolerance ±")
+            TextField("", value: $tolerance, format: .number.precision(.fractionLength(1)))
+                .frame(width: 64)
+                .multilineTextAlignment(.trailing)
+            Text("%")
+            Toggle("Only out of tolerance", isOn: $onlyOut)
+                .disabled(!showDeltaResearch && !showDeltaUser)
+                .help(!showDeltaResearch && !showDeltaUser ? "Enable at least one deviation column" : "")
+            Toggle("Δ vs Research", isOn: $showDeltaResearch)
+            Toggle("Δ vs User", isOn: $showDeltaUser)
+        }
+        .font(.caption)
+        Text("Legend:  within = •, over = ▲, under = ▼")
+            .font(.caption2)
+            .foregroundColor(.secondary)
         if let snap = valuation {
             let hasIncluded = snap.rows.contains { $0.status == "OK" }
             let totalPct: Double = hasIncluded ? 100.0 : 0.0
             if snap.excludedFxCount > 0 {
                 Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+            }
+            var rows = snap.rows.filter { row in
+                DeviationAnalytics.shouldInclude(actual: row.actualPct, research: row.researchTargetPct, user: row.userTargetPct, excluded: row.status == PortfolioValuationService.excludedStatus, tolerance: tolerance, showResearch: showDeltaResearch, showUser: showDeltaUser, onlyOut: onlyOut)
+            }
+            if let key = sortKey {
+                rows.sort { a, b in
+                    let da = key == .research ? a.actualPct - a.researchTargetPct : a.actualPct - a.userTargetPct
+                    let db = key == .research ? b.actualPct - b.researchTargetPct : b.actualPct - b.userTargetPct
+                    if da == db { return a.instrumentName < b.instrumentName }
+                    return sortAsc ? da < db : da > db
+                }
             }
             HStack(spacing: 12) {
                 Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
@@ -286,9 +321,20 @@ private var valuationSection: some View {
                 Text("User %").frame(width: 80, alignment: .trailing)
                 Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
                 Text("Actual %").frame(width: 80, alignment: .trailing)
+                if showDeltaResearch {
+                    Button("Δ vs Research") { toggleSort(.research) }
+                        .frame(width: 110, alignment: .trailing)
+                }
+                if showDeltaUser {
+                    Button("Δ vs User") { toggleSort(.user) }
+                        .frame(width: 110, alignment: .trailing)
+                }
                 Text("Status").frame(width: 140, alignment: .leading)
             }
-            ForEach(snap.rows) { row in
+            if onlyOut && rows.isEmpty {
+                Text("No items outside tolerance").foregroundColor(.secondary)
+            }
+            ForEach(rows) { row in
                 HStack(spacing: 12) {
                     Text(row.instrumentName)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -304,6 +350,12 @@ private var valuationSection: some View {
                         .monospacedDigit()
                     Text(row.actualPct, format: .number.precision(.fractionLength(1)))
                         .frame(width: 80, alignment: .trailing)
+                    if showDeltaResearch {
+                        DeviationChip(actualPct: row.actualPct, targetPct: row.researchTargetPct, tolerance: tolerance, excluded: row.status == PortfolioValuationService.excludedStatus, baselineName: "Research")
+                    }
+                    if showDeltaUser {
+                        DeviationChip(actualPct: row.actualPct, targetPct: row.userTargetPct, tolerance: tolerance, excluded: row.status == PortfolioValuationService.excludedStatus, baselineName: "User")
+                    }
                     Text(row.status)
                         .frame(width: 140, alignment: .leading)
                 }
@@ -317,6 +369,8 @@ private var valuationSection: some View {
                     .monospacedDigit()
                 Text(totalPct, format: .number.precision(.fractionLength(1)))
                     .frame(width: 80, alignment: .trailing)
+                if showDeltaResearch { Spacer().frame(width: 110) }
+                if showDeltaUser { Spacer().frame(width: 110) }
                 Spacer().frame(width: 140)
             }
         } else {
@@ -325,6 +379,15 @@ private var valuationSection: some View {
                 .padding(8)
                 .background(Color.gray.opacity(0.1))
         }
+    }
+}
+
+private func toggleSort(_ key: SortKey) {
+    if sortKey == key {
+        sortAsc.toggle()
+    } else {
+        sortKey = key
+        sortAsc = false
     }
 }
 
