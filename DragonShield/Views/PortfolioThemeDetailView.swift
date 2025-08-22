@@ -36,7 +36,7 @@ struct PortfolioThemeDetailView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if isReadOnly {
-                    Text("Archived theme – read only")
+                    Text("Archived theme - read only")
                         .frame(maxWidth: .infinity)
                         .padding(8)
                         .background(Color.yellow.opacity(0.1))
@@ -98,7 +98,7 @@ struct PortfolioThemeDetailView: View {
             }
             .labelsHidden()
             .disabled(isReadOnly)
-            Text("Archived at: \(theme?.archivedAt ?? "—")")
+            Text("Archived at: \(theme?.archivedAt ?? "-")")
                 .foregroundColor(.secondary)
         }
     }
@@ -190,7 +190,8 @@ private var valuationSection: some View {
             }
         }
         if let snap = valuation {
-            let totalPct = snap.rows.filter { $0.status == "OK" }.reduce(0) { $0 + $1.actualPct }
+            let hasIncluded = snap.rows.contains { $0.status == "OK" }
+            let totalPct: Double = hasIncluded ? 100.0 : 0.0
             if snap.excludedFxCount > 0 {
                 Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
             }
@@ -201,12 +202,14 @@ private var valuationSection: some View {
                 Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
                 Text("Actual %").frame(width: 80, alignment: .trailing)
                 Text("Status").frame(width: 140, alignment: .leading)
-                Text("Notes").frame(maxWidth: .infinity, alignment: .leading)
             }
             ForEach(snap.rows) { row in
                 HStack(spacing: 12) {
                     Text(row.instrumentName)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(row.instrumentName)
                     Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
                         .frame(width: 80, alignment: .trailing)
                     Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
@@ -218,11 +221,6 @@ private var valuationSection: some View {
                         .frame(width: 80, alignment: .trailing)
                     Text(row.status)
                         .frame(width: 140, alignment: .leading)
-                    Text(row.notes ?? "")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help(row.notes ?? "")
                 }
             }
             HStack(spacing: 12) {
@@ -235,7 +233,6 @@ private var valuationSection: some View {
                 Text(totalPct, format: .number.precision(.fractionLength(1)))
                     .frame(width: 80, alignment: .trailing)
                 Spacer().frame(width: 140)
-                Spacer()
             }
         } else {
             Text("No valued positions in the latest snapshot.")
@@ -348,12 +345,12 @@ private var dangerZone: some View {
 
     private var valuationPositions: String {
         if let date = valuation?.positionsAsOf { return DateFormatter.iso8601DateTime.string(from: date) }
-        return "—"
+        return "-"
     }
 
     private var valuationFx: String {
         if let date = valuation?.fxAsOf { return DateFormatter.iso8601DateTime.string(from: date) }
-        return "—"
+        return "-"
     }
 
     private var valid: Bool { PortfolioTheme.isValidName(name) }
