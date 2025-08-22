@@ -29,8 +29,11 @@ struct PortfolioThemeDetailView: View {
     @State private var addUserPct: Double = 0
     @State private var addNotes: String = ""
     @State private var alertItem: AlertItem?
+    @State private var editingAsset: PortfolioThemeAsset?
+    @State private var noteDraft: String = ""
 
     private let labelWidth: CGFloat = 140
+    private let noteMaxLength = NoteEditorView.maxLength
 
     var body: some View {
         NavigationStack {
@@ -76,6 +79,27 @@ struct PortfolioThemeDetailView: View {
             runValuation()
         }
         .sheet(isPresented: $showAdd) { addSheet }
+        .sheet(item: $editingAsset) { asset in
+            NoteEditorView(
+                title: "Edit Note — \(instrumentName(asset.instrumentId))",
+                note: $noteDraft,
+                isReadOnly: isReadOnly,
+                onSave: {
+                    var trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.count > noteMaxLength {
+                        trimmed = String(trimmed.prefix(noteMaxLength))
+                    }
+                    var updated = asset
+                    updated.notes = trimmed.isEmpty ? nil : trimmed
+                    if let idx = assets.firstIndex(where: { $0.id == asset.id }) {
+                        assets[idx] = updated
+                    }
+                    save(updated)
+                    editingAsset = nil
+                },
+                onCancel: { editingAsset = nil }
+            )
+        }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
         }
@@ -114,11 +138,24 @@ struct PortfolioThemeDetailView: View {
                 Text("No instruments attached")
             } else {
                 HStack(spacing: 12) {
-                    Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Research %").frame(width: 80, alignment: .trailing)
-                    Text("User %").frame(width: 80, alignment: .trailing)
-                    Text("Notes").frame(minWidth: 100, alignment: .leading)
-                    Spacer().frame(width: 40)
+                    Text("Instrument")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("Research %")
+                        .frame(width: 80, alignment: .trailing)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("User %")
+                        .frame(width: 80, alignment: .trailing)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("Notes")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer().frame(width: 28)
+                    Spacer().frame(width: 28)
                 }
                 ForEach($assets) { $asset in
                     HStack(alignment: .center, spacing: 12) {
@@ -144,8 +181,12 @@ struct PortfolioThemeDetailView: View {
                         TextField("", text: Binding(
                             get: { $asset.wrappedValue.notes ?? "" },
                             set: { newValue in
-                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                var trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmed.count > noteMaxLength {
+                                    trimmed = String(trimmed.prefix(noteMaxLength))
+                                }
                                 $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
+                                save($asset.wrappedValue)
                             }
                         ))
                         .frame(minWidth: 100, maxWidth: .infinity)
@@ -153,14 +194,25 @@ struct PortfolioThemeDetailView: View {
                         .truncationMode(.tail)
                         .help($asset.wrappedValue.notes ?? "")
                         .disabled(isReadOnly)
-                        .onChange(of: asset.notes) {
-                            save($asset.wrappedValue)
+                        Button {
+                            editingAsset = $asset.wrappedValue
+                            noteDraft = $asset.wrappedValue.notes ?? ""
+                        } label: {
+                            Image(systemName: "note.text")
                         }
+                        .buttonStyle(.borderless)
+                        .frame(width: 28)
+                        .help(isReadOnly ? "Read-only — theme archived" : "Edit note")
+                        .accessibilityLabel("Edit note for \(instrumentName($asset.wrappedValue.instrumentId))")
+                        .disabled(isReadOnly)
                         if !isReadOnly {
                             Button(action: { remove($asset.wrappedValue) }) {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
+                            .frame(width: 28)
+                        } else {
+                            Spacer().frame(width: 28)
                         }
                     }
                 }
@@ -320,7 +372,16 @@ private var dangerZone: some View {
                     GridRow {
                         Text("Notes")
                             .frame(width: labelWidth, alignment: .trailing)
-                        TextField("Notes", text: $addNotes)
+                        TextField("Notes", text: Binding(
+                            get: { addNotes },
+                            set: { newValue in
+                                var trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmed.count > noteMaxLength {
+                                    trimmed = String(trimmed.prefix(noteMaxLength))
+                                }
+                                addNotes = trimmed
+                            }
+                        ))
                     }
                 }
             }
@@ -451,7 +512,8 @@ private var dangerZone: some View {
     private func addInstrument() {
         let userPct = addUserPct == addResearchPct ? nil : addUserPct
         let trimmedNotes = addNotes.trimmingCharacters(in: .whitespacesAndNewlines)
-        let notesToSave = trimmedNotes.isEmpty ? nil : trimmedNotes
+        let limitedNotes = String(trimmedNotes.prefix(noteMaxLength))
+        let notesToSave = limitedNotes.isEmpty ? nil : limitedNotes
         if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: notesToSave) != nil {
             showAdd = false
             addResearchPct = 0
