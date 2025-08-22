@@ -1,7 +1,8 @@
 // DragonShield/Models/PortfolioThemeUpdate.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
 // - 1.0 -> 1.1: Add Markdown body and pin flag for Phase 6B updates.
+// - 1.1 -> 1.2: Track soft deletion metadata for Phase 6C.
 
 import Foundation
 
@@ -24,6 +25,9 @@ struct PortfolioThemeUpdate: Identifiable, Codable {
     var totalValueChf: Double?
     let createdAt: String
     var updatedAt: String
+    var softDelete: Bool
+    var deletedAt: String?
+    var deletedBy: String?
 
     static func isValidTitle(_ title: String) -> Bool {
         let count = title.trimmingCharacters(in: .whitespacesAndNewlines).count

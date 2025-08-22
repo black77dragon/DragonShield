@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add search, type filter, and soft-delete with restore for Portfolio Theme updates with migration 015
 - Support Markdown bodies and pinning for Portfolio Theme updates with migration 014
 - Render theme update timestamps in local time and expose footer action bar with Markdown help
 - Harden update logging and enforce non-null Markdown schema

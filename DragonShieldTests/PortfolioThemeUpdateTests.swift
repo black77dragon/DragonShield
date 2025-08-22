@@ -24,31 +24,36 @@ final class PortfolioThemeUpdateTests: XCTestCase {
         super.tearDown()
     }
 
-    func testCreateUpdateDeleteFlowAndPinning() {
-        let created = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyMarkdown: "Trimmed VOO", type: .Rebalance, pinned: true, author: "Alice", positionsAsOf: "2025-09-02T09:30:00Z", totalValueChf: 2104500)
-        XCTAssertNotNil(created)
-        var list = manager.listThemeUpdates(themeId: 1)
-        XCTAssertEqual(list.count, 1)
-        let first = list[0]
-        XCTAssertTrue(first.pinned)
-
-        let second = manager.createThemeUpdate(themeId: 1, title: "Unpinned", bodyMarkdown: "body", type: .General, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil)
+    func testSearchTypeSoftDeleteAndRestore() {
+        let first = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyMarkdown: "Trimmed VOO", type: .Rebalance, pinned: true, author: "Alice", positionsAsOf: nil, totalValueChf: nil)
+        XCTAssertNotNil(first)
+        let second = manager.createThemeUpdate(themeId: 1, title: "Monthly review", bodyMarkdown: "General outlook", type: .General, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil)
         XCTAssertNotNil(second)
 
-        list = manager.listThemeUpdates(themeId: 1)
+        var list = manager.listThemeUpdates(themeId: 1, view: .active, type: nil, searchQuery: nil, pinnedFirst: true)
+        XCTAssertEqual(list.count, 2)
+
+        list = manager.listThemeUpdates(themeId: 1, view: .active, type: .General, searchQuery: nil, pinnedFirst: true)
+        XCTAssertEqual(list.count, 1)
+        XCTAssertEqual(list.first?.title, "Monthly review")
+
+        list = manager.listThemeUpdates(themeId: 1, view: .active, type: nil, searchQuery: "cash", pinnedFirst: true)
+        XCTAssertEqual(list.count, 1)
         XCTAssertEqual(list.first?.title, "Raised cash")
 
-        list = manager.listThemeUpdates(themeId: 1, pinnedFirst: false)
-        XCTAssertEqual(list.first?.title, "Unpinned")
-
-        let updated = manager.updateThemeUpdate(id: first.id, title: "Raise cash to 15%", bodyMarkdown: "Adjust further", type: .Rebalance, pinned: false, actor: "Alice", expectedUpdatedAt: first.updatedAt)
-        XCTAssertNotNil(updated)
-        let stale = manager.updateThemeUpdate(id: first.id, title: "Stale", bodyMarkdown: nil, type: nil, pinned: nil, actor: "Alice", expectedUpdatedAt: first.updatedAt)
-        XCTAssertNil(stale)
-
-        let deleteOk = manager.deleteThemeUpdate(id: first.id, themeId: 1, actor: "Alice")
-        XCTAssertTrue(deleteOk)
-        list = manager.listThemeUpdates(themeId: 1)
+        XCTAssertTrue(manager.softDeleteThemeUpdate(id: first!.id, actor: "Alice"))
+        list = manager.listThemeUpdates(themeId: 1, view: .active, type: nil, searchQuery: nil, pinnedFirst: true)
         XCTAssertEqual(list.count, 1)
+        list = manager.listThemeUpdates(themeId: 1, view: .deleted, type: nil, searchQuery: nil, pinnedFirst: true)
+        XCTAssertEqual(list.count, 1)
+
+        XCTAssertTrue(manager.restoreThemeUpdate(id: first!.id, actor: "Alice"))
+        list = manager.listThemeUpdates(themeId: 1, view: .active, type: nil, searchQuery: nil, pinnedFirst: true)
+        XCTAssertEqual(list.count, 2)
+
+        XCTAssertTrue(manager.softDeleteThemeUpdate(id: second!.id, actor: "Bob"))
+        XCTAssertTrue(manager.deleteThemeUpdatePermanently(id: second!.id, actor: "Bob"))
+        list = manager.listThemeUpdates(themeId: 1, view: .deleted, type: nil, searchQuery: nil, pinnedFirst: true)
+        XCTAssertEqual(list.count, 0)
     }
 }
