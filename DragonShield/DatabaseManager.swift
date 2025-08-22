@@ -1,6 +1,7 @@
 // DragonShield/DatabaseManager.swift
-// MARK: - Version 1.6.0.1
+// MARK: - Version 1.6.0.2
 // MARK: - History
+// - 1.6.0.1 -> 1.6.0.2: Add feature flag for Portfolio Theme Updates.
 // - 1.5 -> 1.6: Expose database path, creation date and modification date via
 //               @Published properties.
 // - 1.6 -> 1.6.0.1: Use sqlite3_open_v2 with FULLMUTEX and log errors when opening fails.
@@ -24,7 +25,7 @@ class DatabaseManager: ObservableObject {
 
     @Published var dbMode: DatabaseMode
     @Published var dbFileSize: Int64 = 0
-    
+
     // Existing @Published properties
     @Published var baseCurrency: String = "CHF"
     @Published var asOfDate: Date = Date()
@@ -41,6 +42,7 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
+    @Published var portfolioThemeUpdatesEnabled: Bool = false
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==
@@ -58,8 +60,8 @@ class DatabaseManager: ObservableObject {
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+        self.portfolioThemeUpdatesEnabled = (mode == .test)
 
-        
         #if DEBUG
         let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
         if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
@@ -71,7 +73,7 @@ class DatabaseManager: ObservableObject {
             }
         }
         #endif
-        
+
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
                 do {
@@ -86,11 +88,12 @@ class DatabaseManager: ObservableObject {
         } else {
              print("✅ Using existing database at: \(dbPath)")
         }
-        
+
         openDatabase()
         ensurePortfolioThemeStatusDefault()
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
+        ensurePortfolioThemeUpdateTable()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
@@ -158,46 +161,25 @@ class DatabaseManager: ObservableObject {
     }
 
     func rowCount(table: String) throws -> Int {
-        guard let db else { return 0 }
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
-        let sql = "SELECT COUNT(*) FROM \(table);"
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
-            let msg = String(cString: sqlite3_errmsg(db))
-            throw NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table)", -1, &stmt, nil) == SQLITE_OK else {
+            throw DatabaseError.message("Failed to prepare count: \(String(cString: sqlite3_errmsg(db)))")
         }
-        return sqlite3_step(stmt) == SQLITE_ROW ? Int(sqlite3_column_int(stmt, 0)) : 0
-    }
-
-    func switchMode() {
-        dbMode = dbMode == .production ? .test : .production
-        UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
-        dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
-
-        if !FileManager.default.fileExists(atPath: dbPath) {
-            if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
-                try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
-            }
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            throw DatabaseError.message("Failed to step count: \(String(cString: sqlite3_errmsg(db)))")
         }
-        reopenDatabase()
+        return Int(sqlite3_column_int(stmt, 0))
     }
 
-    func runMigrations() {
-        // Placeholder for future migration logic
-        print("ℹ️ runMigrations called - no migrations to apply")
-    }
-
-    private static func fileName(for mode: DatabaseMode) -> String {
-        return "dragonshield.sqlite"
-    }
-    
-    deinit {
-        if let dbPointer = db {
-            sqlite3_close_v2(dbPointer)
-            print("✅ Database connection closed in deinit.")
-            self.db = nil
-        } else {
-            print("ℹ️ Database connection was already nil in deinit.")
+    static func fileName(for mode: DatabaseMode) -> String {
+        switch mode {
+        case .production: return "dragonshield.sqlite"
+        case .test: return "dragonshield_test.sqlite"
         }
+    }
+
+    enum DatabaseError: Error {
+        case message(String)
     }
 }
