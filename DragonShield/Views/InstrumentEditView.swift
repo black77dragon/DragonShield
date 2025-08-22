@@ -31,6 +31,17 @@ struct InstrumentEditView: View {
     @State private var originalIsin = ""
     @State private var originalValorNr = ""
     @State private var originalSector = ""
+
+    private struct ThemeInfo: Identifiable {
+        let themeId: Int
+        let name: String
+        let isArchived: Bool
+        let count: Int
+        var id: Int { themeId }
+    }
+    @State private var themeInfos: [ThemeInfo] = []
+    @State private var themeQuery = ""
+    @State private var selectedTheme: ThemeInfo?
     
     // MARK: - Validation
     var isValid: Bool {
@@ -118,6 +129,9 @@ struct InstrumentEditView: View {
             loadInstrumentGroups()
             loadAvailableCurrencies()
             loadInstrumentData()
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                loadThemeInfos()
+            }
             animateEntrance()
         }
         .alert("Result", isPresented: $showingAlert) {
@@ -131,6 +145,10 @@ struct InstrumentEditView: View {
             }
         } message: {
             Text(alertMessage)
+        }
+        .sheet(item: $selectedTheme) { info in
+            InstrumentUpdatesView(themeId: info.themeId, instrumentId: instrumentId, instrumentName: instrumentName, themeName: info.name, onClose: { loadThemeInfos() })
+                .environmentObject(DatabaseManager())
         }
     }
     
@@ -302,6 +320,9 @@ struct InstrumentEditView: View {
             VStack(spacing: 24) {
                 requiredSection
                 optionalSection
+                if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                    updatesInThemesSection
+                }
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 100)
@@ -400,6 +421,76 @@ struct InstrumentEditView: View {
                 .stroke(Color.red.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: .red.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    private var updatesInThemesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
+                Spacer()
+                if filteredThemes.count == 1 {
+                    Button("Open Updates") { openTheme(filteredThemes[0]) }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            if themeInfos.isEmpty {
+                Text("This instrument is not part of any portfolio theme.")
+                    .foregroundColor(.secondary)
+            } else {
+                if themeInfos.count > 1 {
+                    TextField("Search", text: $themeQuery)
+                        .textFieldStyle(.roundedBorder)
+                }
+                ForEach(filteredThemes) { info in
+                    HStack {
+                        Text(info.name)
+                        if info.isArchived {
+                            Text("Archived")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Text("\(info.count)")
+                        Button("Open Updates") { openTheme(info) }
+                            .buttonStyle(.borderless)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { openTheme(info) }
+                }
+            }
+        }
+        .padding(24)
+        .background(editGlassMorphismBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    private var filteredThemes: [ThemeInfo] {
+        if themeQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return themeInfos
+        }
+        return themeInfos.filter { $0.name.localizedCaseInsensitiveContains(themeQuery) }
+    }
+
+    private func loadThemeInfos() {
+        let rows = DatabaseManager().listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
+        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, count: $0.updatesCount) }
+        let payload: [String: Any] = ["instrumentId": instrumentId, "themesListed": rows.count, "action": "updates_in_themes_panel_shown"]
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+    }
+
+    private func openTheme(_ info: ThemeInfo) {
+        selectedTheme = info
+        let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "panel"]
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
     }
     
     // MARK: - Edit Glassmorphism Background
