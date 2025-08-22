@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Present Portfolio Theme detail editor as modal pop-up with aligned valuation table
 - Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
 - Share FXConversionService using latest flagged rates for consistent CHF conversion across views
 - Log warning when FX rate_date cannot be parsed and fallback is used

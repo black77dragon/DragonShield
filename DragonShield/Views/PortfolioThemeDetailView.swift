@@ -56,13 +56,16 @@ struct PortfolioThemeDetailView: View {
 
             HStack {
                 Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Button("Save") { saveTheme() }
                     .disabled(!valid || isReadOnly)
-                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
             }
             .padding(24)
         }
-        .frame(minWidth: 960)
+        .frame(minWidth: 980, idealWidth: 1100, minHeight: 640, idealHeight: 720)
+        .navigationTitle("Portfolio Theme Details: \(name)")
         .onAppear {
             loadTheme()
             runValuation()
@@ -76,7 +79,7 @@ struct PortfolioThemeDetailView: View {
     // MARK: - Sections
 
     private var headerBlock: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             TextField("Name", text: $name)
             Text(code)
                 .padding(.horizontal, 8)
@@ -105,9 +108,9 @@ struct PortfolioThemeDetailView: View {
             } else {
                 HStack {
                     Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Research %").frame(width: 72, alignment: .trailing)
-                    Text("User %").frame(width: 72, alignment: .trailing)
-                    Text("Notes").frame(minWidth: 200, alignment: .leading)
+                    Text("Research %").frame(width: 80, alignment: .trailing)
+                    Text("User %").frame(width: 80, alignment: .trailing)
+                    Text("Notes").frame(maxWidth: .infinity, alignment: .leading)
                     Spacer().frame(width: 40)
                 }
                 ForEach($assets) { $asset in
@@ -118,14 +121,14 @@ struct PortfolioThemeDetailView: View {
                             .truncationMode(.middle)
                         TextField("", value: $asset.researchTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 72)
+                            .frame(width: 80)
                             .disabled(isReadOnly)
                             .onChange(of: asset.researchTargetPct) {
                                 save($asset.wrappedValue)
                             }
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 72)
+                            .frame(width: 80)
                             .disabled(isReadOnly)
                             .onChange(of: asset.userTargetPct) {
                                 save($asset.wrappedValue)
@@ -137,8 +140,11 @@ struct PortfolioThemeDetailView: View {
                                 $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
                             }
                         ))
-                        .frame(minWidth: 200)
+                        .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                         .disabled(isReadOnly)
+                        .help($asset.wrappedValue.notes ?? "")
                         .onChange(of: asset.notes) {
                             save($asset.wrappedValue)
                         }
@@ -161,72 +167,82 @@ struct PortfolioThemeDetailView: View {
         }
     }
 
+    private var valuationSection: some View {
+        let pos = valuation?.positionsAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
+        let fx = valuation?.fxAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
+        let rows = valuation?.rows ?? []
+        let excluded = valuation?.excludedFxCount ?? 0
+        let totalValue = valuation?.totalValueBase ?? 0.0
+        let totalPct = rows.isEmpty ? 0.0 : 100.0
 
-private var valuationSection: some View {
-    VStack(alignment: .leading, spacing: 12) {
-        HStack {
-            Text("Valuation").font(.headline)
-            Spacer()
-            Button("Refresh") { runValuation() }
-                .disabled(valuating)
-            if valuating {
-                ProgressView().controlSize(.small)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Valuation").font(.headline)
+                Spacer()
+                Text("As of: Positions \(pos) | FX \(fx)")
+                Button("Refresh") { runValuation() }
+                    .disabled(valuating)
+                if valuating {
+                    ProgressView().controlSize(.small)
+                }
             }
-        }
-        if let snap = valuation {
-            let pos = snap.positionsAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
-            let fx = snap.fxAsOf.map { DateFormatter.iso8601DateTime.string(from: $0) } ?? "—"
-            let totalPct = snap.rows.filter { $0.status == "OK" }.reduce(0) { $0 + $1.actualPct }
-            Text("As of: Positions \(pos)  |  FX \(fx)")
-            Text("Total Value (\(dbManager.baseCurrency)): \(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency))")
-            if snap.excludedFxCount > 0 {
-                Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+            Text("Excluded: \(excluded)")
+                .foregroundColor(excluded > 0 ? .orange : .secondary)
+            HStack {
+                Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Research %").frame(width: 80, alignment: .trailing)
+                Text("User %").frame(width: 80, alignment: .trailing)
+                Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing).monospacedDigit()
+                Text("Actual %").frame(width: 80, alignment: .trailing)
+                Text("Status").frame(width: 140, alignment: .leading)
+                Text("Notes").frame(maxWidth: .infinity, alignment: .leading)
             }
-            if snap.totalValueBase == 0 {
+            ForEach(rows) { row in
+                HStack {
+                    Text(row.instrumentName)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
+                        .frame(width: 80, alignment: .trailing)
+                    Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
+                        .frame(width: 80, alignment: .trailing)
+                    Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+                        .frame(width: 160, alignment: .trailing)
+                        .monospacedDigit()
+                    Text(row.actualPct, format: .number.precision(.fractionLength(1)))
+                        .frame(width: 80, alignment: .trailing)
+                    Text(row.status)
+                        .frame(width: 140, alignment: .leading)
+                    Text(row.notes ?? "")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(row.notes ?? "")
+                }
+            }
+            HStack {
+                Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
+                Spacer().frame(width: 80)
+                Spacer().frame(width: 80)
+                Text(totalValue, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+                    .frame(width: 160, alignment: .trailing)
+                    .monospacedDigit()
+                Text(totalPct, format: .number.precision(.fractionLength(1)))
+                    .frame(width: 80, alignment: .trailing)
+                Spacer().frame(width: 140)
+                Spacer()
+            }
+            if rows.isEmpty {
                 Text("No valued positions in the latest snapshot.")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
                     .background(Color.gray.opacity(0.1))
             }
-            HStack {
-                Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Research %").frame(width: 72, alignment: .trailing)
-                Text("User %").frame(width: 72, alignment: .trailing)
-                Text("Current Value").frame(width: 120, alignment: .trailing)
-                Text("Actual %").frame(width: 72, alignment: .trailing)
-                Text("Status").frame(width: 120, alignment: .leading)
-                Text("Notes").frame(minWidth: 100, alignment: .leading)
-            }
-            ForEach(snap.rows) { row in
-                HStack {
-                    Text(row.instrumentName).frame(maxWidth: .infinity, alignment: .leading)
-                    Text(row.researchTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                    Text(row.userTargetPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                    Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
-                    Text(row.actualPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                    Text(row.status).frame(width: 120, alignment: .leading)
-                    Text(row.notes ?? "").frame(minWidth: 100, alignment: .leading)
-                }
-            }
-            HStack {
-                Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(width: 72)
-                Spacer().frame(width: 72)
-                Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2))).frame(width: 120, alignment: .trailing)
-                Text(totalPct, format: .number.precision(.fractionLength(1))).frame(width: 72, alignment: .trailing)
-                Spacer().frame(width: 120)
-                Spacer().frame(minWidth: 100)
-            }
-        } else {
-            Text("No valued positions in the latest snapshot.")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(Color.gray.opacity(0.1))
         }
     }
-}
 
-private var dangerZone: some View {
+    private var dangerZone: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Danger Zone").font(.headline)
             HStack {
@@ -328,6 +344,7 @@ private var dangerZone: some View {
 
     private var valid: Bool { PortfolioTheme.isValidName(name) }
     private var isReadOnly: Bool { theme?.archivedAt != nil }
+
     private var researchTotal: Double { assets.reduce(0) { $0 + $1.researchTargetPct } }
     private var userTotal: Double { assets.reduce(0) { $0 + $1.userTargetPct } }
     private var researchTotalWarning: Bool { abs(researchTotal - 100.0) > 0.1 }
@@ -446,4 +463,3 @@ private var dangerZone: some View {
         let action: (() -> Void)?
     }
 }
-
