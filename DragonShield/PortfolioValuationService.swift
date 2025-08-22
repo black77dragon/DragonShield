@@ -1,6 +1,12 @@
 import Foundation
 import SQLite3
 
+enum ValuationStatus: String {
+    case ok = "OK"
+    case noPosition = "No position"
+    case fxMissing = "FX missing — excluded"
+}
+
 struct ValuationRow: Identifiable {
     let instrumentId: Int
     let instrumentName: String
@@ -8,8 +14,10 @@ struct ValuationRow: Identifiable {
     let userTargetPct: Double
     let currentValueBase: Double
     let actualPct: Double
+    let deltaResearchPct: Double?
+    let deltaUserPct: Double?
     let notes: String?
-    let status: String
+    let status: ValuationStatus
     var id: Int { instrumentId }
 }
 
@@ -81,31 +89,33 @@ final class PortfolioValuationService {
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
                 let nativeValue = sqlite3_column_double(stmt, 5)
                 let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                var status = "OK"
+                var status: ValuationStatus = .ok
                 var valueBase: Double = 0
                 if nativeValue == 0 {
-                    status = "No position"
+                    status = .noPosition
                 } else if let result = fxService.convertToChf(amount: nativeValue, currency: currency) {
                     valueBase = result.valueChf
                     included += 1
                     if result.rateDate > (fxAsOf ?? .distantPast) { fxAsOf = result.rateDate }
                 } else {
-                    status = "FX missing — excluded"
+                    status = .fxMissing
                     excludedFx += 1
                     missing.insert(currency)
                 }
-                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, status: status))
-                if status == "OK" { total += valueBase }
+                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, deltaResearchPct: nil, deltaUserPct: nil, notes: note, status: status))
+                if status == .ok { total += valueBase }
             }
         }
         sqlite3_finalize(stmt)
 
         rows = rows.map { row in
             var pct: Double = 0
-            if total > 0 && row.status == "OK" {
+            if total > 0 && row.status == .ok {
                 pct = row.currentValueBase / total * 100
             }
-            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, status: row.status)
+            let deltaResearch = row.status == .fxMissing ? nil : pct - row.researchTargetPct
+            let deltaUser = row.status == .fxMissing ? nil : pct - row.userTargetPct
+            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, deltaResearchPct: deltaResearch, deltaUserPct: deltaUser, notes: row.notes, status: row.status)
         }
 
         let duration = Int(Date().timeIntervalSince(start) * 1000)
