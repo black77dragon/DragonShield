@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce PortfolioThemeUpdate table and CRUD helpers for theme update timelines
 - Add deviation analytics with tolerance controls to Portfolio Theme valuation table
 - Add description and optional institution link to Portfolio Themes with migration 012
 - Align Composition table headers with data columns and add per-instrument notes pop-up in Portfolio Theme details
