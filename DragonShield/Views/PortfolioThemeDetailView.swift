@@ -18,6 +18,10 @@ struct PortfolioThemeDetailView: View {
     @State private var code: String = ""
     @State private var statusId: Int = 0
     @State private var statuses: [PortfolioThemeStatus] = []
+    @State private var descriptionText: String = ""
+    @State private var institutionId: Int? = nil
+    @State private var institutions: [DatabaseManager.InstitutionData] = []
+    @State private var showAddInstitution = false
 
     @State private var assets: [PortfolioThemeAsset] = []
     @State private var valuation: ValuationSnapshot?
@@ -79,6 +83,13 @@ struct PortfolioThemeDetailView: View {
             runValuation()
         }
         .sheet(isPresented: $showAdd) { addSheet }
+        .sheet(isPresented: $showAddInstitution) {
+            AddInstitutionView { id in
+                institutions = dbManager.fetchInstitutions()
+                institutionId = id
+            }
+            .environmentObject(dbManager)
+        }
         .sheet(item: $editingAsset) { asset in
             NoteEditorView(
                 title: "Edit Note — \(instrumentName(asset.instrumentId))",
@@ -108,22 +119,47 @@ struct PortfolioThemeDetailView: View {
     // MARK: - Sections
 
     private var headerBlock: some View {
-        HStack(spacing: 16) {
-            TextField("Name", text: $name)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 16) {
+                TextField("Name", text: $name)
+                    .disabled(isReadOnly)
+                Text(code)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().stroke(Color.secondary))
+                Picker("Status", selection: $statusId) {
+                    ForEach(statuses) { status in
+                        Text(status.name).tag(status.id)
+                    }
+                }
+                .labelsHidden()
                 .disabled(isReadOnly)
-            Text(code)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().stroke(Color.secondary))
-            Picker("Status", selection: $statusId) {
-                ForEach(statuses) { status in
-                    Text(status.name).tag(status.id)
+                Text("Archived at: \(theme?.archivedAt ?? "-")")
+                    .foregroundColor(.secondary)
+            }
+            VStack(alignment: .trailing, spacing: 4) {
+                TextEditor(text: $descriptionText)
+                    .frame(minHeight: 60)
+                    .disabled(isReadOnly)
+                Text("\(descriptionText.count) / 2000")
+                    .font(.caption)
+                    .foregroundColor(descriptionText.count > 2000 ? .red : .secondary)
+            }
+            Picker("Institution", selection: $institutionId) {
+                Text("None").tag(nil as Int?)
+                ForEach(institutions) { inst in
+                    Text(inst.name).tag(inst.id as Int?)
+                }
+                Text("Add New…").tag(-1 as Int?)
+            }
+            .pickerStyle(MenuPickerStyle())
+            .disabled(isReadOnly)
+            .onChange(of: institutionId) { newVal in
+                if newVal == -1 {
+                    showAddInstitution = true
+                    institutionId = nil
                 }
             }
-            .labelsHidden()
-            .disabled(isReadOnly)
-            Text("Archived at: \(theme?.archivedAt ?? "-")")
-                .foregroundColor(.secondary)
         }
     }
 
@@ -414,7 +450,9 @@ private var dangerZone: some View {
         return "-"
     }
 
-    private var valid: Bool { PortfolioTheme.isValidName(name) }
+    private var valid: Bool {
+        PortfolioTheme.isValidName(name) && descriptionText.count <= 2000
+    }
     private var isReadOnly: Bool { theme?.archivedAt != nil }
     private var researchTotal: Double { assets.reduce(0) { $0 + $1.researchTargetPct } }
     private var userTotal: Double { assets.reduce(0) { $0 + $1.userTargetPct } }
@@ -451,6 +489,9 @@ private var dangerZone: some View {
         name = fetched.name
         code = fetched.code
         statusId = fetched.statusId
+        descriptionText = fetched.description ?? ""
+        institutionId = fetched.institutionId
+        institutions = dbManager.fetchInstitutions()
         loadAssets()
         LoggingService.shared.log("open theme detail themeId=\(fetched.id) code=\(fetched.code) origin=\(origin) result=opened", logger: .ui)
         if fetched.archivedAt != nil {
@@ -470,10 +511,12 @@ private var dangerZone: some View {
 
     private func saveTheme() {
         guard var current = theme else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        current.name = trimmed
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        current.name = trimmedName
         current.statusId = statusId
-        if dbManager.updatePortfolioTheme(id: current.id, name: current.name, statusId: current.statusId, archivedAt: current.archivedAt) {
+        var desc = descriptionText.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+        if desc.isEmpty { desc = "" }
+        if dbManager.updatePortfolioTheme(id: current.id, name: current.name, description: desc.isEmpty ? nil : desc, institutionId: institutionId, statusId: current.statusId, archivedAt: current.archivedAt) {
             onSave(current)
             dismiss()
         } else {

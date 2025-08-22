@@ -24,7 +24,7 @@ final class PortfolioThemeNavigationTests: XCTestCase {
         """
         sqlite3_exec(manager.db, sql, nil, nil, nil)
         manager.ensurePortfolioThemeTable()
-        guard let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", statusId: 1) else { XCTFail(); return }
+        guard let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: nil, institutionId: nil, statusId: 1) else { XCTFail(); return }
         XCTAssertTrue(manager.archivePortfolioTheme(id: theme.id))
         XCTAssertTrue(manager.softDeletePortfolioTheme(id: theme.id))
         XCTAssertNil(manager.getPortfolioTheme(id: theme.id))

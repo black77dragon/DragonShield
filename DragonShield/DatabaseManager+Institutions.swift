@@ -79,12 +79,12 @@ extension DatabaseManager {
         return nil
     }
 
-    func addInstitution(name: String, bic: String?, type: String?, website: String?, contactInfo: String?, defaultCurrency: String?, countryCode: String?, notes: String?, isActive: Bool) -> Bool {
+    func addInstitution(name: String, bic: String?, type: String?, website: String?, contactInfo: String?, defaultCurrency: String?, countryCode: String?, notes: String?, isActive: Bool) -> Int? {
         let query = "INSERT INTO Institutions (institution_name, bic, institution_type, website, contact_info, default_currency, country_code, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare addInstitution: \(String(cString: sqlite3_errmsg(db)))")
-            return false
+            return nil
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, SQLITE_TRANSIENT)
@@ -97,9 +97,10 @@ extension DatabaseManager {
         if let n = notes, !n.isEmpty { sqlite3_bind_text(stmt, 8, (n as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 8) }
         sqlite3_bind_int(stmt, 9, isActive ? 1 : 0)
         let result = sqlite3_step(stmt) == SQLITE_DONE
+        let newId = result ? Int(sqlite3_last_insert_rowid(db)) : nil
         sqlite3_finalize(stmt)
         if result { print("✅ Inserted institution '\(name)'") } else { print("❌ Insert institution failed: \(String(cString: sqlite3_errmsg(db)))") }
-        return result
+        return newId
     }
 
     func updateInstitution(id: Int, name: String, bic: String?, type: String?, website: String?, contactInfo: String?, defaultCurrency: String?, countryCode: String?, notes: String?, isActive: Bool) -> Bool {

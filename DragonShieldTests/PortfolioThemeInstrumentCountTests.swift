@@ -40,7 +40,7 @@ final class PortfolioThemeInstrumentCountTests: XCTestCase {
     func testFetchThemesReturnsInstrumentCount() {
         let manager = DatabaseManager()
         setup(manager)
-        _ = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", statusId: 1)
+        _ = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: nil, institutionId: nil, statusId: 1)
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('Apple',1,'USD');", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('Tesla',1,'USD');", nil, nil, nil)
         guard let theme = manager.fetchPortfolioThemes().first else { XCTFail(); return }
@@ -54,7 +54,7 @@ final class PortfolioThemeInstrumentCountTests: XCTestCase {
     func testGetThemeReturnsInstrumentCount() {
         let manager = DatabaseManager()
         setup(manager)
-        guard let theme = manager.createPortfolioTheme(name: "Income", code: "INCOME", statusId: 1) else { XCTFail(); return }
+        guard let theme = manager.createPortfolioTheme(name: "Income", code: "INCOME", description: nil, institutionId: nil, statusId: 1) else { XCTFail(); return }
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('BondA',1,'USD');", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO Instruments (instrument_name, sub_class_id, currency) VALUES ('BondB',1,'USD');", nil, nil, nil)
         _ = manager.createThemeAsset(themeId: theme.id, instrumentId: 1, researchPct: 50.0)

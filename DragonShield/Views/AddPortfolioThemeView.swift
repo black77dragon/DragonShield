@@ -82,6 +82,8 @@ struct AddPortfolioThemeView: View {
         let newTheme = dbManager.createPortfolioTheme(
             name: self.name,
             code: self.code,
+            description: nil,
+            institutionId: nil,
             statusId: self.statusId
         )
 
