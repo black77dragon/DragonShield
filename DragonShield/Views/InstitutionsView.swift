@@ -114,6 +114,7 @@ struct InstitutionsView: View {
 struct AddInstitutionView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
+    var onAdd: ((Int) -> Void)? = nil
 
     @State private var name = ""
     @State private var bic = ""
@@ -176,7 +177,7 @@ struct AddInstitutionView: View {
     }
 
     private func save() {
-        let success = dbManager.addInstitution(
+        let newId = dbManager.addInstitution(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             bic: bic.isEmpty ? nil : bic,
             type: type.isEmpty ? nil : type,
@@ -186,8 +187,9 @@ struct AddInstitutionView: View {
             countryCode: countryCode.isEmpty ? nil : countryCode,
             notes: notes.isEmpty ? nil : notes,
             isActive: isActive)
-        if success {
+        if let id = newId {
             NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
+            onAdd?(id)
             alertMessage = "✅ Added"
         } else {
             alertMessage = "❌ Failed"
