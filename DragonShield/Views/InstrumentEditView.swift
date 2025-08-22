@@ -31,6 +31,10 @@ struct InstrumentEditView: View {
     @State private var originalIsin = ""
     @State private var originalValorNr = ""
     @State private var originalSector = ""
+
+    @State private var themeLinks: [(id: Int, name: String, archived: Bool, count: Int)] = []
+    @State private var updatesSearch = ""
+    @State private var updatesSheetTheme: (id: Int, name: String)?
     
     // MARK: - Validation
     var isValid: Bool {
@@ -131,6 +135,13 @@ struct InstrumentEditView: View {
             }
         } message: {
             Text(alertMessage)
+        }
+        .sheet(item: $updatesSheetTheme) { target in
+            InstrumentUpdatesView(themeId: target.id, instrumentId: instrumentId, instrumentName: instrumentName, themeName: target.name, onClose: {
+                loadThemeLinks()
+                updatesSheetTheme = nil
+            })
+            .environmentObject(DatabaseManager())
         }
     }
     
@@ -302,6 +313,9 @@ struct InstrumentEditView: View {
             VStack(spacing: 24) {
                 requiredSection
                 optionalSection
+                if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                    updatesInThemesSection
+                }
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 100)
@@ -400,6 +414,52 @@ struct InstrumentEditView: View {
                 .stroke(Color.red.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: .red.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    private var updatesInThemesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader(title: "Updates in Themes", icon: "arrow.triangle.2.circlepath", color: .blue)
+                if filteredThemeLinks.count == 1 {
+                    Button("Open Updates") {
+                        if let first = filteredThemeLinks.first { openUpdates(theme: first) }
+                    }
+                }
+            }
+            TextField("Search", text: $updatesSearch)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            if filteredThemeLinks.isEmpty {
+                Text("This instrument is not part of any portfolio theme.")
+                    .foregroundColor(.secondary)
+            } else {
+                List(filteredThemeLinks, id: \.id) { item in
+                    HStack {
+                        Text(item.name)
+                        if item.archived {
+                            Text("Archived")
+                                .font(.caption)
+                                .padding(4)
+                                .background(Color.gray.opacity(0.2))
+                                .clipShape(Capsule())
+                        }
+                        Spacer()
+                        Text("\(item.count)")
+                        Button("Open Updates") { openUpdates(theme: item) }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { openUpdates(theme: item) }
+                }
+                .frame(minHeight: 80, maxHeight: 200)
+            }
+        }
+        .padding(24)
+        .background(editGlassMorphismBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
     }
     
     // MARK: - Edit Glassmorphism Background
@@ -699,7 +759,7 @@ struct InstrumentEditView: View {
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
             sector = details.sector ?? ""
-            
+
             // Store original values for change detection
             originalName = instrumentName
             originalGroupId = selectedGroupId
@@ -709,6 +769,41 @@ struct InstrumentEditView: View {
             originalIsin = isin
             originalSector = sector
         }
+        loadThemeLinks()
+    }
+
+    func loadThemeLinks() {
+        guard FeatureFlags.portfolioInstrumentUpdatesEnabled() else { return }
+        let dbManager = DatabaseManager()
+        themeLinks = dbManager.listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
+        var payload: [String: Any] = [
+            "instrumentId": instrumentId,
+            "themesListed": themeLinks.count,
+            "action": "updates_in_themes_panel_shown"
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+    }
+
+    private var filteredThemeLinks: [(id: Int, name: String, archived: Bool, count: Int)] {
+        if updatesSearch.isEmpty { return themeLinks }
+        return themeLinks.filter { $0.name.localizedCaseInsensitiveContains(updatesSearch) }
+    }
+
+    private func openUpdates(theme: (id: Int, name: String)) {
+        var payload: [String: Any] = [
+            "instrumentId": instrumentId,
+            "themeId": theme.id,
+            "action": "instrument_updates_open",
+            "source": "panel"
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+        updatesSheetTheme = theme
     }
     
     private func showUnsavedChangesAlert() {

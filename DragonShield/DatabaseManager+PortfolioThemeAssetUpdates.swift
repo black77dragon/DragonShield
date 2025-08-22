@@ -280,4 +280,33 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return count
     }
+
+    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int)] {
+        var results: [(Int, String, Bool, Int)] = []
+        let sql = """
+            SELECT t.id, t.name, t.archived_at IS NOT NULL AS is_archived,
+                   COUNT(u.id) AS cnt
+            FROM PortfolioThemeAsset a
+            JOIN PortfolioTheme t ON t.id = a.theme_id
+            LEFT JOIN PortfolioThemeAssetUpdate u ON u.theme_id = a.theme_id AND u.instrument_id = a.instrument_id
+            WHERE a.instrument_id = ?
+            GROUP BY t.id, t.name, t.archived_at
+            ORDER BY t.name COLLATE NOCASE
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let name = String(cString: sqlite3_column_text(stmt, 1))
+                let archived = sqlite3_column_int(stmt, 2) == 1
+                let count = Int(sqlite3_column_int(stmt, 3))
+                results.append((id, name, archived, count))
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithUpdateCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return results
+    }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -15,6 +16,15 @@ struct PortfolioView: View {
     @State private var currencyFilters: Set<String> = []
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
+
+    private struct UpdateSheetTarget: Identifiable {
+        let themeId: Int
+        let instrumentId: Int
+        let instrumentName: String
+        let themeName: String
+        var id: Int { themeId }
+    }
+    @State private var updateSheet: UpdateSheetTarget?
 
     enum SortColumn {
         case name, type, currency, symbol, valor, isin
@@ -112,6 +122,12 @@ struct PortfolioView: View {
                         selectedAsset = nil
                     }
             }
+        }
+        .sheet(item: $updateSheet) { target in
+            InstrumentUpdatesView(themeId: target.themeId, instrumentId: target.instrumentId, instrumentName: target.instrumentName, themeName: target.themeName, onClose: {
+                updateSheet = nil
+            })
+            .environmentObject(dbManager)
         }
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
@@ -326,8 +342,10 @@ struct PortfolioView: View {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     ForEach(sortedAssets) { asset in
+                        let iid = getInstrumentId(for: asset)
                         ModernAssetRowView(
                             asset: asset,
+                            instrumentId: iid,
                             isSelected: selectedAsset?.id == asset.id,
                             onTap: {
                                 selectedAsset = asset
@@ -335,6 +353,11 @@ struct PortfolioView: View {
                             onEdit: {
                                 selectedAsset = asset
                                 showEditInstrumentSheet = true
+                            },
+                            onOpenUpdates: { themeId, themeName in
+                                if let iid = iid {
+                                    updateSheet = UpdateSheetTarget(themeId: themeId, instrumentId: iid, instrumentName: asset.name, themeName: themeName)
+                                }
                             }
                         )
                     }
@@ -609,7 +632,6 @@ struct PortfolioView: View {
     }
     
     private func getInstrumentId(for asset: DragonAsset) -> Int? {
-        let dbManager = DatabaseManager()
         let instruments = dbManager.fetchAssets()
         return instruments.first { $0.name == asset.name }?.id
     }
@@ -618,10 +640,13 @@ struct PortfolioView: View {
 // MARK: - Modern Asset Row
 struct ModernAssetRowView: View {
     let asset: DragonAsset
+    let instrumentId: Int?
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
-    
+    let onOpenUpdates: (Int, String) -> Void
+    @EnvironmentObject var dbManager: DatabaseManager
+
     var body: some View {
         HStack {
             Text(asset.name)
@@ -677,11 +702,29 @@ struct ModernAssetRowView: View {
             onEdit()
         }
         .contextMenu {
-            Button("Edit Instrument") {
-                onEdit()
-            }
-            Button("Select Instrument") {
-                onTap()
+            Button("Edit Instrument") { onEdit() }
+            Button("Select Instrument") { onTap() }
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled(), let instrumentId = instrumentId {
+                let themes = dbManager.listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
+                if !themes.isEmpty {
+                    Menu("Updates in Themes…") {
+                        ForEach(themes, id: \.themeId) { info in
+                            Button("\(info.themeName) (\(info.updatesCount))") {
+                                var payload: [String: Any] = [
+                                    "instrumentId": instrumentId,
+                                    "themeId": info.themeId,
+                                    "action": "instrument_updates_open",
+                                    "source": "context_menu"
+                                ]
+                                if let data = try? JSONSerialization.data(withJSONObject: payload),
+                                   let log = String(data: data, encoding: .utf8) {
+                                    LoggingService.shared.log(log, logger: .ui)
+                                }
+                                onOpenUpdates(info.themeId, info.themeName)
+                            }
+                        }
+                    }
+                }
             }
             Divider()
             Button("Copy Name") {
