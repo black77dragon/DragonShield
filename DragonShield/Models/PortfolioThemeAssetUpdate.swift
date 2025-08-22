@@ -1,7 +1,8 @@
 // DragonShield/Models/PortfolioThemeAssetUpdate.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
 // - 1.0: Initial instrument-level update model for Step 7A.
+// - 1.0 -> 1.1: Add Markdown body and pin flag for Phase 7B.
 
 import Foundation
 
@@ -17,9 +18,10 @@ struct PortfolioThemeAssetUpdate: Identifiable, Codable {
     let themeId: Int
     let instrumentId: Int
     var title: String
-    var bodyText: String
+    var bodyMarkdown: String
     var type: UpdateType
     let author: String
+    var pinned: Bool
     var positionsAsOf: String?
     var valueChf: Double?
     var actualPercent: Double?
