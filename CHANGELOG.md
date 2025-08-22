@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Render Portfolio Theme update timestamps in local yyyy-MM-dd HH:mm format
+- Add selection footer bar with Edit/Delete/Pin actions and keyboard shortcuts
+- Provide Markdown help popover in Update editor
+- Support Markdown bodies and pinning for Portfolio Theme updates with migration 014
 - Introduce PortfolioThemeUpdate table and CRUD helpers for theme update timelines
 - Log invalid theme update types, fetch themes directly for Updates view, and record author from macOS user
 - Enable Updates tab and quick New Update entry points for Portfolio Themes by default
