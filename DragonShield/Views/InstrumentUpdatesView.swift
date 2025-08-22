@@ -1,7 +1,8 @@
 // DragonShield/Views/InstrumentUpdatesView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
 // - 1.0: Initial instrument updates list for Step 7A.
+// - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle for Phase 7B.
 
 import SwiftUI
 
@@ -20,6 +21,7 @@ struct InstrumentUpdatesView: View {
     @State private var isArchived = false
     @State private var instrumentExists = true
     @State private var showDeleteConfirm = false
+    @State private var pinnedFirst = true
     @State private var selectedId: Int?
 
     @Environment(\.dismiss) private var dismiss
@@ -45,31 +47,63 @@ struct InstrumentUpdatesView: View {
                 Button("+ New Update") { showEditor = true }
                     .disabled(!instrumentExists)
                 Spacer()
+                Toggle("Pinned first", isOn: $pinnedFirst)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: pinnedFirst) { _ in load() }
             }
             .padding(.horizontal, 16)
             List(selection: $selectedId) {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
-                            .font(.subheadline)
+                        HStack {
+                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)\(update.updatedAt > update.createdAt ? " • edited" : "")")
+                                .font(.subheadline)
+                            Spacer()
+                            Image(systemName: update.pinned ? "star.fill" : "star")
+                        }
                         Text("Title: \(update.title)").fontWeight(.semibold)
-                        Text(update.bodyText)
+                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                            .lineLimit(3)
                         Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Value CHF \(formatted(update.valueChf)) • Actual \(formattedPct(update.actualPercent))")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        HStack {
+                            Button("Edit") { editingUpdate = update }
+                            Button(update.pinned ? "Unpin" : "Pin") {
+                                DispatchQueue.global(qos: .userInitiated).async {
+                                    _ = dbManager.updateInstrumentUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
+                                    DispatchQueue.main.async { load() }
+                                }
+                            }
+                            Button("Delete", role: .destructive) {
+                                selectedId = update.id
+                                showDeleteConfirm = true
+                            }
+                        }
+                        .font(.caption)
                     }
                     .tag(update.id)
-                    .contextMenu {
-                        Button("Edit") { editingUpdate = update }
-                        Button("Delete", role: .destructive) { selectedId = update.id; showDeleteConfirm = true }
-                    }
                 }
             }
             Divider()
             HStack {
                 Button("Edit") { if let u = selectedUpdate { editingUpdate = u } }
                     .disabled(selectedUpdate == nil)
-                Button("Delete") { showDeleteConfirm = true }
+                Button(selectedUpdate?.pinned == true ? "Unpin" : "Pin") {
+                    if let u = selectedUpdate {
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            _ = dbManager.updateInstrumentUpdate(id: u.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !(u.pinned), actor: NSFullUserName(), expectedUpdatedAt: u.updatedAt)
+                            DispatchQueue.main.async {
+                                load()
+                                selectedId = u.id
+                            }
+                        }
+                    }
+                }
+                    .disabled(selectedUpdate == nil)
+                Button("Delete") {
+                    showDeleteConfirm = true
+                }
                     .disabled(selectedUpdate == nil)
                 Spacer()
                 Button("Close") { onClose(); dismiss() }
@@ -99,7 +133,7 @@ struct InstrumentUpdatesView: View {
     }
 
     private func load() {
-        updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId)
+        updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId, pinnedFirst: pinnedFirst)
         isArchived = dbManager.getPortfolioTheme(id: themeId)?.archivedAt != nil
         instrumentExists = dbManager.listThemeAssets(themeId: themeId).contains { $0.instrumentId == instrumentId }
     }
@@ -112,6 +146,7 @@ struct InstrumentUpdatesView: View {
         guard let id = selectedUpdate?.id else { return }
         if dbManager.deleteInstrumentUpdate(id: id, actor: NSFullUserName()) {
             load()
+            selectedId = nil
         }
         showDeleteConfirm = false
     }
