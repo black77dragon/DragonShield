@@ -33,7 +33,7 @@ final class ValuationTotalsRowTests: XCTestCase {
         let fxService = FXConversionService(dbManager: manager)
         let service = PortfolioValuationService(dbManager: manager, fxService: fxService)
         let snap = service.snapshot(themeId: 1)
-        let totalPct = snap.rows.contains { $0.status == "OK" } ? 100.0 : 0.0
+        let totalPct = snap.rows.contains { $0.status == .ok } ? 100.0 : 0.0
         XCTAssertEqual(totalPct, 100.0)
         sqlite3_close(manager.db)
     }
@@ -43,7 +43,7 @@ final class ValuationTotalsRowTests: XCTestCase {
         let fxService = FXConversionService(dbManager: manager)
         let service = PortfolioValuationService(dbManager: manager, fxService: fxService)
         let snap = service.snapshot(themeId: 1)
-        let totalPct = snap.rows.contains { $0.status == "OK" } ? 100.0 : 0.0
+        let totalPct = snap.rows.contains { $0.status == .ok } ? 100.0 : 0.0
         XCTAssertEqual(totalPct, 0.0)
         sqlite3_close(manager.db)
     }

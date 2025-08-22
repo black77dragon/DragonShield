@@ -53,8 +53,8 @@ final class ThemeValuationFxParityTests: XCTestCase {
         XCTAssertEqual(rows[2]?.currentValueBase, usdExpected, accuracy: 0.01)
         let eurExpected = fxService.convertToChf(amount: 700, currency: "EUR")!.valueChf
         XCTAssertEqual(rows[3]?.currentValueBase, eurExpected, accuracy: 0.01)
-        XCTAssertEqual(rows[4]?.status, "FX missing — excluded")
-        XCTAssertEqual(rows[5]?.status, "FX missing — excluded")
+        XCTAssertEqual(rows[4]?.status, .fxMissing)
+        XCTAssertEqual(rows[5]?.status, .fxMissing)
         sqlite3_close(manager.db)
     }
 }
