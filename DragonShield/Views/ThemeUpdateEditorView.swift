@@ -1,7 +1,7 @@
 // DragonShield/Views/ThemeUpdateEditorView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
-// - Initial creation: Plain text editor for portfolio theme updates with breadcrumb capture.
+// - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
 import SwiftUI
 
@@ -13,9 +13,13 @@ struct ThemeUpdateEditorView: View {
     var onSave: (PortfolioThemeUpdate) -> Void
     var onCancel: () -> Void
 
+    enum Mode { case write, preview }
+
     @State private var title: String
-    @State private var bodyText: String
+    @State private var bodyMarkdown: String
     @State private var type: PortfolioThemeUpdate.UpdateType
+    @State private var pinned: Bool
+    @State private var mode: Mode = .write
     @State private var positionsAsOf: String?
     @State private var totalValueChf: Double?
 
@@ -26,8 +30,9 @@ struct ThemeUpdateEditorView: View {
         self.onSave = onSave
         self.onCancel = onCancel
         _title = State(initialValue: existing?.title ?? "")
-        _bodyText = State(initialValue: existing?.bodyText ?? "")
+        _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
         _type = State(initialValue: existing?.type ?? .General)
+        _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
     var body: some View {
@@ -40,11 +45,25 @@ struct ThemeUpdateEditorView: View {
                     Text(t.rawValue).tag(t)
                 }
             }
-            TextEditor(text: $bodyText)
+            Toggle("Pin this update", isOn: $pinned)
+            Picker("Mode", selection: $mode) {
+                Text("Write").tag(Mode.write)
+                Text("Preview").tag(Mode.preview)
+            }
+            .pickerStyle(.segmented)
+            if mode == .write {
+                TextEditor(text: $bodyMarkdown)
+                    .frame(minHeight: 120)
+            } else {
+                ScrollView {
+                    Text(MarkdownRenderer.attributedString(from: bodyMarkdown))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 .frame(minHeight: 120)
-            Text("\(bodyText.count) / 5000")
+            }
+            Text("\(bodyMarkdown.count) / 5000")
                 .font(.caption)
-                .foregroundColor(bodyText.count > 5000 ? .red : .secondary)
+                .foregroundColor(bodyMarkdown.count > 5000 ? .red : .secondary)
             Text("On save we will capture: Positions \(positionsAsOf ?? "—") • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -58,12 +77,12 @@ struct ThemeUpdateEditorView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 520, minHeight: 340)
+        .frame(minWidth: 520, minHeight: 360)
         .onAppear { loadSnapshot() }
     }
 
     private var valid: Bool {
-        PortfolioThemeUpdate.isValidTitle(title) && PortfolioThemeUpdate.isValidBody(bodyText)
+        PortfolioThemeUpdate.isValidTitle(title) && PortfolioThemeUpdate.isValidBody(bodyMarkdown)
     }
 
     private func formatted(_ value: Double?) -> String {
@@ -85,11 +104,11 @@ struct ThemeUpdateEditorView: View {
 
     private func save() {
         if let existing = existing {
-            if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyText: bodyText, type: type, expectedUpdatedAt: existing.updatedAt) {
+            if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
                 onSave(updated)
             }
         } else {
-            if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyText: bodyText, type: type, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf) {
+            if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf) {
                 onSave(created)
             }
         }

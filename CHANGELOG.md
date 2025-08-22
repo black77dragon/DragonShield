@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Support Markdown bodies and pinning for Portfolio Theme updates with migration 014
 - Introduce PortfolioThemeUpdate table and CRUD helpers for theme update timelines
 - Log invalid theme update types, fetch themes directly for Updates view, and record author from macOS user
 - Enable Updates tab and quick New Update entry points for Portfolio Themes by default
