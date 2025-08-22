@@ -24,22 +24,40 @@ final class PortfolioThemeUpdateTests: XCTestCase {
         super.tearDown()
     }
 
-    func testCreateUpdateDeleteFlow() {
-        let created = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyText: "Trimmed VOO", type: .Rebalance, author: "Alice", positionsAsOf: "2025-09-02T09:30:00Z", totalValueChf: 2104500)
+    func testCreateUpdateDeleteFlowAndPinning() {
+        let created = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyMarkdown: "Trimmed VOO", type: .Rebalance, pinned: true, author: "Alice", positionsAsOf: "2025-09-02T09:30:00Z", totalValueChf: 2104500)
         XCTAssertNotNil(created)
         var list = manager.listThemeUpdates(themeId: 1)
         XCTAssertEqual(list.count, 1)
         let first = list[0]
-        XCTAssertEqual(first.author, "Alice")
+        XCTAssertTrue(first.pinned)
 
-        let updated = manager.updateThemeUpdate(id: first.id, title: "Raise cash to 15%", bodyText: "Adjust further", type: .Rebalance, expectedUpdatedAt: first.updatedAt)
+        let second = manager.createThemeUpdate(themeId: 1, title: "Unpinned", bodyMarkdown: "body", type: .General, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil)
+        XCTAssertNotNil(second)
+
+        list = manager.listThemeUpdates(themeId: 1)
+        XCTAssertEqual(list.first?.title, "Raised cash")
+
+        list = manager.listThemeUpdates(themeId: 1, pinnedFirst: false)
+        XCTAssertEqual(list.first?.title, "Unpinned")
+
+        let updated = manager.updateThemeUpdate(id: first.id, title: "Raise cash to 15%", bodyMarkdown: "Adjust further", type: .Rebalance, pinned: false, actor: "Alice", expectedUpdatedAt: first.updatedAt)
         XCTAssertNotNil(updated)
-        let stale = manager.updateThemeUpdate(id: first.id, title: "Stale", bodyText: "Stale", type: .General, expectedUpdatedAt: first.updatedAt)
+        let stale = manager.updateThemeUpdate(id: first.id, title: "Stale", bodyMarkdown: nil, type: nil, pinned: nil, actor: "Alice", expectedUpdatedAt: first.updatedAt)
         XCTAssertNil(stale)
 
-        let deleteOk = manager.deleteThemeUpdate(id: first.id)
+        let deleteOk = manager.deleteThemeUpdate(id: first.id, themeId: 1, actor: "Alice")
         XCTAssertTrue(deleteOk)
         list = manager.listThemeUpdates(themeId: 1)
-        XCTAssertTrue(list.isEmpty)
+        XCTAssertEqual(list.count, 1)
+    }
+
+    func testUpdateValidationFails() {
+        guard let item = manager.createThemeUpdate(themeId: 1, title: "Valid", bodyMarkdown: "body", type: .General, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil) else {
+            XCTFail("creation failed")
+            return
+        }
+        let result = manager.updateThemeUpdate(id: item.id, title: "", bodyMarkdown: nil, type: nil, pinned: nil, actor: "Bob", expectedUpdatedAt: item.updatedAt)
+        XCTAssertNil(result)
     }
 }
