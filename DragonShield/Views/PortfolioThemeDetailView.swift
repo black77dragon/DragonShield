@@ -3,15 +3,24 @@
 
 import SwiftUI
 
+enum DetailTab: String, CaseIterable {
+    case composition
+    case valuation
+    case updates
+}
+
 struct PortfolioThemeDetailView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
     let origin: String
+    let initialTab: DetailTab = .composition
     var onSave: (PortfolioTheme) -> Void = { _ in }
     var onArchive: () -> Void = {}
     var onUnarchive: (Int) -> Void = { _ in }
     var onSoftDelete: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(UserDefaultsKeys.portfolioThemeDetailLastTab) private var lastTabRaw: String = DetailTab.composition.rawValue
+    @State private var selectedTab: DetailTab = .composition
 
     @State private var theme: PortfolioTheme?
     @State private var name: String = ""
@@ -53,29 +62,20 @@ struct PortfolioThemeDetailView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isReadOnly {
-                    Text("Archived theme - read only")
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(Color.yellow.opacity(0.1))
-                }
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        headerBlock
-                        Divider()
-                        compositionSection
-                        Divider()
-                        valuationSection
-                        Divider()
-                        dangerZone
+                TabView(selection: $selectedTab) {
+                    compositionTab
+                        .tag(DetailTab.composition)
+                        .tabItem { Text("Composition") }
+                    valuationTab
+                        .tag(DetailTab.valuation)
+                        .tabItem { Text("Valuation") }
+                    if dbManager.portfolioThemeUpdatesEnabled {
+                        updatesTab
+                            .tag(DetailTab.updates)
+                            .tabItem { Text("Updates") }
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
                 Divider()
-
                 HStack {
                     Spacer()
                     Button("Cancel") { dismiss() }
@@ -92,6 +92,14 @@ struct PortfolioThemeDetailView: View {
         .onAppear {
             loadTheme()
             runValuation()
+            selectedTab = initialTab
+            if !dbManager.portfolioThemeUpdatesEnabled && selectedTab == .updates {
+                selectedTab = .composition
+            }
+            lastTabRaw = selectedTab.rawValue
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            lastTabRaw = newValue.rawValue
         }
         .sheet(isPresented: $showAdd) { addSheet }
         .sheet(isPresented: $showAddInstitution) {
@@ -128,6 +136,43 @@ struct PortfolioThemeDetailView: View {
     }
 
     // MARK: - Sections
+
+    private var compositionTab: some View {
+        VStack(spacing: 0) {
+            if isReadOnly {
+                Text("Archived theme - read only")
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.yellow.opacity(0.1))
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    headerBlock
+                    Divider()
+                    compositionSection
+                    Divider()
+                    dangerZone
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var valuationTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                valuationSection
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var updatesTab: some View {
+        PortfolioThemeUpdatesView(themeId: themeId)
+            .environmentObject(dbManager)
+    }
 
     private var headerBlock: some View {
         VStack(alignment: .leading, spacing: 12) {
