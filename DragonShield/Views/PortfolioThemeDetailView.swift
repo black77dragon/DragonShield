@@ -50,28 +50,31 @@ struct PortfolioThemeDetailView: View {
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
 
+    enum Tab: String { case composition, valuation, updates }
+    @State var selectedTab: Tab = .composition
+    @State var updates: [PortfolioThemeUpdate] = []
+    @State var editingUpdate: PortfolioThemeUpdate?
+    @State private var creatingUpdate = false
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isReadOnly {
-                    Text("Archived theme - read only")
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(Color.yellow.opacity(0.1))
-                }
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        headerBlock
-                        Divider()
-                        compositionSection
-                        Divider()
-                        valuationSection
-                        Divider()
-                        dangerZone
+                Picker("", selection: $selectedTab) {
+                    Text("Composition").tag(Tab.composition)
+                    Text("Valuation").tag(Tab.valuation)
+                    if dbManager.portfolioThemeUpdatesEnabled {
+                        Text("Updates").tag(Tab.updates)
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .pickerStyle(.segmented)
+                .padding()
+
+                if selectedTab == .composition {
+                    compositionTab
+                } else if selectedTab == .valuation {
+                    valuationTab
+                } else {
+                    updatesSection
                 }
 
                 Divider()
@@ -82,7 +85,7 @@ struct PortfolioThemeDetailView: View {
                         .keyboardShortcut(.cancelAction)
                     Button("Save") { saveTheme() }
                         .keyboardShortcut(.defaultAction)
-                        .disabled(!valid || isReadOnly)
+                        .disabled(selectedTab == .updates || !valid || isReadOnly)
                 }
                 .padding(24)
             }
@@ -92,6 +95,16 @@ struct PortfolioThemeDetailView: View {
         .onAppear {
             loadTheme()
             runValuation()
+            if origin == "post_create" && dbManager.portfolioThemeUpdatesEnabled {
+                selectedTab = .updates
+            } else if let saved = UserDefaults.standard.string(forKey: "PortfolioThemeDetailView.lastTab"), let t = Tab(rawValue: saved), (t != .updates || dbManager.portfolioThemeUpdatesEnabled) {
+                selectedTab = t
+            }
+            LoggingService.shared.log("{\"themeId\":\(themeId),\"action\":\"details_open\",\"tab\":\"\(selectedTab.rawValue)\",\"source\":\"\(origin)\"}", logger: .ui)
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            UserDefaults.standard.set(newValue.rawValue, forKey: "PortfolioThemeDetailView.lastTab")
+            if newValue == .updates { loadUpdates() }
         }
         .sheet(isPresented: $showAdd) { addSheet }
         .sheet(isPresented: $showAddInstitution) {
@@ -121,6 +134,22 @@ struct PortfolioThemeDetailView: View {
                 },
                 onCancel: { editingAsset = nil }
             )
+        }
+        .sheet(isPresented: $creatingUpdate) {
+            if let t = theme {
+                ThemeUpdateEditorView(theme: t, onSave: { _ in
+                    loadUpdates()
+                }, onCancel: {})
+                .environmentObject(dbManager)
+            }
+        }
+        .sheet(item: $editingUpdate) { upd in
+            if let t = theme {
+                ThemeUpdateEditorView(theme: t, update: upd, onSave: { _ in
+                    loadUpdates()
+                }, onCancel: {})
+                .environmentObject(dbManager)
+            }
         }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
@@ -268,6 +297,85 @@ struct PortfolioThemeDetailView: View {
                 }
                 .padding(.top, 8)
             }
+        }
+    }
+
+    private var compositionTab: some View {
+        VStack(spacing: 0) {
+            if isReadOnly {
+                Text("Archived theme - read only")
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.yellow.opacity(0.1))
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    headerBlock
+                    Divider()
+                    compositionSection
+                    Divider()
+                    dangerZone
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var valuationTab: some View {
+        VStack(spacing: 0) {
+            if isReadOnly {
+                Text("Archived theme - read only")
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.yellow.opacity(0.1))
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    valuationSection
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var updatesSection: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if isReadOnly {
+                    Text("Theme archived — composition locked; updates permitted")
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(Color.yellow.opacity(0.1))
+                }
+                HStack {
+                    Spacer()
+                    Button("+ New Update") { creatingUpdate = true }
+                        .buttonStyle(.borderedProminent)
+                }
+                ForEach(updates) { upd in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(upd.createdAt)
+                            Text("• \(upd.author)")
+                            Text("• \(upd.type.rawValue)")
+                        }
+                        .font(.caption)
+                        Text("Title: \(upd.title)").bold()
+                        Text(upd.bodyText)
+                        Text("Breadcrumb: Positions \(upd.positionsAsOf ?? "—") • Total CHF \(upd.totalValueChf.map { String(format: "%.2f", $0) } ?? "—")")
+                            .font(.footnote)
+                        HStack {
+                            Button("Edit") { editingUpdate = upd }
+                            Button("Delete") { deleteUpdate(upd) }
+                        }
+                    }
+                    Divider()
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -471,6 +579,16 @@ private var dangerZone: some View {
                 self.valuation = snap
                 self.valuating = false
             }
+        }
+    }
+
+    private func loadUpdates() {
+        updates = dbManager.listThemeUpdates(themeId: themeId)
+    }
+
+    private func deleteUpdate(_ upd: PortfolioThemeUpdate) {
+        if dbManager.deleteThemeUpdate(id: upd.id) {
+            updates.removeAll { $0.id == upd.id }
         }
     }
 

@@ -41,6 +41,8 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
+    // Feature flags
+    @Published var portfolioThemeUpdatesEnabled: Bool
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==
@@ -58,6 +60,7 @@ class DatabaseManager: ObservableObject {
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+        self.portfolioThemeUpdatesEnabled = (mode == .test)
 
         
         #if DEBUG
@@ -91,6 +94,7 @@ class DatabaseManager: ObservableObject {
         ensurePortfolioThemeStatusDefault()
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
+        ensurePortfolioThemeUpdateTable()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }

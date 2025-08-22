@@ -7,6 +7,7 @@
 // - Implemented custom sorting logic to sort the 'Status' column alphabetically by name.
 
 import SwiftUI
+import AppKit
 
 struct PortfolioThemesListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -19,10 +20,12 @@ struct PortfolioThemesListView: View {
     @State private var statuses: [PortfolioThemeStatus] = []
     
     // State for selection and sheets
-    @State private var selectedThemeId: PortfolioTheme.ID?
-    @State private var themeToEdit: PortfolioTheme?
-    @State private var showingAddSheet = false
-    @State private var themeToOpen: PortfolioTheme?
+    @State var selectedThemeId: PortfolioTheme.ID?
+    @State var themeToEdit: PortfolioTheme?
+    @State var showingAddSheet = false
+    @State var themeToOpen: PortfolioTheme?
+    @State var newUpdateTheme: PortfolioTheme?
+    @State private var detailOrigin: String = "themesList"
 
     // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
@@ -44,10 +47,27 @@ struct PortfolioThemesListView: View {
                 .hidden()
                 .disabled(selectedThemeId == nil)
 
+                if dbManager.portfolioThemeUpdatesEnabled {
+                    Button(action: { invokeNewUpdate(source: "shortcut") }) {
+                        EmptyView()
+                    }
+                    .keyboardShortcut("u", modifiers: [.command])
+                    .hidden()
+                    .disabled(selectedThemeId == nil)
+                }
+
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
+
+                if dbManager.portfolioThemeUpdatesEnabled {
+                    Button(action: { invokeNewUpdate(source: "toolbar") }) {
+                        Label("New Update", systemImage: "plus")
+                    }
+                    .disabled(selectedThemeId == nil)
+                    .help("Select a single theme to add an update")
+                }
 
                 Button(action: {
                     if let selectedId = selectedThemeId {
@@ -80,8 +100,18 @@ struct PortfolioThemesListView: View {
             EditPortfolioThemeView(theme: theme, onSave: {})
                 .environmentObject(dbManager)
         }
+        .sheet(item: $newUpdateTheme) { theme in
+            ThemeUpdateEditorView(theme: theme, onSave: { update in
+                LoggingService.shared.log("{\"themeId\":\(theme.id),\"updateId\":\(update.id),\"action\":\"new_update_saved\",\"source\":\"fast_path\"}", logger: .ui)
+                detailOrigin = "post_create"
+                themeToOpen = theme
+            }, onCancel: {
+                LoggingService.shared.log("{\"themeId\":\(theme.id),\"action\":\"new_update_canceled\",\"source\":\"fast_path\"}", logger: .ui)
+            })
+            .environmentObject(dbManager)
+        }
         .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
-            PortfolioThemeDetailView(themeId: theme.id, origin: "themesList")
+            PortfolioThemeDetailView(themeId: theme.id, origin: detailOrigin)
                 .environmentObject(dbManager)
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
@@ -177,6 +207,10 @@ struct PortfolioThemesListView: View {
         .onTapGesture(count: 2) { openSelected() }
         .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
             Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
+            if dbManager.portfolioThemeUpdatesEnabled {
+                Button("New Update…") { invokeNewUpdate(source: "context_menu") }
+                    .keyboardShortcut("u")
+            }
         }
     }
     
@@ -317,6 +351,17 @@ struct PortfolioThemesListView: View {
     }
 
     private func open(_ theme: PortfolioTheme) {
+        detailOrigin = "themesList"
         themeToOpen = theme
+    }
+
+    func invokeNewUpdate(source: String) {
+        guard dbManager.portfolioThemeUpdatesEnabled else { return }
+        guard let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) else {
+            NSBeep()
+            return
+        }
+        LoggingService.shared.log("{\"themeId\":\(theme.id),\"action\":\"new_update_invoke\",\"source\":\"\(source)\"}", logger: .ui)
+        newUpdateTheme = theme
     }
 }
