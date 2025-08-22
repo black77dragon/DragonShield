@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add Markdown body and pin flag to instrument-level updates with migration 017
 - Introduce PortfolioThemeAssetUpdate table and CRUD helpers for instrument-level update timelines with migration 016
 - Surface Instrument Updates button and sheet in Portfolio Theme composition under feature flag
 - Add search, type filter, and soft-delete with restore for Portfolio Theme updates with migration 015

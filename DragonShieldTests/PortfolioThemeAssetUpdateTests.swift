@@ -27,17 +27,23 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
     }
 
     func testCreateEditDeleteFlow() {
-        let first = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Init", bodyText: "Start", type: .General, author: "Alice", breadcrumb: nil)
+        let first = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Init", bodyMarkdown: "Start", type: .General, pinned: false, author: "Alice", breadcrumb: nil)
         XCTAssertNotNil(first)
-        let second = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Second", bodyText: "More", type: .Research, author: "Bob", breadcrumb: nil)
+        let second = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Second", bodyMarkdown: "More", type: .Research, pinned: false, author: "Bob", breadcrumb: nil)
         XCTAssertNotNil(second)
         var list = manager.listInstrumentUpdates(themeId: 1, instrumentId: 42)
         XCTAssertEqual(list.count, 2)
         XCTAssertEqual(list.first?.id, second!.id)
-        let updated = manager.updateInstrumentUpdate(id: first!.id, title: "Changed", bodyText: nil, type: .Risk, actor: "Alice", expectedUpdatedAt: first!.updatedAt)
-        XCTAssertEqual(updated?.title, "Changed")
-        XCTAssertEqual(updated?.type, .Risk)
-        let conflict = manager.updateInstrumentUpdate(id: first!.id, title: "Bad", bodyText: nil, type: nil, actor: "Bob", expectedUpdatedAt: "bogus")
+        let pinned = manager.updateInstrumentUpdate(id: first!.id, title: nil, bodyMarkdown: nil, type: nil, pinned: true, actor: "Alice", expectedUpdatedAt: first!.updatedAt)
+        XCTAssertTrue(pinned?.pinned ?? false)
+        list = manager.listInstrumentUpdates(themeId: 1, instrumentId: 42)
+        XCTAssertEqual(list.first?.id, first!.id)
+        list = manager.listInstrumentUpdates(themeId: 1, instrumentId: 42, pinnedFirst: false)
+        XCTAssertEqual(list.first?.id, second!.id)
+        let edited = manager.updateInstrumentUpdate(id: first!.id, title: "Changed", bodyMarkdown: nil, type: .Risk, pinned: nil, actor: "Alice", expectedUpdatedAt: pinned!.updatedAt)
+        XCTAssertEqual(edited?.title, "Changed")
+        XCTAssertEqual(edited?.type, .Risk)
+        let conflict = manager.updateInstrumentUpdate(id: first!.id, title: "Bad", bodyMarkdown: nil, type: nil, pinned: nil, actor: "Bob", expectedUpdatedAt: "bogus")
         XCTAssertNil(conflict)
         XCTAssertTrue(manager.deleteInstrumentUpdate(id: first!.id, actor: "Alice"))
         XCTAssertEqual(manager.countInstrumentUpdates(themeId: 1, instrumentId: 42), 1)
@@ -47,4 +53,3 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         XCTAssertEqual(list.count, 0)
     }
 }
-

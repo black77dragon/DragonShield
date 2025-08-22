@@ -1,6 +1,7 @@
 // DragonShield/Views/InstrumentUpdatesView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
+// - 1.1: Display Markdown body and pinned state for Step 7B.
 // - 1.0: Initial instrument updates list for Step 7A.
 
 import SwiftUI
@@ -50,10 +51,10 @@ struct InstrumentUpdatesView: View {
             List(selection: $selectedId) {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
+                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)  \(update.pinned ? "★ Pinned" : "☆")\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
                             .font(.subheadline)
                         Text("Title: \(update.title)").fontWeight(.semibold)
-                        Text(update.bodyText)
+                        Text(update.bodyMarkdown)
                         Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Value CHF \(formatted(update.valueChf)) • Actual \(formattedPct(update.actualPercent))")
                             .font(.caption)
                             .foregroundColor(.secondary)
