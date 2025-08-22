@@ -91,6 +91,7 @@ class DatabaseManager: ObservableObject {
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
         ensurePortfolioThemeUpdateTable()
+        ensurePortfolioThemeAssetUpdateTable()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }

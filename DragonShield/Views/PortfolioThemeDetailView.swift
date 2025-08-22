@@ -52,6 +52,15 @@ struct PortfolioThemeDetailView: View {
     @State private var sortField: SortField = .instrument
     @State private var sortAscending = true
 
+    private struct InstrumentSheetTarget: Identifiable {
+        let instrumentId: Int
+        let instrumentName: String
+        var id: Int { instrumentId }
+    }
+
+    @State private var updateCounts: [Int: Int] = [:]
+    @State private var instrumentSheet: InstrumentSheetTarget?
+
     private enum SortField {
         case instrument, deltaResearch, deltaUser
     }
@@ -134,6 +143,17 @@ struct PortfolioThemeDetailView: View {
                 },
                 onCancel: { editingAsset = nil }
             )
+        }
+        .sheet(item: $instrumentSheet) { target in
+            InstrumentUpdatesView(
+                themeId: themeId,
+                instrumentId: target.instrumentId,
+                instrumentName: target.instrumentName,
+                themeName: name,
+                valuation: valuation,
+                onClose: { refreshUpdateCounts() }
+            )
+            .environmentObject(dbManager)
         }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
@@ -248,6 +268,9 @@ struct PortfolioThemeDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                    if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                        Spacer().frame(width: 40)
+                    }
                     Spacer().frame(width: 28)
                     Spacer().frame(width: 28)
                 }
@@ -288,6 +311,18 @@ struct PortfolioThemeDetailView: View {
                         .truncationMode(.tail)
                         .help($asset.wrappedValue.notes ?? "")
                         .disabled(isReadOnly)
+                        if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                            Button {
+                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                            } label: {
+                                let count = updateCounts[$asset.wrappedValue.instrumentId] ?? 0
+                                Text(count > 0 ? "📝 \(count)" : "📝")
+                            }
+                            .buttonStyle(.borderless)
+                            .frame(width: 40)
+                            .help("Instrument updates")
+                            .accessibilityLabel("Instrument updates for \(instrumentName($asset.wrappedValue.instrumentId))")
+                        }
                         Button {
                             editingAsset = $asset.wrappedValue
                             noteDraft = $asset.wrappedValue.notes ?? ""
@@ -307,6 +342,13 @@ struct PortfolioThemeDetailView: View {
                             .frame(width: 28)
                         } else {
                             Spacer().frame(width: 28)
+                        }
+                    }
+                    .contextMenu {
+                        if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                            Button("Instrument Updates…") {
+                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                            }
                         }
                     }
                 }
@@ -660,6 +702,7 @@ private var dangerZone: some View {
         assets = dbManager.listThemeAssets(themeId: themeId)
         allInstruments = dbManager.fetchAssets().map { ($0.id, $0.name) }
         if let first = availableInstruments.first { addInstrumentId = first.id }
+        refreshUpdateCounts()
     }
 
     private func instrumentName(_ id: Int) -> String {
@@ -693,6 +736,7 @@ private var dangerZone: some View {
                 assets[idx] = updated
             }
             LoggingService.shared.log("updateThemeAsset themeId=\(themeId) instrumentId=\(asset.instrumentId) research=\(asset.researchTargetPct) user=\(asset.userTargetPct)", logger: .ui)
+            refreshUpdateCounts()
         } else {
             LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
             alertItem = AlertItem(title: "Error", message: "Failed to save changes.", action: nil)
@@ -706,6 +750,15 @@ private var dangerZone: some View {
             LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
             alertItem = AlertItem(title: "Error", message: "Failed to remove instrument.", action: nil)
         }
+    }
+
+    private func refreshUpdateCounts() {
+        guard FeatureFlags.portfolioInstrumentUpdatesEnabled() else { return }
+        var dict: [Int: Int] = [:]
+        for a in assets {
+            dict[a.instrumentId] = dbManager.countInstrumentUpdates(themeId: themeId, instrumentId: a.instrumentId)
+        }
+        updateCounts = dict
     }
 
     private func addInstrument() {
