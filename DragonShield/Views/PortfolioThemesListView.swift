@@ -7,6 +7,7 @@
 // - Implemented custom sorting logic to sort the 'Status' column alphabetically by name.
 
 import SwiftUI
+import AppKit
 
 struct PortfolioThemesListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -23,6 +24,8 @@ struct PortfolioThemesListView: View {
     @State private var themeToEdit: PortfolioTheme?
     @State private var showingAddSheet = false
     @State private var themeToOpen: PortfolioTheme?
+    @State private var themeToOpenTab: PortfolioThemeDetailView.Tab = .composition
+    @State var themeForUpdate: PortfolioTheme?
 
     // State to manage the table's sort order
     @State private var sortOrder = [KeyPathComparator<PortfolioTheme>]()
@@ -43,11 +46,23 @@ struct PortfolioThemesListView: View {
                 .keyboardShortcut(.return)
                 .hidden()
                 .disabled(selectedThemeId == nil)
+                Button(action: { invokeNewUpdate(source: "shortcut") }) {
+                    EmptyView()
+                }
+                .keyboardShortcut("u", modifiers: [.command])
+                .hidden()
+                .disabled(selectedThemeId == nil)
+
 
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
+
+                    Button(action: { invokeNewUpdate(source: "toolbar") }) {
+                        Label("New Update", systemImage: "plus.square.on.square")
+                    }
+                    .disabled(selectedThemeId == nil)
 
                 Button(action: {
                     if let selectedId = selectedThemeId {
@@ -80,8 +95,18 @@ struct PortfolioThemesListView: View {
             EditPortfolioThemeView(theme: theme, onSave: {})
                 .environmentObject(dbManager)
         }
+        .sheet(item: $themeForUpdate) { theme in
+            NewThemeUpdateView(theme: theme, onSave: { update in
+                LoggingService.shared.log("new_update_saved themeId=\(theme.id) updateId=\(update.id) source:fast_path", logger: .ui)
+                themeToOpen = theme
+                themeToOpenTab = .updates
+            }, onCancel: {
+                LoggingService.shared.log("new_update_canceled themeId=\(theme.id) source:fast_path", logger: .ui)
+            })
+            .environmentObject(dbManager)
+        }
         .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
-            PortfolioThemeDetailView(themeId: theme.id, origin: "themesList")
+            PortfolioThemeDetailView(themeId: theme.id, origin: "themesList", initialTab: themeToOpenTab)
                 .environmentObject(dbManager)
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
@@ -176,6 +201,7 @@ struct PortfolioThemesListView: View {
         }
         .onTapGesture(count: 2) { openSelected() }
         .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
+            Button("New Update…") { invokeNewUpdate(source: "context_menu") }.disabled(selectedThemeId == nil)
             Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
         }
     }
@@ -317,6 +343,15 @@ struct PortfolioThemesListView: View {
     }
 
     private func open(_ theme: PortfolioTheme) {
+        themeToOpenTab = .composition
         themeToOpen = theme
+    }
+    func invokeNewUpdate(source: String) {
+        guard let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) else {
+            NSSound.beep()
+            return
+        }
+        LoggingService.shared.log("new_update_invoke themeId=\(theme.id) source:\(source)", logger: .ui)
+        themeForUpdate = theme
     }
 }
