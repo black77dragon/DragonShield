@@ -1,7 +1,8 @@
 // DragonShield/Views/InstrumentUpdateEditorView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
 // - 1.0: Initial instrument update editor for Step 7A.
+// - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle for Phase 7B.
 
 import SwiftUI
 
@@ -16,10 +17,15 @@ struct InstrumentUpdateEditorView: View {
     var onSave: (PortfolioThemeAssetUpdate) -> Void
     var onCancel: () -> Void
 
+    enum Mode { case write, preview }
+
     @State private var title: String
-    @State private var bodyText: String
+    @State private var bodyMarkdown: String
     @State private var type: PortfolioThemeAssetUpdate.UpdateType
+    @State private var pinned: Bool
+    @State private var mode: Mode = .write
     @State private var breadcrumb: (positionsAsOf: String?, valueChf: Double?, actualPercent: Double?)?
+    @State private var showHelp = false
 
     init(themeId: Int, instrumentId: Int, instrumentName: String, themeName: String, existing: PortfolioThemeAssetUpdate? = nil, valuation: ValuationSnapshot? = nil, onSave: @escaping (PortfolioThemeAssetUpdate) -> Void, onCancel: @escaping () -> Void) {
         self.themeId = themeId
@@ -31,8 +37,9 @@ struct InstrumentUpdateEditorView: View {
         self.onSave = onSave
         self.onCancel = onCancel
         _title = State(initialValue: existing?.title ?? "")
-        _bodyText = State(initialValue: existing?.bodyText ?? "")
+        _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
         _type = State(initialValue: existing?.type ?? .General)
+        _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
     var body: some View {
@@ -47,12 +54,30 @@ struct InstrumentUpdateEditorView: View {
                     Text(t.rawValue).tag(t)
                 }
             }
-            TextEditor(text: $bodyText)
-                .frame(minHeight: 120)
+            Toggle("Pin this update", isOn: $pinned)
             HStack {
-                Text("\(bodyText.count) / 5000")
+                Picker("Mode", selection: $mode) {
+                    Text("Write").tag(Mode.write)
+                    Text("Preview").tag(Mode.preview)
+                }
+                .pickerStyle(.segmented)
+                Button("Help") { showHelp = true }
+                    .popover(isPresented: $showHelp) { MarkdownHelpView().frame(width: 300, height: 200) }
+            }
+            if mode == .write {
+                TextEditor(text: $bodyMarkdown)
+                    .frame(minHeight: 120)
+            } else {
+                ScrollView {
+                    Text(MarkdownRenderer.attributedString(from: bodyMarkdown))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 120)
+            }
+            HStack {
+                Text("\(bodyMarkdown.count) / 5000")
                     .font(.caption)
-                    .foregroundColor(bodyText.count > 5000 ? .red : .secondary)
+                    .foregroundColor(bodyMarkdown.count > 5000 ? .red : .secondary)
                 Spacer()
                 if let existing = existing {
                     Text("Created: \(DateFormatting.userFriendly(existing.createdAt))   Edited: \(DateFormatting.userFriendly(existing.updatedAt))")
@@ -78,7 +103,7 @@ struct InstrumentUpdateEditorView: View {
     }
 
     private var valid: Bool {
-        PortfolioThemeAssetUpdate.isValidTitle(title) && PortfolioThemeAssetUpdate.isValidBody(bodyText)
+        PortfolioThemeAssetUpdate.isValidTitle(title) && PortfolioThemeAssetUpdate.isValidBody(bodyMarkdown)
     }
 
     private func loadBreadcrumb() {
@@ -102,13 +127,41 @@ struct InstrumentUpdateEditorView: View {
 
     private func save() {
         if let existing = existing {
-            if let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyText: bodyText, type: type, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
+            if let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
                 onSave(updated)
             }
         } else {
-            if let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyText: bodyText, type: type, author: NSFullUserName(), breadcrumb: breadcrumb) {
+            if let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb) {
                 onSave(created)
             }
+        }
+    }
+}
+
+private struct MarkdownHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                helpRow("# Heading", rendered: "# Heading")
+                helpRow("This is **bold**, *italic*, `code`.", rendered: "This is **bold**, *italic*, `code`.")
+                helpRow("- Bullet item", rendered: "- Bullet item")
+                helpRow("1. Numbered", rendered: "1. Numbered")
+                helpRow("Link: [text](https://example.com)", rendered: "Link: [text](https://example.com)")
+                Text("Images and raw HTML are not rendered.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+    }
+
+    private func helpRow(_ syntax: String, rendered: String) -> some View {
+        HStack(alignment: .top) {
+            Text(syntax)
+                .font(.system(.body, design: .monospaced))
+            Spacer()
+            Text(MarkdownRenderer.attributedString(from: rendered))
         }
     }
 }
