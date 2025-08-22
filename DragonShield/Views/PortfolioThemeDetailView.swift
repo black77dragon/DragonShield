@@ -36,8 +36,22 @@ struct PortfolioThemeDetailView: View {
     @State private var editingAsset: PortfolioThemeAsset?
     @State private var noteDraft: String = ""
 
+    @State private var tolerancePct: Double = 2.0
+    @State private var showOnlyOutOfTolerance = false
+    @State private var showDeltaResearch = true
+    @State private var showDeltaUser = true
+    @State private var sort = DeviationSort.none
+
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
+
+    private enum DeviationSort {
+        case none
+        case deltaResearchAsc
+        case deltaResearchDesc
+        case deltaUserAsc
+        case deltaUserDesc
+    }
 
     var body: some View {
         NavigationStack {
@@ -113,6 +127,12 @@ struct PortfolioThemeDetailView: View {
         }
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK"), action: item.action))
+        }
+        .onChange(of: showDeltaResearch) { _ in
+            if !(showDeltaResearch || showDeltaUser) { showOnlyOutOfTolerance = false }
+        }
+        .onChange(of: showDeltaUser) { _ in
+            if !(showDeltaResearch || showDeltaUser) { showOnlyOutOfTolerance = false }
         }
     }
 
@@ -263,67 +283,212 @@ struct PortfolioThemeDetailView: View {
 
 private var valuationSection: some View {
     VStack(alignment: .leading, spacing: 12) {
-        HStack {
+        HStack(alignment: .top) {
             Text("Valuation").font(.headline)
             Spacer()
-            Text("As of: Positions \(valuationPositions)  |  FX \(valuationFx)")
-                .font(.subheadline)
-            Button("Refresh") { runValuation() }
-                .disabled(valuating)
-            if valuating {
-                ProgressView().controlSize(.small)
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text("As of: Positions \(valuationPositions)  |  FX \(valuationFx)")
+                        .font(.subheadline)
+                    Text("Tolerance ±")
+                    TextField("", value: $tolerancePct, format: .number)
+                        .frame(width: 64)
+                        .multilineTextAlignment(.trailing)
+                    Text("%")
+                    Toggle("Only out of tolerance", isOn: $showOnlyOutOfTolerance)
+                        .toggleStyle(.checkbox)
+                        .disabled(!(showDeltaResearch || showDeltaUser))
+                        .help(showDeltaResearch || showDeltaUser ? "" : "Enable at least one deviation column")
+                    Button("Refresh") { runValuation() }
+                        .disabled(valuating)
+                    if valuating {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                HStack(spacing: 8) {
+                    Text("Columns:")
+                    Toggle("Δ vs Research", isOn: $showDeltaResearch).toggleStyle(.checkbox)
+                    Toggle("Δ vs User", isOn: $showDeltaUser).toggleStyle(.checkbox)
+                }
+                Text("Legend:  within = •, over = ▲, under = ▼")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         if let snap = valuation {
             let hasIncluded = snap.rows.contains { $0.status == "OK" }
             let totalPct: Double = hasIncluded ? 100.0 : 0.0
+            let rows = filteredRows
             if snap.excludedFxCount > 0 {
                 Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
             }
-            HStack(spacing: 12) {
-                Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Research %").frame(width: 80, alignment: .trailing)
-                Text("User %").frame(width: 80, alignment: .trailing)
-                Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
-                Text("Actual %").frame(width: 80, alignment: .trailing)
-                Text("Status").frame(width: 140, alignment: .leading)
-            }
-            ForEach(snap.rows) { row in
+            if showOnlyOutOfTolerance && rows.isEmpty {
+                Text("No items outside tolerance")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.gray.opacity(0.1))
+            } else {
                 HStack(spacing: 12) {
-                    Text(row.instrumentName)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help(row.instrumentName)
-                    Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 80, alignment: .trailing)
-                    Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 80, alignment: .trailing)
-                    Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+                    Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Research %").frame(width: 80, alignment: .trailing)
+                    Text("User %").frame(width: 80, alignment: .trailing)
+                    Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
+                    Text("Actual %").frame(width: 80, alignment: .trailing)
+                    if showDeltaResearch {
+                        Button(action: toggleResearchSort) {
+                            headerLabel(title: "Δ vs Research", activeAsc: sort == .deltaResearchAsc, activeDesc: sort == .deltaResearchDesc)
+                        }
+                        .frame(width: 120, alignment: .trailing)
+                    }
+                    if showDeltaUser {
+                        Button(action: toggleUserSort) {
+                            headerLabel(title: "Δ vs User", activeAsc: sort == .deltaUserAsc, activeDesc: sort == .deltaUserDesc)
+                        }
+                        .frame(width: 120, alignment: .trailing)
+                    }
+                    Text("Status").frame(width: 140, alignment: .leading)
+                }
+                ForEach(rows) { row in
+                    HStack(spacing: 12) {
+                        Text(row.instrumentName)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(row.instrumentName)
+                        Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
+                            .frame(width: 80, alignment: .trailing)
+                        Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
+                            .frame(width: 80, alignment: .trailing)
+                        Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+                            .frame(width: 160, alignment: .trailing)
+                            .monospacedDigit()
+                        Text(row.actualPct, format: .number.precision(.fractionLength(1)))
+                            .frame(width: 80, alignment: .trailing)
+                        if showDeltaResearch {
+                            DeviationChip(
+                                delta: row.deltaResearchPct,
+                                actual: row.actualPct,
+                                target: row.researchTargetPct,
+                                tolerance: tolerancePct,
+                                baseline: "Research"
+                            )
+                        }
+                        if showDeltaUser {
+                            DeviationChip(
+                                delta: row.deltaUserPct,
+                                actual: row.actualPct,
+                                target: row.userTargetPct,
+                                tolerance: tolerancePct,
+                                baseline: "User"
+                            )
+                        }
+                        Text(row.status)
+                            .frame(width: 140, alignment: .leading)
+                    }
+                }
+                HStack(spacing: 12) {
+                    Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer().frame(width: 80)
+                    Spacer().frame(width: 80)
+                    Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
                         .frame(width: 160, alignment: .trailing)
                         .monospacedDigit()
-                    Text(row.actualPct, format: .number.precision(.fractionLength(1)))
+                    Text(totalPct, format: .number.precision(.fractionLength(1)))
                         .frame(width: 80, alignment: .trailing)
-                    Text(row.status)
-                        .frame(width: 140, alignment: .leading)
+                    if showDeltaResearch {
+                        Spacer().frame(width: 120)
+                    }
+                    if showDeltaUser {
+                        Spacer().frame(width: 120)
+                    }
+                    Spacer().frame(width: 140)
                 }
-            }
-            HStack(spacing: 12) {
-                Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(width: 80)
-                Spacer().frame(width: 80)
-                Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
-                    .frame(width: 160, alignment: .trailing)
-                    .monospacedDigit()
-                Text(totalPct, format: .number.precision(.fractionLength(1)))
-                    .frame(width: 80, alignment: .trailing)
-                Spacer().frame(width: 140)
             }
         } else {
             Text("No valued positions in the latest snapshot.")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
                 .background(Color.gray.opacity(0.1))
+        }
+    }
+
+    private var filteredRows: [ValuationRow] {
+        guard let snap = valuation else { return [] }
+        var rows = snap.rows
+        if showOnlyOutOfTolerance && (showDeltaResearch || showDeltaUser) {
+            rows = rows.filter { row in
+                var out = false
+                if showDeltaResearch {
+                    out = out || Deviation.isOutOfTolerance(delta: row.deltaResearchPct, tolerance: tolerancePct)
+                }
+                if showDeltaUser {
+                    out = out || Deviation.isOutOfTolerance(delta: row.deltaUserPct, tolerance: tolerancePct)
+                }
+                return out
+            }
+        }
+        switch sort {
+        case .deltaResearchAsc:
+            rows = rows.sorted {
+                let lhs = $0.deltaResearchPct ?? 0
+                let rhs = $1.deltaResearchPct ?? 0
+                return lhs == rhs ? $0.instrumentName < $1.instrumentName : lhs < rhs
+            }
+        case .deltaResearchDesc:
+            rows = rows.sorted {
+                let lhs = $0.deltaResearchPct ?? 0
+                let rhs = $1.deltaResearchPct ?? 0
+                return lhs == rhs ? $0.instrumentName < $1.instrumentName : lhs > rhs
+            }
+        case .deltaUserAsc:
+            rows = rows.sorted {
+                let lhs = $0.deltaUserPct ?? 0
+                let rhs = $1.deltaUserPct ?? 0
+                return lhs == rhs ? $0.instrumentName < $1.instrumentName : lhs < rhs
+            }
+        case .deltaUserDesc:
+            rows = rows.sorted {
+                let lhs = $0.deltaUserPct ?? 0
+                let rhs = $1.deltaUserPct ?? 0
+                return lhs == rhs ? $0.instrumentName < $1.instrumentName : lhs > rhs
+            }
+        case .none:
+            rows = rows.sorted { $0.instrumentName < $1.instrumentName }
+        }
+        return rows
+    }
+
+    private func headerLabel(title: String, activeAsc: Bool, activeDesc: Bool) -> some View {
+        HStack(spacing: 2) {
+            Text(title)
+            if activeAsc {
+                Image(systemName: "arrow.up")
+            } else if activeDesc {
+                Image(systemName: "arrow.down")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private func toggleResearchSort() {
+        switch sort {
+        case .deltaResearchDesc:
+            sort = .deltaResearchAsc
+        case .deltaResearchAsc:
+            sort = .none
+        default:
+            sort = .deltaResearchDesc
+        }
+    }
+
+    private func toggleUserSort() {
+        switch sort {
+        case .deltaUserDesc:
+            sort = .deltaUserAsc
+        case .deltaUserAsc:
+            sort = .none
+        default:
+            sort = .deltaUserDesc
         }
     }
 }

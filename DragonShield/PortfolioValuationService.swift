@@ -8,6 +8,8 @@ struct ValuationRow: Identifiable {
     let userTargetPct: Double
     let currentValueBase: Double
     let actualPct: Double
+    let deltaResearchPct: Double?
+    let deltaUserPct: Double?
     let notes: String?
     let status: String
     var id: Int { instrumentId }
@@ -94,7 +96,20 @@ final class PortfolioValuationService {
                     excludedFx += 1
                     missing.insert(currency)
                 }
-                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, notes: note, status: status))
+                rows.append(
+                    ValuationRow(
+                        instrumentId: instrId,
+                        instrumentName: name,
+                        researchTargetPct: research,
+                        userTargetPct: user,
+                        currentValueBase: valueBase,
+                        actualPct: 0,
+                        deltaResearchPct: nil,
+                        deltaUserPct: nil,
+                        notes: note,
+                        status: status
+                    )
+                )
                 if status == "OK" { total += valueBase }
             }
         }
@@ -105,7 +120,33 @@ final class PortfolioValuationService {
             if total > 0 && row.status == "OK" {
                 pct = row.currentValueBase / total * 100
             }
-            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, notes: row.notes, status: row.status)
+            if row.status == "FX missing — excluded" {
+                return ValuationRow(
+                    instrumentId: row.instrumentId,
+                    instrumentName: row.instrumentName,
+                    researchTargetPct: row.researchTargetPct,
+                    userTargetPct: row.userTargetPct,
+                    currentValueBase: row.currentValueBase,
+                    actualPct: 0,
+                    deltaResearchPct: nil,
+                    deltaUserPct: nil,
+                    notes: row.notes,
+                    status: row.status
+                )
+            } else {
+                return ValuationRow(
+                    instrumentId: row.instrumentId,
+                    instrumentName: row.instrumentName,
+                    researchTargetPct: row.researchTargetPct,
+                    userTargetPct: row.userTargetPct,
+                    currentValueBase: row.currentValueBase,
+                    actualPct: pct,
+                    deltaResearchPct: pct - row.researchTargetPct,
+                    deltaUserPct: pct - row.userTargetPct,
+                    notes: row.notes,
+                    status: row.status
+                )
+            }
         }
 
         let duration = Int(Date().timeIntervalSince(start) * 1000)
