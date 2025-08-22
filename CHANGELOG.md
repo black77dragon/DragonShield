@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Remove Notes column from Portfolio Theme valuation table and align totals under Current Value
 - Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
 - Share FXConversionService using latest flagged rates for consistent CHF conversion across views
 - Log warning when FX rate_date cannot be parsed and fallback is used
