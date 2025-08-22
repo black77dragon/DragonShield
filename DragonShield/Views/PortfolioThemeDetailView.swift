@@ -35,6 +35,17 @@ struct PortfolioThemeDetailView: View {
     @State private var alertItem: AlertItem?
     @State private var editingAsset: PortfolioThemeAsset?
     @State private var noteDraft: String = ""
+    @State private var tolerancePct: Double = 2.0
+    @State private var onlyOutOfTolerance = false
+    @State private var showDeltaResearch = true
+    @State private var showDeltaUser = true
+    @State private var sortField: SortField? = nil
+    @State private var sortAscending = true
+
+    private enum SortField {
+        case deltaResearch
+        case deltaUser
+    }
 
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
@@ -274,11 +285,62 @@ private var valuationSection: some View {
                 ProgressView().controlSize(.small)
             }
         }
+        HStack(spacing: 8) {
+            Spacer()
+            HStack(spacing: 4) {
+                Text("Tolerance ±")
+                TextField("", value: $tolerancePct, format: .number)
+                    .frame(width: 64)
+                    .multilineTextAlignment(.trailing)
+                Text("%")
+            }
+            Toggle("Only out of tolerance", isOn: $onlyOutOfTolerance)
+                .disabled(!showDeltaResearch && !showDeltaUser)
+                .help(!showDeltaResearch && !showDeltaUser ? "Enable at least one deviation column" : "")
+            Toggle("Δ vs Research", isOn: $showDeltaResearch)
+            Toggle("Δ vs User", isOn: $showDeltaUser)
+        }
+        .font(.caption)
+        Text("Legend:  within = •, over = ▲, under = ▼  (colors: gray / green / red)")
+            .font(.caption)
+            .foregroundColor(.secondary)
         if let snap = valuation {
             let hasIncluded = snap.rows.contains { $0.status == "OK" }
             let totalPct: Double = hasIncluded ? 100.0 : 0.0
             if snap.excludedFxCount > 0 {
                 Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+            }
+            var processed = snap.rows.map { row -> (ValuationRow, Double?, Double?) in
+                let deltaRes = row.status == "FX missing — excluded" ? nil : computeDelta(actual: row.actualPct, target: row.researchTargetPct)
+                let deltaUsr = row.status == "FX missing — excluded" ? nil : computeDelta(actual: row.actualPct, target: row.userTargetPct)
+                return (row, deltaRes, deltaUsr)
+            }
+            if onlyOutOfTolerance {
+                processed = processed.filter { tuple in
+                    rowOutOfTolerance(actual: tuple.0.actualPct, research: tuple.0.researchTargetPct, user: tuple.0.userTargetPct, status: tuple.0.status, tolerance: tolerancePct, showResearch: showDeltaResearch, showUser: showDeltaUser)
+                }
+                if processed.isEmpty {
+                    Text("No items outside tolerance")
+                        .foregroundColor(.secondary)
+                }
+            }
+            if let field = sortField {
+                switch field {
+                case .deltaResearch:
+                    processed.sort {
+                        let a = $0.1 ?? 0
+                        let b = $1.1 ?? 0
+                        if a == b { return $0.0.instrumentName < $1.0.instrumentName }
+                        return sortAscending ? a < b : a > b
+                    }
+                case .deltaUser:
+                    processed.sort {
+                        let a = $0.2 ?? 0
+                        let b = $1.2 ?? 0
+                        if a == b { return $0.0.instrumentName < $1.0.instrumentName }
+                        return sortAscending ? a < b : a > b
+                    }
+                }
             }
             HStack(spacing: 12) {
                 Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
@@ -286,9 +348,20 @@ private var valuationSection: some View {
                 Text("User %").frame(width: 80, alignment: .trailing)
                 Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
                 Text("Actual %").frame(width: 80, alignment: .trailing)
+                if showDeltaResearch {
+                    Button(action: { toggleSort(.deltaResearch) }) {
+                        headerLabel("Δ vs Research", active: sortField == .deltaResearch, ascending: sortAscending)
+                    }.frame(width: 110, alignment: .trailing)
+                }
+                if showDeltaUser {
+                    Button(action: { toggleSort(.deltaUser) }) {
+                        headerLabel("Δ vs User", active: sortField == .deltaUser, ascending: sortAscending)
+                    }.frame(width: 110, alignment: .trailing)
+                }
                 Text("Status").frame(width: 140, alignment: .leading)
             }
-            ForEach(snap.rows) { row in
+            ForEach(processed, id: \.0.id) { tuple in
+                let row = tuple.0
                 HStack(spacing: 12) {
                     Text(row.instrumentName)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -304,6 +377,12 @@ private var valuationSection: some View {
                         .monospacedDigit()
                     Text(row.actualPct, format: .number.precision(.fractionLength(1)))
                         .frame(width: 80, alignment: .trailing)
+                    if showDeltaResearch {
+                        DeviationChip(actual: row.actualPct, target: row.researchTargetPct, tolerance: tolerancePct, baselineName: "Research", isExcluded: row.status == "FX missing — excluded")
+                    }
+                    if showDeltaUser {
+                        DeviationChip(actual: row.actualPct, target: row.userTargetPct, tolerance: tolerancePct, baselineName: "User", isExcluded: row.status == "FX missing — excluded")
+                    }
                     Text(row.status)
                         .frame(width: 140, alignment: .leading)
                 }
@@ -317,6 +396,8 @@ private var valuationSection: some View {
                     .monospacedDigit()
                 Text(totalPct, format: .number.precision(.fractionLength(1)))
                     .frame(width: 80, alignment: .trailing)
+                if showDeltaResearch { Spacer().frame(width: 110) }
+                if showDeltaUser { Spacer().frame(width: 110) }
                 Spacer().frame(width: 140)
             }
         } else {
@@ -327,6 +408,26 @@ private var valuationSection: some View {
         }
     }
 }
+
+
+private func toggleSort(_ field: SortField) {
+        if sortField == field {
+            sortAscending.toggle()
+        } else {
+            sortField = field
+            sortAscending = false
+        }
+    }
+
+    
+    private func headerLabel(_ title: String, active: Bool, ascending: Bool) -> some View {
+        HStack(spacing: 2) {
+            Text(title)
+            if active {
+                Image(systemName: ascending ? "arrow.up" : "arrow.down")
+            }
+        }
+    }
 
 private var dangerZone: some View {
         VStack(alignment: .leading, spacing: 12) {

@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add deviation analytics columns to Portfolio Theme valuation table with tolerance controls, filtering, and sorting
 - Add description and optional institution link to Portfolio Themes with migration 012
 - Align Composition table headers with data columns and add per-instrument notes pop-up in Portfolio Theme details
 - Enforce consistent 2000-character limit for portfolio asset notes
