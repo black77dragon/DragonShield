@@ -1,8 +1,7 @@
-import Foundation
-
 final class FXConversionService {
     private let dbManager: DatabaseManager
     private var cache: [String: (rate: Double, date: Date)] = [:]
+    private let queue = DispatchQueue(label: "com.dragonsheild.fxconversionservice.cache")
 
     init(dbManager: DatabaseManager) {
         self.dbManager = dbManager
@@ -18,14 +17,16 @@ final class FXConversionService {
         if code == "CHF" {
             return (amount, 1.0, .distantPast)
         }
-        if let cached = cache[code] {
-            return (amount * cached.rate, cached.rate, cached.date)
+
+        return queue.sync {
+            if let cached = cache[code] {
+                return (amount * cached.rate, cached.rate, cached.date)
+            }
+            guard let rate = dbManager.fetchLatestExchangeRate(currencyCode: code) else {
+                return nil
+            }
+            cache[code] = (rate.rateToChf, rate.rateDate)
+            return (amount * rate.rateToChf, rate.rateToChf, rate.rateDate)
         }
-        guard let rate = dbManager.fetchLatestExchangeRate(currencyCode: code) else {
-            return nil
-        }
-        cache[code] = (rate.rateToChf, rate.rateDate)
-        return (amount * rate.rateToChf, rate.rateToChf, rate.rateDate)
     }
 }
-
