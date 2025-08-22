@@ -1,7 +1,7 @@
 // DragonShield/Views/PortfolioThemeUpdatesView.swift
-// MARK: - Version 1.0
+// MARK: - Version 1.1
 // MARK: - History
-// - Initial creation: Lists and manages theme updates with fast-path creation.
+// - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle.
 
 import SwiftUI
 
@@ -14,9 +14,14 @@ struct PortfolioThemeUpdatesView: View {
     @State private var editingUpdate: PortfolioThemeUpdate?
     @State private var themeName: String = ""
     @State private var isArchived: Bool = false
+    @State private var pinnedFirst: Bool = true
+    @State private var selectedId: Int?
+    @State private var showDeleteConfirm = false
+    @State private var editingFromFooter = false
+    @State private var errorMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 0) {
             if isArchived {
                 Text("Theme archived — composition locked; updates permitted")
                     .frame(maxWidth: .infinity)
@@ -26,27 +31,59 @@ struct PortfolioThemeUpdatesView: View {
             HStack {
                 Button("+ New Update") { showEditor = true }
                 Spacer()
+                Toggle("Pinned first", isOn: $pinnedFirst)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: pinnedFirst) { _ in load() }
             }
-            List {
+            List(selection: $selectedId) {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(update.createdAt) • \(update.author) • \(update.type.rawValue)")
+                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
                             .font(.subheadline)
-                        Text("Title: \(update.title)").fontWeight(.semibold)
-                        Text(update.bodyText)
-                        Text("Breadcrumb: Positions \(update.positionsAsOf ?? "—") • Total CHF \(formatted(update.totalValueChf))")
+                        HStack {
+                            Text("Title: \(update.title)").fontWeight(.semibold)
+                            if update.pinned { Image(systemName: "star.fill") }
+                        }
+                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                            .lineLimit(3)
+                        Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Total CHF \(formatted(update.totalValueChf))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .tag(update.id)
+                    .onTapGesture(count: 2) { editingUpdate = update; editingFromFooter = false }
                     .contextMenu {
-                        Button("Edit") { editingUpdate = update }
-                        Button("Delete", role: .destructive) {
-                            _ = dbManager.deleteThemeUpdate(id: update.id)
-                            load()
+                        Button("Edit") { editingUpdate = update; editingFromFooter = false }
+                        if update.pinned {
+                            Button("Unpin") { togglePin(for: update) }
+                        } else {
+                            Button("Pin") { togglePin(for: update) }
                         }
+                        Button("Delete", role: .destructive) { delete(update) }
                     }
                 }
             }
+            Divider()
+            HStack {
+                Button("Edit") { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }
+                    .disabled(selectedUpdate == nil)
+                Button("Delete") { showDeleteConfirm = true }
+                    .disabled(selectedUpdate == nil)
+                Button(selectedUpdate?.pinned == true ? "Unpin" : "Pin") {
+                    if let u = selectedUpdate { togglePin(for: u, source: "footer") }
+                }
+                    .disabled(selectedUpdate == nil)
+            }
+            .padding(8)
+            .confirmationDialog("Delete this update? This action can't be undone.", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) { deleteSelected() }
+            }
+            Button(action: { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }) { EmptyView() }
+                .keyboardShortcut(.return, modifiers: [])
+                .hidden()
+            Button(action: { if selectedUpdate != nil { showDeleteConfirm = true } }) { EmptyView() }
+                .keyboardShortcut(.delete, modifiers: [])
+                .hidden()
         }
         .onAppear { load() }
         .sheet(isPresented: $showEditor) {
@@ -64,21 +101,60 @@ struct PortfolioThemeUpdatesView: View {
                 load()
             }, onCancel: {
                 editingUpdate = nil
-            })
+            }, logSource: editingFromFooter ? "footer" : nil)
             .environmentObject(dbManager)
+        }
+        .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 
     private func load() {
-        updates = dbManager.listThemeUpdates(themeId: themeId)
+        updates = dbManager.listThemeUpdates(themeId: themeId, pinnedFirst: pinnedFirst)
         if let theme = dbManager.getPortfolioTheme(id: themeId) {
             themeName = theme.name
             isArchived = theme.archivedAt != nil
         }
     }
 
+    private var selectedUpdate: PortfolioThemeUpdate? {
+        updates.first { $0.id == selectedId }
+    }
+
     private func formatted(_ value: Double?) -> String {
         guard let v = value else { return "—" }
         return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+    }
+
+    private func deleteSelected() {
+        if let u = selectedUpdate { delete(u, source: "footer") }
+    }
+
+    private func togglePin(for update: PortfolioThemeUpdate, source: String? = nil) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let result = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt, source: source) {
+                DispatchQueue.main.async {
+                    load()
+                    if source == "footer" { selectedId = result.id }
+                }
+            } else {
+                DispatchQueue.main.async { errorMessage = "Failed to update. Please try again." }
+            }
+        }
+    }
+
+    private func delete(_ update: PortfolioThemeUpdate, source: String? = nil) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if dbManager.deleteThemeUpdate(id: update.id, themeId: themeId, actor: NSFullUserName(), source: source) {
+                DispatchQueue.main.async {
+                    load()
+                    if selectedId == update.id { selectedId = nil }
+                }
+            } else {
+                DispatchQueue.main.async { errorMessage = "Failed to delete update." }
+            }
+        }
     }
 }
