@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce Instrument Notes modal with tabs for instrument updates and theme mentions
+- Simplify "Updates in Themes" card on Edit Instrument to a single Open Instrument Notes button
+- Surface theme note mention counts and deep links from Instruments module
 - Cross-link Instrument Updates from Instruments module with theme chooser and counts
 - Enable Instrument Updates entry points by default
 - Enrich instrument updates with Markdown bodies, pin/unpin, and pinned-first ordering with migration 017
