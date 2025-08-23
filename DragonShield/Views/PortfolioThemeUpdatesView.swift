@@ -8,6 +8,8 @@ import SwiftUI
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
+    let initialSearch: String?
+    let mentionInstrument: (code: String, name: String)?
 
     @State private var updates: [PortfolioThemeUpdate] = []
     @State private var showEditor = false
@@ -18,9 +20,16 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedId: Int?
     @State private var showDeleteConfirm = false
     @State private var editingFromFooter = false
-    @State private var searchText: String = ""
+    @State private var searchText: String
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
+
+    init(themeId: Int, initialSearch: String? = nil, mentionInstrument: (code: String, name: String)? = nil) {
+        self.themeId = themeId
+        self.initialSearch = initialSearch
+        self.mentionInstrument = mentionInstrument
+        _searchText = State(initialValue: initialSearch ?? "")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,6 +60,19 @@ struct PortfolioThemeUpdatesView: View {
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
                     .onChange(of: pinnedFirst) { _ in load() }
+            }
+            if let inst = mentionInstrument {
+                if inst.code == inst.name {
+                    Text("Showing theme notes mentioning \(inst.name).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 4)
+                } else {
+                    Text("Showing theme notes mentioning \(inst.code) (\(inst.name)).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 4)
+                }
             }
             List(selection: $selectedId) {
                 ForEach(updates) { update in
@@ -93,6 +115,13 @@ struct PortfolioThemeUpdatesView: View {
                             }
                         }
                     }
+                }
+            }
+            .overlay {
+                if updates.isEmpty {
+                    Text(mentionInstrument != nil ? "No theme notes mention \(mentionInstrument!.code)" : "No updates")
+                        .foregroundColor(.secondary)
+                        .padding()
                 }
             }
             Divider()

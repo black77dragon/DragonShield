@@ -36,12 +36,14 @@ struct InstrumentEditView: View {
         let themeId: Int
         let name: String
         let isArchived: Bool
-        let count: Int
+        let updatesCount: Int
+        let mentionsCount: Int
         var id: Int { themeId }
     }
     @State private var themeInfos: [ThemeInfo] = []
     @State private var themeQuery = ""
     @State private var selectedTheme: ThemeInfo?
+    @State private var mentionTarget: ThemeInfo?
     
     // MARK: - Validation
     var isValid: Bool {
@@ -148,6 +150,12 @@ struct InstrumentEditView: View {
         }
         .sheet(item: $selectedTheme) { info in
             InstrumentUpdatesView(themeId: info.themeId, instrumentId: instrumentId, instrumentName: instrumentName, themeName: info.name, onClose: { loadThemeInfos() })
+                .environmentObject(DatabaseManager())
+        }
+        .sheet(item: $mentionTarget) { info in
+            let code = tickerSymbol.trimmingCharacters(in: .whitespacesAndNewlines)
+            let query = code.count >= 3 ? code : instrumentName
+            PortfolioThemeDetailView(themeId: info.themeId, origin: "instrument_mentions", initialTab: .updates, initialUpdatesSearch: query, mentionInstrument: (code: query, name: instrumentName))
                 .environmentObject(DatabaseManager())
         }
     }
@@ -450,8 +458,11 @@ struct InstrumentEditView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Text("\(info.count)")
-                        Button("Open Updates") { openTheme(info) }
+                        Text("\(info.updatesCount)")
+                            .onTapGesture { openTheme(info) }
+                        Text("\(info.mentionsCount)")
+                            .onTapGesture { openMentions(info) }
+                        Button("Open Mentions") { openMentions(info) }
                             .buttonStyle(.borderless)
                     }
                     .contentShape(Rectangle())
@@ -477,8 +488,8 @@ struct InstrumentEditView: View {
     }
 
     private func loadThemeInfos() {
-        let rows = DatabaseManager().listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
-        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, count: $0.updatesCount) }
+        let rows = DatabaseManager().listThemesForInstrumentWithCounts(instrumentId: instrumentId)
+        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, updatesCount: $0.updatesCount, mentionsCount: $0.mentionsCount) }
         let payload: [String: Any] = ["instrumentId": instrumentId, "themesListed": rows.count, "action": "updates_in_themes_panel_shown"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
@@ -488,6 +499,16 @@ struct InstrumentEditView: View {
     private func openTheme(_ info: ThemeInfo) {
         selectedTheme = info
         let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "panel"]
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+    }
+
+    private func openMentions(_ info: ThemeInfo) {
+        mentionTarget = info
+        let code = tickerSymbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = code.count >= 3 ? code : instrumentName
+        let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "theme_mentions_open", "query": query, "source": "panel"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
         }

@@ -281,7 +281,8 @@ extension DatabaseManager {
         return count
     }
 
-    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int)] {
+    func listThemesForInstrumentWithCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int, mentionsCount: Int)] {
+        guard let instrument = fetchInstrumentDetails(id: instrumentId) else { return [] }
         let sql = """
             SELECT t.id, t.name, t.archived_at IS NOT NULL AS archived, COUNT(u.id) AS cnt
             FROM PortfolioThemeAsset a
@@ -293,20 +294,72 @@ extension DatabaseManager {
             ORDER BY t.name
         """
         var stmt: OpaquePointer?
-        var results: [(Int, String, Bool, Int)] = []
+        var results: [(Int, String, Bool, Int, Int)] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(instrumentId))
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let themeId = Int(sqlite3_column_int(stmt, 0))
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let archived = sqlite3_column_int(stmt, 2) == 1
-                let count = Int(sqlite3_column_int(stmt, 3))
-                results.append((themeId, name, archived, count))
+                let updatesCount = Int(sqlite3_column_int(stmt, 3))
+                let mentions = countMentionsInThemeNotes(themeId: themeId, instrumentName: instrument.name, code: instrument.tickerSymbol)
+                results.append((themeId, name, archived, updatesCount, mentions))
             }
         } else {
-            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithUpdateCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(stmt)
         return results
+    }
+
+    private func countMentionsInThemeNotes(themeId: Int, instrumentName: String, code: String?) -> Int {
+        let sql = "SELECT title, body_markdown FROM PortfolioThemeUpdate WHERE theme_id = ? AND soft_delete = 0"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let title = String(cString: sqlite3_column_text(stmt, 0))
+                let body = String(cString: sqlite3_column_text(stmt, 1))
+                if textMentionsInstrument(title: title, body: body, instrumentName: instrumentName, code: code) {
+                    count += 1
+                }
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare countMentionsInThemeNotes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
+    private func textMentionsInstrument(title: String, body: String, instrumentName: String, code: String?) -> Bool {
+        let normalized = normalize("\(title) \(body)")
+        if let c = code?.lowercased(), c.count >= 3 {
+            if normalized.contains(" \(c) ") { return true }
+        }
+        let nameLower = instrumentName.lowercased()
+        if normalized.contains(nameLower) { return true }
+        let tokens = nameLower.split { !$0.isLetter && !$0.isNumber }
+        if !tokens.isEmpty && tokens.allSatisfy({ normalized.contains(" \($0) ") }) {
+            return true
+        }
+        return false
+    }
+
+    private func normalize(_ text: String) -> String {
+        var result = ""
+        result.reserveCapacity(text.count)
+        var previousSpace = true
+        for ch in text.lowercased() {
+            if ch.isLetter || ch.isNumber {
+                result.append(ch)
+                previousSpace = false
+            } else if !previousSpace {
+                result.append(" ")
+                previousSpace = true
+            }
+        }
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        return " \(trimmed) "
     }
 }
