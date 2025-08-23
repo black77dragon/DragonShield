@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+ - Enable attachments and thumbnails by default
  - Introduce attachment thumbnail service with cleanup
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag

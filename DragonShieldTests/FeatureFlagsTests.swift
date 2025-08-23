@@ -6,13 +6,29 @@ final class FeatureFlagsTests: XCTestCase {
         XCTAssertTrue(FeatureFlags.portfolioInstrumentUpdatesEnabled(args: [], env: [:], defaults: .standard))
     }
 
-    func testAttachmentsDisabledByDefault() {
-        XCTAssertFalse(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: .standard))
+    func testAttachmentsEnabledByDefault() {
+        XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: .standard))
     }
 
-    func testAttachmentsEnabledWhenDefaultsTrue() {
-        let defaults = UserDefaults(suiteName: "testAttachmentsEnabled")!
-        defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
-        XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
+    func testAttachmentsCanBeDisabled() {
+        let defaults = UserDefaults(suiteName: "attachmentsOff")!
+        defaults.set(false, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
+    }
+
+    func testThumbnailsEnabledByDefault() {
+        XCTAssertTrue(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: .standard))
+    }
+
+    func testThumbnailsCanBeDisabled() {
+        let defaults = UserDefaults(suiteName: "thumbsOff")!
+        defaults.set(false, forKey: UserDefaultsKeys.portfolioAttachmentThumbnailsEnabled)
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: defaults))
+    }
+
+    func testThumbnailsDisabledWhenAttachmentsDisabled() {
+        let defaults = UserDefaults(suiteName: "attachmentsOff2")!
+        defaults.set(false, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: defaults))
     }
 }
