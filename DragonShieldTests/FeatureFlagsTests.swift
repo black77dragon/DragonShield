@@ -15,4 +15,21 @@ final class FeatureFlagsTests: XCTestCase {
         defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
         XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
     }
+
+    func testThumbnailsOffByDefault() {
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: .standard))
+    }
+
+    func testThumbnailsOnWhenAttachmentsEnabled() {
+        let defaults = UserDefaults(suiteName: "thumbsOn")!
+        defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
+        XCTAssertTrue(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: defaults))
+    }
+
+    func testThumbnailsCanBeDisabled() {
+        let defaults = UserDefaults(suiteName: "thumbsOff")!
+        defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
+        defaults.set(false, forKey: UserDefaultsKeys.portfolioAttachmentThumbnailsEnabled)
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentThumbnailsEnabled(args: [], env: [:], defaults: defaults))
+    }
 }
