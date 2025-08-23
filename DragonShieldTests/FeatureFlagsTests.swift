@@ -15,4 +15,5 @@ final class FeatureFlagsTests: XCTestCase {
         defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
         XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
     }
+
 }

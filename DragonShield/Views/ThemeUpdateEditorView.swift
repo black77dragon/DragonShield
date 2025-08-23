@@ -27,6 +27,13 @@ struct ThemeUpdateEditorView: View {
     @State private var totalValueChf: Double?
     @State private var attachments: [Attachment] = []
     @State private var removedAttachmentIds: Set<Int> = []
+    @State private var links: [Link] = []
+    @State private var removedLinkIds: Set<Int> = []
+    @State private var linkIdsToDelete: Set<Int> = []
+    @State private var newLinkURL: String = ""
+    @State private var linkError: String?
+    @State private var editingLinkId: Int?
+    @State private var editingLinkTitle: String = ""
 
     @State private var showHelp = false
 
@@ -87,6 +94,7 @@ struct ThemeUpdateEditorView: View {
             if attachmentsEnabled {
                 attachmentsView
             }
+            linksView
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(positionsAsOf)) • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -127,6 +135,10 @@ struct ThemeUpdateEditorView: View {
             let repo = ThemeUpdateRepository(dbManager: dbManager)
             attachments = repo.listAttachments(updateId: existing.id)
         }
+        if let existing = existing {
+            let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
+            links = lrepo.listLinks(updateId: existing.id)
+        }
     }
 
     private func save() {
@@ -141,6 +153,23 @@ struct ThemeUpdateEditorView: View {
                     for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
                     for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
                 }
+                let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
+                let currentLinkIds = Set(links.map { $0.id })
+                let initialLinkIds = Set(lrepo.listLinks(updateId: existing.id).map { $0.id })
+                let addedLinks = currentLinkIds.subtracting(initialLinkIds)
+                let removedLinks = initialLinkIds.subtracting(currentLinkIds).union(removedLinkIds)
+                for id in addedLinks {
+                    _ = lrepo.link(updateId: updated.id, linkId: id)
+                    LoggingService.shared.log("{ themeUpdateId: \(updated.id), linkId: \(id), op:'link_add' }", type: .info, logger: .database)
+                }
+                for id in removedLinks {
+                    _ = lrepo.unlink(updateId: updated.id, linkId: id)
+                    LoggingService.shared.log("{ themeUpdateId: \(updated.id), linkId: \(id), op:'link_unlink' }", type: .info, logger: .database)
+                    if linkIdsToDelete.contains(id) {
+                        _ = LinkService(dbManager: dbManager).deleteIfUnreferenced(linkId: id)
+                        LoggingService.shared.log("{ linkId: \(id), op:'link_delete' }", type: .info, logger: .database)
+                    }
+                }
                 onSave(updated)
             }
         } else {
@@ -150,6 +179,11 @@ struct ThemeUpdateEditorView: View {
                     for att in attachments {
                         _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
                     }
+                }
+                let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
+                for link in links {
+                    _ = lrepo.link(updateId: created.id, linkId: link.id)
+                    LoggingService.shared.log("{ themeUpdateId: \(created.id), linkId: \(link.id), op:'link_add' }", type: .info, logger: .database)
                 }
                 onSave(created)
             }
@@ -228,6 +262,131 @@ struct ThemeUpdateEditorView: View {
                     Spacer()
                     Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
                     Button("Remove") { removeAttachment(att) }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func addLink() {
+        let service = LinkService(dbManager: dbManager)
+        switch service.validateAndNormalize(newLinkURL) {
+        case .success(let norm):
+            if links.contains(where: { $0.normalizedURL == norm.normalized }) {
+                linkError = "This link is already attached."
+                return
+            }
+            if let link = service.ensureLink(normalized: norm.normalized, raw: norm.raw, actor: NSFullUserName()) {
+                links.append(link)
+                LoggingService.shared.log("{ themeUpdateId: \(existing?.id ?? 0), linkId: \(link.id), normalized_url: \(norm.normalized), actor: \(NSFullUserName()), op:'link_add' }", type: .info, logger: .database)
+                newLinkURL = ""
+                linkError = nil
+            }
+        case .failure(let err):
+            switch err {
+            case .unsupportedScheme: linkError = "Only http/https URLs are supported"
+            case .invalidURL: linkError = "Invalid URL"
+            case .tooLong: linkError = "URL exceeds 2048 characters"
+            case .missingHost: linkError = "URL must include host"
+            case .hasWhitespace: linkError = "URL must not contain spaces"
+            case .hasCredentials: linkError = "Credentials not allowed in URL"
+            }
+        }
+    }
+
+    private func openLink(_ link: Link) {
+        if let url = URL(string: link.rawURL) {
+            NSWorkspace.shared.open(url)
+            LoggingService.shared.log("{ themeUpdateId: \(existing?.id ?? 0), linkId: \(link.id), host: \(url.host ?? ""), op:'link_open' }", type: .info, logger: .database)
+        }
+    }
+
+    private func copyLink(_ link: Link) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(link.rawURL, forType: .string)
+    }
+
+    private func removeLink(_ link: Link) {
+        let alert = NSAlert()
+        alert.messageText = "Delete link?"
+        alert.informativeText = "The link will be removed from the update. Also delete the link from storage if unused?"
+        alert.addButton(withTitle: "Delete Link")
+        alert.addButton(withTitle: "Keep")
+        let resp = alert.runModal()
+        if existing != nil {
+            removedLinkIds.insert(link.id)
+            if resp == .alertFirstButtonReturn { linkIdsToDelete.insert(link.id) }
+        } else {
+            if resp == .alertFirstButtonReturn {
+                _ = LinkService(dbManager: dbManager).deleteIfUnreferenced(linkId: link.id)
+            }
+        }
+        links.removeAll { $0.id == link.id }
+    }
+
+    private func saveLinkTitle(_ link: Link) {
+        let service = LinkService(dbManager: dbManager)
+        if service.updateTitle(linkId: link.id, title: editingLinkTitle.isEmpty ? nil : editingLinkTitle) {
+            if let idx = links.firstIndex(where: { $0.id == link.id }) {
+                links[idx] = Link(id: link.id, normalizedURL: link.normalizedURL, rawURL: link.rawURL, title: editingLinkTitle.isEmpty ? nil : editingLinkTitle, createdAt: link.createdAt, createdBy: link.createdBy)
+            }
+        }
+        editingLinkId = nil
+    }
+
+    private func displayTitle(_ link: Link) -> String {
+        if let t = link.title, !t.isEmpty { return t }
+        if let url = URL(string: link.rawURL) {
+            var host = url.host ?? link.rawURL
+            if !url.path.isEmpty && url.path != "/" {
+                host += url.path
+            }
+            return host
+        }
+        return link.rawURL
+    }
+
+    @ViewBuilder
+    private var linksView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Links")
+                .font(.headline)
+            HStack {
+                TextField("https://…", text: $newLinkURL)
+                    .textFieldStyle(.roundedBorder)
+                Button("Add") { addLink() }
+            }
+            if let err = linkError {
+                Text(err)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+            ForEach(links, id: \.id) { link in
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text("🔗")
+                        Text(displayTitle(link))
+                        Spacer()
+                        Button("Open") { openLink(link) }
+                        Button("Copy") { copyLink(link) }
+                        Button("Edit title") {
+                            editingLinkId = link.id
+                            editingLinkTitle = link.title ?? ""
+                        }
+                        Button("Remove") { removeLink(link) }
+                    }
+                    if editingLinkId == link.id {
+                        HStack {
+                            TextField("Title", text: $editingLinkTitle)
+                                .frame(width: 200)
+                            Button("Save") { saveLinkTitle(link) }
+                            Button("Cancel") { editingLinkId = nil }
+                        }
+                        Text("Changes apply wherever this link is used.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
