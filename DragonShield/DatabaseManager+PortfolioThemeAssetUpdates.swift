@@ -281,7 +281,24 @@ extension DatabaseManager {
         return count
     }
 
-    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int)] {
+    func listThemesForInstrumentWithCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int, mentionsCount: Int)] {
+        var instrumentName = ""
+        var instrumentCode: String? = nil
+        var istmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT instrument_name, ticker_symbol FROM Instruments WHERE instrument_id = ?", -1, &istmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(istmt, 1, Int32(instrumentId))
+            if sqlite3_step(istmt) == SQLITE_ROW {
+                instrumentName = String(cString: sqlite3_column_text(istmt, 0))
+                if let cptr = sqlite3_column_text(istmt, 1) {
+                    let code = String(cString: cptr).trimmingCharacters(in: .whitespacesAndNewlines)
+                    instrumentCode = code.isEmpty ? nil : code
+                }
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare instrument lookup for listThemesForInstrumentWithCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(istmt)
+
         let sql = """
             SELECT t.id, t.name, t.archived_at IS NOT NULL AS archived, COUNT(u.id) AS cnt
             FROM PortfolioThemeAsset a
@@ -293,7 +310,7 @@ extension DatabaseManager {
             ORDER BY t.name
         """
         var stmt: OpaquePointer?
-        var results: [(Int, String, Bool, Int)] = []
+        var results: [(Int, String, Bool, Int, Int)] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(instrumentId))
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -301,12 +318,58 @@ extension DatabaseManager {
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let archived = sqlite3_column_int(stmt, 2) == 1
                 let count = Int(sqlite3_column_int(stmt, 3))
-                results.append((themeId, name, archived, count))
+                let updates = listThemeUpdates(themeId: themeId, view: .active, type: nil, searchQuery: nil, pinnedFirst: false)
+                let mentionCount = countMentions(updates: updates, code: instrumentCode, name: instrumentName)
+                results.append((themeId, name, archived, count, mentionCount))
             }
         } else {
-            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithUpdateCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(stmt)
         return results
+    }
+
+    private func countMentions(updates: [PortfolioThemeUpdate], code: String?, name: String) -> Int {
+        let codeToken: String? = {
+            guard let c = code, c.count >= 3 else { return nil }
+            return " \(c.lowercased()) "
+        }()
+        let nameLower = name.lowercased()
+        let nameTokens = nameLower.split(separator: " ")
+        var total = 0
+        for upd in updates {
+            let normalized = normalize(text: upd.title + " " + upd.bodyMarkdown)
+            var found = false
+            if let token = codeToken, normalized.contains(token) {
+                found = true
+            } else if normalized.contains(nameLower) {
+                found = true
+            } else {
+                var all = true
+                for tok in nameTokens {
+                    if !normalized.contains(" \(tok) ") { all = false; break }
+                }
+                found = all
+            }
+            if found { total += 1 }
+        }
+        return total
+    }
+
+    private func normalize(text: String) -> String {
+        let lower = text.lowercased()
+        var chars: [Character] = [" "]
+        var lastSpace = false
+        for ch in lower {
+            if ch.isLetter || ch.isNumber {
+                chars.append(ch)
+                lastSpace = false
+            } else if !lastSpace {
+                chars.append(" ")
+                lastSpace = true
+            }
+        }
+        if chars.last != " " { chars.append(" ") }
+        return String(chars)
     }
 }

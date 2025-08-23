@@ -11,6 +11,7 @@ struct PortfolioView: View {
     @State private var searchText = ""
     @State private var themeChooser: ThemeChooserData?
     @State private var updatesTarget: UpdatesTarget?
+    @State private var mentionsTarget: MentionsTarget?
 
     // Filtering & Sorting
     @State private var typeFilters: Set<String> = []
@@ -25,6 +26,7 @@ struct PortfolioView: View {
     private struct ThemeChooserData: Identifiable {
         let instrumentId: Int
         let instrumentName: String
+        let instrumentCode: String?
         var id: Int { instrumentId }
     }
 
@@ -33,6 +35,16 @@ struct PortfolioView: View {
         let themeName: String
         let instrumentId: Int
         let instrumentName: String
+        var id: Int { themeId }
+    }
+
+    private struct MentionsTarget: Identifiable {
+        let themeId: Int
+        let themeName: String
+        let instrumentId: Int
+        let instrumentName: String
+        let search: String
+        let hint: String
         var id: Int { themeId }
     }
     
@@ -130,16 +142,29 @@ struct PortfolioView: View {
             }
         }
         .sheet(item: $themeChooser) { data in
-            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName) { info in
+            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName, onOpenUpdates: { info in
                 updatesTarget = UpdatesTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName)
                 let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "context_menu"]
                 if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
                     LoggingService.shared.log(log, logger: .ui)
                 }
-            }
+            }, onOpenMentions: { info in
+                let code = data.instrumentCode?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let query = code.count >= 3 ? code : data.instrumentName
+                let hint = code.count >= 3 ? "\(code) (\(data.instrumentName))" : data.instrumentName
+                mentionsTarget = MentionsTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName, search: query, hint: hint)
+                let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "theme_mentions_open", "query": query, "source": "context_menu"]
+                if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
+                    LoggingService.shared.log(log, logger: .ui)
+                }
+            })
         }
         .sheet(item: $updatesTarget) { target in
             InstrumentUpdatesView(themeId: target.themeId, instrumentId: target.instrumentId, instrumentName: target.instrumentName, themeName: target.themeName, onClose: {})
+                .environmentObject(DatabaseManager())
+        }
+        .sheet(item: $mentionsTarget) { target in
+            PortfolioThemeDetailView(themeId: target.themeId, origin: "instrument_mentions", initialTab: .updates, updatesSearch: target.search, updatesSearchHint: "Showing theme notes mentioning \(target.hint)")
                 .environmentObject(DatabaseManager())
         }
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
@@ -367,7 +392,7 @@ struct PortfolioView: View {
                             },
                             onUpdates: {
                                 if let instrumentId = getInstrumentId(for: asset) {
-                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name)
+                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name, instrumentCode: asset.tickerSymbol)
                                 }
                             }
                         )

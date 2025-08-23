@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Surface theme note mentions alongside instrument updates with deep links
 - Cross-link Instrument Updates from Instruments module with theme chooser and counts
 - Enable Instrument Updates entry points by default
 - Enrich instrument updates with Markdown bodies, pin/unpin, and pinned-first ordering with migration 017

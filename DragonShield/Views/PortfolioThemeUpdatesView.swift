@@ -8,6 +8,7 @@ import SwiftUI
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
+    private let searchHint: String?
 
     @State private var updates: [PortfolioThemeUpdate] = []
     @State private var showEditor = false
@@ -18,9 +19,15 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedId: Int?
     @State private var showDeleteConfirm = false
     @State private var editingFromFooter = false
-    @State private var searchText: String = ""
+    @State private var searchText: String
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
+
+    init(themeId: Int, initialSearch: String? = nil, searchHint: String? = nil) {
+        self.themeId = themeId
+        self._searchText = State(initialValue: initialSearch ?? "")
+        self.searchHint = searchHint
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,6 +47,11 @@ struct PortfolioThemeUpdatesView: View {
                         searchDebounce = task
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: task)
                     }
+                if let hint = searchHint {
+                    Text(hint)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
                 Picker("Type", selection: $selectedType) {
                     Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
                     ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
