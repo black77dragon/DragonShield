@@ -93,5 +93,48 @@ final class AttachmentServiceTests: XCTestCase {
         sqlite3_finalize(stmt)
         XCTAssertEqual(count, 0)
     }
+
+    func testCleanupOrphansRespectsBothLinkTables() throws {
+        sqlite3_exec(manager.db, "CREATE TABLE PortfolioTheme(id INTEGER PRIMARY KEY);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioTheme(id) VALUES (1);", nil, nil, nil)
+        sqlite3_exec(manager.db, "CREATE TABLE Instruments(instrument_id INTEGER PRIMARY KEY);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO Instruments(instrument_id) VALUES (1);", nil, nil, nil)
+        manager.ensurePortfolioThemeUpdateTable()
+        manager.ensurePortfolioThemeAssetUpdateTable()
+        manager.ensureThemeUpdateAttachmentTable()
+        manager.ensureThemeAssetUpdateAttachmentTable()
+
+        let themeUpdate = manager.createThemeUpdate(themeId: 1, title: "t", bodyMarkdown: "b", type: .General, pinned: false, author: "a", positionsAsOf: nil, totalValueChf: nil)!
+        let instrumentUpdate = manager.createInstrumentUpdate(themeId: 1, instrumentId: 1, title: "i", bodyMarkdown: "b", type: .General, pinned: false, author: "a")!
+
+        let file1 = tempDir.appendingPathComponent("a.txt")
+        try "a".data(using: .utf8)?.write(to: file1)
+        let file2 = tempDir.appendingPathComponent("b.txt")
+        try "b".data(using: .utf8)?.write(to: file2)
+        let att1 = service.ingest(fileURL: file1, actor: "tester")!
+        let att2 = service.ingest(fileURL: file2, actor: "tester")!
+
+        let themeRepo = ThemeUpdateRepository(dbManager: manager)
+        _ = themeRepo.linkAttachment(updateId: themeUpdate.id, attachmentId: att1.id)
+        let assetRepo = ThemeAssetUpdateRepository(dbManager: manager)
+        _ = assetRepo.linkAttachment(updateId: instrumentUpdate.id, attachmentId: att2.id)
+
+        XCTAssertEqual(service.cleanupOrphans(), 0)
+        _ = themeRepo.unlinkAttachment(updateId: themeUpdate.id, attachmentId: att1.id)
+        XCTAssertEqual(service.cleanupOrphans(), 1)
+        var stmt: OpaquePointer?
+        sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM Attachment WHERE id = ?", -1, &stmt, nil)
+        sqlite3_bind_int(stmt, 1, Int32(att1.id))
+        _ = sqlite3_step(stmt)
+        let c1 = sqlite3_column_int(stmt, 0)
+        sqlite3_finalize(stmt)
+        XCTAssertEqual(c1, 0)
+        sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM Attachment WHERE id = ?", -1, &stmt, nil)
+        sqlite3_bind_int(stmt, 1, Int32(att2.id))
+        _ = sqlite3_step(stmt)
+        let c2 = sqlite3_column_int(stmt, 0)
+        sqlite3_finalize(stmt)
+        XCTAssertEqual(c2, 1)
+    }
 }
 

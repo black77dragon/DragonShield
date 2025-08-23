@@ -31,6 +31,7 @@ struct InstrumentNotesView: View {
     @State private var searchText = ""
     @State private var pinnedFirst = true
     @State private var openThemeInfo: ThemeInfo?
+    @State private var attachmentCounts: [Int: Int] = [:]
 
     init(instrumentId: Int, instrumentCode: String, instrumentName: String, initialTab: Tab = .updates, initialThemeId: Int? = nil, onClose: @escaping () -> Void) {
         self.instrumentId = instrumentId
@@ -120,7 +121,10 @@ struct InstrumentNotesView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        Text(update.title).fontWeight(.semibold)
+                        HStack {
+                            Text(update.title).fontWeight(.semibold)
+                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
+                        }
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown)).lineLimit(3)
                     }
                 }
@@ -170,6 +174,11 @@ struct InstrumentNotesView: View {
 
     private func loadUpdates() {
         updates = dbManager.listInstrumentUpdatesForInstrument(instrumentId: instrumentId, themeId: selectedThemeId, pinnedFirst: pinnedFirst)
+        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+            attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })
+        } else {
+            attachmentCounts = [:]
+        }
     }
 
     private func loadMentions() {
