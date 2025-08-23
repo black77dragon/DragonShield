@@ -36,7 +36,7 @@ struct PortfolioThemeUpdatesView: View {
                 Button("+ New Update") { showEditor = true }
                 TextField("Search", text: $searchText)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: searchText) { _ in
+                    .onChange(of: searchText) { _, _ in
                         searchDebounce?.cancel()
                         let task = DispatchWorkItem { load() }
                         searchDebounce = task
@@ -48,11 +48,11 @@ struct PortfolioThemeUpdatesView: View {
                         Text(t.rawValue).tag(Optional(t))
                     }
                 }
-                    .onChange(of: selectedType) { _ in load() }
+                    .onChange(of: selectedType) { _, _ in load() }
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
-                    .onChange(of: pinnedFirst) { _ in load() }
+                    .onChange(of: pinnedFirst) { _, _ in load() }
             }
             if let hint = searchHint {
                 Text(hint)
