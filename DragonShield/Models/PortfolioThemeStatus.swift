@@ -14,12 +14,13 @@ struct PortfolioThemeStatus: Identifiable {
     var isDefault: Bool
 
     static func isValidCode(_ code: String) -> Bool {
-        let pattern = "^[A-Z][A-Z0-9_]{1,30}$"
+        let pattern = "^[A-Z][A-Z0-9_]{1,9}$"
         return code.range(of: pattern, options: .regularExpression) != nil
     }
 
     static func isValidName(_ name: String) -> Bool {
-        return !name.isEmpty && name.count <= 64
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        return trimmed.count >= 2 && trimmed.count <= 40
     }
 
     static func isValidColor(_ hex: String) -> Bool {
