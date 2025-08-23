@@ -81,14 +81,14 @@ struct InstrumentNotesView: View {
             logOpen()
             UserDefaults.standard.set(selectedTab == .updates ? "updates" : "mentions", forKey: "instrumentNotesLastTab")
         }
-        .onChange(of: selectedTab) { _ in
+        .onChange(of: selectedTab) { _, _ in
             loadData()
             logTab()
             UserDefaults.standard.set(selectedTab == .updates ? "updates" : "mentions", forKey: "instrumentNotesLastTab")
         }
-        .onChange(of: selectedThemeId) { _ in loadData() }
-        .onChange(of: pinnedFirst) { _ in if selectedTab == .updates { loadUpdates() } }
-        .onChange(of: searchText) { _ in if selectedTab == .mentions { loadMentions() } }
+        .onChange(of: selectedThemeId) { _, _ in loadData() }
+        .onChange(of: pinnedFirst) { _, _ in if selectedTab == .updates { loadUpdates() } }
+        .onChange(of: searchText) { _, _ in if selectedTab == .mentions { loadMentions() } }
         .sheet(item: $openThemeInfo) { info in
             let query = instrumentCode.isEmpty ? instrumentName : instrumentCode.uppercased()
             let hint = instrumentCode.isEmpty ? "Showing theme notes mentioning \(instrumentName)" : "Showing theme notes mentioning \(instrumentCode.uppercased()) (\(instrumentName))"
