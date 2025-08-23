@@ -224,10 +224,13 @@ struct ThemeUpdateEditorView: View {
             Button("Attach Files…") { pickFiles() }
             ForEach(attachments, id: \.id) { att in
                 HStack {
+                    AttachmentThumbnailView(attachment: att)
                     Text(att.originalFilename)
                     Spacer()
                     Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
+                        .accessibilityLabel("Quick Look \(att.originalFilename)")
                     Button("Remove") { removeAttachment(att) }
+                        .accessibilityLabel("Remove attachment \(att.originalFilename)")
                 }
             }
         }
