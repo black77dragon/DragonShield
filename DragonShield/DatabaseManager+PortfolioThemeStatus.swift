@@ -6,7 +6,22 @@
 import SQLite3
 import Foundation
 
+enum ThemeStatusSaveError: Error, Equatable {
+    case invalidCode
+    case codeExists
+    case nameExists
+    case defaultRace
+    case database(String)
+}
+
 extension DatabaseManager {
+    private static func timestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: Date())
+    }
+
     func fetchPortfolioThemeStatuses() -> [PortfolioThemeStatus] {
         var items: [PortfolioThemeStatus] = []
         let sql = "SELECT id, code, name, color_hex, is_default FROM PortfolioThemeStatus ORDER BY id"
@@ -27,11 +42,11 @@ extension DatabaseManager {
         return items
     }
 
-    func insertPortfolioThemeStatus(code: String, name: String, colorHex: String, isDefault: Bool) -> Bool {
+    func insertPortfolioThemeStatus(code: String, name: String, colorHex: String, isDefault: Bool) -> ThemeStatusSaveError? {
         let beginRc = sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil)
         guard beginRc == SQLITE_OK else {
             LoggingService.shared.log("BEGIN insertPortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-            return false
+            return .database(String(cString: sqlite3_errmsg(db)))
         }
 
         var success = false
@@ -46,15 +61,15 @@ extension DatabaseManager {
             let rc = sqlite3_exec(db, "UPDATE PortfolioThemeStatus SET is_default = 0 WHERE is_default = 1", nil, nil, nil)
             if rc != SQLITE_OK {
                 LoggingService.shared.log("Failed to clear existing default: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-                return false
+                return .database(String(cString: sqlite3_errmsg(db)))
             }
         }
 
-        let sql = "INSERT INTO PortfolioThemeStatus (code, name, color_hex, is_default) VALUES (?,?,?,?)"
+        let sql = "INSERT INTO PortfolioThemeStatus (code, name, color_hex, is_default, created_at, updated_at) VALUES (?,?,?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare insertPortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-            return false
+            return .database(String(cString: sqlite3_errmsg(db)))
         }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -62,21 +77,29 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 3, colorHex, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 4, isDefault ? 1 : 0)
+        let now = DatabaseManager.timestamp()
+        sqlite3_bind_text(stmt, 5, now, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 6, now, -1, SQLITE_TRANSIENT)
         if sqlite3_step(stmt) == SQLITE_DONE {
             LoggingService.shared.log("Inserted theme status \(code)", type: .info, logger: .database)
             success = true
-            return true
+            return nil
         } else {
-            LoggingService.shared.log("Insert theme status failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-            return false
+            let msg = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("Insert theme status failed: \(msg)", type: .error, logger: .database)
+            if msg.contains("code GLOB") { return .invalidCode }
+            if msg.contains("PortfolioThemeStatus.code") { return .codeExists }
+            if msg.contains("PortfolioThemeStatus.name") { return .nameExists }
+            if msg.contains("idx_portfolio_theme_status_default") { return .defaultRace }
+            return .database(msg)
         }
     }
 
-    func updatePortfolioThemeStatus(id: Int, name: String, colorHex: String, isDefault: Bool) -> Bool {
+    func updatePortfolioThemeStatus(id: Int, name: String, colorHex: String, isDefault: Bool) -> ThemeStatusSaveError? {
         let beginRc = sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil)
         guard beginRc == SQLITE_OK else {
             LoggingService.shared.log("BEGIN updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-            return false
+            return .database(String(cString: sqlite3_errmsg(db)))
         }
 
         if isDefault {
@@ -87,11 +110,11 @@ extension DatabaseManager {
                 if rbRc != SQLITE_OK {
                     LoggingService.shared.log("ROLLBACK after default clear failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
                 }
-                return false
+                return .database(String(cString: sqlite3_errmsg(db)))
             }
         }
 
-        let sql = "UPDATE PortfolioThemeStatus SET name = ?, color_hex = ?, is_default = ? WHERE id = ?"
+        let sql = "UPDATE PortfolioThemeStatus SET name = ?, color_hex = ?, is_default = ?, updated_at = ? WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare updatePortfolioThemeStatus failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -99,22 +122,27 @@ extension DatabaseManager {
             if rbRc != SQLITE_OK {
                 LoggingService.shared.log("ROLLBACK after prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
-            return false
+            return .database(String(cString: sqlite3_errmsg(db)))
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, colorHex, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 3, isDefault ? 1 : 0)
-        sqlite3_bind_int(stmt, 4, Int32(id))
+        let now = DatabaseManager.timestamp()
+        sqlite3_bind_text(stmt, 4, now, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 5, Int32(id))
         let stepRc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
         if stepRc != SQLITE_DONE {
-            LoggingService.shared.log("Update theme status failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            let msg = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("Update theme status failed id=\(id): \(msg)", type: .error, logger: .database)
             let rbRc = sqlite3_exec(db, "ROLLBACK", nil, nil, nil)
             if rbRc != SQLITE_OK {
                 LoggingService.shared.log("ROLLBACK after update failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
-            return false
+            if msg.contains("PortfolioThemeStatus.name") { return .nameExists }
+            if msg.contains("idx_portfolio_theme_status_default") { return .defaultRace }
+            return .database(msg)
         }
 
         let commitRc = sqlite3_exec(db, "COMMIT", nil, nil, nil)
@@ -124,11 +152,11 @@ extension DatabaseManager {
             if rbRc != SQLITE_OK {
                 LoggingService.shared.log("ROLLBACK after COMMIT failure failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
-            return false
+            return .database(String(cString: sqlite3_errmsg(db)))
         }
 
         LoggingService.shared.log("Updated theme status id=\(id)", type: .info, logger: .database)
-        return true
+        return nil
     }
 
     func setDefaultThemeStatus(id: Int) {

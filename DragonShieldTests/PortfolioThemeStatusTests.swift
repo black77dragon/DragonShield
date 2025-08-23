@@ -9,13 +9,14 @@ final class PortfolioThemeStatusTests: XCTestCase {
     }
 
     func testCodeValidation() {
-        XCTAssertTrue(PortfolioThemeStatus.isValidCode("VALID1"))
-        XCTAssertFalse(PortfolioThemeStatus.isValidCode("invalid"))
+        XCTAssertTrue(PortfolioThemeStatus.isValidCode("AB"))
+        XCTAssertFalse(PortfolioThemeStatus.isValidCode("a"))
+        XCTAssertFalse(PortfolioThemeStatus.isValidCode("TOO_LONG_CODE"))
     }
 
     func testNameValidation() {
         XCTAssertTrue(PortfolioThemeStatus.isValidName("Valid Name"))
-        XCTAssertFalse(PortfolioThemeStatus.isValidName(""))
-        XCTAssertFalse(PortfolioThemeStatus.isValidName(String(repeating: "a", count: 65)))
+        XCTAssertFalse(PortfolioThemeStatus.isValidName("A"))
+        XCTAssertFalse(PortfolioThemeStatus.isValidName(String(repeating: "a", count: 41)))
     }
 }
