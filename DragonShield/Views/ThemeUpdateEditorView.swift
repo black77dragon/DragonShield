@@ -27,6 +27,7 @@ struct ThemeUpdateEditorView: View {
     @State private var totalValueChf: Double?
     @State private var attachments: [Attachment] = []
     @State private var removedAttachmentIds: Set<Int> = []
+    @State private var thumbnails: [Int: NSImage] = [:]
 
     @State private var showHelp = false
 
@@ -126,6 +127,7 @@ struct ThemeUpdateEditorView: View {
         if attachmentsEnabled, let existing = existing {
             let repo = ThemeUpdateRepository(dbManager: dbManager)
             attachments = repo.listAttachments(updateId: existing.id)
+            for att in attachments { loadThumbnail(att) }
         }
     }
 
@@ -166,6 +168,7 @@ struct ThemeUpdateEditorView: View {
         for url in urls {
             if let att = service.ingest(fileURL: url, actor: NSFullUserName()) {
                 attachments.append(att)
+                loadThumbnail(att)
             }
         }
     }
@@ -224,6 +227,17 @@ struct ThemeUpdateEditorView: View {
             Button("Attach Files…") { pickFiles() }
             ForEach(attachments, id: \.id) { att in
                 HStack {
+                    if let img = thumbnails[att.id] {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 40, height: 40)
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 40, height: 40)
+                            .onAppear { loadThumbnail(att) }
+                    }
                     Text(att.originalFilename)
                     Spacer()
                     Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
@@ -232,6 +246,15 @@ struct ThemeUpdateEditorView: View {
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private func loadThumbnail(_ att: Attachment) {
+        guard FeatureFlags.portfolioAttachmentThumbnailsEnabled() else { return }
+        ThumbnailService().ensureThumbnail(for: att) { result in
+            if case .success(let url) = result, let img = NSImage(contentsOf: url) {
+                thumbnails[att.id] = img
+            }
+        }
     }
 }
 
