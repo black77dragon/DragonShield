@@ -81,10 +81,15 @@ final class AttachmentServiceTests: XCTestCase {
         let dir = tempDir.appendingPathComponent(prefix)
         let stored = dir.appendingPathComponent(att.sha256 + ".txt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: stored.path))
+        let thumbDir = tempDir.appendingPathComponent("Thumbnails", isDirectory: true)
+        try? FileManager.default.createDirectory(at: thumbDir, withIntermediateDirectories: true)
+        let thumb = thumbDir.appendingPathComponent(att.sha256 + ".png")
+        FileManager.default.createFile(atPath: thumb.path, contents: Data())
         XCTAssertTrue(service.deleteAttachment(attachmentId: att.id))
         XCTAssertFalse(FileManager.default.fileExists(atPath: stored.path))
         let dirExists = FileManager.default.fileExists(atPath: dir.path)
         XCTAssertFalse(dirExists)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: thumb.path))
         var stmt: OpaquePointer?
         sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM Attachment WHERE id = ?", -1, &stmt, nil)
         sqlite3_bind_int(stmt, 1, Int32(att.id))
@@ -113,6 +118,12 @@ final class AttachmentServiceTests: XCTestCase {
         try "b".data(using: .utf8)?.write(to: file2)
         let att1 = service.ingest(fileURL: file1, actor: "tester")!
         let att2 = service.ingest(fileURL: file2, actor: "tester")!
+        let thumbDir = tempDir.appendingPathComponent("Thumbnails", isDirectory: true)
+        try? FileManager.default.createDirectory(at: thumbDir, withIntermediateDirectories: true)
+        let thumb1 = thumbDir.appendingPathComponent(att1.sha256 + ".png")
+        let thumb2 = thumbDir.appendingPathComponent(att2.sha256 + ".png")
+        FileManager.default.createFile(atPath: thumb1.path, contents: Data())
+        FileManager.default.createFile(atPath: thumb2.path, contents: Data())
 
         let themeRepo = ThemeUpdateRepository(dbManager: manager)
         _ = themeRepo.linkAttachment(updateId: themeUpdate.id, attachmentId: att1.id)
@@ -122,6 +133,8 @@ final class AttachmentServiceTests: XCTestCase {
         XCTAssertEqual(service.cleanupOrphans(), 0)
         _ = themeRepo.unlinkAttachment(updateId: themeUpdate.id, attachmentId: att1.id)
         XCTAssertEqual(service.cleanupOrphans(), 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: thumb1.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: thumb2.path))
         var stmt: OpaquePointer?
         sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM Attachment WHERE id = ?", -1, &stmt, nil)
         sqlite3_bind_int(stmt, 1, Int32(att1.id))

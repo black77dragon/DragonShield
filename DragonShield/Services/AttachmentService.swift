@@ -22,6 +22,7 @@ final class AttachmentService {
     private let dbManager: DatabaseManager
     private let attachmentsDir: URL
     private let fm = FileManager.default
+    private let thumbnailService: ThumbnailService
     private let allowedTypes: [UTType] = [
         .pdf,
         .png,
@@ -47,6 +48,7 @@ final class AttachmentService {
             self.attachmentsDir = base
         }
         try? fm.createDirectory(at: self.attachmentsDir, withIntermediateDirectories: true)
+        self.thumbnailService = ThumbnailService(attachmentsDir: self.attachmentsDir)
     }
 
     func validate(fileURL: URL) -> Result<ValidatedFile, Error> {
@@ -223,6 +225,7 @@ final class AttachmentService {
         } catch {
             LoggingService.shared.log("Failed to remove attachment file \(file.path): \(error)", type: .error, logger: .database)
         }
+        thumbnailService.deleteThumbnail(for: hash)
         return true
     }
 
@@ -247,8 +250,39 @@ final class AttachmentService {
             }
             deleteAttachmentRow(id: id, db: db)
             deleted += 1
+            thumbnailService.deleteThumbnail(for: sha)
+            LoggingService.shared.log("{\"sha256\":\"\(sha)\",\"op\":\"thumb_cleanup_delete\"}", type: .info, logger: .database)
         }
         sqlite3_finalize(stmt)
+        let thumbsDir = attachmentsDir.appendingPathComponent("Thumbnails", isDirectory: true)
+        if let files = try? fm.contentsOfDirectory(at: thumbsDir, includingPropertiesForKeys: nil) {
+            for file in files where file.pathExtension == "png" {
+                let sha = file.deletingPathExtension().lastPathComponent
+                var stmt2: OpaquePointer?
+                let q = "SELECT ext FROM Attachment WHERE sha256 = ?"
+                if sqlite3_prepare_v2(db, q, -1, &stmt2, nil) == SQLITE_OK {
+                    sqlite3_bind_text(stmt2, 1, sha, -1, AttachmentService.sqliteTransient)
+                    var ext: String?
+                    if sqlite3_step(stmt2) == SQLITE_ROW {
+                        if let c = sqlite3_column_text(stmt2, 0) { ext = String(cString: c) }
+                    }
+                    sqlite3_finalize(stmt2)
+                    var remove = false
+                    if let ext {
+                        let orig = attachmentsDir
+                            .appendingPathComponent(String(sha.prefix(2)))
+                            .appendingPathComponent(sha + ".\(ext)")
+                        if !fm.fileExists(atPath: orig.path) { remove = true }
+                    } else {
+                        remove = true
+                    }
+                    if remove {
+                        thumbnailService.deleteThumbnail(for: sha)
+                        LoggingService.shared.log("{\"sha256\":\"\(sha)\",\"op\":\"thumb_cleanup_delete\"}", type: .info, logger: .database)
+                    }
+                }
+            }
+        }
         return deleted
     }
 
