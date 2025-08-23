@@ -20,7 +20,8 @@ struct ThemeStatusSettingsView: View {
                     HStack {
                         Text(status.code).frame(width: 80, alignment: .leading)
                         Text(status.name).frame(width: 120, alignment: .leading)
-                        Text(status.colorHex).frame(width: 80, alignment: .leading)
+                        ColorChip(hex: status.colorHex, label: status.colorHex)
+                            .frame(width: 80, alignment: .leading)
                         Spacer()
                         Button(action: { dbManager.setDefaultThemeStatus(id: status.id); load() }) {
                             Image(systemName: status.isDefault ? "largecircle.fill.circle" : "circle")
@@ -34,7 +35,7 @@ struct ThemeStatusSettingsView: View {
             }
             HStack {
                 Button("+ Add Status") {
-                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: "#000000", isDefault: false)
+                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: PortfolioThemeStatus.defaultColorHex, isDefault: false)
                     isNew = true
                 }
                 Spacer()
@@ -78,6 +79,10 @@ struct ThemeStatusEditView: View {
     @State private var name: String = ""
     @State private var color: String = ""
     @State private var isDefault: Bool = false
+    @State private var selectedPreset: ThemeStatusColorPreset?
+    @State private var useCustom: Bool = false
+
+    private let columns = Array(repeating: GridItem(.fixed(100), spacing: 8), count: 3)
 
     var body: some View {
         Form {
@@ -87,7 +92,36 @@ struct ThemeStatusEditView: View {
                 Text("Code: \(status.code)")
             }
             TextField("Name", text: $name)
-            TextField("Color", text: $color)
+            Menu {
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(PortfolioThemeStatus.colorPresets) { preset in
+                        Button {
+                            selectedPreset = preset
+                            color = preset.hex
+                            useCustom = false
+                        } label: {
+                            ColorChip(hex: preset.hex, label: preset.name)
+                        }
+                    }
+                }
+                Divider()
+                Button("Custom…") { useCustom = true }
+            } label: {
+                HStack {
+                    ColorChip(hex: color, label: selectedPreset?.name ?? "Custom")
+                    Image(systemName: "chevron.down")
+                }
+            }
+            .accessibilityLabel("Color, current selection: \(selectedPreset?.name ?? "Custom") (\(color))")
+            if useCustom {
+                TextField("Hex", text: $color)
+                    .onChange(of: color) { _ in
+                        selectedPreset = nil
+                    }
+                if !PortfolioThemeStatus.isValidColor(color) {
+                    Text("Use format #RRGGBB.").foregroundColor(.red).font(.caption)
+                }
+            }
             Toggle("Default", isOn: $isDefault)
             HStack {
                 Spacer()
@@ -114,12 +148,21 @@ struct ThemeStatusEditView: View {
             name = status.name
             color = status.colorHex
             isDefault = status.isDefault
+            if let preset = PortfolioThemeStatus.preset(for: status.colorHex) {
+                selectedPreset = preset
+                useCustom = false
+            } else {
+                useCustom = true
+            }
         }
-        .frame(minWidth: 300, minHeight: 200)
+        .frame(minWidth: 300, minHeight: 260)
     }
 
     private var valid: Bool {
         let codeOk = isNew ? PortfolioThemeStatus.isValidCode(code) : true
-        return codeOk && PortfolioThemeStatus.isValidName(name) && PortfolioThemeStatus.isValidColor(color)
+        let nameOk = PortfolioThemeStatus.isValidName(name)
+        let colorOk = useCustom ? PortfolioThemeStatus.isValidColor(color) : (selectedPreset != nil)
+        return codeOk && nameOk && colorOk
     }
 }
+
