@@ -77,12 +77,19 @@ final class AttachmentServiceTests: XCTestCase {
         guard let att = service.ingest(fileURL: file, actor: "tester") else {
             XCTFail("ingest failed"); return
         }
+        let thumbService = ThumbnailService(attachmentsDir: tempDir)
+        let exp = expectation(description: "thumb")
+        thumbService.ensureThumbnail(for: att) { _ in exp.fulfill() }
+        wait(for: [exp], timeout: 2.0)
+        let thumbURL = thumbService.thumbnailURL(for: att.sha256)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: thumbURL.path))
         let prefix = String(att.sha256.prefix(2))
         let dir = tempDir.appendingPathComponent(prefix)
         let stored = dir.appendingPathComponent(att.sha256 + ".txt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: stored.path))
         XCTAssertTrue(service.deleteAttachment(attachmentId: att.id))
         XCTAssertFalse(FileManager.default.fileExists(atPath: stored.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: thumbURL.path))
         let dirExists = FileManager.default.fileExists(atPath: dir.path)
         XCTAssertFalse(dirExists)
         var stmt: OpaquePointer?
@@ -135,6 +142,21 @@ final class AttachmentServiceTests: XCTestCase {
         let c2 = sqlite3_column_int(stmt, 0)
         sqlite3_finalize(stmt)
         XCTAssertEqual(c2, 1)
+    }
+
+    func testCleanupOrphansRemovesThumbnails() throws {
+        let png: [UInt8] = [0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,0xC4,0x89,0x00,0x00,0x00,0x0A,0x49,0x44,0x41,0x54,0x78,0x9C,0x63,0x60,0x00,0x00,0x00,0x02,0x00,0x01,0xE2,0x26,0x05,0x9B,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,0xAE,0x42,0x60,0x82]
+        let file = tempDir.appendingPathComponent("lonely.png")
+        try Data(png).write(to: file)
+        let att = service.ingest(fileURL: file, actor: "tester")!
+        let thumbService = ThumbnailService(attachmentsDir: tempDir)
+        let exp = expectation(description: "thumb2")
+        thumbService.ensureThumbnail(for: att) { _ in exp.fulfill() }
+        wait(for: [exp], timeout: 2.0)
+        let thumbURL = thumbService.thumbnailURL(for: att.sha256)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: thumbURL.path))
+        XCTAssertEqual(service.cleanupOrphans(), 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: thumbURL.path))
     }
 }
 
