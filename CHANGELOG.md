@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Generate and cache attachment thumbnails and remove cached images when attachments are deleted or cleaned up
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag
 - Store attachments on disk with original file extensions for Quick Look compatibility

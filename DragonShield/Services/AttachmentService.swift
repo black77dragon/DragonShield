@@ -220,6 +220,13 @@ final class AttachmentService {
             if let contents = try? fm.contentsOfDirectory(atPath: parent.path), contents.isEmpty {
                 try fm.removeItem(at: parent)
             }
+            let thumb = attachmentsDir
+                .appendingPathComponent("Thumbnails", isDirectory: true)
+                .appendingPathComponent("\(hash).png")
+            if fm.fileExists(atPath: thumb.path) {
+                try? fm.removeItem(at: thumb)
+                LoggingService.shared.log("{\"sha256\":\"\(hash)\",\"op\":\"thumb_cleanup_delete\"}", logger: .database)
+            }
         } catch {
             LoggingService.shared.log("Failed to remove attachment file \(file.path): \(error)", type: .error, logger: .database)
         }
@@ -244,6 +251,13 @@ final class AttachmentService {
             let parent = file.deletingLastPathComponent()
             if let contents = try? fm.contentsOfDirectory(atPath: parent.path), contents.isEmpty {
                 try? fm.removeItem(at: parent)
+            }
+            let thumb = attachmentsDir
+                .appendingPathComponent("Thumbnails", isDirectory: true)
+                .appendingPathComponent("\(sha).png")
+            if fm.fileExists(atPath: thumb.path) {
+                try? fm.removeItem(at: thumb)
+                LoggingService.shared.log("{\"sha256\":\"\(sha)\",\"op\":\"thumb_cleanup_delete\"}", logger: .database)
             }
             deleteAttachmentRow(id: id, db: db)
             deleted += 1
