@@ -6,13 +6,14 @@ final class FeatureFlagsTests: XCTestCase {
         XCTAssertTrue(FeatureFlags.portfolioInstrumentUpdatesEnabled(args: [], env: [:], defaults: .standard))
     }
 
-    func testAttachmentsDisabledByDefault() {
-        XCTAssertFalse(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: .standard))
+    func testAttachmentsEnabledByDefault() {
+        XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: .standard))
     }
 
-    func testAttachmentsEnabledWhenDefaultsTrue() {
-        let defaults = UserDefaults(suiteName: "testAttachmentsEnabled")!
-        defaults.set(true, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
-        XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
+    func testAttachmentsCanBeDisabled() {
+        let defaults = UserDefaults(suiteName: "attachmentsOff")!
+        defaults.set(false, forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
+        XCTAssertFalse(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
     }
+
 }

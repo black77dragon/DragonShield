@@ -33,7 +33,8 @@ enum FeatureFlags {
         if defaults.object(forKey: UserDefaultsKeys.portfolioAttachmentsEnabled) != nil {
             return defaults.bool(forKey: UserDefaultsKeys.portfolioAttachmentsEnabled)
         }
-        return false
+        return true
     }
+
 }
 
