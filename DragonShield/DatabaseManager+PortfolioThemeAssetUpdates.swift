@@ -281,7 +281,7 @@ extension DatabaseManager {
         return count
     }
 
-    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int)] {
+    func listThemesForInstrumentWithCounts(instrumentId: Int, instrumentCode: String, instrumentName: String) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int, mentionsCount: Int)] {
         let sql = """
             SELECT t.id, t.name, t.archived_at IS NOT NULL AS archived, COUNT(u.id) AS cnt
             FROM PortfolioThemeAsset a
@@ -293,7 +293,7 @@ extension DatabaseManager {
             ORDER BY t.name
         """
         var stmt: OpaquePointer?
-        var results: [(Int, String, Bool, Int)] = []
+        var results: [(Int, String, Bool, Int, Int)] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(instrumentId))
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -301,12 +301,41 @@ extension DatabaseManager {
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let archived = sqlite3_column_int(stmt, 2) == 1
                 let count = Int(sqlite3_column_int(stmt, 3))
-                results.append((themeId, name, archived, count))
+                let mentions = countMentions(themeId: themeId, instrumentCode: instrumentCode, instrumentName: instrumentName)
+                results.append((themeId, name, archived, count, mentions))
             }
         } else {
-            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithUpdateCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(stmt)
         return results
+    }
+
+    private func countMentions(themeId: Int, instrumentCode: String, instrumentName: String) -> Int {
+        let updates = listThemeUpdates(themeId: themeId, view: .active, type: nil, searchQuery: nil, pinnedFirst: true)
+        guard !updates.isEmpty else { return 0 }
+        let code = instrumentCode.lowercased()
+        let codeToken = code.count >= 3 ? " " + code + " " : nil
+        let namePhrase = normalize(instrumentName).trimmingCharacters(in: .whitespaces)
+        var mentions = 0
+        for u in updates {
+            let text = normalize(u.title + " " + u.bodyMarkdown)
+            if let token = codeToken, text.contains(token) {
+                mentions += 1
+                continue
+            }
+            if text.contains(namePhrase) {
+                mentions += 1
+            }
+        }
+        return mentions
+    }
+
+    private func normalize(_ text: String) -> String {
+        let lowered = text.lowercased().map { ch -> Character in
+            if ch.isLetter || ch.isNumber { return ch } else { return " " }
+        }
+        let collapsed = String(lowered).split(separator: " ").joined(separator: " ")
+        return " " + collapsed + " "
     }
 }

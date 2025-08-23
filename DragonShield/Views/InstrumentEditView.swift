@@ -36,12 +36,14 @@ struct InstrumentEditView: View {
         let themeId: Int
         let name: String
         let isArchived: Bool
-        let count: Int
+        let updatesCount: Int
+        let mentionsCount: Int
         var id: Int { themeId }
     }
     @State private var themeInfos: [ThemeInfo] = []
     @State private var themeQuery = ""
     @State private var selectedTheme: ThemeInfo?
+    @State private var selectedMentionsTheme: ThemeInfo?
     
     // MARK: - Validation
     var isValid: Bool {
@@ -148,6 +150,12 @@ struct InstrumentEditView: View {
         }
         .sheet(item: $selectedTheme) { info in
             InstrumentUpdatesView(themeId: info.themeId, instrumentId: instrumentId, instrumentName: instrumentName, themeName: info.name, onClose: { loadThemeInfos() })
+                .environmentObject(DatabaseManager())
+        }
+        .sheet(item: $selectedMentionsTheme) { info in
+            let query = tickerSymbol.isEmpty ? instrumentName : tickerSymbol
+            let helper = tickerSymbol.isEmpty ? "Showing theme notes mentioning \(instrumentName)" : "Showing theme notes mentioning \(tickerSymbol) (\(instrumentName))"
+            PortfolioThemeDetailView(themeId: info.themeId, origin: "instrument_mentions_panel", initialTab: .updates, initialUpdateSearch: query, updateSearchHelper: helper)
                 .environmentObject(DatabaseManager())
         }
     }
@@ -429,7 +437,7 @@ struct InstrumentEditView: View {
                 sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
                 Spacer()
                 if filteredThemes.count == 1 {
-                    Button("Open Updates") { openTheme(filteredThemes[0]) }
+                    Button("Open Updates") { openUpdates(filteredThemes[0]) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -450,12 +458,17 @@ struct InstrumentEditView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Text("\(info.count)")
-                        Button("Open Updates") { openTheme(info) }
-                            .buttonStyle(.borderless)
+                        HStack(spacing: 8) {
+                            Button("\(info.updatesCount)") { openUpdates(info) }
+                                .buttonStyle(.borderless)
+                                .help("Open Instrument Updates")
+                            Button("\(info.mentionsCount)") { openMentions(info) }
+                                .buttonStyle(.borderless)
+                                .help("Open Mentions in Theme Notes")
+                        }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { openTheme(info) }
+                    .onTapGesture { openUpdates(info) }
                 }
             }
         }
@@ -477,17 +490,26 @@ struct InstrumentEditView: View {
     }
 
     private func loadThemeInfos() {
-        let rows = DatabaseManager().listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
-        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, count: $0.updatesCount) }
+        let rows = DatabaseManager().listThemesForInstrumentWithCounts(instrumentId: instrumentId, instrumentCode: tickerSymbol, instrumentName: instrumentName)
+        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, updatesCount: $0.updatesCount, mentionsCount: $0.mentionsCount) }
         let payload: [String: Any] = ["instrumentId": instrumentId, "themesListed": rows.count, "action": "updates_in_themes_panel_shown"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
         }
     }
 
-    private func openTheme(_ info: ThemeInfo) {
+    private func openUpdates(_ info: ThemeInfo) {
         selectedTheme = info
         let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "panel"]
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+    }
+
+    private func openMentions(_ info: ThemeInfo) {
+        selectedMentionsTheme = info
+        let query = tickerSymbol.isEmpty ? instrumentName : tickerSymbol
+        let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "theme_mentions_open", "query": query, "source": "panel"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
         }

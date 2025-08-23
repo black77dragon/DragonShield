@@ -8,6 +8,8 @@ import SwiftUI
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
+    let initialSearch: String?
+    let helperText: String?
 
     @State private var updates: [PortfolioThemeUpdate] = []
     @State private var showEditor = false
@@ -18,9 +20,16 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedId: Int?
     @State private var showDeleteConfirm = false
     @State private var editingFromFooter = false
-    @State private var searchText: String = ""
+    @State private var searchText: String
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
+
+    init(themeId: Int, initialSearch: String? = nil, helperText: String? = nil) {
+        self.themeId = themeId
+        self.initialSearch = initialSearch
+        self.helperText = helperText
+        _searchText = State(initialValue: initialSearch ?? "")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,6 +60,12 @@ struct PortfolioThemeUpdatesView: View {
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
                     .onChange(of: pinnedFirst) { _ in load() }
+            }
+            if let helper = helperText, !helper.isEmpty {
+                Text(helper)
+                    .font(.caption)
+                    .padding(.horizontal, 4)
+                    .foregroundColor(.secondary)
             }
             List(selection: $selectedId) {
                 ForEach(updates) { update in
@@ -94,6 +109,11 @@ struct PortfolioThemeUpdatesView: View {
                         }
                     }
                 }
+            }
+            if updates.isEmpty && !(searchText.isEmpty) && initialSearch != nil {
+                Text("No theme notes mention \(searchText)")
+                    .foregroundColor(.secondary)
+                    .padding()
             }
             Divider()
             HStack {

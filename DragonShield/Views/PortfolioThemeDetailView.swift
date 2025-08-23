@@ -14,6 +14,8 @@ struct PortfolioThemeDetailView: View {
     let themeId: Int
     let origin: String
     let initialTab: DetailTab
+    let initialUpdateSearch: String?
+    let updateSearchHelper: String?
     var onSave: (PortfolioTheme) -> Void
     var onArchive: () -> Void
     var onUnarchive: (Int) -> Void
@@ -68,10 +70,12 @@ struct PortfolioThemeDetailView: View {
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
 
-    init(themeId: Int, origin: String, initialTab: DetailTab = .composition, onSave: @escaping (PortfolioTheme) -> Void = { _ in }, onArchive: @escaping () -> Void = {}, onUnarchive: @escaping (Int) -> Void = { _ in }, onSoftDelete: @escaping () -> Void = {}) {
+    init(themeId: Int, origin: String, initialTab: DetailTab = .composition, initialUpdateSearch: String? = nil, updateSearchHelper: String? = nil, onSave: @escaping (PortfolioTheme) -> Void = { _ in }, onArchive: @escaping () -> Void = {}, onUnarchive: @escaping (Int) -> Void = { _ in }, onSoftDelete: @escaping () -> Void = {}) {
         self.themeId = themeId
         self.origin = origin
         self.initialTab = initialTab
+        self.initialUpdateSearch = initialUpdateSearch
+        self.updateSearchHelper = updateSearchHelper
         self.onSave = onSave
         self.onArchive = onArchive
         self.onUnarchive = onUnarchive
@@ -195,7 +199,7 @@ struct PortfolioThemeDetailView: View {
     }
 
     private var updatesTab: some View {
-        PortfolioThemeUpdatesView(themeId: themeId)
+        PortfolioThemeUpdatesView(themeId: themeId, initialSearch: initialUpdateSearch, helperText: updateSearchHelper)
             .environmentObject(dbManager)
     }
 

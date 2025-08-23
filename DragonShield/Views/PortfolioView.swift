@@ -11,6 +11,7 @@ struct PortfolioView: View {
     @State private var searchText = ""
     @State private var themeChooser: ThemeChooserData?
     @State private var updatesTarget: UpdatesTarget?
+    @State private var mentionsTarget: MentionsTarget?
 
     // Filtering & Sorting
     @State private var typeFilters: Set<String> = []
@@ -25,6 +26,7 @@ struct PortfolioView: View {
     private struct ThemeChooserData: Identifiable {
         let instrumentId: Int
         let instrumentName: String
+        let instrumentCode: String
         var id: Int { instrumentId }
     }
 
@@ -32,6 +34,14 @@ struct PortfolioView: View {
         let themeId: Int
         let themeName: String
         let instrumentId: Int
+        let instrumentName: String
+        var id: Int { themeId }
+    }
+
+    private struct MentionsTarget: Identifiable {
+        let themeId: Int
+        let themeName: String
+        let instrumentCode: String
         let instrumentName: String
         var id: Int { themeId }
     }
@@ -130,16 +140,32 @@ struct PortfolioView: View {
             }
         }
         .sheet(item: $themeChooser) { data in
-            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName) { info in
-                updatesTarget = UpdatesTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName)
-                let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "context_menu"]
-                if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
-                    LoggingService.shared.log(log, logger: .ui)
+            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName, instrumentCode: data.instrumentCode) { info, action in
+                switch action {
+                case .updates:
+                    updatesTarget = UpdatesTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName)
+                    let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "context_menu"]
+                    if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
+                        LoggingService.shared.log(log, logger: .ui)
+                    }
+                case .mentions:
+                    mentionsTarget = MentionsTarget(themeId: info.themeId, themeName: info.name, instrumentCode: data.instrumentCode, instrumentName: data.instrumentName)
+                    let query = data.instrumentCode.isEmpty ? data.instrumentName : data.instrumentCode
+                    let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "theme_mentions_open", "query": query, "source": "context_menu"]
+                    if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
+                        LoggingService.shared.log(log, logger: .ui)
+                    }
                 }
             }
         }
         .sheet(item: $updatesTarget) { target in
             InstrumentUpdatesView(themeId: target.themeId, instrumentId: target.instrumentId, instrumentName: target.instrumentName, themeName: target.themeName, onClose: {})
+                .environmentObject(DatabaseManager())
+        }
+        .sheet(item: $mentionsTarget) { target in
+            let query = target.instrumentCode.isEmpty ? target.instrumentName : target.instrumentCode
+            let helper = target.instrumentCode.isEmpty ? "Showing theme notes mentioning \(target.instrumentName)" : "Showing theme notes mentioning \(target.instrumentCode) (\(target.instrumentName))"
+            PortfolioThemeDetailView(themeId: target.themeId, origin: "instrument_mentions_context", initialTab: .updates, initialUpdateSearch: query, updateSearchHelper: helper)
                 .environmentObject(DatabaseManager())
         }
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
@@ -367,7 +393,7 @@ struct PortfolioView: View {
                             },
                             onUpdates: {
                                 if let instrumentId = getInstrumentId(for: asset) {
-                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name)
+                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
                                 }
                             }
                         )

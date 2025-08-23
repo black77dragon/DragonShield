@@ -5,13 +5,20 @@ struct InstrumentThemeChooserView: View {
         let themeId: Int
         let name: String
         let isArchived: Bool
-        let count: Int
+        let updatesCount: Int
+        let mentionsCount: Int
         var id: Int { themeId }
+    }
+
+    enum SelectionAction {
+        case updates
+        case mentions
     }
 
     let instrumentId: Int
     let instrumentName: String
-    var onSelect: (ThemeInfo) -> Void
+    let instrumentCode: String
+    var onSelect: (ThemeInfo, SelectionAction) -> Void
 
     @State private var themes: [ThemeInfo] = []
     @State private var query = ""
@@ -37,11 +44,20 @@ struct InstrumentThemeChooserView: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    Text("\(info.count)")
+                    Button("\(info.updatesCount)") {
+                        onSelect(info, .updates)
+                        dismiss()
+                    }
+                    .buttonStyle(.borderless)
+                    Button("\(info.mentionsCount)") {
+                        onSelect(info, .mentions)
+                        dismiss()
+                    }
+                    .buttonStyle(.borderless)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    onSelect(info)
+                    onSelect(info, .updates)
                     dismiss()
                 }
             }
@@ -59,8 +75,8 @@ struct InstrumentThemeChooserView: View {
     }
 
     private func load() {
-        let rows = dbManager.listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
-        themes = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, count: $0.updatesCount) }
+        let rows = dbManager.listThemesForInstrumentWithCounts(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
+        themes = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, updatesCount: $0.updatesCount, mentionsCount: $0.mentionsCount) }
         let payload: [String: Any] = ["instrumentId": instrumentId, "themesListed": rows.count, "action": "updates_in_themes_panel_shown"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
