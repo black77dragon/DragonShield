@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add AttachmentService and attachments UI for theme updates behind feature flag
+- Store attachments on disk with original file extensions for Quick Look compatibility
+- Prompt to delete attachment file and database record when removing from update editor
+- Introduce Attachment and ThemeUpdateAttachment tables with linking APIs for theme updates
+- Expose portfolioAttachmentsEnabled setting in UI to toggle attachments
+- Fix attachment type validation and update deprecated onChange handlers for macOS 14
 - Introduce Instrument Notes modal with tabs for instrument updates and theme mentions
 - Surface theme note mention counts and deep links from Instruments module
 - Cross-link Instrument Updates from Instruments module with theme chooser and counts
