@@ -4,6 +4,7 @@
 // - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle.
 
 import SwiftUI
+import AppKit
 
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -24,6 +25,8 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
     @State private var attachmentCounts: [Int: Int] = [:]
+    @State private var linkPreviews: [Int: [Link]] = [:]
+    @State private var expandedLinks: Set<Int> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -73,6 +76,36 @@ struct PortfolioThemeUpdatesView: View {
                         }
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
                             .lineLimit(3)
+                        if let links = linkPreviews[update.id], !links.isEmpty {
+                            let displayed = expandedLinks.contains(update.id) ? links : Array(links.prefix(3))
+                            HStack {
+                                Text("Links:")
+                                ForEach(displayed, id: \.id) { link in
+                                    Button(displayTitle(link)) { openLink(link, updateId: update.id) }
+                                        .buttonStyle(.link)
+                                }
+                                if links.count > 3 {
+                                    Button(expandedLinks.contains(update.id) ? "Show less" : "+\(links.count - 3) more") {
+                                        if expandedLinks.contains(update.id) {
+                                            expandedLinks.remove(update.id)
+                                        } else {
+                                            expandedLinks.insert(update.id)
+                                        }
+                                    }
+                                }
+                            }
+                            if expandedLinks.contains(update.id) {
+                                ForEach(links, id: \.id) { link in
+                                    HStack {
+                                        Text(link.rawURL)
+                                            .font(.caption)
+                                        Spacer()
+                                        Button("Open") { openLink(link, updateId: update.id) }
+                                        Button("Copy") { copyLink(link) }
+                                    }
+                                }
+                            }
+                        }
                         Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Total CHF \(formatted(update.totalValueChf))")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -173,6 +206,16 @@ struct PortfolioThemeUpdatesView: View {
         } else {
             attachmentCounts = [:]
         }
+        if !updates.isEmpty {
+            let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
+            var dict: [Int: [Link]] = [:]
+            for u in updates {
+                dict[u.id] = lrepo.listLinks(updateId: u.id)
+            }
+            linkPreviews = dict
+        } else {
+            linkPreviews = [:]
+        }
     }
 
     private var selectedUpdate: PortfolioThemeUpdate? {
@@ -182,6 +225,31 @@ struct PortfolioThemeUpdatesView: View {
     private func formatted(_ value: Double?) -> String {
         guard let v = value else { return "—" }
         return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+    }
+
+    private func openLink(_ link: Link, updateId: Int) {
+        if let url = URL(string: link.rawURL) {
+            NSWorkspace.shared.open(url)
+            LoggingService.shared.log("{ themeUpdateId: \(updateId), linkId: \(link.id), host: \(url.host ?? ""), op:'link_open' }", type: .info, logger: .database)
+        }
+    }
+
+    private func copyLink(_ link: Link) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(link.rawURL, forType: .string)
+    }
+
+    private func displayTitle(_ link: Link) -> String {
+        if let t = link.title, !t.isEmpty { return t }
+        if let url = URL(string: link.rawURL) {
+            var host = url.host ?? link.rawURL
+            if !url.path.isEmpty && url.path != "/" {
+                host += url.path
+            }
+            return host
+        }
+        return link.rawURL
     }
 
     private func deleteSelected() {
