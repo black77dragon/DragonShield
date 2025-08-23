@@ -281,7 +281,79 @@ extension DatabaseManager {
         return count
     }
 
-    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int)] {
+    private func normalize(_ text: String) -> String {
+        let lowered = text.lowercased()
+        let mapped = lowered.map { $0.isLetter || $0.isNumber ? String($0) : " " }.joined()
+        let collapsed = mapped.split { $0 == " " }.joined(separator: " ")
+        return " " + collapsed + " "
+    }
+
+    private func matchesMention(_ text: String, code: String, name: String) -> Bool {
+        let norm = normalize(text)
+        if code.count >= 3 {
+            let token = " " + code.lowercased() + " "
+            if norm.contains(token) { return true }
+        }
+        let lowerName = name.lowercased()
+        if norm.contains(lowerName) { return true }
+        let nameTokens = lowerName.split { !$0.isLetter && !$0.isNumber }
+        if !nameTokens.isEmpty && nameTokens.allSatisfy({ norm.contains(" \($0) ") }) {
+            return true
+        }
+        return false
+    }
+
+    private func mentionCount(themeId: Int, code: String, name: String) -> Int {
+        let sql = "SELECT title, COALESCE(body_markdown, body_text) FROM PortfolioThemeUpdate WHERE theme_id = ? AND soft_delete = 0"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let title = String(cString: sqlite3_column_text(stmt, 0))
+                let body = String(cString: sqlite3_column_text(stmt, 1))
+                let combined = title + " " + body
+                if matchesMention(combined, code: code, name: name) { count += 1 }
+            }
+        } else {
+            LoggingService.shared.log("Failed to prepare mentionCount: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
+    func listThemeMentionsForInstrument(instrumentId: Int, instrumentCode: String, instrumentName: String, themeId: Int? = nil) -> [(update: PortfolioThemeUpdate, themeId: Int, themeName: String, isArchived: Bool)] {
+        var themes: [(Int, String, Bool)] = []
+        if let tid = themeId {
+            let sql = "SELECT id, name, archived_at IS NOT NULL FROM PortfolioTheme WHERE id = ?"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(tid))
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    let name = String(cString: sqlite3_column_text(stmt, 1))
+                    let archived = sqlite3_column_int(stmt, 2) == 1
+                    themes.append((tid, name, archived))
+                }
+            }
+            sqlite3_finalize(stmt)
+        } else {
+            let rows = listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
+            themes = rows.map { ($0.themeId, $0.themeName, $0.isArchived) }
+        }
+        var results: [(PortfolioThemeUpdate, Int, String, Bool)] = []
+        for (tid, name, archived) in themes {
+            let updates = listThemeUpdates(themeId: tid, view: .active)
+            for upd in updates {
+                let combined = upd.title + " " + upd.bodyMarkdown
+                if matchesMention(combined, code: instrumentCode, name: instrumentName) {
+                    results.append((upd, tid, name, archived))
+                }
+            }
+        }
+        return results
+    }
+
+    func listThemesForInstrumentWithUpdateCounts(instrumentId: Int, instrumentCode: String, instrumentName: String) -> [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int, mentionsCount: Int)] {
         let sql = """
             SELECT t.id, t.name, t.archived_at IS NOT NULL AS archived, COUNT(u.id) AS cnt
             FROM PortfolioThemeAsset a
@@ -293,7 +365,7 @@ extension DatabaseManager {
             ORDER BY t.name
         """
         var stmt: OpaquePointer?
-        var results: [(Int, String, Bool, Int)] = []
+        var results: [(Int, String, Bool, Int, Int)] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(instrumentId))
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -301,7 +373,8 @@ extension DatabaseManager {
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let archived = sqlite3_column_int(stmt, 2) == 1
                 let count = Int(sqlite3_column_int(stmt, 3))
-                results.append((themeId, name, archived, count))
+                let mentions = mentionCount(themeId: themeId, code: instrumentCode, name: instrumentName)
+                results.append((themeId, name, archived, count, mentions))
             }
         } else {
             LoggingService.shared.log("Failed to prepare listThemesForInstrumentWithUpdateCounts: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)

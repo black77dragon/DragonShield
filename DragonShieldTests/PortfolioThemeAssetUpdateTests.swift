@@ -19,6 +19,7 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         sqlite3_exec(manager.db, "INSERT INTO Instruments(instrument_id, instrument_name) VALUES (42,'Inst');", nil, nil, nil)
         sqlite3_exec(manager.db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, created_at TEXT, updated_at TEXT, PRIMARY KEY(theme_id, instrument_id));", nil, nil, nil)
         manager.ensurePortfolioThemeAssetUpdateTable()
+        manager.ensurePortfolioThemeUpdateTable()
     }
 
     override func tearDown() {
@@ -56,18 +57,33 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         XCTAssertEqual(list.count, 0)
     }
 
-    func testListThemesForInstrumentWithUpdateCounts() {
+    func testListThemesForInstrumentWithCountsAndMentions() {
         sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeAsset(theme_id, instrument_id, research_target_pct, user_target_pct, notes, created_at, updated_at) VALUES (1,42,0,0,NULL,datetime('now'),datetime('now'));", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeAsset(theme_id, instrument_id, research_target_pct, user_target_pct, notes, created_at, updated_at) VALUES (2,42,0,0,NULL,datetime('now'),datetime('now'));", nil, nil, nil)
         _ = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "One", bodyMarkdown: "Body", type: .General, pinned: false, author: "Ann", breadcrumb: nil)
         _ = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Two", bodyMarkdown: "Body", type: .General, pinned: false, author: "Ben", breadcrumb: nil)
-        let list = manager.listThemesForInstrumentWithUpdateCounts(instrumentId: 42)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (1,'Note','ALAB is rising','ALAB is rising','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (1,'Other','Astera Labs Inc outlook','Astera Labs Inc outlook','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (1,'Irrelevant','No match here','No match here','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (2,'None','Nothing about it','Nothing about it','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        let list = manager.listThemesForInstrumentWithUpdateCounts(instrumentId: 42, instrumentCode: "ALAB", instrumentName: "Astera Labs Inc")
         XCTAssertEqual(list.count, 2)
         let first = list.first { $0.themeId == 1 }
         XCTAssertEqual(first?.updatesCount, 2)
+        XCTAssertEqual(first?.mentionsCount, 2)
         let second = list.first { $0.themeId == 2 }
         XCTAssertEqual(second?.updatesCount, 0)
+        XCTAssertEqual(second?.mentionsCount, 0)
         XCTAssertEqual(second?.isArchived, true)
+    }
+
+    func testListThemeMentionsForInstrument() {
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeAsset(theme_id, instrument_id, research_target_pct, user_target_pct, notes, created_at, updated_at) VALUES (1,42,0,0,NULL,datetime('now'),datetime('now'));", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (1,'Note','ALAB jump','ALAB jump','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        sqlite3_exec(manager.db, "INSERT INTO PortfolioThemeUpdate(theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf, soft_delete) VALUES (1,'None','Nothing','Nothing','General','Amy',0,NULL,NULL,0);", nil, nil, nil)
+        let items = manager.listThemeMentionsForInstrument(instrumentId: 42, instrumentCode: "ALAB", instrumentName: "Astera Labs Inc")
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items.first?.themeId, 1)
     }
 }
 
