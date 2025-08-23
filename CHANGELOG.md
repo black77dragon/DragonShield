@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Refine Overview update rows with inline toggle, right-aligned actions, and date filter including today
+- Add Overview tab with read-only Update Reader for Portfolio Theme details
+- Flesh out Portfolio Theme Overview with KPIs, filters, and update actions
+- Remove obsolete feature flag checks and clean up async attachment handlers
 - Introduce Link and ThemeUpdateLink tables with LinkService for theme update URLs (migration 021)
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag

@@ -13,7 +13,7 @@ extension DatabaseManager {
         var items: [PortfolioThemeAssetUpdate] = []
         let order = pinnedFirst ? "pinned DESC, created_at DESC" : "created_at DESC"
         let whereClause: String
-        if let tid = themeId {
+        if themeId != nil {
             whereClause = "theme_id = ? AND instrument_id = ?"
         } else {
             whereClause = "instrument_id = ?"
