@@ -4,6 +4,8 @@
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
 import SwiftUI
+import UniformTypeIdentifiers
+import AppKit
 
 struct ThemeUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -13,6 +15,7 @@ struct ThemeUpdateEditorView: View {
     var onSave: (PortfolioThemeUpdate) -> Void
     var onCancel: () -> Void
     var logSource: String?
+    let attachmentsEnabled: Bool
 
     enum Mode { case write, preview }
 
@@ -23,13 +26,15 @@ struct ThemeUpdateEditorView: View {
     @State private var mode: Mode = .write
     @State private var positionsAsOf: String?
     @State private var totalValueChf: Double?
+    @State private var attachments: [Attachment] = []
 
     @State private var showHelp = false
 
-    init(themeId: Int, themeName: String, existing: PortfolioThemeUpdate? = nil, onSave: @escaping (PortfolioThemeUpdate) -> Void, onCancel: @escaping () -> Void, logSource: String? = nil) {
+    init(themeId: Int, themeName: String, existing: PortfolioThemeUpdate? = nil, attachmentsEnabled: Bool = FeatureFlags.portfolioAttachmentsEnabled(), onSave: @escaping (PortfolioThemeUpdate) -> Void, onCancel: @escaping () -> Void, logSource: String? = nil) {
         self.themeId = themeId
         self.themeName = themeName
         self.existing = existing
+        self.attachmentsEnabled = attachmentsEnabled
         self.onSave = onSave
         self.onCancel = onCancel
         self.logSource = logSource
@@ -80,6 +85,9 @@ struct ThemeUpdateEditorView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            if attachmentsEnabled {
+                attachmentSection
+            }
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(positionsAsOf)) • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -119,13 +127,79 @@ struct ThemeUpdateEditorView: View {
     }
 
     private func save() {
+        let repo = ThemeUpdateRepository(dbManager: dbManager)
         if let existing = existing {
             if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
+                linkAttachments(to: updated.id, repo: repo)
                 onSave(updated)
             }
         } else {
             if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
+                linkAttachments(to: created.id, repo: repo)
                 onSave(created)
+            }
+        }
+    }
+
+    private func linkAttachments(to updateId: Int, repo: ThemeUpdateRepository) {
+        for att in attachments {
+            _ = repo.linkAttachment(updateId: updateId, attachmentId: att.id)
+        }
+    }
+
+    private var attachmentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Attachments")
+            VStack {
+                if attachments.isEmpty {
+                    Text("Drag files here or Attach Files…")
+                        .frame(maxWidth: .infinity, minHeight: 80)
+                        .background(Color.secondary.opacity(0.1))
+                        .onDrop(of: [UTType.fileURL.identifier], isTargeted: nil) { providers in
+                            handleDrop(providers: providers)
+                        }
+                } else {
+                    ForEach(Array(attachments.enumerated()), id: \.1.id) { index, att in
+                        HStack {
+                            Text(att.originalFilename)
+                            Spacer()
+                            Button("Remove") { attachments.remove(at: index) }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onDrop(of: [UTType.fileURL.identifier], isTargeted: nil) { providers in
+                        handleDrop(providers: providers)
+                    }
+                }
+            }
+            Button("Attach Files…") { openPanel() }
+        }
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        for p in providers {
+            p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    addFile(url)
+                }
+            }
+        }
+        return true
+    }
+
+    private func openPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            panel.urls.forEach { addFile($0) }
+        }
+    }
+
+    private func addFile(_ url: URL) {
+        let service = AttachmentService(dbManager: dbManager)
+        if let attachment = try? service.ingest(fileURL: url, actor: NSFullUserName()) {
+            DispatchQueue.main.async {
+                attachments.append(attachment)
             }
         }
     }
