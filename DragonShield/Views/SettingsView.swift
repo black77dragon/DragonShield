@@ -23,7 +23,7 @@ struct SettingsView: View {
     private var runStartupHealthChecks: Bool = true
 
     @AppStorage(UserDefaultsKeys.portfolioAttachmentsEnabled)
-    private var portfolioAttachmentsEnabled: Bool = false
+    private var portfolioAttachmentsEnabled: Bool = true
 
 
     private var okCount: Int {
