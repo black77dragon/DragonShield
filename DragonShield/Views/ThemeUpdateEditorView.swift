@@ -4,6 +4,7 @@
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ThemeUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -13,6 +14,7 @@ struct ThemeUpdateEditorView: View {
     var onSave: (PortfolioThemeUpdate) -> Void
     var onCancel: () -> Void
     var logSource: String?
+    var attachmentsFlag: Bool
 
     enum Mode { case write, preview }
 
@@ -26,13 +28,18 @@ struct ThemeUpdateEditorView: View {
 
     @State private var showHelp = false
 
-    init(themeId: Int, themeName: String, existing: PortfolioThemeUpdate? = nil, onSave: @escaping (PortfolioThemeUpdate) -> Void, onCancel: @escaping () -> Void, logSource: String? = nil) {
+    @State private var attachments: [Attachment] = []
+    @State private var showFileImporter = false
+    @State private var dropTarget = false
+
+    init(themeId: Int, themeName: String, existing: PortfolioThemeUpdate? = nil, attachmentsFlag: Bool = FeatureFlags.portfolioAttachmentsEnabled(), onSave: @escaping (PortfolioThemeUpdate) -> Void, onCancel: @escaping () -> Void, logSource: String? = nil) {
         self.themeId = themeId
         self.themeName = themeName
         self.existing = existing
         self.onSave = onSave
         self.onCancel = onCancel
         self.logSource = logSource
+        self.attachmentsFlag = attachmentsFlag
         _title = State(initialValue: existing?.title ?? "")
         _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
         _type = State(initialValue: existing?.type ?? .General)
@@ -80,6 +87,29 @@ struct ThemeUpdateEditorView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            if attachmentsFlag {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Attachments")
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(attachments, id: \.id) { att in
+                            Text(att.originalFilename)
+                        }
+                    }
+                    Rectangle()
+                        .strokeBorder(dropTarget ? Color.accentColor : Color.secondary, style: StrokeStyle(lineWidth: 2, dash: [5]))
+                        .frame(height: 80)
+                        .overlay(Text("Drag files here or  Attach Files…").foregroundColor(.secondary))
+                        .onDrop(of: AttachmentService.allowedTypes.map { $0.identifier }, isTargeted: $dropTarget) { providers in
+                            handleDrop(providers: providers)
+                        }
+                        .onTapGesture { showFileImporter = true }
+                }
+                .fileImporter(isPresented: $showFileImporter, allowedContentTypes: AttachmentService.allowedTypes, allowsMultipleSelection: true) { result in
+                    if case .success(let urls) = result {
+                        for url in urls { ingestFile(url) }
+                    }
+                }
+            }
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(positionsAsOf)) • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -106,6 +136,31 @@ struct ThemeUpdateEditorView: View {
         return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
     }
 
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        for item in providers {
+            if item.hasItemConformingToTypeIdentifier("public.file-url") {
+                item.loadItem(forTypeIdentifier: "public.file-url", options: nil) { data, _ in
+                    if let data = data as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                        ingestFile(url)
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    private func ingestFile(_ url: URL) {
+        let service = AttachmentService(dbManager: dbManager)
+        switch service.ingest(fileURL: url, actor: NSFullUserName()) {
+        case .success(let attachment):
+            DispatchQueue.main.async {
+                attachments.append(attachment)
+            }
+        case .failure(let error):
+            LoggingService.shared.log("Attachment ingest failed: \(error)", type: .error, logger: .app)
+        }
+    }
+
     private func loadSnapshot() {
         let fx = FXConversionService(dbManager: dbManager)
         let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
@@ -119,12 +174,15 @@ struct ThemeUpdateEditorView: View {
     }
 
     private func save() {
+        let repo = ThemeUpdateRepository(dbManager: dbManager)
         if let existing = existing {
             if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
+                for att in attachments { _ = repo.linkAttachment(updateId: updated.id, attachmentId: att.id) }
                 onSave(updated)
             }
         } else {
             if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
+                for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
                 onSave(created)
             }
         }
