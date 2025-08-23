@@ -24,6 +24,7 @@ struct InstrumentUpdatesView: View {
     @State private var pinnedFirst = true
     @State private var selectedId: Int?
     @State private var attachmentCounts: [Int: Int] = [:]
+    @State private var attachmentPreviews: [Int: [Attachment]] = [:]
 
     @Environment(\.dismiss) private var dismiss
 
@@ -64,7 +65,18 @@ struct InstrumentUpdatesView: View {
                         }
                         HStack {
                             Text("Title: \(update.title)").fontWeight(.semibold)
-                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
+                            if let chips = attachmentPreviews[update.id] {
+                                HStack(spacing: 4) {
+                                    ForEach(chips, id: \.id) { att in
+                                        AttachmentThumbChip(attachment: att) {
+                                            AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
+                                        }
+                                    }
+                                    if let count = attachmentCounts[update.id], count > 3 {
+                                        Text("+\(count - 3) more").font(.caption)
+                                    }
+                                }
+                            }
                         }
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
                             .lineLimit(3)
@@ -143,10 +155,19 @@ struct InstrumentUpdatesView: View {
         updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId, pinnedFirst: pinnedFirst)
         isArchived = dbManager.getPortfolioTheme(id: themeId)?.archivedAt != nil
         instrumentExists = dbManager.listThemeAssets(themeId: themeId).contains { $0.instrumentId == instrumentId }
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+        if !updates.isEmpty {
             attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })
+            let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
+            attachmentPreviews = [:]
+            for upd in updates {
+                if (attachmentCounts[upd.id] ?? 0) > 0 {
+                    let list = repo.listAttachments(updateId: upd.id)
+                    attachmentPreviews[upd.id] = Array(list.prefix(3))
+                }
+            }
         } else {
             attachmentCounts = [:]
+            attachmentPreviews = [:]
         }
     }
 

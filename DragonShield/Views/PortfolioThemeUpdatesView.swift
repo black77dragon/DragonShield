@@ -24,6 +24,7 @@ struct PortfolioThemeUpdatesView: View {
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
     @State private var attachmentCounts: [Int: Int] = [:]
+    @State private var attachmentPreviews: [Int: [Attachment]] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -69,7 +70,19 @@ struct PortfolioThemeUpdatesView: View {
                         HStack {
                             Text("Title: \(update.title)").fontWeight(.semibold)
                             if update.pinned { Image(systemName: "star.fill") }
-                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
+                            if let chips = attachmentPreviews[update.id] {
+                                HStack(spacing: 4) {
+                                    ForEach(chips, id: \.id) { att in
+                                        AttachmentThumbChip(attachment: att) {
+                                            AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
+                                        }
+                                    }
+                                    if let count = attachmentCounts[update.id], count > 3 {
+                                        Text("+\(count - 3) more")
+                                            .font(.caption)
+                                    }
+                                }
+                            }
                         }
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
                             .lineLimit(3)
@@ -168,10 +181,19 @@ struct PortfolioThemeUpdatesView: View {
             themeName = theme.name
             isArchived = theme.archivedAt != nil
         }
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+        if !updates.isEmpty {
             attachmentCounts = dbManager.getAttachmentCounts(for: updates.map { $0.id })
+            let repo = ThemeUpdateRepository(dbManager: dbManager)
+            attachmentPreviews = [:]
+            for update in updates {
+                if (attachmentCounts[update.id] ?? 0) > 0 {
+                    let list = repo.listAttachments(updateId: update.id)
+                    attachmentPreviews[update.id] = Array(list.prefix(3))
+                }
+            }
         } else {
             attachmentCounts = [:]
+            attachmentPreviews = [:]
         }
     }
 

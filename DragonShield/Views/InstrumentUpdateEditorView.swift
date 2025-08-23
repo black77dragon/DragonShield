@@ -89,9 +89,7 @@ struct InstrumentUpdateEditorView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            if attachmentsEnabled {
-                attachmentsView
-            }
+            attachmentsView
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(breadcrumb?.positionsAsOf)) • Value CHF \(formatted(breadcrumb?.valueChf)) • Actual \(formattedPct(breadcrumb?.actualPercent))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -120,7 +118,7 @@ struct InstrumentUpdateEditorView: View {
         let pos = snap.positionsAsOf.map { formatter.string(from: $0) }
         let row = snap.rows.first { $0.instrumentId == instrumentId }
         breadcrumb = (pos, row?.currentValueBase, row?.actualPct)
-        if attachmentsEnabled, let existing = existing {
+        if let existing = existing {
             let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
             attachments = repo.listAttachments(updateId: existing.id)
         }
@@ -139,30 +137,22 @@ struct InstrumentUpdateEditorView: View {
     private func save() {
         if let existing = existing {
             if let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
-                if attachmentsEnabled {
-                    let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
-                    let currentIds = Set(attachments.map { $0.id })
-                    let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
-                    let added = currentIds.subtracting(initialIds)
-                    let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
-                    for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
-                    for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
-                }
+                let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
+                let currentIds = Set(attachments.map { $0.id })
+                let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
+                let added = currentIds.subtracting(initialIds)
+                let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
+                for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
+                for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
                 onSave(updated)
             }
         } else {
             if let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb) {
-                if attachmentsEnabled {
-                    let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
-                    for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
-                }
+                let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
+                for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
                 onSave(created)
             }
         }
-    }
-
-    var attachmentsEnabled: Bool {
-        FeatureFlags.portfolioAttachmentsEnabled()
     }
 
     @MainActor
@@ -228,10 +218,19 @@ struct InstrumentUpdateEditorView: View {
                 }
             Button("Attach Files…") { pickFiles() }
             ForEach(attachments, id: \.id) { att in
-                HStack {
-                    Text(att.originalFilename)
+                HStack(alignment: .center, spacing: 8) {
+                    AttachmentThumbChip(attachment: att) {
+                        AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
+                    }
+                    VStack(alignment: .leading) {
+                        Text(att.originalFilename)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(att.byteSize), countStyle: .file))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     Spacer()
                     Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
+                    Button("Reveal in Finder") { AttachmentService(dbManager: dbManager).revealInFinder(attachmentId: att.id) }
                     Button("Remove") { removeAttachment(att) }
                 }
             }

@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Render attachment thumbnails in editors and update lists without feature flags
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag
 - Store attachments on disk with original file extensions for Quick Look compatibility
