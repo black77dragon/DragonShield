@@ -1,8 +1,3 @@
-// DragonShield/Views/ThemeStatusSettingsView.swift
-// MARK: - Version 1.0
-// MARK: - History
-// - Initial creation: Manage PortfolioThemeStatus entries.
-
 import SwiftUI
 
 struct ThemeStatusSettingsView: View {
@@ -10,8 +5,8 @@ struct ThemeStatusSettingsView: View {
     @State private var statuses: [PortfolioThemeStatus] = []
     @State private var editing: PortfolioThemeStatus?
     @State private var isNew: Bool = false
-    @State private var showErrorAlert: Bool = false
-    @State private var errorMessage: String = ""
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     var body: some View {
         VStack {
@@ -20,7 +15,8 @@ struct ThemeStatusSettingsView: View {
                     HStack {
                         Text(status.code).frame(width: 80, alignment: .leading)
                         Text(status.name).frame(width: 120, alignment: .leading)
-                        Text(status.colorHex).frame(width: 80, alignment: .leading)
+                        ColorChip(hex: status.colorHex)
+                            .frame(width: 80, alignment: .leading)
                         Spacer()
                         Button(action: { dbManager.setDefaultThemeStatus(id: status.id); load() }) {
                             Image(systemName: status.isDefault ? "largecircle.fill.circle" : "circle")
@@ -34,7 +30,7 @@ struct ThemeStatusSettingsView: View {
             }
             HStack {
                 Button("+ Add Status") {
-                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: "#000000", isDefault: false)
+                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: ThemeStatusColorPreset.defaultPreset.hex, isDefault: false)
                     isNew = true
                 }
                 Spacer()
@@ -76,8 +72,11 @@ struct ThemeStatusEditView: View {
 
     @State private var code: String = ""
     @State private var name: String = ""
-    @State private var color: String = ""
+    @State private var color: String = ThemeStatusColorPreset.defaultPreset.hex
+    @State private var selection: String = ThemeStatusColorPreset.defaultPreset.hex
     @State private var isDefault: Bool = false
+
+    private let customTag = "custom"
 
     var body: some View {
         Form {
@@ -87,7 +86,24 @@ struct ThemeStatusEditView: View {
                 Text("Code: \(status.code)")
             }
             TextField("Name", text: $name)
-            TextField("Color", text: $color)
+            Picker("Color", selection: $selection) {
+                ForEach(ThemeStatusColorPreset.all) { preset in
+                    HStack {
+                        ColorChip(hex: preset.hex)
+                        Text(preset.name)
+                    }.tag(preset.hex)
+                }
+                Text("Custom…").tag(customTag)
+            }
+            if selection == customTag {
+                HStack {
+                    TextField("Hex", text: $color)
+                    ColorChip(hex: color)
+                }
+                if !PortfolioThemeStatus.isValidColor(color) {
+                    Text("Use format #RRGGBB.").foregroundColor(.red)
+                }
+            }
             Toggle("Default", isOn: $isDefault)
             HStack {
                 Spacer()
@@ -113,7 +129,18 @@ struct ThemeStatusEditView: View {
             code = status.code
             name = status.name
             color = status.colorHex
+            if let preset = ThemeStatusColorPreset.preset(for: status.colorHex) {
+                selection = preset.hex
+                color = preset.hex
+            } else {
+                selection = customTag
+            }
             isDefault = status.isDefault
+        }
+        .onChange(of: selection) { newValue in
+            if newValue != customTag {
+                color = newValue
+            }
         }
         .frame(minWidth: 300, minHeight: 200)
     }
@@ -121,5 +148,19 @@ struct ThemeStatusEditView: View {
     private var valid: Bool {
         let codeOk = isNew ? PortfolioThemeStatus.isValidCode(code) : true
         return codeOk && PortfolioThemeStatus.isValidName(name) && PortfolioThemeStatus.isValidColor(color)
+    }
+}
+
+struct ColorChip: View {
+    let hex: String
+    var label: String { hex.uppercased() }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 12))
+            .padding(4)
+            .background(Color(hex: hex) ?? .clear)
+            .foregroundColor(Color.contrastColor(for: hex))
+            .cornerRadius(4)
     }
 }
