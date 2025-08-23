@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce Attachment and ThemeUpdateAttachment tables with linking APIs for theme updates
+- Add AttachmentService and basic attachment UI in Theme Update editor gated by feature flag
+- Expose portfolioAttachmentsEnabled setting in UI to toggle attachments
 - Introduce Instrument Notes modal with tabs for instrument updates and theme mentions
 - Surface theme note mention counts and deep links from Instruments module
 - Cross-link Instrument Updates from Instruments module with theme chooser and counts

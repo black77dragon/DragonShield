@@ -4,6 +4,7 @@
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ThemeUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -25,6 +26,16 @@ struct ThemeUpdateEditorView: View {
     @State private var totalValueChf: Double?
 
     @State private var showHelp = false
+    @State private var attachments: [Attachment] = []
+    @State private var showFileImporter = false
+    @State private var attachmentError: String?
+
+    private let allowedUTTypes: [UTType] = [
+        .pdf, .png, .jpeg, .heic, .gif, .plainText, .commaSeparatedText, .markdown,
+        UTType(filenameExtension: "docx")!,
+        UTType(filenameExtension: "xlsx")!,
+        UTType(filenameExtension: "pptx")!
+    ]
 
     init(themeId: Int, themeName: String, existing: PortfolioThemeUpdate? = nil, onSave: @escaping (PortfolioThemeUpdate) -> Void, onCancel: @escaping () -> Void, logSource: String? = nil) {
         self.themeId = themeId
@@ -80,6 +91,36 @@ struct ThemeUpdateEditorView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            if attachmentsEnabled() {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Attachments")
+                        .font(.headline)
+                    ForEach(attachments, id: \.id) { att in
+                        HStack {
+                            Text(att.originalFilename)
+                            Spacer()
+                            Button("Remove") {
+                                attachments.removeAll { $0.id == att.id }
+                            }
+                        }
+                    }
+                    Button("Attach Files…") { showFileImporter = true }
+                    if let attachmentError = attachmentError {
+                        Text(attachmentError).foregroundColor(.red)
+                    }
+                }
+                .onDrop(of: allowedUTTypes, isTargeted: nil) { providers in
+                    handleDrop(providers: providers)
+                }
+                .fileImporter(isPresented: $showFileImporter, allowedContentTypes: allowedUTTypes, allowsMultipleSelection: true) { result in
+                    switch result {
+                    case .success(let urls):
+                        urls.forEach { handleFile(url: $0) }
+                    case .failure(let error):
+                        attachmentError = error.localizedDescription
+                    }
+                }
+            }
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(positionsAsOf)) • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
                 .foregroundColor(.secondary)
@@ -118,13 +159,49 @@ struct ThemeUpdateEditorView: View {
         totalValueChf = snap.totalValueBase
     }
 
+    func attachmentsEnabled(args: [String] = CommandLine.arguments,
+                            env: [String: String] = ProcessInfo.processInfo.environment,
+                            defaults: UserDefaults = .standard) -> Bool {
+        FeatureFlags.portfolioAttachmentsEnabled(args: args, env: env, defaults: defaults)
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        var found = false
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    if let data = item as? Data,
+                       let url = URL(dataRepresentation: data, relativeTo: nil) {
+                        DispatchQueue.main.async { self.handleFile(url: url) }
+                    }
+                }
+                found = true
+            }
+        }
+        return found
+    }
+
+    private func handleFile(url: URL) {
+        let service = AttachmentService(dbManager: dbManager)
+        do {
+            let att = try service.ingest(fileURL: url, actor: NSFullUserName())
+            attachments.append(att)
+        } catch {
+            attachmentError = error.localizedDescription
+        }
+    }
+
     private func save() {
         if let existing = existing {
             if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
+                let repo = ThemeUpdateRepository(dbManager: dbManager)
+                attachments.forEach { _ = repo.linkAttachment(updateId: updated.id, attachmentId: $0.id) }
                 onSave(updated)
             }
         } else {
             if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
+                let repo = ThemeUpdateRepository(dbManager: dbManager)
+                attachments.forEach { _ = repo.linkAttachment(updateId: created.id, attachmentId: $0.id) }
                 onSave(created)
             }
         }
