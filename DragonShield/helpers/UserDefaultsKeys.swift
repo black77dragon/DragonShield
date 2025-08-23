@@ -23,4 +23,6 @@ struct UserDefaultsKeys {
     static let currenciesFxSegment = "currenciesFxSegment"
     /// Remember last-used tab in Portfolio Theme Details.
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
+    /// Feature flag: enable attachments on theme updates.
+    static let portfolioAttachmentsEnabled = "portfolioAttachmentsEnabled"
 }
