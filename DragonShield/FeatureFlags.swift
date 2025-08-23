@@ -36,5 +36,23 @@ enum FeatureFlags {
         return false
     }
 
+    static func portfolioLinksEnabled(
+        args: [String] = CommandLine.arguments,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        if let idx = args.firstIndex(of: "--portfolioLinksEnabled"),
+           let value = args.dropFirst(idx + 1).first {
+            return value.lowercased() != "false"
+        }
+        if let value = env["PORTFOLIO_LINKS_ENABLED"] {
+            return value.lowercased() != "false"
+        }
+        if defaults.object(forKey: UserDefaultsKeys.portfolioLinksEnabled) != nil {
+            return defaults.bool(forKey: UserDefaultsKeys.portfolioLinksEnabled)
+        }
+        return false
+    }
+
 }
 

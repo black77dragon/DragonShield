@@ -16,4 +16,14 @@ final class FeatureFlagsTests: XCTestCase {
         XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
     }
 
+    func testLinksDisabledByDefault() {
+        XCTAssertFalse(FeatureFlags.portfolioLinksEnabled(args: [], env: [:], defaults: .standard))
+    }
+
+    func testLinksEnabledWhenDefaultsTrue() {
+        let defaults = UserDefaults(suiteName: "testLinksEnabled")!
+        defaults.set(true, forKey: UserDefaultsKeys.portfolioLinksEnabled)
+        XCTAssertTrue(FeatureFlags.portfolioLinksEnabled(args: [], env: [:], defaults: defaults))
+    }
+
 }
