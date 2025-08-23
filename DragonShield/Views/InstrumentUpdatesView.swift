@@ -23,6 +23,7 @@ struct InstrumentUpdatesView: View {
     @State private var showDeleteConfirm = false
     @State private var pinnedFirst = true
     @State private var selectedId: Int?
+    @State private var attachmentCounts: [Int: Int] = [:]
 
     @Environment(\.dismiss) private var dismiss
 
@@ -61,7 +62,10 @@ struct InstrumentUpdatesView: View {
                             Spacer()
                             Text(update.pinned ? "★ Pinned" : "☆")
                         }
-                        Text("Title: \(update.title)").fontWeight(.semibold)
+                        HStack {
+                            Text("Title: \(update.title)").fontWeight(.semibold)
+                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
+                        }
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
                             .lineLimit(3)
                         Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Value CHF \(formatted(update.valueChf)) • Actual \(formattedPct(update.actualPercent))")
@@ -139,6 +143,11 @@ struct InstrumentUpdatesView: View {
         updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId, pinnedFirst: pinnedFirst)
         isArchived = dbManager.getPortfolioTheme(id: themeId)?.archivedAt != nil
         instrumentExists = dbManager.listThemeAssets(themeId: themeId).contains { $0.instrumentId == instrumentId }
+        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+            attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })
+        } else {
+            attachmentCounts = [:]
+        }
     }
 
     private var selectedUpdate: PortfolioThemeAssetUpdate? {

@@ -187,7 +187,19 @@ final class AttachmentService {
         sqlite3_finalize(stmt)
         guard let hash = sha else { return false }
 
-        // Attempt DB deletion first to honor foreign key constraints
+        let unlink1 = "DELETE FROM ThemeUpdateAttachment WHERE attachment_id = ?"
+        if sqlite3_prepare_v2(db, unlink1, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(attachmentId))
+            _ = sqlite3_step(stmt)
+            sqlite3_finalize(stmt)
+        }
+        let unlink2 = "DELETE FROM ThemeAssetUpdateAttachment WHERE attachment_id = ?"
+        if sqlite3_prepare_v2(db, unlink2, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(attachmentId))
+            _ = sqlite3_step(stmt)
+            sqlite3_finalize(stmt)
+        }
+
         let deleteSQL = "DELETE FROM Attachment WHERE id = ?"
         guard sqlite3_prepare_v2(db, deleteSQL, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare deleteAttachment failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -210,14 +222,13 @@ final class AttachmentService {
             }
         } catch {
             LoggingService.shared.log("Failed to remove attachment file \(file.path): \(error)", type: .error, logger: .database)
-            // File system cleanup failure is non-fatal
         }
         return true
     }
 
     func cleanupOrphans() -> Int {
         guard let db = dbManager.db else { return 0 }
-        let sql = "SELECT id, sha256, ext FROM Attachment WHERE id NOT IN (SELECT attachment_id FROM ThemeUpdateAttachment)"
+        let sql = "SELECT id, sha256, ext FROM Attachment WHERE id NOT IN (SELECT attachment_id FROM ThemeUpdateAttachment UNION SELECT attachment_id FROM ThemeAssetUpdateAttachment)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return 0 }
         var deleted = 0
@@ -230,6 +241,10 @@ final class AttachmentService {
                 .appendingPathComponent(String(sha.prefix(2)))
                 .appendingPathComponent(sha + (ext.map { ".\($0)" } ?? ""))
             try? fm.removeItem(at: file)
+            let parent = file.deletingLastPathComponent()
+            if let contents = try? fm.contentsOfDirectory(atPath: parent.path), contents.isEmpty {
+                try? fm.removeItem(at: parent)
+            }
             deleteAttachmentRow(id: id, db: db)
             deleted += 1
         }
