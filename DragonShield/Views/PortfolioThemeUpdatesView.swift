@@ -8,6 +8,8 @@ import SwiftUI
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
+    let initialSearchText: String?
+    let searchHint: String?
 
     @State private var updates: [PortfolioThemeUpdate] = []
     @State private var showEditor = false
@@ -51,6 +53,12 @@ struct PortfolioThemeUpdatesView: View {
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
                     .onChange(of: pinnedFirst) { _ in load() }
+            }
+            if let hint = searchHint {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
             }
             List(selection: $selectedId) {
                 ForEach(updates) { update in
@@ -125,7 +133,12 @@ struct PortfolioThemeUpdatesView: View {
                 .keyboardShortcut(.delete, modifiers: [])
                 .hidden()
         }
-        .onAppear { load() }
+        .onAppear {
+            if let s = initialSearchText, searchText.isEmpty {
+                searchText = s
+            }
+            load()
+        }
         .sheet(isPresented: $showEditor) {
             ThemeUpdateEditorView(themeId: themeId, themeName: themeName, onSave: { _ in
                 showEditor = false

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DragonAsset: Identifiable {
-    var id = UUID()
+    var id: Int
     var name: String
     var type: String
     var currency: String
@@ -30,6 +30,7 @@ class AssetManager: ObservableObject {
         let loadedAssets = instrumentData.map { instrument in
             let typeName = assetTypeLookup[instrument.subClassId] ?? "Unknown"
             return DragonAsset(
+                id: instrument.id,
                 name: instrument.name,
                 type: typeName,
                 currency: instrument.currency,
