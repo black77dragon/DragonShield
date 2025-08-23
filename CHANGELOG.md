@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add Overview tab to Portfolio Theme details and set it as default
 - Introduce Link and ThemeUpdateLink tables with LinkService for theme update URLs (migration 021)
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag

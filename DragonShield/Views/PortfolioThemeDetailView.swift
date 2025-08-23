@@ -4,6 +4,7 @@
 import SwiftUI
 
 enum DetailTab: String, CaseIterable {
+    case overview
     case composition
     case valuation
     case updates
@@ -21,8 +22,8 @@ struct PortfolioThemeDetailView: View {
     var onUnarchive: (Int) -> Void
     var onSoftDelete: () -> Void
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(UserDefaultsKeys.portfolioThemeDetailLastTab) private var lastTabRaw: String = DetailTab.composition.rawValue
-    @State private var selectedTab: DetailTab = .composition
+    @AppStorage(UserDefaultsKeys.portfolioThemeDetailLastTab) private var lastTabRaw: String = DetailTab.overview.rawValue
+    @State private var selectedTab: DetailTab = .overview
 
     @State private var theme: PortfolioTheme?
     @State private var name: String = ""
@@ -70,7 +71,7 @@ struct PortfolioThemeDetailView: View {
     private let labelWidth: CGFloat = 140
     private let noteMaxLength = NoteEditorView.maxLength
 
-    init(themeId: Int, origin: String, initialTab: DetailTab = .composition, initialSearch: String? = nil, searchHint: String? = nil, onSave: @escaping (PortfolioTheme) -> Void = { _ in }, onArchive: @escaping () -> Void = {}, onUnarchive: @escaping (Int) -> Void = { _ in }, onSoftDelete: @escaping () -> Void = {}) {
+    init(themeId: Int, origin: String, initialTab: DetailTab = .overview, initialSearch: String? = nil, searchHint: String? = nil, onSave: @escaping (PortfolioTheme) -> Void = { _ in }, onArchive: @escaping () -> Void = {}, onUnarchive: @escaping (Int) -> Void = { _ in }, onSoftDelete: @escaping () -> Void = {}) {
         self.themeId = themeId
         self.origin = origin
         self.initialTab = initialTab
@@ -86,6 +87,9 @@ struct PortfolioThemeDetailView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 TabView(selection: $selectedTab) {
+                    overviewTab
+                        .tag(DetailTab.overview)
+                        .tabItem { Text("Overview") }
                     compositionTab
                         .tag(DetailTab.composition)
                         .tabItem { Text("Composition") }
@@ -196,6 +200,10 @@ struct PortfolioThemeDetailView: View {
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var overviewTab: some View {
+        Text("Overview")
     }
 
     private var updatesTab: some View {

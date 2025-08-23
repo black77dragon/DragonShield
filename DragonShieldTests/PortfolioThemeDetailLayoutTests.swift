@@ -34,6 +34,7 @@ final class PortfolioThemeDetailLayoutTests: XCTestCase {
         sqlite3_exec(manager.db, sql, nil, nil, nil)
         _ = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: nil, institutionId: nil, statusId: 1)
         let view = PortfolioThemeDetailView(themeId: 1, origin: "test").environmentObject(manager)
+        XCTAssertEqual(view.initialTab, .overview)
         XCTAssertNotNil(view.body)
         sqlite3_close(mem)
     }
