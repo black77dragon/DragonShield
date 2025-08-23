@@ -228,11 +228,16 @@ struct InstrumentUpdateEditorView: View {
                 }
             Button("Attach Files…") { pickFiles() }
             ForEach(attachments, id: \.id) { att in
-                HStack {
+                HStack(spacing: 8) {
+                    AttachmentThumbnailView(attachment: att)
                     Text(att.originalFilename)
                     Spacer()
                     Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
+                        .accessibilityLabel("Quick Look \(att.originalFilename)")
+                    Button("Reveal") { AttachmentService(dbManager: dbManager).revealInFinder(attachmentId: att.id) }
+                        .accessibilityLabel("Reveal \(att.originalFilename) in Finder")
                     Button("Remove") { removeAttachment(att) }
+                        .accessibilityLabel("Remove attachment \(att.originalFilename)")
                 }
             }
         }
