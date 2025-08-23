@@ -201,12 +201,8 @@ struct PortfolioThemeUpdatesView: View {
             themeName = theme.name
             isArchived = theme.archivedAt != nil
         }
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
-            attachmentCounts = dbManager.getAttachmentCounts(for: updates.map { $0.id })
-        } else {
-            attachmentCounts = [:]
-        }
         if !updates.isEmpty {
+            attachmentCounts = dbManager.getAttachmentCounts(for: updates.map { $0.id })
             let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
             var dict: [Int: [Link]] = [:]
             for u in updates {
@@ -214,6 +210,7 @@ struct PortfolioThemeUpdatesView: View {
             }
             linkPreviews = dict
         } else {
+            attachmentCounts = [:]
             linkPreviews = [:]
         }
     }
