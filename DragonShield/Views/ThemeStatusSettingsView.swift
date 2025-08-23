@@ -20,7 +20,12 @@ struct ThemeStatusSettingsView: View {
                     HStack {
                         Text(status.code).frame(width: 80, alignment: .leading)
                         Text(status.name).frame(width: 120, alignment: .leading)
-                        Text(status.colorHex).frame(width: 80, alignment: .leading)
+                        Text(status.colorHex)
+                            .foregroundColor(ColorContrast.isDark(hex: status.colorHex) ? .white : .black)
+                            .padding(4)
+                            .background(Color(hex: status.colorHex) ?? .clear)
+                            .cornerRadius(4)
+                            .frame(width: 80, alignment: .leading)
                         Spacer()
                         Button(action: { dbManager.setDefaultThemeStatus(id: status.id); load() }) {
                             Image(systemName: status.isDefault ? "largecircle.fill.circle" : "circle")
@@ -34,7 +39,7 @@ struct ThemeStatusSettingsView: View {
             }
             HStack {
                 Button("+ Add Status") {
-                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: "#000000", isDefault: false)
+                    editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: "#10B981", isDefault: false)
                     isNew = true
                 }
                 Spacer()
@@ -77,7 +82,37 @@ struct ThemeStatusEditView: View {
     @State private var code: String = ""
     @State private var name: String = ""
     @State private var color: String = ""
+    @State private var selectedIndex: Int = 0
     @State private var isDefault: Bool = false
+
+    private struct ColorPreset: Identifiable, Hashable {
+        let name: String
+        let hex: String
+        var id: String { name }
+    }
+
+    private let presets: [ColorPreset] = [
+        ColorPreset(name: "Red", hex: "#EF4444"),
+        ColorPreset(name: "Orange", hex: "#F97316"),
+        ColorPreset(name: "Amber", hex: "#F59E0B"),
+        ColorPreset(name: "Yellow", hex: "#EAB308"),
+        ColorPreset(name: "Lime", hex: "#84CC16"),
+        ColorPreset(name: "Green", hex: "#22C55E"),
+        ColorPreset(name: "Emerald", hex: "#10B981"),
+        ColorPreset(name: "Teal", hex: "#14B8A6"),
+        ColorPreset(name: "Cyan", hex: "#06B6D4"),
+        ColorPreset(name: "Sky", hex: "#0EA5E9"),
+        ColorPreset(name: "Blue", hex: "#3B82F6"),
+        ColorPreset(name: "Indigo", hex: "#6366F1"),
+        ColorPreset(name: "Violet", hex: "#8B5CF6"),
+        ColorPreset(name: "Purple", hex: "#A855F7"),
+        ColorPreset(name: "Fuchsia", hex: "#D946EF"),
+        ColorPreset(name: "Pink", hex: "#EC4899"),
+        ColorPreset(name: "Rose", hex: "#F43F5E"),
+        ColorPreset(name: "Slate", hex: "#64748B"),
+        ColorPreset(name: "Gray", hex: "#6B7280"),
+        ColorPreset(name: "Stone", hex: "#78716C")
+    ]
 
     var body: some View {
         Form {
@@ -87,7 +122,48 @@ struct ThemeStatusEditView: View {
                 Text("Code: \(status.code)")
             }
             TextField("Name", text: $name)
-            TextField("Color", text: $color)
+            Picker(selection: $selectedIndex) {
+                ForEach(presets.indices, id: .self) { idx in
+                    let preset = presets[idx]
+                    HStack {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color(hex: preset.hex) ?? .clear)
+                            .frame(width: 16, height: 16)
+                        Text(preset.name)
+                    }.tag(idx)
+                }
+                Divider()
+                Text("Custom…").tag(presets.count)
+            } label: {
+                HStack {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(hex: color) ?? .clear)
+                        .frame(width: 16, height: 16)
+                    Text(selectedIndex < presets.count ? presets[selectedIndex].name : "Custom")
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .onChange(of: selectedIndex) { idx in
+                if idx < presets.count {
+                    color = presets[idx].hex
+                }
+            }
+            .accessibilityLabel("Color, popup button, current selection: \(selectedIndex < presets.count ? presets[selectedIndex].name : "Custom") (\(color))")
+
+            if selectedIndex == presets.count {
+                HStack {
+                    Text("Hex")
+                    TextField("#RRGGBB", text: $color)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(hex: color) ?? .clear)
+                        .frame(width: 20, height: 20)
+                        .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.secondary))
+                }
+                if !PortfolioThemeStatus.isValidColor(color) {
+                    Text("Use format #RRGGBB.").foregroundColor(.red)
+                }
+            }
+
             Toggle("Default", isOn: $isDefault)
             HStack {
                 Spacer()
@@ -114,12 +190,19 @@ struct ThemeStatusEditView: View {
             name = status.name
             color = status.colorHex
             isDefault = status.isDefault
+            if let idx = presets.firstIndex(where: { $0.hex.caseInsensitiveCompare(status.colorHex) == .orderedSame }) {
+                selectedIndex = idx
+                color = presets[idx].hex
+            } else {
+                selectedIndex = presets.count
+            }
         }
         .frame(minWidth: 300, minHeight: 200)
     }
 
     private var valid: Bool {
         let codeOk = isNew ? PortfolioThemeStatus.isValidCode(code) : true
-        return codeOk && PortfolioThemeStatus.isValidName(name) && PortfolioThemeStatus.isValidColor(color)
+        let colorOk = selectedIndex < presets.count ? true : PortfolioThemeStatus.isValidColor(color)
+        return codeOk && PortfolioThemeStatus.isValidName(name) && colorOk
     }
 }
