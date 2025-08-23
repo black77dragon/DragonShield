@@ -222,7 +222,7 @@ struct InstrumentUpdateEditorView: View {
                                 urls.append(url)
                             }
                         }
-                        await addFiles(urls: urls)
+                        addFiles(urls: urls)
                     }
                     return true
                 }
