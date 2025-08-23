@@ -289,14 +289,14 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
-                            .onChange(of: asset.researchTargetPct) {
+                            .onChange(of: asset.researchTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
-                            .onChange(of: asset.userTargetPct) {
+                            .onChange(of: asset.userTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
                         TextField("", text: Binding(
