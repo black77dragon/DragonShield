@@ -9,9 +9,6 @@ struct PortfolioView: View {
     @State private var showingDeleteAlert = false
     @State private var assetToDelete: DragonAsset? = nil
     @State private var searchText = ""
-    @State private var themeChooser: ThemeChooserData?
-    @State private var updatesTarget: UpdatesTarget?
-
     // Filtering & Sorting
     @State private var typeFilters: Set<String> = []
     @State private var currencyFilters: Set<String> = []
@@ -22,20 +19,7 @@ struct PortfolioView: View {
         case name, type, currency, symbol, valor, isin
     }
 
-    private struct ThemeChooserData: Identifiable {
-        let instrumentId: Int
-        let instrumentName: String
-        var id: Int { instrumentId }
-    }
-
-    private struct UpdatesTarget: Identifiable {
-        let themeId: Int
-        let themeName: String
-        let instrumentId: Int
-        let instrumentName: String
-        var id: Int { themeId }
-    }
-    
+    // Animation states
     // Animation states
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
@@ -120,28 +104,15 @@ struct PortfolioView: View {
                 }
         }
         .sheet(isPresented: $showEditInstrumentSheet) {
-            if let asset = selectedAsset,
-               let instrumentId = getInstrumentId(for: asset) {
-                InstrumentEditView(instrumentId: instrumentId)
+            if let asset = selectedAsset {
+                InstrumentEditView(instrumentId: asset.id)
                     .onDisappear {
                         assetManager.loadAssets()
                         selectedAsset = nil
                     }
             }
         }
-        .sheet(item: $themeChooser) { data in
-            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName) { info in
-                updatesTarget = UpdatesTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName)
-                let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "context_menu"]
-                if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
-                    LoggingService.shared.log(log, logger: .ui)
-                }
-            }
-        }
-        .sheet(item: $updatesTarget) { target in
-            InstrumentUpdatesView(themeId: target.themeId, instrumentId: target.instrumentId, instrumentName: target.instrumentName, themeName: target.themeName, onClose: {})
-                .environmentObject(DatabaseManager())
-        }
+        
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -364,11 +335,6 @@ struct PortfolioView: View {
                             onEdit: {
                                 selectedAsset = asset
                                 showEditInstrumentSheet = true
-                            },
-                            onUpdates: {
-                                if let instrumentId = getInstrumentId(for: asset) {
-                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name)
-                                }
                             }
                         )
                     }
@@ -407,6 +373,12 @@ struct PortfolioView: View {
 
             headerCell(title: "ISIN", column: .isin)
                 .frame(width: 140, alignment: .leading)
+
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                Image(systemName: "note.text")
+                    .frame(width: 32, alignment: .center)
+                    .help("Notes")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -630,22 +602,14 @@ struct PortfolioView: View {
     
     // MARK: - Functions
     func confirmDelete(_ asset: DragonAsset) {
-        if let instrumentId = getInstrumentId(for: asset) {
-            let dbManager = DatabaseManager()
-            let success = dbManager.deleteInstrument(id: instrumentId)
-            
-            if success {
-                assetManager.loadAssets()
-                selectedAsset = nil
-                assetToDelete = nil
-            }
-        }
-    }
-    
-    private func getInstrumentId(for asset: DragonAsset) -> Int? {
         let dbManager = DatabaseManager()
-        let instruments = dbManager.fetchAssets()
-        return instruments.first { $0.name == asset.name }?.id
+        let success = dbManager.deleteInstrument(id: asset.id)
+
+        if success {
+            assetManager.loadAssets()
+            selectedAsset = nil
+            assetToDelete = nil
+        }
     }
 }
 
@@ -655,8 +619,7 @@ struct ModernAssetRowView: View {
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
-    let onUpdates: () -> Void
-    
+
     var body: some View {
         HStack {
             Text(asset.name)
@@ -693,6 +656,11 @@ struct ModernAssetRowView: View {
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(width: 140, alignment: .leading)
+
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
+                    .frame(width: 32, alignment: .center)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -718,11 +686,6 @@ struct ModernAssetRowView: View {
             Button("Select Instrument") {
                 onTap()
             }
-            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                Button("Updates in Themes…") {
-                    onUpdates()
-                }
-            }
             Divider()
             Button("Copy Name") {
                 let pasteboard = NSPasteboard.general
@@ -738,6 +701,93 @@ struct ModernAssetRowView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+}
+
+struct NotesIconView: View {
+    let instrumentId: Int
+    let instrumentName: String
+    let instrumentCode: String
+
+    @State private var updatesCount: Int?
+    @State private var mentionsCount: Int?
+    @State private var showModal = false
+    @State private var initialTab: InstrumentNotesView.Tab = .updates
+
+    private static var cache: [Int: (Int, Int)] = [:]
+
+    var body: some View {
+        Button(action: openDefault) {
+            Image(systemName: "note.text")
+                .font(.system(size: 14))
+                .foregroundColor(hasNotes ? .accentColor : .gray)
+                .opacity(hasNotes ? 1 : 0.3)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("Open notes for \(instrumentName)")
+        .help(tooltip)
+        .contextMenu {
+            Button("Open Updates") { openUpdates() }
+            Button("Open Mentions") { openMentions() }
+        }
+        .sheet(isPresented: $showModal) {
+            InstrumentNotesView(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName, initialTab: initialTab, initialThemeId: nil, onClose: {
+                showModal = false
+                NotesIconView.invalidateCache(instrumentId: instrumentId)
+                loadCounts()
+            })
+                .environmentObject(DatabaseManager())
+        }
+        .onAppear { loadCounts() }
+    }
+
+    private var hasNotes: Bool {
+        (updatesCount ?? 0) > 0 || (mentionsCount ?? 0) > 0
+    }
+
+    private var tooltip: String {
+        if let u = updatesCount, let m = mentionsCount {
+            return (u == 0 && m == 0) ? "Open notes (no notes yet)" : "Updates: \(u) • Mentions: \(m)"
+        } else {
+            return "Open notes"
+        }
+    }
+
+    private func openDefault() {
+        let last = UserDefaults.standard.string(forKey: "instrumentNotesLastTab")
+        initialTab = last == "mentions" ? .mentions : .updates
+        showModal = true
+    }
+
+    private func openUpdates() {
+        initialTab = .updates
+        showModal = true
+    }
+
+    private func openMentions() {
+        initialTab = .mentions
+        showModal = true
+    }
+
+    private func loadCounts() {
+        if let cached = NotesIconView.cache[instrumentId] {
+            updatesCount = cached.0
+            mentionsCount = cached.1
+            return
+        }
+        DispatchQueue.global().async {
+            let db = DatabaseManager()
+            let summary = db.instrumentNotesSummary(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
+            DispatchQueue.main.async {
+                updatesCount = summary.updates
+                mentionsCount = summary.mentions
+                NotesIconView.cache[instrumentId] = (summary.updates, summary.mentions)
+            }
+        }
+    }
+
+    static func invalidateCache(instrumentId: Int) {
+        cache.removeValue(forKey: instrumentId)
     }
 }
 
