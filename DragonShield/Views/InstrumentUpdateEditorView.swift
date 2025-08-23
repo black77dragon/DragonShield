@@ -205,6 +205,8 @@ struct InstrumentUpdateEditorView: View {
 
     @ViewBuilder
     private var attachmentsView: some View {
+        let attachmentService = AttachmentService(dbManager: dbManager)
+        let thumbnailService = ThumbnailService()
         VStack(alignment: .leading, spacing: 8) {
             Text("Attachments")
                 .font(.headline)
@@ -228,12 +230,12 @@ struct InstrumentUpdateEditorView: View {
                 }
             Button("Attach Files…") { pickFiles() }
             ForEach(attachments, id: \.id) { att in
-                HStack {
-                    Text(att.originalFilename)
-                    Spacer()
-                    Button("Quick Look") { AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id) }
-                    Button("Remove") { removeAttachment(att) }
-                }
+                AttachmentRowView(
+                    attachment: att,
+                    thumbnailService: thumbnailService,
+                    attachmentService: attachmentService,
+                    onRemove: { removeAttachment(att) }
+                )
             }
         }
         .padding(.vertical, 8)
