@@ -3,11 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Introduce Link and ThemeUpdateLink tables with LinkService and feature flag for theme update URLs (migration 021)
 - Enable attachments for instrument updates with ThemeAssetUpdateAttachment table and shared cleanup (migration 020)
 - Add AttachmentService and attachments UI for theme updates behind feature flag
 - Store attachments on disk with original file extensions for Quick Look compatibility
 - Introduce Attachment and ThemeUpdateAttachment tables with linking APIs for theme updates
 - Expose portfolioAttachmentsEnabled setting in UI to toggle attachments
+- Expose portfolioLinksEnabled setting in UI to toggle links
 - Fix attachment type validation and update deprecated onChange handlers for macOS 14
 - Introduce Instrument Notes modal with tabs for instrument updates and theme mentions
 - Surface theme note mention counts and deep links from Instruments module

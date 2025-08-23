@@ -24,6 +24,8 @@ struct SettingsView: View {
 
     @AppStorage(UserDefaultsKeys.portfolioAttachmentsEnabled)
     private var portfolioAttachmentsEnabled: Bool = false
+    @AppStorage(UserDefaultsKeys.portfolioLinksEnabled)
+    private var portfolioLinksEnabled: Bool = false
 
 
     private var okCount: Int {
@@ -127,6 +129,7 @@ struct SettingsView: View {
 
             Section(header: Text("Portfolio Management")) {
                 Toggle("Enable Attachments for Theme Updates", isOn: $portfolioAttachmentsEnabled)
+                Toggle("Enable Links for Theme Updates", isOn: $portfolioLinksEnabled)
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 
