@@ -49,7 +49,7 @@ struct InstrumentUpdatesView: View {
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
-                    .onChange(of: pinnedFirst) { _ in load() }
+                    .onChange(of: pinnedFirst) { _, _ in load() }
             }
             .padding(.horizontal, 16)
             List(selection: $selectedId) {
