@@ -25,4 +25,6 @@ struct UserDefaultsKeys {
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
     /// Feature flag: enable attachments on theme updates.
     static let portfolioAttachmentsEnabled = "portfolioAttachmentsEnabled"
+    /// Feature flag: enable links on theme updates.
+    static let portfolioLinksEnabled = "portfolioLinksEnabled"
 }
