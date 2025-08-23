@@ -36,12 +36,15 @@ struct InstrumentEditView: View {
         let themeId: Int
         let name: String
         let isArchived: Bool
-        let count: Int
+        let updatesCount: Int
+        let mentionsCount: Int
         var id: Int { themeId }
     }
     @State private var themeInfos: [ThemeInfo] = []
     @State private var themeQuery = ""
-    @State private var selectedTheme: ThemeInfo?
+    @State private var showNotes = false
+    @State private var notesInitialThemeId: Int? = nil
+    @State private var notesInitialTab: InstrumentNotesView.Tab = .updates
     
     // MARK: - Validation
     var isValid: Bool {
@@ -146,8 +149,8 @@ struct InstrumentEditView: View {
         } message: {
             Text(alertMessage)
         }
-        .sheet(item: $selectedTheme) { info in
-            InstrumentUpdatesView(themeId: info.themeId, instrumentId: instrumentId, instrumentName: instrumentName, themeName: info.name, onClose: { loadThemeInfos() })
+        .sheet(isPresented: $showNotes) {
+            InstrumentNotesView(instrumentId: instrumentId, instrumentCode: tickerSymbol.isEmpty ? instrumentName : tickerSymbol.uppercased(), instrumentName: instrumentName, initialTab: notesInitialTab, initialThemeId: notesInitialThemeId, onClose: { showNotes = false; loadThemeInfos() })
                 .environmentObject(DatabaseManager())
         }
     }
@@ -428,10 +431,8 @@ struct InstrumentEditView: View {
             HStack {
                 sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
                 Spacer()
-                if filteredThemes.count == 1 {
-                    Button("Open Updates") { openTheme(filteredThemes[0]) }
+                Button("Open Instrument Notes") { openInstrumentNotes() }
                         .buttonStyle(.borderedProminent)
-                }
             }
             if themeInfos.isEmpty {
                 Text("This instrument is not part of any portfolio theme.")
@@ -450,12 +451,14 @@ struct InstrumentEditView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Text("\(info.count)")
-                        Button("Open Updates") { openTheme(info) }
+                        Text("\(info.updatesCount) • \(info.mentionsCount)")
+                        Button("Open Updates") { openUpdates(info) }
+                            .buttonStyle(.borderless)
+                        Button("Open Mentions") { openMentions(info) }
                             .buttonStyle(.borderless)
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { openTheme(info) }
+                    .onTapGesture { openUpdates(info) }
                 }
             }
         }
@@ -477,20 +480,45 @@ struct InstrumentEditView: View {
     }
 
     private func loadThemeInfos() {
-        let rows = DatabaseManager().listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId)
-        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, count: $0.updatesCount) }
+        let rows = DatabaseManager().listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId, instrumentCode: tickerSymbol, instrumentName: instrumentName)
+        themeInfos = rows.map { ThemeInfo(themeId: $0.themeId, name: $0.themeName, isArchived: $0.isArchived, updatesCount: $0.updatesCount, mentionsCount: $0.mentionsCount) }
         let payload: [String: Any] = ["instrumentId": instrumentId, "themesListed": rows.count, "action": "updates_in_themes_panel_shown"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
         }
     }
 
-    private func openTheme(_ info: ThemeInfo) {
-        selectedTheme = info
+    private func openUpdates(_ info: ThemeInfo) {
+        notesInitialThemeId = info.themeId
+        notesInitialTab = .updates
+        showNotes = true
         let payload: [String: Any] = ["instrumentId": instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "panel"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
             LoggingService.shared.log(log, logger: .ui)
         }
+    }
+
+    private func openMentions(_ info: ThemeInfo) {
+        notesInitialThemeId = info.themeId
+        notesInitialTab = .mentions
+        showNotes = true
+        let query = tickerSymbol.isEmpty ? instrumentName : tickerSymbol.uppercased()
+        let payload: [String: Any] = [
+            "instrumentId": instrumentId,
+            "themeId": info.themeId,
+            "action": "theme_mentions_open",
+            "query": query,
+            "source": "panel",
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .ui)
+        }
+    }
+
+    private func openInstrumentNotes() {
+        notesInitialThemeId = nil
+        notesInitialTab = .updates
+        showNotes = true
     }
     
     // MARK: - Edit Glassmorphism Background

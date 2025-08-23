@@ -10,7 +10,7 @@ struct PortfolioView: View {
     @State private var assetToDelete: DragonAsset? = nil
     @State private var searchText = ""
     @State private var themeChooser: ThemeChooserData?
-    @State private var updatesTarget: UpdatesTarget?
+    @State private var notesTarget: NotesTarget?
 
     // Filtering & Sorting
     @State private var typeFilters: Set<String> = []
@@ -25,17 +25,20 @@ struct PortfolioView: View {
     private struct ThemeChooserData: Identifiable {
         let instrumentId: Int
         let instrumentName: String
+        let instrumentCode: String
         var id: Int { instrumentId }
     }
 
-    private struct UpdatesTarget: Identifiable {
-        let themeId: Int
-        let themeName: String
+    private struct NotesTarget: Identifiable {
+        let id = UUID()
         let instrumentId: Int
         let instrumentName: String
-        var id: Int { themeId }
+        let instrumentCode: String
+        let initialTab: InstrumentNotesView.Tab
+        let initialThemeId: Int?
     }
-    
+
+    // Animation states
     // Animation states
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
@@ -130,18 +133,26 @@ struct PortfolioView: View {
             }
         }
         .sheet(item: $themeChooser) { data in
-            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName) { info in
-                updatesTarget = UpdatesTarget(themeId: info.themeId, themeName: info.name, instrumentId: data.instrumentId, instrumentName: data.instrumentName)
+            InstrumentThemeChooserView(instrumentId: data.instrumentId, instrumentName: data.instrumentName, instrumentCode: data.instrumentCode, onSelect: { info in
+                notesTarget = NotesTarget(instrumentId: data.instrumentId, instrumentName: data.instrumentName, instrumentCode: data.instrumentCode, initialTab: .updates, initialThemeId: info.themeId)
                 let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "instrument_updates_open", "source": "context_menu"]
                 if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
                     LoggingService.shared.log(log, logger: .ui)
                 }
-            }
+            }, onOpenMentions: { info in
+                notesTarget = NotesTarget(instrumentId: data.instrumentId, instrumentName: data.instrumentName, instrumentCode: data.instrumentCode, initialTab: .mentions, initialThemeId: info.themeId)
+                let query = data.instrumentCode.isEmpty ? data.instrumentName : data.instrumentCode.uppercased()
+                let payload: [String: Any] = ["instrumentId": data.instrumentId, "themeId": info.themeId, "action": "theme_mentions_open", "query": query, "source": "context_menu"]
+                if let d = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: d, encoding: .utf8) {
+                    LoggingService.shared.log(log, logger: .ui)
+                }
+            })
         }
-        .sheet(item: $updatesTarget) { target in
-            InstrumentUpdatesView(themeId: target.themeId, instrumentId: target.instrumentId, instrumentName: target.instrumentName, themeName: target.themeName, onClose: {})
+        .sheet(item: $notesTarget) { target in
+            InstrumentNotesView(instrumentId: target.instrumentId, instrumentCode: target.instrumentCode, instrumentName: target.instrumentName, initialTab: target.initialTab, initialThemeId: target.initialThemeId, onClose: { notesTarget = nil })
                 .environmentObject(DatabaseManager())
         }
+        
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -365,9 +376,9 @@ struct PortfolioView: View {
                                 selectedAsset = asset
                                 showEditInstrumentSheet = true
                             },
-                            onUpdates: {
+                            onNotes: {
                                 if let instrumentId = getInstrumentId(for: asset) {
-                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name)
+                                    themeChooser = ThemeChooserData(instrumentId: instrumentId, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
                                 }
                             }
                         )
@@ -655,7 +666,7 @@ struct ModernAssetRowView: View {
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
-    let onUpdates: () -> Void
+    let onNotes: () -> Void
     
     var body: some View {
         HStack {
@@ -719,8 +730,8 @@ struct ModernAssetRowView: View {
                 onTap()
             }
             if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                Button("Updates in Themes…") {
-                    onUpdates()
+                Button("Instrument Notes…") {
+                    onNotes()
                 }
             }
             Divider()
