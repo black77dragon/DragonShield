@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Expand Asset SubClass picker sheet to display more rows
 - Ensure Portfolio Theme Overview date filter handles fractional-second timestamps and add tests for 7/30/90 day ranges
 - Replace Asset SubClass menu with searchable, alphabetically sorted picker in Add and Edit Instrument views
 - Remove duplicate note previews from Theme Details Overview rows
