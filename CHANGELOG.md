@@ -15,10 +15,14 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Changed
 - Replace status alerts with SwiftUI windows (#PR_NUMBER)
+- Replace legacy theme updates list with card-based overview (#PR_NUMBER)
 
 ### Fixed
 
+- Resolve ambiguous purgePositionReports overload causing build errors (#PR_NUMBER)
+
 ### Removed
+- Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
 
 ### Security
 

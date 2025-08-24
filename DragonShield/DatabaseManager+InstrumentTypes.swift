@@ -187,7 +187,9 @@ extension DatabaseManager {
         return result
     }
     
-    func purgePositionReports(subClassId: Int) {
+    /// Removes all position reports and instruments for the given subclass.
+    /// - Parameter subClassId: The subclass whose data should be purged.
+    func purgeInstrumentTypeData(subClassId: Int) {
         let deleteReportsQuery = """
             DELETE FROM PositionReports
             WHERE instrument_id IN (
@@ -218,7 +220,7 @@ extension DatabaseManager {
     }
 
     func deleteInstrumentType(id: Int) -> (success: Bool, usage: [(table: String, field: String, count: Int)]) { // Hard delete
-        purgePositionReports(subClassId: id)
+        purgeInstrumentTypeData(subClassId: id)
 
         let usage = usageDetailsForInstrumentType(id: id)
         guard usage.isEmpty else {

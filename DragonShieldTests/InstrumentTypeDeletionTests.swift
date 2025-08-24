@@ -48,7 +48,7 @@ final class InstrumentTypeDeletionTests: XCTestCase {
         sqlite3_exec(dbm.db, "INSERT INTO AssetSubClasses VALUES (1,1,'SC1','sub1');", nil, nil, nil)
         sqlite3_exec(dbm.db, "INSERT INTO Instruments VALUES (1,'Inst',1);", nil, nil, nil)
         sqlite3_exec(dbm.db, "INSERT INTO PositionReports (instrument_id) VALUES (1);", nil, nil, nil)
-        dbm.purgePositionReports(subClassId: 1)
+        dbm.purgeInstrumentTypeData(subClassId: 1)
         let instrCount = querySingleInt(db: dbm.db, sql: "SELECT COUNT(*) FROM Instruments;")
         let posCount = querySingleInt(db: dbm.db, sql: "SELECT COUNT(*) FROM PositionReports;")
         XCTAssertEqual(instrCount, 0)
