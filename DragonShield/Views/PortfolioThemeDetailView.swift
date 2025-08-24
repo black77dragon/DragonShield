@@ -54,6 +54,10 @@ struct PortfolioThemeDetailView: View {
     @State private var sortField: SortField = .instrument
     @State private var sortAscending = true
 
+    @State private var compSortField: ThemeAssetSortField = .researchPct
+    @State private var compSortAscending = false
+    @FocusState private var compFocusedField: CompositionFocusedField?
+
     private struct InstrumentSheetTarget: Identifiable {
         let instrumentId: Int
         let instrumentName: String
@@ -65,6 +69,11 @@ struct PortfolioThemeDetailView: View {
 
     private enum SortField {
         case instrument, deltaResearch, deltaUser
+    }
+
+    private enum CompositionFocusedField: Hashable {
+        case research(Int)
+        case user(Int)
     }
 
     private let labelWidth: CGFloat = 140
@@ -257,18 +266,9 @@ struct PortfolioThemeDetailView: View {
                 Text("No instruments attached")
             } else {
                 HStack(spacing: 12) {
-                    Text("Instrument")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("Research %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("User %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    compositionHeader(.instrument, title: "Instrument", width: nil, alignment: .leading)
+                    compositionHeader(.researchPct, title: "Research %", width: 80, alignment: .trailing)
+                    compositionHeader(.userPct, title: "User %", width: 80, alignment: .trailing)
                     Text("Notes")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1)
@@ -290,6 +290,7 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
+                            .focused($compFocusedField, equals: .research($asset.wrappedValue.instrumentId))
                             .onChange(of: asset.researchTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
@@ -297,6 +298,7 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
+                            .focused($compFocusedField, equals: .user($asset.wrappedValue.instrumentId))
                             .onChange(of: asset.userTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
@@ -708,6 +710,49 @@ private var dangerZone: some View {
         allInstruments = dbManager.fetchAssets().map { ($0.id, $0.name) }
         if let first = availableInstruments.first { addInstrumentId = first.id }
         refreshUpdateCounts()
+        sortComposition()
+    }
+
+    private func sortComposition() {
+        sortThemeAssets(&assets, field: compSortField, ascending: compSortAscending, instrumentName: instrumentName)
+    }
+
+    private func toggleCompositionSort(_ field: ThemeAssetSortField) {
+        let current = compFocusedField
+        if compSortField == field {
+            compSortAscending.toggle()
+        } else {
+            compSortField = field
+            compSortAscending = field == .instrument
+        }
+        sortComposition()
+        compFocusedField = current
+    }
+
+    private func compositionHeader(_ field: ThemeAssetSortField, title: String, width: CGFloat?, alignment: Alignment) -> some View {
+        Button(action: { toggleCompositionSort(field) }) {
+            HStack(spacing: 2) {
+                Text(title)
+                    .fontWeight(compSortField == field ? .bold : .regular)
+                    .foregroundColor(compSortField == field ? .blue : .primary)
+                if compSortField == field {
+                    Text(compSortAscending ? "▲" : "▼").foregroundColor(.blue)
+                } else {
+                    Text("▲▼").foregroundColor(.blue)
+                }
+            }
+        }
+        .frame(width: width, alignment: alignment)
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), sortable, \(accessibilityDirection(for: field))")
+    }
+
+    private func accessibilityDirection(for field: ThemeAssetSortField) -> String {
+        if compSortField == field {
+            return compSortAscending ? "ascending" : "descending"
+        } else {
+            return "unsorted"
+        }
     }
 
     private func instrumentName(_ id: Int) -> String {

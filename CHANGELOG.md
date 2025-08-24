@@ -12,6 +12,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Added
 - Restructure changelog and archive history (#PR_NUMBER)
+- Sortable Instrument, Research %, and User % columns in Theme Composition table (#PR_NUMBER)
 
 ### Changed
 - Replace status alerts with SwiftUI windows (#PR_NUMBER)
