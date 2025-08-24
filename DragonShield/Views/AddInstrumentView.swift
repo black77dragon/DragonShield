@@ -463,43 +463,15 @@ struct AddInstrumentView: View {
                 Image(systemName: "folder.circle.fill")
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
-                
+
                 Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
-                
+
                 Spacer()
             }
-            
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-            }
-            .buttonStyle(PlainButtonStyle())
+
+            AssetSubClassPicker(groups: instrumentGroups, selectedGroupId: $selectedGroupId)
         }
     }
     
@@ -616,10 +588,10 @@ struct AddInstrumentView: View {
     // MARK: - Functions
     func loadInstrumentGroups() {
         let dbManager = DatabaseManager()
-        let groups = dbManager.fetchAssetTypes()
+        let groups = AssetSubClassLookup.sort(dbManager.fetchAssetTypes())
         self.instrumentGroups = groups
-        if !groups.isEmpty {
-            selectedGroupId = groups[0].id
+        if let first = groups.first {
+            selectedGroupId = first.id
         }
     }
     
