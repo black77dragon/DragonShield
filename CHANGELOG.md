@@ -11,6 +11,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Added
 - Restructure changelog and archive history (#PR_NUMBER)
+- Introduce SelectableLabel and use it in import summary panel (#PR_NUMBER)
 
 ### Changed
 

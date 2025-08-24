@@ -20,22 +20,22 @@ struct ImportSummaryPanel: View {
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Total Rows: \(summary.totalRows)")
-                    Text("Parsed Rows: \(summary.parsedRows)")
-                    Text("Cash Accounts: \(summary.cashAccounts)")
-                    Text("Securities: \(summary.securityRecords)")
+                    SelectableLabel(text: "Total Rows: \(summary.totalRows)")
+                    SelectableLabel(text: "Parsed Rows: \(summary.parsedRows)")
+                    SelectableLabel(text: "Cash Accounts: \(summary.cashAccounts)")
+                    SelectableLabel(text: "Securities: \(summary.securityRecords)")
                     if summary.unmatchedInstruments > 0 {
-                        Text("Unmatched Instruments: \(summary.unmatchedInstruments)")
+                        SelectableLabel(text: "Unmatched Instruments: \(summary.unmatchedInstruments)")
                     }
                     if summary.percentValuationRecords > 0 {
-                        Text("% Valuation Processed: \(summary.percentValuationRecords)")
+                        SelectableLabel(text: "% Valuation Processed: \(summary.percentValuationRecords)")
                     }
                 }
                 if !logs.isEmpty {
                     Divider()
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(Array(logs.enumerated()), id: \.offset) { _, msg in
-                            Text(msg)
+                            SelectableLabel(text: msg)
                                 .font(.caption2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
