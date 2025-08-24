@@ -29,8 +29,8 @@ extension DatabaseManager {
 
     func fetchAssetTypes() -> [(id: Int, name: String)] { // This is used by AddInstrumentView
         var groups: [(id: Int, name: String)] = []
-        let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses ORDER BY sort_order, sub_class_id"
-        
+        let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses"
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -44,6 +44,11 @@ extension DatabaseManager {
             print("❌ Failed to prepare fetchAssetTypes: \(String(cString: sqlite3_errmsg(db)))")
         }
         sqlite3_finalize(statement)
+
+        groups.sort { lhs, rhs in
+            lhs.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) <
+                rhs.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        }
         return groups
     }
 

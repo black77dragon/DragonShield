@@ -5,13 +5,13 @@ struct InstrumentEditView: View {
     let instrumentId: Int
     
     @State private var instrumentName = ""
-    @State private var selectedGroupId = 1
+    @State private var selectedSubClassId = 1
     @State private var currency = "CHF"
     @State private var tickerSymbol = ""
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
-    @State private var instrumentGroups: [(id: Int, name: String)] = []
+    @State private var subClasses: [AssetSubClassItem] = []
     @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -25,7 +25,7 @@ struct InstrumentEditView: View {
     
     // Store original values to detect changes
     @State private var originalName = ""
-    @State private var originalGroupId = 1
+    @State private var originalSubClassId = 1
     @State private var originalCurrency = ""
     @State private var originalTickerSymbol = ""
     @State private var originalIsin = ""
@@ -59,7 +59,7 @@ struct InstrumentEditView: View {
     // MARK: - Change Detection
     private func detectChanges() {
         hasChanges = instrumentName != originalName ||
-                    selectedGroupId != originalGroupId ||
+                    selectedSubClassId != originalSubClassId ||
                     currency != originalCurrency ||
                     tickerSymbol != originalTickerSymbol ||
                     isin != originalIsin ||
@@ -73,7 +73,7 @@ struct InstrumentEditView: View {
         let total = 7.0
         
         if !instrumentName.isEmpty { completed += 1 }
-        if selectedGroupId > 0 { completed += 1 }
+        if selectedSubClassId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
         if !tickerSymbol.isEmpty { completed += 1 }
         if !isin.isEmpty { completed += 1 }
@@ -576,36 +576,8 @@ struct InstrumentEditView: View {
                 Spacer()
             }
             
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                        detectChanges()
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-            }
-            .buttonStyle(PlainButtonStyle())
+            AssetSubClassPicker(selection: $selectedSubClassId, items: subClasses)
+                .onChange(of: selectedSubClassId) { _, _ in detectChanges() }
         }
     }
     
@@ -721,7 +693,7 @@ struct InstrumentEditView: View {
     // MARK: - Functions
     func loadInstrumentGroups() {
         let dbManager = DatabaseManager()
-        instrumentGroups = dbManager.fetchAssetTypes()
+        subClasses = dbManager.fetchAssetTypes().map { AssetSubClassItem(id: $0.id, name: $0.name) }
     }
     
     func loadAvailableCurrencies() {
@@ -733,16 +705,16 @@ struct InstrumentEditView: View {
         let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentDetails(id: instrumentId) {
             instrumentName = details.name
-            selectedGroupId = details.subClassId
+            selectedSubClassId = details.subClassId
             currency = details.currency
             valorNr = details.valorNr ?? ""
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
             sector = details.sector ?? ""
-            
+
             // Store original values for change detection
             originalName = instrumentName
-            originalGroupId = selectedGroupId
+            originalSubClassId = selectedSubClassId
             originalCurrency = currency
             originalValorNr = valorNr
             originalTickerSymbol = tickerSymbol
@@ -785,7 +757,7 @@ struct InstrumentEditView: View {
         let success = dbManager.updateInstrument(
             id: instrumentId,
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
-            subClassId: selectedGroupId,
+            subClassId: selectedSubClassId,
             currency: currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             valorNr: valorNr.isEmpty ? nil : valorNr,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
@@ -799,7 +771,7 @@ struct InstrumentEditView: View {
             if success {
                 // Update original values to reflect saved state
                 self.originalName = self.instrumentName
-                self.originalGroupId = self.selectedGroupId
+                self.originalSubClassId = self.selectedSubClassId
                 self.originalCurrency = self.currency
                 self.originalTickerSymbol = self.tickerSymbol
                 self.originalIsin = self.isin

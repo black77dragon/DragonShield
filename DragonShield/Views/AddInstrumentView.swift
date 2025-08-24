@@ -4,13 +4,13 @@ struct AddInstrumentView: View {
     @Environment(\.presentationMode) private var presentationMode
     
     @State private var instrumentName = ""
-    @State private var selectedGroupId = 1
+    @State private var selectedSubClassId = 1
     @State private var currency = "CHF"
     @State private var tickerSymbol = ""
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
-    @State private var instrumentGroups: [(id: Int, name: String)] = []
+    @State private var subClasses: [AssetSubClassItem] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
@@ -51,7 +51,7 @@ struct AddInstrumentView: View {
         let total = 7.0
         
         if !instrumentName.isEmpty { completed += 1 }
-        if selectedGroupId > 0 { completed += 1 }
+        if selectedSubClassId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
         if !tickerSymbol.isEmpty { completed += 1 }
         if !isin.isEmpty { completed += 1 }
@@ -471,35 +471,7 @@ struct AddInstrumentView: View {
                 Spacer()
             }
             
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-            }
-            .buttonStyle(PlainButtonStyle())
+            AssetSubClassPicker(selection: $selectedSubClassId, items: subClasses)
         }
     }
     
@@ -617,9 +589,9 @@ struct AddInstrumentView: View {
     func loadInstrumentGroups() {
         let dbManager = DatabaseManager()
         let groups = dbManager.fetchAssetTypes()
-        self.instrumentGroups = groups
-        if !groups.isEmpty {
-            selectedGroupId = groups[0].id
+        self.subClasses = groups.map { AssetSubClassItem(id: $0.id, name: $0.name) }
+        if let first = subClasses.first {
+            selectedSubClassId = first.id
         }
     }
     
@@ -630,8 +602,8 @@ struct AddInstrumentView: View {
         isin = ""
         valorNr = ""
         sector = ""
-        if !instrumentGroups.isEmpty {
-            selectedGroupId = instrumentGroups[0].id
+        if let first = subClasses.first {
+            selectedSubClassId = first.id
         }
     }
     
@@ -651,7 +623,7 @@ struct AddInstrumentView: View {
         
         let success = dbManager.addInstrument(
             name: trimmedName,
-            subClassId: selectedGroupId,
+            subClassId: selectedSubClassId,
             currency: trimmedCurrency,
             valorNr: valorNr.isEmpty ? nil : valorNr,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
