@@ -17,4 +17,9 @@ final class PortfolioThemeOverviewViewTests: XCTestCase {
         let eightDaysAgo = calendar.date(byAdding: .day, value: -8, to: startToday)!
         XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last7d.contains(eightDaysAgo, timeZone: tz))
     }
+
+    func testTitleOrPlaceholder() {
+        XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder(""), "(No title)")
+        XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder("Alpha"), "Alpha")
+    }
 }

@@ -40,8 +40,7 @@ struct PortfolioThemeOverviewView: View {
                 List(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         headerLine(update)
-                        Text("Title: \(update.title)").fontWeight(.semibold)
-                        Text(snippet(from: update.bodyMarkdown)).lineLimit(1)
+                        titleLine(update)
                         indicatorRow(update)
                         if expandedId == update.id {
                             expandedDetails(update)
@@ -133,6 +132,21 @@ struct PortfolioThemeOverviewView: View {
                     .disabled(isArchived)
                     .keyboardShortcut(.delete)
             }
+        }
+    }
+
+    private func titleLine(_ update: PortfolioThemeUpdate) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text("Title: ").fontWeight(.semibold)
+            Group {
+                if update.title.isEmpty {
+                    Text("(No title)").italic().foregroundColor(.secondary)
+                } else {
+                    Text(update.title)
+                }
+            }
+            .lineLimit(1)
+            .help(PortfolioThemeOverviewView.titleOrPlaceholder(update.title))
         }
     }
 
@@ -296,10 +310,6 @@ struct PortfolioThemeOverviewView: View {
         return link.rawURL
     }
 
-    private func snippet(from markdown: String) -> AttributedString {
-        MarkdownRenderer.attributedString(from: markdown)
-    }
-
     private func formattedChf(_ value: Double) -> String {
         value.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
     }
@@ -360,5 +370,11 @@ struct PortfolioThemeOverviewView: View {
                 return date >= start && date <= end
             }
         }
+    }
+}
+
+extension PortfolioThemeOverviewView {
+    static func titleOrPlaceholder(_ title: String) -> String {
+        title.isEmpty ? "(No title)" : title
     }
 }
