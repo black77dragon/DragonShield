@@ -3,13 +3,17 @@ import UniformTypeIdentifiers
 import AppKit
 
 struct DataImportExportView: View {
-    enum StatementType { case creditSuisse, zkb }
-
-    private let dropZoneSize: CGFloat = 100
+    enum StatementType: Int, Identifiable {
+        case creditSuisse
+        case zkb
+        var id: Int { rawValue }
+    }
 
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
     @State private var showImporterFor: StatementType?
+    @State private var instructionsFor: StatementType?
+    @State private var selectedFiles: [StatementType: URL] = [:]
 
     var body: some View {
         TabView {
@@ -19,6 +23,11 @@ struct DataImportExportView: View {
                 .tabItem { Text("History") }
         }
         .navigationTitle("Data Import / Export")
+        .sheet(item: $instructionsFor) { type in
+            if type == .creditSuisse {
+                instructionsModal
+            }
+        }
     }
 
     private var importTab: some View {
@@ -37,18 +46,26 @@ struct DataImportExportView: View {
                 get: { showImporterFor != nil },
                 set: { _ in }
             ),
-            allowedContentTypes: [
-                .commaSeparatedText,
-                UTType(filenameExtension: "xlsx") ?? .data,
-                .pdf
-            ],
+            allowedContentTypes: allowedContentTypes(for: showImporterFor),
             allowsMultipleSelection: false
         ) { result in
             guard let type = showImporterFor else { return }
             showImporterFor = nil
             if case let .success(urls) = result, let url = urls.first {
+                selectedFiles[type] = url
                 importStatement(from: url, type: type)
             }
+        }
+    }
+
+    private func allowedContentTypes(for type: StatementType?) -> [UTType] {
+        switch type {
+        case .creditSuisse:
+            return [UTType(filenameExtension: "xlsx") ?? .data]
+        case .zkb:
+            return [.commaSeparatedText]
+        case .none:
+            return []
         }
     }
 
@@ -98,50 +115,64 @@ struct DataImportExportView: View {
     }
 
     private var creditSuisseCard: some View {
-        importCard(title: "Import Credit-Suisse Statement (Position List M DD YYYY.xls)", type: .creditSuisse, enabled: true)
+        BankStatementCard(
+            bankName: "Credit-Suisse",
+            expectedFilename: "Position List MM DD YYYY.xlsx",
+            fileName: selectedFiles[.creditSuisse]?.lastPathComponent,
+            filePath: selectedFiles[.creditSuisse]?.path,
+            instructionsAvailable: true,
+            onOpenInstructions: { instructionsFor = .creditSuisse },
+            onSelectFile: { showImporterFor = .creditSuisse },
+            onDropFiles: { handleDrop($0, type: .creditSuisse) }
+        )
     }
 
     private var zkbCard: some View {
-        importCard(title: "Import ZKB Statement", type: .zkb, enabled: true)
+        BankStatementCard(
+            bankName: "ZKB",
+            expectedFilename: "Depotauszug MMM DD YYYY.csv",
+            fileName: selectedFiles[.zkb]?.lastPathComponent,
+            filePath: selectedFiles[.zkb]?.path,
+            instructionsAvailable: false,
+            onOpenInstructions: {},
+            onSelectFile: { showImporterFor = .zkb },
+            onDropFiles: { handleDrop($0, type: .zkb) }
+        )
     }
 
-    private func importCard(title: String, type: StatementType, enabled: Bool) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "tray.and.arrow.down")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 48, height: 48)
-                .foregroundColor(enabled ? .primary : .gray)
-            Text(title)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(enabled ? .primary : .gray)
-            DropZone { urls in
-                guard enabled, let url = urls.first else { return }
-                importStatement(from: url, type: type)
+    private func handleDrop(_ urls: [URL], type: StatementType) {
+        let allowedExt = type == .creditSuisse ? "xlsx" : "csv"
+        if let url = urls.first(where: { $0.pathExtension.lowercased() == allowedExt }) {
+            if urls.count > 1 {
+                statusMessage = "Status: Imported first compatible file."
             }
-            .frame(width: dropZoneSize, height: dropZoneSize)
-            .frame(maxWidth: .infinity)
-            .opacity(enabled ? 1 : 0.5)
-
-            Text("or")
-                .font(.system(size: 12))
-                .foregroundColor(Color(red: 170/255, green: 170/255, blue: 170/255))
-
-            Button("Select File") {
-                guard enabled else { return }
-                showImporterFor = type
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .frame(height: 32)
-            .disabled(!enabled)
-            .help(enabled ? "" : "coming soon")
+            selectedFiles[type] = url
+            importStatement(from: url, type: type)
+        } else if let first = urls.first {
+            selectedFiles[type] = first
+            importStatement(from: first, type: type)
         }
-        .frame(maxWidth: .infinity)
+    }
+
+    private var instructionsModal: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Instructions (German) — Credit-Suisse")
+                .font(.headline)
+            Text("• Sprache: Deutsch")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("• In „Gesamtübersicht“ Depot „398424-05“ auswählen")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("• „PDF/Export“ wählen → „XLS“")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Spacer()
+                Button("Close") { instructionsFor = nil }
+                    .keyboardShortcut(.cancelAction)
+                    .keyboardShortcut("w", modifiers: .command)
+            }
+        }
         .padding()
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.gray.opacity(0.3))
-        )
+        .frame(width: 300)
     }
 
     private func importStatement(from url: URL, type: StatementType) {
@@ -228,34 +259,4 @@ struct DataImportExportView: View {
 #Preview {
     DataImportExportView()
         .environmentObject(DatabaseManager())
-}
-
-private struct DropZone: View {
-    var onDrop: ([URL]) -> Void
-    @State private var isTargeted = false
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(style: StrokeStyle(lineWidth: 1, dash: [5]))
-                .foregroundColor(.gray)
-                .background(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
-            VStack {
-                Image(systemName: "tray.and.arrow.down")
-                Text("Drag & Drop File")
-                    .font(.system(size: 13))
-                    .foregroundColor(.gray)
-            }
-        }
-        .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
-            var urls: [URL] = []
-            for provider in providers {
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    if let url { urls.append(url) }
-                }
-            }
-            DispatchQueue.main.async { onDrop(urls) }
-            return true
-        }
-    }
 }
