@@ -47,6 +47,10 @@ struct PortfolioThemeDetailView: View {
     @State private var editingAsset: PortfolioThemeAsset?
     @State private var noteDraft: String = ""
 
+    @State private var compositionSortColumn: CompositionSortColumn = .research
+    @State private var compositionSortDirection: CompositionSortDirection = .descending
+    @FocusState private var focusedField: CompositionFocusField?
+
     @State private var tolerance: Double = 2.0
     @State private var onlyOutOfTolerance = false
     @State private var showDeltaResearch = true
@@ -65,6 +69,20 @@ struct PortfolioThemeDetailView: View {
 
     private enum SortField {
         case instrument, deltaResearch, deltaUser
+    }
+
+    private enum CompositionSortColumn {
+        case instrument, research, user
+    }
+
+    private enum CompositionSortDirection {
+        case ascending, descending
+    }
+
+    private enum CompositionFocusField: Hashable {
+        case research(Int)
+        case user(Int)
+        case notes(Int)
     }
 
     private let labelWidth: CGFloat = 140
@@ -257,15 +275,15 @@ struct PortfolioThemeDetailView: View {
                 Text("No instruments attached")
             } else {
                 HStack(spacing: 12) {
-                    Text("Instrument")
+                    sortableHeader(.instrument, title: "Instrument")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    Text("Research %")
+                    sortableHeader(.research, title: "Research %")
                         .frame(width: 80, alignment: .trailing)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    Text("User %")
+                    sortableHeader(.user, title: "User %")
                         .frame(width: 80, alignment: .trailing)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -290,15 +308,19 @@ struct PortfolioThemeDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
+                            .focused($focusedField, equals: .research($asset.wrappedValue.instrumentId))
                             .onChange(of: asset.researchTargetPct) { _, _ in
                                 save($asset.wrappedValue)
+                                sortAssets()
                             }
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .disabled(isReadOnly)
+                            .focused($focusedField, equals: .user($asset.wrappedValue.instrumentId))
                             .onChange(of: asset.userTargetPct) { _, _ in
                                 save($asset.wrappedValue)
+                                sortAssets()
                             }
                         TextField("", text: Binding(
                             get: { $asset.wrappedValue.notes ?? "" },
@@ -316,6 +338,7 @@ struct PortfolioThemeDetailView: View {
                         .truncationMode(.tail)
                         .help($asset.wrappedValue.notes ?? "")
                         .disabled(isReadOnly)
+                        .focused($focusedField, equals: .notes($asset.wrappedValue.instrumentId))
                         if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                             Button {
                                 instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
@@ -357,9 +380,9 @@ struct PortfolioThemeDetailView: View {
                         }
                     }
                 }
-                HStack(spacing: 12) {
-                    Label("Research sum \(researchTotal, format: .number)%", systemImage: researchTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundColor(researchTotalWarning ? .orange : .green)
+            HStack(spacing: 12) {
+                Label("Research sum \(researchTotal, format: .number)%", systemImage: researchTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .foregroundColor(researchTotalWarning ? .orange : .green)
                     Label("User sum \(userTotal, format: .number)%", systemImage: userTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                         .foregroundColor(userTotalWarning ? .orange : .green)
                 }
@@ -644,6 +667,99 @@ private var dangerZone: some View {
 
     // MARK: - Helpers
 
+    private func sortableHeader(_ column: CompositionSortColumn, title: String) -> some View {
+        Button {
+            toggleSort(column)
+        } label: {
+            HStack(spacing: 2) {
+                Text(title)
+                    .fontWeight(compositionSortColumn == column ? .bold : .regular)
+                Text(sortIndicator(for: column))
+                    .foregroundColor(.blue)
+                    .opacity(compositionSortColumn == column ? 1.0 : 0.5)
+            }
+            .foregroundColor(compositionSortColumn == column ? .blue : .primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), sortable, \(accessibilityOrder(for: column))")
+    }
+
+    private func sortIndicator(for column: CompositionSortColumn) -> String {
+        if compositionSortColumn == column {
+            return compositionSortDirection == .ascending ? "▲" : "▼"
+        } else {
+            return "▲▼"
+        }
+    }
+
+    private func accessibilityOrder(for column: CompositionSortColumn) -> String {
+        if compositionSortColumn == column {
+            return compositionSortDirection == .ascending ? "ascending" : "descending"
+        } else {
+            return "unsorted"
+        }
+    }
+
+    private func toggleSort(_ column: CompositionSortColumn) {
+        if compositionSortColumn == column {
+            compositionSortDirection = compositionSortDirection == .ascending ? .descending : .ascending
+        } else {
+            compositionSortColumn = column
+            compositionSortDirection = (column == .instrument) ? .ascending : .descending
+        }
+        sortAssets()
+    }
+
+    private func sanitized(_ value: Double) -> Double {
+        value.isFinite ? value : 0
+    }
+
+    private func sortAssets() {
+        assets.sort { lhs, rhs in
+            switch compositionSortColumn {
+            case .instrument:
+                let lName = instrumentName(lhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let rName = instrumentName(rhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let cmp = lName.localizedCaseInsensitiveCompare(rName)
+                if cmp != .orderedSame {
+                    return compositionSortDirection == .ascending ? cmp == .orderedAscending : cmp == .orderedDescending
+                }
+                let lResearch = sanitized(lhs.researchTargetPct)
+                let rResearch = sanitized(rhs.researchTargetPct)
+                if lResearch != rResearch {
+                    return lResearch > rResearch
+                }
+                return lhs.instrumentId < rhs.instrumentId
+            case .research:
+                let l = sanitized(lhs.researchTargetPct)
+                let r = sanitized(rhs.researchTargetPct)
+                if l != r {
+                    return compositionSortDirection == .ascending ? l < r : l > r
+                }
+                let lName = instrumentName(lhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let rName = instrumentName(rhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let cmp = lName.localizedCaseInsensitiveCompare(rName)
+                if cmp != .orderedSame {
+                    return cmp == .orderedAscending
+                }
+                return lhs.instrumentId < rhs.instrumentId
+            case .user:
+                let l = sanitized(lhs.userTargetPct)
+                let r = sanitized(rhs.userTargetPct)
+                if l != r {
+                    return compositionSortDirection == .ascending ? l < r : l > r
+                }
+                let lName = instrumentName(lhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let rName = instrumentName(rhs.instrumentId).trimmingCharacters(in: .whitespacesAndNewlines)
+                let cmp = lName.localizedCaseInsensitiveCompare(rName)
+                if cmp != .orderedSame {
+                    return cmp == .orderedAscending
+                }
+                return lhs.instrumentId < rhs.instrumentId
+            }
+        }
+    }
+
     private var valuationPositions: String {
         if let date = valuation?.positionsAsOf { return DateFormatter.iso8601DateTime.string(from: date) }
         return "-"
@@ -708,6 +824,7 @@ private var dangerZone: some View {
         allInstruments = dbManager.fetchAssets().map { ($0.id, $0.name) }
         if let first = availableInstruments.first { addInstrumentId = first.id }
         refreshUpdateCounts()
+        sortAssets()
     }
 
     private func instrumentName(_ id: Int) -> String {
@@ -742,6 +859,7 @@ private var dangerZone: some View {
             }
             LoggingService.shared.log("updateThemeAsset themeId=\(themeId) instrumentId=\(asset.instrumentId) research=\(asset.researchTargetPct) user=\(asset.userTargetPct)", logger: .ui)
             refreshUpdateCounts()
+            sortAssets()
         } else {
             LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
             alertItem = AlertItem(title: "Error", message: "Failed to save changes.", action: nil)
