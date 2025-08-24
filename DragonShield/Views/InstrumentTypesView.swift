@@ -486,30 +486,21 @@ struct AssetSubClassesView: View {
 
     func handleDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
         let dbManager = DatabaseManager()
-        let usage = dbManager.usageDetailsForInstrumentType(id: type.id)
+        let result = dbManager.deleteInstrumentType(id: type.id)
 
-        if !usage.isEmpty {
-            let detail = usage
-                .map { "\($0.count) row(s) in \($0.table).\($0.field)" }
-                .joined(separator: ", ")
-            deleteResultMessage = "Cannot delete — referenced by " + detail
-            showDeleteResultAlert = true
-            return
-        }
-
-        performDelete(type)
-    }
-
-    private func performDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
-        let dbManager = DatabaseManager()
-        let success = dbManager.deleteInstrumentType(id: type.id)
-
-        if success {
+        if result.success {
             loadSubClasses()
             selectedSubClass = nil
             showDeleteSuccessToast = true
         } else {
-            deleteResultMessage = "Failed to delete asset subclass."
+            if !result.usage.isEmpty {
+                let detail = result.usage
+                    .map { "\($0.count) row(s) in \($0.table).\($0.field)" }
+                    .joined(separator: ", ")
+                deleteResultMessage = "Cannot delete — referenced by " + detail
+            } else {
+                deleteResultMessage = "Failed to delete asset subclass."
+            }
             showDeleteResultAlert = true
         }
     }
