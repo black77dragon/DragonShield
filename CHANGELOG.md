@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add searchable, alphabetically sorted Asset SubClass picker in Add/Edit Instrument forms.
 - Refine Overview update rows with inline toggle, right-aligned actions, and date filter including today
 - Add Overview tab with read-only Update Reader for Portfolio Theme details
 - Flesh out Portfolio Theme Overview with KPIs, filters, and update actions
