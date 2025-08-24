@@ -40,12 +40,13 @@ struct ValueReportView: View {
             Text("Value Report")
                 .font(.headline)
             Table(items) {
-                TableColumn("Instrument") { Text($0.instrument) }
-                TableColumn("Currency") { Text($0.currency) }
-                TableColumn("Value") { item in Text(String(format: "%.2f", item.valueOrig)) }
-                TableColumn("Value CHF") { item in Text(String(format: "%.2f", item.valueChf)) }
+                TableColumn("Instrument") { Text($0.instrument).textSelection(.enabled) }
+                TableColumn("Currency") { Text($0.currency).textSelection(.enabled) }
+                TableColumn("Value") { item in Text(String(format: "%.2f", item.valueOrig)).textSelection(.enabled) }
+                TableColumn("Value CHF") { item in Text(String(format: "%.2f", item.valueChf)).textSelection(.enabled) }
             }
             Text("Total Value CHF: " + (Self.chfFormatter.string(from: NSNumber(value: totalValue)) ?? "0"))
+                .textSelection(.enabled)
             HStack {
                 Button("Copy All") { copyAll() }
                     .buttonStyle(SecondaryButtonStyle())
@@ -59,7 +60,7 @@ struct ValueReportView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 500, minHeight: 400)
+        .frame(minWidth: 800, minHeight: 560)
     }
 
     private func copyAll() {

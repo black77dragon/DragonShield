@@ -12,5 +12,6 @@ final class ValueReportViewTests: XCTestCase {
         XCTAssertEqual(lines.count, 1 + items.count + 1)
         XCTAssertTrue(lines.first?.contains("Instrument") == true)
         XCTAssertTrue(lines.last?.contains("3.33") == true)
+
     }
 }
