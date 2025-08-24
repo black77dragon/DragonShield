@@ -47,6 +47,10 @@ struct PortfolioThemeDetailView: View {
     @State private var editingAsset: PortfolioThemeAsset?
     @State private var noteDraft: String = ""
 
+     private var compositionSortField: CompositionSortField = .researchPct
+     private var compositionSortAscending = false
+     private var compositionFocusedField: CompositionFocusField?
+
     @State private var tolerance: Double = 2.0
     @State private var onlyOutOfTolerance = false
     @State private var showDeltaResearch = true
@@ -58,6 +62,12 @@ struct PortfolioThemeDetailView: View {
         let instrumentId: Int
         let instrumentName: String
         var id: Int { instrumentId }
+    }
+
+    private enum CompositionFocusField: Hashable {
+        case research(Int)
+        case user(Int)
+        case notes(Int)
     }
 
     @State private var updateCounts: [Int: Int] = [:]
@@ -257,18 +267,42 @@ struct PortfolioThemeDetailView: View {
                 Text("No instruments attached")
             } else {
                 HStack(spacing: 12) {
-                    Text("Instrument")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("Research %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("User %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    Button(action: { toggleCompositionSort(.instrument) }) {
+                        HStack(spacing: 2) {
+                            Text("Instrument")
+                                .fontWeight(compositionSortField == .instrument ? .bold : .regular)
+                                .foregroundColor(compositionSortField == .instrument ? .blue : .primary)
+                            Text(compositionSortField == .instrument ? (compositionSortAscending ? "▲" : "▼") : "▲▼")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel(Text(compositionAccessibilityLabel(for: .instrument)))
+                    Button(action: { toggleCompositionSort(.researchPct) }) {
+                        HStack(spacing: 2) {
+                            Text("Research %")
+                                .fontWeight(compositionSortField == .researchPct ? .bold : .regular)
+                                .foregroundColor(compositionSortField == .researchPct ? .blue : .primary)
+                            Text(compositionSortField == .researchPct ? (compositionSortAscending ? "▲" : "▼") : "▲▼")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 80, alignment: .trailing)
+                    .accessibilityLabel(Text(compositionAccessibilityLabel(for: .researchPct)))
+                    Button(action: { toggleCompositionSort(.userPct) }) {
+                        HStack(spacing: 2) {
+                            Text("User %")
+                                .fontWeight(compositionSortField == .userPct ? .bold : .regular)
+                                .foregroundColor(compositionSortField == .userPct ? .blue : .primary)
+                            Text(compositionSortField == .userPct ? (compositionSortAscending ? "▲" : "▼") : "▲▼")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 80, alignment: .trailing)
+                    .accessibilityLabel(Text(compositionAccessibilityLabel(for: .userPct)))
                     Text("Notes")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1)
@@ -293,6 +327,7 @@ struct PortfolioThemeDetailView: View {
                             .onChange(of: asset.researchTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
+                            .focused($compositionFocusedField, equals: .research($asset.wrappedValue.instrumentId))
                         TextField("", value: $asset.userTargetPct, format: .number)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
@@ -300,6 +335,7 @@ struct PortfolioThemeDetailView: View {
                             .onChange(of: asset.userTargetPct) { _, _ in
                                 save($asset.wrappedValue)
                             }
+                            .focused($compositionFocusedField, equals: .user($asset.wrappedValue.instrumentId))
                         TextField("", text: Binding(
                             get: { $asset.wrappedValue.notes ?? "" },
                             set: { newValue in
@@ -316,6 +352,7 @@ struct PortfolioThemeDetailView: View {
                         .truncationMode(.tail)
                         .help($asset.wrappedValue.notes ?? "")
                         .disabled(isReadOnly)
+                        .focused($compositionFocusedField, equals: .notes($asset.wrappedValue.instrumentId))
                         if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                             Button {
                                 instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
@@ -706,6 +743,7 @@ private var dangerZone: some View {
     private func loadAssets() {
         assets = dbManager.listThemeAssets(themeId: themeId)
         allInstruments = dbManager.fetchAssets().map { ($0.id, $0.name) }
+        sortCompositionAssets()
         if let first = availableInstruments.first { addInstrumentId = first.id }
         refreshUpdateCounts()
     }
@@ -713,6 +751,42 @@ private var dangerZone: some View {
     private func instrumentName(_ id: Int) -> String {
         allInstruments.first { $0.id == id }?.name ?? "#\(id)"
     }
+    private func sortCompositionAssets() {
+        assets = CompositionSorter.sort(assets, field: compositionSortField, ascending: compositionSortAscending, nameProvider: instrumentName)
+    }
+
+    private func sortCompositionAssetsAndRestoreFocus(_ focus: CompositionFocusField?) {
+        sortCompositionAssets()
+        compositionFocusedField = focus
+    }
+
+    private func toggleCompositionSort(_ field: CompositionSortField) {
+        let currentFocus = compositionFocusedField
+        if compositionSortField == field {
+            compositionSortAscending.toggle()
+        } else {
+            compositionSortField = field
+            compositionSortAscending = (field == .instrument)
+        }
+        sortCompositionAssetsAndRestoreFocus(currentFocus)
+    }
+
+    private func compositionAccessibilityLabel(for field: CompositionSortField) -> String {
+        let name: String
+        switch field {
+        case .instrument: name = "Instrument"
+        case .researchPct: name = "Research percent"
+        case .userPct: name = "User percent"
+        }
+        let order: String
+        if compositionSortField == field {
+            order = compositionSortAscending ? "ascending" : "descending"
+        } else {
+            order = "unsorted"
+        }
+        return "\(name), sortable, \(order)"
+    }
+
 
     private func saveTheme() {
         guard var current = theme else { return }
@@ -730,6 +804,7 @@ private var dangerZone: some View {
     }
 
     private func save(_ asset: PortfolioThemeAsset) {
+        let focus = compositionFocusedField
         if let updated = dbManager.updateThemeAsset(
             themeId: themeId,
             instrumentId: asset.instrumentId,
@@ -742,6 +817,7 @@ private var dangerZone: some View {
             }
             LoggingService.shared.log("updateThemeAsset themeId=\(themeId) instrumentId=\(asset.instrumentId) research=\(asset.researchTargetPct) user=\(asset.userTargetPct)", logger: .ui)
             refreshUpdateCounts()
+            sortCompositionAssetsAndRestoreFocus(focus)
         } else {
             LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(asset.instrumentId)", logger: .ui)
             alertItem = AlertItem(title: "Error", message: "Failed to save changes.", action: nil)

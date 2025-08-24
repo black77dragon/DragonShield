@@ -11,6 +11,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 
 ### Added
+- Enable sortable columns in Portfolio Theme composition table (#PR_NUMBER)
 - Restructure changelog and archive history (#PR_NUMBER)
 
 ### Changed
