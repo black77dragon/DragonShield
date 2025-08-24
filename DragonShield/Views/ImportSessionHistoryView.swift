@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct ImportSessionHistoryView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -240,6 +241,12 @@ private struct ImportSessionValueReportView: View {
                 "Total Value CHF: " + (ImportSessionHistoryView.chfFormatter.string(from: NSNumber(value: totalValue)) ?? "0")
             )
             HStack {
+                Button("Copy All") { copyAll() }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityLabel("Copy All")
+                Button("Export…") { exportAll() }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityLabel("Export")
                 Spacer()
                 Button("Close") { onClose() }
                     .buttonStyle(PrimaryButtonStyle())
@@ -247,6 +254,23 @@ private struct ImportSessionValueReportView: View {
         }
         .padding(24)
         .frame(minWidth: 500, minHeight: 400)
+    }
+
+    private func copyAll() {
+        let string = ValueReportView.exportString(items: items, totalValue: totalValue)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(string, forType: .string)
+    }
+
+    private func exportAll() {
+        let string = ValueReportView.exportString(items: items, totalValue: totalValue)
+        let panel = NSSavePanel()
+        panel.allowedFileTypes = ["csv", "txt"]
+        panel.nameFieldStringValue = "ValueReport.csv"
+        if panel.runModal() == .OK, let url = panel.url {
+            try? string.data(using: .utf8)?.write(to: url)
+        }
     }
 }
 
