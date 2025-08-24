@@ -42,6 +42,23 @@ final class PortfolioThemeOverviewViewTests: XCTestCase {
         XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last90d.contains(ninetyDaysAgo, timeZone: tz))
     }
 
+    func testDateFilterAllAlwaysTrue() {
+        let tz = TimeZone(secondsFromGMT: 0)!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let past = calendar.date(from: DateComponents(year: 2000, month: 1, day: 1))!
+        let future = calendar.date(from: DateComponents(year: 2100, month: 12, day: 31))!
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.all.contains(past, timeZone: tz))
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.all.contains(future, timeZone: tz))
+    }
+
+    func testDateFilterLabelsMatchSpecification() {
+        XCTAssertEqual(PortfolioThemeOverviewView.DateFilter.last7d.label, "Last 7d")
+        XCTAssertEqual(PortfolioThemeOverviewView.DateFilter.last30d.label, "Last 30d")
+        XCTAssertEqual(PortfolioThemeOverviewView.DateFilter.last90d.label, "Last 90d")
+        XCTAssertEqual(PortfolioThemeOverviewView.DateFilter.all.label, "All")
+    }
+
     func testTitleOrPlaceholder() {
         XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder(""), "(No title)")
         XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder("Alpha"), "Alpha")
