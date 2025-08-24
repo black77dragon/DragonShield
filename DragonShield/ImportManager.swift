@@ -38,6 +38,33 @@ class ImportManager {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
     }
 
+    private enum ImportReportWindow {
+        static let frameKey = "importReport.windowFrame"
+        static let defaultSize = NSSize(width: 1000, height: 700)
+        static let minSize = NSSize(width: 800, height: 560)
+    }
+
+    static func resolveImportReportFrame(savedFrameString: String?, screenFrame: NSRect) -> NSRect {
+        let minSize = ImportReportWindow.minSize
+        let defaultSize = ImportReportWindow.defaultSize
+        if let savedFrameString {
+            var rect = NSRectFromString(savedFrameString)
+            let width = min(max(rect.width, minSize.width), screenFrame.width)
+            let height = min(max(rect.height, minSize.height), screenFrame.height)
+            rect.size = NSSize(width: width, height: height)
+            if !screenFrame.contains(rect) {
+                rect.origin = CGPoint(x: screenFrame.midX - width / 2,
+                                      y: screenFrame.midY - height / 2)
+            }
+            return rect
+        } else {
+            return NSRect(x: screenFrame.midX - defaultSize.width / 2,
+                          y: screenFrame.midY - defaultSize.height / 2,
+                          width: defaultSize.width,
+                          height: defaultSize.height)
+        }
+    }
+
     private static let cashValorMap: [String: (ticker: String, currency: String)] = [
         "CH9304835039842401009": ("CASHCHF", "CHF"),
         "CH8104835039842402001": ("CASHEUR", "EUR"),
@@ -274,14 +301,18 @@ class ImportManager {
         let view = ValueReportView(items: items, totalValue: total) {
             NSApp.stopModal()
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(origin: .zero, size: ImportReportWindow.defaultSize)
+        let saved = UserDefaults.standard.string(forKey: ImportReportWindow.frameKey)
+        let rect = Self.resolveImportReportFrame(savedFrameString: saved, screenFrame: screenFrame)
+        let window = NSWindow(contentRect: rect,
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Import Values"
         window.isReleasedWhenClosed = false
-        window.center()
+        window.minSize = ImportReportWindow.minSize
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+        UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: ImportReportWindow.frameKey)
         window.close()
     }
 

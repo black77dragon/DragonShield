@@ -22,7 +22,9 @@ struct ValueReportView: View {
                 TableColumn("Value") { item in Text(String(format: "%.2f", item.valueOrig)) }
                 TableColumn("Value CHF") { item in Text(String(format: "%.2f", item.valueChf)) }
             }
+            .textSelection(.enabled)
             Text("Total Value CHF: " + (Self.chfFormatter.string(from: NSNumber(value: totalValue)) ?? "0"))
+                .textSelection(.enabled)
             HStack {
                 Spacer()
                 Button("Close") { onClose() }
@@ -30,6 +32,6 @@ struct ValueReportView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 500, minHeight: 400)
+        .frame(minWidth: 800, minHeight: 560)
     }
 }
