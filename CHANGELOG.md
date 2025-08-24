@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Enlarge Asset SubClass picker sheet to show more options at once
 - Remove Kanban To-Do board and sidebar link
 - Ensure Portfolio Theme Overview date filter handles fractional-second timestamps and add tests for 7/30/90 day ranges
 - Replace Asset SubClass menu with searchable, alphabetically sorted picker in Add and Edit Instrument views
