@@ -20,6 +20,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Removed
 
+ - Remove legacy debug options for database re-copy and parsing checkpoints (#PR_NUMBER)
 ### Security
 
 ## [4.6.0] - 2025-06-15
