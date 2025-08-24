@@ -19,6 +19,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 ### Fixed
 
 ### Removed
+- Remove development-only toggles for database re-copy and parsing checkpoints (#PR_NUMBER)
 
 ### Security
 

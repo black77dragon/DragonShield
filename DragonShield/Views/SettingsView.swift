@@ -1,6 +1,7 @@
 // DragonShield/Views/SettingsView.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.5
 // MARK: - History
+// - 1.4 -> 1.5: Remove development debug options.
 // - 1.3 -> 1.4: Added database information section (path, created, updated).
 // - 1.2 -> 1.3: Replaced script-based versioning with a 100% Swift solution (AppVersionProvider) to fix build errors.
 // - 1.1 -> 1.2: Removed redundant .onChange modifiers that were causing a state update crash loop.
@@ -12,12 +13,6 @@ struct SettingsView: View {
     // Inject DatabaseManager to access @Published config properties
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var runner: HealthCheckRunner
-
-    @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-    private var forceOverwriteDatabaseOnDebug: Bool = false
-
-    @AppStorage(UserDefaultsKeys.enableParsingCheckpoints)
-    private var enableParsingCheckpoints: Bool = false
 
     @AppStorage("runStartupHealthChecks")
     private var runStartupHealthChecks: Bool = true
@@ -130,19 +125,6 @@ struct SettingsView: View {
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 
-            #if DEBUG
-            Section(header: Text("Development / Debug Options")) {
-                VStack(alignment: .leading) {
-                    Toggle("Force Re-copy Database on Next Launch", isOn: $forceOverwriteDatabaseOnDebug)
-                    Text("Enable this to delete the current database and copy a fresh version from the bundle on next app start. Only for Debug builds.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Toggle("Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                        .padding(.top, 4)
-                }
-            }
-            #endif
-
 
             Section(header: Text("About")) {
                 HStack {
@@ -167,9 +149,6 @@ struct SettingsView: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        // NOTE: You must have a `UserDefaultsKeys` struct with the appropriate key defined for this preview to work.
-        UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
-        UserDefaults.standard.set(false, forKey: "enableParsingCheckpoints")
         let dbManager = DatabaseManager() // Create a preview instance
         let runner = HealthCheckRunner()
 

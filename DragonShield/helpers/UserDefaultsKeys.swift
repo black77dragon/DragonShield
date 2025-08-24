@@ -1,13 +1,12 @@
 // DragonShield/Utils/UserDefaultsKeys.swift
-// MARK: - Version 1.0 (2025-05-31)
+// MARK: - Version 1.1 (2025-05-31)
 // MARK: - History
+// - 1.0 -> 1.1: Remove obsolete debug keys.
 // - Initial creation: Defines keys for UserDefaults.
 
 import Foundation
 
 struct UserDefaultsKeys {
-    static let forceOverwriteDatabaseOnDebug = "forceOverwriteDatabaseOnDebug"
-    static let enableParsingCheckpoints = "enableParsingCheckpoints"
     static let automaticBackupsEnabled = "automaticBackupsEnabled"
     static let automaticBackupTime = "automaticBackupTime"
     static let backupLog = "backupLog"

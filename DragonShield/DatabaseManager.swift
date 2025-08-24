@@ -1,6 +1,7 @@
 // DragonShield/DatabaseManager.swift
-// MARK: - Version 1.6.0.1
+// MARK: - Version 1.6.0.2
 // MARK: - History
+// - 1.6.0.1 -> 1.6.0.2: Remove debug database re-copy option.
 // - 1.5 -> 1.6: Expose database path, creation date and modification date via
 //               @Published properties.
 // - 1.6 -> 1.6.0.1: Use sqlite3_open_v2 with FULLMUTEX and log errors when opening fails.
@@ -58,18 +59,6 @@ class DatabaseManager: ObservableObject {
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
-        
-        #if DEBUG
-        let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-        if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
-            do {
-                try FileManager.default.removeItem(atPath: dbPath)
-                print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
-            } catch {
-                print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
-            }
-        }
-        #endif
         
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
