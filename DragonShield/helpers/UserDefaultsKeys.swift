@@ -6,8 +6,6 @@
 import Foundation
 
 struct UserDefaultsKeys {
-    static let forceOverwriteDatabaseOnDebug = "forceOverwriteDatabaseOnDebug"
-    static let enableParsingCheckpoints = "enableParsingCheckpoints"
     static let automaticBackupsEnabled = "automaticBackupsEnabled"
     static let automaticBackupTime = "automaticBackupTime"
     static let backupLog = "backupLog"

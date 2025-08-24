@@ -59,18 +59,6 @@ class DatabaseManager: ObservableObject {
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
         
-        #if DEBUG
-        let shouldForceReCopy = UserDefaults.standard.bool(forKey: UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-        if shouldForceReCopy && FileManager.default.fileExists(atPath: dbPath) {
-            do {
-                try FileManager.default.removeItem(atPath: dbPath)
-                print("🗑️ [DEBUG] Deleted existing database at: \(dbPath) (Force Re-Copy Setting is ON)")
-            } catch {
-                print("⚠️ [DEBUG] Could not delete existing database for re-copy: \(error)")
-            }
-        }
-        #endif
-        
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
                 do {
