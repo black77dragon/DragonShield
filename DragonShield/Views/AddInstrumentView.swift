@@ -10,7 +10,8 @@ struct AddInstrumentView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
-    @State private var instrumentGroups: [(id: Int, name: String)] = []
+    @State private var instrumentGroups: [AssetSubClassItem] = []
+    @State private var showingAssetSubClassPicker = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
@@ -463,28 +464,24 @@ struct AddInstrumentView: View {
                 Image(systemName: "folder.circle.fill")
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
-                
+
                 Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
-                
+
                 Spacer()
             }
-            
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                    }
-                }
+
+            Button {
+                showingAssetSubClassPicker = true
             } label: {
                 HStack {
                     Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
                         .foregroundColor(.black)
                         .font(.system(size: 16))
-                    
+
                     Spacer()
-                    
+
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.gray)
@@ -500,6 +497,10 @@ struct AddInstrumentView: View {
                 .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
             }
             .buttonStyle(PlainButtonStyle())
+            .popover(isPresented: $showingAssetSubClassPicker, arrowEdge: .bottom) {
+                AssetSubClassPicker(isPresented: $showingAssetSubClassPicker, allItems: instrumentGroups, selectedId: $selectedGroupId)
+                    .padding(0)
+            }
         }
     }
     
@@ -616,10 +617,10 @@ struct AddInstrumentView: View {
     // MARK: - Functions
     func loadInstrumentGroups() {
         let dbManager = DatabaseManager()
-        let groups = dbManager.fetchAssetTypes()
+        let groups = sortAssetSubClasses(dbManager.fetchAssetTypes())
         self.instrumentGroups = groups
-        if !groups.isEmpty {
-            selectedGroupId = groups[0].id
+        if let first = groups.first {
+            selectedGroupId = first.id
         }
     }
     

@@ -11,7 +11,8 @@ struct InstrumentEditView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
-    @State private var instrumentGroups: [(id: Int, name: String)] = []
+    @State private var instrumentGroups: [AssetSubClassItem] = []
+    @State private var showingAssetSubClassPicker = false
     @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -568,29 +569,24 @@ struct InstrumentEditView: View {
                 Image(systemName: "folder.circle.fill")
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
-                
+
                 Text("Asset SubClass*")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
-                
+
                 Spacer()
             }
-            
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                        detectChanges()
-                    }
-                }
+
+            Button {
+                showingAssetSubClassPicker = true
             } label: {
                 HStack {
                     Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
                         .foregroundColor(.black)
                         .font(.system(size: 16))
-                    
+
                     Spacer()
-                    
+
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.gray)
@@ -606,7 +602,12 @@ struct InstrumentEditView: View {
                 .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
             }
             .buttonStyle(PlainButtonStyle())
+            .popover(isPresented: $showingAssetSubClassPicker, arrowEdge: .bottom) {
+                AssetSubClassPicker(isPresented: $showingAssetSubClassPicker, allItems: instrumentGroups, selectedId: $selectedGroupId)
+                    .padding(0)
+            }
         }
+        .onChange(of: selectedGroupId) { _, _ in detectChanges() }
     }
     
     private func modernCurrencyField() -> some View {
@@ -721,7 +722,7 @@ struct InstrumentEditView: View {
     // MARK: - Functions
     func loadInstrumentGroups() {
         let dbManager = DatabaseManager()
-        instrumentGroups = dbManager.fetchAssetTypes()
+        instrumentGroups = sortAssetSubClasses(dbManager.fetchAssetTypes())
     }
     
     func loadAvailableCurrencies() {

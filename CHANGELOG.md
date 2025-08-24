@@ -38,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Add description and optional institution link to Portfolio Themes with migration 012
 - Align Composition table headers with data columns and add per-instrument notes pop-up in Portfolio Theme details
 - Enforce consistent 2000-character limit for portfolio asset notes
+- Replace Asset SubClass dropdown with searchable, alphabetically sorted picker in Add/Edit Instrument sheets
 - Remove Notes column from Portfolio Theme valuation table and align totals under Current Value
 - Ensure Portfolio Theme valuation shows all instruments, resolves FX via identity and inversion, and keeps table visible for zero totals
 - Share FXConversionService using latest flagged rates for consistent CHF conversion across views
