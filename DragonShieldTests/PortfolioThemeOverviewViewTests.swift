@@ -18,6 +18,30 @@ final class PortfolioThemeOverviewViewTests: XCTestCase {
         XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last7d.contains(eightDaysAgo, timeZone: tz))
     }
 
+    func testDateFilterLast30d() {
+        let tz = TimeZone(secondsFromGMT: 0)!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let now = Date()
+        let startToday = calendar.startOfDay(for: now)
+        let twentyNineDaysAgo = calendar.date(byAdding: .day, value: -29, to: startToday)!
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last30d.contains(twentyNineDaysAgo, timeZone: tz))
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: startToday)!
+        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last30d.contains(thirtyDaysAgo, timeZone: tz))
+    }
+
+    func testDateFilterLast90d() {
+        let tz = TimeZone(secondsFromGMT: 0)!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let now = Date()
+        let startToday = calendar.startOfDay(for: now)
+        let eightyNineDaysAgo = calendar.date(byAdding: .day, value: -89, to: startToday)!
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last90d.contains(eightyNineDaysAgo, timeZone: tz))
+        let ninetyDaysAgo = calendar.date(byAdding: .day, value: -90, to: startToday)!
+        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last90d.contains(ninetyDaysAgo, timeZone: tz))
+    }
+
     func testTitleOrPlaceholder() {
         XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder(""), "(No title)")
         XCTAssertEqual(PortfolioThemeOverviewView.titleOrPlaceholder("Alpha"), "Alpha")
