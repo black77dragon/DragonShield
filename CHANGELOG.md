@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Remove duplicate note previews from Theme Details Overview rows
 - Replace Theme Status editor pop-up with professional sheet layout and inline validation
 - Introduce preset color picker with custom hex option for Theme Statuses
 - Allow deleting Theme Statuses only when unused and surface detailed database errors
