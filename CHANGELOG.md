@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add searchable, alphabetically sorted Asset SubClass picker to Add/Edit Instrument sheets
+- Expand Asset SubClass picker popover to show long lists and enable row selection
 - Replace Theme Status editor pop-up with professional sheet layout and inline validation
 - Introduce preset color picker with custom hex option for Theme Statuses
 - Allow deleting Theme Statuses only when unused and surface detailed database errors
