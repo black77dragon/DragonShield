@@ -19,6 +19,8 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Fixed
 
+- Resolve ambiguous purgePositionReports overload causing build errors (#PR_NUMBER)
+
 ### Removed
 
 ### Security
