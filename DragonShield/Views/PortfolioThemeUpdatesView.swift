@@ -1,8 +1,3 @@
-// DragonShield/Views/PortfolioThemeUpdatesView.swift
-// MARK: - Version 1.1
-// MARK: - History
-// - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle.
-
 import SwiftUI
 import AppKit
 
@@ -13,20 +8,18 @@ struct PortfolioThemeUpdatesView: View {
     let searchHint: String?
 
     @State private var updates: [PortfolioThemeUpdate] = []
-    @State private var showEditor = false
-    @State private var editingUpdate: PortfolioThemeUpdate?
     @State private var themeName: String = ""
     @State private var isArchived: Bool = false
     @State private var pinnedFirst: Bool = true
-    @State private var selectedId: Int?
-    @State private var showDeleteConfirm = false
-    @State private var editingFromFooter = false
     @State private var searchText: String = ""
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var searchDebounce: DispatchWorkItem?
-    @State private var attachmentCounts: [Int: Int] = [:]
-    @State private var linkPreviews: [Int: [Link]] = [:]
-    @State private var expandedLinks: Set<Int> = []
+    @State private var attachments: [Int: [Attachment]] = [:]
+    @State private var links: [Int: [Link]] = [:]
+    @State private var expanded: Set<Int> = []
+    @State private var editingUpdate: PortfolioThemeUpdate?
+    @State private var showEditor = false
+    @State private var confirmDeleteId: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -36,161 +29,119 @@ struct PortfolioThemeUpdatesView: View {
                     .padding(8)
                     .background(Color.yellow.opacity(0.1))
             }
-            HStack {
-                Button("+ New Update") { showEditor = true }
-                TextField("Search", text: $searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: searchText) { _, _ in
-                        searchDebounce?.cancel()
-                        let task = DispatchWorkItem { load() }
-                        searchDebounce = task
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: task)
-                    }
-                Picker("Type", selection: $selectedType) {
-                    Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
-                    ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                        Text(t.rawValue).tag(Optional(t))
-                    }
-                }
-                    .onChange(of: selectedType) { _, _ in load() }
-                Spacer()
-                Toggle("Pinned first", isOn: $pinnedFirst)
-                    .toggleStyle(.checkbox)
-                    .onChange(of: pinnedFirst) { _, _ in load() }
-            }
+            controls
             if let hint = searchHint {
                 Text(hint)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
             }
-            List(selection: $selectedId) {
-                ForEach(updates) { update in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
-                            .font(.subheadline)
-                        HStack {
-                            Text("Title: \(update.title)").fontWeight(.semibold)
-                            if update.pinned { Image(systemName: "star.fill") }
-                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
-                        }
-                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
-                            .lineLimit(3)
-                        if let links = linkPreviews[update.id], !links.isEmpty {
-                            let displayed = expandedLinks.contains(update.id) ? links : Array(links.prefix(3))
-                            HStack {
-                                Text("Links:")
-                                ForEach(displayed, id: \.id) { link in
-                                    Button(displayTitle(link)) { openLink(link, updateId: update.id) }
-                                        .buttonStyle(.link)
-                                }
-                                if links.count > 3 {
-                                    Button(expandedLinks.contains(update.id) ? "Show less" : "+\(links.count - 3) more") {
-                                        if expandedLinks.contains(update.id) {
-                                            expandedLinks.remove(update.id)
-                                        } else {
-                                            expandedLinks.insert(update.id)
-                                        }
-                                    }
-                                }
-                            }
-                            if expandedLinks.contains(update.id) {
-                                ForEach(links, id: \.id) { link in
-                                    HStack {
-                                        Text(link.rawURL)
-                                            .font(.caption)
-                                        Spacer()
-                                        Button("Open") { openLink(link, updateId: update.id) }
-                                        Button("Copy") { copyLink(link) }
-                                    }
-                                }
-                            }
-                        }
-                        Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Total CHF \(formatted(update.totalValueChf))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .tag(update.id)
-                    .onTapGesture(count: 2) { editingUpdate = update; editingFromFooter = false }
-                    .contextMenu {
-                        Button("Edit") { editingUpdate = update; editingFromFooter = false }
-                        if update.pinned {
-                            Button("Unpin") {
-                                DispatchQueue.global(qos: .userInitiated).async {
-                                    _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: false, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
-                                    DispatchQueue.main.async { load() }
-                                }
-                            }
-                        } else {
-                            Button("Pin") {
-                                DispatchQueue.global(qos: .userInitiated).async {
-                                    _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: true, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
-                                    DispatchQueue.main.async { load() }
-                                }
-                            }
-                        }
-                        Button("Delete", role: .destructive) {
-                            DispatchQueue.global(qos: .userInitiated).async {
-                                _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
-                                DispatchQueue.main.async { load() }
-                            }
-                        }
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(updates) { update in
+                        UpdateCard(
+                            update: update,
+                            attachments: attachments[update.id] ?? [],
+                            links: links[update.id] ?? [],
+                            isExpanded: expanded.contains(update.id),
+                            onToggleExpand: { toggleExpand(update.id) },
+                            onEdit: { editingUpdate = update },
+                            onDelete: { confirmDeleteId = update.id },
+                            onPinToggle: { togglePin(update) },
+                            onOpenLink: { openLink($0, updateId: update.id) },
+                            onOpenAttachment: { openAttachment($0, updateId: update.id) }
+                        )
                     }
                 }
+                .padding(8)
             }
-            Divider()
-            HStack {
-                Button("Edit") { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }
-                    .disabled(selectedUpdate == nil)
-                Button("Delete") { showDeleteConfirm = true }
-                    .disabled(selectedUpdate == nil)
-                Button(selectedUpdate?.pinned == true ? "Unpin" : "Pin") {
-                    if let u = selectedUpdate {
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            _ = dbManager.updateThemeUpdate(id: u.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !u.pinned, actor: NSFullUserName(), expectedUpdatedAt: u.updatedAt, source: "footer")
-                            DispatchQueue.main.async {
-                                load()
-                                selectedId = u.id
-                            }
-                        }
-                    }
-                }
-                    .disabled(selectedUpdate == nil)
-            }
-            .padding(8)
-            .confirmationDialog("Delete this update? This action can't be undone.", isPresented: $showDeleteConfirm) {
-                Button("Delete", role: .destructive) { deleteSelected() }
-            }
-            Button(action: { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }) { EmptyView() }
-                .keyboardShortcut(.return, modifiers: [])
-                .hidden()
-            Button(action: { if selectedUpdate != nil { showDeleteConfirm = true } }) { EmptyView() }
-                .keyboardShortcut(.delete, modifiers: [])
-                .hidden()
         }
         .onAppear {
-            if let s = initialSearchText, searchText.isEmpty {
-                searchText = s
-            }
+            if let s = initialSearchText, searchText.isEmpty { searchText = s }
             load()
         }
-        .sheet(isPresented: $showEditor) {
-            ThemeUpdateEditorView(themeId: themeId, themeName: themeName, onSave: { _ in
-                showEditor = false
-                load()
-            }, onCancel: {
-                showEditor = false
-            })
+        .sheet(item: $editingUpdate) { upd in
+            ThemeUpdateEditorView(
+                themeId: themeId,
+                themeName: themeName,
+                existing: upd,
+                onSave: { _ in
+                    editingUpdate = nil
+                    load()
+                },
+                onCancel: { editingUpdate = nil }
+            )
             .environmentObject(dbManager)
         }
-        .sheet(item: $editingUpdate) { upd in
-            ThemeUpdateEditorView(themeId: themeId, themeName: themeName, existing: upd, onSave: { _ in
-                editingUpdate = nil
-                load()
-            }, onCancel: {
-                editingUpdate = nil
-            }, logSource: editingFromFooter ? "footer" : nil)
+        .sheet(isPresented: $showEditor) {
+            ThemeUpdateEditorView(
+                themeId: themeId,
+                themeName: themeName,
+                onSave: { _ in
+                    showEditor = false
+                    load()
+                },
+                onCancel: { showEditor = false }
+            )
             .environmentObject(dbManager)
+        }
+        .confirmationDialog("Delete this update? This action can't be undone.", item: $confirmDeleteId) { id in
+            Button("Delete", role: .destructive) { delete(id) }
+        }
+    }
+
+    private var controls: some View {
+        HStack {
+            Button("+ New Update") { showEditor = true }
+            TextField("Search", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: searchText) { _, _ in
+                    searchDebounce?.cancel()
+                    let task = DispatchWorkItem { load() }
+                    searchDebounce = task
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
+                }
+            Picker("Type", selection: $selectedType) {
+                Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
+                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
+                    Text(t.rawValue).tag(Optional(t))
+                }
+            }
+            .onChange(of: selectedType) { _, _ in load() }
+            Spacer()
+            Toggle("Pinned first", isOn: $pinnedFirst)
+                .toggleStyle(.checkbox)
+                .onChange(of: pinnedFirst) { _, _ in load() }
+        }
+    }
+
+    private func toggleExpand(_ id: Int) {
+        if expanded.contains(id) {
+            expanded.remove(id)
+        } else {
+            expanded.insert(id)
+        }
+    }
+
+    private func togglePin(_ update: PortfolioThemeUpdate) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = dbManager.updateThemeUpdate(
+                id: update.id,
+                title: nil,
+                bodyMarkdown: nil,
+                type: nil,
+                pinned: !update.pinned,
+                actor: NSFullUserName(),
+                expectedUpdatedAt: update.updatedAt
+            )
+            DispatchQueue.main.async { load() }
+        }
+    }
+
+    private func delete(_ id: Int) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = dbManager.softDeleteThemeUpdate(id: id, actor: NSFullUserName())
+            DispatchQueue.main.async { load() }
         }
     }
 
@@ -202,24 +153,33 @@ struct PortfolioThemeUpdatesView: View {
             isArchived = theme.archivedAt != nil
         }
         if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
-            attachmentCounts = dbManager.getAttachmentCounts(for: updates.map { $0.id })
+            let repo = ThemeUpdateRepository(dbManager: dbManager)
+            var dict: [Int: [Attachment]] = [:]
+            for u in updates { dict[u.id] = repo.listAttachments(updateId: u.id) }
+            attachments = dict
         } else {
-            attachmentCounts = [:]
+            attachments = [:]
         }
         if !updates.isEmpty {
             let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
             var dict: [Int: [Link]] = [:]
-            for u in updates {
-                dict[u.id] = lrepo.listLinks(updateId: u.id)
-            }
-            linkPreviews = dict
+            for u in updates { dict[u.id] = lrepo.listLinks(updateId: u.id) }
+            links = dict
         } else {
-            linkPreviews = [:]
+            links = [:]
         }
     }
 
-    private var selectedUpdate: PortfolioThemeUpdate? {
-        updates.first { $0.id == selectedId }
+    private func openLink(_ link: Link, updateId: Int) {
+        if let url = URL(string: link.rawURL) {
+            NSWorkspace.shared.open(url)
+            LoggingService.shared.log("{ themeUpdateId: \(updateId), linkId: \(link.id), host: \(url.host ?? \"\"), op:'link_open' }", type: .info, logger: .database)
+        }
+    }
+
+    private func openAttachment(_ att: Attachment, updateId: Int) {
+        AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
+        LoggingService.shared.log("{ themeUpdateId: \(updateId), attachmentId: \(att.id), op:'attachment_open' }", type: .info, logger: .database)
     }
 
     private func formatted(_ value: Double?) -> String {
@@ -227,41 +187,85 @@ struct PortfolioThemeUpdatesView: View {
         return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
     }
 
-    private func openLink(_ link: Link, updateId: Int) {
-        if let url = URL(string: link.rawURL) {
-            NSWorkspace.shared.open(url)
-            LoggingService.shared.log("{ themeUpdateId: \(updateId), linkId: \(link.id), host: \(url.host ?? ""), op:'link_open' }", type: .info, logger: .database)
-        }
-    }
+    struct UpdateCard: View {
+        let update: PortfolioThemeUpdate
+        let attachments: [Attachment]
+        let links: [Link]
+        let isExpanded: Bool
+        let onToggleExpand: () -> Void
+        let onEdit: () -> Void
+        let onDelete: () -> Void
+        let onPinToggle: () -> Void
+        let onOpenLink: (Link) -> Void
+        let onOpenAttachment: (Attachment) -> Void
 
-    private func copyLink(_ link: Link) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(link.rawURL, forType: .string)
-    }
+        private let grid = [GridItem(.adaptive(minimum: 160), spacing: 8)]
 
-    private func displayTitle(_ link: Link) -> String {
-        if let t = link.title, !t.isEmpty { return t }
-        if let url = URL(string: link.rawURL) {
-            var host = url.host ?? link.rawURL
-            if !url.path.isEmpty && url.path != "/" {
-                host += url.path
-            }
-            return host
-        }
-        return link.rawURL
-    }
-
-    private func deleteSelected() {
-        if let u = selectedUpdate {
-            DispatchQueue.global(qos: .userInitiated).async {
-                if dbManager.softDeleteThemeUpdate(id: u.id, actor: NSFullUserName(), source: "footer") {
-                    DispatchQueue.main.async {
-                        load()
-                        selectedId = nil
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    Button(action: onPinToggle) {
+                        Image(systemName: update.pinned ? "star.fill" : "star")
+                    }
+                    .buttonStyle(.plain)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(update.title)
+                                .fontWeight(.semibold)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .help(update.title)
+                            Spacer()
+                            Button("View") { onToggleExpand() }
+                            Button("Edit") { onEdit() }
+                            Button("Delete") { onDelete() }
+                            Button(isExpanded ? "Collapse" : "Expand") { onToggleExpand() }
+                        }
+                        Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · \(update.type.rawValue)\(update.updatedAt > update.createdAt ? " · edited" : "")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                if isExpanded {
+                    Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                } else {
+                    Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                        .lineLimit(3)
+                }
+                if !links.isEmpty {
+                    LazyVGrid(columns: grid, alignment: .leading) {
+                        ForEach(links, id: \.id) { link in
+                            Button(action: { onOpenLink(link) }) {
+                                Label(linkLabel(link), systemImage: "link")
+                                    .lineLimit(1)
+                                    .help(link.rawURL)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+                if !attachments.isEmpty {
+                    LazyVGrid(columns: grid, alignment: .leading) {
+                        ForEach(attachments, id: \.id) { att in
+                            Button(action: { onOpenAttachment(att) }) {
+                                Label(att.originalFilename, systemImage: "doc")
+                                    .lineLimit(1)
+                                    .help(att.originalFilename)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                 }
             }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+        }
+
+        private func linkLabel(_ link: Link) -> String {
+            if let t = link.title, !t.isEmpty { return t }
+            if let url = URL(string: link.rawURL) { return url.host ?? link.rawURL }
+            return link.rawURL
         }
     }
 }
+
