@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct PortfolioThemeOverviewView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -9,6 +8,7 @@ struct PortfolioThemeOverviewView: View {
     @State private var updates: [PortfolioThemeUpdate] = []
     @State private var extras: [Int: UpdateExtras] = [:]
     @State private var editingUpdate: PortfolioThemeUpdate?
+    @State private var readerUpdate: PortfolioThemeUpdate?
     @State private var showEditor = false
     @State private var searchText: String = ""
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
@@ -18,7 +18,6 @@ struct PortfolioThemeOverviewView: View {
     @State private var searchDebounce: DispatchWorkItem?
     @State private var themeName: String = ""
     @State private var isArchived: Bool = false
-    @State private var expandedId: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -37,18 +36,19 @@ struct PortfolioThemeOverviewView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(updates) { update in
-                    VStack(alignment: .leading, spacing: 4) {
-                        headerLine(update)
-                        titleLine(update)
-                        indicatorRow(update)
-                        if expandedId == update.id {
-                            expandedDetails(update)
+                Group {
+                    Text("Latest Updates").font(.title3)
+                    List(updates) { update in
+                        VStack(alignment: .leading, spacing: 4) {
+                            headerLine(update)
+                            titleLine(update)
+                            snippetLine(update)
+                            actionRow(update)
                         }
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
+                    .listStyle(.inset)
                 }
-                .listStyle(.inset)
             }
         }
         .padding(24)
@@ -62,6 +62,10 @@ struct PortfolioThemeOverviewView: View {
         }
         .sheet(item: $editingUpdate) { upd in
             ThemeUpdateEditorView(themeId: themeId, themeName: themeName, existing: upd, onSave: { _ in editingUpdate = nil; load(); loadKpis() }, onCancel: { editingUpdate = nil })
+                .environmentObject(dbManager)
+        }
+        .sheet(item: $readerUpdate) { upd in
+            ThemeUpdateReaderView(update: upd, links: extras[upd.id]?.links ?? [], attachments: extras[upd.id]?.attachments ?? [], onEdit: { editingUpdate = $0 }, onPin: { t in togglePin(t); if let refreshed = dbManager.getThemeUpdate(id: t.id) { readerUpdate = refreshed } }, onDelete: { t in delete(t); readerUpdate = nil })
                 .environmentObject(dbManager)
         }
     }
@@ -111,28 +115,21 @@ struct PortfolioThemeOverviewView: View {
     }
 
     private func headerLine(_ update: PortfolioThemeUpdate) -> some View {
-        HStack(alignment: .top) {
-            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)\(update.pinned ? " • ★Pinned" : "")")
-                .font(.subheadline)
-            Spacer()
-            HStack(spacing: 8) {
-                Button(expandedId == update.id ? "View ▴" : "View ▾") { toggleExpand(update) }
-                    .buttonStyle(.link)
-                    .keyboardShortcut(.return)
-                Button("Edit") { editingUpdate = update }
-                    .buttonStyle(.link)
-                    .disabled(isArchived)
-                    .keyboardShortcut("e", modifiers: .command)
-                Button(update.pinned ? "Unpin" : "Pin") { togglePin(update) }
-                    .buttonStyle(.link)
-                    .disabled(isArchived)
-                    .keyboardShortcut("p", modifiers: .command)
-                Button("Delete", role: .destructive) { delete(update) }
-                    .buttonStyle(.link)
-                    .disabled(isArchived)
-                    .keyboardShortcut(.delete)
-            }
+        let extra = extras[update.id]
+        var parts: [String] = [
+            DateFormatting.userFriendly(update.createdAt),
+            update.author,
+            update.type.rawValue
+        ]
+        if update.pinned { parts.append("★Pinned") }
+        if FeatureFlags.portfolioLinksEnabled(), let count = extra?.links.count, count > 0 {
+            parts.append("Links \(count)")
         }
+        if FeatureFlags.portfolioAttachmentsEnabled(), let count = extra?.attachments.count, count > 0 {
+            parts.append("Files \(count)")
+        }
+        return Text(parts.joined(separator: " • "))
+            .font(.subheadline)
     }
 
     private func titleLine(_ update: PortfolioThemeUpdate) -> some View {
@@ -150,71 +147,30 @@ struct PortfolioThemeOverviewView: View {
         }
     }
 
-    private func indicatorRow(_ update: PortfolioThemeUpdate) -> some View {
-        let extra = extras[update.id]
-        var items: [Indicator] = []
-        if let atts = extra?.attachments {
-            items += atts.map { .file($0) }
+    private func snippetLine(_ update: PortfolioThemeUpdate) -> some View {
+        let snippet = String(update.bodyMarkdown.replacingOccurrences(of: "\n", with: " ").prefix(80))
+        return HStack(alignment: .top, spacing: 0) {
+            Text("Snippet: ").fontWeight(.semibold)
+            Text(snippet)
+                .lineLimit(1)
+                .foregroundColor(.secondary)
         }
-        if let links = extra?.links {
-            items += links.map { .link($0) }
-        }
-        let displayed = Array(items.prefix(3))
-        let remaining = items.count - displayed.count
-        return HStack {
-            ForEach(0..<displayed.count, id: \.self) { idx in
-                switch displayed[idx] {
-                case .file(let att):
-                    Text("! File: \(att.originalFilename)")
-                        .foregroundColor(.blue)
-                        .onTapGesture { quickLook(att) }
-                case .link(let l):
-                    Text("! Link: \(displayTitle(l))")
-                        .foregroundColor(.blue)
-                        .onTapGesture { openLink(l) }
-                }
-            }
-            if remaining > 0 {
-                Text("… +\(remaining) more")
-                    .foregroundColor(.blue)
-                    .onTapGesture { expandedId = update.id }
-            }
-            Spacer()
-        }
-        .font(.subheadline)
     }
 
-    private func expandedDetails(_ update: PortfolioThemeUpdate) -> some View {
-        let extra = extras[update.id]
-        return VStack(alignment: .leading, spacing: 8) {
-            Divider()
-            Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
-            if let links = extra?.links, !links.isEmpty {
-                Text("Links (\(links.count))").font(.subheadline)
-                ForEach(links, id: \.id) { link in
-                    HStack {
-                        Text(displayTitle(link))
-                        Spacer()
-                        Button("Open") { openLink(link) }
-                            .buttonStyle(.link)
-                        Button("Copy") { copyLink(link) }
-                            .buttonStyle(.link)
-                    }
-                }
-            }
-            if let atts = extra?.attachments, !atts.isEmpty {
-                Text("Files (\(atts.count))").font(.subheadline)
-                ForEach(atts, id: \.id) { att in
-                    HStack {
-                        Text(att.originalFilename)
-                        Spacer()
-                        Button("Quick Look") { quickLook(att) }
-                            .buttonStyle(.link)
-                        Button("Reveal") { reveal(att) }
-                            .buttonStyle(.link)
-                    }
-                }
-            }
+    private func actionRow(_ update: PortfolioThemeUpdate) -> some View {
+        HStack(spacing: 8) {
+            Button("View") { readerUpdate = update }
+                .buttonStyle(.link)
+                .keyboardShortcut(.return)
+            Button("Edit") { editingUpdate = update }
+                .buttonStyle(.link)
+                .disabled(isArchived)
+            Button(update.pinned ? "Unpin" : "Pin") { togglePin(update) }
+                .buttonStyle(.link)
+                .disabled(isArchived)
+            Button("Delete", role: .destructive) { delete(update) }
+                .buttonStyle(.link)
+                .disabled(isArchived)
         }
     }
 
@@ -273,44 +229,6 @@ struct PortfolioThemeOverviewView: View {
         }
     }
 
-    private func toggleExpand(_ update: PortfolioThemeUpdate) {
-        if expandedId == update.id {
-            expandedId = nil
-        } else {
-            expandedId = update.id
-        }
-    }
-
-    private func openLink(_ link: Link) {
-        if let url = URL(string: link.rawURL) {
-            if !NSWorkspace.shared.open(url) {
-                LoggingService.shared.log("Could not open link \(link.rawURL)", type: .error, logger: .ui)
-            }
-        }
-    }
-
-    private func copyLink(_ link: Link) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(link.rawURL, forType: .string)
-    }
-
-    private func quickLook(_ att: Attachment) {
-        AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
-    }
-
-    private func reveal(_ att: Attachment) {
-        AttachmentService(dbManager: dbManager).revealInFinder(attachmentId: att.id)
-    }
-
-    private func displayTitle(_ link: Link) -> String {
-        if let t = link.title, !t.isEmpty { return t }
-        if let url = URL(string: link.rawURL) {
-            return url.host ?? link.rawURL
-        }
-        return link.rawURL
-    }
-
     private func formattedChf(_ value: Double) -> String {
         value.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
     }
@@ -329,11 +247,6 @@ struct PortfolioThemeOverviewView: View {
     struct UpdateExtras {
         let links: [Link]
         let attachments: [Attachment]
-    }
-
-    enum Indicator {
-        case file(Attachment)
-        case link(Link)
     }
 
     enum DateFilter: String, CaseIterable, Identifiable {

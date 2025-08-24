@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Add slide-out Update Reader for theme updates with link and file actions gated by new portfolioLinksEnabled flag
 - Enlarge Asset SubClass picker sheet to show more options at once
 - Remove Kanban To-Do board and sidebar link
 - Ensure Portfolio Theme Overview date filter handles fractional-second timestamps and add tests for 7/30/90 day ranges
