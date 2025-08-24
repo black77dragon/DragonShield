@@ -142,7 +142,7 @@ private struct AssetSubClassPickerSheet: View {
                     }
                 }
                 .listStyle(PlainListStyle())
-                .frame(minHeight: 400)
+                .frame(minHeight: 400, maxHeight: 600)
                 .onAppear {
                     filtered = AssetSubClassPickerModel.filter(groups, query: "")
                     highlighted = selectedId
