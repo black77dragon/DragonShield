@@ -47,11 +47,6 @@ struct SidebarView: View {
                         .foregroundColor(.gray)
                 }
                 .disabled(true)
-
-                NavigationLink(destination: ToDoKanbanView()) {
-                    Label("To-Do Board", systemImage: "checklist")
-                }
-
                 NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
                     Label("Portfolio Themes", systemImage: "list.bullet")
                 }
