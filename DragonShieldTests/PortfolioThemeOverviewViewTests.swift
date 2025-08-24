@@ -36,10 +36,10 @@ final class PortfolioThemeOverviewViewTests: XCTestCase {
         calendar.timeZone = tz
         let now = Date()
         let startToday = calendar.startOfDay(for: now)
-        let sixtyDaysAgo = calendar.date(byAdding: .day, value: -60, to: startToday)!
-        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last90d.contains(sixtyDaysAgo, timeZone: tz))
-        let ninetyOneDaysAgo = calendar.date(byAdding: .day, value: -91, to: startToday)!
-        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last90d.contains(ninetyOneDaysAgo, timeZone: tz))
+        let eightyNineDaysAgo = calendar.date(byAdding: .day, value: -89, to: startToday)!
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last90d.contains(eightyNineDaysAgo, timeZone: tz))
+        let ninetyDaysAgo = calendar.date(byAdding: .day, value: -90, to: startToday)!
+        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last90d.contains(ninetyDaysAgo, timeZone: tz))
     }
 
     func testTitleOrPlaceholder() {
