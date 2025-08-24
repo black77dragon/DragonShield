@@ -274,14 +274,32 @@ class ImportManager {
         let view = ValueReportView(items: items, totalValue: total) {
             NSApp.stopModal()
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+        let defaultRect = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let window = NSWindow(contentRect: defaultRect,
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Import Values"
         window.isReleasedWhenClosed = false
-        window.center()
+        window.minSize = NSSize(width: 800, height: 560)
+        if let saved = UserDefaults.standard.string(forKey: UserDefaultsKeys.importReportWindowFrame) {
+            var frame = NSRectFromString(saved)
+            if let screenFrame = NSScreen.main?.visibleFrame {
+                frame.size.width = min(frame.width, screenFrame.width)
+                frame.size.height = min(frame.height, screenFrame.height)
+                if !screenFrame.contains(frame) {
+                    frame.origin.x = screenFrame.midX - frame.width / 2
+                    frame.origin.y = screenFrame.midY - frame.height / 2
+                }
+            }
+            window.setFrame(frame, display: false)
+        } else {
+            window.setFrame(defaultRect, display: false)
+            window.center()
+        }
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
+        let frameString = NSStringFromRect(window.frame)
+        UserDefaults.standard.set(frameString, forKey: UserDefaultsKeys.importReportWindowFrame)
         window.close()
     }
 
