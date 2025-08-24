@@ -225,6 +225,7 @@ struct PortfolioThemeOverviewView: View {
         var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
         if dateFilter != .all {
             let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let tz = TimeZone(identifier: dbManager.defaultTimeZone) ?? .current
             list = list.filter { upd in
                 if let date = formatter.date(from: upd.createdAt) {
