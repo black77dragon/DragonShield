@@ -9,6 +9,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ## [Unreleased]
 
+
 ### Added
 - Restructure changelog and archive history (#PR_NUMBER)
 
