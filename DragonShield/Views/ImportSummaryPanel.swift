@@ -31,6 +31,7 @@ struct ImportSummaryPanel: View {
                         Text("% Valuation Processed: \(summary.percentValuationRecords)")
                     }
                 }
+                .textSelection(.enabled)
                 if !logs.isEmpty {
                     Divider()
                     VStack(alignment: .leading, spacing: 2) {
@@ -40,6 +41,7 @@ struct ImportSummaryPanel: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+                    .textSelection(.enabled)
                 }
             }
             .padding()
