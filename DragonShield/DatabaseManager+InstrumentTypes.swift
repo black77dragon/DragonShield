@@ -187,30 +187,69 @@ extension DatabaseManager {
         return result
     }
     
-    func deleteInstrumentType(id: Int) -> Bool { // Hard delete
+    func purgePositionReports(subClassId: Int) {
+        let deleteReportsQuery = """
+            DELETE FROM PositionReports
+            WHERE instrument_id IN (
+                SELECT instrument_id FROM Instruments WHERE sub_class_id = ?
+            )
+        """
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, deleteReportsQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(subClassId))
+            if sqlite3_step(statement) != SQLITE_DONE {
+                print("❌ Failed to purge position reports for subclass \(subClassId): \(String(cString: sqlite3_errmsg(db)))")
+            }
+            sqlite3_finalize(statement)
+        } else {
+            print("❌ Failed to prepare purge position reports (subclass: \(subClassId)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+
+        let deleteInstrumentsQuery = "DELETE FROM Instruments WHERE sub_class_id = ?"
+        if sqlite3_prepare_v2(db, deleteInstrumentsQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(subClassId))
+            if sqlite3_step(statement) != SQLITE_DONE {
+                print("❌ Failed to delete instruments for subclass \(subClassId): \(String(cString: sqlite3_errmsg(db)))")
+            }
+            sqlite3_finalize(statement)
+        } else {
+            print("❌ Failed to prepare delete instruments (subclass: \(subClassId)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+    }
+
+    func deleteInstrumentType(id: Int) -> (success: Bool, usage: [(table: String, field: String, count: Int)]) { // Hard delete
+        purgePositionReports(subClassId: id)
+
+        let usage = usageDetailsForInstrumentType(id: id)
+        guard usage.isEmpty else {
+            return (false, usage)
+        }
+
         let deleteQuery = "DELETE FROM AssetSubClasses WHERE sub_class_id = ?"
         var statement: OpaquePointer?
-        
+
         guard sqlite3_prepare_v2(db, deleteQuery, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deleteInstrumentType (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
-            return false
+            return (false, usage)
         }
-        
+
         sqlite3_bind_int(statement, 1, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
+
         if result {
             print("✅ Deleted instrument type (ID: \(id))")
+            return (true, [])
         } else {
             print("❌ Delete instrument type failed (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+            return (false, usage)
         }
-        return result
     }
 
-    func canDeleteInstrumentType(id: Int) -> (canDelete: Bool, instrumentCount: Int, allocationCount: Int) {
+    func canDeleteInstrumentType(id: Int) -> (canDelete: Bool, instrumentCount: Int, allocationCount: Int, positionReportCount: Int) {
         var instrumentCount = 0
         var allocationCount = 0
+        var positionReportCount = 0
 
         let instrumentQuery = "SELECT COUNT(*) FROM Instruments WHERE sub_class_id = ?"
         var statement: OpaquePointer?
@@ -225,6 +264,22 @@ extension DatabaseManager {
             print("❌ Failed to prepare instrument usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
         }
 
+        let positionQuery = """
+            SELECT COUNT(*) FROM PositionReports
+            WHERE instrument_id IN (
+                SELECT instrument_id FROM Instruments WHERE sub_class_id = ?
+            )
+        """
+        if sqlite3_prepare_v2(db, positionQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                positionReportCount = Int(sqlite3_column_int(statement, 0))
+            }
+            sqlite3_finalize(statement)
+        } else {
+            print("❌ Failed to prepare position report usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
+        }
+
         let allocationQuery = "SELECT COUNT(*) FROM SubClassTargets WHERE asset_sub_class_id = ?"
         if sqlite3_prepare_v2(db, allocationQuery, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(id))
@@ -236,14 +291,19 @@ extension DatabaseManager {
             print("❌ Failed to prepare allocation usage check (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
         }
 
-        return (canDelete: instrumentCount == 0 && allocationCount == 0,
+        return (canDelete: instrumentCount == 0 && allocationCount == 0 && positionReportCount == 0,
                 instrumentCount: instrumentCount,
-                allocationCount: allocationCount)
+                allocationCount: allocationCount,
+                positionReportCount: positionReportCount)
     }
 
     func usageDetailsForInstrumentType(id: Int) -> [(table: String, field: String, count: Int)] {
         let info = canDeleteInstrumentType(id: id)
         var details: [(String, String, Int)] = []
+
+        if info.positionReportCount > 0 {
+            details.append(("PositionReports", "instrument_id via Instruments.sub_class_id", info.positionReportCount))
+        }
 
         if info.instrumentCount > 0 {
             details.append(("Instruments", "sub_class_id", info.instrumentCount))
