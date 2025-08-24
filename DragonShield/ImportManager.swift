@@ -235,12 +235,39 @@ class ImportManager {
         NSApp.runModal(for: window)
     }
 
-    private func showStatusAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+    private struct StatusAlertView: View {
+        let title: String
+        let message: String
+        let dismiss: () -> Void
+
+        var body: some View {
+            VStack(spacing: 20) {
+                Text(title)
+                    .font(.headline)
+                Text(message)
+                    .font(.body)
+                Button("OK") {
+                    dismiss()
+                }
+            }
+            .frame(minWidth: 700, minHeight: 420)
+            .padding()
+        }
+    }
+
+    private func showStatusWindow(title: String, message: String) {
+        let view = StatusAlertView(title: title, message: message) {
+            NSApp.stopModal()
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = title
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        NSApp.runModal(for: window)
+        window.close()
     }
 
     private func showValueReport(items: [DatabaseManager.ImportSessionValueItem], total: Double) {
@@ -374,7 +401,7 @@ class ImportManager {
                         if accountId == nil {
                             if self.checkpointsEnabled {
                                 DispatchQueue.main.sync {
-                                    self.showStatusAlert(title: "Account Required",
+                                    self.showStatusWindow(title: "Account Required",
                                                           message: "Account \(custodyNumber) is required to save positions.")
                                 }
                             }
@@ -572,7 +599,7 @@ class ImportManager {
                     success += 1
                     if self.checkpointsEnabled {
                         DispatchQueue.main.sync {
-                            self.showStatusAlert(title: "Position Saved",
+                            self.showStatusWindow(title: "Position Saved",
                                                   message: "Saved \(row.instrumentName)")
                         }
                     }
