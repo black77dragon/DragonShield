@@ -11,7 +11,7 @@ struct InstrumentEditView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
-    @State private var instrumentGroups: [(id: Int, name: String)] = []
+    @State private var assetSubClasses: [(id: Int, name: String)] = []
     @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -118,7 +118,7 @@ struct InstrumentEditView: View {
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale)
         .onAppear {
-            loadInstrumentGroups()
+            loadAssetSubClasses()
             loadAvailableCurrencies()
             loadInstrumentData()
             animateEntrance()
@@ -576,36 +576,13 @@ struct InstrumentEditView: View {
                 Spacer()
             }
             
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                        detectChanges()
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            AssetSubClassPicker(
+                items: assetSubClasses.map { AssetSubClassPicker.Item(id: $0.id, name: $0.name) },
+                selection: $selectedGroupId
+            )
+            .onChange(of: selectedGroupId) { _ in
+                detectChanges()
             }
-            .buttonStyle(PlainButtonStyle())
         }
     }
     
@@ -719,9 +696,12 @@ struct InstrumentEditView: View {
     }
     
     // MARK: - Functions
-    func loadInstrumentGroups() {
+    func loadAssetSubClasses() {
         let dbManager = DatabaseManager()
-        instrumentGroups = dbManager.fetchAssetTypes()
+        assetSubClasses = dbManager.fetchAssetTypes().sorted {
+            $0.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) <
+                $1.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        }
     }
     
     func loadAvailableCurrencies() {
