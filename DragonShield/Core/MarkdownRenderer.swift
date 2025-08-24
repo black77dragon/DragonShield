@@ -12,4 +12,9 @@ enum MarkdownRenderer {
         }
         return attr
     }
+
+    static func plainText(from markdown: String) -> String {
+        let attr = attributedString(from: markdown)
+        return String(attr.characters)
+    }
 }
