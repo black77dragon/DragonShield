@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 - Replace Theme Status editor pop-up with professional sheet layout and inline validation
+- Replace Asset SubClass dropdown with searchable, alphabetically sorted picker
 - Introduce preset color picker with custom hex option for Theme Statuses
 - Allow deleting Theme Statuses only when unused and surface detailed database errors
 - Refine Overview update rows with inline toggle, right-aligned actions, and date filter including today
