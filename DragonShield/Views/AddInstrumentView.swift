@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct AddInstrumentView: View {
     @Environment(\.presentationMode) private var presentationMode
     
@@ -471,35 +472,7 @@ struct AddInstrumentView: View {
                 Spacer()
             }
             
-            Menu {
-                ForEach(instrumentGroups, id: \.id) { group in
-                    Button(group.name) {
-                        selectedGroupId = group.id
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(instrumentGroups.first(where: { $0.id == selectedGroupId })?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-            }
-            .buttonStyle(PlainButtonStyle())
+            AssetSubClassPicker(items: instrumentGroups, selection: $selectedGroupId)
         }
     }
     

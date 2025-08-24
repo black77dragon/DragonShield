@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Expose portfolioAttachmentsEnabled setting in UI to toggle attachments
 - Fix attachment type validation and update deprecated onChange handlers for macOS 14
 - Introduce Instrument Notes modal with tabs for instrument updates and theme mentions
+- Add searchable, alphabetically sorted Asset SubClass picker for instruments
 - Surface theme note mention counts and deep links from Instruments module
 - Cross-link Instrument Updates from Instruments module with theme chooser and counts
 - Simplify Updates in Themes section to a single Open Instrument Notes button in Edit Instrument panel
