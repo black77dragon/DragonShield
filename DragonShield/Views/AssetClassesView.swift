@@ -14,6 +14,7 @@ struct AssetClassesView: View {
     @State private var selectedClass: DatabaseManager.AssetClassData? = nil
     @State private var classToDelete: DatabaseManager.AssetClassData? = nil
     @State private var showingDeleteAlert = false
+    @State private var deletionInfo: (canDelete: Bool, subClassCount: Int, instrumentCount: Int, positionReportCount: Int)? = nil
     @State private var searchText = ""
 
     // Animation states
@@ -74,8 +75,12 @@ struct AssetClassesView: View {
                 if let ac = classToDelete { deleteClass(ac) }
             }
         } message: {
-            if let ac = classToDelete {
-                Text("Are you sure you want to delete '\(ac.name)'?")
+            if let ac = classToDelete, let info = deletionInfo {
+                if info.canDelete {
+                    Text("Are you sure you want to delete '\(ac.name)'?")
+                } else {
+                    Text("'\(ac.name)' has \(info.subClassCount) subclasses, \(info.instrumentCount) instruments, and \(info.positionReportCount) position reports.")
+                }
             }
         }
     }
@@ -340,6 +345,7 @@ struct AssetClassesView: View {
                     Button {
                         if let ac = selectedClass {
                             classToDelete = ac
+                            deletionInfo = dbManager.canDeleteAssetClass(id: ac.id)
                             showingDeleteAlert = true
                         }
                     } label: {
@@ -390,13 +396,16 @@ struct AssetClassesView: View {
     }
 
     private func deleteClass(_ ac: DatabaseManager.AssetClassData) {
-        let info = dbManager.canDeleteAssetClass(id: ac.id)
-
-        if info.canDelete {
-            if dbManager.deleteAssetClass(id: ac.id) {
-                loadData()
-                selectedClass = nil
-            }
+        var info = dbManager.canDeleteAssetClass(id: ac.id)
+        if !info.canDelete {
+            _ = dbManager.purgeAssetClass(id: ac.id)
+            info = dbManager.canDeleteAssetClass(id: ac.id)
+            deletionInfo = info
+        }
+        guard info.canDelete else { return }
+        if dbManager.deleteAssetClass(id: ac.id) {
+            loadData()
+            selectedClass = nil
         }
     }
 
