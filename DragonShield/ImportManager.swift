@@ -1,6 +1,6 @@
 // DragonShield/ImportManager.swift
 
-// MARK: - Version 2.0.3.0
+// MARK: - Version 2.0.3.1
 // MARK: - History
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
@@ -15,6 +15,7 @@
 // - 2.0.2.4 -> 2.0.2.5: Guard UTType initialization and minor cleanup.
 // - 2.0.2.5 -> 2.0.2.6: Log import details to file and forward progress.
 // - 2.0.2.6 -> 2.0.3.0: Route log messages through OSLog categories.
+// - 2.0.3.0 -> 2.0.3.1: Deprecate parsing checkpoint toggle.
 import Foundation
 import AppKit
 import SwiftUI
@@ -34,9 +35,7 @@ class ImportManager {
         PositionReportRepository(dbManager: dbManager)
     }()
 
-    private var checkpointsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
-    }
+    private let checkpointsEnabled: Bool = false
 
     private static let cashValorMap: [String: (ticker: String, currency: String)] = [
         "CH9304835039842401009": ("CASHCHF", "CHF"),

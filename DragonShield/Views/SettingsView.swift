@@ -1,6 +1,7 @@
 // DragonShield/Views/SettingsView.swift
-// MARK: - Version 1.4
+// MARK: - Version 1.5
 // MARK: - History
+// - 1.4 -> 1.5: Removed debug options for database re-copy and parsing checkpoints.
 // - 1.3 -> 1.4: Added database information section (path, created, updated).
 // - 1.2 -> 1.3: Replaced script-based versioning with a 100% Swift solution (AppVersionProvider) to fix build errors.
 // - 1.1 -> 1.2: Removed redundant .onChange modifiers that were causing a state update crash loop.
@@ -13,18 +14,11 @@ struct SettingsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var runner: HealthCheckRunner
 
-    @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-    private var forceOverwriteDatabaseOnDebug: Bool = false
-
-    @AppStorage(UserDefaultsKeys.enableParsingCheckpoints)
-    private var enableParsingCheckpoints: Bool = false
-
     @AppStorage("runStartupHealthChecks")
     private var runStartupHealthChecks: Bool = true
 
     @AppStorage(UserDefaultsKeys.portfolioAttachmentsEnabled)
     private var portfolioAttachmentsEnabled: Bool = false
-
 
     private var okCount: Int {
         runner.reports.filter { if case .ok = $0.result { return true } else { return false } }.count
@@ -70,7 +64,7 @@ struct SettingsView: View {
                             }
                         ),
                         in: 0...8)
-                
+
                 Toggle("Auto FX Update", isOn: Binding(
                     get: { dbManager.autoFxUpdate },
                     set: { newValue in
@@ -94,7 +88,7 @@ struct SettingsView: View {
                         }
                 }
             }
-            
+
             Section(header: Text("Table Display Settings")) {
                 Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
                         value: Binding(
@@ -104,7 +98,7 @@ struct SettingsView: View {
                             }
                         ),
                         in: 0.0...10.0, step: 0.5)
-                
+
                 Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
                         value: Binding(
                             get: { dbManager.tableRowPadding },
@@ -130,20 +124,6 @@ struct SettingsView: View {
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 
-            #if DEBUG
-            Section(header: Text("Development / Debug Options")) {
-                VStack(alignment: .leading) {
-                    Toggle("Force Re-copy Database on Next Launch", isOn: $forceOverwriteDatabaseOnDebug)
-                    Text("Enable this to delete the current database and copy a fresh version from the bundle on next app start. Only for Debug builds.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Toggle("Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                        .padding(.top, 4)
-                }
-            }
-            #endif
-
-
             Section(header: Text("About")) {
                 HStack {
                     Text("App Version")
@@ -167,9 +147,6 @@ struct SettingsView: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        // NOTE: You must have a `UserDefaultsKeys` struct with the appropriate key defined for this preview to work.
-        UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
-        UserDefaults.standard.set(false, forKey: "enableParsingCheckpoints")
         let dbManager = DatabaseManager() // Create a preview instance
         let runner = HealthCheckRunner()
 
@@ -178,3 +155,4 @@ struct SettingsView_Previews: PreviewProvider {
             .environmentObject(runner)
     }
 }
+
