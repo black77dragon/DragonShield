@@ -22,6 +22,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Resolve ambiguous purgePositionReports overload causing build errors (#PR_NUMBER)
 
 ### Removed
+- Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
 
 ### Security
 

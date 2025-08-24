@@ -25,7 +25,7 @@ struct PortfolioThemesListView: View {
     @State private var showingAddSheet = false
     @State private var themeToOpen: PortfolioTheme?
     @State private var newUpdateTheme: PortfolioTheme?
-    @State private var detailInitialTab: DetailTab = .overview
+    @State private var detailInitialTab: DetailTab = .composition
     @State private var detailOrigin: String = "themesList"
 
     // State to manage the table's sort order
@@ -355,8 +355,8 @@ struct PortfolioThemesListView: View {
         if let t = tab {
             tabToLog = t
         } else {
-            let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeDetailLastTab) ?? DetailTab.overview.rawValue
-            tabToLog = DetailTab(rawValue: raw) ?? .overview
+            let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeDetailLastTab) ?? DetailTab.composition.rawValue
+            tabToLog = DetailTab(rawValue: raw) ?? .composition
         }
         LoggingService.shared.log("details_open themeId=\(theme.id) tab=\(tabToLog.rawValue) source=\(source)", logger: .ui)
         detailInitialTab = tabToLog
