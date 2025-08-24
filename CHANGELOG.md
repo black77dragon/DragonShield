@@ -11,6 +11,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Added
 - Restructure changelog and archive history (#PR_NUMBER)
+- Add selectable label component enabling copy/paste in import summary panel (#PR_NUMBER)
 
 ### Changed
 
