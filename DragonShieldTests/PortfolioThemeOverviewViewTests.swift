@@ -24,10 +24,10 @@ final class PortfolioThemeOverviewViewTests: XCTestCase {
         calendar.timeZone = tz
         let now = Date()
         let startToday = calendar.startOfDay(for: now)
-        let twentyDaysAgo = calendar.date(byAdding: .day, value: -20, to: startToday)!
-        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last30d.contains(twentyDaysAgo, timeZone: tz))
-        let thirtyOneDaysAgo = calendar.date(byAdding: .day, value: -31, to: startToday)!
-        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last30d.contains(thirtyOneDaysAgo, timeZone: tz))
+        let twentyNineDaysAgo = calendar.date(byAdding: .day, value: -29, to: startToday)!
+        XCTAssertTrue(PortfolioThemeOverviewView.DateFilter.last30d.contains(twentyNineDaysAgo, timeZone: tz))
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: startToday)!
+        XCTAssertFalse(PortfolioThemeOverviewView.DateFilter.last30d.contains(thirtyDaysAgo, timeZone: tz))
     }
 
     func testDateFilterLast90d() {
