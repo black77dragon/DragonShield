@@ -1,8 +1,3 @@
-// DragonShield/Views/PortfolioThemeUpdatesView.swift
-// MARK: - Version 1.1
-// MARK: - History
-// - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle.
-
 import SwiftUI
 import AppKit
 
@@ -13,165 +8,48 @@ struct PortfolioThemeUpdatesView: View {
     let searchHint: String?
 
     @State private var updates: [PortfolioThemeUpdate] = []
-    @State private var showEditor = false
+    @State private var extras: [Int: UpdateExtras] = [:]
     @State private var editingUpdate: PortfolioThemeUpdate?
-    @State private var themeName: String = ""
-    @State private var isArchived: Bool = false
-    @State private var pinnedFirst: Bool = true
-    @State private var selectedId: Int?
-    @State private var showDeleteConfirm = false
-    @State private var editingFromFooter = false
+    @State private var showEditor = false
     @State private var searchText: String = ""
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var pinnedFirst: Bool = true
+    @State private var sortOrder: SortOrder = .newest
+    @State private var dateFilter: UpdateDateFilter = .last30d
     @State private var searchDebounce: DispatchWorkItem?
-    @State private var attachmentCounts: [Int: Int] = [:]
-    @State private var linkPreviews: [Int: [Link]] = [:]
-    @State private var expandedLinks: Set<Int> = []
+    @State private var expandedId: Int? = nil
+    @State private var themeName: String = ""
+    @State private var isArchived: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if isArchived {
-                Text("Theme archived — composition locked; updates permitted")
-                    .frame(maxWidth: .infinity)
-                    .padding(8)
-                    .background(Color.yellow.opacity(0.1))
-            }
-            HStack {
-                Button("+ New Update") { showEditor = true }
-                TextField("Search", text: $searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: searchText) { _, _ in
-                        searchDebounce?.cancel()
-                        let task = DispatchWorkItem { load() }
-                        searchDebounce = task
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: task)
-                    }
-                Picker("Type", selection: $selectedType) {
-                    Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
-                    ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                        Text(t.rawValue).tag(Optional(t))
-                    }
-                }
-                    .onChange(of: selectedType) { _, _ in load() }
-                Spacer()
-                Toggle("Pinned first", isOn: $pinnedFirst)
-                    .toggleStyle(.checkbox)
-                    .onChange(of: pinnedFirst) { _, _ in load() }
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            filterRow
             if let hint = searchHint {
                 Text(hint)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
             }
-            List(selection: $selectedId) {
-                ForEach(updates) { update in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(DateFormatting.userFriendly(update.createdAt))  •  \(update.author)  •  \(update.type.rawValue)\(update.updatedAt > update.createdAt ? "  •  edited" : "")")
-                            .font(.subheadline)
-                        HStack {
-                            Text("Title: \(update.title)").fontWeight(.semibold)
-                            if update.pinned { Image(systemName: "star.fill") }
-                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
-                        }
-                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
-                            .lineLimit(3)
-                        if let links = linkPreviews[update.id], !links.isEmpty {
-                            let displayed = expandedLinks.contains(update.id) ? links : Array(links.prefix(3))
-                            HStack {
-                                Text("Links:")
-                                ForEach(displayed, id: \.id) { link in
-                                    Button(displayTitle(link)) { openLink(link, updateId: update.id) }
-                                        .buttonStyle(.link)
-                                }
-                                if links.count > 3 {
-                                    Button(expandedLinks.contains(update.id) ? "Show less" : "+\(links.count - 3) more") {
-                                        if expandedLinks.contains(update.id) {
-                                            expandedLinks.remove(update.id)
-                                        } else {
-                                            expandedLinks.insert(update.id)
-                                        }
-                                    }
-                                }
-                            }
-                            if expandedLinks.contains(update.id) {
-                                ForEach(links, id: \.id) { link in
-                                    HStack {
-                                        Text(link.rawURL)
-                                            .font(.caption)
-                                        Spacer()
-                                        Button("Open") { openLink(link, updateId: update.id) }
-                                        Button("Copy") { copyLink(link) }
-                                    }
-                                }
-                            }
-                        }
-                        Text("Breadcrumb: Positions \(DateFormatting.userFriendly(update.positionsAsOf)) • Total CHF \(formatted(update.totalValueChf))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .tag(update.id)
-                    .onTapGesture(count: 2) { editingUpdate = update; editingFromFooter = false }
-                    .contextMenu {
-                        Button("Edit") { editingUpdate = update; editingFromFooter = false }
-                        if update.pinned {
-                            Button("Unpin") {
-                                DispatchQueue.global(qos: .userInitiated).async {
-                                    _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: false, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
-                                    DispatchQueue.main.async { load() }
-                                }
-                            }
-                        } else {
-                            Button("Pin") {
-                                DispatchQueue.global(qos: .userInitiated).async {
-                                    _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: true, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
-                                    DispatchQueue.main.async { load() }
-                                }
-                            }
-                        }
-                        Button("Delete", role: .destructive) {
-                            DispatchQueue.global(qos: .userInitiated).async {
-                                _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
-                                DispatchQueue.main.async { load() }
-                            }
+            if updates.isEmpty {
+                VStack(spacing: 8) {
+                    Text("No updates match your filters.")
+                    Button("Clear filters") { resetFilters() }
+                        .buttonStyle(.link)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        ForEach(updates) { update in
+                            updateCard(update)
                         }
                     }
+                    .padding(.vertical, 4)
                 }
             }
-            Divider()
-            HStack {
-                Button("Edit") { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }
-                    .disabled(selectedUpdate == nil)
-                Button("Delete") { showDeleteConfirm = true }
-                    .disabled(selectedUpdate == nil)
-                Button(selectedUpdate?.pinned == true ? "Unpin" : "Pin") {
-                    if let u = selectedUpdate {
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            _ = dbManager.updateThemeUpdate(id: u.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !u.pinned, actor: NSFullUserName(), expectedUpdatedAt: u.updatedAt, source: "footer")
-                            DispatchQueue.main.async {
-                                load()
-                                selectedId = u.id
-                            }
-                        }
-                    }
-                }
-                    .disabled(selectedUpdate == nil)
-            }
-            .padding(8)
-            .confirmationDialog("Delete this update? This action can't be undone.", isPresented: $showDeleteConfirm) {
-                Button("Delete", role: .destructive) { deleteSelected() }
-            }
-            Button(action: { if let u = selectedUpdate { editingUpdate = u; editingFromFooter = true } }) { EmptyView() }
-                .keyboardShortcut(.return, modifiers: [])
-                .hidden()
-            Button(action: { if selectedUpdate != nil { showDeleteConfirm = true } }) { EmptyView() }
-                .keyboardShortcut(.delete, modifiers: [])
-                .hidden()
         }
+        .padding(12)
         .onAppear {
-            if let s = initialSearchText, searchText.isEmpty {
-                searchText = s
-            }
+            if let s = initialSearchText, searchText.isEmpty { searchText = s }
             load()
         }
         .sheet(isPresented: $showEditor) {
@@ -189,79 +67,228 @@ struct PortfolioThemeUpdatesView: View {
                 load()
             }, onCancel: {
                 editingUpdate = nil
-            }, logSource: editingFromFooter ? "footer" : nil)
+            })
             .environmentObject(dbManager)
         }
     }
 
-    private func load() {
-        let query = searchText.isEmpty ? nil : searchText
-        updates = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
-        if let theme = dbManager.getPortfolioTheme(id: themeId) {
-            themeName = theme.name
-            isArchived = theme.archivedAt != nil
-        }
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
-            attachmentCounts = dbManager.getAttachmentCounts(for: updates.map { $0.id })
-        } else {
-            attachmentCounts = [:]
-        }
-        if !updates.isEmpty {
-            let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
-            var dict: [Int: [Link]] = [:]
-            for u in updates {
-                dict[u.id] = lrepo.listLinks(updateId: u.id)
+    // MARK: - Subviews
+
+    private var filterRow: some View {
+        HStack {
+            Button("+ New Update") { showEditor = true }
+                .disabled(isArchived)
+            TextField("Search", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: searchText) { _, _ in
+                    searchDebounce?.cancel()
+                    let task = DispatchWorkItem { load() }
+                    searchDebounce = task
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
+                }
+            Picker("Type", selection: $selectedType) {
+                Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
+                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
+                    Text(t.rawValue).tag(Optional(t))
+                }
             }
-            linkPreviews = dict
-        } else {
-            linkPreviews = [:]
-        }
-    }
-
-    private var selectedUpdate: PortfolioThemeUpdate? {
-        updates.first { $0.id == selectedId }
-    }
-
-    private func formatted(_ value: Double?) -> String {
-        guard let v = value else { return "—" }
-        return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
-    }
-
-    private func openLink(_ link: Link, updateId: Int) {
-        if let url = URL(string: link.rawURL) {
-            NSWorkspace.shared.open(url)
-            LoggingService.shared.log("{ themeUpdateId: \(updateId), linkId: \(link.id), host: \(url.host ?? ""), op:'link_open' }", type: .info, logger: .database)
-        }
-    }
-
-    private func copyLink(_ link: Link) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(link.rawURL, forType: .string)
-    }
-
-    private func displayTitle(_ link: Link) -> String {
-        if let t = link.title, !t.isEmpty { return t }
-        if let url = URL(string: link.rawURL) {
-            var host = url.host ?? link.rawURL
-            if !url.path.isEmpty && url.path != "/" {
-                host += url.path
+            .onChange(of: selectedType) { _, _ in load() }
+            Picker("Sort", selection: $sortOrder) {
+                ForEach(SortOrder.allCases) { s in
+                    Text(s.label).tag(s)
+                }
             }
-            return host
+            .onChange(of: sortOrder) { _, _ in load() }
+            Toggle("Pinned first", isOn: $pinnedFirst)
+                .toggleStyle(.checkbox)
+                .onChange(of: pinnedFirst) { _, _ in load() }
+            Picker("Date", selection: $dateFilter) {
+                ForEach(UpdateDateFilter.allCases) { f in
+                    Text(f.label).tag(f)
+                }
+            }
+            .onChange(of: dateFilter) { _, _ in load() }
         }
-        return link.rawURL
     }
 
-    private func deleteSelected() {
-        if let u = selectedUpdate {
-            DispatchQueue.global(qos: .userInitiated).async {
-                if dbManager.softDeleteThemeUpdate(id: u.id, actor: NSFullUserName(), source: "footer") {
-                    DispatchQueue.main.async {
-                        load()
-                        selectedId = nil
+    private func updateCard(_ update: PortfolioThemeUpdate) -> some View {
+        let extra = extras[update.id]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Button(action: { togglePin(update) }) {
+                    Image(systemName: update.pinned ? "star.fill" : "star")
+                }
+                .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top) {
+                        Text(update.title)
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
+                            .help(update.title)
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Button("Edit") { editingUpdate = update }
+                                .buttonStyle(.link)
+                                .disabled(isArchived)
+                            Button("Delete", role: .destructive) { delete(update) }
+                                .buttonStyle(.link)
+                                .disabled(isArchived)
+                            Button(expandedId == update.id ? "Collapse" : "Expand") { toggleExpand(update) }
+                                .buttonStyle(.link)
+                        }
+                    }
+                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.type.rawValue)]")
+                        .font(.caption)
+                    if expandedId == update.id {
+                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                        if let links = extra?.links, !links.isEmpty {
+                            Text("Links").font(.subheadline)
+                            chipsGrid(links.map { chip(for: $0) })
+                        }
+                        if let files = extra?.attachments, !files.isEmpty {
+                            Text("Files").font(.subheadline)
+                            chipsGrid(files.map { chip(for: $0) })
+                        }
+                    } else {
+                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                            .lineLimit(3)
+                        if let ex = extra, (!ex.links.isEmpty || !ex.attachments.isEmpty) {
+                            chipsGrid(ex.links.map { chip(for: $0) } + ex.attachments.map { chip(for: $0) })
+                        }
                     }
                 }
             }
         }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+    }
+
+    private func chipsGrid(_ chips: [ChipItem]) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(chips) { chip in
+                HStack {
+                    Text(chip.label)
+                        .lineLimit(1)
+                        .help(chip.label)
+                    Spacer()
+                    Button("Open") { chip.open() }
+                        .buttonStyle(.link)
+                }
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1)))
+            }
+        }
+    }
+
+    // MARK: - Data
+
+    private func load() {
+        let query = searchText.isEmpty ? nil : searchText
+        var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
+        if dateFilter != .all {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let tz = TimeZone(identifier: dbManager.defaultTimeZone) ?? .current
+            list = list.filter { upd in
+                if let date = formatter.date(from: upd.createdAt) {
+                    return dateFilter.contains(date, timeZone: tz)
+                }
+                return false
+            }
+        }
+        if sortOrder == .oldest {
+            list = list.sorted { $0.createdAt < $1.createdAt }
+        }
+        updates = list
+        var map: [Int: UpdateExtras] = [:]
+        let linkRepo = ThemeUpdateLinkRepository(dbManager: dbManager)
+        let attRepo = ThemeUpdateRepository(dbManager: dbManager)
+        for upd in list {
+            let links = linkRepo.listLinks(updateId: upd.id)
+            let atts = FeatureFlags.portfolioAttachmentsEnabled() ? attRepo.listAttachments(updateId: upd.id) : []
+            map[upd.id] = UpdateExtras(links: links, attachments: atts)
+        }
+        extras = map
+        if let theme = dbManager.getPortfolioTheme(id: themeId) {
+            themeName = theme.name
+            isArchived = theme.archivedAt != nil
+        }
+    }
+
+    private func resetFilters() {
+        searchText = ""
+        selectedType = nil
+        pinnedFirst = true
+        sortOrder = .newest
+        dateFilter = .last30d
+        load()
+    }
+
+    // MARK: - Actions
+
+    private func togglePin(_ update: PortfolioThemeUpdate) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
+            DispatchQueue.main.async { load() }
+        }
+    }
+
+    private func delete(_ update: PortfolioThemeUpdate) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
+            DispatchQueue.main.async { load() }
+        }
+    }
+
+    private func toggleExpand(_ update: PortfolioThemeUpdate) {
+        if expandedId == update.id {
+            expandedId = nil
+        } else {
+            expandedId = update.id
+        }
+    }
+
+    private func openLink(_ link: Link) {
+        if let url = URL(string: link.rawURL) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func openAttachment(_ att: Attachment) {
+        AttachmentService(dbManager: dbManager).quickLook(attachmentId: att.id)
+    }
+
+    private func displayTitle(_ link: Link) -> String {
+        if let t = link.title, !t.isEmpty { return t }
+        if let url = URL(string: link.rawURL) { return url.host ?? link.rawURL }
+        return link.rawURL
+    }
+
+    private func chip(for link: Link) -> ChipItem {
+        ChipItem(id: "l-\(link.id)", label: displayTitle(link)) { openLink(link) }
+    }
+
+    private func chip(for att: Attachment) -> ChipItem {
+        ChipItem(id: "f-\(att.id)", label: att.originalFilename) { openAttachment(att) }
+    }
+
+    // MARK: - Types
+
+    struct UpdateExtras {
+        let links: [Link]
+        let attachments: [Attachment]
+    }
+
+    enum SortOrder: String, CaseIterable, Identifiable {
+        case newest
+        case oldest
+        var id: String { rawValue }
+        var label: String { self == .newest ? "Newest first" : "Oldest first" }
+    }
+
+    struct ChipItem: Identifiable {
+        let id: String
+        let label: String
+        let open: () -> Void
     }
 }

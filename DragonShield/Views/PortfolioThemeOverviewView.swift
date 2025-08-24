@@ -13,7 +13,7 @@ struct PortfolioThemeOverviewView: View {
     @State private var searchText: String = ""
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
     @State private var pinnedFirst: Bool = true
-    @State private var dateFilter: DateFilter = .last90d
+    @State private var dateFilter: UpdateDateFilter = .last90d
     @State private var kpis: KPIMetrics?
     @State private var searchDebounce: DispatchWorkItem?
     @State private var themeName: String = ""
@@ -102,7 +102,7 @@ struct PortfolioThemeOverviewView: View {
                 .toggleStyle(.checkbox)
                 .onChange(of: pinnedFirst) { _, _ in load() }
             Picker("Date", selection: $dateFilter) {
-                ForEach(DateFilter.allCases) { f in
+                ForEach(UpdateDateFilter.allCases) { f in
                     Text(f.label).tag(f)
                 }
             }
@@ -336,42 +336,6 @@ struct PortfolioThemeOverviewView: View {
         case link(Link)
     }
 
-    enum DateFilter: String, CaseIterable, Identifiable {
-        case last7d
-        case last30d
-        case last90d
-        case all
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .last7d: return "Last 7d"
-            case .last30d: return "Last 30d"
-            case .last90d: return "Last 90d"
-            case .all: return "All"
-            }
-        }
-        func contains(_ date: Date, timeZone: TimeZone) -> Bool {
-            switch self {
-            case .all:
-                return true
-            case .last7d, .last30d, .last90d:
-                var calendar = Calendar(identifier: .gregorian)
-                calendar.timeZone = timeZone
-                let now = Date()
-                let startOfToday = calendar.startOfDay(for: now)
-                let days: Int
-                switch self {
-                case .last7d: days = 7
-                case .last30d: days = 30
-                case .last90d: days = 90
-                case .all: days = 0
-                }
-                let start = calendar.date(byAdding: .day, value: -(days - 1), to: startOfToday)!
-                let end = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday)!
-                return date >= start && date <= end
-            }
-        }
-    }
 }
 
 extension PortfolioThemeOverviewView {
