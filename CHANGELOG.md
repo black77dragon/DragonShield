@@ -12,6 +12,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Added
 - Restructure changelog and archive history (#PR_NUMBER)
+- Add bank-specific import cards with filename hints and instructions (#PR_NUMBER)
 
 ### Changed
 - Replace status alerts with SwiftUI windows (#PR_NUMBER)
