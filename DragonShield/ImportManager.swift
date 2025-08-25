@@ -657,12 +657,8 @@ class ImportManager {
     func openAndParseDocument() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
-        if #available(macOS 12.0, *) {
-            if let xlsxType = UTType(filenameExtension: "xlsx") {
-                panel.allowedContentTypes = [xlsxType]
-            }
-        } else {
-            panel.allowedFileTypes = ["xlsx"]
+        if let xlsxType = UTType(filenameExtension: "xlsx") {
+            panel.allowedContentTypes = [xlsxType]
         }
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }

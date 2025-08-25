@@ -277,15 +277,9 @@ struct DatabaseManagementView: View {
     private func backupNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        if #available(macOS 12.0, *) {
-            if let dbType = UTType(filenameExtension: "db") {
-                panel.allowedContentTypes = [dbType]
-            }
-        } else {
-            panel.allowedFileTypes = ["db"]
+        if let dbType = UTType(filenameExtension: "db") {
+            panel.allowedContentTypes = [dbType]
         }
-        
-        // CHANGED: The directory is now taken from the service, which is a more robust approach.
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultFileName(
             mode: dbManager.dbMode,
