@@ -8,11 +8,11 @@ import Foundation
 
 extension DatabaseManager {
     
-    func fetchAssets() -> [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] {
-        var instruments: [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?)] = []
-        
+    func fetchAssets() -> [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, notes: String?)] {
+        var instruments: [(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, notes: String?)] = []
+
         let query = """
-            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin
+            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, notes
             FROM Instruments
             WHERE is_active = 1 AND instrument_name IS NOT NULL AND instrument_name != ''
             ORDER BY instrument_name
@@ -55,7 +55,15 @@ extension DatabaseManager {
                     isin = nil
                 }
 
-                instruments.append((id: id, name: name, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin))
+                let notes: String?
+                if let notesPtr = sqlite3_column_text(statement, 7) {
+                    let notesValue = String(cString: notesPtr)
+                    notes = notesValue.isEmpty ? nil : notesValue
+                } else {
+                    notes = nil
+                }
+
+                instruments.append((id: id, name: name, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin, notes: notes))
             }
         } else {
             print("❌ Failed to prepare fetchAssets: \(String(cString: sqlite3_errmsg(db)))")
@@ -64,10 +72,10 @@ extension DatabaseManager {
         return instruments
     }
     
-    func addInstrument(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Bool {
+    func addInstrument(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?, notes: String?) -> Bool {
         let query = """
-            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, notes, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         """
         
         var statement: OpaquePointer?
@@ -118,7 +126,13 @@ extension DatabaseManager {
         } else {
             sqlite3_bind_null(statement, 7)
         }
-        
+
+        if let n = notes, !n.isEmpty {
+            _ = n.withCString { sqlite3_bind_text(statement, 8, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 8)
+        }
+
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
         
@@ -134,10 +148,10 @@ extension DatabaseManager {
     }
 
     /// Inserts a new instrument and returns the generated row ID on success.
-    func addInstrumentReturningId(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?) -> Int? {
+    func addInstrumentReturningId(name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?, notes: String?) -> Int? {
         let query = """
-            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO Instruments (instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, notes, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         """
 
         var statement: OpaquePointer?
@@ -177,6 +191,12 @@ extension DatabaseManager {
             sqlite3_bind_null(statement, 7)
         }
 
+        if let n = notes, !n.isEmpty {
+            _ = n.withCString { sqlite3_bind_text(statement, 8, $0, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 8)
+        }
+
         let success = sqlite3_step(statement) == SQLITE_DONE
         let insertedId = success ? Int(sqlite3_last_insert_rowid(db)) : nil
         sqlite3_finalize(statement)
@@ -190,10 +210,10 @@ extension DatabaseManager {
         return insertedId
     }
     
-    func updateInstrument(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, sector: String?) -> Bool {
+    func updateInstrument(id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, sector: String?, notes: String?) -> Bool {
         let query = """
             UPDATE Instruments
-            SET instrument_name = ?, sub_class_id = ?, currency = ?, valor_nr = ?, ticker_symbol = ?, isin = ?, sector = ?, updated_at = CURRENT_TIMESTAMP
+            SET instrument_name = ?, sub_class_id = ?, currency = ?, valor_nr = ?, ticker_symbol = ?, isin = ?, sector = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
             WHERE instrument_id = ?
         """
         
@@ -234,7 +254,13 @@ extension DatabaseManager {
             sqlite3_bind_null(statement, 7)
         }
 
-        sqlite3_bind_int(statement, 8, Int32(id))
+        if let n = notes, !n.isEmpty {
+            _ = n.withCString { notesPtr in sqlite3_bind_text(statement, 8, notesPtr, -1, SQLITE_TRANSIENT) }
+        } else {
+            sqlite3_bind_null(statement, 8)
+        }
+
+        sqlite3_bind_int(statement, 9, Int32(id))
         
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
@@ -269,9 +295,9 @@ extension DatabaseManager {
         return result
     }
     
-    func fetchInstrumentDetails(id: Int) -> (id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?)? {
+    func fetchInstrumentDetails(id: Int) -> (id: Int, name: String, subClassId: Int, currency: String, valorNr: String?, tickerSymbol: String?, isin: String?, countryCode: String?, exchangeCode: String?, sector: String?, notes: String?)? {
         let query = """
-            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector
+            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, notes
             FROM Instruments
             WHERE instrument_id = ?
         """
@@ -290,9 +316,10 @@ extension DatabaseManager {
                 let tickerSymbol: String? = sqlite3_column_text(statement, 5).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
                 let isin: String? = sqlite3_column_text(statement, 6).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
                 let sector: String? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+                let notes: String? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
 
                 sqlite3_finalize(statement)
-                return (id: instrumentId, name: instrumentName, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin, countryCode: nil, exchangeCode: nil, sector: sector)
+                return (id: instrumentId, name: instrumentName, subClassId: subClassId, currency: currency, valorNr: valorNr, tickerSymbol: tickerSymbol, isin: isin, countryCode: nil, exchangeCode: nil, sector: sector, notes: notes)
             } else {
                  print("ℹ️ No instrument details found for ID: \(id)")
             }

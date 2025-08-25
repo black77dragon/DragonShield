@@ -7,7 +7,8 @@ typealias InstrumentInfo = (
     currency: String,
     valorNr: String?,
     tickerSymbol: String?,
-    isin: String?
+    isin: String?,
+    notes: String?
 )
 
 typealias AccountInfo = (

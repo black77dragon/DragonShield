@@ -10,6 +10,7 @@ struct AddInstrumentView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
+    @State private var notes = ""
     @State private var instrumentGroups: [(id: Int, name: String)] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -49,7 +50,7 @@ struct AddInstrumentView: View {
     private var completionPercentage: Double {
         var completed = 0.0
         let total = 7.0
-        
+
         if !instrumentName.isEmpty { completed += 1 }
         if selectedGroupId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
@@ -327,6 +328,18 @@ struct AddInstrumentView: View {
                     icon: "briefcase.circle.fill",
                     isRequired: false
                 )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Notes")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    TextEditor(text: $notes)
+                        .frame(height: 80)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3))
+                        )
+                }
             }
         }
         .padding(24)
@@ -586,6 +599,7 @@ struct AddInstrumentView: View {
         isin = ""
         valorNr = ""
         sector = ""
+        notes = ""
         if !instrumentGroups.isEmpty {
             selectedGroupId = instrumentGroups[0].id
         }
@@ -604,7 +618,7 @@ struct AddInstrumentView: View {
         isLoading = true
         
         let dbManager = DatabaseManager()
-        
+
         let success = dbManager.addInstrument(
             name: trimmedName,
             subClassId: selectedGroupId,
@@ -614,7 +628,8 @@ struct AddInstrumentView: View {
             isin: isin.isEmpty ? nil : isin.uppercased(),
             countryCode: nil,
             exchangeCode: nil,
-            sector: sector.isEmpty ? nil : sector
+            sector: sector.isEmpty ? nil : sector,
+            notes: notes.isEmpty ? nil : notes
         )
         
         DispatchQueue.main.async {
