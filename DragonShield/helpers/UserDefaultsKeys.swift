@@ -27,4 +27,11 @@ struct UserDefaultsKeys {
     static let portfolioAttachmentsEnabled = "portfolioAttachmentsEnabled"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
+    /// Persist column widths in Institutions maintenance view.
+    static let institutionsNameColWidth = "institutionsNameColWidth"
+    static let institutionsBicColWidth = "institutionsBicColWidth"
+    static let institutionsTypeColWidth = "institutionsTypeColWidth"
+    static let institutionsCurColWidth = "institutionsCurColWidth"
+    static let institutionsCountryColWidth = "institutionsCountryColWidth"
+    static let institutionsStatusColWidth = "institutionsStatusColWidth"
 }

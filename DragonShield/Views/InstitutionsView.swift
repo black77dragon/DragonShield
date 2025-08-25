@@ -16,6 +16,13 @@ import SwiftUI
 struct InstitutionsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
+    @AppStorage(UserDefaultsKeys.institutionsNameColWidth) var nameColWidth: Double = 200
+    @AppStorage(UserDefaultsKeys.institutionsBicColWidth) var bicColWidth: Double = 100
+    @AppStorage(UserDefaultsKeys.institutionsTypeColWidth) var typeColWidth: Double = 120
+    @AppStorage(UserDefaultsKeys.institutionsCurColWidth) var curColWidth: Double = 50
+    @AppStorage(UserDefaultsKeys.institutionsCountryColWidth) var countryColWidth: Double = 70
+    @AppStorage(UserDefaultsKeys.institutionsStatusColWidth) var statusColWidth: Double = 80
+
     @State private var institutions: [DatabaseManager.InstitutionData] = []
     @State private var selectedInstitution: DatabaseManager.InstitutionData? = nil
     @State private var searchText = ""
@@ -444,6 +451,12 @@ private extension InstitutionsView {
                             institution: inst,
                             isSelected: selectedInstitution?.id == inst.id,
                             rowPadding: CGFloat(dbManager.tableRowPadding),
+                            nameWidth: CGFloat(nameColWidth),
+                            bicWidth: CGFloat(bicColWidth),
+                            typeWidth: CGFloat(typeColWidth),
+                            curWidth: CGFloat(curColWidth),
+                            countryWidth: CGFloat(countryColWidth),
+                            statusWidth: CGFloat(statusColWidth),
                             onTap: { selectedInstitution = inst },
                             onEdit: { selectedInstitution = inst; showEditSheet = true }
                         )
@@ -464,31 +477,36 @@ private extension InstitutionsView {
     }
 
     var modernTableHeader: some View {
-        HStack {
+        HStack(spacing: 0) {
             Text("Name")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: CGFloat(nameColWidth), alignment: .leading)
+                .overlay(ResizableDivider(width: $nameColWidth), alignment: .trailing)
             Text("BIC")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: CGFloat(bicColWidth), alignment: .leading)
+                .overlay(ResizableDivider(width: $bicColWidth), alignment: .trailing)
             Text("Type")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: CGFloat(typeColWidth), alignment: .leading)
+                .overlay(ResizableDivider(width: $typeColWidth), alignment: .trailing)
             Text("Cur")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(width: 50, alignment: .leading)
+                .frame(width: CGFloat(curColWidth), alignment: .leading)
+                .overlay(ResizableDivider(width: $curColWidth), alignment: .trailing)
             Text("Country")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(width: 70, alignment: .leading)
+                .frame(width: CGFloat(countryColWidth), alignment: .leading)
+                .overlay(ResizableDivider(width: $countryColWidth), alignment: .trailing)
             Text("Status")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(width: 80, alignment: .center)
+                .frame(width: CGFloat(statusColWidth), alignment: .center)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -633,15 +651,21 @@ struct ModernInstitutionRowView: View {
     let institution: DatabaseManager.InstitutionData
     let isSelected: Bool
     let rowPadding: CGFloat
+    let nameWidth: CGFloat
+    let bicWidth: CGFloat
+    let typeWidth: CGFloat
+    let curWidth: CGFloat
+    let countryWidth: CGFloat
+    let statusWidth: CGFloat
     let onTap: () -> Void
     let onEdit: () -> Void
 
     var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             Text(institution.name)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: nameWidth, alignment: .leading)
 
             Text(institution.bic ?? "")
                 .font(.system(size: 13, design: .monospaced))
@@ -650,21 +674,21 @@ struct ModernInstitutionRowView: View {
                 .padding(.vertical, 2)
                 .background(Color.gray.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                .frame(width: 100, alignment: .leading)
+                .frame(width: bicWidth, alignment: .leading)
 
             Text(institution.type ?? "")
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: typeWidth, alignment: .leading)
 
             Text(institution.defaultCurrency ?? "")
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundColor(.secondary)
-                .frame(width: 50, alignment: .leading)
+                .frame(width: curWidth, alignment: .leading)
 
             Text(institution.countryCode.map { "\(flagEmoji($0)) \($0)" } ?? "")
                 .font(.system(size: 13))
-                .frame(width: 70, alignment: .leading)
+                .frame(width: countryWidth, alignment: .leading)
 
             HStack(spacing: 4) {
                 Circle()
@@ -674,7 +698,7 @@ struct ModernInstitutionRowView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(institution.isActive ? .green : .orange)
             }
-            .frame(width: 80, alignment: .center)
+            .frame(width: statusWidth, alignment: .center)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, rowPadding)
@@ -705,6 +729,36 @@ struct ModernInstitutionRowView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+}
+
+struct ResizableDivider: View {
+    @Binding var width: Double
+    private let minWidth: Double = 40
+    private let maxWidth: Double = 600
+    @State private var startWidth: Double = 0
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .frame(width: 2)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if startWidth == 0 { startWidth = width }
+                        let proposed = startWidth + Double(value.translation.width)
+                        width = min(max(proposed, minWidth), maxWidth)
+                    }
+                    .onEnded { _ in startWidth = 0 }
+            )
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
     }
 }
 
