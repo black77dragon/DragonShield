@@ -13,6 +13,8 @@
 
 import SwiftUI
 
+private let institutionNameColumnWidth: CGFloat = 260
+
 struct InstitutionsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
@@ -158,6 +160,7 @@ struct AddInstitutionView: View {
                         Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
+                Text("Notes")
                 TextEditor(text: $notes)
                     .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
@@ -246,6 +249,7 @@ struct EditInstitutionView: View {
                         Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
+                Text("Notes")
                 TextEditor(text: $notes)
                     .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
@@ -468,7 +472,7 @@ private extension InstitutionsView {
             Text("Name")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: institutionNameColumnWidth, alignment: .leading)
             Text("BIC")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
@@ -485,10 +489,15 @@ private extension InstitutionsView {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
                 .frame(width: 70, alignment: .leading)
+            Text("Note")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 40, alignment: .center)
             Text("Status")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
                 .frame(width: 80, alignment: .center)
+            Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -636,12 +645,14 @@ struct ModernInstitutionRowView: View {
     let onTap: () -> Void
     let onEdit: () -> Void
 
+    @State private var showNote = false
+
     var body: some View {
         HStack {
             Text(institution.name)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: institutionNameColumnWidth, alignment: .leading)
 
             Text(institution.bic ?? "")
                 .font(.system(size: 13, design: .monospaced))
@@ -665,7 +676,21 @@ struct ModernInstitutionRowView: View {
             Text(institution.countryCode.map { "\(flagEmoji($0)) \($0)" } ?? "")
                 .font(.system(size: 13))
                 .frame(width: 70, alignment: .leading)
-
+            if let note = institution.notes, !note.isEmpty {
+                Button(action: { showNote = true }) {
+                    Image(systemName: "note.text")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(width: 40, alignment: .center)
+                .alert("Note", isPresented: $showNote) {
+                    Button("Close", role: .cancel) { }
+                } message: {
+                    Text(note)
+                }
+            } else {
+                Spacer().frame(width: 40)
+            }
             HStack(spacing: 4) {
                 Circle()
                     .fill(institution.isActive ? Color.green : Color.orange)
@@ -675,6 +700,7 @@ struct ModernInstitutionRowView: View {
                     .foregroundColor(institution.isActive ? .green : .orange)
             }
             .frame(width: 80, alignment: .center)
+            Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, rowPadding)

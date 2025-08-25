@@ -131,7 +131,7 @@ struct ThemeStatusEditView: View {
                     if isNew {
                         TextField("Code", text: $code)
                             .textFieldStyle(.roundedBorder)
-                            .onChange(of: code) { newValue in
+                            .onChange(of: code) { _, newValue in
                                 code = newValue.uppercased()
                                 validate()
                             }
@@ -154,7 +154,7 @@ struct ThemeStatusEditView: View {
                         .frame(width: 140, alignment: .leading)
                     TextField("Name", text: $name)
                         .textFieldStyle(.roundedBorder)
-                        .onChange(of: name) { _ in validate() }
+                        .onChange(of: name) { _, _ in validate() }
                 }
                 if let nameError {
                     GridRow {
@@ -182,7 +182,7 @@ struct ThemeStatusEditView: View {
                         Divider()
                         Text("Custom…").tag("custom")
                     }
-                    .onChange(of: selection) { newValue in
+                    .onChange(of: selection) { _, newValue in
                         if newValue != "custom" {
                             customHex = newValue
                         }
@@ -197,7 +197,7 @@ struct ThemeStatusEditView: View {
                         HStack {
                             TextField("#RRGGBB", text: $customHex)
                                 .textFieldStyle(.roundedBorder)
-                                .onChange(of: customHex) { _ in validate() }
+                                .onChange(of: customHex) { _, _ in validate() }
                             ColorSwatch(hex: customHex, size: 24)
                         }
                     }

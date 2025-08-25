@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct UnusedInstrumentsReportView: View {
     @State private var items: [UnusedInstrument] = []
@@ -40,7 +41,7 @@ struct UnusedInstrumentsReportView: View {
                     ForEach(currencyOptions, id: \.self) { Text($0) }
                 }
                 Toggle("Exclude Cash", isOn: $excludeCash)
-                    .onChange(of: excludeCash) { _ in load() }
+                    .onChange(of: excludeCash) { _, _ in load() }
                     .accessibilityLabel("Exclude Cash")
                 Spacer()
             }
@@ -99,7 +100,7 @@ struct UnusedInstrumentsReportView: View {
     private func export() {
         let string = Self.exportString(items: filteredItems)
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["csv", "txt"]
+        panel.allowedContentTypes = [UTType.commaSeparatedText, UTType.plainText]
         panel.nameFieldStringValue = "UnusedInstruments.csv"
         if panel.runModal() == .OK, let url = panel.url {
             try? string.data(using: .utf8)?.write(to: url)

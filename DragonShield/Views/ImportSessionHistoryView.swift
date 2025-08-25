@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ImportSessionHistoryView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -267,7 +268,7 @@ private struct ImportSessionValueReportView: View {
     private func exportAll() {
         let string = ValueReportView.exportString(items: items, totalValue: totalValue)
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["csv", "txt"]
+        panel.allowedContentTypes = [UTType.commaSeparatedText, UTType.plainText]
         panel.nameFieldStringValue = "ValueReport.csv"
         if panel.runModal() == .OK, let url = panel.url {
             try? string.data(using: .utf8)?.write(to: url)

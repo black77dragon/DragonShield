@@ -17,12 +17,14 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Copy or export Value Report data from reports (#PR_NUMBER)
 - Add repository for strict unused instruments report (#PR_NUMBER)
 - Expose strict unused instruments report from Instruments view (#PR_NUMBER)
+- Show note icon for institutions with notes in overview table (#PR_NUMBER)
 
 ### Changed
 - Replace status alerts with SwiftUI windows (#PR_NUMBER)
 - Replace legacy theme updates list with card-based overview (#PR_NUMBER)
 - Enlarge import value report window and enable text copy (#PR_NUMBER)
 - Tighten composition table spacing in Portfolio Theme Detail view (#PR_NUMBER)
+- Reduce Institution Name column width for better layout (#PR_NUMBER)
 - Slim valuation table research and user columns in Portfolio Theme Detail view (#PR_NUMBER)
 - Enlarge Portfolio Theme Detail window to fit valuation columns (#PR_NUMBER)
 
@@ -30,6 +32,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 - Resolve ambiguous purgePositionReports overload causing build errors (#PR_NUMBER)
 - Ensure unused instruments query considers all historical positions (#PR_NUMBER)
+- Update deprecated APIs for macOS 14 compatibility (#PR_NUMBER)
 
 ### Removed
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)

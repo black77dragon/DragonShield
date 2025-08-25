@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ValueReportView: View {
     let items: [DatabaseManager.ImportSessionValueItem]
@@ -73,7 +74,7 @@ struct ValueReportView: View {
     private func exportAll() {
         let string = Self.exportString(items: items, totalValue: totalValue)
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["csv", "txt"]
+        panel.allowedContentTypes = [UTType.commaSeparatedText, UTType.plainText]
         panel.nameFieldStringValue = "ValueReport.csv"
         if panel.runModal() == .OK, let url = panel.url {
             try? string.data(using: .utf8)?.write(to: url)
