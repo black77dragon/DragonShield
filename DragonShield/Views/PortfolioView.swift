@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
@@ -9,6 +10,9 @@ struct PortfolioView: View {
     @State private var showingDeleteAlert = false
     @State private var assetToDelete: DragonAsset? = nil
     @State private var searchText = ""
+    @State private var showUnusedReport = false
+    @State private var unusedItems: [UnusedInstrument] = []
+    @State private var unusedError: String? = nil
     // Filtering & Sorting
     @State private var typeFilters: Set<String> = []
     @State private var currencyFilters: Set<String> = []
@@ -112,7 +116,19 @@ struct PortfolioView: View {
                     }
             }
         }
-        
+        .sheet(isPresented: $showUnusedReport) {
+            UnusedInstrumentsReportView(items: unusedItems) {
+                showUnusedReport = false
+            }
+        }
+
+        .alert(unusedError ?? "", isPresented: Binding(
+            get: { unusedError != nil },
+            set: { _ in unusedError = nil }
+        )) {
+            Button("OK", role: .cancel) { }
+        }
+
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -507,7 +523,7 @@ struct PortfolioView: View {
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    
+
                     Button {
                         if let asset = selectedAsset {
                             assetToDelete = asset
@@ -531,7 +547,28 @@ struct PortfolioView: View {
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
-                
+
+                Button {
+                    loadUnusedReport()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Unused Instruments…")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Show Unused Instruments Report")
+
                 Spacer()
                 
                 // Selection indicator
@@ -601,6 +638,24 @@ struct PortfolioView: View {
     }
     
     // MARK: - Functions
+    func loadUnusedReport() {
+        let manager = DatabaseManager()
+        let repo = InstrumentUsageRepository(dbManager: manager)
+        Task {
+            do {
+                let list = try repo.unusedStrict()
+                await MainActor.run {
+                    unusedItems = list
+                    showUnusedReport = true
+                }
+            } catch {
+                LoggingService.shared.log("loadUnusedReport failed: \(error.localizedDescription)", type: .error, logger: .ui)
+                await MainActor.run {
+                    unusedError = error.localizedDescription
+                }
+            }
+        }
+    }
     func confirmDelete(_ asset: DragonAsset) {
         let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrument(id: asset.id)
