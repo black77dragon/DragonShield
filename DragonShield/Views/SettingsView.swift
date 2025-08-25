@@ -38,7 +38,6 @@ struct SettingsView: View {
 
     // Local state for text fields to allow temporary editing before committing
     @State private var tempBaseCurrency: String = ""
-    @State private var tempDefaultTimeZone: String = ""
     // For steppers/pickers, we can often bind directly to dbManager's @Published vars
 
     var body: some View {
@@ -47,7 +46,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Base Currency")
                     Spacer()
-                    TextField("e.g., CHF", text: $tempBaseCurrency)
+                    TextField("", text: $tempBaseCurrency)
                         .frame(width: 80)
                         .multilineTextAlignment(.trailing)
                         .onSubmit {
@@ -78,21 +77,6 @@ struct SettingsView: View {
                     }
                 ))
 
-                HStack {
-                    Text("Default Timezone")
-                    Spacer()
-                    TextField("e.g., Europe/Zurich", text: $tempDefaultTimeZone)
-                        .frame(minWidth: 150)
-                        .multilineTextAlignment(.trailing)
-                        .onSubmit {
-                            let newZone = tempDefaultTimeZone.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !newZone.isEmpty { // Basic validation
-                                _ = dbManager.updateConfiguration(key: "default_timezone", value: newZone)
-                            } else {
-                                tempDefaultTimeZone = dbManager.defaultTimeZone
-                            }
-                        }
-                }
             }
             
             Section(header: Text("Table Display Settings")) {
@@ -160,7 +144,6 @@ struct SettingsView: View {
         .onAppear {
             // Initialize temp states from dbManager's @Published properties
             tempBaseCurrency = dbManager.baseCurrency
-            tempDefaultTimeZone = dbManager.defaultTimeZone
         }
     }
 }
