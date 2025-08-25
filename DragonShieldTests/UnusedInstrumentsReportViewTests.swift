@@ -1,5 +1,6 @@
 import XCTest
 @testable import DragonShield
+import AppKit
 
 final class UnusedInstrumentsReportViewTests: XCTestCase {
     func testExportStringIncludesHeadersAndRows() {
@@ -11,5 +12,22 @@ final class UnusedInstrumentsReportViewTests: XCTestCase {
         XCTAssertTrue(csv.contains("Instrument,Type,Currency,Last Activity,Themes,Refs"))
         XCTAssertTrue(csv.contains("A,Stock,USD,—,0,0"))
         XCTAssertTrue(csv.contains("B,Bond,CHF,2024-11-03,1,0"))
+    }
+
+    func testColumnResizeUpdatesStoredWidth() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "unusedInstrumentInstrumentWidth")
+        var view = PersistentUnusedInstrumentsTable(items: [], sortOrder: .constant([]))
+        let coordinator = view.makeCoordinator()
+        let tableView = NSTableView()
+        coordinator.tableView = tableView
+        let column = NSTableColumn(identifier: NSTableColumn.Identifier("Instrument"))
+        column.width = 222
+        let exp = expectation(description: "width updated")
+        coordinator.columnDidResize(Notification(name: NSTableView.columnDidResizeNotification, object: tableView, userInfo: ["NSTableViewColumn": column]))
+        DispatchQueue.main.async { exp.fulfill() }
+        wait(for: [exp], timeout: 1)
+        XCTAssertEqual(defaults.double(forKey: "unusedInstrumentInstrumentWidth"), 222)
+        defaults.removeObject(forKey: "unusedInstrumentInstrumentWidth")
     }
 }
