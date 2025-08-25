@@ -37,4 +37,4 @@ Checks not listed are skipped.
 
 ## Viewing Results
 
-After startup, open **Health Checks** from the sidebar or Settings to review each check and its message.
+After startup, open **Health Checks** from Settings to review each check and its message.

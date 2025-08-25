@@ -37,6 +37,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Update deprecated APIs for macOS 14 compatibility (#PR_NUMBER)
 
 ### Removed
+- Remove Health Checks from sidebar (#PR_NUMBER)
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
 
 ### Security

@@ -12,7 +12,6 @@ import AppKit
 
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
-    @EnvironmentObject var healthRunner: HealthCheckRunner
 
     @State private var showOverview = true
     @State private var showManagement = true
@@ -87,9 +86,6 @@ struct SidebarView: View {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
                 }
 
-                NavigationLink(destination: HealthCheckResultsView()) {
-                    Label("Health Checks", systemImage: "heart.text.square")
-                }
 
                 NavigationLink(destination: SettingsView()) {
                     Label("Settings", systemImage: "gear")
@@ -110,6 +106,5 @@ struct SidebarView_Previews: PreviewProvider {
         }
         .environmentObject(DatabaseManager())
         .environmentObject(AssetManager())
-        .environmentObject(HealthCheckRunner())
     }
 }
