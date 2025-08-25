@@ -158,6 +158,7 @@ struct AddInstitutionView: View {
                         Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
+                Text("Notes")
                 TextEditor(text: $notes)
                     .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
@@ -246,6 +247,7 @@ struct EditInstitutionView: View {
                         Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
+                Text("Notes")
                 TextEditor(text: $notes)
                     .frame(height: 60)
                 Toggle("Active", isOn: $isActive)
@@ -485,6 +487,10 @@ private extension InstitutionsView {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
                 .frame(width: 70, alignment: .leading)
+            Text("Note")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.gray)
+                .frame(width: 40, alignment: .center)
             Text("Status")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
@@ -636,6 +642,8 @@ struct ModernInstitutionRowView: View {
     let onTap: () -> Void
     let onEdit: () -> Void
 
+    @State private var showNote = false
+
     var body: some View {
         HStack {
             Text(institution.name)
@@ -665,7 +673,21 @@ struct ModernInstitutionRowView: View {
             Text(institution.countryCode.map { "\(flagEmoji($0)) \($0)" } ?? "")
                 .font(.system(size: 13))
                 .frame(width: 70, alignment: .leading)
-
+            if let note = institution.notes, !note.isEmpty {
+                Button(action: { showNote = true }) {
+                    Image(systemName: "note.text")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(width: 40, alignment: .center)
+                .alert("Note", isPresented: $showNote) {
+                    Button("Close", role: .cancel) { }
+                } message: {
+                    Text(note)
+                }
+            } else {
+                Spacer().frame(width: 40)
+            }
             HStack(spacing: 4) {
                 Circle()
                     .fill(institution.isActive ? Color.green : Color.orange)
