@@ -23,6 +23,8 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Replace legacy theme updates list with card-based overview (#PR_NUMBER)
 - Enlarge import value report window and enable text copy (#PR_NUMBER)
 - Tighten composition table spacing in Portfolio Theme Detail view (#PR_NUMBER)
+- Slim valuation table research and user columns in Portfolio Theme Detail view (#PR_NUMBER)
+- Enlarge Portfolio Theme Detail window to fit valuation columns (#PR_NUMBER)
 
 ### Fixed
 

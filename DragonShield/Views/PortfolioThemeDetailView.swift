@@ -127,7 +127,7 @@ struct PortfolioThemeDetailView: View {
             }
             .navigationTitle("Portfolio Theme Details: \(name)")
         }
-        .frame(minWidth: 980, idealWidth: 1100, minHeight: 640, idealHeight: 720)
+        .frame(minWidth: 1200, idealWidth: 1360, minHeight: 640, idealHeight: 720)
         .onAppear {
             loadTheme()
             runValuation()
@@ -428,6 +428,8 @@ private var valuationSection: some View {
             let rows = filteredSortedRows(snap.rows)
             let hasIncluded = snap.rows.contains { $0.status == .ok }
             let totalPct: Double = hasIncluded ? 100.0 : 0.0
+            let researchColumnWidth: CGFloat = 60
+            let userColumnWidth: CGFloat = 60
             if snap.excludedFxCount > 0 {
                 Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
             }
@@ -438,9 +440,9 @@ private var valuationSection: some View {
                     .background(Color.gray.opacity(0.1))
             }
             HStack(spacing: 12) {
-                Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Research %").frame(width: 80, alignment: .trailing)
-                Text("User %").frame(width: 80, alignment: .trailing)
+                Text("Instrument").frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                Text("Research %").frame(width: researchColumnWidth, alignment: .trailing)
+                Text("User %").frame(width: userColumnWidth, alignment: .trailing)
                 Text("Current Value (\(dbManager.baseCurrency))").frame(width: 160, alignment: .trailing)
                 Text("Actual %").frame(width: 80, alignment: .trailing)
                 if showDeltaResearch {
@@ -470,14 +472,14 @@ private var valuationSection: some View {
             ForEach(rows) { row in
                 HStack(spacing: 12) {
                     Text(row.instrumentName)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .help(row.instrumentName)
                     Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(width: researchColumnWidth, alignment: .trailing)
                     Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(width: userColumnWidth, alignment: .trailing)
                     Text(row.currentValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
                         .frame(width: 160, alignment: .trailing)
                         .monospacedDigit()
@@ -496,9 +498,9 @@ private var valuationSection: some View {
                 }
             }
             HStack(spacing: 12) {
-                Text("Totals").frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(width: 80)
-                Spacer().frame(width: 80)
+                Text("Totals").frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                Spacer().frame(width: researchColumnWidth)
+                Spacer().frame(width: userColumnWidth)
                 Text(snap.totalValueBase, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
                     .frame(width: 160, alignment: .trailing)
                     .monospacedDigit()
