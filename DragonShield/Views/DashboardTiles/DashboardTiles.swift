@@ -63,7 +63,7 @@ struct ListTile: DashboardTile {
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
                 Text("First item")
                 Text("Second item")
                 Text("Third item")
@@ -168,7 +168,7 @@ struct TopPositionsTile: DashboardTile {
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
+                    LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(Array(viewModel.topPositions.enumerated()), id: \.element.id) { index, item in
                             HStack(alignment: .top) {
                                 Text(item.instrument)
@@ -183,6 +183,7 @@ struct TopPositionsTile: DashboardTile {
                                         .foregroundColor(.secondary)
                                 }
                             }
+                            .frame(height: DashboardTileLayout.rowHeight)
                             if index != viewModel.topPositions.count - 1 {
                                 Divider().foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
                             }
@@ -192,8 +193,7 @@ struct TopPositionsTile: DashboardTile {
                 .frame(maxHeight: 400)
             }
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 24)
+        .padding(DashboardTileLayout.tilePadding)
         .background(
             Group {
                 if colorScheme == .dark {

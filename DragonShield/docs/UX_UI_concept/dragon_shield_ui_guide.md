@@ -90,6 +90,7 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
   - Asset Allocation (horizontal bars)
   - Top 5–8 Positions (text + color-coded change)
   - Alerts & Actions (list style)
+- List tiles adopt `DashboardTileLayout` constants for default spacing and padding
 - Use animation sparingly (e.g., data loading, tooltip hover)
 
 ### 2. Portfolio Detail
