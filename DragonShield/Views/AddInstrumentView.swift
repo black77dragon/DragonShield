@@ -10,6 +10,7 @@ struct AddInstrumentView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
+    @State private var notes = ""
     @State private var instrumentGroups: [(id: Int, name: String)] = []
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -327,6 +328,22 @@ struct AddInstrumentView: View {
                     icon: "briefcase.circle.fill",
                     isRequired: false
                 )
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "note.text").foregroundColor(.gray)
+                        Text("Notes")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 80, maxHeight: 150)
+                        .font(.system(size: 16))
+                        .padding(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                }
             }
         }
         .padding(24)
@@ -586,6 +603,7 @@ struct AddInstrumentView: View {
         isin = ""
         valorNr = ""
         sector = ""
+        notes = ""
         if !instrumentGroups.isEmpty {
             selectedGroupId = instrumentGroups[0].id
         }
@@ -614,7 +632,8 @@ struct AddInstrumentView: View {
             isin: isin.isEmpty ? nil : isin.uppercased(),
             countryCode: nil,
             exchangeCode: nil,
-            sector: sector.isEmpty ? nil : sector
+            sector: sector.isEmpty ? nil : sector,
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         )
         
         DispatchQueue.main.async {

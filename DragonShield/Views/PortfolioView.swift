@@ -379,11 +379,14 @@ struct PortfolioView: View {
 
             headerCell(title: "ISIN", column: .isin)
                 .frame(width: 140, alignment: .leading)
+            Image(systemName: "info.circle")
+                .frame(width: 32, alignment: .center)
+                .help("Notes")
 
             if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                 Image(systemName: "note.text")
                     .frame(width: 32, alignment: .center)
-                    .help("Notes")
+                    .help("Updates")
             }
         }
         .padding(.horizontal, 16)
@@ -646,6 +649,8 @@ struct ModernAssetRowView: View {
     let onTap: () -> Void
     let onEdit: () -> Void
 
+    @State private var showNote = false
+
     var body: some View {
         HStack {
             Text(asset.name)
@@ -682,6 +687,27 @@ struct ModernAssetRowView: View {
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(width: 140, alignment: .leading)
+
+            if let note = asset.notes, !note.isEmpty {
+                Button {
+                    showNote = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(width: 32, alignment: .center)
+                .accessibilityLabel("Show note for \(asset.name)")
+                .popover(isPresented: $showNote) {
+                    ScrollView {
+                        Text(note)
+                            .padding()
+                    }
+                    .frame(width: 250)
+                }
+            } else {
+                Color.clear.frame(width: 32)
+            }
 
             if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                 NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")

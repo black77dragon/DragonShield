@@ -11,6 +11,7 @@ struct InstrumentEditView: View {
     @State private var isin = ""
     @State private var valorNr = ""
     @State private var sector = ""
+    @State private var notes = ""
     @State private var instrumentGroups: [(id: Int, name: String)] = []
     @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
     @State private var showingAlert = false
@@ -31,6 +32,7 @@ struct InstrumentEditView: View {
     @State private var originalIsin = ""
     @State private var originalValorNr = ""
     @State private var originalSector = ""
+    @State private var originalNotes = ""
 
     @State private var showNotes = false
     @State private var notesInitialTab: InstrumentNotesView.Tab = .updates
@@ -64,7 +66,8 @@ struct InstrumentEditView: View {
                     tickerSymbol != originalTickerSymbol ||
                     isin != originalIsin ||
                     valorNr != originalValorNr ||
-                    sector != originalSector
+                    sector != originalSector ||
+                    notes != originalNotes
     }
     
     // MARK: - Computed Properties
@@ -404,6 +407,24 @@ struct InstrumentEditView: View {
                     isRequired: false
                 )
                 .onChange(of: sector) { oldValue, newValue in detectChanges() }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "note.text").foregroundColor(.gray)
+                        Text("Notes")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 80, maxHeight: 150)
+                        .font(.system(size: 16))
+                        .padding(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .onChange(of: notes) { oldValue, newValue in detectChanges() }
             }
         }
         .padding(24)
@@ -697,7 +718,8 @@ struct InstrumentEditView: View {
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
             sector = details.sector ?? ""
-            
+            notes = details.notes ?? ""
+
             // Store original values for change detection
             originalName = instrumentName
             originalGroupId = selectedGroupId
@@ -706,6 +728,7 @@ struct InstrumentEditView: View {
             originalTickerSymbol = tickerSymbol
             originalIsin = isin
             originalSector = sector
+            originalNotes = notes
         }
     }
     
@@ -748,7 +771,8 @@ struct InstrumentEditView: View {
             valorNr: valorNr.isEmpty ? nil : valorNr,
             tickerSymbol: tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased(),
             isin: isin.isEmpty ? nil : isin.uppercased(),
-            sector: sector.isEmpty ? nil : sector
+            sector: sector.isEmpty ? nil : sector,
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         )
         
         DispatchQueue.main.async {
@@ -762,6 +786,7 @@ struct InstrumentEditView: View {
                 self.originalTickerSymbol = self.tickerSymbol
                 self.originalIsin = self.isin
                 self.originalSector = self.sector
+                self.originalNotes = self.notes
                 self.detectChanges()
                 
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshPortfolio"), object: nil)
