@@ -14,6 +14,7 @@ struct PortfolioView: View {
     @State private var currencyFilters: Set<String> = []
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
+    @State private var showUnusedReport = false
 
     enum SortColumn {
         case name, type, currency, symbol, valor, isin
@@ -112,7 +113,12 @@ struct PortfolioView: View {
                     }
             }
         }
-        
+        .sheet(isPresented: $showUnusedReport) {
+            UnusedInstrumentsReportView {
+                showUnusedReport = false
+            }
+        }
+
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -485,7 +491,27 @@ struct PortfolioView: View {
                     .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3)
                 }
                 .buttonStyle(ScaleButtonStyle())
-                
+
+                Button {
+                    showUnusedReport = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Unused Instruments")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Open unused instruments report")
+
                 // Secondary actions
                 if selectedAsset != nil {
                     Button {
