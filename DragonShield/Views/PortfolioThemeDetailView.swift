@@ -127,7 +127,7 @@ struct PortfolioThemeDetailView: View {
             }
             .navigationTitle("Portfolio Theme Details: \(name)")
         }
-        .frame(minWidth: 980, idealWidth: 1100, minHeight: 640, idealHeight: 720)
+        .frame(minWidth: 1200, idealWidth: 1360, minHeight: 640, idealHeight: 720)
         .onAppear {
             loadTheme()
             runValuation()
