@@ -15,6 +15,8 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Introduce bank-specific import cards with filename hints and instructions (#PR_NUMBER)
 - Allow sorting Composition table by Instrument, Research %, and User % (#PR_NUMBER)
 - Copy or export Value Report data from reports (#PR_NUMBER)
+- Add repository for strict unused instruments report (#PR_NUMBER)
+- Expose strict unused instruments report from Instruments view (#PR_NUMBER)
 
 ### Changed
 - Replace status alerts with SwiftUI windows (#PR_NUMBER)
