@@ -54,4 +54,10 @@ final class InstrumentUsageRepositoryTests: XCTestCase {
         let list = try repo.unusedStrict()
         XCTAssertTrue(list.isEmpty)
     }
+
+    func testInstrumentWithOnlyOlderPositionsExcluded() throws {
+        sqlite3_exec(db, "INSERT INTO PositionReports(instrument_id, quantity, report_date) VALUES(2,5,'2024-10-01');", nil, nil, nil)
+        let list = try repo.unusedStrict()
+        XCTAssertTrue(list.isEmpty)
+    }
 }

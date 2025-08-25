@@ -26,6 +26,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 ### Fixed
 
 - Resolve ambiguous purgePositionReports overload causing build errors (#PR_NUMBER)
+- Ensure unused instruments query considers all historical positions (#PR_NUMBER)
 
 ### Removed
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
