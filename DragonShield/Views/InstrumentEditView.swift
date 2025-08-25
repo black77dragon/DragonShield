@@ -417,26 +417,29 @@ struct InstrumentEditView: View {
     }
 
     private var updatesInThemesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
-                Spacer()
-                Button("Open Instrument Notes") { openInstrumentNotes() }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityLabel("Open Instrument Notes for \(instrumentName)")
+        if FeatureFlags.instrumentNotesEnabled() {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
+                    Spacer()
+                    Button("Open Instrument Notes") { openInstrumentNotes() }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityLabel("Open Instrument Notes for \(instrumentName)")
+                }
             }
+            .padding(24)
+            .background(editGlassMorphismBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
     }
     
     private func openInstrumentNotes() {
+        guard FeatureFlags.instrumentNotesEnabled() else { return }
         let last = UserDefaults.standard.string(forKey: "instrumentNotesLastTab")
         notesInitialTab = last == "mentions" ? .mentions : .updates
         showNotes = true

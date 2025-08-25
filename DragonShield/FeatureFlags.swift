@@ -36,5 +36,23 @@ enum FeatureFlags {
         return false
     }
 
+    static func instrumentNotesEnabled(
+        args: [String] = CommandLine.arguments,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        if let idx = args.firstIndex(of: "--instrumentNotesEnabled"),
+           let value = args.dropFirst(idx + 1).first {
+            return value.lowercased() != "false"
+        }
+        if let value = env["INSTRUMENT_NOTES_ENABLED"] {
+            return value.lowercased() != "false"
+        }
+        if defaults.object(forKey: UserDefaultsKeys.instrumentNotesEnabled) != nil {
+            return defaults.bool(forKey: UserDefaultsKeys.instrumentNotesEnabled)
+        }
+        return false
+    }
+
 }
 

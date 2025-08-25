@@ -16,4 +16,14 @@ final class FeatureFlagsTests: XCTestCase {
         XCTAssertTrue(FeatureFlags.portfolioAttachmentsEnabled(args: [], env: [:], defaults: defaults))
     }
 
+    func testInstrumentNotesDisabledByDefault() {
+        XCTAssertFalse(FeatureFlags.instrumentNotesEnabled(args: [], env: [:], defaults: .standard))
+    }
+
+    func testInstrumentNotesEnabledWhenDefaultsTrue() {
+        let defaults = UserDefaults(suiteName: "testInstrumentNotesEnabled")!
+        defaults.set(true, forKey: UserDefaultsKeys.instrumentNotesEnabled)
+        XCTAssertTrue(FeatureFlags.instrumentNotesEnabled(args: [], env: [:], defaults: defaults))
+    }
+
 }

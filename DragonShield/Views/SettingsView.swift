@@ -24,6 +24,8 @@ struct SettingsView: View {
 
     @AppStorage(UserDefaultsKeys.portfolioAttachmentsEnabled)
     private var portfolioAttachmentsEnabled: Bool = false
+    @AppStorage(UserDefaultsKeys.instrumentNotesEnabled)
+    private var instrumentNotesEnabled: Bool = false
 
 
     private var okCount: Int {
@@ -125,8 +127,12 @@ struct SettingsView: View {
                 NavigationLink("Detailed Report", destination: HealthCheckResultsView())
             }
 
-            Section(header: Text("Portfolio Management")) {
+            Section(header: Text("Feature Flags")) {
                 Toggle("Enable Attachments for Theme Updates", isOn: $portfolioAttachmentsEnabled)
+                Toggle("Enable Instrument Notes", isOn: $instrumentNotesEnabled)
+            }
+
+            Section(header: Text("Portfolio Management")) {
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 

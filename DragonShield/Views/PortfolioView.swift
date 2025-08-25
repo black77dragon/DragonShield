@@ -683,7 +683,7 @@ struct ModernAssetRowView: View {
                 .lineLimit(1)
                 .frame(width: 140, alignment: .leading)
 
-            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() && FeatureFlags.instrumentNotesEnabled() {
                 NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
                     .frame(width: 32, alignment: .center)
             }

@@ -25,6 +25,8 @@ struct UserDefaultsKeys {
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
     /// Feature flag: enable attachments on theme updates.
     static let portfolioAttachmentsEnabled = "portfolioAttachmentsEnabled"
+    /// Feature flag: enable instrument notes.
+    static let instrumentNotesEnabled = "instrumentNotesEnabled"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
 }
