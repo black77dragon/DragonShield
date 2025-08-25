@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -24,6 +25,7 @@ struct PortfolioView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
+    @State private var showUnusedReport = false
     
     // Filtered assets based on search and column filters
     var filteredAssets: [DragonAsset] {
@@ -111,6 +113,10 @@ struct PortfolioView: View {
                         selectedAsset = nil
                     }
             }
+        }
+        .sheet(isPresented: $showUnusedReport) {
+            UnusedInstrumentsReportView()
+                .environmentObject(dbManager)
         }
         
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
@@ -486,6 +492,26 @@ struct PortfolioView: View {
                 }
                 .buttonStyle(ScaleButtonStyle())
                 
+                Button {
+                    showUnusedReport = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Unused Report")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
                 // Secondary actions
                 if selectedAsset != nil {
                     Button {
@@ -507,7 +533,7 @@ struct PortfolioView: View {
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    
+
                     Button {
                         if let asset = selectedAsset {
                             assetToDelete = asset
