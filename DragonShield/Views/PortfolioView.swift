@@ -380,6 +380,10 @@ struct PortfolioView: View {
             headerCell(title: "ISIN", column: .isin)
                 .frame(width: 140, alignment: .leading)
 
+            Image(systemName: "note.text")
+                .frame(width: 32, alignment: .center)
+                .help("Notes")
+
             if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                 Image(systemName: "note.text")
                     .frame(width: 32, alignment: .center)
@@ -683,6 +687,9 @@ struct ModernAssetRowView: View {
                 .lineLimit(1)
                 .frame(width: 140, alignment: .leading)
 
+            InstrumentNoteIconView(note: asset.note)
+                .frame(width: 32, alignment: .center)
+
             if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                 NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
                     .frame(width: 32, alignment: .center)
@@ -727,6 +734,32 @@ struct ModernAssetRowView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+}
+
+struct InstrumentNoteIconView: View {
+    let note: String?
+    @State private var showNote = false
+
+    var body: some View {
+        if let note = note, !note.isEmpty {
+            Button {
+                showNote = true
+            } label: {
+                Image(systemName: "note.text")
+                    .font(.system(size: 14))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel("Show note")
+            .popover(isPresented: $showNote) {
+                ScrollView { Text(note).padding() }
+                    .frame(width: 200, height: 120)
+            }
+        } else {
+            Image(systemName: "note.text")
+                .font(.system(size: 14))
+                .opacity(0)
+        }
     }
 }
 
