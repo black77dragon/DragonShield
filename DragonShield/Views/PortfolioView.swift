@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -14,6 +15,7 @@ struct PortfolioView: View {
     @State private var currencyFilters: Set<String> = []
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
+    @State private var showUnusedReport = false
 
     enum SortColumn {
         case name, type, currency, symbol, valor, isin
@@ -112,7 +114,11 @@ struct PortfolioView: View {
                     }
             }
         }
-        
+        .sheet(isPresented: $showUnusedReport) {
+            UnusedInstrumentsView()
+                .environmentObject(dbManager)
+        }
+
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -531,7 +537,27 @@ struct PortfolioView: View {
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
-                
+
+                Button {
+                    showUnusedReport = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tray")
+                        Text("Unused Instruments…")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.green.opacity(0.1))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
                 Spacer()
                 
                 // Selection indicator

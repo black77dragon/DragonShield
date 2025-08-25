@@ -11,7 +11,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 
 ### Added
-- Add query to report unused instruments (#PR_NUMBER)
+- Add unused instruments report with visible toolbar button (#PR_NUMBER)
 - Restructure changelog and archive history (#PR_NUMBER)
 - Introduce bank-specific import cards with filename hints and instructions (#PR_NUMBER)
 - Allow sorting Composition table by Instrument, Research %, and User % (#PR_NUMBER)
