@@ -38,6 +38,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Removed
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
+- Remove default timezone setting and base currency placeholder in Settings (#PR_NUMBER)
 
 ### Security
 
