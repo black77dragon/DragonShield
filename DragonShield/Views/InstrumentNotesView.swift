@@ -174,7 +174,7 @@ struct InstrumentNotesView: View {
 
     private func loadUpdates() {
         updates = dbManager.listInstrumentUpdatesForInstrument(instrumentId: instrumentId, themeId: selectedThemeId, pinnedFirst: pinnedFirst)
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+        if !updates.isEmpty {
             attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })
         } else {
             attachmentCounts = [:]

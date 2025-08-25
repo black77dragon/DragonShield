@@ -40,6 +40,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Remove Health Checks from sidebar (#PR_NUMBER)
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
 - Remove default timezone setting and base currency placeholder from Settings (#PR_NUMBER)
+- Remove obsolete feature flag 'Enable Attachments for Theme Updates'; attachments now always enabled (#PR_NUMBER)
 
 ### Security
 

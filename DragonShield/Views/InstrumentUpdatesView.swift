@@ -143,7 +143,7 @@ struct InstrumentUpdatesView: View {
         updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId, pinnedFirst: pinnedFirst)
         isArchived = dbManager.getPortfolioTheme(id: themeId)?.archivedAt != nil
         instrumentExists = dbManager.listThemeAssets(themeId: themeId).contains { $0.instrumentId == instrumentId }
-        if FeatureFlags.portfolioAttachmentsEnabled(), !updates.isEmpty {
+        if !updates.isEmpty {
             attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })
         } else {
             attachmentCounts = [:]

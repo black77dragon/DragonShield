@@ -22,9 +22,6 @@ struct SettingsView: View {
     @AppStorage("runStartupHealthChecks")
     private var runStartupHealthChecks: Bool = true
 
-    @AppStorage(UserDefaultsKeys.portfolioAttachmentsEnabled)
-    private var portfolioAttachmentsEnabled: Bool = false
-
 
     private var okCount: Int {
         runner.reports.filter { if case .ok = $0.result { return true } else { return false } }.count
@@ -110,7 +107,6 @@ struct SettingsView: View {
             }
 
             Section(header: Text("Portfolio Management")) {
-                Toggle("Enable Attachments for Theme Updates", isOn: $portfolioAttachmentsEnabled)
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
             }
 

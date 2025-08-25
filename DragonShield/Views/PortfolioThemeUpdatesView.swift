@@ -205,7 +205,7 @@ struct PortfolioThemeUpdatesView: View {
         let attRepo = ThemeUpdateRepository(dbManager: dbManager)
         for upd in list {
             let links = linkRepo.listLinks(updateId: upd.id)
-            let atts = FeatureFlags.portfolioAttachmentsEnabled() ? attRepo.listAttachments(updateId: upd.id) : []
+            let atts = attRepo.listAttachments(updateId: upd.id)
             map[upd.id] = UpdateExtras(links: links, attachments: atts)
         }
         extras = map
