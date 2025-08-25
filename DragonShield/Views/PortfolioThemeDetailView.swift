@@ -274,119 +274,121 @@ struct PortfolioThemeDetailView: View {
             if assets.isEmpty {
                 Text("No instruments attached")
             } else {
-                HStack(spacing: 12) {
-                    sortableHeader(.instrument, title: "Instrument")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    sortableHeader(.research, title: "Research %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    sortableHeader(.user, title: "User %")
-                        .frame(width: 80, alignment: .trailing)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("Notes")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                        Spacer().frame(width: 40)
-                    }
-                    Spacer().frame(width: 28)
-                    Spacer().frame(width: 28)
-                }
-                ForEach($assets) { $asset in
-                    HStack(alignment: .center, spacing: 12) {
-                        Text(instrumentName($asset.wrappedValue.instrumentId))
+                LazyVStack(spacing: 2) {
+                    HStack(spacing: 12) {
+                        sortableHeader(.instrument, title: "Instrument")
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(instrumentName($asset.wrappedValue.instrumentId))
-                        TextField("", value: $asset.researchTargetPct, format: .number)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 80)
-                            .disabled(isReadOnly)
-                            .focused($focusedField, equals: .research($asset.wrappedValue.instrumentId))
-                            .onChange(of: asset.researchTargetPct) { _, _ in
-                                save($asset.wrappedValue)
-                                sortAssets()
-                            }
-                        TextField("", value: $asset.userTargetPct, format: .number)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 80)
-                            .disabled(isReadOnly)
-                            .focused($focusedField, equals: .user($asset.wrappedValue.instrumentId))
-                            .onChange(of: asset.userTargetPct) { _, _ in
-                                save($asset.wrappedValue)
-                                sortAssets()
-                            }
-                        TextField("", text: Binding(
-                            get: { $asset.wrappedValue.notes ?? "" },
-                            set: { newValue in
-                                var trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if trimmed.count > noteMaxLength {
-                                    trimmed = String(trimmed.prefix(noteMaxLength))
-                                }
-                                $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
-                                save($asset.wrappedValue)
-                            }
-                        ))
-                        .frame(minWidth: 100, maxWidth: .infinity)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help($asset.wrappedValue.notes ?? "")
-                        .disabled(isReadOnly)
-                        .focused($focusedField, equals: .notes($asset.wrappedValue.instrumentId))
+                            .truncationMode(.tail)
+                        sortableHeader(.research, title: "Research %")
+                            .frame(width: 80, alignment: .trailing)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        sortableHeader(.user, title: "User %")
+                            .frame(width: 80, alignment: .trailing)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text("Notes")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                         if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                            Button {
-                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
-                            } label: {
-                                let count = updateCounts[$asset.wrappedValue.instrumentId] ?? 0
-                                Text(count > 0 ? "📝 \(count)" : "📝")
+                            Spacer().frame(width: 40)
+                        }
+                        Spacer().frame(width: 28)
+                        Spacer().frame(width: 28)
+                    }
+                    ForEach($assets) { $asset in
+                        HStack(alignment: .center, spacing: 12) {
+                            Text(instrumentName($asset.wrappedValue.instrumentId))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(instrumentName($asset.wrappedValue.instrumentId))
+                            TextField("", value: $asset.researchTargetPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
+                                .disabled(isReadOnly)
+                                .focused($focusedField, equals: .research($asset.wrappedValue.instrumentId))
+                                .onChange(of: asset.researchTargetPct) { _, _ in
+                                    save($asset.wrappedValue)
+                                    sortAssets()
+                                }
+                            TextField("", value: $asset.userTargetPct, format: .number)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
+                                .disabled(isReadOnly)
+                                .focused($focusedField, equals: .user($asset.wrappedValue.instrumentId))
+                                .onChange(of: asset.userTargetPct) { _, _ in
+                                    save($asset.wrappedValue)
+                                    sortAssets()
+                                }
+                            TextField("", text: Binding(
+                                get: { $asset.wrappedValue.notes ?? "" },
+                                set: { newValue in
+                                    var trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if trimmed.count > noteMaxLength {
+                                        trimmed = String(trimmed.prefix(noteMaxLength))
+                                    }
+                                    $asset.wrappedValue.notes = trimmed.isEmpty ? nil : trimmed
+                                    save($asset.wrappedValue)
+                                }
+                            ))
+                            .frame(minWidth: 100, maxWidth: .infinity)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help($asset.wrappedValue.notes ?? "")
+                            .disabled(isReadOnly)
+                            .focused($focusedField, equals: .notes($asset.wrappedValue.instrumentId))
+                            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                                Button {
+                                    instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                                } label: {
+                                    let count = updateCounts[$asset.wrappedValue.instrumentId] ?? 0
+                                    Text(count > 0 ? "📝 \(count)" : "📝")
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(width: 40)
+                                .help("Instrument updates")
+                                .accessibilityLabel("Instrument updates for \(instrumentName($asset.wrappedValue.instrumentId))")
                             }
-                            .buttonStyle(.borderless)
-                            .frame(width: 40)
-                            .help("Instrument updates")
-                            .accessibilityLabel("Instrument updates for \(instrumentName($asset.wrappedValue.instrumentId))")
-                        }
-                        Button {
-                            editingAsset = $asset.wrappedValue
-                            noteDraft = $asset.wrappedValue.notes ?? ""
-                        } label: {
-                            Image(systemName: "note.text")
-                        }
-                        .buttonStyle(.borderless)
-                        .frame(width: 28)
-                        .help(isReadOnly ? "Read-only — theme archived" : "Edit note")
-                        .accessibilityLabel("Edit note for \(instrumentName($asset.wrappedValue.instrumentId))")
-                        .disabled(isReadOnly)
-                        if !isReadOnly {
-                            Button(action: { remove($asset.wrappedValue) }) {
-                                Image(systemName: "trash")
+                            Button {
+                                editingAsset = $asset.wrappedValue
+                                noteDraft = $asset.wrappedValue.notes ?? ""
+                            } label: {
+                                Image(systemName: "note.text")
                             }
                             .buttonStyle(.borderless)
                             .frame(width: 28)
-                        } else {
-                            Spacer().frame(width: 28)
+                            .help(isReadOnly ? "Read-only — theme archived" : "Edit note")
+                            .accessibilityLabel("Edit note for \(instrumentName($asset.wrappedValue.instrumentId))")
+                            .disabled(isReadOnly)
+                            if !isReadOnly {
+                                Button(action: { remove($asset.wrappedValue) }) {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(width: 28)
+                            } else {
+                                Spacer().frame(width: 28)
+                            }
                         }
-                    }
-                    .contextMenu {
-                        if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                            Button("Instrument Updates…") {
-                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                        .padding(.vertical, 1)
+                        .contextMenu {
+                            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                                Button("Instrument Updates…") {
+                                    instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                                }
                             }
                         }
                     }
+                    HStack(spacing: 12) {
+                        Label("Research sum \(researchTotal, format: .number)%", systemImage: researchTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                            .foregroundColor(researchTotalWarning ? .orange : .green)
+                        Label("User sum \(userTotal, format: .number)%", systemImage: userTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                            .foregroundColor(userTotalWarning ? .orange : .green)
+                    }
                 }
-            HStack(spacing: 12) {
-                Label("Research sum \(researchTotal, format: .number)%", systemImage: researchTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    .foregroundColor(researchTotalWarning ? .orange : .green)
-                    Label("User sum \(userTotal, format: .number)%", systemImage: userTotalWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundColor(userTotalWarning ? .orange : .green)
-                }
-                .padding(.top, 8)
             }
         }
     }
