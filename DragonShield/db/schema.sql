@@ -78,6 +78,7 @@ CREATE TABLE Instruments (
     include_in_portfolio BOOLEAN DEFAULT 1,
     is_active BOOLEAN DEFAULT 1,
     notes TEXT,
+    user_note TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, isin_original TEXT, valor_original TEXT, validation_status TEXT DEFAULT 'valid'
     CHECK(validation_status IN ('valid', 'invalid', 'pending_validation')), restore_source TEXT DEFAULT 'original', restore_timestamp DATETIME, is_deleted BOOLEAN DEFAULT 0, deleted_at DATETIME, deleted_reason TEXT,
@@ -1272,4 +1273,19 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('005'),
   ('006'),
   ('007'),
-  ('008');
+  ('008'),
+  ('009'),
+  ('010'),
+  ('011'),
+  ('012'),
+  ('013'),
+  ('014'),
+  ('015'),
+  ('016'),
+  ('017'),
+  ('018'),
+  ('019'),
+  ('020'),
+  ('021'),
+  ('022'),
+  ('023');
