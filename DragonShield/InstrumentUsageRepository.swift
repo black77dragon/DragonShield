@@ -42,17 +42,15 @@ final class InstrumentUsageRepository {
     func unusedStrict(excludeCash: Bool = true) throws -> [UnusedInstrument] {
         guard let db = dbManager.db else { return [] }
 
-        // Determine latest snapshot date.
-        var latestStmt: OpaquePointer?
-        var snapshotDate: String?
-        if sqlite3_prepare_v2(db, "SELECT MAX(report_date) FROM PositionReports", -1, &latestStmt, nil) == SQLITE_OK {
-            if sqlite3_step(latestStmt) == SQLITE_ROW, let ptr = sqlite3_column_text(latestStmt, 0) {
-                snapshotDate = String(cString: ptr)
-            }
+        // Ensure at least one positions snapshot exists.
+        var checkStmt: OpaquePointer?
+        var hasSnapshot = false
+        if sqlite3_prepare_v2(db, "SELECT 1 FROM PositionReports LIMIT 1", -1, &checkStmt, nil) == SQLITE_OK {
+            hasSnapshot = sqlite3_step(checkStmt) == SQLITE_ROW
         }
-        sqlite3_finalize(latestStmt)
+        sqlite3_finalize(checkStmt)
 
-        guard let reportDate = snapshotDate else {
+        guard hasSnapshot else {
             throw InstrumentUsageRepositoryError.noSnapshot
         }
 
@@ -71,10 +69,9 @@ final class InstrumentUsageRepository {
         let cashFilter = excludeCash ? "AND i.sub_class_id != 1" : ""
 
         let sql = """
-        WITH latest_positions AS (
-            SELECT instrument_id, SUM(quantity) AS qty
+        WITH position_activity AS (
+            SELECT instrument_id, MAX(ABS(quantity)) AS max_qty
             FROM PositionReports
-            WHERE report_date = ?
             GROUP BY instrument_id
         ),
         last_activity AS (
@@ -92,11 +89,11 @@ final class InstrumentUsageRepository {
                COALESCE(tc.cnt,0) AS themes_count,
                \(refsExpression) AS refs_count
         FROM Instruments i
-        LEFT JOIN latest_positions lp ON lp.instrument_id = i.instrument_id
+        LEFT JOIN position_activity pa ON pa.instrument_id = i.instrument_id
         LEFT JOIN last_activity la ON la.instrument_id = i.instrument_id
         LEFT JOIN theme_counts tc ON tc.instrument_id = i.instrument_id
         LEFT JOIN AssetSubClasses asc ON asc.sub_class_id = i.sub_class_id
-        WHERE (lp.instrument_id IS NULL OR ABS(lp.qty) < \(Self.epsilon))
+        WHERE (pa.instrument_id IS NULL OR pa.max_qty < \(Self.epsilon))
           AND COALESCE(tc.cnt,0) = 0
           AND \(refsExpression) = 0
           AND i.is_active = 1
@@ -107,7 +104,6 @@ final class InstrumentUsageRepository {
         var stmt: OpaquePointer?
         var results: [UnusedInstrument] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_text(stmt, 1, reportDate, -1, nil)
             let formatter = DateFormatter.iso8601DateOnly
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(stmt, 0))
