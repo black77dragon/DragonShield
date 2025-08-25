@@ -8,6 +8,7 @@ struct DragonShieldApp: App {
     @StateObject private var healthRunner: HealthCheckRunner
 
     init() {
+        UserDefaults.standard.removeObject(forKey: "portfolioAttachmentsEnabled")
         let dbManager = DatabaseManager()
         _databaseManager = StateObject(wrappedValue: dbManager)
         _assetManager = StateObject(wrappedValue: AssetManager())

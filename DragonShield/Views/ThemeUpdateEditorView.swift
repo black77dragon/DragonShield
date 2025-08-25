@@ -91,9 +91,7 @@ struct ThemeUpdateEditorView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            if attachmentsEnabled {
-                attachmentsView
-            }
+            attachmentsView
             linksView
             Text("On save we will capture: Positions \(DateFormatting.userFriendly(positionsAsOf)) • Total CHF \(formatted(totalValueChf))")
                 .font(.footnote)
@@ -131,7 +129,7 @@ struct ThemeUpdateEditorView: View {
             positionsAsOf = nil
         }
         totalValueChf = snap.totalValueBase
-        if attachmentsEnabled, let existing = existing {
+        if let existing = existing {
             let repo = ThemeUpdateRepository(dbManager: dbManager)
             attachments = repo.listAttachments(updateId: existing.id)
         }
@@ -144,15 +142,13 @@ struct ThemeUpdateEditorView: View {
     private func save() {
         if let existing = existing {
             if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
-                if attachmentsEnabled {
-                    let repo = ThemeUpdateRepository(dbManager: dbManager)
-                    let currentIds = Set(attachments.map { $0.id })
-                    let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
-                    let added = currentIds.subtracting(initialIds)
-                    let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
-                    for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
-                    for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
-                }
+                let repo = ThemeUpdateRepository(dbManager: dbManager)
+                let currentIds = Set(attachments.map { $0.id })
+                let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
+                let added = currentIds.subtracting(initialIds)
+                let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
+                for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
+                for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
                 let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
                 let currentLinkIds = Set(links.map { $0.id })
                 let initialLinkIds = Set(lrepo.listLinks(updateId: existing.id).map { $0.id })
@@ -174,11 +170,9 @@ struct ThemeUpdateEditorView: View {
             }
         } else {
             if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
-                if attachmentsEnabled {
-                    let repo = ThemeUpdateRepository(dbManager: dbManager)
-                    for att in attachments {
-                        _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
-                    }
+                let repo = ThemeUpdateRepository(dbManager: dbManager)
+                for att in attachments {
+                    _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
                 }
                 let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
                 for link in links {
@@ -188,10 +182,6 @@ struct ThemeUpdateEditorView: View {
                 onSave(created)
             }
         }
-    }
-
-    var attachmentsEnabled: Bool {
-        FeatureFlags.portfolioAttachmentsEnabled()
     }
 
     @MainActor
