@@ -35,7 +35,7 @@ struct InstitutionsAUMTile: DashboardTile {
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
-                    VStack(spacing: 4) {
+                    VStack(spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(rows) { item in
                             HStack {
                                 Text(item.name)
@@ -45,17 +45,17 @@ struct InstitutionsAUMTile: DashboardTile {
                                     .frame(alignment: .trailing)
                             }
                             .font(.system(size: 13))
-                            .frame(height: 32)
+                            .frame(height: DashboardTileLayout.rowHeight)
                         }
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, DashboardTileLayout.rowSpacing)
                 }
                 .scrollIndicators(.visible)
                 .accessibilityLabel("Institutions AUM list")
                 .frame(maxHeight: rows.count > 6 ? 200 : .infinity)
             }
         }
-        .padding(16)
+        .padding(DashboardTileLayout.tilePadding)
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)

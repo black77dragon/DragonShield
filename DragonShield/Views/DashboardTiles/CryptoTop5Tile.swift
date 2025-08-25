@@ -37,7 +37,7 @@ struct CryptoTop5Tile: DashboardTile {
             } else {
                 headerRow
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
                             rowView(item)
                             if index != rows.count - 1 {
@@ -46,12 +46,12 @@ struct CryptoTop5Tile: DashboardTile {
                             }
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, DashboardTileLayout.rowSpacing)
                 }
                 .frame(maxHeight: rows.count > 6 ? 200 : .infinity)
             }
         }
-        .padding(24)
+        .padding(DashboardTileLayout.tilePadding)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
@@ -78,6 +78,7 @@ struct CryptoTop5Tile: DashboardTile {
             }
             .frame(width: 60, alignment: .trailing)
         }
+        .frame(height: DashboardTileLayout.rowHeight)
         .font(.system(size: 13))
     }
 
@@ -93,7 +94,7 @@ struct CryptoTop5Tile: DashboardTile {
         .font(.system(size: 11))
         .foregroundColor(Color(red: 100/255, green: 116/255, blue: 139/255))
         .textCase(.uppercase)
-        .padding(.vertical, 2)
+        .padding(.vertical, DashboardTileLayout.rowSpacing)
     }
 
     private func weightBar(percent: Double) -> some View {
