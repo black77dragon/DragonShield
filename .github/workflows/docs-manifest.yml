@@ -15,3 +15,5 @@ jobs:
           python-version: '3.x'
       - name: Verify manifest
         run: python DragonShield/docs/update_manifest.py --check
+      - name: Verify root docs manifest
+        run: python docs/update_manifest.py --check
