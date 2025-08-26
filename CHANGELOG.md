@@ -41,7 +41,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Remove redundant Portfolio Theme Overview tab and associated view (#PR_NUMBER)
 - Remove default timezone setting and base currency placeholder from Settings (#PR_NUMBER)
 - Remove obsolete feature flag 'Enable Attachments for Theme Updates'; attachments now always enabled (#PR_NUMBER)
-- Remove debug preference for forcing database overwrite (#PR_NUMBER)
+- Remove debug-only force database overwrite setting (#PR_NUMBER)
 
 ### Security
 
