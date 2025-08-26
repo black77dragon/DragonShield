@@ -17,7 +17,7 @@ extension DatabaseManager {
         let query = """
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
-                'base_currency', 'as_of_date', 'decimal_precision', 'auto_fx_update',
+                'base_currency', 'as_of_date', 'decimal_precision',
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
                 'include_direct_re', 'direct_re_target_chf', 'db_version'
             );
@@ -50,8 +50,6 @@ extension DatabaseManager {
                         }
                     case "decimal_precision":
                         self.decimalPrecision = Int(value) ?? 4
-                    case "auto_fx_update":
-                        self.autoFxUpdate = value.lowercased() == "true"
                     case "default_timezone":
                         self.defaultTimeZone = value
                     case "table_row_spacing":
