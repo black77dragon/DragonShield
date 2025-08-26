@@ -14,6 +14,14 @@ struct PortfolioThemesListView: View {
 
     private enum SortField: String { case name, code, status, updatedAt, totalValue, instruments }
     private let sortDefaultsKey = "PortfolioThemesListView.sort"
+
+    @AppStorage(UserDefaultsKeys.portfolioThemesNameWidth) private var nameWidth: Double = 150
+    @AppStorage(UserDefaultsKeys.portfolioThemesCodeWidth) private var codeWidth: Double = 80
+    @AppStorage(UserDefaultsKeys.portfolioThemesStatusWidth) private var statusWidth: Double = 120
+    @AppStorage(UserDefaultsKeys.portfolioThemesUpdatedAtWidth) private var updatedAtWidth: Double = 150
+    @AppStorage(UserDefaultsKeys.portfolioThemesTotalValueWidth) private var totalValueWidth: Double = 120
+    @AppStorage(UserDefaultsKeys.portfolioThemesInstrumentsWidth) private var instrumentsWidth: Double = 80
+    @AppStorage(UserDefaultsKeys.portfolioThemesOpenWidth) private var openWidth: Double = 30
     
     // Local state for the data
     @State var themes: [PortfolioTheme] = []
@@ -132,30 +140,28 @@ struct PortfolioThemesListView: View {
 
     private var themesTable: some View {
         Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
-            TableColumn(headerLabel("Name", field: .name), value: \.name) { theme in
+            TableColumn(headerLabel("Name", field: .name), value: \.name, width: Binding(get: { CGFloat(nameWidth) }, set: { nameWidth = Double($0) })) { theme in
                 Text(theme.name).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Code", field: .code), value: \.code) { theme in
+            TableColumn(headerLabel("Code", field: .code), value: \.code, width: Binding(get: { CGFloat(codeWidth) }, set: { codeWidth = Double($0) })) { theme in
                 Text(theme.code).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Status", field: .status), sortUsing: KeyPathComparator(\.statusId)) { theme in
+            TableColumn(headerLabel("Status", field: .status), sortUsing: KeyPathComparator(\.statusId), width: Binding(get: { CGFloat(statusWidth) }, set: { statusWidth = Double($0) })) { theme in
                 Text(statusName(for: theme.statusId)).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Last Updated", field: .updatedAt), value: \.updatedAt) { theme in
+            TableColumn(headerLabel("Last Updated", field: .updatedAt), value: \.updatedAt, width: Binding(get: { CGFloat(updatedAtWidth) }, set: { updatedAtWidth = Double($0) })) { theme in
                 Text(theme.updatedAt).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Total Value", field: .totalValue), sortUsing: KeyPathComparator(\.totalValueBase)) { theme in
+            TableColumn(headerLabel("Total Value", field: .totalValue), sortUsing: KeyPathComparator(\.totalValueBase), width: Binding(get: { CGFloat(totalValueWidth) }, set: { totalValueWidth = Double($0) })) { theme in
                 totalValueCell(for: theme)
             }
-            .width(min: 120)
-            TableColumn(headerLabel("Instruments", field: .instruments), value: \.instrumentCount) { theme in
+            TableColumn(headerLabel("Instruments", field: .instruments), value: \.instrumentCount, width: Binding(get: { CGFloat(instrumentsWidth) }, set: { instrumentsWidth = Double($0) })) { theme in
                 Text("\(theme.instrumentCount)")
                     .monospacedDigit()
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            .width(min: 80)
-            TableColumn("", content: { theme in
+            TableColumn("", width: Binding(get: { CGFloat(openWidth) }, set: { openWidth = Double($0) })) { theme in
                 Button {
                     open(theme)
                 } label: {
@@ -165,8 +171,7 @@ struct PortfolioThemesListView: View {
                 .buttonStyle(.plain)
                 .help("Open Theme Details")
                 .accessibilityLabel("Open details for \(theme.name)")
-            })
-            .width(30)
+            }
         }
         .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
