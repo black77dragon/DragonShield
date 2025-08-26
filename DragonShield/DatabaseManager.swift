@@ -73,7 +73,7 @@ class DatabaseManager: ObservableObject {
                 print("⚠️ Database 'dragonshield.sqlite' not found in app bundle.")
             }
         } else {
-             print("✅ Using existing database at: \(dbPath)")
+            print("✅ Using existing database at: \(dbPath)")
         }
         
         openDatabase()
