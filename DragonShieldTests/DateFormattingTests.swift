@@ -10,4 +10,13 @@ final class DateFormattingTests: XCTestCase {
         XCTAssertEqual(DateFormatting.userFriendly(iso), "2025-08-22 15:39")
         XCTAssertEqual(DateFormatting.userFriendly(nil), "—")
     }
+
+    func testShortDate() {
+        let prev = NSTimeZone.default
+        NSTimeZone.default = TimeZone(secondsFromGMT: 0)!
+        defer { NSTimeZone.default = prev }
+        let iso = "2025-08-24T00:00:00Z"
+        XCTAssertEqual(DateFormatting.shortDate(iso), "24.8.25")
+        XCTAssertEqual(DateFormatting.shortDate(nil), "—")
+    }
 }

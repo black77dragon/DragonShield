@@ -132,18 +132,34 @@ struct PortfolioThemesListView: View {
 
     private var themesTable: some View {
         Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
+            TableColumn("", content: { theme in
+                Button {
+                    open(theme)
+                } label: {
+                    Text("\u25B6\uFE0F")
+                        .foregroundColor(isArchived(theme) ? .secondary : .primary)
+                }
+                .buttonStyle(.plain)
+                .help("Open Theme Details")
+                .accessibilityLabel("Open details for \(theme.name)")
+            })
+            .width(30)
             TableColumn(headerLabel("Name", field: .name), value: \.name) { theme in
                 Text(theme.name).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
+            .width(min: 200)
             TableColumn(headerLabel("Code", field: .code), value: \.code) { theme in
                 Text(theme.code).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
+            .width(min: 80)
             TableColumn(headerLabel("Status", field: .status), sortUsing: KeyPathComparator(\.statusId)) { theme in
                 Text(statusName(for: theme.statusId)).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
+            .width(min: 80)
             TableColumn(headerLabel("Last Updated", field: .updatedAt), value: \.updatedAt) { theme in
-                Text(theme.updatedAt).foregroundStyle(isArchived(theme) ? .secondary : .primary)
+                Text(DateFormatting.shortDate(theme.updatedAt)).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
+            .width(min: 120)
             TableColumn(headerLabel("Total Value", field: .totalValue), sortUsing: KeyPathComparator(\.totalValueBase)) { theme in
                 totalValueCell(for: theme)
             }
@@ -155,18 +171,6 @@ struct PortfolioThemesListView: View {
                     .foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
             .width(min: 80)
-            TableColumn("", content: { theme in
-                Button {
-                    open(theme)
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(isArchived(theme) ? .secondary : .primary)
-                }
-                .buttonStyle(.plain)
-                .help("Open Theme Details")
-                .accessibilityLabel("Open details for \(theme.name)")
-            })
-            .width(30)
         }
         .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }

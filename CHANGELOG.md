@@ -29,6 +29,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Slim valuation table research and user columns in Portfolio Theme Detail view (#PR_NUMBER)
 - Enlarge Portfolio Theme Detail window to fit valuation columns (#PR_NUMBER)
 - Use shared DashboardTileLayout for compact dashboard list tiles (#PR_NUMBER)
+- Adjust Portfolio Themes list column widths, arrow placement, and date format (#PR_NUMBER)
 
 ### Fixed
 
