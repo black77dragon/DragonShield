@@ -24,4 +24,6 @@ struct UserDefaultsKeys {
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
+    /// Persist column widths for Portfolio Themes list.
+    static let portfolioThemesColumnWidths = "portfolioThemesColumnWidths"
 }
