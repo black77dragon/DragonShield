@@ -11,14 +11,14 @@ struct AutosaveTableView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
             guard let table = findTableView(from: nsView) else { return }
-            if table.autosaveName?.rawValue != name {
+            if table.autosaveName != name {
                 Self.configure(table, name: name)
             }
         }
     }
 
     static func configure(_ table: NSTableView, name: String) {
-        table.autosaveName = NSUserInterfaceItemIdentifier(name)
+        table.autosaveName = NSTableView.AutosaveName(name)
         for (index, column) in table.tableColumns.enumerated() {
             column.identifier = NSUserInterfaceItemIdentifier("col\(index)")
         }

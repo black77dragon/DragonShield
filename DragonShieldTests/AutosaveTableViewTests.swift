@@ -8,7 +8,7 @@ final class AutosaveTableViewTests: XCTestCase {
         table.addTableColumn(NSTableColumn())
         table.addTableColumn(NSTableColumn())
         AutosaveTableView.configure(table, name: "TestTable")
-        XCTAssertEqual(table.autosaveName?.rawValue, "TestTable")
+        XCTAssertEqual(table.autosaveName, "TestTable")
         XCTAssertEqual(table.tableColumns[0].identifier.rawValue, "col0")
         XCTAssertEqual(table.tableColumns[1].identifier.rawValue, "col1")
     }
