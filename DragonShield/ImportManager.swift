@@ -34,10 +34,6 @@ class ImportManager {
         PositionReportRepository(dbManager: dbManager)
     }()
 
-    private var checkpointsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
-    }
-
     private static let cashValorMap: [String: (ticker: String, currency: String)] = [
         "CH9304835039842401009": ("CASHCHF", "CHF"),
         "CH8104835039842402001": ("CASHEUR", "EUR"),
@@ -74,24 +70,6 @@ class ImportManager {
         return 1
     }
 
-    enum RecordPromptResult {
-        case save(ParsedPositionRecord)
-        case ignore
-        case abort
-    }
-
-    enum InstrumentPromptResult {
-        case save(name: String, subClassId: Int, currency: String, ticker: String?, isin: String?, valorNr: String?, sector: String?)
-        case ignore
-        case abort
-    }
-
-    enum AccountPromptResult {
-        case save(name: String, institutionId: Int, number: String, accountTypeId: Int, currency: String)
-        case cancel
-        case abort
-    }
-
     enum ImportError: Error {
         case aborted
     }
@@ -101,66 +79,6 @@ class ImportManager {
         case zkb
     }
 
-
-    private func promptForInstrument(record: ParsedPositionRecord) -> InstrumentPromptResult {
-        var result: InstrumentPromptResult = .ignore
-        let view = InstrumentPromptView(
-            name: record.instrumentName,
-            ticker: record.tickerSymbol ?? "",
-            isin: record.isin ?? "",
-            valorNr: record.valorNr ?? "",
-            currency: record.currency,
-            subClassId: record.subClassIdGuess
-        ) { action in
-            result = action
-            NSApp.stopModal()
-        }
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: false)
-        window.title = "Add Instrument"
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.contentView = NSHostingView(rootView: view)
-        NSApp.runModal(for: window)
-        return result
-    }
-
-    private func promptForAccount(number: String,
-                                  currency: String,
-                                  accountTypeCode: String = "CUSTODY") -> AccountPromptResult {
-        var result: AccountPromptResult = .cancel
-        let instId = dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
-        let typeId = dbManager.findAccountTypeId(code: accountTypeCode) ?? 1
-        let defaultName = accountTypeCode == "CASH" ? "Credit-Suisse Cash Account" : "Credit-Suisse Account"
-        let view = AccountPromptView(accountName: defaultName,
-                                     accountNumber: number,
-                                     institutionId: instId,
-                                     accountTypeId: typeId,
-                                     currencyCode: currency) { action in
-            result = action
-            NSApp.stopModal()
-        }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
-                              styleMask: [.titled, .closable, .resizable],
-                              backing: .buffered, defer: false)
-        window.title = "Add Account"
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.contentView = NSHostingView(rootView: view.environmentObject(dbManager))
-        NSApp.runModal(for: window)
-        return result
-    }
-
-    private func confirmCashAccount(name: String, currency: String, amount: Double) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = "Create Cash Account?"
-        alert.informativeText = "Account: \(name)\nCurrency: \(currency)\nBalance: \(amount)"
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Skip")
-        return alert.runModal() == .alertFirstButtonReturn
-    }
 
     /// Asks the user whether the given instrument is an option.
     /// - Parameter name: The instrument description.
@@ -193,30 +111,6 @@ class ImportManager {
         return nil
     }
 
-    private func promptForPosition(record: ParsedPositionRecord) -> RecordPromptResult {
-        var mutable = record
-        var result: RecordPromptResult = .ignore
-        let view = PositionReviewView(record: mutable) { action in
-            result = action
-            NSApp.stopModal()
-        }
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: false)
-        window.title = "Review Position"
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.contentView = NSHostingView(rootView: view)
-        NSApp.runModal(for: window)
-        // capture updated record if Save was chosen
-        if case .save(let updated) = result {
-            mutable = updated
-            result = .save(mutable)
-        }
-        return result
-    }
-
     private func showImportSummary(fileName: String, account: String?, valueDate: Date?, validRows: Int) {
         let view = ImportSummaryView(fileName: fileName,
                                      accountNumber: account,
@@ -233,41 +127,6 @@ class ImportManager {
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
-    }
-
-    private struct StatusAlertView: View {
-        let title: String
-        let message: String
-        let dismiss: () -> Void
-
-        var body: some View {
-            VStack(spacing: 20) {
-                Text(title)
-                    .font(.headline)
-                Text(message)
-                    .font(.body)
-                Button("OK") {
-                    dismiss()
-                }
-            }
-            .frame(minWidth: 700, minHeight: 420)
-            .padding()
-        }
-    }
-
-    private func showStatusWindow(title: String, message: String) {
-        let view = StatusAlertView(title: title, message: message) {
-            NSApp.stopModal()
-        }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
-                              styleMask: [.titled, .closable, .resizable],
-                              backing: .buffered, defer: false)
-        window.title = title
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.contentView = NSHostingView(rootView: view)
-        NSApp.runModal(for: window)
-        window.close()
     }
 
     private func showValueReport(items: [DatabaseManager.ImportSessionValueItem], total: Double) {
@@ -380,69 +239,21 @@ class ImportManager {
                     accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
                     LoggingService.shared.log("Lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
                 }
-                while accountId == nil {
-                    if self.checkpointsEnabled {
-                        var accAction: AccountPromptResult = .cancel
-                    DispatchQueue.main.sync {
-                        accAction = self.promptForAccount(number: custodyNumber,
-                                                         currency: rows.first?.currency ?? "CHF",
-                                                         accountTypeCode: "CUSTODY")
-                    }
-                    switch accAction {
-                    case let .save(name, instId, number, typeId, curr):
-                        _ = self.dbManager.addAccount(accountName: name,
-                                                       institutionId: instId,
-                                                       accountNumber: number,
-                                                       accountTypeId: typeId,
-                                                       currencyCode: curr,
-                                                       openingDate: nil,
-                                                       closingDate: nil,
-                                                       includeInPortfolio: true,
-                                                       isActive: true,
-                                                       notes: nil)
-                        accountId = self.dbManager.findAccountId(accountNumber: number)
-                        LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        if accountId == nil {
-                        accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: institutionName)
-                            LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        }
-                        if accountId != nil {
-                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
-                        }
-                    case .cancel:
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
-                        LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        if accountId == nil {
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
-                            LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        }
-                        if accountId == nil {
-                            if self.checkpointsEnabled {
-                                DispatchQueue.main.sync {
-                                    self.showStatusWindow(title: "Account Required",
-                                                          message: "Account \(custodyNumber) is required to save positions.")
-                                }
-                            }
-                        }
-                    case .abort:
-                        throw ImportError.aborted
-                    }
-                    } else {
-                        let instId = institutionIdDefault
-                        let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
-                        let defaultName = type == .creditSuisse ? "Credit-Suisse Account" : "ZKB Account"
-                        _ = self.dbManager.addAccount(accountName: defaultName,
-                                                       institutionId: instId,
-                                                       accountNumber: custodyNumber,
-                                                       accountTypeId: typeId,
-                                                       currencyCode: rows.first?.currency ?? "CHF",
-                                                       openingDate: nil,
-                                                       closingDate: nil,
-                                                       includeInPortfolio: true,
-                                                       isActive: true,
-                                                       notes: nil)
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
-                    }
+                if accountId == nil {
+                    let instId = institutionIdDefault
+                    let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
+                    let defaultName = type == .creditSuisse ? "Credit-Suisse Account" : "ZKB Account"
+                    _ = self.dbManager.addAccount(accountName: defaultName,
+                                                   institutionId: instId,
+                                                   accountNumber: custodyNumber,
+                                                   accountTypeId: typeId,
+                                                   currencyCode: rows.first?.currency ?? "CHF",
+                                                   openingDate: nil,
+                                                   closingDate: nil,
+                                                   includeInPortfolio: true,
+                                                   isActive: true,
+                                                   notes: nil)
+                    accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                 }
                 let accId = accountId!
                 let accountInfo = self.dbManager.fetchAccountDetails(id: accId)
@@ -510,19 +321,9 @@ class ImportManager {
                         let accNumber = row.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         if accId == nil {
-                            var proceed = true
-                            if self.checkpointsEnabled {
-                                proceed = false
-                                DispatchQueue.main.sync {
-                                    proceed = self.confirmCashAccount(name: row.accountName,
-                                                                      currency: row.currency,
-                                                                      amount: row.quantity)
-                                }
-                            }
-                            if proceed {
-                                let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
-                                let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
-                                _ = self.dbManager.addAccount(accountName: row.accountName,
+                            let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
+                            let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
+                            _ = self.dbManager.addAccount(accountName: row.accountName,
                                                            institutionId: instId,
                                                            accountNumber: accNumber,
                                                            accountTypeId: typeId,
@@ -532,8 +333,7 @@ class ImportManager {
                                                            includeInPortfolio: true,
                                                            isActive: true,
                                                            notes: nil)
-                                accId = self.dbManager.findAccountId(accountNumber: accNumber)
-                            }
+                            accId = self.dbManager.findAccountId(accountNumber: accNumber)
                         }
                         if let aId = accId {
                             let curr = row.currency.uppercased()
@@ -568,16 +368,6 @@ class ImportManager {
                         continue
                     }
 
-                    var action: RecordPromptResult = .save(row)
-                    if self.checkpointsEnabled {
-                        DispatchQueue.main.sync {
-                            action = self.promptForPosition(record: row)
-                        }
-                    }
-                    guard case let .save(row) = action else {
-                        if case .abort = action { throw ImportError.aborted }
-                        continue
-                    }
                     let instrumentId = self.lookupInstrumentId(name: row.instrumentName,
                                                                valor: row.valorNr,
                                                                isin: row.isin,
@@ -615,12 +405,6 @@ class ImportManager {
                         reportDate: row.reportDate
                     )
                     success += 1
-                    if self.checkpointsEnabled {
-                        DispatchQueue.main.sync {
-                            self.showStatusWindow(title: "Position Saved",
-                                                  message: "Saved \(row.instrumentName)")
-                        }
-                    }
                 }
                 summary.unmatchedInstruments = unmatched
                 if let sid = sessionId {
