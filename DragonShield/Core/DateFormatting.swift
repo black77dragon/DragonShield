@@ -14,8 +14,20 @@ enum DateFormatting {
         return f
     }()
 
+    private static let shortDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d.M.yy"
+        f.timeZone = .current
+        return f
+    }()
+
     static func userFriendly(_ isoString: String?) -> String {
         guard let isoString = isoString, let date = isoFormatter.date(from: isoString) else { return "—" }
         return displayFormatter.string(from: date)
+    }
+
+    static func dateOnly(_ isoString: String?) -> String {
+        guard let isoString = isoString, let date = isoFormatter.date(from: isoString) else { return "—" }
+        return shortDateFormatter.string(from: date)
     }
 }
