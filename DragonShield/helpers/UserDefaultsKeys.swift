@@ -24,4 +24,13 @@ struct UserDefaultsKeys {
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
+
+    /// Column widths for Portfolio Themes list.
+    static let portfolioThemesNameWidth = "portfolioThemes.nameWidth"
+    static let portfolioThemesCodeWidth = "portfolioThemes.codeWidth"
+    static let portfolioThemesStatusWidth = "portfolioThemes.statusWidth"
+    static let portfolioThemesUpdatedAtWidth = "portfolioThemes.updatedAtWidth"
+    static let portfolioThemesTotalValueWidth = "portfolioThemes.totalValueWidth"
+    static let portfolioThemesInstrumentsWidth = "portfolioThemes.instrumentsWidth"
+    static let portfolioThemesOpenWidth = "portfolioThemes.openWidth"
 }
