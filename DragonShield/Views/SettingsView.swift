@@ -13,9 +13,6 @@ struct SettingsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var runner: HealthCheckRunner
 
-    @AppStorage(UserDefaultsKeys.forceOverwriteDatabaseOnDebug)
-    private var forceOverwriteDatabaseOnDebug: Bool = false
-
     @AppStorage(UserDefaultsKeys.enableParsingCheckpoints)
     private var enableParsingCheckpoints: Bool = false
 
@@ -112,14 +109,7 @@ struct SettingsView: View {
 
             #if DEBUG
             Section(header: Text("Development / Debug Options")) {
-                VStack(alignment: .leading) {
-                    Toggle("Force Re-copy Database on Next Launch", isOn: $forceOverwriteDatabaseOnDebug)
-                    Text("Enable this to delete the current database and copy a fresh version from the bundle on next app start. Only for Debug builds.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Toggle("Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                        .padding(.top, 4)
-                }
+                Toggle("Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
             }
             #endif
 
@@ -146,8 +136,7 @@ struct SettingsView: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        // NOTE: You must have a `UserDefaultsKeys` struct with the appropriate key defined for this preview to work.
-        UserDefaults.standard.set(true, forKey: "forceOverwriteDatabaseOnDebug")
+        // NOTE: Configure UserDefaults defaults for preview.
         UserDefaults.standard.set(false, forKey: "enableParsingCheckpoints")
         let dbManager = DatabaseManager() // Create a preview instance
         let runner = HealthCheckRunner()
