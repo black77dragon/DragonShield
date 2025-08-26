@@ -14,6 +14,7 @@ struct PortfolioThemesListView: View {
 
     private enum SortField: String { case name, code, status, updatedAt, totalValue, instruments }
     private let sortDefaultsKey = "PortfolioThemesListView.sort"
+    private let themesTableAutosave = PortfolioThemesTableAutosave()
     
     // Local state for the data
     @State var themes: [PortfolioTheme] = []
@@ -168,6 +169,7 @@ struct PortfolioThemesListView: View {
             })
             .width(30)
         }
+        .background(themesTableAutosave)
         .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
             persistSortOrder()
