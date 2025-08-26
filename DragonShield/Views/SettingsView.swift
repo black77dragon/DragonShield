@@ -108,9 +108,9 @@ struct SettingsView: View {
             }
 
             #if DEBUG
-            Section(header: Text("Development / Debug Options")) {
+            Section(header: Text("Development / Debug Options (incl. feature flags")) {
                 VStack(alignment: .leading) {
-                    Toggle("Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
+                    Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
                 }
             }
             #endif
