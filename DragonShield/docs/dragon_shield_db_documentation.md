@@ -165,7 +165,6 @@ Analysis Layer
 - `base_currency`: Base reporting currency (CHF)
 - `as_of_date`: Portfolio calculation cutoff date
 - `decimal_precision`: Financial calculation precision
-- `auto_fx_update`: Enable automatic FX updates
 - `fx_api_provider`: FX rate data source
 
 #### Currencies
@@ -644,9 +643,6 @@ UPDATE Configuration SET value = 'EUR' WHERE key = 'base_currency';
 
 -- Update as-of date for historical analysis
 UPDATE Configuration SET value = '2024-12-31' WHERE key = 'as_of_date';
-
--- Enable automatic FX updates
-UPDATE Configuration SET value = 'true' WHERE key = 'auto_fx_update';
 ```
 
 #### Retrieving Configuration

@@ -63,14 +63,6 @@ struct SettingsView: View {
                             }
                         ),
                         in: 0...8)
-                
-                Toggle("Auto FX Update", isOn: Binding(
-                    get: { dbManager.autoFxUpdate },
-                    set: { newValue in
-                        _ = dbManager.updateConfiguration(key: "auto_fx_update", value: newValue ? "true" : "false")
-                    }
-                ))
-
             }
             
             Section(header: Text("Table Display Settings")) {

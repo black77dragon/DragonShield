@@ -29,7 +29,6 @@ class DatabaseManager: ObservableObject {
     @Published var baseCurrency: String = "CHF"
     @Published var asOfDate: Date = Date()
     @Published var decimalPrecision: Int = 4
-    @Published var autoFxUpdate: Bool = true
 
     // New @Published properties from Configuration table
     @Published var defaultTimeZone: String = "Europe/Zurich"

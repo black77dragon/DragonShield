@@ -42,6 +42,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 - Remove default timezone setting and base currency placeholder from Settings (#PR_NUMBER)
 - Remove obsolete feature flag 'Enable Attachments for Theme Updates'; attachments now always enabled (#PR_NUMBER)
 - Remove debug-only force database overwrite setting (#PR_NUMBER)
+- Remove auto FX update configuration and settings toggle (#PR_NUMBER)
 
 ### Security
 
