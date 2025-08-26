@@ -14,6 +14,36 @@ struct PortfolioThemesListView: View {
 
     private enum SortField: String { case name, code, status, updatedAt, totalValue, instruments }
     private let sortDefaultsKey = "PortfolioThemesListView.sort"
+
+    @AppStorage(UserDefaultsKeys.portfolioThemesNameWidth) private var nameWidthValue: Double = 150
+    @AppStorage(UserDefaultsKeys.portfolioThemesCodeWidth) private var codeWidthValue: Double = 80
+    @AppStorage(UserDefaultsKeys.portfolioThemesStatusWidth) private var statusWidthValue: Double = 120
+    @AppStorage(UserDefaultsKeys.portfolioThemesUpdatedAtWidth) private var updatedAtWidthValue: Double = 150
+    @AppStorage(UserDefaultsKeys.portfolioThemesTotalValueWidth) private var totalValueWidthValue: Double = 120
+    @AppStorage(UserDefaultsKeys.portfolioThemesInstrumentsWidth) private var instrumentsWidthValue: Double = 80
+    @AppStorage(UserDefaultsKeys.portfolioThemesOpenWidth) private var openWidthValue: Double = 30
+
+    private var nameWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(nameWidthValue) }, set: { nameWidthValue = Double($0) })
+    }
+    private var codeWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(codeWidthValue) }, set: { codeWidthValue = Double($0) })
+    }
+    private var statusWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(statusWidthValue) }, set: { statusWidthValue = Double($0) })
+    }
+    private var updatedAtWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(updatedAtWidthValue) }, set: { updatedAtWidthValue = Double($0) })
+    }
+    private var totalValueWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(totalValueWidthValue) }, set: { totalValueWidthValue = Double($0) })
+    }
+    private var instrumentsWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(instrumentsWidthValue) }, set: { instrumentsWidthValue = Double($0) })
+    }
+    private var openWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(openWidthValue) }, set: { openWidthValue = Double($0) })
+    }
     
     // Local state for the data
     @State var themes: [PortfolioTheme] = []
@@ -132,30 +162,28 @@ struct PortfolioThemesListView: View {
 
     private var themesTable: some View {
         Table(themes, selection: $selectedThemeId, sortOrder: $sortOrder) {
-            TableColumn(headerLabel("Name", field: .name), value: \.name) { theme in
+            TableColumn(headerLabel("Name", field: .name), value: \.name, width: nameWidth) { theme in
                 Text(theme.name).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Code", field: .code), value: \.code) { theme in
+            TableColumn(headerLabel("Code", field: .code), value: \.code, width: codeWidth) { theme in
                 Text(theme.code).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Status", field: .status), sortUsing: KeyPathComparator(\.statusId)) { theme in
+            TableColumn(headerLabel("Status", field: .status), sortUsing: KeyPathComparator(\.statusId), width: statusWidth) { theme in
                 Text(statusName(for: theme.statusId)).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Last Updated", field: .updatedAt), value: \.updatedAt) { theme in
+            TableColumn(headerLabel("Last Updated", field: .updatedAt), value: \.updatedAt, width: updatedAtWidth) { theme in
                 Text(theme.updatedAt).foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            TableColumn(headerLabel("Total Value", field: .totalValue), sortUsing: KeyPathComparator(\.totalValueBase)) { theme in
+            TableColumn(headerLabel("Total Value", field: .totalValue), sortUsing: KeyPathComparator(\.totalValueBase), width: totalValueWidth) { theme in
                 totalValueCell(for: theme)
             }
-            .width(min: 120)
-            TableColumn(headerLabel("Instruments", field: .instruments), value: \.instrumentCount) { theme in
+            TableColumn(headerLabel("Instruments", field: .instruments), value: \.instrumentCount, width: instrumentsWidth) { theme in
                 Text("\(theme.instrumentCount)")
                     .monospacedDigit()
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .foregroundStyle(isArchived(theme) ? .secondary : .primary)
             }
-            .width(min: 80)
-            TableColumn("", content: { theme in
+            TableColumn("", width: openWidth) { theme in
                 Button {
                     open(theme)
                 } label: {
@@ -165,8 +193,7 @@ struct PortfolioThemesListView: View {
                 .buttonStyle(.plain)
                 .help("Open Theme Details")
                 .accessibilityLabel("Open details for \(theme.name)")
-            })
-            .width(30)
+            }
         }
         .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
