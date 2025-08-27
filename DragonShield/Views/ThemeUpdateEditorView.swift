@@ -20,7 +20,8 @@ struct ThemeUpdateEditorView: View {
 
     @State private var title: String
     @State private var bodyMarkdown: String
-    @State private var type: PortfolioThemeUpdate.UpdateType
+    @State private var type: UpdateType
+    @State private var availableTypes: [UpdateType] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
     @State private var positionsAsOf: String?
@@ -46,7 +47,7 @@ struct ThemeUpdateEditorView: View {
         self.logSource = logSource
         _title = State(initialValue: existing?.title ?? "")
         _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
-        _type = State(initialValue: existing?.type ?? .General)
+        _type = State(initialValue: existing?.type ?? UpdateType(id: 1, code: "General", name: "General"))
         _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
@@ -56,8 +57,8 @@ struct ThemeUpdateEditorView: View {
                 .font(.headline)
             TextField("Title", text: $title)
             Picker("Type", selection: $type) {
-                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(t)
+                ForEach(availableTypes, id: \.id) { t in
+                    Text(t.name).tag(t)
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -107,7 +108,15 @@ struct ThemeUpdateEditorView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
-        .onAppear { loadSnapshot() }
+        .onAppear {
+            availableTypes = dbManager.fetchUpdateTypes()
+            if let existing = existing {
+                type = existing.type
+            } else if let first = availableTypes.first {
+                type = first
+            }
+            loadSnapshot()
+        }
     }
 
     private var valid: Bool {

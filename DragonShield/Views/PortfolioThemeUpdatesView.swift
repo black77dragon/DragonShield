@@ -12,7 +12,8 @@ struct PortfolioThemeUpdatesView: View {
     @State private var editingUpdate: PortfolioThemeUpdate?
     @State private var showEditor = false
     @State private var searchText: String = ""
-    @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var selectedType: UpdateType? = nil
+    @State private var availableTypes: [UpdateType] = []
     @State private var pinnedFirst: Bool = true
     @State private var sortOrder: SortOrder = .newest
     @State private var dateFilter: UpdateDateFilter = .last30d
@@ -49,6 +50,7 @@ struct PortfolioThemeUpdatesView: View {
         }
         .padding(12)
         .onAppear {
+            availableTypes = dbManager.fetchUpdateTypes()
             if let s = initialSearchText, searchText.isEmpty { searchText = s }
             load()
         }
@@ -87,9 +89,9 @@ struct PortfolioThemeUpdatesView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
                 }
             Picker("Type", selection: $selectedType) {
-                Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
-                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(Optional(t))
+                Text("All").tag(nil as UpdateType?)
+                ForEach(availableTypes, id: \.id) { t in
+                    Text(t.name).tag(Optional(t))
                 }
             }
             .onChange(of: selectedType) { _, _ in load() }
@@ -137,7 +139,7 @@ struct PortfolioThemeUpdatesView: View {
                                 .buttonStyle(.link)
                         }
                     }
-                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.type.rawValue)]")
+                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.type.code)]")
                         .font(.caption)
                     if expandedId == update.id {
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))

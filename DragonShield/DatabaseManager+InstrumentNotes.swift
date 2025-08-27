@@ -18,7 +18,7 @@ extension DatabaseManager {
         } else {
             whereClause = "instrument_id = ?"
         }
-        let sql = "SELECT id, theme_id, instrument_id, title, body_markdown, type, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at FROM PortfolioThemeAssetUpdate WHERE \(whereClause) ORDER BY \(order)"
+        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, t.code, t.name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u JOIN UpdateType t ON u.type_id = t.id WHERE \(whereClause) ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             if let tid = themeId {
@@ -33,19 +33,18 @@ extension DatabaseManager {
                 let instrumentId = Int(sqlite3_column_int(stmt, 2))
                 let title = String(cString: sqlite3_column_text(stmt, 3))
                 let body = String(cString: sqlite3_column_text(stmt, 4))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 5))
-                let author = String(cString: sqlite3_column_text(stmt, 6))
-                let pinned = sqlite3_column_int(stmt, 7) == 1
-                let positionsAsOf = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 9) != SQLITE_NULL ? sqlite3_column_double(stmt, 9) : nil
-                let actual = sqlite3_column_type(stmt, 10) != SQLITE_NULL ? sqlite3_column_double(stmt, 10) : nil
-                let created = String(cString: sqlite3_column_text(stmt, 11))
-                let updated = String(cString: sqlite3_column_text(stmt, 12))
-                if let type = PortfolioThemeAssetUpdate.UpdateType(rawValue: typeStr) {
-                    items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
-                } else {
-                    LoggingService.shared.log("Invalid update type '\\(typeStr)' for instrument update id \\(id). Skipping row.", type: .warning, logger: .database)
-                }
+                let typeId = Int(sqlite3_column_int(stmt, 5))
+                let code = String(cString: sqlite3_column_text(stmt, 6))
+                let name = String(cString: sqlite3_column_text(stmt, 7))
+                let author = String(cString: sqlite3_column_text(stmt, 8))
+                let pinned = sqlite3_column_int(stmt, 9) == 1
+                let positionsAsOf = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 11) != SQLITE_NULL ? sqlite3_column_double(stmt, 11) : nil
+                let actual = sqlite3_column_type(stmt, 12) != SQLITE_NULL ? sqlite3_column_double(stmt, 12) : nil
+                let created = String(cString: sqlite3_column_text(stmt, 13))
+                let updated = String(cString: sqlite3_column_text(stmt, 14))
+                let ut = UpdateType(id: typeId, code: code, name: name)
+                items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, type: ut, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
             }
         } else {
             LoggingService.shared.log("Failed to prepare listInstrumentUpdatesForInstrument: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -55,7 +54,7 @@ extension DatabaseManager {
     }
 
     func listThemeMentions(themeId: Int, instrumentCode: String, instrumentName: String) -> [PortfolioThemeUpdate] {
-        let sql = "SELECT id, theme_id, title, COALESCE(body_markdown, body_text), type, author, pinned, positions_asof, total_value_chf, created_at, updated_at, soft_delete, deleted_at, deleted_by FROM PortfolioThemeUpdate WHERE theme_id = ? AND soft_delete = 0 ORDER BY created_at DESC"
+        let sql = "SELECT u.id, u.theme_id, u.title, COALESCE(u.body_markdown, u.body_text), u.type_id, t.code, t.name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u JOIN UpdateType t ON u.type_id = t.id WHERE u.theme_id = ? AND u.soft_delete = 0 ORDER BY u.created_at DESC"
         var stmt: OpaquePointer?
         var items: [PortfolioThemeUpdate] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -65,16 +64,18 @@ extension DatabaseManager {
                 let themeId = Int(sqlite3_column_int(stmt, 1))
                 let title = String(cString: sqlite3_column_text(stmt, 2))
                 let body = String(cString: sqlite3_column_text(stmt, 3))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 4))
-                let author = String(cString: sqlite3_column_text(stmt, 5))
-                let pinned = sqlite3_column_int(stmt, 6) == 1
-                let positionsAsOf = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
-                let totalValue = sqlite3_column_type(stmt, 8) != SQLITE_NULL ? sqlite3_column_double(stmt, 8) : nil
-                let created = String(cString: sqlite3_column_text(stmt, 9))
-                let updated = String(cString: sqlite3_column_text(stmt, 10))
-                let softDelete = sqlite3_column_int(stmt, 11) == 1
-                let deletedAt = sqlite3_column_text(stmt, 12).map { String(cString: $0) }
-                let deletedBy = sqlite3_column_text(stmt, 13).map { String(cString: $0) }
+                let typeId = Int(sqlite3_column_int(stmt, 4))
+                let code = String(cString: sqlite3_column_text(stmt, 5))
+                let name = String(cString: sqlite3_column_text(stmt, 6))
+                let author = String(cString: sqlite3_column_text(stmt, 7))
+                let pinned = sqlite3_column_int(stmt, 8) == 1
+                let positionsAsOf = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let totalValue = sqlite3_column_type(stmt, 10) != SQLITE_NULL ? sqlite3_column_double(stmt, 10) : nil
+                let created = String(cString: sqlite3_column_text(stmt, 11))
+                let updated = String(cString: sqlite3_column_text(stmt, 12))
+                let softDelete = sqlite3_column_int(stmt, 13) == 1
+                let deletedAt = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
+                let deletedBy = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
                 let combined = title + " " + body
                 let norm = normalizeNotesText(combined)
                 var matched = false
@@ -93,8 +94,9 @@ extension DatabaseManager {
                         }
                     }
                 }
-                if matched, let type = PortfolioThemeUpdate.UpdateType(rawValue: typeStr) {
-                    items.append(PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: positionsAsOf, totalValueChf: totalValue, createdAt: created, updatedAt: updated, softDelete: softDelete, deletedAt: deletedAt, deletedBy: deletedBy))
+                if matched {
+                    let ut = UpdateType(id: typeId, code: code, name: name)
+                    items.append(PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: ut, author: author, pinned: pinned, positionsAsOf: positionsAsOf, totalValueChf: totalValue, createdAt: created, updatedAt: updated, softDelete: softDelete, deletedAt: deletedAt, deletedBy: deletedBy))
                 }
             }
         } else {

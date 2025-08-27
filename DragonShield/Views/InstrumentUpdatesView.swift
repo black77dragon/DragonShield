@@ -57,7 +57,7 @@ struct InstrumentUpdatesView: View {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)\(update.updatedAt > update.createdAt ? " • edited" : "")")
+                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.code)\(update.updatedAt > update.createdAt ? " • edited" : "")")
                                 .font(.subheadline)
                             Spacer()
                             Text(update.pinned ? "★ Pinned" : "☆")
