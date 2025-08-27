@@ -77,6 +77,7 @@ class DatabaseManager: ObservableObject {
         
         openDatabase()
         ensurePortfolioThemeStatusDefault()
+        ensureUpdateTypeTable()
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
         ensurePortfolioThemeUpdateTable()

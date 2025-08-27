@@ -18,6 +18,8 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         sqlite3_exec(manager.db, "CREATE TABLE Instruments(instrument_id INTEGER PRIMARY KEY, instrument_name TEXT);", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO Instruments(instrument_id, instrument_name) VALUES (42,'Inst');", nil, nil, nil)
         sqlite3_exec(manager.db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, created_at TEXT, updated_at TEXT, PRIMARY KEY(theme_id, instrument_id));", nil, nil, nil)
+        manager.ensureUpdateTypeTable()
+        sqlite3_exec(manager.db, "INSERT INTO UpdateType(code,name) VALUES ('General','General'),('Research','Research'),('Rebalance','Rebalance'),('Risk','Risk');", nil, nil, nil)
         manager.ensurePortfolioThemeAssetUpdateTable()
         manager.ensurePortfolioThemeUpdateTable()
     }
@@ -30,9 +32,13 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
     }
 
     func testCreateEditDeleteFlow() {
-        let first = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Init", bodyMarkdown: "Start", type: .General, pinned: false, author: "Alice", breadcrumb: nil)
+        let types = manager.fetchUpdateTypes()
+        let general = types.first { $0.code == "General" }!
+        let research = types.first { $0.code == "Research" }!
+        let risk = types.first { $0.code == "Risk" }!
+        let first = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Init", bodyMarkdown: "Start", type: general, pinned: false, author: "Alice", breadcrumb: nil)
         XCTAssertNotNil(first)
-        let second = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Second", bodyMarkdown: "More", type: .Research, pinned: false, author: "Bob", breadcrumb: nil)
+        let second = manager.createInstrumentUpdate(themeId: 1, instrumentId: 42, title: "Second", bodyMarkdown: "More", type: research, pinned: false, author: "Bob", breadcrumb: nil)
         XCTAssertNotNil(second)
         var list = manager.listInstrumentUpdates(themeId: 1, instrumentId: 42)
         XCTAssertEqual(list.count, 2)
@@ -41,9 +47,9 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         XCTAssertTrue(pinned?.pinned == true)
         list = manager.listInstrumentUpdates(themeId: 1, instrumentId: 42)
         XCTAssertEqual(list.first?.id, first!.id)
-        let updated = manager.updateInstrumentUpdate(id: first!.id, title: "Changed", bodyMarkdown: nil, type: .Risk, pinned: false, actor: "Alice", expectedUpdatedAt: pinned!.updatedAt)
+        let updated = manager.updateInstrumentUpdate(id: first!.id, title: "Changed", bodyMarkdown: nil, type: risk, pinned: false, actor: "Alice", expectedUpdatedAt: pinned!.updatedAt)
         XCTAssertEqual(updated?.title, "Changed")
-        XCTAssertEqual(updated?.type, .Risk)
+        XCTAssertEqual(updated?.type, risk)
         XCTAssertTrue(updated?.pinned == false)
         let conflict = manager.updateInstrumentUpdate(id: first!.id, title: "Bad", bodyMarkdown: nil, type: nil, pinned: nil, actor: "Bob", expectedUpdatedAt: "bogus")
         XCTAssertNil(conflict)

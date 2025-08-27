@@ -1,19 +1,13 @@
 // DragonShield/Models/PortfolioThemeAssetUpdate.swift
-// MARK: - Version 1.1
+// MARK: - Version 1.2
 // MARK: - History
 // - 1.0: Initial instrument-level update model for Step 7A.
 // - 1.0 -> 1.1: Add Markdown body and pin flag for Phase 7B.
+// - 1.1 -> 1.2: Replace enum type with UpdateType reference.
 
 import Foundation
 
 struct PortfolioThemeAssetUpdate: Identifiable, Codable {
-    enum UpdateType: String, CaseIterable, Codable {
-        case General
-        case Research
-        case Rebalance
-        case Risk
-    }
-
     let id: Int
     let themeId: Int
     let instrumentId: Int
@@ -38,4 +32,3 @@ struct PortfolioThemeAssetUpdate: Identifiable, Codable {
         return count >= 1 && count <= 5000
     }
 }
-

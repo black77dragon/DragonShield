@@ -23,7 +23,8 @@ struct InstrumentUpdateEditorView: View {
 
     @State private var title: String
     @State private var bodyMarkdown: String
-    @State private var type: PortfolioThemeAssetUpdate.UpdateType
+    @State private var type: UpdateType
+    @State private var availableTypes: [UpdateType] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
     @State private var breadcrumb: (positionsAsOf: String?, valueChf: Double?, actualPercent: Double?)?
@@ -42,7 +43,7 @@ struct InstrumentUpdateEditorView: View {
         self.onCancel = onCancel
         _title = State(initialValue: existing?.title ?? "")
         _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
-        _type = State(initialValue: existing?.type ?? .General)
+        _type = State(initialValue: existing?.type ?? UpdateType(id: 1, code: "General", name: "General"))
         _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
@@ -54,8 +55,8 @@ struct InstrumentUpdateEditorView: View {
                 .font(.subheadline)
             TextField("Title (1–120)", text: $title)
             Picker("Type", selection: $type) {
-                ForEach(PortfolioThemeAssetUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(t)
+                ForEach(availableTypes, id: \.id) { t in
+                    Text(t.name).tag(t)
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -104,7 +105,15 @@ struct InstrumentUpdateEditorView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
-        .onAppear { loadBreadcrumb() }
+        .onAppear {
+            availableTypes = dbManager.fetchUpdateTypes()
+            if let existing = existing {
+                type = existing.type
+            } else if let first = availableTypes.first {
+                type = first
+            }
+            loadBreadcrumb()
+        }
     }
 
     private var valid: Bool {

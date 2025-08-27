@@ -14,6 +14,8 @@ final class PortfolioThemeUpdateTests: XCTestCase {
         sqlite3_exec(manager.db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
         sqlite3_exec(manager.db, "CREATE TABLE PortfolioTheme(id INTEGER PRIMARY KEY);", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO PortfolioTheme(id) VALUES (1);", nil, nil, nil)
+        manager.ensureUpdateTypeTable()
+        sqlite3_exec(manager.db, "INSERT INTO UpdateType(code,name) VALUES ('General','General'),('Research','Research'),('Rebalance','Rebalance'),('Risk','Risk');", nil, nil, nil)
         manager.ensurePortfolioThemeUpdateTable()
     }
 
@@ -25,15 +27,18 @@ final class PortfolioThemeUpdateTests: XCTestCase {
     }
 
     func testSearchTypeSoftDeleteAndRestore() {
-        let first = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyMarkdown: "Trimmed VOO", type: .Rebalance, pinned: true, author: "Alice", positionsAsOf: nil, totalValueChf: nil)
+        let types = manager.fetchUpdateTypes()
+        let rebalance = types.first { $0.code == "Rebalance" }!
+        let general = types.first { $0.code == "General" }!
+        let first = manager.createThemeUpdate(themeId: 1, title: "Raised cash", bodyMarkdown: "Trimmed VOO", type: rebalance, pinned: true, author: "Alice", positionsAsOf: nil, totalValueChf: nil)
         XCTAssertNotNil(first)
-        let second = manager.createThemeUpdate(themeId: 1, title: "Monthly review", bodyMarkdown: "General outlook", type: .General, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil)
+        let second = manager.createThemeUpdate(themeId: 1, title: "Monthly review", bodyMarkdown: "General outlook", type: general, pinned: false, author: "Bob", positionsAsOf: nil, totalValueChf: nil)
         XCTAssertNotNil(second)
 
         var list = manager.listThemeUpdates(themeId: 1, view: .active, type: nil, searchQuery: nil, pinnedFirst: true)
         XCTAssertEqual(list.count, 2)
 
-        list = manager.listThemeUpdates(themeId: 1, view: .active, type: .General, searchQuery: nil, pinnedFirst: true)
+        list = manager.listThemeUpdates(themeId: 1, view: .active, type: general, searchQuery: nil, pinnedFirst: true)
         XCTAssertEqual(list.count, 1)
         XCTAssertEqual(list.first?.title, "Monthly review")
 

@@ -11,6 +11,7 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 
 ### Added
+- Introduce database-backed `UpdateType` reference table and model for updates (#PR_NUMBER)
 - Add dashboard tile for strict unused instruments (#PR_NUMBER)
 - Restructure changelog and archive history (#PR_NUMBER)
 - Introduce bank-specific import cards with filename hints and instructions (#PR_NUMBER)
