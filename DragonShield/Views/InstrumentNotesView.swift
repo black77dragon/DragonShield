@@ -112,7 +112,7 @@ struct InstrumentNotesView: View {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)")
+                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.code)")
                             Spacer()
                             Text(update.pinned ? "★" : "☆")
                         }
@@ -141,7 +141,7 @@ struct InstrumentNotesView: View {
                 ForEach(mentions) { mention in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(mention.createdAt)) • Theme: \(themeName(for: mention.themeId)) • Type: \(mention.type.rawValue)")
+                            Text("\(DateFormatting.userFriendly(mention.createdAt)) • Theme: \(themeName(for: mention.themeId)) • Type: \(mention.type.code)")
                             if isThemeArchived(mention.themeId) {
                                 Text("Archived").font(.caption).foregroundColor(.secondary)
                             }

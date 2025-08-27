@@ -1,19 +1,13 @@
 // DragonShield/Models/PortfolioThemeUpdate.swift
-// MARK: - Version 1.2
+// MARK: - Version 1.3
 // MARK: - History
 // - 1.0 -> 1.1: Add Markdown body and pin flag for Phase 6B updates.
 // - 1.1 -> 1.2: Track soft deletion metadata for Phase 6C.
+// - 1.2 -> 1.3: Replace enum type with UpdateType reference.
 
 import Foundation
 
 struct PortfolioThemeUpdate: Identifiable, Codable {
-    enum UpdateType: String, CaseIterable, Codable {
-        case General
-        case Research
-        case Rebalance
-        case Risk
-    }
-
     let id: Int
     let themeId: Int
     var title: String

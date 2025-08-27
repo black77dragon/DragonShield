@@ -26,7 +26,7 @@ extension DatabaseManager {
             title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
             body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
             body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-            type TEXT NOT NULL CHECK (type IN ('General','Research','Rebalance','Risk')),
+            type_id INTEGER NOT NULL REFERENCES UpdateType(id),
             author TEXT NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
             positions_asof TEXT NULL,
@@ -45,11 +45,11 @@ extension DatabaseManager {
         }
     }
 
-    func listThemeUpdates(themeId: Int, view: ThemeUpdateView = .active, type: PortfolioThemeUpdate.UpdateType? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
+    func listThemeUpdates(themeId: Int, view: ThemeUpdateView = .active, type: UpdateType? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
         var items: [PortfolioThemeUpdate] = []
         var clauses: [String] = ["theme_id = ?", "soft_delete = \(view == .active ? 0 : 1)"]
         var binds: [Any] = [themeId]
-        if let t = type { clauses.append("type = ?"); binds.append(t.rawValue) }
+        if let t = type { clauses.append("type_id = ?"); binds.append(t.id) }
         if let q = searchQuery, !q.isEmpty {
             clauses.append("(LOWER(title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(body_markdown, body_text)) LIKE '%' || LOWER(?) || '%')")
             binds.append(q)
@@ -63,7 +63,7 @@ extension DatabaseManager {
         case .deleted:
             order = "deleted_at DESC, created_at DESC"
         }
-        let sql = "SELECT id, theme_id, title, body_markdown, type, author, pinned, positions_asof, total_value_chf, created_at, updated_at, soft_delete, deleted_at, deleted_by FROM PortfolioThemeUpdate WHERE \(whereClause) ORDER BY \(order)"
+        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, t.code, t.name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u JOIN UpdateType t ON u.type_id = t.id WHERE \(whereClause) ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             var index: Int32 = 1
@@ -81,22 +81,21 @@ extension DatabaseManager {
                 let themeId = Int(sqlite3_column_int(stmt, 1))
                 let title = String(cString: sqlite3_column_text(stmt, 2))
                 let body = String(cString: sqlite3_column_text(stmt, 3))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 4))
-                let author = String(cString: sqlite3_column_text(stmt, 5))
-                let pinned = sqlite3_column_int(stmt, 6) == 1
-                let posAsOf = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 8)
-                let created = String(cString: sqlite3_column_text(stmt, 9))
-                let updated = String(cString: sqlite3_column_text(stmt, 10))
-                let softDel = sqlite3_column_int(stmt, 11) == 1
-                let delAt = sqlite3_column_text(stmt, 12).map { String(cString: $0) }
-                let delBy = sqlite3_column_text(stmt, 13).map { String(cString: $0) }
-                if let type = PortfolioThemeUpdate.UpdateType(rawValue: typeStr) {
-                    let item = PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: posAsOf, totalValueChf: value, createdAt: created, updatedAt: updated, softDelete: softDel, deletedAt: delAt, deletedBy: delBy)
-                    items.append(item)
-                } else {
-                    LoggingService.shared.log("Invalid update type '\(typeStr)' for theme update id \(id). Skipping row.", type: .warning, logger: .database)
-                }
+                let typeId = Int(sqlite3_column_int(stmt, 4))
+                let code = String(cString: sqlite3_column_text(stmt, 5))
+                let name = String(cString: sqlite3_column_text(stmt, 6))
+                let author = String(cString: sqlite3_column_text(stmt, 7))
+                let pinned = sqlite3_column_int(stmt, 8) == 1
+                let posAsOf = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 10)
+                let created = String(cString: sqlite3_column_text(stmt, 11))
+                let updated = String(cString: sqlite3_column_text(stmt, 12))
+                let softDel = sqlite3_column_int(stmt, 13) == 1
+                let delAt = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
+                let delBy = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
+                let ut = UpdateType(id: typeId, code: code, name: name)
+                let item = PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: ut, author: author, pinned: pinned, positionsAsOf: posAsOf, totalValueChf: value, createdAt: created, updatedAt: updated, softDelete: softDel, deletedAt: delAt, deletedBy: delBy)
+                items.append(item)
             }
         } else {
             LoggingService.shared.log("Failed to prepare listThemeUpdates: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -105,12 +104,12 @@ extension DatabaseManager {
         return items
     }
 
-    func createThemeUpdate(themeId: Int, title: String, bodyMarkdown: String, type: PortfolioThemeUpdate.UpdateType, pinned: Bool, author: String, positionsAsOf: String?, totalValueChf: Double?, source: String? = nil) -> PortfolioThemeUpdate? {
+    func createThemeUpdate(themeId: Int, title: String, bodyMarkdown: String, type: UpdateType, pinned: Bool, author: String, positionsAsOf: String?, totalValueChf: Double?, source: String? = nil) -> PortfolioThemeUpdate? {
         guard PortfolioThemeUpdate.isValidTitle(title), PortfolioThemeUpdate.isValidBody(bodyMarkdown) else {
             LoggingService.shared.log("Invalid title/body for theme update", type: .info, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,?,?,?,?)"
+        let sql = "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type_id, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createThemeUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -122,7 +121,7 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 2, title, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 3, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 5, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 5, Int32(type.id))
         sqlite3_bind_text(stmt, 6, author, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 7, pinned ? 1 : 0)
         if let pos = positionsAsOf {
@@ -157,7 +156,7 @@ extension DatabaseManager {
     }
 
     func getThemeUpdate(id: Int) -> PortfolioThemeUpdate? {
-        let sql = "SELECT id, theme_id, title, body_markdown, type, author, pinned, positions_asof, total_value_chf, created_at, updated_at, soft_delete, deleted_at, deleted_by FROM PortfolioThemeUpdate WHERE id = ?"
+        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, t.code, t.name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u JOIN UpdateType t ON u.type_id = t.id WHERE u.id = ?"
         var stmt: OpaquePointer?
         var item: PortfolioThemeUpdate?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -167,21 +166,20 @@ extension DatabaseManager {
                 let themeId = Int(sqlite3_column_int(stmt, 1))
                 let title = String(cString: sqlite3_column_text(stmt, 2))
                 let body = String(cString: sqlite3_column_text(stmt, 3))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 4))
-                let author = String(cString: sqlite3_column_text(stmt, 5))
-                let pinned = sqlite3_column_int(stmt, 6) == 1
-                let posAsOf = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 8)
-                let created = String(cString: sqlite3_column_text(stmt, 9))
-                let updated = String(cString: sqlite3_column_text(stmt, 10))
-                let softDel = sqlite3_column_int(stmt, 11) == 1
-                let delAt = sqlite3_column_text(stmt, 12).map { String(cString: $0) }
-                let delBy = sqlite3_column_text(stmt, 13).map { String(cString: $0) }
-                if let type = PortfolioThemeUpdate.UpdateType(rawValue: typeStr) {
-                    item = PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: posAsOf, totalValueChf: value, createdAt: created, updatedAt: updated, softDelete: softDel, deletedAt: delAt, deletedBy: delBy)
-                } else {
-                    LoggingService.shared.log("Invalid update type '\(typeStr)' for theme update id \(id).", type: .warning, logger: .database)
-                }
+                let typeId = Int(sqlite3_column_int(stmt, 4))
+                let code = String(cString: sqlite3_column_text(stmt, 5))
+                let name = String(cString: sqlite3_column_text(stmt, 6))
+                let author = String(cString: sqlite3_column_text(stmt, 7))
+                let pinned = sqlite3_column_int(stmt, 8) == 1
+                let posAsOf = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 10)
+                let created = String(cString: sqlite3_column_text(stmt, 11))
+                let updated = String(cString: sqlite3_column_text(stmt, 12))
+                let softDel = sqlite3_column_int(stmt, 13) == 1
+                let delAt = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
+                let delBy = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
+                let ut = UpdateType(id: typeId, code: code, name: name)
+                item = PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, type: ut, author: author, pinned: pinned, positionsAsOf: posAsOf, totalValueChf: value, createdAt: created, updatedAt: updated, softDelete: softDel, deletedAt: delAt, deletedBy: delBy)
             }
         } else {
             LoggingService.shared.log("Failed to prepare getThemeUpdate: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -190,7 +188,7 @@ extension DatabaseManager {
         return item
     }
 
-    func updateThemeUpdate(id: Int, title: String?, bodyMarkdown: String?, type: PortfolioThemeUpdate.UpdateType?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeUpdate? {
+    func updateThemeUpdate(id: Int, title: String?, bodyMarkdown: String?, type: UpdateType?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeUpdate? {
         var sets: [String] = []
         var bind: [Any] = []
         if let title = title { sets.append("title = ?"); bind.append(title) }
@@ -198,7 +196,7 @@ extension DatabaseManager {
             sets.append("body_text = ?"); bind.append(body)
             sets.append("body_markdown = ?"); bind.append(body)
         }
-        if let type = type { sets.append("type = ?"); bind.append(type.rawValue) }
+        if let type = type { sets.append("type_id = ?"); bind.append(type.id) }
         if let p = pinned { sets.append("pinned = ?"); bind.append(p ? 1 : 0) }
         sets.append("updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')")
         let sql = "UPDATE PortfolioThemeUpdate SET \(sets.joined(separator: ", ")) WHERE id = ? AND updated_at = ?"
