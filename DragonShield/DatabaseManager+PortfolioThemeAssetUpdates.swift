@@ -98,29 +98,39 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid title/body for instrument update", type: .info, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioThemeAssetUpdate (theme_id, instrument_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent) VALUES (?,?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?, ?,?)"
+        let hasTypeCol = tableHasColumn("PortfolioThemeAssetUpdate", column: "type")
+        let sql = hasTypeCol
+            ? "INSERT INTO PortfolioThemeAssetUpdate (theme_id, instrument_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent) VALUES (?,?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?, ?,?)"
+            : "INSERT INTO PortfolioThemeAssetUpdate (theme_id, instrument_id, title, body_text, body_markdown, type_id, author, pinned, positions_asof, value_chf, actual_percent) VALUES (?,?,?,?,?, (SELECT id FROM NewsType WHERE code = ?), ?,?,?, ?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createInstrumentUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
-        sqlite3_bind_int(stmt, 1, Int32(themeId))
-        sqlite3_bind_int(stmt, 2, Int32(instrumentId))
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_text(stmt, 3, title, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 5, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 6, newsTypeCode, -1, SQLITE_TRANSIENT)
+        var idx: Int32 = 1
+        sqlite3_bind_int(stmt, idx, Int32(themeId)); idx += 1
+        sqlite3_bind_int(stmt, idx, Int32(instrumentId)); idx += 1
+        sqlite3_bind_text(stmt, idx, title, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
+        if hasTypeCol {
+            sqlite3_bind_text(stmt, idx, newsTypeCode, -1, SQLITE_TRANSIENT); idx += 1
+        }
         // bind for subselect (type code again)
-        sqlite3_bind_text(stmt, 7, newsTypeCode, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 8, author, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 9, pinned ? 1 : 0)
+        sqlite3_bind_text(stmt, idx, newsTypeCode, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, author, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_int(stmt, idx, pinned ? 1 : 0); idx += 1
         if let bc = breadcrumb {
-            if let s = bc.positionsAsOf { sqlite3_bind_text(stmt, 10, s, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 10) }
-            if let v = bc.valueChf { sqlite3_bind_double(stmt, 11, v) } else { sqlite3_bind_null(stmt, 11) }
-            if let a = bc.actualPercent { sqlite3_bind_double(stmt, 12, a) } else { sqlite3_bind_null(stmt, 12) }
+            if let s = bc.positionsAsOf { sqlite3_bind_text(stmt, idx, s, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, idx) }
+            idx += 1
+            if let v = bc.valueChf { sqlite3_bind_double(stmt, idx, v) } else { sqlite3_bind_null(stmt, idx) }
+            idx += 1
+            if let a = bc.actualPercent { sqlite3_bind_double(stmt, idx, a) } else { sqlite3_bind_null(stmt, idx) }
         } else {
-            sqlite3_bind_null(stmt, 10); sqlite3_bind_null(stmt, 11); sqlite3_bind_null(stmt, 12)
+            sqlite3_bind_null(stmt, idx); idx += 1
+            sqlite3_bind_null(stmt, idx); idx += 1
+            sqlite3_bind_null(stmt, idx)
         }
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             LoggingService.shared.log("createInstrumentUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -158,7 +168,9 @@ extension DatabaseManager {
             sets.append("body_markdown = ?")
         }
         if let _ = newsTypeCode {
-            sets.append("type = ?")
+            if tableHasColumn("PortfolioThemeAssetUpdate", column: "type") {
+                sets.append("type = ?")
+            }
             sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)")
         }
         if let _ = pinned {
@@ -181,7 +193,9 @@ extension DatabaseManager {
             sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let code = newsTypeCode {
-            sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
+            if tableHasColumn("PortfolioThemeAssetUpdate", column: "type") {
+                sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
+            }
             sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let pinned = pinned {

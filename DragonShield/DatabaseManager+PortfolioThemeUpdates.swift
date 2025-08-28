@@ -112,7 +112,10 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid title/body for theme update", type: .info, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?,?)"
+        let hasTypeCol = tableHasColumn("PortfolioThemeUpdate", column: "type")
+        let sql = hasTypeCol
+            ? "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?,?)"
+            : "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type_id, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,? , (SELECT id FROM NewsType WHERE code = ?), ?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createThemeUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -120,25 +123,24 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_int(stmt, 1, Int32(themeId))
-        sqlite3_bind_text(stmt, 2, title, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 3, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 5, newsTypeCode, -1, SQLITE_TRANSIENT)
-        // bind 6: code again for subselect
-        sqlite3_bind_text(stmt, 6, newsTypeCode, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 7, author, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 8, pinned ? 1 : 0)
+        var idx: Int32 = 1
+        sqlite3_bind_int(stmt, idx, Int32(themeId)); idx += 1
+        sqlite3_bind_text(stmt, idx, title, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
+        if hasTypeCol {
+            sqlite3_bind_text(stmt, idx, newsTypeCode, -1, SQLITE_TRANSIENT); idx += 1
+        }
+        sqlite3_bind_text(stmt, idx, newsTypeCode, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, author, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_int(stmt, idx, pinned ? 1 : 0); idx += 1
         if let pos = positionsAsOf {
-            sqlite3_bind_text(stmt, 9, pos, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, idx, pos, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(stmt, 9)
+            sqlite3_bind_null(stmt, idx)
         }
-        if let val = totalValueChf {
-            sqlite3_bind_double(stmt, 10, val)
-        } else {
-            sqlite3_bind_null(stmt, 10)
-        }
+        idx += 1
+        if let val = totalValueChf { sqlite3_bind_double(stmt, idx, val) } else { sqlite3_bind_null(stmt, idx) }
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             LoggingService.shared.log("createThemeUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
@@ -201,7 +203,9 @@ extension DatabaseManager {
             sets.append("body_markdown = ?"); bind.append(body)
         }
         if let code = newsTypeCode {
-            sets.append("type = ?"); bind.append(code)
+            if tableHasColumn("PortfolioThemeUpdate", column: "type") {
+                sets.append("type = ?"); bind.append(code)
+            }
             sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)"); bind.append(code)
         }
         if let p = pinned { sets.append("pinned = ?"); bind.append(p ? 1 : 0) }
