@@ -90,7 +90,7 @@ struct NewsTypeSettingsView: View {
     }
 
     private func nextCodeSuggestion() -> String {
-        var base = "Custom"
+        let base = "Custom"
         var n = 1
         let codes = Set(rows.map { $0.code })
         var proposal = base
@@ -133,4 +133,3 @@ struct NewsTypeSettingsView: View {
         load()
     }
 }
-
