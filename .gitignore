@@ -28,8 +28,12 @@ xcuserdata/
 .build/
 
 # --- dbmate snapshot (schema dump) ---
+# Ignore generic db/ folders, but keep our migrations under DragonShield/db/migrations
 db/
 db/schema.sql
+!DragonShield/db/
+!DragonShield/db/migrations/
+!DragonShield/db/migrations/**
 
 # --- SQLite / local DB files ---
 # We version the schema and migrations, not live data
@@ -72,4 +76,4 @@ import.log
 *~
 
 # NOTE: Do NOT ignore migrations!
-# Keep: DragonShield/DragonShield/migrations/*.sql
+# Keep: DragonShield/db/migrations/*.sql
