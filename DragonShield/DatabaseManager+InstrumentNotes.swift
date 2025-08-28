@@ -18,7 +18,7 @@ extension DatabaseManager {
         } else {
             whereClause = "instrument_id = ?"
         }
-        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
+        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             if let tid = themeId {
@@ -53,7 +53,7 @@ extension DatabaseManager {
     }
 
     func listThemeMentions(themeId: Int, instrumentCode: String, instrumentName: String) -> [PortfolioThemeUpdate] {
-        let sql = "SELECT u.id, u.theme_id, u.title, COALESCE(u.body_markdown, u.body_text), u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.theme_id = ? AND u.soft_delete = 0 ORDER BY u.created_at DESC"
+        let sql = "SELECT u.id, u.theme_id, u.title, COALESCE(u.body_markdown, u.body_text), u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.theme_id = ? AND u.soft_delete = 0 ORDER BY u.created_at DESC"
         var stmt: OpaquePointer?
         var items: [PortfolioThemeUpdate] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {

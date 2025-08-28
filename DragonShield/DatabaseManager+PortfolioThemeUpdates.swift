@@ -67,7 +67,7 @@ extension DatabaseManager {
         case .deleted:
             order = "deleted_at DESC, created_at DESC"
         }
-        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
+        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             var index: Int32 = 1
@@ -161,7 +161,7 @@ extension DatabaseManager {
     }
 
     func getThemeUpdate(id: Int) -> PortfolioThemeUpdate? {
-        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.id = ?"
+        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.id = ?"
         var stmt: OpaquePointer?
         var item: PortfolioThemeUpdate?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
