@@ -1373,43 +1373,6 @@ CREATE TABLE UpdateType (
     code TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS "PortfolioThemeUpdate" (
-id INTEGER PRIMARY KEY,
-theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
-body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
-body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-type TEXT NOT NULL CHECK (type IN ('General','Research','Rebalance','Risk','Investment')),
-author TEXT NOT NULL,
-pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
-positions_asof TEXT NULL,
-total_value_chf REAL NULL,
-created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)),
-deleted_at TEXT NULL,
-deleted_by TEXT NULL
-, type_id INTEGER NULL REFERENCES NewsType(id));
-CREATE INDEX idx_ptu_theme_active_order ON PortfolioThemeUpdate(theme_id, soft_delete, pinned, created_at DESC);
-CREATE INDEX idx_ptu_theme_deleted_order ON PortfolioThemeUpdate(theme_id, soft_delete, deleted_at DESC);
-CREATE TABLE IF NOT EXISTS "PortfolioThemeAssetUpdate" (
-id INTEGER PRIMARY KEY,
-theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
-title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
-body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
-body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-type TEXT NOT NULL CHECK (type IN ('General','Research','Rebalance','Risk','Investment')),
-author TEXT NOT NULL,
-pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
-positions_asof TEXT NULL,
-value_chf REAL NULL,
-actual_percent REAL NULL,
-created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-, type_id INTEGER NULL REFERENCES NewsType(id));
-CREATE INDEX idx_ptau_theme_instr_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
-CREATE INDEX idx_ptau_theme_instr_pinned_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
 CREATE TABLE NewsType (
   id           INTEGER PRIMARY KEY,
   code         TEXT    NOT NULL UNIQUE,
@@ -1423,68 +1386,43 @@ CREATE TABLE NewsType (
 );
 CREATE UNIQUE INDEX idx_news_type_code ON NewsType(code);
 CREATE INDEX idx_news_type_active_order ON NewsType(active, sort_order);
-CREATE INDEX idx_ptu_type_id ON PortfolioThemeUpdate(type_id);
-CREATE INDEX idx_ptau_type_id ON PortfolioThemeAssetUpdate(type_id);
-CREATE TRIGGER ptu_ai_type_sync
-AFTER INSERT ON PortfolioThemeUpdate
-FOR EACH ROW
-BEGIN
-  -- If type_id missing but type provided, backfill id
-  UPDATE PortfolioThemeUpdate
-    SET type_id = (SELECT id FROM NewsType WHERE code = NEW.type)
-    WHERE id = NEW.id AND NEW.type_id IS NULL AND NEW.type IS NOT NULL;
-
-  -- If both present but code mismatched, normalize type to match id
-  UPDATE PortfolioThemeUpdate
-    SET type = (SELECT code FROM NewsType WHERE id = NEW.type_id)
-    WHERE id = NEW.id AND NEW.type_id IS NOT NULL AND NEW.type IS NOT NULL
-      AND EXISTS (SELECT 1 FROM NewsType WHERE id = NEW.type_id AND code <> NEW.type);
-END;
-CREATE TRIGGER ptu_au_type_sync
-AFTER UPDATE OF type, type_id ON PortfolioThemeUpdate
-FOR EACH ROW
-BEGIN
-  -- If type_id now NULL but type set, backfill id
-  UPDATE PortfolioThemeUpdate
-    SET type_id = (SELECT id FROM NewsType WHERE code = NEW.type)
-    WHERE id = NEW.id AND NEW.type_id IS NULL AND NEW.type IS NOT NULL;
-
-  -- If both present but code mismatched, normalize type to match id
-  UPDATE PortfolioThemeUpdate
-    SET type = (SELECT code FROM NewsType WHERE id = NEW.type_id)
-    WHERE id = NEW.id AND NEW.type_id IS NOT NULL AND NEW.type IS NOT NULL
-      AND EXISTS (SELECT 1 FROM NewsType WHERE id = NEW.type_id AND code <> NEW.type);
-END;
-CREATE TRIGGER ptau_ai_type_sync
-AFTER INSERT ON PortfolioThemeAssetUpdate
-FOR EACH ROW
-BEGIN
-  -- If type_id missing but type provided, backfill id
-  UPDATE PortfolioThemeAssetUpdate
-    SET type_id = (SELECT id FROM NewsType WHERE code = NEW.type)
-    WHERE id = NEW.id AND NEW.type_id IS NULL AND NEW.type IS NOT NULL;
-
-  -- If both present but code mismatched, normalize type to match id
-  UPDATE PortfolioThemeAssetUpdate
-    SET type = (SELECT code FROM NewsType WHERE id = NEW.type_id)
-    WHERE id = NEW.id AND NEW.type_id IS NOT NULL AND NEW.type IS NOT NULL
-      AND EXISTS (SELECT 1 FROM NewsType WHERE id = NEW.type_id AND code <> NEW.type);
-END;
-CREATE TRIGGER ptau_au_type_sync
-AFTER UPDATE OF type, type_id ON PortfolioThemeAssetUpdate
-FOR EACH ROW
-BEGIN
-  -- If type_id now NULL but type set, backfill id
-  UPDATE PortfolioThemeAssetUpdate
-    SET type_id = (SELECT id FROM NewsType WHERE code = NEW.type)
-    WHERE id = NEW.id AND NEW.type_id IS NULL AND NEW.type IS NOT NULL;
-
-  -- If both present but code mismatched, normalize type to match id
-  UPDATE PortfolioThemeAssetUpdate
-    SET type = (SELECT code FROM NewsType WHERE id = NEW.type_id)
-    WHERE id = NEW.id AND NEW.type_id IS NOT NULL AND NEW.type IS NOT NULL
-      AND EXISTS (SELECT 1 FROM NewsType WHERE id = NEW.type_id AND code <> NEW.type);
-END;
+CREATE TABLE IF NOT EXISTS "PortfolioThemeUpdate" (
+  id INTEGER PRIMARY KEY,
+  theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
+  type_id INTEGER NOT NULL REFERENCES NewsType(id),
+  author TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
+  positions_asof TEXT NULL,
+  total_value_chf REAL NULL,
+  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)),
+  deleted_at TEXT NULL,
+  deleted_by TEXT NULL
+);
+CREATE INDEX idx_ptu_theme_active_order ON PortfolioThemeUpdate(theme_id, soft_delete, pinned, created_at DESC);
+CREATE INDEX idx_ptu_theme_deleted_order ON PortfolioThemeUpdate(theme_id, soft_delete, deleted_at DESC);
+CREATE TABLE IF NOT EXISTS "PortfolioThemeAssetUpdate" (
+  id INTEGER PRIMARY KEY,
+  theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
+  instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
+  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
+  type_id INTEGER NOT NULL REFERENCES NewsType(id),
+  author TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
+  positions_asof TEXT NULL,
+  value_chf REAL NULL,
+  actual_percent REAL NULL,
+  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_ptau_theme_instr_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
+CREATE INDEX idx_ptau_theme_instr_pinned_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -1511,4 +1449,5 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('022'),
   ('023'),
   ('024'),
-  ('025');
+  ('025'),
+  ('026');

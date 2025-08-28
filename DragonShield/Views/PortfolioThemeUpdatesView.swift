@@ -230,7 +230,7 @@ struct PortfolioThemeUpdatesView: View {
 
     private func togglePin(_ update: PortfolioThemeUpdate) {
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
+            _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, newsTypeCode: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
             DispatchQueue.main.async { load() }
         }
     }

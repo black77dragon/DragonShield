@@ -202,7 +202,7 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         guard let item = getInstrumentUpdate(id: id) else { return nil }
         var op = "update"
-        if let pinned = pinned, title == nil && bodyMarkdown == nil && type == nil {
+        if let pinned = pinned, title == nil && bodyMarkdown == nil && newsTypeCode == nil {
             op = pinned ? "pin" : "unpin"
         }
         var payload: [String: Any] = [
