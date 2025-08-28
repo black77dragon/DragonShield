@@ -13,6 +13,7 @@ struct PortfolioThemeUpdatesView: View {
     @State private var showEditor = false
     @State private var searchText: String = ""
     @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinnedFirst: Bool = true
     @State private var sortOrder: SortOrder = .newest
     @State private var dateFilter: UpdateDateFilter = .last30d
@@ -50,6 +51,7 @@ struct PortfolioThemeUpdatesView: View {
         .padding(12)
         .onAppear {
             if let s = initialSearchText, searchText.isEmpty { searchText = s }
+            newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
             load()
         }
         .sheet(isPresented: $showEditor) {
@@ -88,8 +90,10 @@ struct PortfolioThemeUpdatesView: View {
                 }
             Picker("Type", selection: $selectedType) {
                 Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
-                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(Optional(t))
+                ForEach(newsTypes, id: \.id) { nt in
+                    if let mapped = PortfolioThemeUpdate.UpdateType(rawValue: nt.code) {
+                        Text(nt.displayName).tag(Optional(mapped))
+                    }
                 }
             }
             .onChange(of: selectedType) { _, _ in load() }
