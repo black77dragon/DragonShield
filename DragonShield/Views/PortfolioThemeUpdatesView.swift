@@ -12,7 +12,7 @@ struct PortfolioThemeUpdatesView: View {
     @State private var editingUpdate: PortfolioThemeUpdate?
     @State private var showEditor = false
     @State private var searchText: String = ""
-    @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var selectedTypeId: Int? = nil
     @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinnedFirst: Bool = true
     @State private var sortOrder: SortOrder = .newest
@@ -88,15 +88,13 @@ struct PortfolioThemeUpdatesView: View {
                     searchDebounce = task
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
                 }
-            Picker("Type", selection: $selectedType) {
-                Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
+            Picker("Type", selection: $selectedTypeId) {
+                Text("All").tag(nil as Int?)
                 ForEach(newsTypes, id: \.id) { nt in
-                    if let mapped = PortfolioThemeUpdate.UpdateType(rawValue: nt.code) {
-                        Text(nt.displayName).tag(Optional(mapped))
-                    }
+                    Text(nt.displayName).tag(Optional(nt.id))
                 }
             }
-            .onChange(of: selectedType) { _, _ in load() }
+            .onChange(of: selectedTypeId) { _, _ in load() }
             Picker("Sort", selection: $sortOrder) {
                 ForEach(SortOrder.allCases) { s in
                     Text(s.label).tag(s)
@@ -141,7 +139,7 @@ struct PortfolioThemeUpdatesView: View {
                                 .buttonStyle(.link)
                         }
                     }
-                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.type.rawValue)]")
+                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                         .font(.caption)
                     if expandedId == update.id {
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
@@ -188,7 +186,7 @@ struct PortfolioThemeUpdatesView: View {
 
     private func load() {
         let query = searchText.isEmpty ? nil : searchText
-        var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
+        var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, typeId: selectedTypeId, searchQuery: query, pinnedFirst: pinnedFirst)
         if dateFilter != .all {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -221,7 +219,7 @@ struct PortfolioThemeUpdatesView: View {
 
     private func resetFilters() {
         searchText = ""
-        selectedType = nil
+        selectedTypeId = nil
         pinnedFirst = true
         sortOrder = .newest
         dateFilter = .last30d

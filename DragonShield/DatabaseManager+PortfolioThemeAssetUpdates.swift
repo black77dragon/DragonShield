@@ -32,7 +32,7 @@ extension DatabaseManager {
     func listInstrumentUpdates(themeId: Int, instrumentId: Int, pinnedFirst: Bool = true) -> [PortfolioThemeAssetUpdate] {
         var items: [PortfolioThemeAssetUpdate] = []
         let order = pinnedFirst ? "pinned DESC, created_at DESC" : "created_at DESC"
-        let sql = "SELECT id, theme_id, instrument_id, title, body_markdown, type, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at FROM PortfolioThemeAssetUpdate WHERE theme_id = ? AND instrument_id = ? ORDER BY \(order)"
+        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.theme_id = ? AND u.instrument_id = ? ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(themeId))
@@ -43,19 +43,17 @@ extension DatabaseManager {
                 let instrumentId = Int(sqlite3_column_int(stmt, 2))
                 let title = String(cString: sqlite3_column_text(stmt, 3))
                 let body = String(cString: sqlite3_column_text(stmt, 4))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 5))
-                let author = String(cString: sqlite3_column_text(stmt, 6))
-                let pinned = sqlite3_column_int(stmt, 7) == 1
-                let positionsAsOf = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 9) != SQLITE_NULL ? sqlite3_column_double(stmt, 9) : nil
-                let actual = sqlite3_column_type(stmt, 10) != SQLITE_NULL ? sqlite3_column_double(stmt, 10) : nil
-                let created = String(cString: sqlite3_column_text(stmt, 11))
-                let updated = String(cString: sqlite3_column_text(stmt, 12))
-                if let type = PortfolioThemeAssetUpdate.UpdateType(rawValue: typeStr) {
-                    items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
-                } else {
-                    LoggingService.shared.log("Invalid update type '\\(typeStr)' for instrument update id \\(id). Skipping row.", type: .warning, logger: .database)
-                }
+                let typeId = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 5))
+                let typeStr = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                let typeName = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let author = String(cString: sqlite3_column_text(stmt, 8))
+                let pinned = sqlite3_column_int(stmt, 9) == 1
+                let positionsAsOf = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 11) != SQLITE_NULL ? sqlite3_column_double(stmt, 11) : nil
+                let actual = sqlite3_column_type(stmt, 12) != SQLITE_NULL ? sqlite3_column_double(stmt, 12) : nil
+                let created = String(cString: sqlite3_column_text(stmt, 13))
+                let updated = String(cString: sqlite3_column_text(stmt, 14))
+                items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeStr, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
             }
         } else {
             LoggingService.shared.log("Failed to prepare listInstrumentUpdates: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -65,7 +63,7 @@ extension DatabaseManager {
     }
 
     func getInstrumentUpdate(id: Int) -> PortfolioThemeAssetUpdate? {
-        let sql = "SELECT id, theme_id, instrument_id, title, body_markdown, type, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at FROM PortfolioThemeAssetUpdate WHERE id = ?"
+        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, u.type, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.id = ?"
         var stmt: OpaquePointer?
         var item: PortfolioThemeAssetUpdate?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -76,19 +74,17 @@ extension DatabaseManager {
                 let instrumentId = Int(sqlite3_column_int(stmt, 2))
                 let title = String(cString: sqlite3_column_text(stmt, 3))
                 let body = String(cString: sqlite3_column_text(stmt, 4))
-                let typeStr = String(cString: sqlite3_column_text(stmt, 5))
-                let author = String(cString: sqlite3_column_text(stmt, 6))
-                let pinned = sqlite3_column_int(stmt, 7) == 1
-                let positionsAsOf = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 9) != SQLITE_NULL ? sqlite3_column_double(stmt, 9) : nil
-                let actual = sqlite3_column_type(stmt, 10) != SQLITE_NULL ? sqlite3_column_double(stmt, 10) : nil
-                let created = String(cString: sqlite3_column_text(stmt, 11))
-                let updated = String(cString: sqlite3_column_text(stmt, 12))
-                if let type = PortfolioThemeAssetUpdate.UpdateType(rawValue: typeStr) {
-                    item = PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, type: type, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated)
-                } else {
-                    LoggingService.shared.log("Invalid update type '\\(typeStr)' for instrument update id \\(id).", type: .warning, logger: .database)
-                }
+                let typeId = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 5))
+                let typeStr = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                let typeName = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let author = String(cString: sqlite3_column_text(stmt, 8))
+                let pinned = sqlite3_column_int(stmt, 9) == 1
+                let positionsAsOf = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 11) != SQLITE_NULL ? sqlite3_column_double(stmt, 11) : nil
+                let actual = sqlite3_column_type(stmt, 12) != SQLITE_NULL ? sqlite3_column_double(stmt, 12) : nil
+                let created = String(cString: sqlite3_column_text(stmt, 13))
+                let updated = String(cString: sqlite3_column_text(stmt, 14))
+                item = PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeStr, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated)
             }
         } else {
             LoggingService.shared.log("Failed to prepare getInstrumentUpdate: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -97,7 +93,7 @@ extension DatabaseManager {
         return item
     }
 
-    func createInstrumentUpdate(themeId: Int, instrumentId: Int, title: String, bodyMarkdown: String, type: PortfolioThemeAssetUpdate.UpdateType, pinned: Bool, author: String, breadcrumb: (positionsAsOf: String?, valueChf: Double?, actualPercent: Double?)? = nil, source: String? = nil) -> PortfolioThemeAssetUpdate? {
+    func createInstrumentUpdate(themeId: Int, instrumentId: Int, title: String, bodyMarkdown: String, newsTypeCode: String, pinned: Bool, author: String, breadcrumb: (positionsAsOf: String?, valueChf: Double?, actualPercent: Double?)? = nil, source: String? = nil) -> PortfolioThemeAssetUpdate? {
         guard PortfolioThemeAssetUpdate.isValidTitle(title), PortfolioThemeAssetUpdate.isValidBody(bodyMarkdown) else {
             LoggingService.shared.log("Invalid title/body for instrument update", type: .info, logger: .database)
             return nil
@@ -114,9 +110,9 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 3, title, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 5, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 6, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 6, newsTypeCode, -1, SQLITE_TRANSIENT)
         // bind for subselect (type code again)
-        sqlite3_bind_text(stmt, 7, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 7, newsTypeCode, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 8, author, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 9, pinned ? 1 : 0)
         if let bc = breadcrumb {
@@ -150,7 +146,7 @@ extension DatabaseManager {
         return item
     }
 
-    func updateInstrumentUpdate(id: Int, title: String?, bodyMarkdown: String?, type: PortfolioThemeAssetUpdate.UpdateType?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeAssetUpdate? {
+    func updateInstrumentUpdate(id: Int, title: String?, bodyMarkdown: String?, newsTypeCode: String?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeAssetUpdate? {
         var sets: [String] = []
         if let title = title {
             guard PortfolioThemeAssetUpdate.isValidTitle(title) else { return nil }
@@ -161,7 +157,7 @@ extension DatabaseManager {
             sets.append("body_text = ?")
             sets.append("body_markdown = ?")
         }
-        if let _ = type {
+        if let _ = newsTypeCode {
             sets.append("type = ?")
             sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)")
         }
@@ -184,9 +180,9 @@ extension DatabaseManager {
             sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
             sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
         }
-        if let type = type {
-            sqlite3_bind_text(stmt, idx, type.rawValue, -1, SQLITE_TRANSIENT); idx += 1
-            sqlite3_bind_text(stmt, idx, type.rawValue, -1, SQLITE_TRANSIENT); idx += 1
+        if let code = newsTypeCode {
+            sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
+            sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let pinned = pinned {
             sqlite3_bind_int(stmt, idx, pinned ? 1 : 0); idx += 1

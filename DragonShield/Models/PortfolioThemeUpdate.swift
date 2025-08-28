@@ -7,13 +7,14 @@
 import Foundation
 
 struct PortfolioThemeUpdate: Identifiable, Codable {
-    typealias UpdateType = PortfolioUpdateType
 
     let id: Int
     let themeId: Int
     var title: String
     var bodyMarkdown: String
-    var type: UpdateType
+    var typeId: Int?
+    var typeCode: String
+    var typeDisplayName: String?
     let author: String
     var pinned: Bool
     var positionsAsOf: String?

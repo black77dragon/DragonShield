@@ -20,7 +20,7 @@ struct ThemeUpdateEditorView: View {
 
     @State private var title: String
     @State private var bodyMarkdown: String
-    @State private var type: PortfolioThemeUpdate.UpdateType
+    @State private var selectedTypeId: Int?
     @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
@@ -47,7 +47,7 @@ struct ThemeUpdateEditorView: View {
         self.logSource = logSource
         _title = State(initialValue: existing?.title ?? "")
         _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
-        _type = State(initialValue: existing?.type ?? .General)
+        _selectedTypeId = State(initialValue: existing?.typeId)
         _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
@@ -56,11 +56,9 @@ struct ThemeUpdateEditorView: View {
             Text(existing == nil ? "New Update — \(themeName)" : "Edit Update — \(themeName)")
                 .font(.headline)
             TextField("Title", text: $title)
-            Picker("Type", selection: $type) {
+            Picker("Type", selection: $selectedTypeId) {
                 ForEach(newsTypes, id: \.id) { nt in
-                    if let mapped = PortfolioThemeUpdate.UpdateType(rawValue: nt.code) {
-                        Text(nt.displayName).tag(mapped)
-                    }
+                    Text(nt.displayName).tag(Optional(nt.id))
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -113,6 +111,9 @@ struct ThemeUpdateEditorView: View {
         .onAppear {
             loadSnapshot()
             newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
+            if selectedTypeId == nil {
+                selectedTypeId = newsTypes.first?.id
+            }
         }
     }
 
@@ -147,7 +148,8 @@ struct ThemeUpdateEditorView: View {
 
     private func save() {
         if let existing = existing {
-            if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
+            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
+               let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 let currentIds = Set(attachments.map { $0.id })
                 let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
@@ -175,7 +177,8 @@ struct ThemeUpdateEditorView: View {
                 onSave(updated)
             }
         } else {
-            if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
+            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
+               let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 for att in attachments {
                     _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)

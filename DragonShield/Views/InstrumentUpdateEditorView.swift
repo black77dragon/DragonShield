@@ -23,7 +23,7 @@ struct InstrumentUpdateEditorView: View {
 
     @State private var title: String
     @State private var bodyMarkdown: String
-    @State private var type: PortfolioThemeAssetUpdate.UpdateType
+    @State private var selectedTypeId: Int?
     @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
@@ -43,7 +43,7 @@ struct InstrumentUpdateEditorView: View {
         self.onCancel = onCancel
         _title = State(initialValue: existing?.title ?? "")
         _bodyMarkdown = State(initialValue: existing?.bodyMarkdown ?? "")
-        _type = State(initialValue: existing?.type ?? .General)
+        _selectedTypeId = State(initialValue: existing?.typeId)
         _pinned = State(initialValue: existing?.pinned ?? false)
     }
 
@@ -54,11 +54,9 @@ struct InstrumentUpdateEditorView: View {
             Text("Theme: \(themeName)")
                 .font(.subheadline)
             TextField("Title (1–120)", text: $title)
-            Picker("Type", selection: $type) {
+            Picker("Type", selection: $selectedTypeId) {
                 ForEach(newsTypes, id: \.id) { nt in
-                    if let mapped = PortfolioThemeAssetUpdate.UpdateType(rawValue: nt.code) {
-                        Text(nt.displayName).tag(mapped)
-                    }
+                    Text(nt.displayName).tag(Optional(nt.id))
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -110,6 +108,9 @@ struct InstrumentUpdateEditorView: View {
         .onAppear {
             loadBreadcrumb()
             newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
+            if selectedTypeId == nil {
+                selectedTypeId = newsTypes.first?.id
+            }
         }
     }
 
@@ -142,7 +143,8 @@ struct InstrumentUpdateEditorView: View {
 
     private func save() {
         if let existing = existing {
-            if let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
+            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
+               let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
                 let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
                 let currentIds = Set(attachments.map { $0.id })
                 let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
@@ -153,7 +155,8 @@ struct InstrumentUpdateEditorView: View {
                 onSave(updated)
             }
         } else {
-            if let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, type: type, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb) {
+            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
+               let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb) {
                 let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
                 for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
                 onSave(created)
