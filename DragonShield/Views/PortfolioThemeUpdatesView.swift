@@ -21,6 +21,8 @@ struct PortfolioThemeUpdatesView: View {
     @State private var expandedId: Int? = nil
     @State private var themeName: String = ""
     @State private var isArchived: Bool = false
+    @State private var showDeleteConfirm: Bool = false
+    @State private var deleteCandidateId: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -71,6 +73,13 @@ struct PortfolioThemeUpdatesView: View {
                 editingUpdate = nil
             })
             .environmentObject(dbManager)
+        }
+        .confirmationDialog("Delete this portfolio update? This will move it to the recycle bin.", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) { deleteSelected() }
+            Button("Cancel", role: .cancel) {
+                deleteCandidateId = nil
+                showDeleteConfirm = false
+            }
         }
     }
 
@@ -132,7 +141,10 @@ struct PortfolioThemeUpdatesView: View {
                             Button("Edit") { editingUpdate = update }
                                 .buttonStyle(.link)
                                 .disabled(isArchived)
-                            Button("Delete", role: .destructive) { delete(update) }
+                            Button("Delete", role: .destructive) {
+                                deleteCandidateId = update.id
+                                showDeleteConfirm = true
+                            }
                                 .buttonStyle(.link)
                                 .disabled(isArchived)
                             Button(expandedId == update.id ? "Collapse" : "Expand") { toggleExpand(update) }
@@ -235,10 +247,15 @@ struct PortfolioThemeUpdatesView: View {
         }
     }
 
-    private func delete(_ update: PortfolioThemeUpdate) {
+    private func deleteSelected() {
+        guard let id = deleteCandidateId else { return }
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
-            DispatchQueue.main.async { load() }
+            _ = dbManager.softDeleteThemeUpdate(id: id, actor: NSFullUserName())
+            DispatchQueue.main.async {
+                showDeleteConfirm = false
+                deleteCandidateId = nil
+                load()
+            }
         }
     }
 

@@ -6,26 +6,53 @@ struct NewsTypeSettingsView: View {
     @State private var newCode: String = ""
     @State private var newName: String = ""
     @State private var error: String?
+    @FocusState private var addFocus: AddField?
+
+    private enum AddField { case code, name }
+
+    private var canAdd: Bool {
+        let code = newCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !code.isEmpty && !name.isEmpty && !rows.contains { $0.code.caseInsensitiveCompare(code) == .orderedSame }
+    }
     @State private var info: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("News Types")
-                    .font(.title3).bold()
+                Text("News Types").font(.title3).bold()
                 Spacer()
-                Button("Add Type") { addType() }
-                    .disabled(newCode.isEmpty || newName.isEmpty)
             }
-            HStack {
+            HStack(spacing: 8) {
                 TextField("Code (unique)", text: $newCode)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
+                    .frame(width: 180)
+                    .help("Unique code; will appear in filters if active")
+                    .focused($addFocus, equals: .code)
+                    .onChange(of: newCode) { _, val in
+                        // Normalize: trim and uppercase
+                        let trimmed = val.trimmingCharacters(in: .whitespaces)
+                        if trimmed != val { newCode = trimmed }
+                        newCode = newCode.uppercased()
+                    }
                 TextField("Display name", text: $newName)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 240)
+                    .frame(minWidth: 220)
+                    .focused($addFocus, equals: .name)
+                    .onSubmit { if canAdd { addType() } }
+                Button {
+                    addType()
+                } label: {
+                    Text("Add Type")
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canAdd)
             }
+            .onSubmit { if canAdd { addType() } }
             if let err = error { Text(err).foregroundColor(.red).font(.caption) }
+            Text("Tip: codes are uppercase and must be unique. Inactive types won’t appear in pickers.")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             Table(rows, selection: .constant(nil)) {
                 TableColumn("Order") { row in
@@ -105,6 +132,7 @@ struct NewsTypeSettingsView: View {
     private func load() {
         rows = dbManager.listNewsTypes()
         if newCode.isEmpty { newCode = nextCodeSuggestion() }
+        addFocus = .code
     }
 
     private func nextCodeSuggestion() -> String {
@@ -134,6 +162,7 @@ struct NewsTypeSettingsView: View {
             newName = ""
             newCode = nextCodeSuggestion()
             error = nil
+            addFocus = .code
         } else {
             error = "Failed to add type (check unique code)"
         }
