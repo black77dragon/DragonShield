@@ -25,6 +25,9 @@ struct MacComboBox: NSViewRepresentable {
             tcb.onHover = { [weak coord = context.coordinator] in
                 coord?.openPopupIfNeeded()
             }
+            tcb.onFocus = { [weak coord = context.coordinator] in
+                coord?.openPopupIfNeeded()
+            }
         }
         context.coordinator.combo = cb
         context.coordinator.setItems(items)
@@ -134,6 +137,7 @@ struct MacComboBox: NSViewRepresentable {
 
 private final class TrackingComboBox: NSComboBox {
     var onHover: (() -> Void)?
+    var onFocus: (() -> Void)?
     private var tracking: NSTrackingArea?
 
     override func updateTrackingAreas() {
@@ -147,5 +151,16 @@ private final class TrackingComboBox: NSComboBox {
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
         onHover?()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        onFocus?()
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let res = super.becomeFirstResponder()
+        onFocus?()
+        return res
     }
 }
