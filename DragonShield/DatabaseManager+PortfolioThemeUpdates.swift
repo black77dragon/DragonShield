@@ -27,6 +27,7 @@ extension DatabaseManager {
             body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
             body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
             type TEXT NOT NULL CHECK (type IN (\(PortfolioUpdateType.allowedSQLList))),
+            type_id INTEGER NULL REFERENCES NewsType(id),
             author TEXT NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
             positions_asof TEXT NULL,
@@ -49,7 +50,12 @@ extension DatabaseManager {
         var items: [PortfolioThemeUpdate] = []
         var clauses: [String] = ["theme_id = ?", "soft_delete = \(view == .active ? 0 : 1)"]
         var binds: [Any] = [themeId]
-        if let t = type { clauses.append("type = ?"); binds.append(t.rawValue) }
+        if let t = type {
+            // Prefer type_id when present; fall back to legacy type TEXT
+            clauses.append("(type_id = (SELECT id FROM NewsType WHERE code = ?) OR type = ?)")
+            binds.append(t.rawValue)
+            binds.append(t.rawValue)
+        }
         if let q = searchQuery, !q.isEmpty {
             clauses.append("(LOWER(title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(body_markdown, body_text)) LIKE '%' || LOWER(?) || '%')")
             binds.append(q)
@@ -110,7 +116,7 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid title/body for theme update", type: .info, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,?,?,?,?)"
+        let sql = "INSERT INTO PortfolioThemeUpdate (theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, total_value_chf) VALUES (?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createThemeUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -123,17 +129,19 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 3, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 5, type.rawValue, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 6, author, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 7, pinned ? 1 : 0)
+        // bind 6: type rawValue again for subselect
+        sqlite3_bind_text(stmt, 6, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 7, author, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 8, pinned ? 1 : 0)
         if let pos = positionsAsOf {
-            sqlite3_bind_text(stmt, 8, pos, -1, SQLITE_TRANSIENT)
-        } else {
-            sqlite3_bind_null(stmt, 8)
-        }
-        if let val = totalValueChf {
-            sqlite3_bind_double(stmt, 9, val)
+            sqlite3_bind_text(stmt, 9, pos, -1, SQLITE_TRANSIENT)
         } else {
             sqlite3_bind_null(stmt, 9)
+        }
+        if let val = totalValueChf {
+            sqlite3_bind_double(stmt, 10, val)
+        } else {
+            sqlite3_bind_null(stmt, 10)
         }
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             LoggingService.shared.log("createThemeUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -198,7 +206,10 @@ extension DatabaseManager {
             sets.append("body_text = ?"); bind.append(body)
             sets.append("body_markdown = ?"); bind.append(body)
         }
-        if let type = type { sets.append("type = ?"); bind.append(type.rawValue) }
+        if let type = type {
+            sets.append("type = ?"); bind.append(type.rawValue)
+            sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)"); bind.append(type.rawValue)
+        }
         if let p = pinned { sets.append("pinned = ?"); bind.append(p ? 1 : 0) }
         sets.append("updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')")
         let sql = "UPDATE PortfolioThemeUpdate SET \(sets.joined(separator: ", ")) WHERE id = ? AND updated_at = ?"

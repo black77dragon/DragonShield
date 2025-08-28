@@ -12,6 +12,7 @@ extension DatabaseManager {
             body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
             body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
             type TEXT NOT NULL CHECK (type IN (\(PortfolioUpdateType.allowedSQLList))),
+            type_id INTEGER NULL REFERENCES NewsType(id),
             author TEXT NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
             positions_asof TEXT NULL,
@@ -101,7 +102,7 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid title/body for instrument update", type: .info, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioThemeAssetUpdate (theme_id, instrument_id, title, body_text, body_markdown, type, author, pinned, positions_asof, value_chf, actual_percent) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+        let sql = "INSERT INTO PortfolioThemeAssetUpdate (theme_id, instrument_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent) VALUES (?,?,?,?,?,?,(SELECT id FROM NewsType WHERE code = ?),?,?,?, ?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createInstrumentUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -114,14 +115,16 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 5, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 6, type.rawValue, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 7, author, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_int(stmt, 8, pinned ? 1 : 0)
+        // bind for subselect (type code again)
+        sqlite3_bind_text(stmt, 7, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 8, author, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 9, pinned ? 1 : 0)
         if let bc = breadcrumb {
-            if let s = bc.positionsAsOf { sqlite3_bind_text(stmt, 9, s, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 9) }
-            if let v = bc.valueChf { sqlite3_bind_double(stmt, 10, v) } else { sqlite3_bind_null(stmt, 10) }
-            if let a = bc.actualPercent { sqlite3_bind_double(stmt, 11, a) } else { sqlite3_bind_null(stmt, 11) }
+            if let s = bc.positionsAsOf { sqlite3_bind_text(stmt, 10, s, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 10) }
+            if let v = bc.valueChf { sqlite3_bind_double(stmt, 11, v) } else { sqlite3_bind_null(stmt, 11) }
+            if let a = bc.actualPercent { sqlite3_bind_double(stmt, 12, a) } else { sqlite3_bind_null(stmt, 12) }
         } else {
-            sqlite3_bind_null(stmt, 9); sqlite3_bind_null(stmt, 10); sqlite3_bind_null(stmt, 11)
+            sqlite3_bind_null(stmt, 10); sqlite3_bind_null(stmt, 11); sqlite3_bind_null(stmt, 12)
         }
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             LoggingService.shared.log("createInstrumentUpdate failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -160,6 +163,7 @@ extension DatabaseManager {
         }
         if let _ = type {
             sets.append("type = ?")
+            sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)")
         }
         if let _ = pinned {
             sets.append("pinned = ?")
@@ -181,6 +185,7 @@ extension DatabaseManager {
             sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let type = type {
+            sqlite3_bind_text(stmt, idx, type.rawValue, -1, SQLITE_TRANSIENT); idx += 1
             sqlite3_bind_text(stmt, idx, type.rawValue, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let pinned = pinned {
