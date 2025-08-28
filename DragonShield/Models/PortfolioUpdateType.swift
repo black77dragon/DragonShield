@@ -7,6 +7,7 @@ enum PortfolioUpdateType: String, CaseIterable, Codable {
     case Research
     case Rebalance
     case Risk
+    case Investment
 }
 
 extension PortfolioUpdateType {
@@ -14,4 +15,3 @@ extension PortfolioUpdateType {
         allCases.map { "'\($0.rawValue)'" }.joined(separator: ",")
     }
 }
-
