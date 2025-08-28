@@ -57,7 +57,7 @@ struct InstrumentUpdatesView: View {
                 ForEach(updates) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)\(update.updatedAt > update.createdAt ? " • edited" : "")")
+                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.typeDisplayName ?? update.typeCode)\(update.updatedAt > update.createdAt ? " • edited" : "")")
                                 .font(.subheadline)
                             Spacer()
                             Text(update.pinned ? "★ Pinned" : "☆")
@@ -75,7 +75,7 @@ struct InstrumentUpdatesView: View {
                             Button("Edit") { editingUpdate = update }
                             Button(update.pinned ? "Unpin" : "Pin") {
                                 DispatchQueue.global(qos: .userInitiated).async {
-                                    _ = dbManager.updateInstrumentUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
+                                    _ = dbManager.updateInstrumentUpdate(id: update.id, title: nil, bodyMarkdown: nil, newsTypeCode: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
                                     DispatchQueue.main.async {
                                         load()
                                         selectedId = update.id
@@ -99,7 +99,7 @@ struct InstrumentUpdatesView: View {
                 Button(selectedUpdate?.pinned == true ? "Unpin" : "Pin") {
                     if let u = selectedUpdate {
                         DispatchQueue.global(qos: .userInitiated).async {
-                            _ = dbManager.updateInstrumentUpdate(id: u.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !(u.pinned), actor: NSFullUserName(), expectedUpdatedAt: u.updatedAt)
+                            _ = dbManager.updateInstrumentUpdate(id: u.id, title: nil, bodyMarkdown: nil, newsTypeCode: nil, pinned: !(u.pinned), actor: NSFullUserName(), expectedUpdatedAt: u.updatedAt)
                             DispatchQueue.main.async {
                                 load()
                                 selectedId = u.id

@@ -109,10 +109,10 @@ struct InstrumentNotesView: View {
             }
             .padding(.horizontal, 16)
             List {
-                ForEach(updates) { update in
+                ForEach(updates, id: \.id) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.type.rawValue)")
+                            Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.typeDisplayName ?? update.typeCode)")
                             Spacer()
                             Text(update.pinned ? "★" : "☆")
                         }
@@ -138,10 +138,10 @@ struct InstrumentNotesView: View {
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, 16)
             List {
-                ForEach(mentions) { mention in
+                ForEach(mentions, id: \.id) { mention in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(DateFormatting.userFriendly(mention.createdAt)) • Theme: \(themeName(for: mention.themeId)) • Type: \(mention.type.rawValue)")
+                            Text("\(DateFormatting.userFriendly(mention.createdAt)) • Theme: \(themeName(for: mention.themeId)) • Type: \(mention.typeDisplayName ?? mention.typeCode)")
                             if isThemeArchived(mention.themeId) {
                                 Text("Archived").font(.caption).foregroundColor(.secondary)
                             }
@@ -233,4 +233,3 @@ struct InstrumentNotesView: View {
         }
     }
 }
-

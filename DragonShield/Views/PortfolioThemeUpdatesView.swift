@@ -12,7 +12,8 @@ struct PortfolioThemeUpdatesView: View {
     @State private var editingUpdate: PortfolioThemeUpdate?
     @State private var showEditor = false
     @State private var searchText: String = ""
-    @State private var selectedType: PortfolioThemeUpdate.UpdateType? = nil
+    @State private var selectedTypeId: Int? = nil
+    @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinnedFirst: Bool = true
     @State private var sortOrder: SortOrder = .newest
     @State private var dateFilter: UpdateDateFilter = .last30d
@@ -20,6 +21,8 @@ struct PortfolioThemeUpdatesView: View {
     @State private var expandedId: Int? = nil
     @State private var themeName: String = ""
     @State private var isArchived: Bool = false
+    @State private var showDeleteConfirm: Bool = false
+    @State private var deleteCandidateId: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -50,6 +53,7 @@ struct PortfolioThemeUpdatesView: View {
         .padding(12)
         .onAppear {
             if let s = initialSearchText, searchText.isEmpty { searchText = s }
+            newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
             load()
         }
         .sheet(isPresented: $showEditor) {
@@ -70,6 +74,13 @@ struct PortfolioThemeUpdatesView: View {
             })
             .environmentObject(dbManager)
         }
+        .confirmationDialog("Delete this portfolio update? This will move it to the recycle bin.", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) { deleteSelected() }
+            Button("Cancel", role: .cancel) {
+                deleteCandidateId = nil
+                showDeleteConfirm = false
+            }
+        }
     }
 
     // MARK: - Subviews
@@ -86,13 +97,13 @@ struct PortfolioThemeUpdatesView: View {
                     searchDebounce = task
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
                 }
-            Picker("Type", selection: $selectedType) {
-                Text("All").tag(nil as PortfolioThemeUpdate.UpdateType?)
-                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(Optional(t))
+            Picker("Type", selection: $selectedTypeId) {
+                Text("All").tag(nil as Int?)
+                ForEach(newsTypes, id: \.id) { nt in
+                    Text(nt.displayName).tag(Optional(nt.id))
                 }
             }
-            .onChange(of: selectedType) { _, _ in load() }
+            .onChange(of: selectedTypeId) { _, _ in load() }
             Picker("Sort", selection: $sortOrder) {
                 ForEach(SortOrder.allCases) { s in
                     Text(s.label).tag(s)
@@ -130,14 +141,17 @@ struct PortfolioThemeUpdatesView: View {
                             Button("Edit") { editingUpdate = update }
                                 .buttonStyle(.link)
                                 .disabled(isArchived)
-                            Button("Delete", role: .destructive) { delete(update) }
+                            Button("Delete", role: .destructive) {
+                                deleteCandidateId = update.id
+                                showDeleteConfirm = true
+                            }
                                 .buttonStyle(.link)
                                 .disabled(isArchived)
                             Button(expandedId == update.id ? "Collapse" : "Expand") { toggleExpand(update) }
                                 .buttonStyle(.link)
                         }
                     }
-                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.type.rawValue)]")
+                    Text("\(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                         .font(.caption)
                     if expandedId == update.id {
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
@@ -184,7 +198,7 @@ struct PortfolioThemeUpdatesView: View {
 
     private func load() {
         let query = searchText.isEmpty ? nil : searchText
-        var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, type: selectedType, searchQuery: query, pinnedFirst: pinnedFirst)
+        var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, typeId: selectedTypeId, searchQuery: query, pinnedFirst: pinnedFirst)
         if dateFilter != .all {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -217,7 +231,7 @@ struct PortfolioThemeUpdatesView: View {
 
     private func resetFilters() {
         searchText = ""
-        selectedType = nil
+        selectedTypeId = nil
         pinnedFirst = true
         sortOrder = .newest
         dateFilter = .last30d
@@ -228,15 +242,20 @@ struct PortfolioThemeUpdatesView: View {
 
     private func togglePin(_ update: PortfolioThemeUpdate) {
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, type: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
+            _ = dbManager.updateThemeUpdate(id: update.id, title: nil, bodyMarkdown: nil, newsTypeCode: nil, pinned: !update.pinned, actor: NSFullUserName(), expectedUpdatedAt: update.updatedAt)
             DispatchQueue.main.async { load() }
         }
     }
 
-    private func delete(_ update: PortfolioThemeUpdate) {
+    private func deleteSelected() {
+        guard let id = deleteCandidateId else { return }
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
-            DispatchQueue.main.async { load() }
+            _ = dbManager.softDeleteThemeUpdate(id: id, actor: NSFullUserName())
+            DispatchQueue.main.async {
+                showDeleteConfirm = false
+                deleteCandidateId = nil
+                load()
+            }
         }
     }
 

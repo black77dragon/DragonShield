@@ -97,6 +97,7 @@ struct SettingsView: View {
 
             Section(header: Text("Portfolio Management")) {
                 NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
+                NavigationLink("News Types", destination: NewsTypeSettingsView().environmentObject(dbManager))
             }
 
             #if DEBUG
