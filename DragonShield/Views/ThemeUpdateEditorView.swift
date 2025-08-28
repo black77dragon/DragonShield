@@ -21,6 +21,7 @@ struct ThemeUpdateEditorView: View {
     @State private var title: String
     @State private var bodyMarkdown: String
     @State private var type: PortfolioThemeUpdate.UpdateType
+    @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
     @State private var positionsAsOf: String?
@@ -56,8 +57,10 @@ struct ThemeUpdateEditorView: View {
                 .font(.headline)
             TextField("Title", text: $title)
             Picker("Type", selection: $type) {
-                ForEach(PortfolioThemeUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(t)
+                ForEach(newsTypes, id: \.id) { nt in
+                    if let mapped = PortfolioThemeUpdate.UpdateType(rawValue: nt.code) {
+                        Text(nt.displayName).tag(mapped)
+                    }
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -107,7 +110,10 @@ struct ThemeUpdateEditorView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
-        .onAppear { loadSnapshot() }
+        .onAppear {
+            loadSnapshot()
+            newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
+        }
     }
 
     private var valid: Bool {

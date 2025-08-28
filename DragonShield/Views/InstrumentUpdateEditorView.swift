@@ -24,6 +24,7 @@ struct InstrumentUpdateEditorView: View {
     @State private var title: String
     @State private var bodyMarkdown: String
     @State private var type: PortfolioThemeAssetUpdate.UpdateType
+    @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinned: Bool
     @State private var mode: Mode = .write
     @State private var breadcrumb: (positionsAsOf: String?, valueChf: Double?, actualPercent: Double?)?
@@ -54,8 +55,10 @@ struct InstrumentUpdateEditorView: View {
                 .font(.subheadline)
             TextField("Title (1–120)", text: $title)
             Picker("Type", selection: $type) {
-                ForEach(PortfolioThemeAssetUpdate.UpdateType.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(t)
+                ForEach(newsTypes, id: \.id) { nt in
+                    if let mapped = PortfolioThemeAssetUpdate.UpdateType(rawValue: nt.code) {
+                        Text(nt.displayName).tag(mapped)
+                    }
                 }
             }
             Toggle("Pin this update", isOn: $pinned)
@@ -104,7 +107,10 @@ struct InstrumentUpdateEditorView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
-        .onAppear { loadBreadcrumb() }
+        .onAppear {
+            loadBreadcrumb()
+            newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
+        }
     }
 
     private var valid: Bool {
