@@ -26,7 +26,7 @@ extension DatabaseManager {
             title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
             body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
             body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-            type TEXT NOT NULL CHECK (type IN ('General','Research','Rebalance','Risk')),
+            type TEXT NOT NULL CHECK (type IN (\(PortfolioUpdateType.allowedSQLList))),
             author TEXT NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
             positions_asof TEXT NULL,

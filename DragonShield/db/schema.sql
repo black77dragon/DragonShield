@@ -53,41 +53,6 @@ CREATE TABLE AssetClasses (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE AssetSubClasses (
-    sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    class_id INTEGER NOT NULL,
-    sub_class_code TEXT NOT NULL UNIQUE,
-    sub_class_name TEXT NOT NULL,
-    sub_class_description TEXT,
-    sort_order INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (class_id) REFERENCES AssetClasses(class_id)
-);
-CREATE TABLE Instruments (
-    instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    isin TEXT UNIQUE,
-    valor_nr TEXT UNIQUE,
-    ticker_symbol TEXT,
-    instrument_name TEXT NOT NULL,
-    sub_class_id INTEGER NOT NULL,
-    currency TEXT NOT NULL,
-    country_code TEXT,
-    exchange_code TEXT,
-    sector TEXT,
-    include_in_portfolio BOOLEAN DEFAULT 1,
-    is_active BOOLEAN DEFAULT 1,
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, isin_original TEXT, valor_original TEXT, validation_status TEXT DEFAULT 'valid'
-    CHECK(validation_status IN ('valid', 'invalid', 'pending_validation')), restore_source TEXT DEFAULT 'original', restore_timestamp DATETIME, is_deleted BOOLEAN DEFAULT 0, deleted_at DATETIME, deleted_reason TEXT,
-    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id),
-    FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
-);
-CREATE INDEX idx_instruments_isin ON Instruments(isin);
-CREATE INDEX idx_instruments_ticker ON Instruments(ticker_symbol);
-CREATE INDEX idx_instruments_sub_class ON Instruments(sub_class_id);
-CREATE INDEX idx_instruments_currency ON Instruments(currency);
 CREATE TABLE Portfolios (
     portfolio_id INTEGER PRIMARY KEY AUTOINCREMENT,
     portfolio_code TEXT NOT NULL UNIQUE,
@@ -258,24 +223,6 @@ CREATE TABLE ImportSessions (
     completed_at DATETIME,
     FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id)
 );
-CREATE TABLE PositionReports (
-    position_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    import_session_id INTEGER,
-    account_id INTEGER NOT NULL,
-    institution_id INTEGER NOT NULL,
-    instrument_id INTEGER NOT NULL,
-    quantity REAL NOT NULL,
-    purchase_price REAL,
-    current_price REAL,
-    instrument_updated_at DATE,
-    notes TEXT,
-    report_date DATE NOT NULL,
-    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),
-    FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
-    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
-    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
-);
 CREATE TABLE ImportSessionValueReports (
     report_id INTEGER PRIMARY KEY AUTOINCREMENT,
     import_session_id INTEGER NOT NULL,
@@ -314,13 +261,6 @@ BEGIN
     UPDATE Configuration
        SET updated_at = CURRENT_TIMESTAMP
      WHERE config_id = NEW.config_id;
-END;
-CREATE TRIGGER tr_instruments_updated_at
-AFTER UPDATE ON Instruments
-BEGIN
-    UPDATE Instruments
-       SET updated_at = CURRENT_TIMESTAMP
-     WHERE instrument_id = NEW.instrument_id;
 END;
 CREATE TRIGGER trg_ct_after_insert
 AFTER INSERT ON ClassTargets
@@ -921,6 +861,285 @@ WHERE a.is_active = 1
 GROUP BY a.account_id, a.account_name, i.institution_name, act.type_name, a.currency_code
 ORDER BY a.account_name
 /* AccountSummary(account_id,account_name,institution_name,account_type,account_currency,instruments_count,transactions_count,total_inflows_chf,total_outflows_chf,total_purchases_chf,total_sales_chf,first_transaction_date,last_transaction_date) */;
+CREATE VIEW LatestExchangeRates AS
+SELECT
+    c.currency_code,
+    c.currency_name,
+    c.currency_symbol,
+    COALESCE(er.rate_to_chf, 1.0) as current_rate_to_chf,
+    COALESCE(er.rate_date, CURRENT_DATE) as rate_date,
+    COALESCE(er.rate_source, 'manual') as rate_source
+FROM Currencies c
+LEFT JOIN ExchangeRates er ON c.currency_code = er.currency_code
+    AND er.rate_date = (
+        SELECT MAX(rate_date)
+        FROM ExchangeRates er2
+        WHERE er2.currency_code = c.currency_code
+    )
+WHERE c.is_active = 1
+ORDER BY c.currency_code
+/* LatestExchangeRates(currency_code,currency_name,currency_symbol,current_rate_to_chf,rate_date,rate_source) */;
+CREATE TABLE InstrumentsBackup (
+    backup_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    backup_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    backup_reason TEXT NOT NULL,
+    instrument_id INTEGER,
+    isin TEXT,
+    valor_nr TEXT,
+    ticker_symbol TEXT,
+    instrument_name TEXT,
+    sub_class_id INTEGER,
+    currency TEXT,
+    country_code TEXT,
+    exchange_code TEXT,
+    sector TEXT,
+    include_in_portfolio BOOLEAN,
+    is_active BOOLEAN,
+    notes TEXT,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+CREATE TABLE PortfolioThemeStatus (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE CHECK (code GLOB '[A-Z][A-Z0-9_]*'),
+    name TEXT NOT NULL UNIQUE,
+    color_hex TEXT NOT NULL CHECK (color_hex GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'),
+    is_default BOOLEAN NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX idx_portfolio_theme_status_default
+ON PortfolioThemeStatus(is_default) WHERE is_default = 1;
+CREATE TABLE PortfolioTheme (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 64),
+    code TEXT NOT NULL CHECK (code GLOB '[A-Z][A-Z0-9_]*' AND LENGTH(code) BETWEEN 2 AND 31),
+    status_id INTEGER NOT NULL REFERENCES PortfolioThemeStatus(id),
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    archived_at TEXT NULL,
+    soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1))
+, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL);
+CREATE UNIQUE INDEX idx_portfolio_theme_name_unique
+ON PortfolioTheme(LOWER(name))
+WHERE soft_delete = 0;
+CREATE UNIQUE INDEX idx_portfolio_theme_code_unique
+ON PortfolioTheme(LOWER(code))
+WHERE soft_delete = 0;
+CREATE TABLE PortfolioThemeAsset (
+    theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE RESTRICT,
+    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE RESTRICT,
+    research_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(research_target_pct >= 0.0 AND research_target_pct <= 100.0),
+    user_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(user_target_pct >= 0.0 AND user_target_pct <= 100.0),
+    notes TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (theme_id, instrument_id)
+);
+CREATE INDEX idx_portfolio_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
+CREATE INDEX idx_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
+CREATE INDEX idx_portfolio_theme_institution_id ON PortfolioTheme(institution_id);
+CREATE TRIGGER trg_portfolio_theme_description_len
+BEFORE INSERT ON PortfolioTheme
+WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
+BEGIN
+  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
+END;
+CREATE TRIGGER trg_portfolio_theme_description_len_upd
+BEFORE UPDATE ON PortfolioTheme
+WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
+BEGIN
+  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
+END;
+CREATE TABLE PortfolioThemeUpdate (
+  id               INTEGER PRIMARY KEY,
+  theme_id         INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
+  title            TEXT    NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text        TEXT    NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  type             TEXT    NOT NULL CHECK (type IN ('General','Research','Rebalance','Risk')),
+  author           TEXT    NOT NULL,
+  positions_asof   TEXT    NULL,
+  total_value_chf  REAL    NULL,
+  created_at       TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at       TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+, body_markdown TEXT NULL, pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)), soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)), deleted_at  TEXT NULL, deleted_by  TEXT NULL);
+CREATE INDEX idx_ptu_theme_order ON PortfolioThemeUpdate(theme_id, created_at DESC);
+CREATE INDEX idx_ptu_theme_pinned_order ON PortfolioThemeUpdate(theme_id, pinned DESC, created_at DESC);
+CREATE INDEX idx_ptu_theme_active_order
+  ON PortfolioThemeUpdate(theme_id, soft_delete, pinned, created_at DESC);
+CREATE INDEX idx_ptu_theme_deleted_order
+  ON PortfolioThemeUpdate(theme_id, soft_delete, deleted_at DESC);
+CREATE TABLE PortfolioThemeAssetUpdate (
+  id               INTEGER PRIMARY KEY,
+  theme_id         INTEGER NOT NULL
+                     REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
+  instrument_id    INTEGER NOT NULL
+                     REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
+  title            TEXT    NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text        TEXT    NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  type             TEXT    NOT NULL
+                     CHECK (type IN ('General','Research','Rebalance','Risk')),
+  author           TEXT    NOT NULL,
+  positions_asof   TEXT    NULL,
+  value_chf        REAL    NULL,
+  actual_percent   REAL    NULL,
+  created_at       TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at       TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+, body_markdown TEXT NULL, pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)));
+CREATE INDEX idx_ptau_theme_instr_order
+  ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
+CREATE INDEX idx_ptau_theme_instr_pinned_order
+  ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
+CREATE TABLE Attachment (
+    id INTEGER PRIMARY KEY,
+    sha256 TEXT NOT NULL UNIQUE,
+    original_filename TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    byte_size INTEGER NOT NULL,
+    ext TEXT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT NOT NULL
+);
+CREATE INDEX idx_attachment_sha ON Attachment(sha256);
+CREATE TABLE ThemeUpdateAttachment (
+    id INTEGER PRIMARY KEY,
+    theme_update_id INTEGER NOT NULL
+        REFERENCES PortfolioThemeUpdate(id) ON DELETE CASCADE,
+    attachment_id INTEGER NOT NULL
+        REFERENCES Attachment(id) ON DELETE RESTRICT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX idx_tua_update ON ThemeUpdateAttachment(theme_update_id);
+CREATE INDEX idx_tua_attachment ON ThemeUpdateAttachment(attachment_id);
+CREATE TABLE ThemeAssetUpdateAttachment (
+  id                     INTEGER PRIMARY KEY,
+  theme_asset_update_id  INTEGER NOT NULL
+      REFERENCES PortfolioThemeAssetUpdate(id) ON DELETE CASCADE,
+  attachment_id          INTEGER NOT NULL
+      REFERENCES Attachment(id) ON DELETE RESTRICT,
+  created_at             TEXT    NOT NULL
+);
+CREATE INDEX idx_taua_update ON ThemeAssetUpdateAttachment(theme_asset_update_id);
+CREATE INDEX idx_taua_attachment ON ThemeAssetUpdateAttachment(attachment_id);
+CREATE TABLE Link (
+  id               INTEGER PRIMARY KEY,
+  normalized_url   TEXT    NOT NULL UNIQUE,
+  raw_url          TEXT    NOT NULL,
+  title            TEXT    NULL,
+  created_at       TEXT    NOT NULL,
+  created_by       TEXT    NOT NULL
+);
+CREATE INDEX idx_link_normalized ON Link(normalized_url);
+CREATE TABLE ThemeUpdateLink (
+  id              INTEGER PRIMARY KEY,
+  theme_update_id INTEGER NOT NULL
+      REFERENCES PortfolioThemeUpdate(id) ON DELETE CASCADE,
+  link_id         INTEGER NOT NULL
+      REFERENCES Link(id) ON DELETE RESTRICT,
+  created_at      TEXT    NOT NULL
+);
+CREATE INDEX idx_tul_update ON ThemeUpdateLink(theme_update_id);
+CREATE INDEX idx_tul_link ON ThemeUpdateLink(link_id);
+CREATE TABLE IF NOT EXISTS "AssetSubClasses" (
+    sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL,
+    sub_class_code TEXT NOT NULL UNIQUE,
+    sub_class_name TEXT NOT NULL,
+    sub_class_description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES AssetClasses(class_id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS "Instruments" (
+    instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    isin TEXT UNIQUE,
+    valor_nr TEXT UNIQUE,
+    ticker_symbol TEXT,
+    instrument_name TEXT NOT NULL,
+    sub_class_id INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    country_code TEXT,
+    exchange_code TEXT,
+    sector TEXT,
+    include_in_portfolio BOOLEAN DEFAULT 1,
+    is_active BOOLEAN DEFAULT 1,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    isin_original TEXT,
+    valor_original TEXT,
+    validation_status TEXT DEFAULT 'valid' CHECK(validation_status IN ('valid','invalid','pending_validation')),
+    restore_source TEXT DEFAULT 'original',
+    restore_timestamp DATETIME,
+    is_deleted BOOLEAN DEFAULT 0,
+    deleted_at DATETIME,
+    deleted_reason TEXT, user_note TEXT DEFAULT NULL,
+    FOREIGN KEY (sub_class_id) REFERENCES AssetSubClasses(sub_class_id) ON DELETE CASCADE,
+    FOREIGN KEY (currency) REFERENCES Currencies(currency_code)
+);
+CREATE INDEX idx_instruments_isin ON Instruments(isin);
+CREATE INDEX idx_instruments_ticker ON Instruments(ticker_symbol);
+CREATE INDEX idx_instruments_sub_class ON Instruments(sub_class_id);
+CREATE INDEX idx_instruments_currency ON Instruments(currency);
+CREATE TRIGGER tr_instruments_updated_at
+AFTER UPDATE ON Instruments
+BEGIN
+    UPDATE Instruments
+       SET updated_at = CURRENT_TIMESTAMP
+     WHERE instrument_id = NEW.instrument_id;
+END;
+CREATE TRIGGER trg_instruments_restore_tracking
+AFTER INSERT ON Instruments
+WHEN NEW.restore_source IS NOT NULL AND NEW.restore_source != 'original'
+BEGIN
+    UPDATE Instruments
+    SET restore_timestamp = CURRENT_TIMESTAMP
+    WHERE instrument_id = NEW.instrument_id;
+END;
+CREATE TRIGGER trg_instruments_validate_restore
+AFTER INSERT ON Instruments
+BEGIN
+    UPDATE Instruments
+    SET validation_status = 'invalid'
+    WHERE instrument_id = NEW.instrument_id
+      AND (
+        NOT EXISTS (SELECT 1 FROM AssetSubClasses WHERE sub_class_id = NEW.sub_class_id)
+        OR NOT EXISTS (SELECT 1 FROM Currencies WHERE currency_code = NEW.currency)
+      );
+END;
+CREATE TRIGGER trg_instruments_auto_backup
+BEFORE DELETE ON Instruments
+BEGIN
+    INSERT INTO InstrumentsBackup (
+        backup_reason, instrument_id, isin, valor_nr, ticker_symbol,
+        instrument_name, sub_class_id, currency, country_code, exchange_code,
+        sector, include_in_portfolio, is_active, notes, created_at, updated_at
+    ) VALUES (
+        'AUTO_BACKUP_BEFORE_DELETE', OLD.instrument_id, OLD.isin, OLD.valor_nr,
+        OLD.ticker_symbol, OLD.instrument_name, OLD.sub_class_id, OLD.currency,
+        OLD.country_code, OLD.exchange_code, OLD.sector, OLD.include_in_portfolio,
+        OLD.is_active, OLD.notes, OLD.created_at, OLD.updated_at
+    );
+END;
+CREATE TABLE IF NOT EXISTS "PositionReports" (
+    position_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    import_session_id INTEGER,
+    account_id INTEGER NOT NULL,
+    institution_id INTEGER NOT NULL,
+    instrument_id INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    purchase_price REAL,
+    current_price REAL,
+    instrument_updated_at DATE,
+    notes TEXT,
+    report_date DATE NOT NULL,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (import_session_id) REFERENCES ImportSessions(import_session_id),
+    FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
+    FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id) ON DELETE CASCADE
+);
 CREATE VIEW DataIntegrityCheck AS
 SELECT
     'Missing FX Rates' as issue_type,
@@ -1003,47 +1222,6 @@ LEFT JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
 GROUP BY i.instrument_id, i.instrument_name, i.ticker_symbol, i.isin, ac.class_name, i.currency, i.include_in_portfolio, i.is_active
 ORDER BY i.instrument_name
 /* InstrumentPerformance(instrument_id,instrument_name,ticker_symbol,isin,class_name,currency,current_quantity,avg_cost_basis_chf,total_invested_chf,total_sold_chf,total_dividends_chf,transaction_count,first_purchase_date,last_transaction_date,include_in_portfolio,is_active) */;
-CREATE VIEW LatestExchangeRates AS
-SELECT
-    c.currency_code,
-    c.currency_name,
-    c.currency_symbol,
-    COALESCE(er.rate_to_chf, 1.0) as current_rate_to_chf,
-    COALESCE(er.rate_date, CURRENT_DATE) as rate_date,
-    COALESCE(er.rate_source, 'manual') as rate_source
-FROM Currencies c
-LEFT JOIN ExchangeRates er ON c.currency_code = er.currency_code
-    AND er.rate_date = (
-        SELECT MAX(rate_date)
-        FROM ExchangeRates er2
-        WHERE er2.currency_code = c.currency_code
-    )
-WHERE c.is_active = 1
-ORDER BY c.currency_code
-/* LatestExchangeRates(currency_code,currency_name,currency_symbol,current_rate_to_chf,rate_date,rate_source) */;
-CREATE VIEW PortfolioSummary AS
-SELECT
-    COALESCE(p.portfolio_name, 'Unassigned') as portfolio_name,
-    p.asset_class,
-    COUNT(DISTINCT p.instrument_id) as instrument_count,
-    SUM(p.transaction_count) as total_transactions,
-    SUM(p.total_quantity * p.avg_cost_chf_per_unit) as current_market_value_chf,
-    SUM(p.total_invested_chf) as total_invested_chf,
-    SUM(p.total_sold_chf) as total_sold_chf,
-    SUM(p.total_dividends_chf) as total_dividends_chf,
-    SUM(p.total_fees_chf) as total_fees_chf,
-    ROUND(
-        (SUM(p.total_quantity * p.avg_cost_chf_per_unit) - SUM(p.total_invested_chf) + SUM(p.total_sold_chf)) /
-        NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
-    ) as unrealized_return_percent,
-    ROUND(
-        SUM(p.total_dividends_chf) / NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
-    ) as dividend_yield_percent
-FROM Positions p
-WHERE p.asset_sub_class != 'Cash'
-GROUP BY p.portfolio_name, p.asset_class
-ORDER BY p.portfolio_name, p.asset_class
-/* PortfolioSummary(portfolio_name,asset_class,instrument_count,total_transactions,current_market_value_chf,total_invested_chf,total_sold_chf,total_dividends_chf,total_fees_chf,unrealized_return_percent,dividend_yield_percent) */;
 CREATE VIEW Positions AS
 SELECT
     p.portfolio_id,
@@ -1092,6 +1270,29 @@ WHERE t.transaction_date <= (SELECT value FROM Configuration WHERE key = 'as_of_
 GROUP BY p.portfolio_id, i.instrument_id, a.account_id
 HAVING total_quantity > 0
 /* Positions(portfolio_id,portfolio_name,instrument_id,instrument_name,isin,ticker_symbol,asset_class,asset_sub_class,account_id,account_name,instrument_currency,total_quantity,avg_cost_chf_per_unit,total_invested_chf,total_sold_chf,total_dividends_chf,total_fees_chf,transaction_count,first_transaction_date,last_transaction_date) */;
+CREATE VIEW PortfolioSummary AS
+SELECT
+    COALESCE(p.portfolio_name, 'Unassigned') as portfolio_name,
+    p.asset_class,
+    COUNT(DISTINCT p.instrument_id) as instrument_count,
+    SUM(p.transaction_count) as total_transactions,
+    SUM(p.total_quantity * p.avg_cost_chf_per_unit) as current_market_value_chf,
+    SUM(p.total_invested_chf) as total_invested_chf,
+    SUM(p.total_sold_chf) as total_sold_chf,
+    SUM(p.total_dividends_chf) as total_dividends_chf,
+    SUM(p.total_fees_chf) as total_fees_chf,
+    ROUND(
+        (SUM(p.total_quantity * p.avg_cost_chf_per_unit) - SUM(p.total_invested_chf) + SUM(p.total_sold_chf)) /
+        NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
+    ) as unrealized_return_percent,
+    ROUND(
+        SUM(p.total_dividends_chf) / NULLIF(SUM(p.total_invested_chf), 0) * 100, 2
+    ) as dividend_yield_percent
+FROM Positions p
+WHERE p.asset_sub_class != 'Cash'
+GROUP BY p.portfolio_name, p.asset_class
+ORDER BY p.portfolio_name, p.asset_class
+/* PortfolioSummary(portfolio_name,asset_class,instrument_count,total_transactions,current_market_value_chf,total_invested_chf,total_sold_chf,total_dividends_chf,total_fees_chf,unrealized_return_percent,dividend_yield_percent) */;
 CREATE VIEW V_ClassValidationStatus AS
 WITH class_err AS (
   SELECT ac.class_id FROM AssetClasses ac
@@ -1151,61 +1352,6 @@ SELECT s.sub_class_id,
          WHERE vf.entity_type='subclass' AND vf.entity_id=s.sub_class_id) AS findings_count
 FROM AssetSubClasses s
 /* V_SubClassValidationStatus(sub_class_id,validation_status,findings_count) */;
-CREATE TRIGGER trg_instruments_restore_tracking
-AFTER INSERT ON Instruments
-WHEN NEW.restore_source IS NOT NULL AND NEW.restore_source != 'original'
-BEGIN
-    UPDATE Instruments
-    SET restore_timestamp = CURRENT_TIMESTAMP
-    WHERE instrument_id = NEW.instrument_id;
-END;
-CREATE TRIGGER trg_instruments_validate_restore
-AFTER INSERT ON Instruments
-BEGIN
-    -- Mark as invalid if foreign key references don't exist
-    UPDATE Instruments
-    SET validation_status = 'invalid'
-    WHERE instrument_id = NEW.instrument_id
-    AND (
-        NOT EXISTS (SELECT 1 FROM AssetSubClasses WHERE sub_class_id = NEW.sub_class_id)
-        OR
-        NOT EXISTS (SELECT 1 FROM Currencies WHERE currency_code = NEW.currency)
-    );
-END;
-CREATE TABLE InstrumentsBackup (
-    backup_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    backup_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    backup_reason TEXT NOT NULL,
-    instrument_id INTEGER,
-    isin TEXT,
-    valor_nr TEXT,
-    ticker_symbol TEXT,
-    instrument_name TEXT,
-    sub_class_id INTEGER,
-    currency TEXT,
-    country_code TEXT,
-    exchange_code TEXT,
-    sector TEXT,
-    include_in_portfolio BOOLEAN,
-    is_active BOOLEAN,
-    notes TEXT,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-CREATE TRIGGER trg_instruments_auto_backup
-BEFORE DELETE ON Instruments
-BEGIN
-    INSERT INTO InstrumentsBackup (
-        backup_reason, instrument_id, isin, valor_nr, ticker_symbol,
-        instrument_name, sub_class_id, currency, country_code, exchange_code,
-        sector, include_in_portfolio, is_active, notes, created_at, updated_at
-    ) VALUES (
-        'AUTO_BACKUP_BEFORE_DELETE', OLD.instrument_id, OLD.isin, OLD.valor_nr,
-        OLD.ticker_symbol, OLD.instrument_name, OLD.sub_class_id, OLD.currency,
-        OLD.country_code, OLD.exchange_code, OLD.sector, OLD.include_in_portfolio,
-        OLD.is_active, OLD.notes, OLD.created_at, OLD.updated_at
-    );
-END;
 CREATE VIEW InstrumentsValidationReport AS
 SELECT
     i.instrument_id,
@@ -1240,9 +1386,7 @@ FROM Instruments
 WHERE isin IS NOT NULL
 GROUP BY isin
 HAVING COUNT(*) > 1
-
 UNION ALL
-
 SELECT
     'VALOR' as conflict_type,
     valor_nr as conflicting_value,
@@ -1263,6 +1407,11 @@ SELECT
     (SELECT COUNT(*) FROM InstrumentsDuplicateCheck) as duplicate_conflicts
 FROM Instruments
 /* RestoreValidationSummary(table_name,total_records,valid_records,invalid_records,pending_records,duplicate_conflicts) */;
+CREATE TABLE UpdateType (
+    type_id INTEGER PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL
+);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -1272,4 +1421,19 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('005'),
   ('006'),
   ('007'),
-  ('008');
+  ('008'),
+  ('009'),
+  ('010'),
+  ('011'),
+  ('012'),
+  ('013'),
+  ('014'),
+  ('015'),
+  ('016'),
+  ('017'),
+  ('018'),
+  ('019'),
+  ('020'),
+  ('021'),
+  ('022'),
+  ('023');
