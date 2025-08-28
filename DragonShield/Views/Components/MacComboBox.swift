@@ -11,7 +11,7 @@ struct MacComboBox: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSComboBox {
-        let cb = NSComboBox()
+        let cb = TrackingComboBox()
         cb.usesDataSource = true
         cb.isEditable = true
         cb.completes = false
@@ -21,6 +21,12 @@ struct MacComboBox: NSViewRepresentable {
         cb.intercellSpacing = NSSize(width: 4, height: 2)
         cb.isButtonBordered = true
         cb.stringValue = text
+        if let tcb = cb as? TrackingComboBox {
+            tcb.onHover = { [weak coord = context.coordinator] in
+                coord?.openPopupIfNeeded()
+            }
+        }
+        context.coordinator.combo = cb
         context.coordinator.setItems(items)
         return cb
     }
@@ -32,6 +38,7 @@ struct MacComboBox: NSViewRepresentable {
             nsView.stringValue = text
             context.coordinator.filter(with: text)
             nsView.reloadData()
+            nsView.noteNumberOfItemsChanged()
         }
     }
 
@@ -40,6 +47,8 @@ struct MacComboBox: NSViewRepresentable {
         private var allItems: [String] = []
         private var filtered: [String] = []
         private var indexMap: [Int] = [] // filtered index -> original index
+        weak var combo: NSComboBox?
+        private var popupVisible = false
 
         init(_ parent: MacComboBox) {
             self.parent = parent
@@ -68,6 +77,14 @@ struct MacComboBox: NSViewRepresentable {
                 filtered = f
                 indexMap = map
             }
+            // Keep popup visible and up-to-date while typing
+            if let cb = combo {
+                cb.reloadData()
+                cb.noteNumberOfItemsChanged()
+                if !popupVisible {
+                    cb.performClick(nil)
+                }
+            }
         }
 
         // MARK: - NSComboBoxDataSource
@@ -83,10 +100,10 @@ struct MacComboBox: NSViewRepresentable {
             let value = tf.stringValue
             parent.text = value
             filter(with: value)
-            if let cb = tf.superview as? NSComboBox {
-                cb.reloadData()
-                cb.noteNumberOfItemsChanged()
-            }
+        }
+
+        func controlTextDidBeginEditing(_ obj: Notification) {
+            openPopupIfNeeded()
         }
 
         func comboBoxSelectionDidChange(_ notification: Notification) {
@@ -97,6 +114,38 @@ struct MacComboBox: NSViewRepresentable {
             parent.text = filtered[idx]
             parent.onSelectIndex(original)
         }
+
+        func comboBoxWillPopUp(_ notification: Notification) {
+            popupVisible = true
+        }
+
+        func comboBoxWillDismiss(_ notification: Notification) {
+            popupVisible = false
+        }
+
+        func openPopupIfNeeded() {
+            if popupVisible { return }
+            combo?.reloadData()
+            combo?.noteNumberOfItemsChanged()
+            combo?.performClick(nil)
+        }
     }
 }
 
+private final class TrackingComboBox: NSComboBox {
+    var onHover: (() -> Void)?
+    private var tracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let t = tracking { removeTrackingArea(t) }
+        let opts: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
+        tracking = NSTrackingArea(rect: .zero, options: opts, owner: self, userInfo: nil)
+        addTrackingArea(tracking!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        onHover?()
+    }
+}
