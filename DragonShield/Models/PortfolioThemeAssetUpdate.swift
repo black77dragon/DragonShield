@@ -7,12 +7,7 @@
 import Foundation
 
 struct PortfolioThemeAssetUpdate: Identifiable, Codable {
-    enum UpdateType: String, CaseIterable, Codable {
-        case General
-        case Research
-        case Rebalance
-        case Risk
-    }
+    typealias UpdateType = PortfolioUpdateType
 
     let id: Int
     let themeId: Int
@@ -38,4 +33,3 @@ struct PortfolioThemeAssetUpdate: Identifiable, Codable {
         return count >= 1 && count <= 5000
     }
 }
-
