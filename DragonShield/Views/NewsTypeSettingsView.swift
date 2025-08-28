@@ -6,6 +6,7 @@ struct NewsTypeSettingsView: View {
     @State private var newCode: String = ""
     @State private var newName: String = ""
     @State private var error: String?
+    @State private var info: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,10 +28,17 @@ struct NewsTypeSettingsView: View {
             if let err = error { Text(err).foregroundColor(.red).font(.caption) }
 
             Table(rows, selection: .constant(nil)) {
-                TableColumn("⇅ Order") { row in
-                    Text("\(row.sortOrder)")
-                        .foregroundColor(.secondary)
-                }.width(50)
+                TableColumn("Order") { row in
+                    Stepper("\(row.sortOrder)", value: Binding(
+                        get: { row.sortOrder },
+                        set: { new in
+                            if let idx = rows.firstIndex(where: { $0.id == row.id }) {
+                                rows[idx] = NewsTypeRow(id: row.id, code: row.code, displayName: row.displayName, sortOrder: new, active: row.active)
+                            }
+                            save(row)
+                        }
+                    )).frame(width: 80)
+                }.width(90)
                 TableColumn("Code") { row in
                     TextField("Code", text: binding(for: row).code)
                         .onSubmit { save(row) }
@@ -46,10 +54,20 @@ struct NewsTypeSettingsView: View {
                         .labelsHidden()
                         .onChange(of: binding(for: row).active.wrappedValue) { _, _ in save(row) }
                 }.width(60)
+                TableColumn("Actions") { row in
+                    HStack(spacing: 8) {
+                        Button("Save") { save(row) }
+                        if row.active {
+                            Button("Deactivate", role: .destructive) { delete(row) }
+                        } else {
+                            Button("Restore") { restore(row) }
+                        }
+                    }
+                }.width(180)
             }
             .frame(minHeight: 280)
             .overlay(alignment: .bottomLeading) {
-                Text("Drag to reorder by changing the order numbers.")
+                Text(info ?? "Use Save; Deactivate/Restore to toggle availability. Stepper adjusts order.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.top, 4)
@@ -122,14 +140,39 @@ struct NewsTypeSettingsView: View {
     }
 
     private func save(_ row: NewsTypeRow) {
-        _ = dbManager.updateNewsType(id: row.id, code: row.code, displayName: row.displayName, sortOrder: row.sortOrder, active: row.active)
+        let ok = dbManager.updateNewsType(id: row.id, code: row.code, displayName: row.displayName, sortOrder: row.sortOrder, active: row.active)
+        if ok { info = "Saved \(row.code)"; error = nil } else { error = "Failed to save row (unique code?)"; info = nil }
         load()
     }
 
     private func saveOrder() {
         // Persist order by current position (1..n)
         let orderedIds = rows.sorted { $0.sortOrder < $1.sortOrder }.map { $0.id }
-        _ = dbManager.reorderNewsTypes(idsInOrder: orderedIds)
+        if dbManager.reorderNewsTypes(idsInOrder: orderedIds) { info = "Order saved"; error = nil } else { error = "Failed to save order"; info = nil }
         load()
+    }
+
+    private func delete(_ row: NewsTypeRow) {
+        // Soft-delete: mark inactive; row stays visible and can be re-activated via toggle
+        if dbManager.deleteNewsType(id: row.id) {
+            if let idx = rows.firstIndex(where: { $0.id == row.id }) {
+                rows[idx] = NewsTypeRow(id: row.id, code: row.code, displayName: row.displayName, sortOrder: row.sortOrder, active: false)
+            }
+            info = "Deactivated \(row.code)"; error = nil
+        } else {
+            error = "No change (already inactive?)"; info = nil
+        }
+    }
+
+    private func restore(_ row: NewsTypeRow) {
+        let ok = dbManager.updateNewsType(id: row.id, code: nil, displayName: nil, sortOrder: nil, active: true)
+        if ok {
+            if let idx = rows.firstIndex(where: { $0.id == row.id }) {
+                rows[idx] = NewsTypeRow(id: row.id, code: row.code, displayName: row.displayName, sortOrder: row.sortOrder, active: true)
+            }
+            info = "Restored \(row.code)"; error = nil
+        } else {
+            error = "Failed to restore \(row.code)"; info = nil
+        }
     }
 }

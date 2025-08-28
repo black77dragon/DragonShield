@@ -70,6 +70,17 @@ extension DatabaseManager {
         return sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
     }
 
+    func deleteNewsType(id: Int) -> Bool {
+        // Soft-delete: mark inactive; keep row for referential integrity
+        guard let db else { return false }
+        var stmt: OpaquePointer?
+        let sql = "UPDATE NewsType SET active = 0, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND active = 1"
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        defer { sqlite3_finalize(stmt) }
+        return sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
+    }
+
     func reorderNewsTypes(idsInOrder: [Int]) -> Bool {
         guard let db else { return false }
         var ok = true
@@ -89,4 +100,3 @@ extension DatabaseManager {
         return ok
     }
 }
-
