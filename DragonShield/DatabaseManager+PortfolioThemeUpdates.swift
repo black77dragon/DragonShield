@@ -48,14 +48,14 @@ extension DatabaseManager {
 
     func listThemeUpdates(themeId: Int, view: ThemeUpdateView = .active, typeId: Int? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
         var items: [PortfolioThemeUpdate] = []
-        var clauses: [String] = ["theme_id = ?", "soft_delete = \(view == .active ? 0 : 1)"]
+        var clauses: [String] = ["u.theme_id = ?", "u.soft_delete = \(view == .active ? 0 : 1)"]
         var binds: [Any] = [themeId]
         if let tid = typeId {
-            clauses.append("type_id = ?")
+            clauses.append("u.type_id = ?")
             binds.append(tid)
         }
         if let q = searchQuery, !q.isEmpty {
-            clauses.append("(LOWER(title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(body_markdown, body_text)) LIKE '%' || LOWER(?) || '%')")
+            clauses.append("(LOWER(u.title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(u.body_markdown, u.body_text)) LIKE '%' || LOWER(?) || '%')")
             binds.append(q)
             binds.append(q)
         }
@@ -63,9 +63,9 @@ extension DatabaseManager {
         let order: String
         switch view {
         case .active:
-            order = pinnedFirst ? "pinned DESC, created_at DESC" : "created_at DESC"
+            order = pinnedFirst ? "u.pinned DESC, u.created_at DESC" : "u.created_at DESC"
         case .deleted:
-            order = "deleted_at DESC, created_at DESC"
+            order = "u.deleted_at DESC, u.created_at DESC"
         }
         let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
         var stmt: OpaquePointer?

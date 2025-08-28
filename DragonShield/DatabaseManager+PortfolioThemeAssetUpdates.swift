@@ -31,7 +31,7 @@ extension DatabaseManager {
 
     func listInstrumentUpdates(themeId: Int, instrumentId: Int, pinnedFirst: Bool = true) -> [PortfolioThemeAssetUpdate] {
         var items: [PortfolioThemeAssetUpdate] = []
-        let order = pinnedFirst ? "pinned DESC, created_at DESC" : "created_at DESC"
+        let order = pinnedFirst ? "u.pinned DESC, u.created_at DESC" : "u.created_at DESC"
         let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE u.theme_id = ? AND u.instrument_id = ? ORDER BY \(order)"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
