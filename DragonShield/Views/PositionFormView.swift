@@ -43,6 +43,7 @@ struct PositionFormView: View {
     @State private var institutionId: Int? = nil
     @State private var institutionName = ""
     @State private var instrumentId: Int? = nil
+    @State private var instrumentQuery: String = ""
     @State private var currencyCode = ""
     @State private var quantity = ""
     @State private var purchasePrice = ""
@@ -114,13 +115,20 @@ struct PositionFormView: View {
             }
             .accessibilityLabel("Institution")
 
-            Picker("Instrument", selection: $instrumentId) {
-                Text("Select Instrument").tag(Optional<Int>(nil))
-                ForEach(instruments, id: \.id) {
-                    Text($0.name).tag(Optional($0.id))
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Instrument").font(.headline)
+                MacComboBox(
+                    items: instrumentDisplayItems(),
+                    text: $instrumentQuery,
+                    onSelectIndex: { originalIndex in
+                        let ins = instruments[originalIndex]
+                        instrumentId = ins.id
+                        currencyCode = ins.currency
+                    }
+                )
+                .frame(minWidth: 360)
+                .accessibilityLabel("Instrument")
             }
-            .accessibilityLabel("Instrument")
 
             HStack {
                 Text("Currency")
@@ -207,6 +215,7 @@ struct PositionFormView: View {
             (id: $0.id, name: $0.accountName, institutionId: $0.institutionId, institutionName: $0.institutionName)
         }
         instruments = dbManager.fetchAssets()
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func populate() {
@@ -217,7 +226,10 @@ struct PositionFormView: View {
             institutionId = account.institutionId
             institutionName = account.institutionName
         }
-        instrumentId = instruments.first(where: { $0.name == p.instrumentName })?.id
+        if let match = instruments.first(where: { $0.name == p.instrumentName }) {
+            instrumentId = match.id
+            instrumentQuery = displayString(for: match)
+        }
         currencyCode = p.instrumentCurrency
         quantity = String(p.quantity)
         if let pp = p.purchasePrice { purchasePrice = String(pp) }
@@ -271,5 +283,18 @@ struct PositionFormView: View {
         }
         onSave()
         presentationMode.wrappedValue.dismiss()
+    }
+}
+
+private extension PositionFormView {
+    func displayString(for ins: InstrumentInfo) -> String {
+        var parts: [String] = [ins.name]
+        if let t = ins.tickerSymbol, !t.isEmpty { parts.append(t.uppercased()) }
+        if let i = ins.isin, !i.isEmpty { parts.append(i.uppercased()) }
+        return parts.joined(separator: " • ")
+    }
+
+    func instrumentDisplayItems() -> [String] {
+        instruments.map(displayString(for:))
     }
 }
