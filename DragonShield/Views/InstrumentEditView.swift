@@ -34,6 +34,12 @@ struct InstrumentEditView: View {
 
     @State private var showNotes = false
     @State private var notesInitialTab: InstrumentNotesView.Tab = .updates
+    // Price management
+    @State private var latestPrice: Double? = nil
+    @State private var latestPriceAsOf: Date? = nil
+    @State private var priceInput: String = ""
+    @State private var priceAsOf: Date = Date()
+    @State private var priceMessage: String? = nil
     
     // MARK: - Validation
     var isValid: Bool {
@@ -121,6 +127,7 @@ struct InstrumentEditView: View {
             loadInstrumentGroups()
             loadAvailableCurrencies()
             loadInstrumentData()
+            loadLatestPrice()
             animateEntrance()
         }
         .alert("Result", isPresented: $showingAlert) {
@@ -309,6 +316,7 @@ struct InstrumentEditView: View {
             VStack(spacing: 24) {
                 requiredSection
                 optionalSection
+                priceSection
                 if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                     updatesInThemesSection
                 }
@@ -414,6 +422,82 @@ struct InstrumentEditView: View {
                 .stroke(Color.red.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: .red.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    // MARK: - Price Section
+    private var priceSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Instrument Price", icon: "dollarsign.circle.fill", color: .green)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading) {
+                        Text("Latest Price").font(.caption).foregroundColor(.secondary)
+                        Text(latestPrice.map { String(format: "%.4f", $0) } ?? "—").font(.title3)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("As Of").font(.caption).foregroundColor(.secondary)
+                        Text(latestPriceAsOf.map { iso8601Formatter().string(from: $0) } ?? "—")
+                    }
+                    Spacer()
+                }
+                Divider()
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading) {
+                        Text("Set Price (\(currency))").font(.caption).foregroundColor(.secondary)
+                        TextField("e.g., 123.45", text: $priceInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 160)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("As Of").font(.caption).foregroundColor(.secondary)
+                        DatePicker("", selection: $priceAsOf, displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.field)
+                    }
+                    Button("Save Price") { saveInstrumentPrice() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(Double(priceInput) == nil)
+                    Button("Refresh") { loadLatestPrice() }
+                }
+                if let msg = priceMessage {
+                    Text(msg).font(.caption).foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(24)
+        .background(editGlassMorphismBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.green.opacity(0.2), lineWidth: 1))
+        .shadow(color: .green.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    // MARK: - Price helpers
+    private func iso8601Formatter() -> ISO8601DateFormatter {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }
+
+    private func loadLatestPrice() {
+        if let lp = DatabaseManager().getLatestPrice(instrumentId: instrumentId) {
+            latestPrice = lp.price
+            if let d = iso8601Formatter().date(from: lp.asOf) { latestPriceAsOf = d }
+        } else {
+            latestPrice = nil
+            latestPriceAsOf = nil
+        }
+    }
+
+    private func saveInstrumentPrice() {
+        guard let p = Double(priceInput) else { return }
+        let asOf = iso8601Formatter().string(from: priceAsOf)
+        let ok = DatabaseManager().upsertPrice(instrumentId: instrumentId, price: p, currency: currency, asOf: asOf, source: "manual")
+        if ok {
+            priceMessage = "Saved \(p) \(currency) @ \(asOf)"
+            loadLatestPrice()
+        } else {
+            priceMessage = "Failed to save price"
+        }
     }
 
     private var updatesInThemesSection: some View {
