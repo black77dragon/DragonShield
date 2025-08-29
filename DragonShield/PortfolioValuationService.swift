@@ -72,12 +72,20 @@ final class PortfolioValuationService {
         var missing: Set<String> = []
 
         let sql = """
-        SELECT a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, COALESCE(SUM(pr.quantity * pr.current_price),0), a.notes
+        SELECT a.instrument_id,
+               i.instrument_name,
+               a.research_target_pct,
+               a.user_target_pct,
+               i.currency,
+               COALESCE(SUM(pr.quantity),0) AS qty,
+               ipl.price,
+               a.notes
           FROM PortfolioThemeAsset a
           JOIN Instruments i ON a.instrument_id = i.instrument_id
           LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id
+          LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = a.instrument_id
          WHERE a.theme_id = ?
-         GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, a.notes
+         GROUP BY a.instrument_id, i.instrument_name, a.research_target_pct, a.user_target_pct, i.currency, a.notes, ipl.price
         """
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(themeId))
@@ -87,8 +95,11 @@ final class PortfolioValuationService {
                 let research = sqlite3_column_double(stmt, 2)
                 let user = sqlite3_column_double(stmt, 3)
                 let currency = String(cString: sqlite3_column_text(stmt, 4))
-                let nativeValue = sqlite3_column_double(stmt, 5)
-                let note = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let qty = sqlite3_column_double(stmt, 5)
+                let hasPrice = sqlite3_column_type(stmt, 6) != SQLITE_NULL
+                let price = hasPrice ? sqlite3_column_double(stmt, 6) : 0
+                let nativeValue = qty * price
+                let note = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
                 var status: ValuationStatus = .ok
                 var valueBase: Double = 0
                 if nativeValue == 0 {
@@ -143,4 +154,3 @@ final class PortfolioValuationService {
         return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing))
     }
 }
-
