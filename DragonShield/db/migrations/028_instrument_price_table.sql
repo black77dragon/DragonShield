@@ -2,15 +2,16 @@
 -- Purpose: Add InstrumentPrice table as single source of truth for instrument prices
 
 CREATE TABLE IF NOT EXISTS InstrumentPrice (
+  id            INTEGER PRIMARY KEY,
   instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE CASCADE,
   price         REAL    NOT NULL,
   currency      TEXT    NOT NULL,
-  source        TEXT    NULL,
+  source        TEXT    NOT NULL DEFAULT '',
   as_of         TEXT    NOT NULL,
-  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY (instrument_id, as_of, COALESCE(source, ''))
+  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_instr_price_key ON InstrumentPrice(instrument_id, as_of, source);
 CREATE INDEX IF NOT EXISTS idx_instr_price_latest ON InstrumentPrice(instrument_id, as_of DESC);
 
 -- Optional view for latest price per instrument
@@ -44,4 +45,3 @@ WHERE pr.current_price IS NOT NULL
 -- migrate:down
 DROP VIEW IF EXISTS InstrumentPriceLatest;
 DROP TABLE IF EXISTS InstrumentPrice;
-
