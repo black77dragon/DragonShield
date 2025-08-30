@@ -151,7 +151,7 @@ struct PortfolioThemeWorkspaceView: View {
                 Spacer()
                 Button { showClassicDetail = true } label: { Label("Edit in Classic", systemImage: "pencil") }
             }
-            HoldingsTable(themeId: themeId)
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil)
                 .environmentObject(dbManager)
         }
         .padding(20)
@@ -375,8 +375,10 @@ private struct Tag: View {
 private struct HoldingsTable: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
+    let isArchived: Bool
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
+    @State private var saving: Set<Int> = [] // instrumentId currently saving
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -389,10 +391,33 @@ private struct HoldingsTable: View {
                         ForEach(rows) { r in
                             HStack(spacing: 8) {
                                 Text(r.instrumentName).frame(maxWidth: .infinity, alignment: .leading).lineLimit(1).truncationMode(.middle)
-                                Text(fmtPct(r.researchTargetPct)).frame(width: 80, alignment: .trailing)
-                                Text(fmtPct(r.userTargetPct)).frame(width: 80, alignment: .trailing)
+                                // Inline edit Research %
+                                TextField("", value: binding(for: r.instrumentId, keyPath: \.researchTargetPct), format: .number)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 80)
+                                    .disabled(isArchived)
+                                    .onSubmit { saveRow(r.instrumentId) }
+                                // Inline edit User %
+                                TextField("", value: binding(for: r.instrumentId, keyPath: \.userTargetPct), format: .number)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 80)
+                                    .disabled(isArchived)
+                                    .onSubmit { saveRow(r.instrumentId) }
                                 Text(fmtPct(r.actualPct)).frame(width: 80, alignment: .trailing)
                                 Text(fmtPct(r.deltaUserPct)).frame(width: 80, alignment: .trailing).foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
+                                // Notes inline (single-line)
+                                TextField("Notes", text: Binding(
+                                    get: { rows.first(where: { $0.instrumentId == r.instrumentId })?.notes ?? "" },
+                                    set: { newVal in
+                                        if let idx = rows.firstIndex(where: { $0.instrumentId == r.instrumentId }) {
+                                            rows[idx] = mutated(rows[idx]) { $0.notes = newVal }
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(isArchived)
+                                .onSubmit { saveRow(r.instrumentId) }
+                                if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
                             .font(.system(.body, design: .monospaced))
                         }
@@ -426,5 +451,44 @@ private struct HoldingsTable: View {
     private func fmtPct(_ v: Double?) -> String {
         guard let x = v else { return "—" }
         return String(format: "%.2f", x)
+    }
+
+    // MARK: - Editing helpers
+    private func binding(for instrumentId: Int, keyPath: WritableKeyPath<ValuationRow, Double>) -> Binding<Double> {
+        Binding<Double>(
+            get: {
+                rows.first(where: { $0.instrumentId == instrumentId })?[keyPath: keyPath] ?? 0
+            },
+            set: { newValue in
+                let clamped = max(0, min(100, newValue))
+                if let idx = rows.firstIndex(where: { $0.instrumentId == instrumentId }) {
+                    rows[idx] = mutated(rows[idx]) { $0[keyPath: keyPath] = clamped }
+                }
+            }
+        )
+    }
+
+    private func mutated(_ row: ValuationRow, mutate: (inout ValuationRow) -> Void) -> ValuationRow {
+        var copy = row
+        mutate(&copy)
+        return copy
+    }
+
+    private func saveRow(_ instrumentId: Int) {
+        guard let row = rows.first(where: { $0.instrumentId == instrumentId }) else { return }
+        saving.insert(instrumentId)
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = dbManager.updateThemeAsset(
+                themeId: themeId,
+                instrumentId: instrumentId,
+                researchPct: row.researchTargetPct,
+                userPct: row.userTargetPct,
+                notes: (row.notes?.isEmpty == true) ? nil : row.notes
+            )
+            DispatchQueue.main.async {
+                saving.remove(instrumentId)
+                load() // refresh valuation/deltas after saving
+            }
+        }
     }
 }
