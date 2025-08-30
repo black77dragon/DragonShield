@@ -18,7 +18,7 @@ extension DatabaseManager {
             SELECT id, instrument_id, provider_code, external_id, enabled, priority, last_status, last_checked_at
               FROM InstrumentPriceSource
              WHERE instrument_id = ?
-             ORDER BY priority ASC
+             ORDER BY enabled DESC, priority ASC, updated_at DESC
              LIMIT 1
         """
         var stmt: OpaquePointer?
@@ -51,7 +51,10 @@ extension DatabaseManager {
               updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')
         """
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            LoggingService.shared.log("upsertPriceSource prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_int(stmt, 1, Int32(instrumentId))
@@ -59,7 +62,11 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 3, externalId, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 4, enabled ? 1 : 0)
         sqlite3_bind_int(stmt, 5, Int32(priority))
-        return sqlite3_step(stmt) == SQLITE_DONE
+        let ok = sqlite3_step(stmt) == SQLITE_DONE
+        if !ok {
+            LoggingService.shared.log("upsertPriceSource step failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        return ok
     }
 
     @discardableResult
@@ -79,4 +86,3 @@ extension DatabaseManager {
         return sqlite3_step(stmt) == SQLITE_DONE
     }
 }
-

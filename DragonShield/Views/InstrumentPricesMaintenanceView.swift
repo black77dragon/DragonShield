@@ -18,10 +18,23 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var autoEnabled: [Int: Bool] = [:]
     @State private var providerCode: [Int: String] = [:]
     @State private var externalId: [Int: String] = [:]
-    private let providerOptions: [String] = ["coingecko", "yahoo", "alphavantage", "mock"]
+    @State private var lastStatus: [Int: String] = [:]
+    private let providerOptions: [String] = ["coingecko", "finnhub", "yahoo", "alphavantage", "mock"]
     @State private var loading = false
+    private enum ActiveSheet: Identifiable { case logs, history(Int), report; var id: String { switch self { case .logs: return "logs"; case .history(let i): return "history_\(i)"; case .report: return "report" } } }
+    @State private var activeSheet: ActiveSheet? = nil
+    // Report sheet state
+    @State private var fetchResults: [PriceUpdateService.ResultItem] = []
+    @State private var nameByIdSnapshot: [Int: String] = [:]
+    @State private var providerByIdSnapshot: [Int: String] = [:]
+    // Removed HistoryItem in favor of unified ActiveSheet
 
-    private enum SortKey: String, CaseIterable { case instrument, currency, price, asOf, source }
+    private enum SortKey: String, CaseIterable {
+        case instrument, currency, price, asOf, source
+        case auto        // Auto toggle state
+        case autoProvider // Provider code used for auto fetch
+        case manualSource // Text in the Manual Source field
+    }
     private let staleOptions: [Int] = [0, 7, 14, 30, 60, 90]
 
     private static let priceFormatter: NumberFormatter = {
@@ -47,6 +60,23 @@ struct InstrumentPricesMaintenanceView: View {
         }
         .padding(16)
         .onAppear(perform: reload)
+        // Present structured report and other sheets
+        .sheet(item: $activeSheet) { item in
+            switch item {
+            case .logs:
+                LogViewerView().environmentObject(dbManager)
+            case .history(let id):
+                PriceHistoryView(instrumentId: id)
+                    .environmentObject(dbManager)
+            case .report:
+                FetchResultsReportView(
+                    results: fetchResults,
+                    nameById: nameByIdSnapshot,
+                    providerById: providerByIdSnapshot,
+                    timeZoneId: dbManager.defaultTimeZone
+                )
+            }
+        }
     }
 
     private var header: some View {
@@ -61,6 +91,7 @@ struct InstrumentPricesMaintenanceView: View {
                 .disabled(editedPrice.isEmpty && editedAsOf.isEmpty && editedSource.isEmpty)
             Button("Fetch Latest (Enabled)") { fetchLatestEnabled() }
                 .disabled(rows.isEmpty)
+            Button("View Logs") { activeSheet = .logs }
         }
     }
 
@@ -106,8 +137,9 @@ struct InstrumentPricesMaintenanceView: View {
     }
 
     private var table: some View {
-        ScrollView {
-            LazyVStack(spacing: 8) {
+        // Horizontal scroll to keep columns readable on smaller widths
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: 8) {
                 headerRow
                 ForEach(rows) { row in
                     rowView(row)
@@ -115,26 +147,57 @@ struct InstrumentPricesMaintenanceView: View {
                 }
             }
             .padding(.vertical, 4)
+            .frame(minWidth: Self.tableMinWidth)
         }
     }
 
     private var headerRow: some View {
         HStack {
-            Text("Instrument").frame(minWidth: 240, maxWidth: .infinity, alignment: .leading)
-            Text("Currency").frame(width: 70, alignment: .leading)
-            Text("Latest Price").frame(width: 140, alignment: .trailing)
-            Text("As Of").frame(width: 160, alignment: .leading)
-            Text("Source").frame(width: 100, alignment: .leading)
-            Text("Auto").frame(width: 50, alignment: .center)
-            Text("Provider").frame(width: 140, alignment: .leading)
-            Text("External ID").frame(width: 180, alignment: .leading)
-            Text("New Price").frame(width: 160, alignment: .trailing)
-            Text("New As Of").frame(width: 160, alignment: .leading)
-            Text("New Source").frame(width: 120, alignment: .leading)
-            Text("Actions").frame(width: 120, alignment: .trailing)
+            headerCell("Instrument", key: .instrument, width: Self.colInstrument, alignment: .leading)
+            headerCell("Currency", key: .currency, width: Self.colCurrency, alignment: .leading)
+            headerCell("Latest Price", key: .price, width: Self.colLatestPrice, alignment: .trailing)
+            headerCell("As Of", key: .asOf, width: Self.colAsOf, alignment: .leading)
+            headerCell("Price Source", key: .source, width: Self.colSource, alignment: .leading)
+            headerCell("Auto", key: .auto, width: Self.colAuto, alignment: .center)
+            headerCell("Auto Provider", key: .autoProvider, width: Self.colProvider, alignment: .leading)
+            Text("External ID").frame(width: Self.colExternalId, alignment: .leading)
+            Text("New Price").frame(width: Self.colNewPrice, alignment: .trailing)
+            Text("New As Of").frame(width: Self.colNewAsOf, alignment: .leading)
+            headerCell("Manual Source", key: .manualSource, width: Self.colNewSource, alignment: .leading)
+            Text("Actions").frame(width: Self.colActions, alignment: .trailing)
         }
         .font(.caption)
         .foregroundColor(.secondary)
+    }
+
+    private func headerCell(_ title: String, key: SortKey, width: CGFloat, alignment: Alignment) -> some View {
+        let isActive = sortKey == key
+        return Button(action: { toggleSort(key) }) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .fontWeight(isActive ? .bold : .regular)
+                if isActive {
+                    Image(systemName: sortAscending ? "arrow.up" : "arrow.down")
+                        .font(.caption2)
+                } else {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.caption2)
+                }
+            }
+            .foregroundColor(isActive ? .accentColor : .secondary)
+            .frame(width: width, alignment: alignment)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleSort(_ key: SortKey) {
+        if sortKey == key {
+            sortAscending.toggle()
+        } else {
+            sortKey = key
+            sortAscending = true
+        }
+        applySort()
     }
 
     private func rowView(_ r: DatabaseManager.InstrumentLatestPriceRow) -> some View {
@@ -150,51 +213,81 @@ struct InstrumentPricesMaintenanceView: View {
                     if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary) }
                 }
             }
-            .frame(minWidth: 240, maxWidth: .infinity, alignment: .leading)
+            .frame(width: Self.colInstrument, alignment: .leading)
             .layoutPriority(1)
-            Text(r.currency).frame(width: 70, alignment: .leading)
-            Text(formatted(r.latestPrice)).frame(width: 140, alignment: .trailing).monospacedDigit()
-            Text(r.asOf ?? "—").frame(width: 160, alignment: .leading)
-            Text(r.source ?? "").frame(width: 100, alignment: .leading)
+            Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
+            Text(formatted(r.latestPrice))
+                .frame(width: Self.colLatestPrice, alignment: .trailing)
+                .monospacedDigit()
+                .padding(.vertical, 2)
+                .padding(.horizontal, 6)
+                .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            Text(formatAsOf(r.asOf))
+                .frame(width: Self.colAsOf, alignment: .leading)
+            HStack(spacing: 4) {
+                Text(r.source ?? "")
+                if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" {
+                    Text("🚫")
+                        .help("Last auto update failed: \(st)")
+                }
+            }
+            .frame(width: Self.colSource, alignment: .leading)
             Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                 .labelsHidden()
-                .frame(width: 50, alignment: .center)
+                .frame(width: Self.colAuto, alignment: .center)
             Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                 Text("").tag("")
                 ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
             }
             .labelsHidden()
-            .frame(width: 140, alignment: .leading)
+            .frame(width: Self.colProvider, alignment: .leading)
             TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 180, alignment: .leading)
+                .frame(width: Self.colExternalId, alignment: .leading)
             TextField("", text: Binding(
                 get: { editedPrice[r.id] ?? "" },
                 set: { editedPrice[r.id] = $0 }
             ))
             .textFieldStyle(.roundedBorder)
-            .frame(width: 120)
+            .frame(width: Self.colNewPrice)
             DatePicker("", selection: Binding(
                 get: { editedAsOf[r.id] ?? Date() },
                 set: { editedAsOf[r.id] = $0 }
             ), displayedComponents: .date)
             .labelsHidden()
-            .frame(width: 160, alignment: .leading)
-            TextField("source", text: Binding(
+            .frame(width: Self.colNewAsOf, alignment: .leading)
+            TextField("manual source", text: Binding(
                 get: { editedSource[r.id] ?? "manual" },
                 set: { editedSource[r.id] = $0 }
             ))
             .textFieldStyle(.roundedBorder)
-            .frame(width: 120)
+            .frame(width: Self.colNewSource)
             HStack(spacing: 8) {
                 Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
                 Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
+                Button("History") { openHistory(r.id) }
             }
-            .frame(width: 120, alignment: .trailing)
+            .frame(width: Self.colActions, alignment: .trailing)
         }
         .font(.system(size: 12))
         .padding(.vertical, 2)
     }
+
+    // Column widths + min table width to align header and rows and enable horizontal scrolling on small screens
+    private static let colInstrument: CGFloat = 280
+    private static let colCurrency: CGFloat = 70
+    private static let colLatestPrice: CGFloat = 140
+    private static let colAsOf: CGFloat = 170
+    private static let colSource: CGFloat = 110
+    private static let colAuto: CGFloat = 50
+    private static let colProvider: CGFloat = 140
+    private static let colExternalId: CGFloat = 200
+    private static let colNewPrice: CGFloat = 120
+    private static let colNewAsOf: CGFloat = 170
+    private static let colNewSource: CGFloat = 130
+    private static let colActions: CGFloat = 160
+    private static let tableMinWidth: CGFloat = colInstrument + colCurrency + colLatestPrice + colAsOf + colSource + colAuto + colProvider + colExternalId + colNewPrice + colNewAsOf + colNewSource + colActions + 24
 
     private func formatted(_ v: Double?) -> String {
         guard let v else { return "—" }
@@ -243,14 +336,16 @@ struct InstrumentPricesMaintenanceView: View {
     private func preloadSources() {
         // Prefill provider/externalId/auto from DB for visible rows
         for r in rows {
-            if let cfg = DatabaseManager().getPriceSource(instrumentId: r.id) {
+            if let cfg = dbManager.getPriceSource(instrumentId: r.id) {
                 providerCode[r.id] = cfg.providerCode
                 externalId[r.id] = cfg.externalId
                 autoEnabled[r.id] = cfg.enabled
+                if let st = cfg.lastStatus { lastStatus[r.id] = st } else { lastStatus[r.id] = "" }
             } else {
                 providerCode[r.id] = providerCode[r.id] ?? ""
                 externalId[r.id] = externalId[r.id] ?? ""
                 autoEnabled[r.id] = autoEnabled[r.id] ?? false
+                lastStatus[r.id] = lastStatus[r.id] ?? ""
             }
         }
     }
@@ -261,11 +356,13 @@ struct InstrumentPricesMaintenanceView: View {
         let ext = externalId[r.id] ?? ""
         // Only persist when we have provider and external id (or when disabling)
         if (!prov.isEmpty && !ext.isEmpty) || !enabled {
-            _ = DatabaseManager().upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
+            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
         }
     }
 
     private func fetchLatestEnabled() {
+        // Ensure current provider/externalId selections are persisted before fetching
+        for r in rows { persistSourceIfComplete(r) }
         let records: [PriceSourceRecord] = rows.compactMap { r in
             if autoEnabled[r.id] == true,
                let prov = providerCode[r.id], !prov.isEmpty,
@@ -277,7 +374,12 @@ struct InstrumentPricesMaintenanceView: View {
         guard !records.isEmpty else { return }
         Task {
             let service = PriceUpdateService(dbManager: dbManager)
-            _ = await service.fetchAndUpsert(records)
+            let results = await service.fetchAndUpsert(records)
+            // Snapshot names and providers for the report
+            self.fetchResults = results
+            self.nameByIdSnapshot = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0.name) })
+            self.providerByIdSnapshot = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, providerCode[$0.id] ?? "") })
+            self.activeSheet = .report
             reload()
         }
     }
@@ -299,6 +401,18 @@ struct InstrumentPricesMaintenanceView: View {
                 let ls = a.source ?? ""
                 let rs = b.source ?? ""
                 return sortAscending ? ls < rs : ls > rs
+            case .auto:
+                let la = autoEnabled[a.id] ?? false
+                let lb = autoEnabled[b.id] ?? false
+                if sortAscending { return (la ? 1 : 0) < (lb ? 1 : 0) } else { return (la ? 1 : 0) > (lb ? 1 : 0) }
+            case .autoProvider:
+                let pa = providerCode[a.id] ?? ""
+                let pb = providerCode[b.id] ?? ""
+                return sortAscending ? pa < pb : pa > pb
+            case .manualSource:
+                let msa = editedSource[a.id] ?? "manual"
+                let msb = editedSource[b.id] ?? "manual"
+                return sortAscending ? msa < msb : msa > msb
             }
         }
     }
@@ -327,6 +441,45 @@ struct InstrumentPricesMaintenanceView: View {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
+    }
+
+    private func openHistory(_ instrumentId: Int) { self.activeSheet = .history(instrumentId) }
+
+    // MARK: - Date formatting for "As Of": show dd.MM.yy or dd.MM.yy HH:mm
+    private func formatAsOf(_ s: String?) -> String {
+        guard let s, !s.isEmpty else { return "—" }
+        let tz = TimeZone(identifier: dbManager.defaultTimeZone) ?? .current
+        // Try ISO with fractional seconds
+        if let d = iso8601Formatter().date(from: s) ?? {
+            // Try ISO without fractional seconds
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime]
+            return f.date(from: s)
+        }() ?? {
+            // Try date-only format yyyy-MM-dd
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            return df.date(from: s)
+        }() {
+            let cal = Calendar.current
+            let comps = cal.dateComponents(in: tz, from: d)
+            let hasTime = (comps.hour ?? 0) != 0 || (comps.minute ?? 0) != 0 || (comps.second ?? 0) != 0
+            let out = DateFormatter()
+            out.timeZone = tz
+            out.dateFormat = hasTime ? "dd.MM.yy HH:mm" : "dd.MM.yy"
+            return out.string(from: d)
+        }
+        // Fallback: best-effort transform if matches yyyy-MM-dd
+        if s.count == 10, s[ s.index(s.startIndex, offsetBy: 4) ] == "-" { // naive check
+            let parts = s.split(separator: "-")
+            if parts.count == 3 {
+                let yyyy = parts[0]; let mm = parts[1]; let dd = parts[2]
+                let shortYY = yyyy.suffix(2)
+                return "\(dd).\(mm).\(shortYY)"
+            }
+        }
+        return s
     }
 }
 

@@ -17,6 +17,7 @@ struct DragonShieldApp: App {
         // Register price providers
         PriceProviderRegistry.shared.register(MockPriceProvider())
         PriceProviderRegistry.shared.register(CoinGeckoProvider())
+        PriceProviderRegistry.shared.register(FinnhubProvider())
     }
 
     var body: some Scene {

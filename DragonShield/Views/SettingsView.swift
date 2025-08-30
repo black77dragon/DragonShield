@@ -18,6 +18,8 @@ struct SettingsView: View {
 
     @AppStorage("runStartupHealthChecks")
     private var runStartupHealthChecks: Bool = true
+    @AppStorage("coingeckoPreferFree")
+    private var coingeckoPreferFree: Bool = false
 
 
     private var okCount: Int {
@@ -32,16 +34,33 @@ struct SettingsView: View {
 
     // Local state for text fields to allow temporary editing before committing
     @State private var tempBaseCurrency: String = ""
+    @State private var showLogs: Bool = false
+    @State private var isTestingCG: Bool = false
+    @State private var showCGResult: Bool = false
+    @State private var cgResultMessage: String = ""
     // For steppers/pickers, we can often bind directly to dbManager's @Published vars
 
     var body: some View {
         Form {
             Section(header: Text("Price Providers")) {
                 ProviderKeyRow(label: "CoinGecko API Key", account: "coingecko", placeholder: "Enter CoinGecko key")
+                ProviderKeyRow(label: "Finnhub API Key", account: "finnhub", placeholder: "Enter Finnhub key")
                 ProviderKeyRow(label: "Alpha Vantage API Key", account: "alphavantage", placeholder: "Enter Alpha Vantage key")
                 Text("Keys are stored securely in your macOS Keychain. You can also set environment variables COINGECKO_API_KEY / ALPHAVANTAGE_API_KEY for development.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                Toggle("Prefer Free CoinGecko (don’t use API key)", isOn: $coingeckoPreferFree)
+                    .help("Skips Keychain access and always uses api.coingecko.com. Good for demo/free tier.")
+                Text("Tip: For convenience, keys are cached in-memory and can be stored in UserDefaults (less secure) to avoid repeated Keychain prompts.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                HStack {
+                    Spacer()
+                    Button(action: testCoinGecko) {
+                        if isTestingCG { ProgressView() } else { Text("Test CoinGecko") }
+                    }
+                    Button("View Logs") { showLogs = true }
+                }
             }
             Section(header: Text("General Application Settings")) {
                 HStack {
@@ -143,6 +162,12 @@ struct SettingsView: View {
             GitInfoProvider.debugDump()
             #endif
         }
+        .sheet(isPresented: $showLogs) { LogViewerView().environmentObject(dbManager) }
+        .alert("CoinGecko Test", isPresented: $showCGResult) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(cgResultMessage)
+        }
     }
 }
 
@@ -159,6 +184,34 @@ struct SettingsView_Previews: PreviewProvider {
     }
 }
 
+// MARK: - Test helpers
+extension SettingsView {
+    private func testCoinGecko() {
+        guard !isTestingCG else { return }
+        isTestingCG = true
+        cgResultMessage = ""
+        Task {
+            defer { isTestingCG = false }
+            guard let provider = PriceProviderRegistry.shared.provider(for: "coingecko") else {
+                cgResultMessage = "Provider not found"
+                showCGResult = true
+                return
+            }
+            do {
+                let start = Date()
+                let quote = try await provider.fetchLatest(externalId: "bitcoin", expectedCurrency: "USD")
+                let ms = Int(Date().timeIntervalSince(start) * 1000)
+                cgResultMessage = "Success: price=\(quote.price) \(quote.currency) asOf=\(ISO8601DateFormatter().string(from: quote.asOf)) in \(ms) ms. Check logs for host/pro/ratelimit details."
+            } catch let e as PriceProviderError {
+                cgResultMessage = "Error: \(String(describing: e)). Check logs for details."
+            } catch {
+                cgResultMessage = "Error: \(error.localizedDescription). Check logs for details."
+            }
+            showCGResult = true
+        }
+    }
+}
+
 // MARK: - ProviderKeyRow
 
 private struct ProviderKeyRow: View {
@@ -167,6 +220,7 @@ private struct ProviderKeyRow: View {
     let placeholder: String
     @State private var temp: String = ""
     @State private var saved: Bool = false
+    @State private var storeInUserDefaults: Bool = true
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -176,10 +230,25 @@ private struct ProviderKeyRow: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 260)
                 .onAppear {
-                    temp = KeychainService.get(account: account) ?? (ProcessInfo.processInfo.environment[envKey] ?? "")
+                    // Prefer lightweight sources to avoid prompts; KeychainService.get also caches
+                    if let v = UserDefaults.standard.string(forKey: defaultsKey), !v.isEmpty {
+                        temp = v
+                    } else {
+                        temp = KeychainService.get(account: account) ?? (ProcessInfo.processInfo.environment[envKey] ?? "")
+                    }
                 }
+            Toggle("Store locally (UserDefaults)", isOn: $storeInUserDefaults)
+                .toggleStyle(.switch)
+                .help("Stores the key in app preferences (less secure, avoids Keychain prompts)")
+                .frame(width: 240)
             Button(saved ? "Saved" : "Save") {
-                if !temp.isEmpty { saved = KeychainService.set(temp, account: account) }
+                guard !temp.isEmpty else { return }
+                if storeInUserDefaults {
+                    UserDefaults.standard.set(temp, forKey: defaultsKey)
+                    saved = true
+                } else {
+                    saved = KeychainService.set(temp, account: account)
+                }
             }
             .disabled(temp.isEmpty)
         }
@@ -192,4 +261,6 @@ private struct ProviderKeyRow: View {
         default: return account.uppercased() + "_API_KEY"
         }
     }
+
+    private var defaultsKey: String { "api_key.\(account)" }
 }

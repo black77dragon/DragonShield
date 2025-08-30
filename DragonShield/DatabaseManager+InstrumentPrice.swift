@@ -2,6 +2,14 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
+    struct InstrumentPriceHistoryRow: Identifiable {
+        var id: Int
+        var price: Double
+        var currency: String
+        var source: String?
+        var asOf: String
+        var createdAt: String?
+    }
     struct InstrumentLatestPriceRow: Identifiable {
         var id: Int
         var name: String
@@ -117,7 +125,10 @@ extension DatabaseManager {
     func upsertPrice(instrumentId: Int, price: Double, currency: String, asOf: String, source: String? = nil) -> Bool {
         let sql = "INSERT OR REPLACE INTO InstrumentPrice(instrument_id, price, currency, source, as_of) VALUES (?,?,?,?,?)"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) != SQLITE_OK {
+            LoggingService.shared.log("upsertPrice prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
         defer { sqlite3_finalize(stmt) }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_int(stmt, 1, Int32(instrumentId))
@@ -125,6 +136,39 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 3, currency, -1, SQLITE_TRANSIENT)
         if let s = source { sqlite3_bind_text(stmt, 4, s, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 4) }
         sqlite3_bind_text(stmt, 5, asOf, -1, SQLITE_TRANSIENT)
-        return sqlite3_step(stmt) == SQLITE_DONE
+        let ok = sqlite3_step(stmt) == SQLITE_DONE
+        if !ok {
+            LoggingService.shared.log("upsertPrice step failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        } else {
+            // Notify SwiftUI views bound to DatabaseManager to refresh derived queries
+            DispatchQueue.main.async { [weak self] in self?.objectWillChange.send() }
+        }
+        return ok
+    }
+
+    func listPriceHistory(instrumentId: Int, limit: Int = 20) -> [InstrumentPriceHistoryRow] {
+        let sql = """
+            SELECT id, price, currency, source, as_of, created_at
+              FROM InstrumentPrice
+             WHERE instrument_id = ?
+             ORDER BY as_of DESC
+             LIMIT ?
+        """
+        var stmt: OpaquePointer?
+        var rows: [InstrumentPriceHistoryRow] = []
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+        sqlite3_bind_int(stmt, 2, Int32(limit))
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let price = sqlite3_column_double(stmt, 1)
+            let currency = String(cString: sqlite3_column_text(stmt, 2))
+            let source = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+            let asOf = String(cString: sqlite3_column_text(stmt, 4))
+            let created = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+            rows.append(InstrumentPriceHistoryRow(id: id, price: price, currency: currency, source: source, asOf: asOf, createdAt: created))
+        }
+        return rows
     }
 }

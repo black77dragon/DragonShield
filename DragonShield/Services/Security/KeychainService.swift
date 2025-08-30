@@ -3,8 +3,11 @@ import Security
 
 enum KeychainService {
     static let service = "com.rene.DragonShield.priceproviders"
+    private static var memory: [String: String] = [:]
 
     static func set(_ value: String, account: String) -> Bool {
+        // Cache in memory to avoid repeated keychain prompts during this session.
+        memory[account] = value
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -24,6 +27,14 @@ enum KeychainService {
     }
 
     static func get(account: String) -> String? {
+        // 1) In-memory cache
+        if let v = memory[account] { return v }
+        // 2) UserDefaults lightweight storage (optional, less secure)
+        let defaultsKey = "api_key.\(account)"
+        if let v = UserDefaults.standard.string(forKey: defaultsKey), !v.isEmpty {
+            memory[account] = v
+            return v
+        }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -34,10 +45,12 @@ enum KeychainService {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess, let data = item as? Data, let str = String(data: data, encoding: .utf8) else { return nil }
+        memory[account] = str
         return str
     }
 
     static func delete(account: String) {
+        memory.removeValue(forKey: account)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -46,4 +59,3 @@ enum KeychainService {
         SecItemDelete(query as CFDictionary)
     }
 }
-

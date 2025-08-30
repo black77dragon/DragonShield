@@ -18,4 +18,6 @@ extension Logger {
     static let parser = Logger(subsystem: subsystem, category: "parser")
     /// Logs emitted by database operations.
     static let database = Logger(subsystem: subsystem, category: "database")
+    /// Logs for network/HTTP traffic.
+    static let network = Logger(subsystem: subsystem, category: "network")
 }
