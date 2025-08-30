@@ -623,11 +623,19 @@ private var dangerZone: some View {
 
     private var addSheet: some View {
         VStack(spacing: 0) {
+            HStack {
+                Text("Add Instrument to Portfolio \(name)")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+
             Form {
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 12) {
                     GridRow {
                         Text("Instrument")
-                            .frame(width: labelWidth, alignment: .trailing)
+                            .frame(width: labelWidth, alignment: .leading)
                         VStack(alignment: .leading, spacing: 6) {
                             MacComboBox(
                                 items: availableInstruments.map { $0.name },
@@ -642,12 +650,12 @@ private var dangerZone: some View {
                     }
                     GridRow {
                         Text("Research %")
-                            .frame(width: labelWidth, alignment: .trailing)
+                            .frame(width: labelWidth, alignment: .leading)
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("", value: $addResearchPct, format: .number)
                                 .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 100)
+                                .multilineTextAlignment(.leading)
+                                .frame(width: 120, alignment: .leading)
                             if let err = researchError {
                                 Text(err).foregroundColor(.red)
                             }
@@ -655,12 +663,12 @@ private var dangerZone: some View {
                     }
                     GridRow {
                         Text("User %")
-                            .frame(width: labelWidth, alignment: .trailing)
+                            .frame(width: labelWidth, alignment: .leading)
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("", value: $addUserPct, format: .number)
                                 .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 100)
+                                .multilineTextAlignment(.leading)
+                                .frame(width: 120, alignment: .leading)
                             if let err = userError {
                                 Text(err).foregroundColor(.red)
                             }
@@ -668,8 +676,8 @@ private var dangerZone: some View {
                     }
                     GridRow {
                         Text("Notes")
-                            .frame(width: labelWidth, alignment: .trailing)
-                        TextField("Notes", text: Binding(
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField("", text: Binding(
                             get: { addNotes },
                             set: { newValue in
                                 var trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -700,12 +708,9 @@ private var dangerZone: some View {
         .frame(width: 560)
         .onAppear {
             addUserPct = addResearchPct
-            if let first = availableInstruments.first, addInstrumentId == 0 {
-                addInstrumentQuery = first.name
-                addInstrumentId = first.id
-            } else if let selected = availableInstruments.first(where: { $0.id == addInstrumentId }) {
-                addInstrumentQuery = selected.name
-            }
+            // Start with empty instrument query and no preselection
+            addInstrumentQuery = ""
+            addInstrumentId = 0
         }
     }
 
@@ -823,6 +828,7 @@ private var dangerZone: some View {
     private var researchTotalWarning: Bool { abs(researchTotal - 100.0) > 0.1 }
     private var userTotalWarning: Bool { abs(userTotal - 100.0) > 0.1 }
     private var addValid: Bool {
+        addInstrumentId != 0 &&
         PortfolioThemeAsset.isValidPercentage(addResearchPct) &&
         PortfolioThemeAsset.isValidPercentage(addUserPct)
     }
