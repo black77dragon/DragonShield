@@ -144,6 +144,7 @@ struct PortfolioThemeWorkspaceView: View {
         }
     }
 
+    @State private var holdingsSearch: String = ""
     private var holdingsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -151,7 +152,15 @@ struct PortfolioThemeWorkspaceView: View {
                 Spacer()
                 Button { showClassicDetail = true } label: { Label("Edit in Classic", systemImage: "pencil") }
             }
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil)
+            HStack(spacing: 8) {
+                TextField("Search instruments or notes", text: $holdingsSearch)
+                    .textFieldStyle(.roundedBorder)
+                if !holdingsSearch.isEmpty {
+                    Button("Clear") { holdingsSearch = "" }
+                        .buttonStyle(.link)
+                }
+            }
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch)
                 .environmentObject(dbManager)
         }
         .padding(20)
@@ -376,6 +385,7 @@ private struct HoldingsTable: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
     let isArchived: Bool
+    var search: String = ""
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
@@ -388,7 +398,7 @@ private struct HoldingsTable: View {
                 header
                 ScrollView {
                     LazyVStack(spacing: 4) {
-                        ForEach(rows) { r in
+                        ForEach(filteredRows) { r in
                             HStack(spacing: 8) {
                                 Text(r.instrumentName).frame(maxWidth: .infinity, alignment: .leading).lineLimit(1).truncationMode(.middle)
                                 // Inline edit Research %
@@ -451,6 +461,16 @@ private struct HoldingsTable: View {
     private func fmtPct(_ v: Double?) -> String {
         guard let x = v else { return "—" }
         return String(format: "%.2f", x)
+    }
+    private var filteredRows: [ValuationRow] {
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return rows }
+        let ql = q.lowercased()
+        return rows.filter { r in
+            if r.instrumentName.lowercased().contains(ql) { return true }
+            if let n = r.notes?.lowercased(), n.contains(ql) { return true }
+            return false
+        }
     }
 
     // MARK: - Editing helpers
