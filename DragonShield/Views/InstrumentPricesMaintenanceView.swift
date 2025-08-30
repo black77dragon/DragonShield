@@ -17,6 +17,7 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var loading = false
 
     private enum SortKey: String, CaseIterable { case instrument, currency, price, asOf, source }
+    private let staleOptions: [Int] = [0, 7, 14, 30, 60, 90]
 
     private static let priceFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -78,16 +79,13 @@ struct InstrumentPricesMaintenanceView: View {
                 .onChange(of: showMissingOnly) { _, _ in reload() }
             HStack(spacing: 8) {
                 Text("Stale >")
-                Slider(
-                    value: Binding(
-                        get: { Double(staleDays) },
-                        set: { staleDays = Int($0); reload() }
-                    ),
-                    in: 0...365, step: 1
-                )
-                .frame(width: 160)
-                Text("\(staleDays) day\(staleDays == 1 ? "" : "s")")
-                    .frame(width: 70, alignment: .leading)
+                Picker("", selection: $staleDays) {
+                    ForEach(staleOptions, id: \.self) { d in
+                        Text(staleLabel(d)).tag(d)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: staleDays) { _, _ in reload() }
             }
             Spacer()
             Picker("Sort", selection: $sortKey) {
@@ -176,6 +174,8 @@ struct InstrumentPricesMaintenanceView: View {
         guard let v else { return "—" }
         return Self.priceFormatter.string(from: NSNumber(value: v)) ?? String(format: "%.2f", v)
     }
+
+    private func staleLabel(_ d: Int) -> String { d == 0 ? "0" : "\(d)d" }
 
     private func distinctCurrencies() -> [String] {
         let set = Set(rows.map { $0.currency.uppercased() })
