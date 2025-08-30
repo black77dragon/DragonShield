@@ -36,11 +36,11 @@ struct LogViewerView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Successful Price Updates (parsed)").font(.headline)
                     HStack {
-                        Text("Instrument").frame(width: 220, alignment: .leading)
-                        Text("Price").frame(width: 120, alignment: .trailing)
-                        Text("Curr").frame(width: 60, alignment: .leading)
-                        Text("As Of").frame(width: 200, alignment: .leading)
-                        Text("Source").frame(width: 120, alignment: .leading)
+                        Text("Instrument").frame(width: 320, alignment: .leading)
+                        Text("Price").frame(width: 140, alignment: .trailing)
+                        Text("Curr").frame(width: 70, alignment: .leading)
+                        Text("As Of").frame(width: 320, alignment: .leading)
+                        Text("Source").frame(width: 160, alignment: .leading)
                         Spacer()
                     }
                     .font(.caption)
@@ -49,11 +49,11 @@ struct LogViewerView: View {
                         LazyVStack(alignment: .leading, spacing: 4) {
                             ForEach(updates) { u in
                                 HStack {
-                                    Text("\(u.name) (#\(u.instrumentId))").frame(width: 220, alignment: .leading)
-                                    Text(String(format: "%.4f", u.price)).frame(width: 120, alignment: .trailing).monospacedDigit()
-                                    Text(u.currency).frame(width: 60, alignment: .leading)
-                                    Text(u.asOf).frame(width: 200, alignment: .leading)
-                                    Text(u.source).frame(width: 120, alignment: .leading)
+                                    Text("\(u.name) (#\(u.instrumentId))").frame(width: 320, alignment: .leading)
+                                    Text(String(format: "%.4f", u.price)).frame(width: 140, alignment: .trailing).monospacedDigit()
+                                    Text(u.currency).frame(width: 70, alignment: .leading)
+                                    Text(u.asOf).frame(width: 320, alignment: .leading)
+                                    Text(u.source).frame(width: 160, alignment: .leading)
                                     Spacer()
                                 }
                                 .font(.system(size: 12))
@@ -74,7 +74,7 @@ struct LogViewerView: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
         }
         .padding(16)
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 1100, minHeight: 650)
         .onAppear(perform: loadLogs)
     }
 
