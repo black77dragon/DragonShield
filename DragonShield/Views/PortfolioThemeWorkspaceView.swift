@@ -47,6 +47,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var valuation: ValuationSnapshot?
     @State private var loadingValuation = false
     @State private var showClassicDetail = false
+    @State private var instrumentCurrencies: [Int: String] = [:]
 
     // Meta editing (Settings tab)
     @State private var name: String = ""
@@ -89,6 +90,7 @@ struct PortfolioThemeWorkspaceView: View {
             selectedTab = WorkspaceTab(rawValue: lastTabRaw) ?? .overview
             loadTheme()
             runValuation()
+            loadInstrumentCurrencies()
         }
         .onChange(of: selectedTab) { _, newValue in
             lastTabRaw = newValue.rawValue
@@ -221,6 +223,8 @@ struct PortfolioThemeWorkspaceView: View {
                     .foregroundColor(.secondary)
                 #if canImport(Charts)
                 actualAllocationDonut
+                contributionBars
+                currencyExposureDonut
                 #endif
             }
             .padding(20)
@@ -336,6 +340,59 @@ struct PortfolioThemeWorkspaceView: View {
             .frame(minWidth: 360, maxWidth: .infinity, minHeight: 320)
         }
     }
+
+    private var contributionBars: some View {
+        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+        let top = rows.sorted { $0.currentValueBase > $1.currentValueBase }.prefix(12)
+        struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
+        let items = top.map { Item(name: $0.instrumentName, value: $0.currentValueBase) }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Top Contribution (\(dbManager.baseCurrency))").font(.title3).bold()
+            Chart(items) { it in
+                BarMark(x: .value("Value", it.value), y: .value("Instrument", it.name))
+                    .foregroundStyle(Theme.primaryAccent)
+            }
+            .chartXAxisLabel(dbManager.baseCurrency, alignment: .trailing)
+            .frame(minHeight: 280)
+        }
+    }
+
+    private var currencyExposureDonut: some View {
+        // Aggregate by instrument currency
+        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+        var buckets: [String: Double] = [:]
+        for r in rows {
+            let cur = instrumentCurrencies[r.instrumentId] ?? "—"
+            buckets[cur, default: 0] += r.currentValueBase
+        }
+        let data = buckets.map { (currency: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
+        let names = data.map { $0.currency }
+        let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
+        let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Currency Exposure").font(.title3).bold()
+            HStack(alignment: .top, spacing: 16) {
+                Chart(data, id: \.currency) { row in
+                    SectorMark(angle: .value("Value", row.value), innerRadius: .ratio(0.55), angularInset: 1.5)
+                        .foregroundStyle(by: .value("Currency", row.currency))
+                }
+                .chartForegroundStyleScale(domain: names, range: colors)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartLegend(.hidden)
+                .frame(height: 280)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(names.enumerated()), id: \.0) { idx, name in
+                        HStack(spacing: 8) {
+                            Circle().fill(colors[idx]).frame(width: 10, height: 10)
+                            Text(name).font(.caption)
+                        }
+                    }
+                }
+                .frame(width: 160)
+            }
+        }
+    }
     #endif
 
     // MARK: - Data
@@ -393,6 +450,14 @@ struct PortfolioThemeWorkspaceView: View {
         if s.count <= max { return s }
         let head = s.prefix(max - 1)
         return head + "…"
+    }
+
+    private func loadInstrumentCurrencies() {
+        var map: [Int: String] = [:]
+        for row in dbManager.fetchAssets() {
+            map[row.id] = row.currency
+        }
+        instrumentCurrencies = map
     }
 }
 
