@@ -36,6 +36,13 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section(header: Text("Price Providers")) {
+                ProviderKeyRow(label: "CoinGecko API Key", account: "coingecko", placeholder: "Enter CoinGecko key")
+                ProviderKeyRow(label: "Alpha Vantage API Key", account: "alphavantage", placeholder: "Enter Alpha Vantage key")
+                Text("Keys are stored securely in your macOS Keychain. You can also set environment variables COINGECKO_API_KEY / ALPHAVANTAGE_API_KEY for development.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             Section(header: Text("General Application Settings")) {
                 HStack {
                     Text("Base Currency")
@@ -149,5 +156,40 @@ struct SettingsView_Previews: PreviewProvider {
         return SettingsView()
             .environmentObject(dbManager)
             .environmentObject(runner)
+    }
+}
+
+// MARK: - ProviderKeyRow
+
+private struct ProviderKeyRow: View {
+    let label: String
+    let account: String
+    let placeholder: String
+    @State private var temp: String = ""
+    @State private var saved: Bool = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+            Spacer()
+            SecureField(placeholder, text: $temp)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 260)
+                .onAppear {
+                    temp = KeychainService.get(account: account) ?? (ProcessInfo.processInfo.environment[envKey] ?? "")
+                }
+            Button(saved ? "Saved" : "Save") {
+                if !temp.isEmpty { saved = KeychainService.set(temp, account: account) }
+            }
+            .disabled(temp.isEmpty)
+        }
+    }
+
+    private var envKey: String {
+        switch account.lowercased() {
+        case "coingecko": return "COINGECKO_API_KEY"
+        case "alphavantage": return "ALPHAVANTAGE_API_KEY"
+        default: return account.uppercased() + "_API_KEY"
+        }
     }
 }

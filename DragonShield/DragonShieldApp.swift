@@ -14,6 +14,9 @@ struct DragonShieldApp: App {
         _assetManager = StateObject(wrappedValue: AssetManager())
         HealthCheckRegistry.register(DatabaseFileHealthCheck(pathProvider: { dbManager.dbFilePath }))
         _healthRunner = StateObject(wrappedValue: HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks()))
+        // Register price providers
+        PriceProviderRegistry.shared.register(MockPriceProvider())
+        PriceProviderRegistry.shared.register(CoinGeckoProvider())
     }
 
     var body: some Scene {

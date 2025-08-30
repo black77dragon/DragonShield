@@ -120,7 +120,7 @@ struct InstrumentPricesMaintenanceView: View {
 
     private var headerRow: some View {
         HStack {
-            Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
+            Text("Instrument").frame(minWidth: 240, maxWidth: .infinity, alignment: .leading)
             Text("Currency").frame(width: 70, alignment: .leading)
             Text("Latest Price").frame(width: 140, alignment: .trailing)
             Text("As Of").frame(width: 160, alignment: .leading)
@@ -150,7 +150,8 @@ struct InstrumentPricesMaintenanceView: View {
                     if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary) }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 240, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
             Text(r.currency).frame(width: 70, alignment: .leading)
             Text(formatted(r.latestPrice)).frame(width: 140, alignment: .trailing).monospacedDigit()
             Text(r.asOf ?? "—").frame(width: 160, alignment: .leading)
