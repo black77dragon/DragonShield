@@ -48,6 +48,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var loadingValuation = false
     @State private var showClassicDetail = false
     @State private var instrumentCurrencies: [Int: String] = [:]
+    @State private var instrumentSectors: [Int: String] = [:]
 
     // Meta editing (Settings tab)
     @State private var name: String = ""
@@ -192,27 +193,16 @@ struct PortfolioThemeWorkspaceView: View {
                     Button("Clear") { holdingsSearch = "" }
                         .buttonStyle(.link)
                 }
-                Divider().frame(height: 18)
-                Button("Set %…") { showBulkSet = true }
-                    .disabled((theme?.archivedAt != nil) || bulkSelection.isEmpty)
-                Button("Remove Selected") { confirmBulkRemove = true }
-                    .foregroundColor(.red)
-                    .disabled((theme?.archivedAt != nil) || bulkSelection.isEmpty)
             }
             // Hidden shortcut to focus search (Cmd-F)
             Button("") { focusHoldingsSearch = true }
                 .keyboardShortcut("f", modifiers: .command)
                 .hidden()
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns, selection: $bulkSelection)
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns)
                 .environmentObject(dbManager)
         }
         .padding(20)
         .onAppear(perform: restoreHoldingsColumns)
-        .sheet(isPresented: $showBulkSet) { bulkSetSheet }
-        .confirmationDialog("Remove selected instruments from this theme?", isPresented: $confirmBulkRemove, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) { performBulkRemove() }
-            Button("Cancel", role: .cancel) { }
-        }
     }
 
     private func persistHoldingsColumns() {
@@ -225,62 +215,7 @@ struct PortfolioThemeWorkspaceView: View {
         if !set.isEmpty { holdingsColumns = set }
     }
 
-    // MARK: - Bulk actions (2G)
-    @State private var bulkSelection: Set<Int> = [] // instrumentIds
-    @State private var showBulkSet = false
-    @State private var confirmBulkRemove = false
-    @State private var bulkResearch: Double? = nil
-    @State private var bulkUser: Double? = nil
-    private var bulkSetSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Set Percentages for \(bulkSelection.count) instruments").font(.headline)
-            Text("Leave a field empty to skip updating it.").font(.caption).foregroundColor(.secondary)
-            HStack {
-                Text("Research %").frame(width: 100, alignment: .leading)
-                TextField("—", value: Binding(get: { bulkResearch }, set: { bulkResearch = $0 }), format: .number)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-            }
-            HStack {
-                Text("User %").frame(width: 100, alignment: .leading)
-                TextField("—", value: Binding(get: { bulkUser }, set: { bulkUser = $0 }), format: .number)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-            }
-            HStack {
-                Spacer()
-                Button("Cancel") { showBulkSet = false }
-                Button("Apply") { performBulkSet() }.keyboardShortcut(.defaultAction)
-                    .disabled(bulkResearch == nil && bulkUser == nil)
-            }
-        }
-        .padding(20)
-        .frame(width: 420)
-    }
-    private func performBulkSet() {
-        let r = bulkResearch
-        let u = bulkUser
-        let ids = bulkSelection
-        guard !(r == nil && u == nil) else { return }
-        DispatchQueue.global(qos: .userInitiated).async {
-            for id in ids {
-                _ = dbManager.updateThemeAsset(themeId: themeId, instrumentId: id, researchPct: r, userPct: u, notes: nil)
-            }
-            DispatchQueue.main.async {
-                showBulkSet = false
-                bulkResearch = nil
-                bulkUser = nil
-                bulkSelection.removeAll()
-            }
-        }
-    }
-    private func performBulkRemove() {
-        let ids = bulkSelection
-        DispatchQueue.global(qos: .userInitiated).async {
-            for id in ids { _ = dbManager.removeThemeAsset(themeId: themeId, instrumentId: id) }
-            DispatchQueue.main.async { bulkSelection.removeAll() }
-        }
-    }
+    // Bulk actions removed per request
 
     private var analyticsTab: some View {
         ScrollView {
@@ -293,6 +228,7 @@ struct PortfolioThemeWorkspaceView: View {
                 actualAllocationDonut
                 contributionBars
                 currencyExposureDonut
+                sectorExposureBars
                 #endif
             }
             .padding(20)
@@ -461,6 +397,25 @@ struct PortfolioThemeWorkspaceView: View {
             }
         }
     }
+
+    private var sectorExposureBars: some View {
+        // Aggregate by sector (fallback "Unknown")
+        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+        var buckets: [String: Double] = [:]
+        for r in rows {
+            let sec = (instrumentSectors[r.instrumentId] ?? "Unknown").trimmingCharacters(in: .whitespacesAndNewlines)
+            buckets[sec.isEmpty ? "Unknown" : sec, default: 0] += r.currentValueBase
+        }
+        struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
+        let items = buckets.map { Item(name: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Sector Exposure (\(dbManager.baseCurrency))").font(.title3).bold()
+            Chart(items) { it in
+                BarMark(x: .value("Value", it.value), y: .value("Sector", it.name))
+            }
+            .frame(minHeight: 280)
+        }
+    }
     #endif
 
     // MARK: - Data
@@ -485,6 +440,7 @@ struct PortfolioThemeWorkspaceView: View {
             await MainActor.run {
                 self.valuation = snap
                 self.loadingValuation = false
+                self.loadInstrumentSectors()
             }
         }
     }
@@ -527,6 +483,16 @@ struct PortfolioThemeWorkspaceView: View {
         }
         instrumentCurrencies = map
     }
+
+    private func loadInstrumentSectors() {
+        var map: [Int: String] = [:]
+        for id in valuation?.rows.map({ $0.instrumentId }) ?? [] {
+            if let d = dbManager.fetchInstrumentDetails(id: id) {
+                map[id] = d.sector ?? ""
+            }
+        }
+        instrumentSectors = map
+    }
 }
 
 // MARK: - Simple KPI view
@@ -566,7 +532,6 @@ private struct HoldingsTable: View {
     let isArchived: Bool
     var search: String = ""
     var columns: Set<Column>
-    @Binding var selection: Set<Int>
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
@@ -590,19 +555,13 @@ private struct HoldingsTable: View {
                     LazyVStack(spacing: 4) {
                         ForEach(sortedRows) { r in
                             HStack(spacing: 8) {
-                                // Selection checkbox
-                                Toggle(isOn: Binding(
-                                    get: { selection.contains(r.instrumentId) },
-                                    set: { on in if on { selection.insert(r.instrumentId) } else { selection.remove(r.instrumentId) } }
-                                )) { EmptyView() }
-                                .toggleStyle(.checkbox)
-                                .frame(width: selWidth, alignment: .leading)
-                                .disabled(isArchived)
                                 if columns.contains(.instrument) {
                                     Text(r.instrumentName)
-                                        .frame(width: instrumentWidth, alignment: .leading)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
+                                        .padding(6)
+                                        .frame(width: instrumentWidth, alignment: .leading)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
                                 }
                                 if columns.contains(.research) {
                                     TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
@@ -630,7 +589,9 @@ private struct HoldingsTable: View {
                                 if columns.contains(.notes) {
                                     TextField("Notes", text: bindingNotes(for: r.instrumentId))
                                         .textFieldStyle(.roundedBorder)
+                                        .padding(.vertical, 2)
                                         .frame(width: notesWidth, alignment: .leading)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
@@ -646,13 +607,12 @@ private struct HoldingsTable: View {
     }
 
     private let numWidth: CGFloat = 80
-    private let selWidth: CGFloat = 24
     private var instrumentWidth: CGFloat {
         let c = columns
         let spacing: CGFloat = 8
         let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
-        let fixedWidth = CGFloat(fixedCount) * numWidth + selWidth
-        let visibleCount = 1 /* select */ + (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
+        let fixedWidth = CGFloat(fixedCount) * numWidth
+        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
         let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
         let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
         let instrumentShare: CGFloat = (c.contains(.instrument) && c.contains(.notes)) ? 0.7 : 1.0
@@ -662,8 +622,8 @@ private struct HoldingsTable: View {
         let c = columns
         let spacing: CGFloat = 8
         let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
-        let fixedWidth = CGFloat(fixedCount) * numWidth + selWidth
-        let visibleCount = 1 /* select */ + (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
+        let fixedWidth = CGFloat(fixedCount) * numWidth
+        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
         let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
         let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
         if !c.contains(.notes) { return 0 }
@@ -673,16 +633,6 @@ private struct HoldingsTable: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Toggle(isOn: Binding(
-                get: { !filteredRows.isEmpty && filteredRows.allSatisfy { selection.contains($0.instrumentId) } },
-                set: { on in
-                    if on { selection.formUnion(filteredRows.map { $0.instrumentId }) }
-                    else { selection.subtract(filteredRows.map { $0.instrumentId }) }
-                }
-            )) { EmptyView() }
-            .toggleStyle(.checkbox)
-            .frame(width: selWidth, alignment: .leading)
-            .disabled(isArchived)
             if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(width: instrumentWidth, alignment: .leading) }
             if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: numWidth, alignment: .trailing) }
             if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: numWidth, alignment: .trailing) }
