@@ -4,10 +4,34 @@ set -euo pipefail
 # This script embeds Git metadata (tag/branch/commit) into the built Info.plist.
 # Xcode Run Script Phase: add `${SRCROOT}/scripts/embed_git_info.sh` above Compile Sources.
 
-PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+# Determine target Info.plist path.
+# Priority:
+# 1) Positional argument pointing to .app bundle or Info.plist file
+# 2) Xcode env vars TARGET_BUILD_DIR + INFOPLIST_PATH
+# If neither available, exit with guidance.
+
+PLIST_ARG_PATH="${1:-}"
+
+if [[ -n "$PLIST_ARG_PATH" ]]; then
+  if [[ -d "$PLIST_ARG_PATH" && "$PLIST_ARG_PATH" == *.app ]]; then
+    PLIST="$PLIST_ARG_PATH/Contents/Info.plist"
+  else
+    PLIST="$PLIST_ARG_PATH"
+  fi
+else
+  TB_DIR="${TARGET_BUILD_DIR:-}"
+  IP_PATH="${INFOPLIST_PATH:-}"
+  if [[ -n "$TB_DIR" && -n "$IP_PATH" ]]; then
+    PLIST="$TB_DIR/$IP_PATH"
+  else
+    echo "[git-info] No Info.plist path. Pass an .app bundle or Info.plist as argument, or run from Xcode with TARGET_BUILD_DIR/INFOPLIST_PATH set."
+    exit 2
+  fi
+fi
+
 PLISTBUDDY="/usr/libexec/PlistBuddy"
 
-echo "[git-info] CONFIGURATION=$CONFIGURATION TARGET_BUILD_DIR=$TARGET_BUILD_DIR"
+echo "[git-info] CONFIGURATION=${CONFIGURATION:-"(unset)"} TARGET_BUILD_DIR=${TARGET_BUILD_DIR:-"(unset)"}"
 echo "[git-info] SRCROOT=${SRCROOT:-"(unset)"}"
 echo "[git-info] INFO PLIST: $PLIST"
 
@@ -72,7 +96,7 @@ echo "[git-info] Verifying keys in built Info.plist:"
 "$PLISTBUDDY" -c "Print :GIT_COMMIT" "$PLIST" 2>/dev/null || echo "(no GIT_COMMIT)"
 
 # Emit a stamp file so the phase can declare a unique output (avoids multiple producers for Info.plist)
-STAMP_DIR="${DERIVED_FILE_DIR:-$TARGET_BUILD_DIR}"
+STAMP_DIR="${DERIVED_FILE_DIR:-${TARGET_BUILD_DIR:-$(dirname "$PLIST")}}"
 STAMP_FILE="$STAMP_DIR/git_info.stamp"
 mkdir -p "$STAMP_DIR" || true
 echo "tag=$git_tag branch=$git_branch commit=$git_commit" > "$STAMP_FILE"

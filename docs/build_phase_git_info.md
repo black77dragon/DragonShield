@@ -57,4 +57,20 @@ That’s it. On each build, the script reads Git details and writes them into th
  - Only mutates the built product’s Info.plist (not your source plist).
  - Adds keys if missing, otherwise updates them.
  
- If you use CI, make sure the checkout includes `.git` for tags/branches, or set environment variables to provide the values and tweak the script accordingly.
+If you use CI, make sure the checkout includes `.git` for tags/branches, or set environment variables to provide the values and tweak the script accordingly.
+
+## Manual usage (outside Xcode)
+
+If you want to test the script locally without Xcode env vars, pass your built app or Info.plist path:
+
+```
+# From repo root, after building in Xcode (Debug scheme)
+./scripts/embed_git_info.sh \
+  "$HOME/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/DragonShield.app"
+
+# Or pass the exact Info.plist file
+./scripts/embed_git_info.sh \
+  "$HOME/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/DragonShield.app/Contents/Info.plist"
+```
+
+The script will log [git-info] lines and update the passed Info.plist accordingly.
