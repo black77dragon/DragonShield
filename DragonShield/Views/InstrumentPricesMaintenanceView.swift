@@ -75,7 +75,7 @@ struct InstrumentPricesMaintenanceView: View {
                 Label(currencyFilters.isEmpty ? "Currencies" : "\(currencyFilters.count) Currencies", systemImage: "line.3.horizontal.decrease.circle")
             }
             Toggle("Missing only", isOn: $showMissingOnly)
-                .onChange(of: showMissingOnly) { _ in reload() }
+                .onChange(of: showMissingOnly) { _, _ in reload() }
             HStack(spacing: 8) {
                 Text("Stale >")
                 Slider(

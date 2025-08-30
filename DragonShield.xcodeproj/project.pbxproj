@@ -87,6 +87,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B3933B1E2D98475C00DDA4C2 /* Build configuration list for PBXNativeTarget "DragonShield" */;
 			buildPhases = (
+				B3BFC0002E62B141001E6994 /* ShellScript */,
 				B3933B0B2D98475A00DDA4C2 /* Sources */,
 				B3933B0C2D98475A00DDA4C2 /* Frameworks */,
 				B3933B0D2D98475A00DDA4C2 /* Resources */,
@@ -153,6 +154,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B3BFC0002E62B141001E6994 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/zsh;
+			shellScript = "${SRCROOT}/scripts/embed_git_info.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		B3933B0B2D98475A00DDA4C2 /* Sources */ = {

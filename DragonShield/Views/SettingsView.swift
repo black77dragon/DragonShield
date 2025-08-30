@@ -132,6 +132,9 @@ struct SettingsView: View {
         .onAppear {
             // Initialize temp states from dbManager's @Published properties
             tempBaseCurrency = dbManager.baseCurrency
+            #if DEBUG
+            GitInfoProvider.debugDump()
+            #endif
         }
     }
 }

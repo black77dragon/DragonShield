@@ -7,8 +7,12 @@ set -euo pipefail
 PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
 PLISTBUDDY="/usr/libexec/PlistBuddy"
 
+echo "[git-info] CONFIGURATION=$CONFIGURATION TARGET_BUILD_DIR=$TARGET_BUILD_DIR"
+echo "[git-info] SRCROOT=$SRCROOT"
+echo "[git-info] INFO PLIST: $PLIST"
+
 if [[ ! -f "$PLIST" ]]; then
-  echo "Info.plist not found at $PLIST"
+  echo "[git-info] Info.plist not found at $PLIST"
   exit 0
 fi
 
@@ -21,6 +25,9 @@ if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; th
   git_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
   git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
   git_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+  echo "[git-info] git repo detected. tag='$git_tag' branch='$git_branch' commit='$git_commit'"
+else
+  echo "[git-info] no git repo detected; skipping git commands"
 fi
 
 set_key() {
@@ -43,5 +50,9 @@ if [[ -n "$git_commit" ]]; then
   set_key GIT_COMMIT "$git_commit"
 fi
 
-echo "Embedded Git info → tag='$git_tag' branch='$git_branch' commit='$git_commit'"
+echo "[git-info] Embedded Git info → tag='$git_tag' branch='$git_branch' commit='$git_commit'"
 
+echo "[git-info] Verifying keys in built Info.plist:"
+"$PLISTBUDDY" -c "Print :GIT_TAG" "$PLIST" 2>/dev/null || echo "(no GIT_TAG)"
+"$PLISTBUDDY" -c "Print :GIT_BRANCH" "$PLIST" 2>/dev/null || echo "(no GIT_BRANCH)"
+"$PLISTBUDDY" -c "Print :GIT_COMMIT" "$PLIST" 2>/dev/null || echo "(no GIT_COMMIT)"

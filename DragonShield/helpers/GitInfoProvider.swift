@@ -43,6 +43,20 @@ enum GitInfoProvider {
         return "Version \(ver)"
     }
 
+    #if DEBUG
+    static func debugDump() {
+        let bundlePath = Bundle.main.bundlePath
+        let plistVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "(nil)"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "(nil)"
+        let tagKey = Bundle.main.object(forInfoDictionaryKey: "GIT_TAG") as? String ?? "(nil)"
+        let branchKey = Bundle.main.object(forInfoDictionaryKey: "GIT_BRANCH") as? String ?? "(nil)"
+        let commitKey = Bundle.main.object(forInfoDictionaryKey: "GIT_COMMIT") as? String ?? "(nil)"
+        print("[GitInfoProvider] bundle=\(bundlePath) plistVersion=\(plistVersion) build=\(build)")
+        print("[GitInfoProvider] Info.plist keys → GIT_TAG=\(tagKey) GIT_BRANCH=\(branchKey) GIT_COMMIT=\(commitKey)")
+        print("[GitInfoProvider] Derived → tag=\(tag ?? "(nil)") branch=\(branch ?? "(nil)") commit=\(commitShort ?? "(nil)") displayVersion=\(displayVersion)")
+    }
+    #endif
+
     private static func runGit(_ args: [String]) -> String? {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -62,4 +76,3 @@ enum GitInfoProvider {
         return out
     }
 }
-

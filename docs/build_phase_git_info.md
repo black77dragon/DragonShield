@@ -16,19 +16,27 @@
  3) Click the `+` button in the top-left and choose “New Run Script Phase”.
  4) Drag the new script phase above “Compile Sources”.
  5) Set its shell to `/bin/zsh` (or `/bin/bash`).
- 6) Paste the following line into the script box:
+6) Paste the following line into the script box:
  
  ```
  ${SRCROOT}/scripts/embed_git_info.sh
  ```
  
- 7) Ensure the script has execute permission:
+7) Ensure the script has execute permission:
  
  ```
  chmod +x scripts/embed_git_info.sh
  ```
  
- That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, `GitInfoProvider` will prefer these keys and display:
+8) Optional: Add an Output File to silence Xcode’s warning and help incremental builds:
+
+```
+$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+```
+
+Alternatively, uncheck “Based on dependency analysis” to force the script every build.
+
+That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, `GitInfoProvider` will prefer these keys and display:
  
  - Version: Git tag (or marketing version) + build number
  - Branch: current Git branch beneath the version
