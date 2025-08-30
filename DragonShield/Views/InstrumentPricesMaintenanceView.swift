@@ -21,7 +21,9 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var lastStatus: [Int: String] = [:]
     private let providerOptions: [String] = ["coingecko", "finnhub", "yahoo", "alphavantage", "mock"]
     @State private var loading = false
-    private enum ActiveSheet: Identifiable { case logs, history(Int), report; var id: String { switch self { case .logs: return "logs"; case .history(let i): return "history_\(i)"; case .report: return "report" } } }
+    // Debounce for live search typing
+    @State private var searchDebounce: DispatchWorkItem? = nil
+    private enum ActiveSheet: Identifiable { case logs, history(Int), report, symbolHelp; var id: String { switch self { case .logs: return "logs"; case .history(let i): return "history_\(i)"; case .report: return "report"; case .symbolHelp: return "symbol_help" } } }
     @State private var activeSheet: ActiveSheet? = nil
     // Report sheet state
     @State private var fetchResults: [PriceUpdateService.ResultItem] = []
@@ -75,6 +77,8 @@ struct InstrumentPricesMaintenanceView: View {
                     providerById: providerByIdSnapshot,
                     timeZoneId: dbManager.defaultTimeZone
                 )
+            case .symbolHelp:
+                SymbolFormatHelpView()
             }
         }
     }
@@ -92,6 +96,7 @@ struct InstrumentPricesMaintenanceView: View {
             Button("Fetch Latest (Enabled)") { fetchLatestEnabled() }
                 .disabled(rows.isEmpty)
             Button("View Logs") { activeSheet = .logs }
+            Button("Symbol Formats") { activeSheet = .symbolHelp }
         }
     }
 
@@ -100,6 +105,13 @@ struct InstrumentPricesMaintenanceView: View {
             TextField("Search instruments, ticker, ISIN, valor", text: $searchText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { reload() }
+                .onChange(of: searchText) { _, _ in
+                    // Debounce to avoid requerying on every keystroke
+                    searchDebounce?.cancel()
+                    let task = DispatchWorkItem { reload() }
+                    searchDebounce = task
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: task)
+                }
                 .frame(minWidth: 320)
             Menu {
                 ForEach(distinctCurrencies(), id: \.self) { cur in
