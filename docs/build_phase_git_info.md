@@ -28,18 +28,25 @@
  chmod +x scripts/embed_git_info.sh
  ```
  
-8) Optional: Add an Output File to silence Xcode’s warning and help incremental builds:
+8) Inputs/Outputs to avoid build warnings and conflicts:
 
-```
-$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
-```
+- Input Files (optional, improves dependency tracking):
+  - $(SRCROOT)/scripts/embed_git_info.sh
+  - $(INFOPLIST_FILE)
 
-Alternatively, uncheck “Based on dependency analysis” to force the script every build.
+- Output Files (use our stamp file — do NOT use Info.plist here):
+  - $(DERIVED_FILE_DIR)/git_info.stamp
+
+Using Info.plist as an output causes “Multiple commands produce ... Info.plist” because Xcode’s ProcessInfoPlist also declares that path. The stamp avoids conflicts.
+
+Alternatively, uncheck “Based on dependency analysis” to force-run every build.
 
 9) Make sure the script runs for Debug builds:
    - Uncheck “For install builds only” so the phase executes on normal Run/Debug builds as well.
 
-That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, `GitInfoProvider` will prefer these keys and display:
+Order: place this Run Script phase towards the end (below “Copy Bundle Resources”), so the built Info.plist exists when the script runs.
+
+That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, GitInfoProvider will prefer these keys and display:
  
  - Version: Git tag (or marketing version) + build number
  - Branch: current Git branch beneath the version

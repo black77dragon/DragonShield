@@ -70,3 +70,10 @@ echo "[git-info] Verifying keys in built Info.plist:"
 "$PLISTBUDDY" -c "Print :GIT_TAG" "$PLIST" 2>/dev/null || echo "(no GIT_TAG)"
 "$PLISTBUDDY" -c "Print :GIT_BRANCH" "$PLIST" 2>/dev/null || echo "(no GIT_BRANCH)"
 "$PLISTBUDDY" -c "Print :GIT_COMMIT" "$PLIST" 2>/dev/null || echo "(no GIT_COMMIT)"
+
+# Emit a stamp file so the phase can declare a unique output (avoids multiple producers for Info.plist)
+STAMP_DIR="${DERIVED_FILE_DIR:-$TARGET_BUILD_DIR}"
+STAMP_FILE="$STAMP_DIR/git_info.stamp"
+mkdir -p "$STAMP_DIR" || true
+echo "tag=$git_tag branch=$git_branch commit=$git_commit" > "$STAMP_FILE"
+echo "[git-info] Wrote stamp file: $STAMP_FILE"
