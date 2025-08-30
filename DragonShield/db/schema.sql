@@ -1423,6 +1423,51 @@ CREATE TABLE IF NOT EXISTS "PortfolioThemeAssetUpdate" (
 );
 CREATE INDEX idx_ptau_theme_instr_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
 CREATE INDEX idx_ptau_theme_instr_pinned_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
+CREATE TABLE InstrumentPrice (
+  id            INTEGER PRIMARY KEY,
+  instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE CASCADE,
+  price         REAL    NOT NULL,
+  currency      TEXT    NOT NULL,
+  source        TEXT    NOT NULL DEFAULT '',
+  as_of         TEXT    NOT NULL,
+  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX uq_instr_price_key ON InstrumentPrice(instrument_id, as_of, source);
+CREATE INDEX idx_instr_price_latest ON InstrumentPrice(instrument_id, as_of DESC);
+CREATE VIEW InstrumentPriceLatest AS
+SELECT ip1.instrument_id, ip1.price, ip1.currency, ip1.source, ip1.as_of
+FROM InstrumentPrice ip1
+WHERE ip1.as_of = (
+  SELECT MAX(ip2.as_of)
+  FROM InstrumentPrice ip2
+  WHERE ip2.instrument_id = ip1.instrument_id
+)
+/* InstrumentPriceLatest(instrument_id,price,currency,source,as_of) */;
+CREATE TABLE InstrumentPriceSource (
+  id             INTEGER PRIMARY KEY,
+  instrument_id  INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE CASCADE,
+  provider_code  TEXT    NOT NULL,
+  external_id    TEXT    NOT NULL,
+  enabled        INTEGER NOT NULL DEFAULT 1,
+  priority       INTEGER NOT NULL DEFAULT 1,
+  last_status    TEXT    NULL,
+  last_checked_at TEXT   NULL,
+  created_at     TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at     TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX uq_price_source_instrument_provider
+  ON InstrumentPriceSource(instrument_id, provider_code);
+CREATE INDEX idx_price_source_provider
+  ON InstrumentPriceSource(provider_code, enabled, priority);
+CREATE TABLE InstrumentPriceFetchLog (
+  id             INTEGER PRIMARY KEY,
+  instrument_id  INTEGER,
+  provider_code  TEXT,
+  external_id    TEXT,
+  status         TEXT NOT NULL,
+  message        TEXT,
+  created_at     TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -1450,4 +1495,6 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('023'),
   ('024'),
   ('025'),
-  ('026');
+  ('026'),
+  ('028'),
+  ('029');

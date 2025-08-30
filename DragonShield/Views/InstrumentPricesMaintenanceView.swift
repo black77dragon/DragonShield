@@ -242,7 +242,7 @@ struct InstrumentPricesMaintenanceView: View {
     private func preloadSources() {
         // Prefill provider/externalId/auto from DB for visible rows
         for r in rows {
-            if let cfg = dbManager.getPriceSource(instrumentId: r.id) {
+            if let cfg = DatabaseManager().getPriceSource(instrumentId: r.id) {
                 providerCode[r.id] = cfg.providerCode
                 externalId[r.id] = cfg.externalId
                 autoEnabled[r.id] = cfg.enabled
@@ -260,7 +260,7 @@ struct InstrumentPricesMaintenanceView: View {
         let ext = externalId[r.id] ?? ""
         // Only persist when we have provider and external id (or when disabling)
         if (!prov.isEmpty && !ext.isEmpty) || !enabled {
-            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
+            _ = DatabaseManager().upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
         }
     }
 
