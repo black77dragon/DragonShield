@@ -14,6 +14,11 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var editedPrice: [Int: String] = [:]
     @State private var editedAsOf: [Int: Date] = [:]
     @State private var editedSource: [Int: String] = [:]
+    // Auto-price configuration state
+    @State private var autoEnabled: [Int: Bool] = [:]
+    @State private var providerCode: [Int: String] = [:]
+    @State private var externalId: [Int: String] = [:]
+    private let providerOptions: [String] = ["coingecko", "yahoo", "alphavantage", "mock"]
     @State private var loading = false
 
     private enum SortKey: String, CaseIterable { case instrument, currency, price, asOf, source }
@@ -54,6 +59,8 @@ struct InstrumentPricesMaintenanceView: View {
             Button("Save Edited", action: saveEdited)
                 .keyboardShortcut("s", modifiers: [.command])
                 .disabled(editedPrice.isEmpty && editedAsOf.isEmpty && editedSource.isEmpty)
+            Button("Fetch Latest (Enabled)") { fetchLatestEnabled() }
+                .disabled(rows.isEmpty)
         }
     }
 
@@ -118,6 +125,9 @@ struct InstrumentPricesMaintenanceView: View {
             Text("Latest Price").frame(width: 140, alignment: .trailing)
             Text("As Of").frame(width: 160, alignment: .leading)
             Text("Source").frame(width: 100, alignment: .leading)
+            Text("Auto").frame(width: 50, alignment: .center)
+            Text("Provider").frame(width: 140, alignment: .leading)
+            Text("External ID").frame(width: 180, alignment: .leading)
             Text("New Price").frame(width: 160, alignment: .trailing)
             Text("New As Of").frame(width: 160, alignment: .leading)
             Text("New Source").frame(width: 120, alignment: .leading)
@@ -145,6 +155,18 @@ struct InstrumentPricesMaintenanceView: View {
             Text(formatted(r.latestPrice)).frame(width: 140, alignment: .trailing).monospacedDigit()
             Text(r.asOf ?? "—").frame(width: 160, alignment: .leading)
             Text(r.source ?? "").frame(width: 100, alignment: .leading)
+            Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
+                .labelsHidden()
+                .frame(width: 50, alignment: .center)
+            Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
+                Text("").tag("")
+                ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
+            }
+            .labelsHidden()
+            .frame(width: 140, alignment: .leading)
+            TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 180, alignment: .leading)
             TextField("", text: Binding(
                 get: { editedPrice[r.id] ?? "" },
                 set: { editedPrice[r.id] = $0 }
@@ -212,7 +234,50 @@ struct InstrumentPricesMaintenanceView: View {
                 self.rows = data
                 self.applySort()
                 self.loading = false
+                self.preloadSources()
             }
+        }
+    }
+
+    private func preloadSources() {
+        // Prefill provider/externalId/auto from DB for visible rows
+        for r in rows {
+            if let cfg = dbManager.getPriceSource(instrumentId: r.id) {
+                providerCode[r.id] = cfg.providerCode
+                externalId[r.id] = cfg.externalId
+                autoEnabled[r.id] = cfg.enabled
+            } else {
+                providerCode[r.id] = providerCode[r.id] ?? ""
+                externalId[r.id] = externalId[r.id] ?? ""
+                autoEnabled[r.id] = autoEnabled[r.id] ?? false
+            }
+        }
+    }
+
+    private func persistSourceIfComplete(_ r: DatabaseManager.InstrumentLatestPriceRow) {
+        let enabled = autoEnabled[r.id] ?? false
+        let prov = providerCode[r.id] ?? ""
+        let ext = externalId[r.id] ?? ""
+        // Only persist when we have provider and external id (or when disabling)
+        if (!prov.isEmpty && !ext.isEmpty) || !enabled {
+            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
+        }
+    }
+
+    private func fetchLatestEnabled() {
+        let records: [PriceSourceRecord] = rows.compactMap { r in
+            if autoEnabled[r.id] == true,
+               let prov = providerCode[r.id], !prov.isEmpty,
+               let ext = externalId[r.id], !ext.isEmpty {
+                return PriceSourceRecord(instrumentId: r.id, providerCode: prov, externalId: ext, expectedCurrency: r.currency)
+            }
+            return nil
+        }
+        guard !records.isEmpty else { return }
+        Task {
+            let service = PriceUpdateService(dbManager: dbManager)
+            _ = await service.fetchAndUpsert(records)
+            reload()
         }
     }
 
