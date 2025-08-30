@@ -49,6 +49,10 @@ struct SidebarView: View {
                 NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
                     Label("Portfolio Themes", systemImage: "list.bullet")
                 }
+
+                NavigationLink(destination: InstrumentPricesMaintenanceView().environmentObject(dbManager)) {
+                    Label("Prices", systemImage: "dollarsign.circle")
+                }
             }
 
             DisclosureGroup("Configuration", isExpanded: $showConfiguration) {
