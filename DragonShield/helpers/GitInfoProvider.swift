@@ -1,0 +1,65 @@
+import Foundation
+
+enum GitInfoProvider {
+    private static func info(_ key: String) -> String? {
+        return Bundle.main.object(forInfoDictionaryKey: key) as? String
+    }
+
+    /// Best-effort branch name. Prefers Info.plist key `GIT_BRANCH` if present, otherwise tries Git in DEBUG.
+    static var branch: String? {
+        if let b = info("GIT_BRANCH"), !b.isEmpty { return b }
+        #if DEBUG
+        if let out = runGit(["rev-parse", "--abbrev-ref", "HEAD"]) { return out }
+        #endif
+        return nil
+    }
+
+    /// Best-effort latest tag. Prefers Info.plist key `GIT_TAG` if present, otherwise tries Git in DEBUG.
+    static var tag: String? {
+        if let t = info("GIT_TAG"), !t.isEmpty { return t }
+        #if DEBUG
+        if let out = runGit(["describe", "--tags", "--abbrev=0"]) { return out }
+        #endif
+        return nil
+    }
+
+    /// Short commit hash if available.
+    static var commitShort: String? {
+        if let c = info("GIT_COMMIT"), !c.isEmpty { return c }
+        #if DEBUG
+        if let out = runGit(["rev-parse", "--short", "HEAD"]) { return out }
+        #endif
+        return nil
+    }
+
+    /// Returns a "Version" string that prefers git tag when available, otherwise CFBundleShortVersionString.
+    static var displayVersion: String {
+        let plistVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        let ver = tag ?? plistVersion ?? "N/A"
+        if let b = build, !b.isEmpty {
+            return "Version \(ver) (Build \(b))"
+        }
+        return "Version \(ver)"
+    }
+
+    private static func runGit(_ args: [String]) -> String? {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        proc.arguments = ["git"] + args
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
+        do {
+            try proc.run()
+        } catch {
+            return nil
+        }
+        proc.waitUntilExit()
+        guard proc.terminationStatus == 0 else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let out = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !out.isEmpty else { return nil }
+        return out
+    }
+}
+

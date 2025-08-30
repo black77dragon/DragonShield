@@ -110,12 +110,19 @@ struct SettingsView: View {
 
 
             Section(header: Text("About")) {
-                HStack {
+                HStack(alignment: .top) {
                     Text("App Version")
                     Spacer()
-                    // Use the new, reliable AppVersionProvider
-                    Text(AppVersionProvider.fullVersion)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        // Prefer Git tag when available; fall back to Info.plist
+                        Text(GitInfoProvider.displayVersion)
+                            .foregroundColor(.secondary)
+                        if let branch = GitInfoProvider.branch, !branch.isEmpty {
+                            Text("Branch: \(branch)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
         }
