@@ -379,6 +379,7 @@ private struct HoldingsTable: View {
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
+    @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -392,13 +393,13 @@ private struct HoldingsTable: View {
                             HStack(spacing: 8) {
                                 Text(r.instrumentName).frame(maxWidth: .infinity, alignment: .leading).lineLimit(1).truncationMode(.middle)
                                 // Inline edit Research %
-                                TextField("", value: binding(for: r.instrumentId, keyPath: \.researchTargetPct), format: .number)
+                                TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
                                     .multilineTextAlignment(.trailing)
                                     .frame(width: 80)
                                     .disabled(isArchived)
                                     .onSubmit { saveRow(r.instrumentId) }
                                 // Inline edit User %
-                                TextField("", value: binding(for: r.instrumentId, keyPath: \.userTargetPct), format: .number)
+                                TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
                                     .multilineTextAlignment(.trailing)
                                     .frame(width: 80)
                                     .disabled(isArchived)
@@ -406,17 +407,10 @@ private struct HoldingsTable: View {
                                 Text(fmtPct(r.actualPct)).frame(width: 80, alignment: .trailing)
                                 Text(fmtPct(r.deltaUserPct)).frame(width: 80, alignment: .trailing).foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
                                 // Notes inline (single-line)
-                                TextField("Notes", text: Binding(
-                                    get: { rows.first(where: { $0.instrumentId == r.instrumentId })?.notes ?? "" },
-                                    set: { newVal in
-                                        if let idx = rows.firstIndex(where: { $0.instrumentId == r.instrumentId }) {
-                                            rows[idx] = mutated(rows[idx]) { $0.notes = newVal }
-                                        }
-                                    }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                                .disabled(isArchived)
-                                .onSubmit { saveRow(r.instrumentId) }
+                                TextField("Notes", text: bindingNotes(for: r.instrumentId))
+                                    .textFieldStyle(.roundedBorder)
+                                    .disabled(isArchived)
+                                    .onSubmit { saveRow(r.instrumentId) }
                                 if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
                             .font(.system(.body, design: .monospaced))
@@ -445,6 +439,9 @@ private struct HoldingsTable: View {
         let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
         let snap = service.snapshot(themeId: themeId)
         rows = snap.rows.sorted { $0.instrumentName < $1.instrumentName }
+        var dict: [Int: Edit] = [:]
+        for r in rows { dict[r.instrumentId] = Edit(research: r.researchTargetPct, user: r.userTargetPct, notes: r.notes ?? "") }
+        edits = dict
         total = snap.totalValueBase
     }
 
@@ -454,36 +451,42 @@ private struct HoldingsTable: View {
     }
 
     // MARK: - Editing helpers
-    private func binding(for instrumentId: Int, keyPath: WritableKeyPath<ValuationRow, Double>) -> Binding<Double> {
+    private enum Field { case research, user }
+    private func bindingDouble(for instrumentId: Int, field: Field) -> Binding<Double> {
         Binding<Double>(
             get: {
-                rows.first(where: { $0.instrumentId == instrumentId })?[keyPath: keyPath] ?? 0
+                if let e = edits[instrumentId] { return field == .research ? e.research : e.user }
+                return 0
             },
             set: { newValue in
                 let clamped = max(0, min(100, newValue))
-                if let idx = rows.firstIndex(where: { $0.instrumentId == instrumentId }) {
-                    rows[idx] = mutated(rows[idx]) { $0[keyPath: keyPath] = clamped }
-                }
+                var e = edits[instrumentId] ?? Edit(research: 0, user: 0, notes: "")
+                if field == .research { e.research = clamped } else { e.user = clamped }
+                edits[instrumentId] = e
+            }
+        )
+    }
+    private func bindingNotes(for instrumentId: Int) -> Binding<String> {
+        Binding<String>(
+            get: { edits[instrumentId]?.notes ?? "" },
+            set: { newValue in
+                var e = edits[instrumentId] ?? Edit(research: 0, user: 0, notes: "")
+                e.notes = String(newValue.prefix(NoteEditorView.maxLength))
+                edits[instrumentId] = e
             }
         )
     }
 
-    private func mutated(_ row: ValuationRow, mutate: (inout ValuationRow) -> Void) -> ValuationRow {
-        var copy = row
-        mutate(&copy)
-        return copy
-    }
-
     private func saveRow(_ instrumentId: Int) {
-        guard let row = rows.first(where: { $0.instrumentId == instrumentId }) else { return }
+        guard let e = edits[instrumentId] else { return }
         saving.insert(instrumentId)
         DispatchQueue.global(qos: .userInitiated).async {
             _ = dbManager.updateThemeAsset(
                 themeId: themeId,
                 instrumentId: instrumentId,
-                researchPct: row.researchTargetPct,
-                userPct: row.userTargetPct,
-                notes: (row.notes?.isEmpty == true) ? nil : row.notes
+                researchPct: e.research,
+                userPct: e.user,
+                notes: e.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : e.notes
             )
             DispatchQueue.main.async {
                 saving.remove(instrumentId)
@@ -491,4 +494,5 @@ private struct HoldingsTable: View {
             }
         }
     }
+    private struct Edit { var research: Double; var user: Double; var notes: String }
 }
