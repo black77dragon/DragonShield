@@ -8,7 +8,7 @@ PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
 PLISTBUDDY="/usr/libexec/PlistBuddy"
 
 echo "[git-info] CONFIGURATION=$CONFIGURATION TARGET_BUILD_DIR=$TARGET_BUILD_DIR"
-echo "[git-info] SRCROOT=$SRCROOT"
+echo "[git-info] SRCROOT=${SRCROOT:-"(unset)"}"
 echo "[git-info] INFO PLIST: $PLIST"
 
 if [[ ! -f "$PLIST" ]]; then
@@ -21,10 +21,24 @@ git_tag=""
 git_branch=""
 git_commit=""
 
-if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  git_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-  git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-  git_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+workdir="${SRCROOT:-$PWD}"
+
+git_ok=false
+if command -v git >/dev/null 2>&1; then
+  if git -C "$workdir" rev-parse --git-dir >/dev/null 2>&1; then
+    git_tag=$(git -C "$workdir" describe --tags --abbrev=0 2>/dev/null || echo "")
+    git_branch=$(git -C "$workdir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    git_commit=$(git -C "$workdir" rev-parse --short HEAD 2>/dev/null || echo "")
+    git_ok=true
+  fi
+fi
+
+# Allow CI/environment overrides if git metadata is unavailable
+if [[ -z "$git_tag" && -n "${GIT_TAG:-}" ]]; then git_tag="$GIT_TAG"; fi
+if [[ -z "$git_branch" && -n "${GIT_BRANCH:-}" ]]; then git_branch="$GIT_BRANCH"; fi
+if [[ -z "$git_commit" && -n "${GIT_COMMIT:-}" ]]; then git_commit="$GIT_COMMIT"; fi
+
+if [[ "$git_ok" == true ]]; then
   echo "[git-info] git repo detected. tag='$git_tag' branch='$git_branch' commit='$git_commit'"
 else
   echo "[git-info] no git repo detected; skipping git commands"

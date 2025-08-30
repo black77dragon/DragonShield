@@ -15,7 +15,7 @@
  2) Go to the “Build Phases” tab.
  3) Click the `+` button in the top-left and choose “New Run Script Phase”.
  4) Drag the new script phase above “Compile Sources”.
- 5) Set its shell to `/bin/zsh` (or `/bin/bash`).
+5) Set its shell to `/bin/zsh` (or `/bin/bash`).
 6) Paste the following line into the script box:
  
  ```
@@ -35,6 +35,9 @@ $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
 ```
 
 Alternatively, uncheck “Based on dependency analysis” to force the script every build.
+
+9) Make sure the script runs for Debug builds:
+   - Uncheck “For install builds only” so the phase executes on normal Run/Debug builds as well.
 
 That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, `GitInfoProvider` will prefer these keys and display:
  
