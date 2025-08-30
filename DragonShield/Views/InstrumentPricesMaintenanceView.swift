@@ -130,7 +130,10 @@ struct InstrumentPricesMaintenanceView: View {
     private func rowView(_ r: DatabaseManager.InstrumentLatestPriceRow) -> some View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(r.name).fontWeight(.semibold)
+                HStack(spacing: 6) {
+                    Text(r.name).fontWeight(.semibold)
+                    if r.latestPrice == nil { missingPriceChip }
+                }
                 HStack(spacing: 6) {
                     if let t = r.ticker, !t.isEmpty { Text(t).font(.caption).foregroundColor(.secondary) }
                     if let i = r.isin, !i.isEmpty { Text(i).font(.caption).foregroundColor(.secondary) }
@@ -176,6 +179,19 @@ struct InstrumentPricesMaintenanceView: View {
     }
 
     private func staleLabel(_ d: Int) -> String { d == 0 ? "0" : "\(d)d" }
+
+    // MARK: - Status chips
+    private var missingPriceChip: some View {
+        Text("Missing price")
+            .font(.caption.bold())
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.paleRed)
+            .foregroundColor(.numberRed)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.numberRed.opacity(0.6), lineWidth: 1))
+            .cornerRadius(8)
+            .accessibilityLabel("Missing price")
+    }
 
     private func distinctCurrencies() -> [String] {
         let set = Set(rows.map { $0.currency.uppercased() })
