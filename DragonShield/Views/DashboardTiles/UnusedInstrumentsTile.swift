@@ -62,9 +62,17 @@ struct UnusedInstrumentsTile: DashboardTile {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(Self.tileName)
                     .font(.system(size: 17, weight: .semibold))
+                Text("Warning")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.paleRed)
+                    .foregroundColor(.numberRed)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.numberRed.opacity(0.6), lineWidth: 1))
+                    .cornerRadius(10)
                 Spacer()
                 Text(viewModel.totalCount.map(String.init) ?? "—")
                     .font(.system(size: 24, weight: .bold))
@@ -110,6 +118,9 @@ struct UnusedInstrumentsTile: DashboardTile {
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2)
+        }
         .onAppear { viewModel.load(db: dbManager) }
         .sheet(isPresented: $showReport) {
             UnusedInstrumentsReportView {
@@ -118,4 +129,3 @@ struct UnusedInstrumentsTile: DashboardTile {
         }
     }
 }
-
