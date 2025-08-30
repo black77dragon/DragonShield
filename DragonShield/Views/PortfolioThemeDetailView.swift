@@ -40,6 +40,7 @@ struct PortfolioThemeDetailView: View {
     @State private var allInstruments: [(id: Int, name: String)] = []
     @State private var showAdd = false
     @State private var addInstrumentId: Int = 0
+    @State private var addInstrumentQuery: String = ""
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
     @State private var addNotes: String = ""
@@ -627,19 +628,26 @@ private var dangerZone: some View {
                     GridRow {
                         Text("Instrument")
                             .frame(width: labelWidth, alignment: .trailing)
-                        Picker("Instrument", selection: $addInstrumentId) {
-                            ForEach(availableInstruments, id: \.id) { item in
-                                Text(item.name).tag(item.id)
-                            }
+                        VStack(alignment: .leading, spacing: 6) {
+                            MacComboBox(
+                                items: availableInstruments.map { $0.name },
+                                text: $addInstrumentQuery,
+                                onSelectIndex: { idx in
+                                    let item = availableInstruments[idx]
+                                    addInstrumentId = item.id
+                                }
+                            )
+                            .frame(minWidth: 360)
                         }
-                        .labelsHidden()
                     }
                     GridRow {
                         Text("Research %")
                             .frame(width: labelWidth, alignment: .trailing)
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("", value: $addResearchPct, format: .number)
+                                .textFieldStyle(.roundedBorder)
                                 .multilineTextAlignment(.trailing)
+                                .frame(width: 100)
                             if let err = researchError {
                                 Text(err).foregroundColor(.red)
                             }
@@ -650,7 +658,9 @@ private var dangerZone: some View {
                             .frame(width: labelWidth, alignment: .trailing)
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("", value: $addUserPct, format: .number)
+                                .textFieldStyle(.roundedBorder)
                                 .multilineTextAlignment(.trailing)
+                                .frame(width: 100)
                             if let err = userError {
                                 Text(err).foregroundColor(.red)
                             }
@@ -669,6 +679,8 @@ private var dangerZone: some View {
                                 addNotes = trimmed
                             }
                         ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(minWidth: 360)
                     }
                 }
             }
@@ -685,8 +697,16 @@ private var dangerZone: some View {
             }
             .padding(24)
         }
-        .frame(width: 520)
-        .onAppear { addUserPct = addResearchPct }
+        .frame(width: 560)
+        .onAppear {
+            addUserPct = addResearchPct
+            if let first = availableInstruments.first, addInstrumentId == 0 {
+                addInstrumentQuery = first.name
+                addInstrumentId = first.id
+            } else if let selected = availableInstruments.first(where: { $0.id == addInstrumentId }) {
+                addInstrumentQuery = selected.name
+            }
+        }
     }
 
     // MARK: - Helpers
