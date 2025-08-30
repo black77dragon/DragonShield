@@ -45,8 +45,10 @@ struct PositionFormView: View {
     @State private var instrumentId: Int? = nil
     @State private var instrumentQuery: String = ""
     @State private var currencyCode = ""
+    @State private var latestInstrumentPrice: Double? = nil
     @State private var quantity = ""
     @State private var purchasePrice = ""
+    // currentPrice maintained centrally via InstrumentPrice; stop editing here
     @State private var currentPrice = ""
     @State private var instrumentUpdatedAt = Date()
     @State private var uploadedAt = Date()
@@ -57,6 +59,16 @@ struct PositionFormView: View {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 2
+        return f
+    }()
+
+    private static let priceFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 2
         return f
     }()
 
@@ -87,6 +99,11 @@ struct PositionFormView: View {
         }
         .onChange(of: instrumentId) { _, id in
             currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
+            if let iid = id, let lp = dbManager.getLatestPrice(instrumentId: iid) {
+                latestInstrumentPrice = lp.price
+            } else {
+                latestInstrumentPrice = nil
+            }
         }
     }
 
@@ -144,7 +161,19 @@ struct PositionFormView: View {
             Section("Prices") {
                 numericField(label: "Quantity", text: $quantity)
                 numericField(label: "Purchase Price", text: $purchasePrice)
-                numericField(label: "Current Price", text: $currentPrice)
+                HStack {
+                    Text("Latest Price")
+                        .font(.headline)
+                    Spacer()
+                    if let p = latestInstrumentPrice, !currencyCode.isEmpty {
+                        let formatted = Self.priceFormatter.string(from: NSNumber(value: p)) ?? String(format: "%.2f", p)
+                        Text("\(formatted) \(currencyCode)")
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("—")
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
 
             Section("Dates") {
@@ -229,11 +258,12 @@ struct PositionFormView: View {
         if let match = instruments.first(where: { $0.name == p.instrumentName }) {
             instrumentId = match.id
             instrumentQuery = displayString(for: match)
+            if let lp = dbManager.getLatestPrice(instrumentId: match.id) { latestInstrumentPrice = lp.price }
         }
         currencyCode = p.instrumentCurrency
         quantity = String(p.quantity)
         if let pp = p.purchasePrice { purchasePrice = String(pp) }
-        if let cp = p.currentPrice { currentPrice = String(cp) }
+        // currentPrice deprecated in positions; show nothing
         if let iu = p.instrumentUpdatedAt { instrumentUpdatedAt = iu }
         uploadedAt = p.uploadedAt
         reportDate = p.reportDate
@@ -251,7 +281,7 @@ struct PositionFormView: View {
         let sess = Int(sessionId)
 
         let price = Double(purchasePrice)
-        let currPrice = Double(currentPrice)
+        let currPrice: Double? = nil
 
         if let edit = position {
             _ = dbManager.updatePositionReport(

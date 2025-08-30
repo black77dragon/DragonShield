@@ -5,6 +5,7 @@ enum ValuationStatus: String {
     case ok = "OK"
     case noPosition = "No position"
     case fxMissing = "FX missing — excluded"
+    case priceMissing = "Price missing — excluded"
 }
 
 struct ValuationRow: Identifiable {
@@ -28,6 +29,7 @@ struct ValuationSnapshot {
     let rows: [ValuationRow]
     let excludedFxCount: Int
     let missingCurrencies: [String]
+    let excludedPriceCount: Int
 }
 
 final class PortfolioValuationService {
@@ -43,11 +45,11 @@ final class PortfolioValuationService {
     func snapshot(themeId: Int) -> ValuationSnapshot {
         let start = Date()
         guard let db = dbManager.db else {
-            return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [])
+            return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [], excludedPriceCount: 0)
         }
         guard !dbManager.baseCurrency.isEmpty else {
             LoggingService.shared.log("Base currency not configured.", type: .error, logger: .database)
-            return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [])
+            return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [], excludedPriceCount: 0)
         }
 
         let theme = dbManager.getPortfolioTheme(id: themeId)
@@ -68,6 +70,7 @@ final class PortfolioValuationService {
         var total: Double = 0
         var fxAsOf: Date? = nil
         var excludedFx = 0
+        var excludedPrice = 0
         var included = 0
         var missing: Set<String> = []
 
@@ -102,8 +105,11 @@ final class PortfolioValuationService {
                 let note = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
                 var status: ValuationStatus = .ok
                 var valueBase: Double = 0
-                if nativeValue == 0 {
+                if qty == 0 {
                     status = .noPosition
+                } else if !hasPrice {
+                    status = .priceMissing
+                    excludedPrice += 1
                 } else if let result = fxService.convertToChf(amount: nativeValue, currency: currency) {
                     valueBase = result.valueChf
                     included += 1
@@ -151,6 +157,6 @@ final class PortfolioValuationService {
             }
         }
 
-        return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing))
+        return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing), excludedPriceCount: excludedPrice)
     }
 }

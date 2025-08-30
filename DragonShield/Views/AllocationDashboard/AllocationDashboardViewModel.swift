@@ -132,8 +132,9 @@ final class AllocationDashboardViewModel: ObservableObject {
         for p in db.fetchPositionReports() {
             guard let subName = p.assetSubClass,
                   let subId = subIdMap[subName],
-                  let price = p.currentPrice else { continue }
-            var value = p.quantity * price
+                  let iid = p.instrumentId,
+                  let lp = db.getLatestPrice(instrumentId: iid) else { continue }
+            var value = p.quantity * lp.price
             let currency = p.instrumentCurrency.uppercased()
             if currency != "CHF" {
                 if rateCache[currency] == nil {

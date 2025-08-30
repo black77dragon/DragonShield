@@ -132,8 +132,8 @@ struct TotalValueTile: DashboardTile {
             let positions = dbManager.fetchPositionReports()
             var sum: Double = 0
             for p in positions {
-                guard let price = p.currentPrice else { continue }
-                var value = p.quantity * price
+                guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
+                var value = p.quantity * lp.price
                 if p.instrumentCurrency.uppercased() != "CHF" {
                     let rates = dbManager.fetchExchangeRates(currencyCode: p.instrumentCurrency, upTo: nil)
                     guard let rate = rates.first?.rateToChf else { continue }
@@ -264,6 +264,84 @@ struct MapTile: DashboardTile {
     }
 }
 
+struct MissingPricesTile: DashboardTile {
+    init() {}
+    static let tileID = "missing_prices"
+    static let tileName = "Missing Prices"
+    static let iconName = "exclamationmark.triangle"
+
+    @EnvironmentObject var dbManager: DatabaseManager
+    struct MissingPriceItem: Identifiable { let id: Int; let name: String; let currency: String }
+    @State private var items: [MissingPriceItem] = []
+    @State private var loading = false
+    @State private var editingInstrumentId: Int? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(Self.tileName)
+                .font(.system(size: 17, weight: .semibold))
+            if loading {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if items.isEmpty {
+                Text("All instruments have a latest price.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                ScrollView {
+                    VStack(spacing: DashboardTileLayout.rowSpacing) {
+                        ForEach(items) { item in
+                            HStack {
+                                Text(item.name)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(item.currency)
+                                    .foregroundColor(.secondary)
+                                Button("Edit Price") { editingInstrumentId = item.id }
+                                    .buttonStyle(.link)
+                            }
+                            .font(.system(size: 13))
+                            .frame(height: DashboardTileLayout.rowHeight)
+                        }
+                    }
+                    .padding(.vertical, DashboardTileLayout.rowSpacing)
+                }
+                .frame(maxHeight: items.count > 6 ? 200 : .infinity)
+            }
+        }
+        .padding(DashboardTileLayout.tilePadding)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .onAppear(perform: load)
+        .sheet(item: Binding(get: {
+            editingInstrumentId.map { Ident(value: $0) }
+        }, set: { newVal in
+            editingInstrumentId = newVal?.value
+        })) { ident in
+            InstrumentEditView(instrumentId: ident.value)
+                .environmentObject(dbManager)
+        }
+    }
+
+    private func load() {
+        loading = true
+        DispatchQueue.global().async {
+            var res: [MissingPriceItem] = []
+            let assets = dbManager.fetchAssets()
+            for a in assets {
+                if dbManager.getLatestPrice(instrumentId: a.id) == nil {
+                    res.append(MissingPriceItem(id: a.id, name: a.name, currency: a.currency))
+                }
+            }
+            DispatchQueue.main.async {
+                self.items = res
+                self.loading = false
+            }
+        }
+    }
+
+    private struct Ident: Identifiable { let value: Int; var id: Int { value } }
+}
+
 struct TileInfo {
     let id: String
     let name: String
@@ -287,7 +365,8 @@ enum TileRegistry {
         TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
         TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
         TileInfo(id: MapTile.tileID, name: MapTile.tileName, icon: MapTile.iconName) { AnyView(MapTile()) },
-        TileInfo(id: AccountsNeedingUpdateTile.tileID, name: AccountsNeedingUpdateTile.tileName, icon: AccountsNeedingUpdateTile.iconName) { AnyView(AccountsNeedingUpdateTile()) }
+        TileInfo(id: AccountsNeedingUpdateTile.tileID, name: AccountsNeedingUpdateTile.tileName, icon: AccountsNeedingUpdateTile.iconName) { AnyView(AccountsNeedingUpdateTile()) },
+        TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) }
     ]
 
     static func view(for id: String) -> AnyView? {

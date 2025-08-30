@@ -69,8 +69,8 @@ struct InstitutionsAUMTile: DashboardTile {
             var totals: [String: Double] = [:]
             var rateCache: [String: Double] = [:]
             for p in positions {
-                guard let price = p.currentPrice else { continue }
-                var value = p.quantity * price
+                guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
+                var value = p.quantity * lp.price
                 let currency = p.instrumentCurrency.uppercased()
                 if currency != "CHF" {
                     if rateCache[currency] == nil {

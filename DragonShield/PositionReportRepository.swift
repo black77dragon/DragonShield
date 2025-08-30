@@ -39,31 +39,7 @@ final class PositionReportRepository {
 
     init(dbManager: DatabaseManager) {
         self.dbManager = dbManager
-        createTableIfNeeded()
-    }
-
-    private func createTableIfNeeded() {
-        let sql = """
-            CREATE TABLE IF NOT EXISTS PositionReports (
-                position_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                import_session_id INTEGER,
-                account_id INTEGER NOT NULL,
-                institution_id INTEGER NOT NULL,
-                instrument_id INTEGER NOT NULL,
-                quantity REAL NOT NULL,
-                purchase_price REAL,
-                current_price REAL,
-                report_date DATE NOT NULL,
-                uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (account_id) REFERENCES Accounts(account_id),
-                FOREIGN KEY (institution_id) REFERENCES Institutions(institution_id),
-                FOREIGN KEY (instrument_id) REFERENCES Instruments(instrument_id)
-            );
-            """
-        guard let db = dbManager.db else { return }
-        if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
-            print("❌ Failed to create PositionReports table: \(String(cString: sqlite3_errmsg(db)))")
-        }
+        // Table creation is managed via migrations; do not auto-create here to avoid drift.
     }
 
     func saveReports(_ reports: [PositionReport]) throws {

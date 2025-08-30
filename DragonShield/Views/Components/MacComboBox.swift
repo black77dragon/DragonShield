@@ -21,13 +21,11 @@ struct MacComboBox: NSViewRepresentable {
         cb.intercellSpacing = NSSize(width: 4, height: 2)
         cb.isButtonBordered = true
         cb.stringValue = text
-        if let tcb = cb as? TrackingComboBox {
-            tcb.onHover = { [weak coord = context.coordinator] in
-                coord?.openPopupIfNeeded()
-            }
-            tcb.onFocus = { [weak coord = context.coordinator] in
-                coord?.openPopupIfNeeded()
-            }
+        cb.onHover = { [weak coord = context.coordinator] in
+            coord?.openPopupIfNeeded()
+        }
+        cb.onFocus = { [weak coord = context.coordinator] in
+            coord?.openPopupIfNeeded()
         }
         context.coordinator.combo = cb
         context.coordinator.setItems(items)

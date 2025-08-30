@@ -432,7 +432,8 @@ struct InstrumentEditView: View {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading) {
                         Text("Latest Price").font(.caption).foregroundColor(.secondary)
-                        Text(latestPrice.map { String(format: "%.4f", $0) } ?? "—").font(.title3)
+                        Text(formattedLatestPrice())
+                            .font(.title3)
                     }
                     VStack(alignment: .leading) {
                         Text("As Of").font(.caption).foregroundColor(.secondary)
@@ -454,10 +455,14 @@ struct InstrumentEditView: View {
                             .labelsHidden()
                             .datePickerStyle(.field)
                     }
-                    Button("Save Price") { saveInstrumentPrice() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(Double(priceInput) == nil)
-                    Button("Refresh") { loadLatestPrice() }
+                    VStack { Spacer(minLength: 0)
+                        Button("Save Price") { saveInstrumentPrice() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(Double(priceInput) == nil)
+                    }
+                    VStack { Spacer(minLength: 0)
+                        Button("Refresh") { loadLatestPrice() }
+                    }
                 }
                 if let msg = priceMessage {
                     Text(msg).font(.caption).foregroundColor(.secondary)
@@ -476,6 +481,22 @@ struct InstrumentEditView: View {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
+    }
+
+    private static let priceFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }()
+
+    private func formattedLatestPrice() -> String {
+        guard let p = latestPrice else { return "—" }
+        let formatted = Self.priceFormatter.string(from: NSNumber(value: p)) ?? String(format: "%.2f", p)
+        return currency.isEmpty ? formatted : "\(formatted) \(currency)"
     }
 
     private func loadLatestPrice() {

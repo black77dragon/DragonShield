@@ -14,6 +14,19 @@ struct AccountDetailWindowView: View {
         return f
     }()
 
+    private static let priceFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }()
+
+    private struct InstrumentSheetTarget: Identifiable { let id: Int }
+    @State private var editingInstrument: InstrumentSheetTarget?
+
     init(account: DatabaseManager.AccountData) {
         _viewModel = StateObject(wrappedValue: AccountDetailWindowViewModel(account: account))
     }
@@ -54,6 +67,10 @@ struct AccountDetailWindowView: View {
             }
         }
         .onAppear { viewModel.configure(db: dbManager) }
+        .sheet(item: $editingInstrument) { target in
+            InstrumentEditView(instrumentId: target.id)
+                .environmentObject(dbManager)
+        }
     }
 
     private var header: some View {
@@ -91,29 +108,47 @@ struct AccountDetailWindowView: View {
                                 .frame(width: 80)
                         }
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Price")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Latest Price")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            TextField("", value: Binding(
-                                get: { item.currentPrice ?? 0 },
-                                set: { item.currentPrice = $0 }
-                            ), formatter: Self.numberFormatter)
-                                .frame(width: 80)
+                            if let lp = dbManager.getLatestPrice(instrumentId: item.instrumentId) {
+                                let formatted = Self.priceFormatter.string(from: NSNumber(value: lp.price)) ?? String(format: "%.2f", lp.price)
+                                Text("\(formatted) \(lp.currency)")
+                                    .frame(width: 140, alignment: .trailing)
+                                Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
+                                    .buttonStyle(.link)
+                                    .font(.caption)
+                                    .frame(width: 140, alignment: .trailing)
+                            } else {
+                                Text("—")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 140, alignment: .trailing)
+                                Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
+                                    .buttonStyle(.link)
+                                    .font(.caption)
+                                    .frame(width: 140, alignment: .trailing)
+                            }
                         }
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Updated At")
+                        // Instrument price is now centralized; position-level updated date is not editable.
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Price As Of")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            DatePicker("", selection: Binding(
-                                get: { item.instrumentUpdatedAt ?? Date() },
-                                set: { item.instrumentUpdatedAt = $0 }
-                            ), displayedComponents: .date)
-                                .labelsHidden()
+                            if let lp = dbManager.getLatestPrice(instrumentId: item.instrumentId) {
+                                Text(lp.asOf)
+                                    .frame(width: 120, alignment: .leading)
+                            } else {
+                                Text("—")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 120, alignment: .leading)
+                            }
                         }
-                    }
-                }
+        }
+    }
+
+    // (Sheet attached in body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

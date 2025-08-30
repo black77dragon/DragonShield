@@ -125,7 +125,8 @@ struct CryptoTop5Tile: DashboardTile {
             var totals: [String: Double] = [:]
             var rateCache: [String: Double] = [:]
             for p in positions {
-                guard let price = p.currentPrice else { continue }
+                guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
+                let price = lp.price
                 guard (p.assetSubClass ?? "").lowercased().contains("crypto") ||
                       (p.assetClass ?? "").lowercased().contains("crypto") else { continue }
                 var value = p.quantity * price
@@ -156,4 +157,3 @@ struct CryptoTop5Tile: DashboardTile {
         }
     }
 }
-
