@@ -502,6 +502,8 @@ private struct HoldingsTable: View {
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
     @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
+    @State private var sortField: Column = .instrument
+    @State private var sortAscending: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -511,7 +513,7 @@ private struct HoldingsTable: View {
                 header
                 ScrollView {
                     LazyVStack(spacing: 4) {
-                        ForEach(filteredRows) { r in
+                        ForEach(sortedRows) { r in
                             HStack(spacing: 8) {
                                 if columns.contains(.instrument) {
                                     Text(r.instrumentName)
@@ -565,12 +567,12 @@ private struct HoldingsTable: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            if columns.contains(.instrument) { Text("Instrument").frame(maxWidth: .infinity, alignment: .leading) }
-            if columns.contains(.research) { Text("Research %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.user) { Text("User %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.actual) { Text("Actual %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.delta) { Text("Δ Actual-User").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.notes) { Text("Notes").frame(width: notesWidth, alignment: .leading) }
+            if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(maxWidth: .infinity, alignment: .leading) }
+            if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(width: notesWidth, alignment: .leading) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
@@ -593,6 +595,79 @@ private struct HoldingsTable: View {
     private func fmtPct(_ v: Double?) -> String {
         guard let x = v else { return "—" }
         return String(format: "%.2f", x)
+    }
+    private var sortedRows: [ValuationRow] {
+        var arr = filteredRows
+        switch sortField {
+        case .instrument:
+            arr.sort { l, r in
+                let c = l.instrumentName.localizedCaseInsensitiveCompare(r.instrumentName)
+                if c == .orderedSame { return l.instrumentId < r.instrumentId }
+                return sortAscending ? (c == .orderedAscending) : (c == .orderedDescending)
+            }
+        case .research:
+            arr.sort { l, r in
+                let lv = editableResearch(l.instrumentId)
+                let rv = editableResearch(r.instrumentId)
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .user:
+            arr.sort { l, r in
+                let lv = editableUser(l.instrumentId)
+                let rv = editableUser(r.instrumentId)
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .actual:
+            arr.sort { l, r in
+                let lv = l.actualPct
+                let rv = r.actualPct
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .delta:
+            arr.sort { l, r in
+                let lNil = l.deltaUserPct == nil
+                let rNil = r.deltaUserPct == nil
+                if lNil != rNil { return rNil } // nils last
+                let lv = l.deltaUserPct ?? 0
+                let rv = r.deltaUserPct ?? 0
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .notes:
+            arr.sort { l, r in
+                let ln = editableNotes(l.instrumentId).localizedCaseInsensitiveCompare(editableNotes(r.instrumentId))
+                if ln == .orderedSame { return tieBreak(l, r) }
+                return sortAscending ? (ln == .orderedAscending) : (ln == .orderedDescending)
+            }
+        }
+        return arr
+    }
+    private func tieBreak(_ l: ValuationRow, _ r: ValuationRow) -> Bool {
+        if l.instrumentName != r.instrumentName {
+            return l.instrumentName < r.instrumentName
+        }
+        return l.instrumentId < r.instrumentId
+    }
+    private func editableResearch(_ id: Int) -> Double { edits[id]?.research ?? rows.first(where: { $0.instrumentId == id })?.researchTargetPct ?? 0 }
+    private func editableUser(_ id: Int) -> Double { edits[id]?.user ?? rows.first(where: { $0.instrumentId == id })?.userTargetPct ?? 0 }
+    private func editableNotes(_ id: Int) -> String { edits[id]?.notes ?? rows.first(where: { $0.instrumentId == id })?.notes ?? "" }
+
+    private func sortHeader(_ col: Column, title: String) -> some View {
+        Button {
+            if sortField == col { sortAscending.toggle() } else { sortField = col; sortAscending = (col == .instrument) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(title)
+                if sortField == col {
+                    Text(sortAscending ? "▲" : "▼").foregroundColor(.blue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Sort by \(title)")
     }
     private var filteredRows: [ValuationRow] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
