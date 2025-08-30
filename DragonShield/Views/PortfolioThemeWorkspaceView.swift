@@ -117,10 +117,12 @@ struct PortfolioThemeWorkspaceView: View {
                 Button(role: .none) { runValuation() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .keyboardShortcut("r", modifiers: .command)
                 Button { showClassicDetail = true } label: {
                     Label("Open Classic", systemImage: "square.on.square")
                 }
                 .help("Open the classic detail editor for full controls")
+                .keyboardShortcut("k", modifiers: .command)
             }
         }
         .padding(.horizontal, 20)
@@ -145,6 +147,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     @State private var holdingsSearch: String = ""
+    @FocusState private var focusHoldingsSearch: Bool
     private var holdingsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -155,11 +158,16 @@ struct PortfolioThemeWorkspaceView: View {
             HStack(spacing: 8) {
                 TextField("Search instruments or notes", text: $holdingsSearch)
                     .textFieldStyle(.roundedBorder)
+                    .focused($focusHoldingsSearch)
                 if !holdingsSearch.isEmpty {
                     Button("Clear") { holdingsSearch = "" }
                         .buttonStyle(.link)
                 }
             }
+            // Hidden shortcut to focus search (Cmd-F)
+            Button("") { focusHoldingsSearch = true }
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
             HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch)
                 .environmentObject(dbManager)
         }
