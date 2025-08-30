@@ -48,8 +48,24 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     }
 
     var body: some View {
-        DashboardCard(title: Self.tileName,
-                      headerIcon: Image(systemName: "calendar")) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(Self.tileName)
+                    .font(.system(size: 17, weight: .semibold))
+                Text("Warning")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.paleRed)
+                    .foregroundColor(.numberRed)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.numberRed.opacity(0.6), lineWidth: 1))
+                    .cornerRadius(10)
+                Spacer()
+                Text(String(redCount))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Theme.primaryAccent)
+            }
+
             if viewModel.staleAccounts.isEmpty {
                 Text("All accounts up to date ✅")
                     .font(.subheadline)
@@ -58,9 +74,12 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                 contentList
             }
         }
-        .overlay(alignment: .topTrailing) {
-            refreshButton
-        }
+        .padding(DashboardTileLayout.tilePadding)
+        .background(Theme.surface)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .overlay(alignment: .leading) { Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2) }
+        .overlay(alignment: .topTrailing) { refreshButton }
         .onAppear {
             viewModel.loadStaleAccounts(db: dbManager)
             showRed = true
@@ -74,6 +93,10 @@ struct AccountsNeedingUpdateTile: DashboardTile {
         } message: {
             Text(refreshError ?? "")
         }
+    }
+
+    private var redCount: Int {
+        viewModel.staleAccounts.filter { category(for: $0.earliestInstrumentLastUpdatedAt) == .red }.count
     }
 
     @ViewBuilder
