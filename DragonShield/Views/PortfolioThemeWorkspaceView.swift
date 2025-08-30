@@ -457,29 +457,30 @@ private struct HoldingsTable: View {
                                 if columns.contains(.research) {
                                     TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
                                         .multilineTextAlignment(.trailing)
-                                        .frame(width: 80)
+                                        .frame(width: numWidth)
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
                                 if columns.contains(.user) {
                                     TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
                                         .multilineTextAlignment(.trailing)
-                                        .frame(width: 80)
+                                        .frame(width: numWidth)
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
                                 if columns.contains(.actual) {
                                     Text(fmtPct(r.actualPct))
-                                        .frame(width: 80, alignment: .trailing)
+                                        .frame(width: numWidth, alignment: .trailing)
                                 }
                                 if columns.contains(.delta) {
                                     Text(fmtPct(r.deltaUserPct))
-                                        .frame(width: 80, alignment: .trailing)
+                                        .frame(width: numWidth, alignment: .trailing)
                                         .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
                                 }
                                 if columns.contains(.notes) {
                                     TextField("Notes", text: bindingNotes(for: r.instrumentId))
                                         .textFieldStyle(.roundedBorder)
+                                        .frame(width: notesWidth, alignment: .leading)
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
@@ -494,14 +495,17 @@ private struct HoldingsTable: View {
         .onAppear(perform: load)
     }
 
+    private let numWidth: CGFloat = 80
+    private let notesWidth: CGFloat = 160
+
     private var header: some View {
         HStack(spacing: 8) {
             if columns.contains(.instrument) { Text("Instrument").frame(maxWidth: .infinity, alignment: .leading) }
-            if columns.contains(.research) { Text("Research %").frame(width: 80, alignment: .trailing) }
-            if columns.contains(.user) { Text("User %").frame(width: 80, alignment: .trailing) }
-            if columns.contains(.actual) { Text("Actual %").frame(width: 80, alignment: .trailing) }
-            if columns.contains(.delta) { Text("Δ Actual-User").frame(width: 80, alignment: .trailing) }
-            if columns.contains(.notes) { Text("Notes").frame(width: 160, alignment: .leading) }
+            if columns.contains(.research) { Text("Research %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.user) { Text("User %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.actual) { Text("Actual %").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.delta) { Text("Δ Actual-User").frame(width: numWidth, alignment: .trailing) }
+            if columns.contains(.notes) { Text("Notes").frame(width: notesWidth, alignment: .leading) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
