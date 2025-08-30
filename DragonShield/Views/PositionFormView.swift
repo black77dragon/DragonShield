@@ -243,7 +243,17 @@ struct PositionFormView: View {
         accounts = dbManager.fetchAccounts().map {
             (id: $0.id, name: $0.accountName, institutionId: $0.institutionId, institutionName: $0.institutionName)
         }
-        instruments = dbManager.fetchAssets()
+        let rows = dbManager.fetchAssets()
+        instruments = rows
+            .map { r in (
+                id: r.id,
+                name: r.name,
+                subClassId: r.subClassId,
+                currency: r.currency,
+                valorNr: r.valorNr,
+                tickerSymbol: r.tickerSymbol,
+                isin: r.isin
+            ) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
