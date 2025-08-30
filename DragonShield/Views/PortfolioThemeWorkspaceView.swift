@@ -502,6 +502,7 @@ private struct HoldingsTable: View {
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
     @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
+    @State private var tableWidth: CGFloat = 0
     @State private var sortField: Column = .instrument
     @State private var sortAscending: Bool = true
 
@@ -511,13 +512,18 @@ private struct HoldingsTable: View {
                 Text("No holdings").foregroundColor(.secondary)
             } else {
                 header
+                    .background(GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { tableWidth = proxy.size.width }
+                            .onChange(of: proxy.size.width) { _, newWidth in tableWidth = newWidth }
+                    })
                 ScrollView {
                     LazyVStack(spacing: 4) {
                         ForEach(sortedRows) { r in
                             HStack(spacing: 8) {
                                 if columns.contains(.instrument) {
                                     Text(r.instrumentName)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .frame(width: instrumentWidth, alignment: .leading)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
                                 }
@@ -563,11 +569,33 @@ private struct HoldingsTable: View {
     }
 
     private let numWidth: CGFloat = 80
-    private let notesWidth: CGFloat = 160
+    private var instrumentWidth: CGFloat {
+        let c = columns
+        let spacing: CGFloat = 8
+        let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
+        let fixedWidth = CGFloat(fixedCount) * numWidth
+        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
+        let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
+        let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
+        let instrumentShare: CGFloat = (c.contains(.instrument) && c.contains(.notes)) ? 0.7 : 1.0
+        return max(80, flexWidth * instrumentShare)
+    }
+    private var notesWidth: CGFloat {
+        let c = columns
+        let spacing: CGFloat = 8
+        let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
+        let fixedWidth = CGFloat(fixedCount) * numWidth
+        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
+        let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
+        let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
+        if !c.contains(.notes) { return 0 }
+        let share: CGFloat = (c.contains(.instrument) && c.contains(.notes)) ? 0.3 : 1.0
+        return max(120, flexWidth * share)
+    }
 
     private var header: some View {
         HStack(spacing: 8) {
-            if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(maxWidth: .infinity, alignment: .leading) }
+            if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(width: instrumentWidth, alignment: .leading) }
             if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: numWidth, alignment: .trailing) }
             if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: numWidth, alignment: .trailing) }
             if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: numWidth, alignment: .trailing) }
