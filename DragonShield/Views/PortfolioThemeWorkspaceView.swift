@@ -10,6 +10,7 @@ struct PortfolioThemeWorkspaceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
     let origin: String
+    @Environment(\.dismiss) private var dismiss
 
     enum WorkspaceTab: String, CaseIterable, Identifiable {
         case overview
@@ -107,6 +108,12 @@ struct PortfolioThemeWorkspaceView: View {
                     .font(.title2).bold()
                 HStack(spacing: 12) {
                     Tag(text: code)
+                    if let s = statuses.first(where: { $0.id == statusId }) {
+                        Tag(text: s.name, color: Color(hex: s.colorHex))
+                    }
+                    if let instId = institutionId, let inst = institutions.first(where: { $0.id == instId }) {
+                        Tag(text: inst.name, color: .secondary)
+                    }
                     if let t = theme, let archived = t.archivedAt {
                         Tag(text: "Archived: \(archived)", color: .orange)
                     }
@@ -123,6 +130,10 @@ struct PortfolioThemeWorkspaceView: View {
                 }
                 .help("Open the classic detail editor for full controls")
                 .keyboardShortcut("k", modifiers: .command)
+                Button(role: .cancel) { dismiss() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .keyboardShortcut("w", modifiers: .command)
             }
         }
         .padding(.horizontal, 20)
@@ -148,11 +159,27 @@ struct PortfolioThemeWorkspaceView: View {
 
     @State private var holdingsSearch: String = ""
     @FocusState private var focusHoldingsSearch: Bool
+    @State private var holdingsColumns: Set<HoldingsTable.Column> = Set(HoldingsTable.Column.defaultVisible)
     private var holdingsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Holdings").font(.headline)
                 Spacer()
+                Menu {
+                    Text("Columns").font(.caption).foregroundColor(.secondary)
+                    Divider()
+                    ForEach(HoldingsTable.Column.allCases) { col in
+                        Toggle(isOn: Binding(
+                            get: { holdingsColumns.contains(col) },
+                            set: { on in
+                                if on { holdingsColumns.insert(col) } else { holdingsColumns.remove(col) }
+                                persistHoldingsColumns()
+                            }
+                        )) { Text(col.title) }
+                    }
+                } label: {
+                    Label("Columns", systemImage: "slider.horizontal.3")
+                }
                 Button { showClassicDetail = true } label: { Label("Edit in Classic", systemImage: "pencil") }
             }
             HStack(spacing: 8) {
@@ -168,10 +195,21 @@ struct PortfolioThemeWorkspaceView: View {
             Button("") { focusHoldingsSearch = true }
                 .keyboardShortcut("f", modifiers: .command)
                 .hidden()
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch)
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns)
                 .environmentObject(dbManager)
         }
         .padding(20)
+        .onAppear(perform: restoreHoldingsColumns)
+    }
+
+    private func persistHoldingsColumns() {
+        let raw = holdingsColumns.map { $0.rawValue }.sorted().joined(separator: ",")
+        UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns)
+    }
+    private func restoreHoldingsColumns() {
+        guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns), !raw.isEmpty else { return }
+        let set = Set(raw.split(separator: ",").compactMap { HoldingsTable.Column(rawValue: String($0)) })
+        if !set.isEmpty { holdingsColumns = set }
     }
 
     private var analyticsTab: some View {
@@ -394,6 +432,7 @@ private struct HoldingsTable: View {
     let themeId: Int
     let isArchived: Bool
     var search: String = ""
+    var columns: Set<Column>
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
@@ -409,26 +448,41 @@ private struct HoldingsTable: View {
                     LazyVStack(spacing: 4) {
                         ForEach(filteredRows) { r in
                             HStack(spacing: 8) {
-                                Text(r.instrumentName).frame(maxWidth: .infinity, alignment: .leading).lineLimit(1).truncationMode(.middle)
-                                // Inline edit Research %
-                                TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(width: 80)
-                                    .disabled(isArchived)
-                                    .onSubmit { saveRow(r.instrumentId) }
-                                // Inline edit User %
-                                TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(width: 80)
-                                    .disabled(isArchived)
-                                    .onSubmit { saveRow(r.instrumentId) }
-                                Text(fmtPct(r.actualPct)).frame(width: 80, alignment: .trailing)
-                                Text(fmtPct(r.deltaUserPct)).frame(width: 80, alignment: .trailing).foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
-                                // Notes inline (single-line)
-                                TextField("Notes", text: bindingNotes(for: r.instrumentId))
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(isArchived)
-                                    .onSubmit { saveRow(r.instrumentId) }
+                                if columns.contains(.instrument) {
+                                    Text(r.instrumentName)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                                if columns.contains(.research) {
+                                    TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(width: 80)
+                                        .disabled(isArchived)
+                                        .onSubmit { saveRow(r.instrumentId) }
+                                }
+                                if columns.contains(.user) {
+                                    TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(width: 80)
+                                        .disabled(isArchived)
+                                        .onSubmit { saveRow(r.instrumentId) }
+                                }
+                                if columns.contains(.actual) {
+                                    Text(fmtPct(r.actualPct))
+                                        .frame(width: 80, alignment: .trailing)
+                                }
+                                if columns.contains(.delta) {
+                                    Text(fmtPct(r.deltaUserPct))
+                                        .frame(width: 80, alignment: .trailing)
+                                        .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
+                                }
+                                if columns.contains(.notes) {
+                                    TextField("Notes", text: bindingNotes(for: r.instrumentId))
+                                        .textFieldStyle(.roundedBorder)
+                                        .disabled(isArchived)
+                                        .onSubmit { saveRow(r.instrumentId) }
+                                }
                                 if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
                             .font(.system(.body, design: .monospaced))
@@ -442,11 +496,12 @@ private struct HoldingsTable: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("Instrument").frame(maxWidth: .infinity, alignment: .leading)
-            Text("Research %").frame(width: 80, alignment: .trailing)
-            Text("User %").frame(width: 80, alignment: .trailing)
-            Text("Actual %").frame(width: 80, alignment: .trailing)
-            Text("Δ Actual-User").frame(width: 80, alignment: .trailing)
+            if columns.contains(.instrument) { Text("Instrument").frame(maxWidth: .infinity, alignment: .leading) }
+            if columns.contains(.research) { Text("Research %").frame(width: 80, alignment: .trailing) }
+            if columns.contains(.user) { Text("User %").frame(width: 80, alignment: .trailing) }
+            if columns.contains(.actual) { Text("Actual %").frame(width: 80, alignment: .trailing) }
+            if columns.contains(.delta) { Text("Δ Actual-User").frame(width: 80, alignment: .trailing) }
+            if columns.contains(.notes) { Text("Notes").frame(width: 160, alignment: .leading) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
@@ -527,4 +582,21 @@ private struct HoldingsTable: View {
     }
 
     private struct Edit { var research: Double; var user: Double; var notes: String }
+
+    // Visible columns
+    enum Column: String, CaseIterable, Identifiable, Hashable {
+        case instrument, research, user, actual, delta, notes
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .instrument: return "Instrument"
+            case .research: return "Research %"
+            case .user: return "User %"
+            case .actual: return "Actual %"
+            case .delta: return "Δ Actual-User"
+            case .notes: return "Notes"
+            }
+        }
+        static let defaultVisible: [Column] = [.instrument, .research, .user, .actual, .delta, .notes]
+    }
 }

@@ -26,6 +26,8 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceEnabled = "portfolioThemeWorkspaceEnabled"
     /// Remember last-used tab in the new Portfolio Theme Workspace.
     static let portfolioThemeWorkspaceLastTab = "portfolioThemeWorkspaceLastTab"
+    /// Visible columns in Workspace Holdings table (comma-separated list of column ids)
+    static let portfolioThemeWorkspaceHoldingsColumns = "portfolioThemeWorkspaceHoldingsColumns"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
 }
