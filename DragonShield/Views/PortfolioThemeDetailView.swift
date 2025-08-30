@@ -692,7 +692,8 @@ private var dangerZone: some View {
                     }
                 }
             }
-            .padding(.vertical, 24)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 24)
 
             Divider()
 

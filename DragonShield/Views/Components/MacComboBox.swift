@@ -101,6 +101,8 @@ struct MacComboBox: NSViewRepresentable {
             let value = tf.stringValue
             parent.text = value
             filter(with: value)
+            // Ensure the popup appears while typing to show filtered matches
+            openPopupIfNeeded()
         }
 
         func controlTextDidBeginEditing(_ obj: Notification) {
