@@ -5,8 +5,8 @@ struct InstrumentPricesMaintenanceView: View {
 
     @State private var searchText: String = ""
     @State private var currencyFilters: Set<String> = []
-    @State private var showMissingOnly = true
-    @State private var staleDays: Int = 7
+    @State private var showMissingOnly = false
+    @State private var staleDays: Int = 0
     @State private var sortKey: SortKey = .instrument
     @State private var sortAscending: Bool = true
 
@@ -74,14 +74,20 @@ struct InstrumentPricesMaintenanceView: View {
             } label: {
                 Label(currencyFilters.isEmpty ? "Currencies" : "\(currencyFilters.count) Currencies", systemImage: "line.3.horizontal.decrease.circle")
             }
-            Toggle("Missing only", isOn: $showMissingOnly).onChange(of: showMissingOnly) { _ in reload() }
-            HStack(spacing: 6) {
+            Toggle("Missing only", isOn: $showMissingOnly)
+                .onChange(of: showMissingOnly) { _ in reload() }
+            HStack(spacing: 8) {
                 Text("Stale >")
-                TextField("7", value: $staleDays, format: .number)
-                    .frame(width: 40)
-                    .multilineTextAlignment(.trailing)
-                    .onSubmit { reload() }
-                Text("days")
+                Slider(
+                    value: Binding(
+                        get: { Double(staleDays) },
+                        set: { staleDays = Int($0); reload() }
+                    ),
+                    in: 0...365, step: 1
+                )
+                .frame(width: 160)
+                Text("\(staleDays) day\(staleDays == 1 ? "" : "s")")
+                    .frame(width: 70, alignment: .leading)
             }
             Spacer()
             Picker("Sort", selection: $sortKey) {
