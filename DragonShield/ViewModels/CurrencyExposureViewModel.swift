@@ -19,9 +19,9 @@ class CurrencyExposureViewModel: ObservableObject {
             var rateCache: [String: Double] = [:]
             var total: Double = 0
             for p in positions {
-                guard let price = p.currentPrice else { continue }
+                guard let iid = p.instrumentId, let lp = db.getLatestPrice(instrumentId: iid) else { continue }
                 let currency = p.instrumentCurrency.uppercased()
-                var value = p.quantity * price
+                var value = p.quantity * lp.price
                 if currency != "CHF" {
                     if rateCache[currency] == nil {
                         let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)

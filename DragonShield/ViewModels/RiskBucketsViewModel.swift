@@ -40,8 +40,8 @@ final class RiskBucketsViewModel: ObservableObject {
         var total = 0.0
 
         for p in positions {
-            guard let price = p.currentPrice else { continue }
-            var value = p.quantity * price
+            guard let iid = p.instrumentId, let lp = db.getLatestPrice(instrumentId: iid) else { continue }
+            var value = p.quantity * lp.price
             let currency = p.instrumentCurrency.uppercased()
             if currency != "CHF" {
                 var rate = rateCache[currency]

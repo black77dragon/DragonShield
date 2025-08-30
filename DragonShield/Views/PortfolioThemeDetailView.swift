@@ -431,7 +431,10 @@ private var valuationSection: some View {
             let researchColumnWidth: CGFloat = 60
             let userColumnWidth: CGFloat = 60
             if snap.excludedFxCount > 0 {
-                Text("Excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+                Text("FX excluded: \(snap.excludedFxCount)").foregroundColor(.orange)
+            }
+            if snap.excludedPriceCount > 0 {
+                Text("Price missing: \(snap.excludedPriceCount)").foregroundColor(.red)
             }
             if onlyOutOfTolerance && rows.isEmpty && (showDeltaResearch || showDeltaUser) {
                 Text("No items outside tolerance")
@@ -471,11 +474,28 @@ private var valuationSection: some View {
             }
             ForEach(rows) { row in
                 HStack(spacing: 12) {
-                    Text(row.instrumentName)
-                        .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help(row.instrumentName)
+                    HStack(spacing: 6) {
+                        if row.status != .ok {
+                            let color: Color = (row.status == .priceMissing) ? .red : (row.status == .fxMissing ? .orange : .gray)
+                            let hint: String = {
+                                switch row.status {
+                                case .priceMissing: return "Price missing — set in Instrument › Price"
+                                case .fxMissing: return "FX rate missing — cannot convert to base"
+                                case .noPosition: return "No position in latest snapshot"
+                                default: return ""
+                                }
+                            }()
+                            Circle()
+                                .fill(color)
+                                .frame(width: 10, height: 10)
+                                .help(hint)
+                        }
+                        Text(row.instrumentName)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(row.instrumentName)
+                    }
+                    .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
                     Text(row.researchTargetPct, format: .number.precision(.fractionLength(1)))
                         .frame(width: researchColumnWidth, alignment: .trailing)
                     Text(row.userTargetPct, format: .number.precision(.fractionLength(1)))
@@ -914,4 +934,3 @@ private var dangerZone: some View {
         let action: (() -> Void)?
     }
 }
-

@@ -74,7 +74,12 @@ class PositionsViewModel: ObservableObject {
       var missingRate = false
 
       for p in positions {
-        guard let price = p.currentPrice else { continue }
+        // Get latest price from centralized InstrumentPrice
+        var price: Double?
+        if let instrId = p.instrumentId, let lp = db.getLatestPrice(instrumentId: instrId) {
+          price = lp.price
+        }
+        guard let price = price else { continue }
         let key = p.id
 
         let currency = p.instrumentCurrency.uppercased()

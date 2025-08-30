@@ -51,7 +51,7 @@ struct PositionsView: View {
       case .currency: return "Currency"
       case .quantity: return "Qty"
       case .purchase: return "Purchase"
-      case .current: return "Current"
+      case .current: return "Latest"
       case .valueOriginal: return "Position Value (Original Currency)"
       case .valueChf: return "Position Value (CHF)"
       case .dates: return "Dates"
@@ -86,6 +86,17 @@ struct PositionsView: View {
     let f = NumberFormatter()
     f.numberStyle = .decimal
     f.maximumFractionDigits = 0
+    f.groupingSeparator = "'"
+    f.usesGroupingSeparator = true
+    f.roundingMode = .down
+    return f
+  }()
+
+  private static let intMoneyFormatter: NumberFormatter = {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    f.maximumFractionDigits = 0
+    f.minimumFractionDigits = 0
     f.groupingSeparator = "'"
     f.usesGroupingSeparator = true
     f.roundingMode = .down
@@ -474,7 +485,8 @@ struct PositionsView: View {
           TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) {
             (position: PositionReportData) in
             if let p = position.purchasePrice {
-              Text(String(format: "%.2f", p))
+              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: p)) ?? String(Int(p))
+              Text("\(txt) \(position.instrumentCurrency)")
                 .font(.system(size: fontSize, design: .monospaced))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -488,14 +500,14 @@ struct PositionsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
           }
-          .width(min: 80, ideal: 90)
+          .width(min: 110, ideal: 130)
         }
 
         if visibleColumns.contains(.current) {
-          TableColumn("Current", sortUsing: KeyPathComparator(\PositionReportData.currentPrice)) {
-            (position: PositionReportData) in
-            if let cp = position.currentPrice {
-              Text(String(format: "%.2f", cp))
+          TableColumn("Latest") { (position: PositionReportData) in
+            if let id = position.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: id) {
+              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: lp.price)) ?? String(Int(lp.price))
+              Text("\(txt) \(lp.currency)")
                 .font(.system(size: fontSize, design: .monospaced))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -509,16 +521,14 @@ struct PositionsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
           }
-          .width(min: 80, ideal: 90)
+          .width(min: 120, ideal: 140)
         }
 
         if visibleColumns.contains(.valueOriginal) {
           TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
             if let value = viewModel.positionValueOriginal[position.id] {
-              let symbol =
-                viewModel.currencySymbols[position.instrumentCurrency.uppercased()]
-                ?? position.instrumentCurrency
-              Text(String(format: "%.2f %@", value, symbol))
+              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: value)) ?? String(Int(value))
+              Text("\(txt) \(position.instrumentCurrency)")
                 .font(.system(size: fontSize, design: .monospaced))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -532,14 +542,15 @@ struct PositionsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
           }
-          .width(min: 180, ideal: 200)
+          .width(min: 220, ideal: 240)
         }
 
         if visibleColumns.contains(.valueChf) {
           TableColumn("Position Value (CHF)") { (position: PositionReportData) in
             if let opt = viewModel.positionValueCHF[position.id] {
               if let value = opt {
-                Text(String(format: "%.2f CHF", value))
+                let txt = Self.chfFormatter.string(from: NSNumber(value: value)) ?? String(Int(value))
+                Text("\(txt) CHF")
                   .font(.system(size: fontSize, design: .monospaced))
                   .lineLimit(2)
                   .fixedSize(horizontal: false, vertical: true)
@@ -561,7 +572,7 @@ struct PositionsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
           }
-          .width(min: 150, ideal: 170)
+          .width(min: 170, ideal: 190)
         }
       }
 
