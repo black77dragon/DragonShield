@@ -22,6 +22,10 @@ struct UserDefaultsKeys {
     static let currenciesFxSegment = "currenciesFxSegment"
     /// Remember last-used tab in Portfolio Theme Details.
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
+    /// Toggle to use the new Portfolio Theme Workspace (beta).
+    static let portfolioThemeWorkspaceEnabled = "portfolioThemeWorkspaceEnabled"
+    /// Remember last-used tab in the new Portfolio Theme Workspace.
+    static let portfolioThemeWorkspaceLastTab = "portfolioThemeWorkspaceLastTab"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
 }

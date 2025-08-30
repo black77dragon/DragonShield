@@ -20,6 +20,8 @@ struct SettingsView: View {
     private var runStartupHealthChecks: Bool = true
     @AppStorage("coingeckoPreferFree")
     private var coingeckoPreferFree: Bool = false
+    @AppStorage(UserDefaultsKeys.portfolioThemeWorkspaceEnabled)
+    private var portfolioThemeWorkspaceEnabled: Bool = false
 
 
     private var okCount: Int {
@@ -89,6 +91,11 @@ struct SettingsView: View {
                             }
                         ),
                         in: 0...8)
+            }
+
+            Section(header: Text("UI Experiments")) {
+                Toggle("Use new Portfolio Theme Workspace (beta)", isOn: $portfolioThemeWorkspaceEnabled)
+                    .help("Opens the new tabbed theme details view instead of the classic editor.")
             }
             
             Section(header: Text("Table Display Settings")) {

@@ -7,6 +7,38 @@ import SQLite3
 import Foundation
 
 extension DatabaseManager {
+    struct ThemeAllocationRow: Identifiable {
+        let id: Int
+        let name: String
+        let instrumentCount: Int
+        let allocatedUserPct: Double
+    }
+
+    func listThemeAllocations(includeSoftDeleted: Bool = false) -> [ThemeAllocationRow] {
+        var rows: [ThemeAllocationRow] = []
+        var sql = """
+            SELECT pt.id,
+                   pt.name,
+                   COUNT(pta.instrument_id) AS instrument_count,
+                   IFNULL(SUM(pta.user_target_pct), 0) AS allocated_user_pct
+              FROM PortfolioTheme pt
+              LEFT JOIN PortfolioThemeAsset pta ON pta.theme_id = pt.id
+             WHERE 1=1
+        """
+        if !includeSoftDeleted { sql += " AND pt.soft_delete = 0" }
+        sql += " GROUP BY pt.id, pt.name ORDER BY allocated_user_pct DESC, pt.name"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let name = String(cString: sqlite3_column_text(stmt, 1))
+            let count = Int(sqlite3_column_int(stmt, 2))
+            let alloc = sqlite3_column_double(stmt, 3)
+            rows.append(ThemeAllocationRow(id: id, name: name, instrumentCount: count, allocatedUserPct: alloc))
+        }
+        return rows
+    }
     func ensurePortfolioThemeTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS PortfolioTheme (

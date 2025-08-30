@@ -2,6 +2,9 @@
 // Layout-polished detail editor for portfolio themes.
 
 import SwiftUI
+#if canImport(Charts)
+import Charts
+#endif
 
 enum DetailTab: String, CaseIterable {
     case composition
@@ -137,6 +140,7 @@ struct PortfolioThemeDetailView: View {
         }
         .onChange(of: selectedTab) { _, newValue in
             lastTabRaw = newValue.rawValue
+            if newValue == .valuation { runValuation() }
         }
         .sheet(isPresented: $showAdd) { addSheet }
         .sheet(isPresented: $showAddInstitution) {
@@ -224,44 +228,78 @@ struct PortfolioThemeDetailView: View {
     }
 
     private var headerBlock: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 16) {
-                TextField("Name", text: $name)
-                    .disabled(isReadOnly)
-                Text(code)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Capsule().stroke(Color.secondary))
-                Picker("Status", selection: $statusId) {
-                    ForEach(statuses) { status in
-                        Text(status.name).tag(status.id)
+        VStack(alignment: .leading, spacing: 16) {
+            // Top row: meta on left, compact notes on right
+            HStack(alignment: .top, spacing: 24) {
+                // Left column: details stacked vertically
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Name + status line
+                        HStack(spacing: 12) {
+                            TextField("Name", text: $name)
+                                .disabled(isReadOnly)
+                            Text(code)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().stroke(Color.secondary))
+                            Picker("Status", selection: $statusId) {
+                                ForEach(statuses) { status in
+                                    Text(status.name).tag(status.id)
+                                }
+                            }
+                            .labelsHidden()
+                            .disabled(isReadOnly)
+                        }
+                        // Archived at + Institution
+                        HStack(spacing: 12) {
+                            Text("Archived at: \(theme?.archivedAt ?? "-")")
+                                .foregroundColor(.secondary)
+                            Picker("Institution", selection: $institutionId) {
+                                Text("None").tag(nil as Int?)
+                                ForEach(institutions) { inst in
+                                    Text(inst.name).tag(inst.id as Int?)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .disabled(isReadOnly)
+                            // 'Add New' removed to simplify header
+                        }
                     }
                 }
-                .labelsHidden()
-                .disabled(isReadOnly)
-                Text("Archived at: \(theme?.archivedAt ?? "-")")
-                    .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Right: compact notes editor
+                VStack(alignment: .leading, spacing: 6) {
+                    // Align top of notes editor with name field by removing a preceding label
+                    TextEditor(text: $descriptionText)
+                        .frame(width: 420, height: 100)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
+                        .disabled(isReadOnly)
+                    Text("\(descriptionText.count) / 2000")
+                        .font(.caption)
+                        .foregroundColor(descriptionText.count > 2000 ? .red : .secondary)
+                }
             }
-            VStack(alignment: .trailing, spacing: 4) {
-                TextEditor(text: $descriptionText)
-                    .frame(minHeight: 60)
-                    .disabled(isReadOnly)
-                Text("\(descriptionText.count) / 2000")
-                    .font(.caption)
-                    .foregroundColor(descriptionText.count > 2000 ? .red : .secondary)
-            }
-            HStack {
-                Picker("Institution", selection: $institutionId) {
-                    Text("None").tag(nil as Int?)
-                    ForEach(institutions) { inst in
-                        Text(inst.name).tag(inst.id as Int?)
+
+            // Second row: charts side by side
+            #if canImport(Charts)
+            if !assets.isEmpty {
+                HStack(alignment: .top, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("User % Distribution").font(.title3).bold()
+                        userPieChartWithLegend
+                            .frame(height: 380)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.06)))
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Delta (Research − User)").font(.title3).bold()
+                        deltaBarChart
+                            .frame(minWidth: 360, maxWidth: 520, minHeight: 90)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.06)))
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
-                .disabled(isReadOnly)
-                Button("Add New…") { showAddInstitution = true }
-                    .disabled(isReadOnly)
             }
+            #endif
         }
     }
 
@@ -271,6 +309,8 @@ struct PortfolioThemeDetailView: View {
             Button("+ Add Instrument") { showAdd = true }
                 .buttonStyle(.borderedProminent)
                 .disabled(isReadOnly || availableInstruments.isEmpty)
+
+            // Charts moved into headerBlock on the right for a lean top layout
 
             if assets.isEmpty {
                 Text("No instruments attached")
@@ -393,6 +433,83 @@ struct PortfolioThemeDetailView: View {
             }
         }
     }
+
+#if canImport(Charts)
+    private var userPieChartWithLegend: some View {
+        let rows = assets
+            .filter { $0.userTargetPct > 0 }
+            .map { (name: instrumentName($0.instrumentId), value: $0.userTargetPct) }
+        let names = rows.map { $0.name }
+        let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
+        let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
+        return HStack(alignment: .top, spacing: 16) {
+            Chart(rows, id: \.name) { row in
+                SectorMark(
+                    angle: .value("User %", row.value),
+                    innerRadius: .ratio(0.55),
+                    angularInset: 1.5
+                )
+                .foregroundStyle(by: .value("Instrument", row.name))
+            }
+            .chartForegroundStyleScale(domain: names, range: colors)
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartLegend(.hidden)
+            Spacer(minLength: 12)
+            // Legend aligned to the far right with a border
+            VStack(alignment: .leading, spacing: 6) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(names.enumerated()), id: \.0) { idx, name in
+                            HStack(spacing: 8) {
+                                Circle().fill(colors[idx]).frame(width: 10, height: 10)
+                                Text(shortName(name, max: 10))
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .help(name)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(width: 240, alignment: .topLeading)
+            .padding(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.25)))
+        }
+    }
+
+    private var deltaBarChart: some View {
+        let items = assets.map { (name: instrumentName($0.instrumentId), delta: $0.researchTargetPct - $0.userTargetPct) }
+        return Chart(items, id: \.name) { it in
+            BarMark(
+                x: .value("Delta", it.delta),
+                y: .value("Instrument", it.name)
+            )
+            .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+        }
+        .chartXAxisLabel("%", alignment: .trailing)
+        .chartYScale(domain: items.map { $0.name })
+        .chartXScale(domain: minMaxDomain(for: items.map { $0.delta }))
+        .chartPlotStyle { plot in
+            plot.padding(.vertical, 0)
+        }
+    }
+
+    private func minMaxDomain(for values: [Double]) -> ClosedRange<Double> {
+        let minV = values.min() ?? -10
+        let maxV = values.max() ?? 10
+        if minV >= 0 { return 0...max(10, maxV) }
+        if maxV <= 0 { return min(minV, -10)...0 }
+        let bound = max(abs(minV), abs(maxV))
+        return -bound...bound
+    }
+    
+    private func shortName(_ s: String, max: Int) -> String {
+        guard s.count > max else { return s }
+        let end = s.index(s.startIndex, offsetBy: max)
+        return String(s[..<end]) + "…"
+    }
+#endif
 
 
 private var valuationSection: some View {

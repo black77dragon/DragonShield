@@ -226,6 +226,107 @@ struct TextTile: DashboardTile {
     }
 }
 
+// MARK: - Themes Overview Tile
+
+struct ThemesOverviewTile: DashboardTile {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var rows: [Row] = []
+    @State private var loading = false
+    @State private var openThemeId: Int? = nil
+
+    init() {}
+    static let tileID = "themes_overview"
+    static let tileName = "Portfolio Themes"
+    static let iconName = "square.grid.2x2"
+
+    var body: some View {
+        DashboardCard(title: Self.tileName) {
+            if loading {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if rows.isEmpty {
+                Text("No themes found").foregroundColor(.secondary)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: DashboardTileLayout.rowSpacing) {
+                        header
+                        ForEach(rows) { r in
+                            HStack {
+                                Button(r.name) { openThemeId = r.id }
+                                    .buttonStyle(.link)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text("\(r.instrumentCount)")
+                                    .frame(width: 80, alignment: .trailing)
+                                Text(currency(r.totalValue))
+                                    .frame(width: 140, alignment: .trailing)
+                            }
+                            .font(.system(size: 13))
+                            .frame(height: DashboardTileLayout.rowHeight)
+                        }
+                    }
+                    .padding(.vertical, DashboardTileLayout.rowSpacing)
+                }
+                .frame(maxHeight: 320)
+            }
+        }
+        .onAppear(perform: load)
+        .sheet(item: Binding(get: {
+            openThemeId.map { Ident(value: $0) }
+        }, set: { newVal in openThemeId = newVal?.value })) { ident in
+            if UserDefaults.standard.bool(forKey: UserDefaultsKeys.portfolioThemeWorkspaceEnabled) {
+                PortfolioThemeWorkspaceView(themeId: ident.value, origin: "Dashboard")
+                    .environmentObject(dbManager)
+            } else {
+                PortfolioThemeDetailView(themeId: ident.value, origin: "Dashboard")
+                    .environmentObject(dbManager)
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Theme").frame(maxWidth: .infinity, alignment: .leading)
+            Text("Instruments").frame(width: 80, alignment: .trailing)
+            Text("Total Value").frame(width: 140, alignment: .trailing)
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+    }
+
+    private func load() {
+        loading = true
+        DispatchQueue.global().async {
+            let themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false)
+            var result: [Row] = []
+            let fx = FXConversionService(dbManager: dbManager)
+            let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
+            for t in themes {
+                let snap = service.snapshot(themeId: t.id)
+                let total = snap.totalValueBase ?? 0
+                result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, totalValue: total))
+            }
+            result.sort { $0.totalValue > $1.totalValue }
+            DispatchQueue.main.async { rows = result; loading = false }
+        }
+    }
+
+    private struct Ident: Identifiable { let value: Int; var id: Int { value } }
+
+    private func currency(_ v: Double) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = dbManager.baseCurrency
+        f.maximumFractionDigits = 2
+        return f.string(from: NSNumber(value: v)) ?? String(format: "%.2f", v)
+    }
+
+    private struct Row: Identifiable {
+        let id: Int
+        let name: String
+        let instrumentCount: Int
+        let totalValue: Double
+    }
+}
+
 struct ImageTile: DashboardTile {
     init() {}
     static let tileID = "image"
@@ -374,6 +475,7 @@ enum TileRegistry {
         TileInfo(id: CryptoTop5Tile.tileID, name: CryptoTop5Tile.tileName, icon: CryptoTop5Tile.iconName) { AnyView(CryptoTop5Tile()) },
         TileInfo(id: InstitutionsAUMTile.tileID, name: InstitutionsAUMTile.tileName, icon: InstitutionsAUMTile.iconName) { AnyView(InstitutionsAUMTile()) },
         TileInfo(id: UnusedInstrumentsTile.tileID, name: UnusedInstrumentsTile.tileName, icon: UnusedInstrumentsTile.iconName) { AnyView(UnusedInstrumentsTile()) },
+        TileInfo(id: ThemesOverviewTile.tileID, name: ThemesOverviewTile.tileName, icon: ThemesOverviewTile.iconName) { AnyView(ThemesOverviewTile()) },
 
         TileInfo(id: CurrencyExposureTile.tileID, name: CurrencyExposureTile.tileName, icon: CurrencyExposureTile.iconName) { AnyView(CurrencyExposureTile()) },
         TileInfo(id: RiskBucketsTile.tileID, name: RiskBucketsTile.tileName, icon: RiskBucketsTile.iconName) { AnyView(RiskBucketsTile()) },
