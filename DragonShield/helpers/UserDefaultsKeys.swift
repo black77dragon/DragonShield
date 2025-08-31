@@ -22,6 +22,16 @@ struct UserDefaultsKeys {
     static let currenciesFxSegment = "currenciesFxSegment"
     /// Remember last-used tab in Portfolio Theme Details.
     static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
+    /// Toggle to use the new Portfolio Theme Workspace (beta).
+    static let portfolioThemeWorkspaceEnabled = "portfolioThemeWorkspaceEnabled"
+    /// Remember last-used tab in the new Portfolio Theme Workspace.
+    static let portfolioThemeWorkspaceLastTab = "portfolioThemeWorkspaceLastTab"
+    /// Visible columns in Workspace Holdings table (comma-separated list of column ids)
+    static let portfolioThemeWorkspaceHoldingsColumns = "portfolioThemeWorkspaceHoldingsColumns"
+    /// Column widths for Workspace Holdings table (csv: col:width,...)
+    static let portfolioThemeWorkspaceHoldingsColWidths = "portfolioThemeWorkspaceHoldingsColWidths"
+    /// Sort for Workspace Holdings table: e.g. "instrument|asc"
+    static let portfolioThemeWorkspaceHoldingsSort = "portfolioThemeWorkspaceHoldingsSort"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
 }

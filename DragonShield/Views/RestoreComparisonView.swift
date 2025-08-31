@@ -44,8 +44,13 @@ struct RestoreComparisonView: View {
             .frame(minHeight: 300)
             HStack {
                 Spacer()
-                Button("Close") { onClose() }
-                    .buttonStyle(PrimaryButtonStyle())
+                Button(role: .cancel) { onClose() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
             }
         }
         .padding(24)

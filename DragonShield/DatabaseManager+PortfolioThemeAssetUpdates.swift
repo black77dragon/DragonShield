@@ -369,3 +369,52 @@ extension DatabaseManager {
         return results
     }
 }
+
+extension DatabaseManager {
+    func listAllInstrumentUpdates(pinnedFirst: Bool = true, searchQuery: String? = nil, typeId: Int? = nil) -> [PortfolioThemeAssetUpdate] {
+        var items: [PortfolioThemeAssetUpdate] = []
+        var clauses: [String] = []
+        var binds: [Any] = []
+        if let tid = typeId { clauses.append("u.type_id = ?"); binds.append(tid) }
+        if let q = searchQuery, !q.isEmpty {
+            clauses.append("(LOWER(u.title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(u.body_markdown, u.body_text)) LIKE '%' || LOWER(?) || '%')")
+            binds.append(q)
+            binds.append(q)
+        }
+        let whereClause = clauses.isEmpty ? "1=1" : clauses.joined(separator: " AND ")
+        let order = pinnedFirst ? "u.pinned DESC, u.created_at DESC" : "u.created_at DESC"
+        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            var idx: Int32 = 1
+            for b in binds {
+                if let i = b as? Int { sqlite3_bind_int(stmt, idx, Int32(i)) }
+                else if let s = b as? String {
+                    let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    sqlite3_bind_text(stmt, idx, s, -1, SQLITE_TRANSIENT)
+                }
+                idx += 1
+            }
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let themeId = Int(sqlite3_column_int(stmt, 1))
+                let instrumentId = Int(sqlite3_column_int(stmt, 2))
+                let title = String(cString: sqlite3_column_text(stmt, 3))
+                let body = String(cString: sqlite3_column_text(stmt, 4))
+                let typeId = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 5))
+                let typeStr = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                let typeName = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let author = String(cString: sqlite3_column_text(stmt, 8))
+                let pinned = sqlite3_column_int(stmt, 9) == 1
+                let positionsAsOf = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 11) != SQLITE_NULL ? sqlite3_column_double(stmt, 11) : nil
+                let actual = sqlite3_column_type(stmt, 12) != SQLITE_NULL ? sqlite3_column_double(stmt, 12) : nil
+                let created = String(cString: sqlite3_column_text(stmt, 13))
+                let updated = String(cString: sqlite3_column_text(stmt, 14))
+                items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeStr, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return items
+    }
+}

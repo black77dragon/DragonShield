@@ -9,7 +9,13 @@ struct SymbolFormatHelpView: View {
                 Text("Symbol Formats")
                     .font(.title3).bold()
                 Spacer()
-                Button("Close") { dismiss() }
+                Button(role: .cancel) { dismiss() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
             }
 
             GroupBox(label: Text("Yahoo Finance").font(.headline)) {
@@ -60,4 +66,3 @@ struct SymbolFormatHelpView_Previews: PreviewProvider {
     }
 }
 #endif
-

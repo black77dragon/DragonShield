@@ -166,9 +166,14 @@ struct DataImportExportView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
                 Spacer()
-                Button("Close") { instructionsFor = nil }
-                    .keyboardShortcut(.cancelAction)
-                    .keyboardShortcut("w", modifiers: .command)
+                Button(role: .cancel) { instructionsFor = nil } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut("w", modifiers: .command)
             }
         }
         .padding()

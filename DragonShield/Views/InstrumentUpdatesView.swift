@@ -29,9 +29,22 @@ struct InstrumentUpdatesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Instrument Updates — \(instrumentName)  •  Theme: \(themeName)")
-                .font(.headline)
-                .padding(16)
+            HStack {
+                Text("Instrument Updates — \(instrumentName)  •  Theme: \(themeName)")
+                    .font(.headline)
+                Spacer()
+                Button(role: .cancel) {
+                    onClose(); dismiss()
+                } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
+                .help("Close")
+            }
+            .padding(16)
             if isArchived {
                 Text("Theme archived — composition locked; updates permitted")
                     .frame(maxWidth: .infinity)
@@ -113,7 +126,6 @@ struct InstrumentUpdatesView: View {
                 }
                     .disabled(selectedUpdate == nil)
                 Spacer()
-                Button("Close") { onClose(); dismiss() }
             }
             .padding(16)
             .confirmationDialog("Delete this instrument update? This cannot be undone.", isPresented: $showDeleteConfirm) {

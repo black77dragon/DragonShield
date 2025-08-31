@@ -112,7 +112,7 @@ struct PortfolioThemesListView: View {
             .environmentObject(dbManager)
         }
         .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
-            PortfolioThemeDetailView(themeId: theme.id, origin: detailOrigin, initialTab: detailInitialTab)
+            PortfolioThemeWorkspaceView(themeId: theme.id, origin: detailOrigin)
                 .environmentObject(dbManager)
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
