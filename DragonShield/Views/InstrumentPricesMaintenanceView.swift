@@ -86,6 +86,14 @@ struct InstrumentPricesMaintenanceView: View {
         }
     }
 
+    // Helper for Table column titles with arrow indicator like Workspace holdings
+    private func colTitle(_ base: String, _ key: SortKey) -> String {
+        if sortKey == key {
+            return "\(base) \(sortAscending ? "▲" : "▼")"
+        }
+        return base
+    }
+
     private var header: some View {
         HStack {
             VStack(alignment: .leading) {
@@ -156,24 +164,46 @@ struct InstrumentPricesMaintenanceView: View {
     private var table: some View {
         Table(rows, selection: $selection, sortOrder: $sortOrder) {
             Group {
-            TableColumn("Instrument") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Instrument", .instrument)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(r.name).fontWeight(.semibold)
+                        Text(r.name)
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(r.name)
                         if r.latestPrice == nil { missingPriceChip }
                     }
                     HStack(spacing: 6) {
-                        if let t = r.ticker, !t.isEmpty { Text(t).font(.caption).foregroundColor(.secondary) }
-                        if let i = r.isin, !i.isEmpty { Text(i).font(.caption).foregroundColor(.secondary) }
-                        if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary) }
+                        if let t = r.ticker, !t.isEmpty {
+                            Text(t)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        if let i = r.isin, !i.isEmpty {
+                            Text(i)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        if let v = r.valorNr, !v.isEmpty {
+                            Text(v)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
                 }
                 .frame(width: Self.colInstrument, alignment: .leading)
             }
-            TableColumn("Currency") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Currency", .currency)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
             }
-            TableColumn("Latest Price") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Latest Price", .price)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(formatted(r.latestPrice))
                     .frame(width: Self.colLatestPrice, alignment: .trailing)
                     .monospacedDigit()
@@ -182,12 +212,12 @@ struct InstrumentPricesMaintenanceView: View {
                     .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            TableColumn("As Of") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("As Of", .asOf)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
             }
             }
             Group {
-            TableColumn("Price Source") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Price Source", .source)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 HStack(spacing: 4) {
                     Text(r.source ?? "")
                     if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" {
@@ -196,12 +226,12 @@ struct InstrumentPricesMaintenanceView: View {
                 }
                 .frame(width: Self.colSource, alignment: .leading)
             }
-            TableColumn("Auto") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Auto", .auto)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                     .labelsHidden()
                     .frame(width: Self.colAuto, alignment: .center)
             }
-            TableColumn("Auto Provider") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Auto Provider", .autoProvider)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                     Text("").tag("")
                     ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
@@ -226,7 +256,7 @@ struct InstrumentPricesMaintenanceView: View {
                     .labelsHidden()
                     .frame(width: Self.colNewAsOf, alignment: .leading)
             }
-            TableColumn("Manual Source") { (r: DatabaseManager.InstrumentLatestPriceRow) in
+            TableColumn(colTitle("Manual Source", .manualSource)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
                     .textFieldStyle(.roundedBorder)
                     .frame(width: Self.colNewSource, alignment: .leading)
