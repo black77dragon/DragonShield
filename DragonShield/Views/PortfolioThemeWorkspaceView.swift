@@ -180,9 +180,12 @@ struct PortfolioThemeWorkspaceView: View {
                             }
                         )) { Text(col.title) }
                     }
+                    Divider()
+                    Button("Adjust Widths…") { showWidthsEditor = true }
                 } label: {
                     Label("Columns", systemImage: "slider.horizontal.3")
                 }
+                Button(action: { showAddInstrument = true }) { Label("Add Instrument", systemImage: "plus") }
                 Button { showClassicDetail = true } label: { Label("Edit in Classic", systemImage: "pencil") }
             }
             HStack(spacing: 8) {
@@ -198,11 +201,13 @@ struct PortfolioThemeWorkspaceView: View {
             Button("") { focusHoldingsSearch = true }
                 .keyboardShortcut("f", modifiers: .command)
                 .hidden()
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns)
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken)
                 .environmentObject(dbManager)
         }
         .padding(20)
         .onAppear(perform: restoreHoldingsColumns)
+        .sheet(isPresented: $showWidthsEditor) { ColumnWidthsEditor(onSave: { holdingsReloadToken += 1 }) }
+        .sheet(isPresented: $showAddInstrument) { addInstrumentSheet }
     }
 
     private func persistHoldingsColumns() {
@@ -213,6 +218,70 @@ struct PortfolioThemeWorkspaceView: View {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns), !raw.isEmpty else { return }
         let set = Set(raw.split(separator: ",").compactMap { HoldingsTable.Column(rawValue: String($0)) })
         if !set.isEmpty { holdingsColumns = set }
+    }
+
+    // MARK: - Add Instrument Sheet
+    private var addInstrumentSheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack { Text("Add Instrument to \(name)").font(.headline); Spacer() }
+                .padding(.horizontal, 20).padding(.top, 16)
+            Form {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("Instrument").frame(width: 120, alignment: .leading)
+                        MacComboBox(
+                            items: availableInstruments().map { $0.name },
+                            text: $addInstrumentQuery,
+                            onSelectIndex: { idx in
+                                let items = availableInstruments()
+                                if idx >= 0 && idx < items.count { addInstrumentId = items[idx].id }
+                            }
+                        )
+                        .frame(minWidth: 360)
+                    }
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("Research %").frame(width: 120, alignment: .leading)
+                        TextField("", value: $addResearchPct, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                    }
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("User %").frame(width: 120, alignment: .leading)
+                        TextField("", value: $addUserPct, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                    }
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("Notes").frame(width: 120, alignment: .leading)
+                        TextField("", text: $addNotes)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(minWidth: 360)
+                    }
+                }
+                .padding(.vertical, 12)
+            }
+            Divider()
+            HStack { Spacer(); Button("Cancel") { showAddInstrument = false }; Button("Add") { addInstrument() }.keyboardShortcut(.defaultAction).disabled(!addValid) }
+                .padding(20)
+        }
+        .frame(width: 600)
+        .onAppear { addUserPct = addResearchPct; addInstrumentQuery = ""; addInstrumentId = 0 }
+    }
+
+    private func availableInstruments() -> [(id: Int, name: String)] {
+        let inTheme = Set(dbManager.listThemeAssets(themeId: themeId).map { $0.instrumentId })
+        return dbManager.fetchAssets().map { ($0.id, $0.name) }.filter { !inTheme.contains($0.id) }
+    }
+    private var addValid: Bool { addInstrumentId > 0 && addResearchPct >= 0 && addResearchPct <= 100 && addUserPct >= 0 && addUserPct <= 100 }
+    private func addInstrument() {
+        let userPct = addUserPct == addResearchPct ? nil : addUserPct
+        let notes = addNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if dbManager.createThemeAsset(themeId: themeId, instrumentId: addInstrumentId, researchPct: addResearchPct, userPct: userPct, notes: notes.isEmpty ? nil : notes) != nil {
+            showAddInstrument = false
+            addInstrumentQuery = ""; addInstrumentId = 0; addResearchPct = 0; addUserPct = 0; addNotes = ""
+            holdingsReloadToken += 1
+            runValuation()
+        }
     }
 
     // Bulk actions removed per request
@@ -532,6 +601,7 @@ private struct HoldingsTable: View {
     let isArchived: Bool
     var search: String = ""
     var columns: Set<Column>
+    var reloadToken: Int = 0
     @State private var rows: [ValuationRow] = []
     @State private var total: Double = 0
     @State private var saving: Set<Int> = [] // instrumentId currently saving
@@ -539,6 +609,7 @@ private struct HoldingsTable: View {
     @State private var tableWidth: CGFloat = 0
     @State private var sortField: Column = .instrument
     @State private var sortAscending: Bool = true
+    @State private var colWidths: [Column: CGFloat] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -560,40 +631,46 @@ private struct HoldingsTable: View {
                                         .lineLimit(1)
                                         .truncationMode(.middle)
                                         .padding(6)
-                                        .frame(width: instrumentWidth, alignment: .leading)
+                                        .frame(width: width(for: .instrument), alignment: .leading)
                                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
                                 }
                                 if columns.contains(.research) {
                                     TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
                                         .multilineTextAlignment(.trailing)
-                                        .frame(width: numWidth)
+                                        .frame(width: width(for: .research))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
                                 if columns.contains(.user) {
                                     TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
                                         .multilineTextAlignment(.trailing)
-                                        .frame(width: numWidth)
+                                        .frame(width: width(for: .user))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
                                 if columns.contains(.actual) {
                                     Text(fmtPct(r.actualPct))
-                                        .frame(width: numWidth, alignment: .trailing)
+                                        .frame(width: width(for: .actual), alignment: .trailing)
                                 }
                                 if columns.contains(.delta) {
                                     Text(fmtPct(r.deltaUserPct))
-                                        .frame(width: numWidth, alignment: .trailing)
+                                        .frame(width: width(for: .delta), alignment: .trailing)
                                         .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
                                 }
                                 if columns.contains(.notes) {
                                     TextField("Notes", text: bindingNotes(for: r.instrumentId))
                                         .textFieldStyle(.roundedBorder)
                                         .padding(.vertical, 2)
-                                        .frame(width: notesWidth, alignment: .leading)
+                                        .frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading)
                                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
+                                }
+                                if !isArchived {
+                                    Button {
+                                        removeInstrument(r.instrumentId)
+                                    } label: { Image(systemName: "trash") }
+                                    .buttonStyle(.borderless)
                                 }
                                 if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
@@ -603,42 +680,26 @@ private struct HoldingsTable: View {
                 }
             }
         }
-        .onAppear(perform: load)
+        .onAppear { restoreWidths(); load() }
+        .onChange(of: reloadToken) { _, _ in load() }
     }
 
-    private let numWidth: CGFloat = 80
-    private var instrumentWidth: CGFloat {
-        let c = columns
-        let spacing: CGFloat = 8
-        let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
-        let fixedWidth = CGFloat(fixedCount) * numWidth
-        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
-        let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
-        let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
-        let instrumentShare: CGFloat = (c.contains(.instrument) && c.contains(.notes)) ? 0.7 : 1.0
-        return max(80, flexWidth * instrumentShare)
-    }
-    private var notesWidth: CGFloat {
-        let c = columns
-        let spacing: CGFloat = 8
-        let fixedCount = (c.contains(.research) ? 1 : 0) + (c.contains(.user) ? 1 : 0) + (c.contains(.actual) ? 1 : 0) + (c.contains(.delta) ? 1 : 0)
-        let fixedWidth = CGFloat(fixedCount) * numWidth
-        let visibleCount = (c.contains(.instrument) ? 1 : 0) + fixedCount + (c.contains(.notes) ? 1 : 0)
-        let spacingSum = spacing * CGFloat(max(0, visibleCount - 1))
-        let flexWidth = max(0, tableWidth - fixedWidth - spacingSum)
-        if !c.contains(.notes) { return 0 }
-        let share: CGFloat = (c.contains(.instrument) && c.contains(.notes)) ? 0.3 : 1.0
-        return max(120, flexWidth * share)
+    private let defaultNumWidth: CGFloat = 80
+    private func width(for col: Column) -> CGFloat {
+        // Notes uses min width; actual width expands to fill
+        if col == .notes { return colWidths[col] ?? 200 }
+        if col == .instrument { return colWidths[col] ?? 300 }
+        return colWidths[col] ?? defaultNumWidth
     }
 
     private var header: some View {
         HStack(spacing: 8) {
-            if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(width: instrumentWidth, alignment: .leading) }
-            if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: numWidth, alignment: .trailing) }
-            if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(width: notesWidth, alignment: .leading) }
+            if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(width: width(for: .instrument), alignment: .leading) }
+            if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: width(for: .research), alignment: .trailing) }
+            if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: width(for: .user), alignment: .trailing) }
+            if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: width(for: .actual), alignment: .trailing) }
+            if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: width(for: .delta), alignment: .trailing) }
+            if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
@@ -808,5 +869,52 @@ private struct HoldingsTable: View {
             }
         }
         static let defaultVisible: [Column] = [.instrument, .research, .user, .actual, .delta, .notes]
+    }
+
+    // MARK: - Column widths persistence
+    private func restoreWidths() {
+        guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths) else { return }
+        var map: [Column: CGFloat] = [:]
+        for part in raw.split(separator: ",") {
+            let kv = part.split(separator: ":")
+            if kv.count == 2, let c = Column(rawValue: String(kv[0])), let w = Double(kv[1]) {
+                map[c] = max(40, CGFloat(w))
+            }
+        }
+        if !map.isEmpty { colWidths = map }
+    }
+    private func persistWidths() {
+        let raw = Column.allCases.compactMap { col -> String? in
+            if let w = colWidths[col] { return "\(col.rawValue):\(Int(w))" }
+            return nil
+        }.joined(separator: ",")
+        UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths)
+    }
+    // Editor as a helper view
+    @ViewBuilder
+    private func ColumnWidthsEditor(onSave: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Adjust Column Widths").font(.headline)
+            ForEach(Column.allCases) { col in
+                HStack {
+                    Text(col.title).frame(width: 140, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { Double(width(for: col)) },
+                        set: { colWidths[col] = CGFloat($0) }
+                    ), in: 40...600)
+                    Text("\(Int(width(for: col))) pt").frame(width: 80, alignment: .trailing)
+                }
+            }
+            HStack { Spacer(); Button("Close") { persistWidths(); onSave() } }
+        }
+        .padding(20)
+        .frame(width: 520)
+    }
+
+    private func removeInstrument(_ instrumentId: Int) {
+        guard !isArchived else { return }
+        if dbManager.removeThemeAsset(themeId: themeId, instrumentId: instrumentId) {
+            load()
+        }
     }
 }
