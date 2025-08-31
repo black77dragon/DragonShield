@@ -11,9 +11,6 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var sortAscending: Bool = true
 
     @State private var rows: [DatabaseManager.InstrumentLatestPriceRow] = []
-    // Native Table state (macOS): selection + header sort
-    @State private var selection: Set<DatabaseManager.InstrumentLatestPriceRow.ID> = []
-    @State private var sortOrder: [KeyPathComparator<DatabaseManager.InstrumentLatestPriceRow>] = []
     @State private var editedPrice: [Int: String] = [:]
     @State private var editedAsOf: [Int: Date] = [:]
     @State private var editedSource: [Int: String] = [:]
@@ -86,12 +83,13 @@ struct InstrumentPricesMaintenanceView: View {
         }
     }
 
-    // Helper for Table column titles with arrow indicator like Workspace holdings
-    private func colTitle(_ base: String, _ key: SortKey) -> String {
-        if sortKey == key {
-            return "\(base) \(sortAscending ? "▲" : "▼")"
+    // Helper: small blue arrow next to active sort header (like Workspace holdings)
+    private func sortArrow(for key: SortKey) -> some View {
+        Group {
+            if sortKey == key {
+                Text(sortAscending ? "▲" : "▼").foregroundColor(.blue)
+            }
         }
-        return base
     }
 
     private var header: some View {
@@ -162,117 +160,99 @@ struct InstrumentPricesMaintenanceView: View {
     #if os(macOS)
     @ViewBuilder
     private var table: some View {
-        Table(rows, selection: $selection, sortOrder: $sortOrder) {
-            Group {
-            TableColumn(colTitle("Instrument", .instrument)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(r.name)
-                            .fontWeight(.semibold)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(r.name)
-                        if r.latestPrice == nil { missingPriceChip }
-                    }
-                    HStack(spacing: 6) {
-                        if let t = r.ticker, !t.isEmpty {
-                            Text(t)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+        // Custom table like Workspace Holdings — precise alignment and truncation
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                HStack {
+                    headerCell("Instrument", key: .instrument, width: Self.colInstrument, alignment: .leading)
+                    headerCell("Currency", key: .currency, width: Self.colCurrency, alignment: .leading)
+                    headerCell("Latest Price", key: .price, width: Self.colLatestPrice, alignment: .trailing)
+                    headerCell("As Of", key: .asOf, width: Self.colAsOf, alignment: .leading)
+                    headerCell("Price Source", key: .source, width: Self.colSource, alignment: .leading)
+                    headerCell("Auto", key: .auto, width: Self.colAuto, alignment: .center)
+                    headerCell("Auto Provider", key: .autoProvider, width: Self.colProvider, alignment: .leading)
+                    Text("External ID").frame(width: Self.colExternalId, alignment: .leading)
+                    Text("New Price").frame(width: Self.colNewPrice, alignment: .trailing)
+                    Text("New As Of").frame(width: Self.colNewAsOf, alignment: .leading)
+                    headerCell("Manual Source", key: .manualSource, width: Self.colNewSource, alignment: .leading)
+                    Text("Actions").frame(width: Self.colActions, alignment: .trailing)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 4)
+
+                // Rows
+                LazyVStack(spacing: 1) {
+                    ForEach(rows) { r in
+                        HStack(alignment: .center, spacing: 8) {
+                            // Instrument cell
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(r.name)
+                                        .fontWeight(.semibold)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                        .help(r.name)
+                                    if r.latestPrice == nil { missingPriceChip }
+                                }
+                                HStack(spacing: 6) {
+                                    if let t = r.ticker, !t.isEmpty { Text(t).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle) }
+                                    if let i = r.isin, !i.isEmpty { Text(i).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle) }
+                                    if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle) }
+                                }
+                            }
+                            .frame(width: Self.colInstrument, alignment: .leading)
+
+                            Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
+                            Text(formatted(r.latestPrice))
+                                .frame(width: Self.colLatestPrice, alignment: .trailing)
+                                .monospacedDigit()
+                                .padding(.vertical, 2)
+                                .padding(.horizontal, 6)
+                                .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                            Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
+                            HStack(spacing: 4) {
+                                Text(r.source ?? "")
+                                if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" { Text("🚫").help("Last auto update failed: \(st)") }
+                            }.frame(width: Self.colSource, alignment: .leading)
+                            Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
+                                .labelsHidden()
+                                .frame(width: Self.colAuto, alignment: .center)
+                            Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
+                                Text("").tag("")
+                                ForEach(providerOptions, id: \.self) { Text($0).tag($0) }
+                            }
+                            .labelsHidden()
+                            .frame(width: Self.colProvider, alignment: .leading)
+                            TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: Self.colExternalId, alignment: .leading)
+                            TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: Self.colNewPrice, alignment: .trailing)
+                            DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
+                                .labelsHidden()
+                                .frame(width: Self.colNewAsOf, alignment: .leading)
+                            TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: Self.colNewSource, alignment: .leading)
+                            HStack(spacing: 8) {
+                                Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
+                                Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
+                                Button("History") { openHistory(r.id) }
+                            }
+                            .frame(width: Self.colActions, alignment: .trailing)
                         }
-                        if let i = r.isin, !i.isEmpty {
-                            Text(i)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        if let v = r.valorNr, !v.isEmpty {
-                            Text(v)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
+                        .font(.system(size: 12))
+                        .padding(.vertical, 2)
                     }
                 }
-                .frame(width: Self.colInstrument, alignment: .leading)
             }
-            TableColumn(colTitle("Currency", .currency)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
-            }
-            TableColumn(colTitle("Latest Price", .price)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                Text(formatted(r.latestPrice))
-                    .frame(width: Self.colLatestPrice, alignment: .trailing)
-                    .monospacedDigit()
-                    .padding(.vertical, 2)
-                    .padding(.horizontal, 6)
-                    .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            TableColumn(colTitle("As Of", .asOf)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
-            }
-            }
-            Group {
-            TableColumn(colTitle("Price Source", .source)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                HStack(spacing: 4) {
-                    Text(r.source ?? "")
-                    if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" {
-                        Text("🚫").help("Last auto update failed: \(st)")
-                    }
-                }
-                .frame(width: Self.colSource, alignment: .leading)
-            }
-            TableColumn(colTitle("Auto", .auto)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
-                    .labelsHidden()
-                    .frame(width: Self.colAuto, alignment: .center)
-            }
-            TableColumn(colTitle("Auto Provider", .autoProvider)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
-                    Text("").tag("")
-                    ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
-                }
-                .labelsHidden()
-                .frame(width: Self.colProvider, alignment: .leading)
-            }
-            TableColumn("External ID") { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: Self.colExternalId, alignment: .leading)
-            }
-            }
-            Group {
-            TableColumn("New Price") { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: Self.colNewPrice, alignment: .trailing)
-            }
-            TableColumn("New As Of") { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
-                    .labelsHidden()
-                    .frame(width: Self.colNewAsOf, alignment: .leading)
-            }
-            TableColumn(colTitle("Manual Source", .manualSource)) { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: Self.colNewSource, alignment: .leading)
-            }
-            TableColumn("Actions") { (r: DatabaseManager.InstrumentLatestPriceRow) in
-                HStack(spacing: 8) {
-                    Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
-                    Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
-                    Button("History") { openHistory(r.id) }
-                }
-                .frame(width: Self.colActions, alignment: .trailing)
-            }
-            }
+            .padding(.vertical, 4)
+            .frame(minWidth: Self.tableMinWidth, maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: Self.tableMinWidth)
-        .onChange(of: sortOrder) { _, _ in applyTableSort() }
     }
     #else
     private var table: some View {
@@ -317,15 +297,8 @@ struct InstrumentPricesMaintenanceView: View {
             HStack(spacing: 4) {
                 Text(title)
                     .fontWeight(isActive ? .bold : .regular)
-                if isActive {
-                    Image(systemName: sortAscending ? "arrow.up" : "arrow.down")
-                        .font(.caption2)
-                } else {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.caption2)
-                }
+                if isActive { Text(sortAscending ? "▲" : "▼").foregroundColor(.blue) }
             }
-            .foregroundColor(isActive ? .accentColor : .secondary)
             .frame(width: width, alignment: alignment)
         }
         .buttonStyle(.plain)
@@ -467,24 +440,11 @@ struct InstrumentPricesMaintenanceView: View {
             )
             DispatchQueue.main.async {
                 self.rows = data
-                // Apply Table header sort if present; otherwise fall back to custom sort controls
-                if sortOrder.isEmpty { self.applySort() } else { self.applyTableSort() }
+                self.applySort()
                 self.loading = false
                 self.preloadSources()
             }
         }
-    }
-
-    private func applyTableSort() {
-        #if os(macOS)
-        if #available(macOS 13.0, *) {
-            rows.sort(using: sortOrder)
-        } else {
-            applySort()
-        }
-        #else
-        applySort()
-        #endif
     }
 
     private func preloadSources() {
