@@ -346,6 +346,110 @@ struct ImageTile: DashboardTile {
     }
 }
 
+// MARK: - All Notes Tile
+
+struct AllNotesTile: DashboardTile {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var totalCount: Int = 0
+    @State private var recent: [Row] = []
+    @State private var loading = false
+    @State private var openAll = false
+
+    init() {}
+    static let tileID = "all_notes"
+    static let tileName = "All Notes"
+    static let iconName = "note.text"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(Self.tileName).font(.system(size: 18, weight: .bold))
+                Spacer()
+                Button("Open All") { openAll = true }
+            }
+            if loading {
+                ProgressView().frame(maxWidth: .infinity)
+            } else {
+                HStack {
+                    Text("Total Notes")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(totalCount)")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.primaryAccent)
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2)))
+                if recent.isEmpty {
+                    Text("No recent notes")
+                        .foregroundColor(.secondary)
+                } else {
+                    VStack(spacing: DashboardTileLayout.rowSpacing) {
+                        ForEach(recent) { r in
+                            HStack(alignment: .top) {
+                                Text(r.title)
+                                    .fontWeight(.semibold)
+                                    .lineLimit(1)
+                                    .help(r.title)
+                                Spacer()
+                                Text(r.when)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 6) {
+                                Text(r.subtitle)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .help(r.subtitle)
+                                Spacer()
+                                Text(r.type)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.gray.opacity(0.15)))
+                            }
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(DashboardTileLayout.tilePadding)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .onAppear(perform: load)
+        .sheet(isPresented: $openAll) {
+            AllNotesView().environmentObject(dbManager)
+        }
+    }
+
+    private func load() {
+        loading = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let theme = dbManager.listAllThemeUpdates(view: .active, typeId: nil, searchQuery: nil, pinnedFirst: true)
+            let instr = dbManager.listAllInstrumentUpdates(pinnedFirst: true, searchQuery: nil, typeId: nil)
+            let themes = dbManager.fetchPortfolioThemes(includeArchived: true)
+            let themeNameMap = Dictionary(uniqueKeysWithValues: themes.map { ($0.id, $0.name) })
+            let instrumentNameMap = Dictionary(uniqueKeysWithValues: dbManager.fetchAssets().map { ($0.id, $0.name) })
+            let combined: [Row] = Array(theme.prefix(3)).map { t in
+                Row(id: "t-\(t.id)", title: t.title, subtitle: "Theme: \(themeNameMap[t.themeId] ?? "#\(t.themeId)")", type: t.typeDisplayName ?? t.typeCode, when: DateFormatting.userFriendly(t.createdAt))
+            } + Array(instr.prefix(3)).map { u in
+                Row(id: "i-\(u.id)", title: u.title, subtitle: "Instr: \(instrumentNameMap[u.instrumentId] ?? "#\(u.instrumentId)") · Theme: \(themeNameMap[u.themeId] ?? "#\(u.themeId)")", type: u.typeDisplayName ?? u.typeCode, when: DateFormatting.userFriendly(u.createdAt))
+            }
+            DispatchQueue.main.async {
+                self.totalCount = theme.count + instr.count
+                self.recent = combined
+                self.loading = false
+            }
+        }
+    }
+
+    private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
+}
+
 struct MapTile: DashboardTile {
     init() {}
     static let tileID = "map"
@@ -483,7 +587,8 @@ enum TileRegistry {
         TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
         TileInfo(id: MapTile.tileID, name: MapTile.tileName, icon: MapTile.iconName) { AnyView(MapTile()) },
         TileInfo(id: AccountsNeedingUpdateTile.tileID, name: AccountsNeedingUpdateTile.tileName, icon: AccountsNeedingUpdateTile.iconName) { AnyView(AccountsNeedingUpdateTile()) },
-        TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) }
+        TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
+        TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) }
     ]
 
     static func view(for id: String) -> AnyView? {

@@ -347,3 +347,61 @@ extension DatabaseManager {
         return true
     }
 }
+    // List all theme updates across all themes with optional filters
+    func listAllThemeUpdates(view: ThemeUpdateView = .active, typeId: Int? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
+        var items: [PortfolioThemeUpdate] = []
+        var clauses: [String] = ["u.soft_delete = \(view == .active ? 0 : 1)"]
+        var binds: [Any] = []
+        if let tid = typeId {
+            clauses.append("u.type_id = ?")
+            binds.append(tid)
+        }
+        if let q = searchQuery, !q.isEmpty {
+            clauses.append("(LOWER(u.title) LIKE '%' || LOWER(?) || '%' OR LOWER(COALESCE(u.body_markdown, u.body_text)) LIKE '%' || LOWER(?) || '%')")
+            binds.append(q)
+            binds.append(q)
+        }
+        let whereClause = clauses.joined(separator: " AND ")
+        let order: String
+        switch view {
+        case .active:
+            order = pinnedFirst ? "u.pinned DESC, u.created_at DESC" : "u.created_at DESC"
+        case .deleted:
+            order = "u.deleted_at DESC, u.created_at DESC"
+        }
+        let sql = "SELECT u.id, u.theme_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.total_value_chf, u.created_at, u.updated_at, u.soft_delete, u.deleted_at, u.deleted_by FROM PortfolioThemeUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            var index: Int32 = 1
+            for b in binds {
+                if let i = b as? Int {
+                    sqlite3_bind_int(stmt, index, Int32(i))
+                } else if let s = b as? String {
+                    let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    sqlite3_bind_text(stmt, index, s, -1, SQLITE_TRANSIENT)
+                }
+                index += 1
+            }
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let themeId = Int(sqlite3_column_int(stmt, 1))
+                let title = String(cString: sqlite3_column_text(stmt, 2))
+                let body = String(cString: sqlite3_column_text(stmt, 3))
+                let typeId = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 4))
+                let typeStr = sqlite3_column_text(stmt, 5).map { String(cString: $0) } ?? ""
+                let typeName = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                let author = String(cString: sqlite3_column_text(stmt, 7))
+                let pinned = sqlite3_column_int(stmt, 8) == 1
+                let posAsOf = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let value = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 10)
+                let created = String(cString: sqlite3_column_text(stmt, 11))
+                let updated = String(cString: sqlite3_column_text(stmt, 12))
+                let softDel = sqlite3_column_int(stmt, 13) == 1
+                let delAt = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
+                let delBy = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
+                items.append(PortfolioThemeUpdate(id: id, themeId: themeId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeStr, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: posAsOf, totalValueChf: value, createdAt: created, updatedAt: updated, softDelete: softDel, deletedAt: delAt, deletedBy: delBy))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return items
+    }
