@@ -368,10 +368,14 @@ struct AllNotesTile: DashboardTile {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(Self.tileName).font(.system(size: 18, weight: .bold))
+            HStack(spacing: 8) {
+                Text(Self.tileName)
+                    .font(.system(size: 18, weight: .bold))
                 Spacer()
                 Button("Open All") { openAll = true }
+                Text(loading ? "—" : String(totalCount))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Theme.primaryAccent)
             }
             HStack(spacing: 8) {
                 TextField("Search notes", text: $search)
@@ -387,50 +391,40 @@ struct AllNotesTile: DashboardTile {
             if loading {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
-                HStack {
-                    Text("Total Notes")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("\(totalCount)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Theme.primaryAccent)
-                }
-                .padding(10)
-                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2)))
                 if recent.isEmpty {
                     Text("No recent notes")
                         .foregroundColor(.secondary)
                 } else {
                     VStack(spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(recent) { r in
-                            HStack(alignment: .top) {
-                                Text(r.title)
-                                    .fontWeight(.semibold)
-                                    .lineLimit(1)
-                                    .help(r.title)
-                                Spacer()
-                                Text(r.when)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(alignment: .top) {
+                                    Text(r.title)
+                                        .fontWeight(.semibold)
+                                        .lineLimit(1)
+                                        .help(r.title)
+                                    Spacer()
+                                    Text(r.when)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                HStack(spacing: 6) {
+                                    Text(r.subtitle)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .help(r.subtitle)
+                                    Spacer()
+                                    Text(r.type)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.gray.opacity(0.15)))
+                                }
                             }
-                            HStack(spacing: 6) {
-                                Text(r.subtitle)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
-                                    .help(r.subtitle)
-                                Spacer()
-                                Text(r.type)
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Capsule().fill(Color.gray.opacity(0.15)))
-                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture(count: 2) { openEditor(r) }
                             Divider()
-                        }
-                        .onTapGesture(count: 2) { row in
-                            openEditor(row)
                         }
                     }
                 }

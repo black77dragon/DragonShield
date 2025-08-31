@@ -64,7 +64,8 @@ final class YahooFinanceProvider: PriceProvider {
             if let d = first?["regularMarketPrice"] as? Double { return d }
             return nil
         }()
-        var currStr: String? = (first?["currency"] as? String)?.uppercased()
+        let rawCurrency: String? = (first?["currency"] as? String)
+        var currStr: String? = rawCurrency?.uppercased()
         var tsSec: Double? = {
             if let n = first?["regularMarketTime"] as? NSNumber { return n.doubleValue }
             if let d = first?["regularMarketTime"] as? Double { return d }
@@ -114,9 +115,12 @@ final class YahooFinanceProvider: PriceProvider {
             throw PriceProviderError.notFound
         }
         let asOf = Date(timeIntervalSince1970: (tsSec ?? Date().timeIntervalSince1970))
-        let currency = (currStr ?? expectedCurrency ?? "").uppercased()
-        log.log("[Yahoo] OK symbol=\(symbol) price=\(finalPrice) curr=\(currency) asOf=\(asOf)", type: .debug, logger: .network)
-        return PriceQuote(price: finalPrice, currency: currency.isEmpty ? (expectedCurrency ?? "") : currency, asOf: asOf, source: code)
+        // Normalize special Yahoo quirk: GBp/GBX (pence) -> GBP with 1/100 scaling
+        let norm = normalizeCurrencyAndScale(rawCurrency ?? currStr)
+        let adjustedPrice = finalPrice * norm.scale
+        let currency = (norm.normalized.isEmpty ? (expectedCurrency ?? "") : norm.normalized).uppercased()
+        log.log("[Yahoo] OK symbol=\(symbol) price=\(finalPrice) adj=\(adjustedPrice) curr_raw=\(rawCurrency ?? "-") curr=\(currency) scale=\(norm.scale) asOf=\(asOf)", type: .debug, logger: .network)
+        return PriceQuote(price: adjustedPrice, currency: currency, asOf: asOf, source: code)
     }
 
     // Try chart API as a fallback when quote API is blocked or missing values
@@ -151,11 +155,25 @@ final class YahooFinanceProvider: PriceProvider {
         if let n = meta["regularMarketPrice"] as? NSNumber { price = n.doubleValue }
         else if let d = meta["regularMarketPrice"] as? Double { price = d }
         else if let prev = meta["regularMarketPreviousClose"] as? Double { price = prev }
-        let currency = (meta["currency"] as? String)?.uppercased() ?? ""
+        let rawCurrency = (meta["currency"] as? String)
+        let norm = normalizeCurrencyAndScale(rawCurrency)
         let ts = (meta["regularMarketTime"] as? Double) ?? Date().timeIntervalSince1970
         guard let p = price, p > 0 else { throw PriceProviderError.notFound }
-        let quote = PriceQuote(price: p, currency: currency, asOf: Date(timeIntervalSince1970: ts), source: code)
-        log.log("[Yahoo] Chart OK symbol=\(symbol) price=\(p) curr=\(currency) asOf=\(quote.asOf)", type: .debug, logger: .network)
+        let adj = p * norm.scale
+        let quote = PriceQuote(price: adj, currency: norm.normalized, asOf: Date(timeIntervalSince1970: ts), source: code)
+        log.log("[Yahoo] Chart OK symbol=\(symbol) price=\(p) adj=\(adj) curr_raw=\(rawCurrency ?? "-") curr=\(norm.normalized) scale=\(norm.scale) asOf=\(quote.asOf)", type: .debug, logger: .network)
         return quote
+    }
+
+    // Normalize Yahoo currency quirks (e.g., GBp/GBX) and provide a multiplier to scale price to major unit.
+    private func normalizeCurrencyAndScale(_ raw: String?) -> (normalized: String, scale: Double) {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return ("", 1.0)
+        }
+        // Yahoo sometimes returns GBp (pence) or GBX; both are 1/100 of GBP
+        if raw == "GBp" || raw.uppercased() == "GBX" {
+            return ("GBP", 0.01)
+        }
+        return (raw.uppercased(), 1.0)
     }
 }
