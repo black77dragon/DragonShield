@@ -152,7 +152,8 @@ struct InstrumentPricesMaintenanceView: View {
     @ViewBuilder
     private var table: some View {
         Table(rows) {
-            TableColumn("Instrument") { r in
+            Group {
+            TableColumn("Instrument") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(r.name).fontWeight(.semibold)
@@ -166,10 +167,10 @@ struct InstrumentPricesMaintenanceView: View {
                 }
                 .frame(width: Self.colInstrument, alignment: .leading)
             }
-            TableColumn("Currency") { r in
+            TableColumn("Currency") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
             }
-            TableColumn("Latest Price") { r in
+            TableColumn("Latest Price") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(formatted(r.latestPrice))
                     .frame(width: Self.colLatestPrice, alignment: .trailing)
                     .monospacedDigit()
@@ -178,10 +179,12 @@ struct InstrumentPricesMaintenanceView: View {
                     .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            TableColumn("As Of") { r in
+            TableColumn("As Of") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
             }
-            TableColumn("Price Source") { r in
+            }
+            Group {
+            TableColumn("Price Source") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 HStack(spacing: 4) {
                     Text(r.source ?? "")
                     if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" {
@@ -190,12 +193,12 @@ struct InstrumentPricesMaintenanceView: View {
                 }
                 .frame(width: Self.colSource, alignment: .leading)
             }
-            TableColumn("Auto") { r in
+            TableColumn("Auto") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                     .labelsHidden()
                     .frame(width: Self.colAuto, alignment: .center)
             }
-            TableColumn("Auto Provider") { r in
+            TableColumn("Auto Provider") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                     Text("").tag("")
                     ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
@@ -203,33 +206,36 @@ struct InstrumentPricesMaintenanceView: View {
                 .labelsHidden()
                 .frame(width: Self.colProvider, alignment: .leading)
             }
-            TableColumn("External ID") { r in
+            TableColumn("External ID") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
                     .textFieldStyle(.roundedBorder)
                     .frame(width: Self.colExternalId, alignment: .leading)
             }
-            TableColumn("New Price") { r in
+            }
+            Group {
+            TableColumn("New Price") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
                     .textFieldStyle(.roundedBorder)
                     .frame(width: Self.colNewPrice, alignment: .trailing)
             }
-            TableColumn("New As Of") { r in
+            TableColumn("New As Of") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
                     .labelsHidden()
                     .frame(width: Self.colNewAsOf, alignment: .leading)
             }
-            TableColumn("Manual Source") { r in
+            TableColumn("Manual Source") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
                     .textFieldStyle(.roundedBorder)
                     .frame(width: Self.colNewSource, alignment: .leading)
             }
-            TableColumn("Actions") { r in
+            TableColumn("Actions") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 HStack(spacing: 8) {
                     Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
                     Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
                     Button("History") { openHistory(r.id) }
                 }
                 .frame(width: Self.colActions, alignment: .trailing)
+            }
             }
         }
         .frame(minWidth: Self.tableMinWidth)
