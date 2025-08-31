@@ -432,14 +432,37 @@ struct InstrumentPricesMaintenanceView: View {
         loading = true
         DispatchQueue.global().async {
             let currencies = currencyFilters.isEmpty ? nil : Array(currencyFilters)
+            // Fetch rows with DB-side structural filters only; do text search in-memory across extra fields too
             let data = dbManager.listInstrumentLatestPrices(
-                search: searchText.isEmpty ? nil : searchText,
+                search: nil,
                 currencies: currencies,
                 missingOnly: showMissingOnly,
                 staleDays: staleDays
             )
+            // Preload price source configuration for provider/externalId matching
+            var src: [Int: (prov: String, ext: String, enabled: Bool, status: String)] = [:]
+            for r in data {
+                if let cfg = dbManager.getPriceSource(instrumentId: r.id) {
+                    src[r.id] = (cfg.providerCode, cfg.externalId, cfg.enabled, cfg.lastStatus ?? "")
+                }
+            }
+            let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let filtered: [DatabaseManager.InstrumentLatestPriceRow] = {
+                guard !q.isEmpty else { return data }
+                return data.filter { r in
+                    if r.name.lowercased().contains(q) { return true }
+                    if let t = r.ticker?.lowercased(), t.contains(q) { return true }
+                    if let i = r.isin?.lowercased(), i.contains(q) { return true }
+                    if let v = r.valorNr?.lowercased(), v.contains(q) { return true }
+                    if let s = r.source?.lowercased(), s.contains(q) { return true } // Price Source
+                    if let p = src[r.id]?.prov.lowercased(), p.contains(q) { return true } // Auto Provider
+                    if let e = src[r.id]?.ext.lowercased(), e.contains(q) { return true } // External ID
+                    if let m = (editedSource[r.id] ?? "manual").lowercased() as String?, m.contains(q) { return true } // Manual Source (edited or default)
+                    return false
+                }
+            }()
             DispatchQueue.main.async {
-                self.rows = data
+                self.rows = filtered
                 self.applySort()
                 self.loading = false
                 self.preloadSources()
