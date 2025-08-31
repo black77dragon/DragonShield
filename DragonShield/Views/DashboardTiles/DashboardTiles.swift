@@ -112,17 +112,6 @@ struct TotalValueTile: DashboardTile {
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            HStack(spacing: 8) {
-                TextField("Search notes", text: $search)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { load() }
-                if !search.isEmpty {
-                    Button("Clear") { search = ""; load() }.buttonStyle(.link)
-                }
-                Toggle("Pinned first", isOn: $pinnedFirst)
-                    .toggleStyle(.checkbox)
-                    .onChange(of: pinnedFirst) { _, _ in load() }
-            }
             if loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -367,6 +356,10 @@ struct AllNotesTile: DashboardTile {
     @State private var openAll = false
     @State private var search: String = ""
     @State private var pinnedFirst: Bool = true
+    @State private var editingTheme: PortfolioThemeUpdate?
+    @State private var editingInstrument: PortfolioThemeAssetUpdate?
+    @State private var themeNames: [Int: String] = [:]
+    @State private var instrumentNames: [Int: String] = [:]
 
     init() {}
     static let tileID = "all_notes"
@@ -379,6 +372,17 @@ struct AllNotesTile: DashboardTile {
                 Text(Self.tileName).font(.system(size: 18, weight: .bold))
                 Spacer()
                 Button("Open All") { openAll = true }
+            }
+            HStack(spacing: 8) {
+                TextField("Search notes", text: $search)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { load() }
+                if !search.isEmpty {
+                    Button("Clear") { search = ""; load() }.buttonStyle(.link)
+                }
+                Toggle("Pinned first", isOn: $pinnedFirst)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: pinnedFirst) { _, _ in load() }
             }
             if loading {
                 ProgressView().frame(maxWidth: .infinity)
@@ -425,6 +429,9 @@ struct AllNotesTile: DashboardTile {
                             }
                             Divider()
                         }
+                        .onTapGesture(count: 2) { row in
+                            openEditor(row)
+                        }
                     }
                 }
             }
@@ -437,11 +444,20 @@ struct AllNotesTile: DashboardTile {
         .sheet(isPresented: $openAll) {
             AllNotesView().environmentObject(dbManager)
         }
+        .sheet(item: $editingTheme) { upd in
+            ThemeUpdateEditorView(themeId: upd.themeId, themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in editingTheme = nil; load() }, onCancel: { editingTheme = nil })
+                .environmentObject(dbManager)
+        }
+        .sheet(item: $editingInstrument) { upd in
+            InstrumentUpdateEditorView(themeId: upd.themeId, instrumentId: upd.instrumentId, instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)", themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in editingInstrument = nil; load() }, onCancel: { editingInstrument = nil })
+                .environmentObject(dbManager)
+        }
     }
 
     private func load() {
         loading = true
         DispatchQueue.global(qos: .userInitiated).async {
+            let q = search.isEmpty ? nil : search
             let theme = dbManager.listAllThemeUpdates(view: .active, typeId: nil, searchQuery: q, pinnedFirst: pinnedFirst)
             let instr = dbManager.listAllInstrumentUpdates(pinnedFirst: pinnedFirst, searchQuery: q, typeId: nil)
             let themes = dbManager.fetchPortfolioThemes(includeArchived: true)
@@ -460,7 +476,20 @@ struct AllNotesTile: DashboardTile {
         }
     }
 
-    private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
+    
+    private func openEditor(_ row: Row) {
+        if row.id.hasPrefix("t-") {
+            if let id = Int(row.id.dropFirst(2)), let upd = dbManager.getThemeUpdate(id: id) {
+                editingTheme = upd
+            }
+        } else if row.id.hasPrefix("i-") {
+            if let id = Int(row.id.dropFirst(2)), let upd = dbManager.getInstrumentUpdate(id: id) {
+                editingInstrument = upd
+            }
+        }
+    }
+
+private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
 }
 
 struct MapTile: DashboardTile {

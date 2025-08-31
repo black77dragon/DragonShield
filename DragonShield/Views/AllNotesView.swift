@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AllNotesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.dismiss) private var dismiss
 
     enum Kind: String, CaseIterable, Identifiable { case all, theme, instrument; var id: String { rawValue }; var label: String { rawValue.capitalized } }
     enum SortOrder: String, CaseIterable, Identifiable { case newest, oldest; var id: String { rawValue }; var label: String { self == .newest ? "Newest first" : "Oldest first" } }
@@ -18,6 +19,8 @@ struct AllNotesView: View {
     @State private var instrumentUpdates: [PortfolioThemeAssetUpdate] = []
     @State private var editingTheme: PortfolioThemeUpdate?
     @State private var editingInstrument: PortfolioThemeAssetUpdate?
+    @State private var confirmDeleteThemeId: Int? = nil
+    @State private var confirmDeleteInstrumentId: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -65,6 +68,36 @@ struct AllNotesView: View {
             )
                 .environmentObject(dbManager)
         }
+        .confirmationDialog(
+            "Send this theme note to the shadow realm?",
+            isPresented: Binding(get: { confirmDeleteThemeId != nil }, set: { if !$0 { confirmDeleteThemeId = nil } })
+        ) {
+            Button("Delete", role: .destructive) {
+                if let id = confirmDeleteThemeId {
+                    _ = dbManager.softDeleteThemeUpdate(id: id, actor: NSFullUserName())
+                    confirmDeleteThemeId = nil
+                    reload()
+                }
+            }
+            Button("Cancel", role: .cancel) { confirmDeleteThemeId = nil }
+        } message: {
+            Text("This note will haunt the recycle bin until emptied.")
+        }
+        .confirmationDialog(
+            "Incinerate this instrument note?",
+            isPresented: Binding(get: { confirmDeleteInstrumentId != nil }, set: { if !$0 { confirmDeleteInstrumentId = nil } })
+        ) {
+            Button("Delete", role: .destructive) {
+                if let id = confirmDeleteInstrumentId {
+                    _ = dbManager.deleteInstrumentUpdate(id: id, actor: NSFullUserName())
+                    confirmDeleteInstrumentId = nil
+                    reload()
+                }
+            }
+            Button("Cancel", role: .cancel) { confirmDeleteInstrumentId = nil }
+        } message: {
+            Text("Poof! Gone forever. Choose wisely.")
+        }
     }
 
     private var filters: some View {
@@ -87,6 +120,7 @@ struct AllNotesView: View {
             }
             .onChange(of: sortOrder) { _, _ in reload() }
             Spacer()
+            Button("Close") { dismiss() }
         }
     }
 
@@ -120,10 +154,7 @@ struct AllNotesView: View {
                 Text(update.title).fontWeight(.semibold)
                 Spacer()
                 Button("Edit") { editingTheme = update }.buttonStyle(.link)
-                Button("Delete", role: .destructive) {
-                    _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
-                    reload()
-                }
+                Button("Delete", role: .destructive) { confirmDeleteThemeId = update.id }
                 .buttonStyle(.link)
             }
             Text("Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
@@ -141,10 +172,7 @@ struct AllNotesView: View {
                 Text(update.title).fontWeight(.semibold)
                 Spacer()
                 Button("Edit") { editingInstrument = update }.buttonStyle(.link)
-                Button("Delete", role: .destructive) {
-                    _ = dbManager.deleteInstrumentUpdate(id: update.id, actor: NSFullUserName())
-                    reload()
-                }
+                Button("Delete", role: .destructive) { confirmDeleteInstrumentId = update.id }
                 .buttonStyle(.link)
             }
             Text("Instrument: \(instrumentNames[update.instrumentId] ?? "#\(update.instrumentId)") · Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
