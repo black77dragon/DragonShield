@@ -148,6 +148,93 @@ struct InstrumentPricesMaintenanceView: View {
         }
     }
 
+    #if os(macOS)
+    @ViewBuilder
+    private var table: some View {
+        Table(rows) {
+            TableColumn("Instrument") { r in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(r.name).fontWeight(.semibold)
+                        if r.latestPrice == nil { missingPriceChip }
+                    }
+                    HStack(spacing: 6) {
+                        if let t = r.ticker, !t.isEmpty { Text(t).font(.caption).foregroundColor(.secondary) }
+                        if let i = r.isin, !i.isEmpty { Text(i).font(.caption).foregroundColor(.secondary) }
+                        if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary) }
+                    }
+                }
+                .frame(width: Self.colInstrument, alignment: .leading)
+            }
+            TableColumn("Currency") { r in
+                Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
+            }
+            TableColumn("Latest Price") { r in
+                Text(formatted(r.latestPrice))
+                    .frame(width: Self.colLatestPrice, alignment: .trailing)
+                    .monospacedDigit()
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 6)
+                    .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            TableColumn("As Of") { r in
+                Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
+            }
+            TableColumn("Price Source") { r in
+                HStack(spacing: 4) {
+                    Text(r.source ?? "")
+                    if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" {
+                        Text("🚫").help("Last auto update failed: \(st)")
+                    }
+                }
+                .frame(width: Self.colSource, alignment: .leading)
+            }
+            TableColumn("Auto") { r in
+                Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
+                    .labelsHidden()
+                    .frame(width: Self.colAuto, alignment: .center)
+            }
+            TableColumn("Auto Provider") { r in
+                Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
+                    Text("").tag("")
+                    ForEach(providerOptions, id: \.self) { p in Text(p).tag(p) }
+                }
+                .labelsHidden()
+                .frame(width: Self.colProvider, alignment: .leading)
+            }
+            TableColumn("External ID") { r in
+                TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: Self.colExternalId, alignment: .leading)
+            }
+            TableColumn("New Price") { r in
+                TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: Self.colNewPrice, alignment: .trailing)
+            }
+            TableColumn("New As Of") { r in
+                DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
+                    .labelsHidden()
+                    .frame(width: Self.colNewAsOf, alignment: .leading)
+            }
+            TableColumn("Manual Source") { r in
+                TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: Self.colNewSource, alignment: .leading)
+            }
+            TableColumn("Actions") { r in
+                HStack(spacing: 8) {
+                    Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
+                    Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
+                    Button("History") { openHistory(r.id) }
+                }
+                .frame(width: Self.colActions, alignment: .trailing)
+            }
+        }
+        .frame(minWidth: Self.tableMinWidth)
+    }
+    #else
     private var table: some View {
         // Horizontal + vertical scroll. Force content to anchor to the top-left so rows never appear centered.
         ScrollView([.horizontal, .vertical]) {
@@ -163,6 +250,7 @@ struct InstrumentPricesMaintenanceView: View {
             .frame(minWidth: Self.tableMinWidth, maxWidth: .infinity, alignment: .topLeading)
         }
     }
+    #endif
 
     private var headerRow: some View {
         HStack {
