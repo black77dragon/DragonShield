@@ -34,4 +34,6 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceHoldingsSort = "portfolioThemeWorkspaceHoldingsSort"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
+    /// Column widths for Instrument Prices Maintenance table (csv: col:width,...)
+    static let pricesMaintenanceColWidths = "pricesMaintenanceColWidths"
 }
