@@ -163,6 +163,16 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var holdingsSearch: String = ""
     @FocusState private var focusHoldingsSearch: Bool
     @State private var holdingsColumns: Set<HoldingsTable.Column> = Set(HoldingsTable.Column.defaultVisible)
+    @State private var showWidthsEditor: Bool = false
+    @State private var holdingsReloadToken: Int = 0
+
+    // Add/Delete Instrument state
+    @State private var showAddInstrument: Bool = false
+    @State private var addInstrumentQuery: String = ""
+    @State private var addInstrumentId: Int = 0
+    @State private var addResearchPct: Double = 0
+    @State private var addUserPct: Double = 0
+    @State private var addNotes: String = ""
     private var holdingsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -218,6 +228,64 @@ struct PortfolioThemeWorkspaceView: View {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns), !raw.isEmpty else { return }
         let set = Set(raw.split(separator: ",").compactMap { HoldingsTable.Column(rawValue: String($0)) })
         if !set.isEmpty { holdingsColumns = set }
+    }
+
+    // MARK: - Column Widths Editor (sheet in parent scope)
+    private func ColumnWidthsEditor(onSave: @escaping () -> Void) -> some View {
+        ColumnWidthsEditorSheet(onSave: onSave)
+    }
+
+    private struct ColumnWidthsEditorSheet: View {
+        @Environment(\.dismiss) private var dismiss
+        @State private var widths: [HoldingsTable.Column: Double] = [:]
+        var onSave: () -> Void
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Adjust Column Widths").font(.headline)
+                ForEach(HoldingsTable.Column.allCases) { col in
+                    HStack(spacing: 12) {
+                        Text(col.title).frame(width: 160, alignment: .leading)
+                        Slider(value: Binding(
+                            get: { widths[col] ?? defaultWidth(for: col) },
+                            set: { widths[col] = $0 }
+                        ), in: 40...600)
+                        Text("\(Int(widths[col] ?? defaultWidth(for: col))) pt").frame(width: 80, alignment: .trailing)
+                    }
+                }
+                HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Save") { persist(); onSave(); dismiss() }.keyboardShortcut(.defaultAction) }
+            }
+            .padding(20)
+            .frame(width: 520)
+            .onAppear(perform: restore)
+        }
+
+        private func defaultWidth(for col: HoldingsTable.Column) -> Double {
+            switch col {
+            case .instrument: return 300
+            case .notes: return 200
+            default: return 80
+            }
+        }
+
+        private func restore() {
+            guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths) else { return }
+            var map: [HoldingsTable.Column: Double] = [:]
+            for part in raw.split(separator: ",") {
+                let kv = part.split(separator: ":")
+                if kv.count == 2, let c = HoldingsTable.Column(rawValue: String(kv[0])), let w = Double(kv[1]) {
+                    map[c] = max(40, w)
+                }
+            }
+            if !map.isEmpty { widths = map }
+        }
+        private func persist() {
+            let raw = HoldingsTable.Column.allCases.compactMap { col -> String? in
+                if let w = widths[col] { return "\(col.rawValue):\(Int(w))" }
+                return nil
+            }.joined(separator: ",")
+            UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths)
+        }
     }
 
     // MARK: - Add Instrument Sheet
