@@ -175,7 +175,7 @@ struct InstrumentPricesMaintenanceView: View {
         ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
-                HStack {
+                HStack(spacing: 8) {
                     headerCell("Instrument", key: .instrument, width: width(for: .instrument), alignment: .leading)
                     resizeHandle(for: .instrument)
                     headerCell("Currency", key: .currency, width: width(for: .currency), alignment: .leading)
@@ -225,8 +225,10 @@ struct InstrumentPricesMaintenanceView: View {
                                 }
                             }
                             .frame(width: width(for: .instrument), alignment: .leading)
+                            resizeSpacer(for: .instrument)
 
                             Text(r.currency).frame(width: width(for: .currency), alignment: .leading)
+                            resizeSpacer(for: .currency)
                             Text(formatted(r.latestPrice))
                                 .frame(width: width(for: .latestPrice), alignment: .trailing)
                                 .monospacedDigit()
@@ -234,32 +236,41 @@ struct InstrumentPricesMaintenanceView: View {
                                 .padding(.horizontal, 6)
                                 .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
+                            resizeSpacer(for: .latestPrice)
                             Text(formatAsOf(r.asOf)).frame(width: width(for: .asOf), alignment: .leading)
+                            resizeSpacer(for: .asOf)
                             HStack(spacing: 4) {
                                 Text(r.source ?? "")
                                 if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" { Text("🚫").help("Last auto update failed: \(st)") }
                             }.frame(width: width(for: .source), alignment: .leading)
+                            resizeSpacer(for: .source)
                             Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                                 .labelsHidden()
                                 .frame(width: width(for: .auto), alignment: .center)
+                            resizeSpacer(for: .auto)
                             Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                                 Text("").tag("")
                                 ForEach(providerOptions, id: \.self) { Text($0).tag($0) }
                             }
                             .labelsHidden()
                             .frame(width: width(for: .provider), alignment: .leading)
+                            resizeSpacer(for: .provider)
                             TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .externalId), alignment: .leading)
+                            resizeSpacer(for: .externalId)
                             TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .newPrice), alignment: .trailing)
+                            resizeSpacer(for: .newPrice)
                             DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
                                 .labelsHidden()
                                 .frame(width: width(for: .newAsOf), alignment: .leading)
+                            resizeSpacer(for: .newAsOf)
                             TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .newSource), alignment: .leading)
+                            resizeSpacer(for: .newSource)
                             HStack(spacing: 8) {
                                 Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
                                 Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
@@ -481,6 +492,9 @@ struct InstrumentPricesMaintenanceView: View {
                 persistWidths()
             })
             .help("Drag to resize column")
+    }
+    private func resizeSpacer(for col: Column) -> some View {
+        Rectangle().fill(Color.clear).frame(width: 6, height: 18)
     }
     private func restoreWidths() {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.pricesMaintenanceColWidths) else { return }
