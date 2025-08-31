@@ -11,6 +11,8 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var sortAscending: Bool = true
 
     @State private var rows: [DatabaseManager.InstrumentLatestPriceRow] = []
+    // Column widths (resizable like Workspace Holdings)
+    @State private var colWidths: [Column: CGFloat] = [:]
     @State private var editedPrice: [Int: String] = [:]
     @State private var editedAsOf: [Int: Date] = [:]
     @State private var editedSource: [Int: String] = [:]
@@ -37,6 +39,11 @@ struct InstrumentPricesMaintenanceView: View {
         case autoProvider // Provider code used for auto fetch
         case manualSource // Text in the Manual Source field
     }
+
+    private enum Column: String, CaseIterable, Hashable, Identifiable {
+        case instrument, currency, latestPrice, asOf, source, auto, provider, externalId, newPrice, newAsOf, newSource, actions
+        var id: String { rawValue }
+    }
     private let staleOptions: [Int] = [0, 7, 14, 30, 60, 90]
 
     private static let priceFormatter: NumberFormatter = {
@@ -62,6 +69,7 @@ struct InstrumentPricesMaintenanceView: View {
         }
         .padding(16)
         .onAppear(perform: reload)
+        .onAppear(perform: restoreWidths)
         // Present structured report and other sheets
         .sheet(item: $activeSheet) { item in
             switch item {
@@ -122,6 +130,9 @@ struct InstrumentPricesMaintenanceView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: task)
                 }
                 .frame(minWidth: 320)
+            Text("name, ticker, ISIN, valor, source, provider, external id, manual source")
+                .font(.caption)
+                .foregroundColor(.secondary)
             Menu {
                 ForEach(distinctCurrencies(), id: \.self) { cur in
                     Button {
@@ -165,18 +176,29 @@ struct InstrumentPricesMaintenanceView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 HStack {
-                    headerCell("Instrument", key: .instrument, width: Self.colInstrument, alignment: .leading)
-                    headerCell("Currency", key: .currency, width: Self.colCurrency, alignment: .leading)
-                    headerCell("Latest Price", key: .price, width: Self.colLatestPrice, alignment: .trailing)
-                    headerCell("As Of", key: .asOf, width: Self.colAsOf, alignment: .leading)
-                    headerCell("Price Source", key: .source, width: Self.colSource, alignment: .leading)
-                    headerCell("Auto", key: .auto, width: Self.colAuto, alignment: .center)
-                    headerCell("Auto Provider", key: .autoProvider, width: Self.colProvider, alignment: .leading)
-                    Text("External ID").frame(width: Self.colExternalId, alignment: .leading)
-                    Text("New Price").frame(width: Self.colNewPrice, alignment: .trailing)
-                    Text("New As Of").frame(width: Self.colNewAsOf, alignment: .leading)
-                    headerCell("Manual Source", key: .manualSource, width: Self.colNewSource, alignment: .leading)
-                    Text("Actions").frame(width: Self.colActions, alignment: .trailing)
+                    headerCell("Instrument", key: .instrument, width: width(for: .instrument), alignment: .leading)
+                    resizeHandle(for: .instrument)
+                    headerCell("Currency", key: .currency, width: width(for: .currency), alignment: .leading)
+                    resizeHandle(for: .currency)
+                    headerCell("Latest Price", key: .price, width: width(for: .latestPrice), alignment: .trailing)
+                    resizeHandle(for: .latestPrice)
+                    headerCell("As Of", key: .asOf, width: width(for: .asOf), alignment: .leading)
+                    resizeHandle(for: .asOf)
+                    headerCell("Price Source", key: .source, width: width(for: .source), alignment: .leading)
+                    resizeHandle(for: .source)
+                    headerCell("Auto", key: .auto, width: width(for: .auto), alignment: .center)
+                    resizeHandle(for: .auto)
+                    headerCell("Auto Provider", key: .autoProvider, width: width(for: .provider), alignment: .leading)
+                    resizeHandle(for: .provider)
+                    Text("External ID").frame(width: width(for: .externalId), alignment: .leading)
+                    resizeHandle(for: .externalId)
+                    Text("New Price").frame(width: width(for: .newPrice), alignment: .trailing)
+                    resizeHandle(for: .newPrice)
+                    Text("New As Of").frame(width: width(for: .newAsOf), alignment: .leading)
+                    resizeHandle(for: .newAsOf)
+                    headerCell("Manual Source", key: .manualSource, width: width(for: .newSource), alignment: .leading)
+                    resizeHandle(for: .newSource)
+                    Text("Actions").frame(width: width(for: .actions), alignment: .trailing)
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -202,48 +224,48 @@ struct InstrumentPricesMaintenanceView: View {
                                     if let v = r.valorNr, !v.isEmpty { Text(v).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle) }
                                 }
                             }
-                            .frame(width: Self.colInstrument, alignment: .leading)
+                            .frame(width: width(for: .instrument), alignment: .leading)
 
-                            Text(r.currency).frame(width: Self.colCurrency, alignment: .leading)
+                            Text(r.currency).frame(width: width(for: .currency), alignment: .leading)
                             Text(formatted(r.latestPrice))
-                                .frame(width: Self.colLatestPrice, alignment: .trailing)
+                                .frame(width: width(for: .latestPrice), alignment: .trailing)
                                 .monospacedDigit()
                                 .padding(.vertical, 2)
                                 .padding(.horizontal, 6)
                                 .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                            Text(formatAsOf(r.asOf)).frame(width: Self.colAsOf, alignment: .leading)
+                            Text(formatAsOf(r.asOf)).frame(width: width(for: .asOf), alignment: .leading)
                             HStack(spacing: 4) {
                                 Text(r.source ?? "")
                                 if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" { Text("🚫").help("Last auto update failed: \(st)") }
-                            }.frame(width: Self.colSource, alignment: .leading)
+                            }.frame(width: width(for: .source), alignment: .leading)
                             Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                                 .labelsHidden()
-                                .frame(width: Self.colAuto, alignment: .center)
+                                .frame(width: width(for: .auto), alignment: .center)
                             Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                                 Text("").tag("")
                                 ForEach(providerOptions, id: \.self) { Text($0).tag($0) }
                             }
                             .labelsHidden()
-                            .frame(width: Self.colProvider, alignment: .leading)
+                            .frame(width: width(for: .provider), alignment: .leading)
                             TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: Self.colExternalId, alignment: .leading)
+                                .frame(width: width(for: .externalId), alignment: .leading)
                             TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: Self.colNewPrice, alignment: .trailing)
+                                .frame(width: width(for: .newPrice), alignment: .trailing)
                             DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
                                 .labelsHidden()
-                                .frame(width: Self.colNewAsOf, alignment: .leading)
+                                .frame(width: width(for: .newAsOf), alignment: .leading)
                             TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: Self.colNewSource, alignment: .leading)
+                                .frame(width: width(for: .newSource), alignment: .leading)
                             HStack(spacing: 8) {
                                 Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
                                 Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
                                 Button("History") { openHistory(r.id) }
                             }
-                            .frame(width: Self.colActions, alignment: .trailing)
+                            .frame(width: width(for: .actions), alignment: .trailing)
                         }
                         .font(.system(size: 12))
                         .padding(.vertical, 2)
@@ -426,6 +448,57 @@ struct InstrumentPricesMaintenanceView: View {
     private func distinctCurrencies() -> [String] {
         let set = Set(rows.map { $0.currency.uppercased() })
         return Array(set).sorted()
+    }
+
+    // MARK: - Column widths (resizable)
+    private func defaultWidth(for col: Column) -> CGFloat {
+        switch col {
+        case .instrument: return Self.colInstrument
+        case .currency: return Self.colCurrency
+        case .latestPrice: return Self.colLatestPrice
+        case .asOf: return Self.colAsOf
+        case .source: return Self.colSource
+        case .auto: return Self.colAuto
+        case .provider: return Self.colProvider
+        case .externalId: return Self.colExternalId
+        case .newPrice: return Self.colNewPrice
+        case .newAsOf: return Self.colNewAsOf
+        case .newSource: return Self.colNewSource
+        case .actions: return Self.colActions
+        }
+    }
+    private func width(for col: Column) -> CGFloat { colWidths[col] ?? defaultWidth(for: col) }
+    private func resizeHandle(for col: Column) -> some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.001))
+            .frame(width: 6, height: 18)
+            .overlay(Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 2))
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                var w = width(for: col) + value.translation.width
+                w = max(40, min(600, w))
+                colWidths[col] = w
+            }.onEnded { _ in
+                persistWidths()
+            })
+            .help("Drag to resize column")
+    }
+    private func restoreWidths() {
+        guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.pricesMaintenanceColWidths) else { return }
+        var map: [Column: CGFloat] = [:]
+        for part in raw.split(separator: ",") {
+            let kv = part.split(separator: ":")
+            if kv.count == 2, let c = Column(rawValue: String(kv[0])), let w = Double(kv[1]) {
+                map[c] = max(40, CGFloat(w))
+            }
+        }
+        if !map.isEmpty { colWidths = map }
+    }
+    private func persistWidths() {
+        let raw = Column.allCases.compactMap { col -> String? in
+            if let w = colWidths[col] { return "\(col.rawValue):\(Int(w))" }
+            return nil
+        }.joined(separator: ",")
+        UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.pricesMaintenanceColWidths)
     }
 
     private func reload() {
