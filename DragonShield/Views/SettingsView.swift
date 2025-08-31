@@ -20,10 +20,7 @@ struct SettingsView: View {
     private var runStartupHealthChecks: Bool = true
     @AppStorage("coingeckoPreferFree")
     private var coingeckoPreferFree: Bool = false
-    @AppStorage("portfolioInstrumentUpdatesEnabled")
-    private var portfolioInstrumentUpdatesEnabled: Bool = true
-    @AppStorage(UserDefaultsKeys.portfolioThemeWorkspaceEnabled)
-    private var portfolioThemeWorkspaceEnabled: Bool = false
+    // Removed: legacy feature flag for instrument updates column
 
 
     private var okCount: Int {
@@ -67,11 +64,10 @@ struct SettingsView: View {
                 }
             }
             Section(header: Text("General Application Settings")) {
-                HStack {
-                    Text("Base Currency")
-                    Spacer()
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Base Currency").frame(width: 160, alignment: .leading)
                     TextField("", text: $tempBaseCurrency)
-                        .frame(width: 80)
+                        .frame(width: 100)
                         .multilineTextAlignment(.trailing)
                         .onSubmit {
                             // Validate and save
@@ -83,6 +79,7 @@ struct SettingsView: View {
                                 tempBaseCurrency = dbManager.baseCurrency
                             }
                         }
+                    Spacer()
                 }
 
                 Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
@@ -95,10 +92,7 @@ struct SettingsView: View {
                         in: 0...8)
             }
 
-            Section(header: Text("UI Experiments")) {
-                Toggle("Use new Portfolio Theme Workspace (beta)", isOn: $portfolioThemeWorkspaceEnabled)
-                    .help("Opens the new tabbed theme details view instead of the classic editor.")
-            }
+            // Workspace toggle removed; new Workspace is default
             
             Section(header: Text("Table Display Settings")) {
                 Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
@@ -122,10 +116,10 @@ struct SettingsView: View {
 
             Section(header: Text("Health Checks")) {
                 Toggle("Run on Startup", isOn: $runStartupHealthChecks)
-                HStack {
-                    Text("Last Result")
-                    Spacer()
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Last Result").frame(width: 160, alignment: .leading)
                     Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
+                    Spacer()
                 }
                 NavigationLink("Detailed Report", destination: HealthCheckResultsView())
             }
@@ -136,21 +130,16 @@ struct SettingsView: View {
             }
 
             #if DEBUG
-            Section(header: Text("Development / Debug Options (incl. feature flags")) {
-                VStack(alignment: .leading) {
-                    Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                    Toggle("Theme Workspace: Instrument Updates column (📝)", isOn: $portfolioInstrumentUpdatesEnabled)
-                        .help("Shows the Updates column in Theme Workspace Holdings with a 📝 button and counts, and enables the sheet to maintain per‑instrument notes.")
-                }
+            Section(header: Text("Development / Debug Options")) {
+                Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
             }
             #endif
 
 
             Section(header: Text("About")) {
-                HStack(alignment: .top) {
-                    Text("App Version")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("App Version").frame(width: 160, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 2) {
                         // Prefer Git tag when available; fall back to Info.plist
                         Text(GitInfoProvider.displayVersion)
                             .foregroundColor(.secondary)
@@ -160,6 +149,7 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                    Spacer()
                 }
             }
         }
@@ -234,9 +224,8 @@ private struct ProviderKeyRow: View {
     @State private var storeInUserDefaults: Bool = true
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-            Spacer()
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label).frame(width: 160, alignment: .leading)
             SecureField(placeholder, text: $temp)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 260)
@@ -251,7 +240,7 @@ private struct ProviderKeyRow: View {
             Toggle("Store locally (UserDefaults)", isOn: $storeInUserDefaults)
                 .toggleStyle(.switch)
                 .help("Stores the key in app preferences (less secure, avoids Keychain prompts)")
-                .frame(width: 240)
+                .frame(width: 260)
             Button(saved ? "Saved" : "Save") {
                 guard !temp.isEmpty else { return }
                 if storeInUserDefaults {
@@ -262,6 +251,7 @@ private struct ProviderKeyRow: View {
                 }
             }
             .disabled(temp.isEmpty)
+            Spacer(minLength: 0)
         }
     }
 

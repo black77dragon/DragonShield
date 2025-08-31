@@ -243,7 +243,6 @@ struct PortfolioView: View {
             }
         }
         .padding(.horizontal, 24)
-        .offset(y: contentOffset)
     }
     
     // MARK: - Instruments Content
@@ -256,8 +255,7 @@ struct PortfolioView: View {
             }
         }
         .padding(.horizontal, 24)
-        .padding(.top, 16)
-        .offset(y: contentOffset)
+        .padding(.top, 8)
     }
     
     // MARK: - Empty State
@@ -380,11 +378,9 @@ struct PortfolioView: View {
             headerCell(title: "ISIN", column: .isin)
                 .frame(width: 140, alignment: .leading)
 
-            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                Image(systemName: "note.text")
-                    .frame(width: 32, alignment: .center)
-                    .help("Notes")
-            }
+            Image(systemName: "note.text")
+                .frame(width: 32, alignment: .center)
+                .help("Notes")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -683,10 +679,8 @@ struct ModernAssetRowView: View {
                 .lineLimit(1)
                 .frame(width: 140, alignment: .leading)
 
-            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
-                    .frame(width: 32, alignment: .center)
-            }
+            NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
+                .frame(width: 32, alignment: .center)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

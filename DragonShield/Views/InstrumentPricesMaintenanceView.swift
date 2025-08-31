@@ -149,17 +149,18 @@ struct InstrumentPricesMaintenanceView: View {
     }
 
     private var table: some View {
-        // Horizontal scroll to keep columns readable on smaller widths
+        // Horizontal + vertical scroll. Force content to anchor to the top-left so rows never appear centered.
         ScrollView([.horizontal, .vertical]) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 headerRow
+                    .padding(.bottom, 4)
                 ForEach(rows) { row in
                     rowView(row)
                     Divider()
                 }
             }
             .padding(.vertical, 4)
-            .frame(minWidth: Self.tableMinWidth)
+            .frame(minWidth: Self.tableMinWidth, maxWidth: .infinity, alignment: .topLeading)
         }
     }
 

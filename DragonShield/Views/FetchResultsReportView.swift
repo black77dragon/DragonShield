@@ -24,7 +24,13 @@ struct FetchResultsReportView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Fetch Latest Results").font(.title3).bold()
                 Spacer()
-                Button("Close") { dismiss() }
+                Button(role: .cancel) { dismiss() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
             }
 
             contextSection

@@ -333,9 +333,7 @@ struct PortfolioThemeDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(1)
                             .truncationMode(.tail)
-                        if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                            Spacer().frame(width: 40)
-                        }
+                        Spacer().frame(width: 40)
                         Spacer().frame(width: 28)
                         Spacer().frame(width: 28)
                     }
@@ -381,18 +379,16 @@ struct PortfolioThemeDetailView: View {
                             .help($asset.wrappedValue.notes ?? "")
                             .disabled(isReadOnly)
                             .focused($focusedField, equals: .notes($asset.wrappedValue.instrumentId))
-                            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                                Button {
-                                    instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
-                                } label: {
-                                    let count = updateCounts[$asset.wrappedValue.instrumentId] ?? 0
-                                    Text(count > 0 ? "📝 \(count)" : "📝")
-                                }
-                                .buttonStyle(.borderless)
-                                .frame(width: 40)
-                                .help("Instrument updates")
-                                .accessibilityLabel("Instrument updates for \(instrumentName($asset.wrappedValue.instrumentId))")
+                            Button {
+                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
+                            } label: {
+                                let count = updateCounts[$asset.wrappedValue.instrumentId] ?? 0
+                                Text(count > 0 ? "📝 \(count)" : "📝")
                             }
+                            .buttonStyle(.borderless)
+                            .frame(width: 40)
+                            .help("Instrument updates")
+                            .accessibilityLabel("Instrument updates for \(instrumentName($asset.wrappedValue.instrumentId))")
                             Button {
                                 editingAsset = $asset.wrappedValue
                                 noteDraft = $asset.wrappedValue.notes ?? ""
@@ -416,10 +412,8 @@ struct PortfolioThemeDetailView: View {
                         }
                         .padding(.vertical, 1)
                         .contextMenu {
-                            if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                                Button("Instrument Updates…") {
-                                    instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
-                                }
+                            Button("Instrument Updates…") {
+                                instrumentSheet = InstrumentSheetTarget(instrumentId: $asset.wrappedValue.instrumentId, instrumentName: instrumentName($asset.wrappedValue.instrumentId))
                             }
                         }
                     }
@@ -1044,7 +1038,7 @@ private var dangerZone: some View {
     }
 
     private func refreshUpdateCounts() {
-        guard FeatureFlags.portfolioInstrumentUpdatesEnabled() else { return }
+        // Always enabled
         var dict: [Int: Int] = [:]
         for a in assets {
             dict[a.instrumentId] = dbManager.countInstrumentUpdates(themeId: themeId, instrumentId: a.instrumentId)

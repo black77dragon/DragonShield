@@ -22,7 +22,13 @@ struct PriceHistoryView: View {
             HStack {
                 Text("Price History").font(.title3).bold()
                 Spacer()
-                Button("Close") { dismiss() }
+                Button(role: .cancel) { dismiss() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
             }
             .padding(.bottom, 4)
 

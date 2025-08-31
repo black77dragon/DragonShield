@@ -783,4 +783,3 @@ struct InstitutionsParticleBackground: View {
         }
     }
 }
-

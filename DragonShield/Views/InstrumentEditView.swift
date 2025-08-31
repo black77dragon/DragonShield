@@ -317,9 +317,7 @@ struct InstrumentEditView: View {
                 requiredSection
                 optionalSection
                 priceSection
-                if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
-                    updatesInThemesSection
-                }
+                updatesInThemesSection
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 100)

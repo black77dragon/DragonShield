@@ -120,7 +120,13 @@ struct AllNotesView: View {
             }
             .onChange(of: sortOrder) { _, _ in reload() }
             Spacer()
-            Button("Close") { dismiss() }
+            Button(role: .cancel) { dismiss() } label: {
+                Label("Close", systemImage: "xmark")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.gray)
+            .foregroundColor(.white)
+            .keyboardShortcut("w", modifiers: .command)
         }
     }
 

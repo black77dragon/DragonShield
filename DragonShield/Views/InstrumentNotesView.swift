@@ -52,7 +52,7 @@ struct InstrumentNotesView: View {
             Picker("Theme", selection: $selectedThemeId) {
                 Text("All themes").tag(nil as Int?)
                 ForEach(themeInfos) { info in
-                    Text(info.name).tag(Optional(info.themeId))
+                    Text(info.name).tag(info.themeId as Int?)
                 }
             }
             .pickerStyle(.menu)
@@ -71,7 +71,13 @@ struct InstrumentNotesView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Close") { onClose() }
+                Button(role: .cancel) { onClose() } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.gray)
+                .foregroundColor(.white)
+                .keyboardShortcut("w", modifiers: .command)
             }
             .padding(16)
         }
@@ -91,11 +97,22 @@ struct InstrumentNotesView: View {
         .onChange(of: pinnedFirst) { _, _ in if selectedTab == .updates { loadUpdates() } }
         .onChange(of: searchText) { _, _ in if selectedTab == .mentions { loadMentions() } }
         .sheet(item: $openThemeInfo) { info in
-            let query = instrumentCode.isEmpty ? instrumentName : instrumentCode.uppercased()
-            let hint = instrumentCode.isEmpty ? "Showing theme notes mentioning \(instrumentName)" : "Showing theme notes mentioning \(instrumentCode.uppercased()) (\(instrumentName))"
-            PortfolioThemeDetailView(themeId: info.themeId, origin: "instrument_mentions", initialTab: .updates, initialSearch: query, searchHint: hint)
-                .environmentObject(dbManager)
+            workspaceSheet(info)
         }
+    }
+
+    @ViewBuilder
+    private func workspaceSheet(_ info: ThemeInfo) -> some View {
+        let query: String = instrumentCode.isEmpty ? instrumentName : instrumentCode.uppercased()
+        let hint: String = instrumentCode.isEmpty ? "Showing theme notes mentioning \(instrumentName)" : "Showing theme notes mentioning \(instrumentCode.uppercased()) (\(instrumentName))"
+        PortfolioThemeWorkspaceView(
+            themeId: info.themeId,
+            origin: "instrument_mentions",
+            initialTab: .updates,
+            initialUpdatesSearch: query,
+            initialUpdatesSearchHint: hint
+        )
+        .environmentObject(dbManager)
     }
 
     private var updatesList: some View {
