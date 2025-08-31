@@ -30,6 +30,8 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceHoldingsColumns = "portfolioThemeWorkspaceHoldingsColumns"
     /// Column widths for Workspace Holdings table (csv: col:width,...)
     static let portfolioThemeWorkspaceHoldingsColWidths = "portfolioThemeWorkspaceHoldingsColWidths"
+    /// Sort for Workspace Holdings table: e.g. "instrument|asc"
+    static let portfolioThemeWorkspaceHoldingsSort = "portfolioThemeWorkspaceHoldingsSort"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
 }

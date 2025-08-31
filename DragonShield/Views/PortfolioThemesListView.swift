@@ -112,13 +112,8 @@ struct PortfolioThemesListView: View {
             .environmentObject(dbManager)
         }
         .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
-            if UserDefaults.standard.bool(forKey: UserDefaultsKeys.portfolioThemeWorkspaceEnabled) {
-                PortfolioThemeWorkspaceView(themeId: theme.id, origin: detailOrigin)
-                    .environmentObject(dbManager)
-            } else {
-                PortfolioThemeDetailView(themeId: theme.id, origin: detailOrigin, initialTab: detailInitialTab)
-                    .environmentObject(dbManager)
-            }
+            PortfolioThemeWorkspaceView(themeId: theme.id, origin: detailOrigin)
+                .environmentObject(dbManager)
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
             Button("Archive and Delete") { archiveAndDelete() }

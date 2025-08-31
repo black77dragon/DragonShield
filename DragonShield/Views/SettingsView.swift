@@ -20,6 +20,8 @@ struct SettingsView: View {
     private var runStartupHealthChecks: Bool = true
     @AppStorage("coingeckoPreferFree")
     private var coingeckoPreferFree: Bool = false
+    @AppStorage("portfolioInstrumentUpdatesEnabled")
+    private var portfolioInstrumentUpdatesEnabled: Bool = true
     @AppStorage(UserDefaultsKeys.portfolioThemeWorkspaceEnabled)
     private var portfolioThemeWorkspaceEnabled: Bool = false
 
@@ -137,6 +139,8 @@ struct SettingsView: View {
             Section(header: Text("Development / Debug Options (incl. feature flags")) {
                 VStack(alignment: .leading) {
                     Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
+                    Toggle("Theme Workspace: Instrument Updates column (📝)", isOn: $portfolioInstrumentUpdatesEnabled)
+                        .help("Shows the Updates column in Theme Workspace Holdings with a 📝 button and counts, and enables the sheet to maintain per‑instrument notes.")
                 }
             }
             #endif

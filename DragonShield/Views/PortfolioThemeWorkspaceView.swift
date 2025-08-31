@@ -85,6 +85,15 @@ struct PortfolioThemeWorkspaceView: View {
                 }
             }
             .navigationTitle("Theme Workspace: \(name)")
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button(role: .cancel) { dismiss() } label: {
+                        Label("Close", systemImage: "xmark")
+                    }
+                    .keyboardShortcut("w", modifiers: .command)
+                    .help("Close")
+                }
+            }
         }
         .frame(minWidth: 1200, idealWidth: 1400, minHeight: 720, idealHeight: 800)
         .onAppear {
@@ -133,10 +142,7 @@ struct PortfolioThemeWorkspaceView: View {
                 }
                 .help("Open the classic detail editor for full controls")
                 .keyboardShortcut("k", modifiers: .command)
-                Button(role: .cancel) { dismiss() } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-                .keyboardShortcut("w", modifiers: .command)
+                // Close moved to the window toolbar (top-right)
             }
         }
         .padding(.horizontal, 20)
@@ -354,24 +360,38 @@ struct PortfolioThemeWorkspaceView: View {
 
     // Bulk actions removed per request
 
+    @State private var analyticsRange: AnalyticsRange = .ytd
+    @State private var showBenchmark: Bool = false
+    @State private var benchmarkSymbol: String = "^GSPC"
     private var analyticsTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Analytics").font(.headline)
-                Text("Early preview: basic allocation analytics below. More coming soon (currency exposure, contribution, factor buckets).")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Picker("Range", selection: $analyticsRange) {
+                        ForEach(AnalyticsRange.allCases) { r in Text(r.label).tag(r) }
+                    }
+                    .pickerStyle(.segmented)
+                    Toggle("Benchmark", isOn: $showBenchmark)
+                    TextField("^GSPC", text: $benchmarkSymbol)
+                        .frame(width: 120)
+                        .disabled(!showBenchmark)
+                    Spacer()
+                    if showBenchmark { Text("(Benchmark overlay coming soon)").font(.caption).foregroundColor(.secondary) }
+                }
                 #if canImport(Charts)
                 actualAllocationDonut
                 contributionBars
                 currencyExposureDonut
                 sectorExposureBars
+                moversByDeltaBars
                 #endif
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+    private enum AnalyticsRange: String, CaseIterable, Identifiable { case oneM, threeM, ytd, oneY, all; var id: String { rawValue }; var label: String { switch self { case .oneM: return "1M"; case .threeM: return "3M"; case .ytd: return "YTD"; case .oneY: return "1Y"; case .all: return "All" } } }
 
     private var updatesTab: some View {
         PortfolioThemeUpdatesView(themeId: themeId, initialSearchText: nil, searchHint: nil)
@@ -576,6 +596,25 @@ struct PortfolioThemeWorkspaceView: View {
             }
         }
     }
+    private var moversByDeltaBars: some View {
+        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+        // top 10 by absolute delta to user target
+        struct Item: Identifiable { let id = UUID(); let name: String; let delta: Double }
+        let items = rows.compactMap { r -> Item? in
+            guard let d = r.deltaUserPct else { return nil }
+            return Item(name: r.instrumentName, delta: d)
+        }
+        .sorted { abs($0.delta) > abs($1.delta) }
+        .prefix(10)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Top Movers (Δ Actual − User %)").font(.title3).bold()
+            Chart(items) { it in
+                BarMark(x: .value("Δ", it.delta), y: .value("Instrument", it.name))
+                    .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+            }
+            .frame(minHeight: 280)
+        }
+    }
 
     private var sectorExposureBars: some View {
         // Aggregate by sector (fallback "Unknown")
@@ -722,6 +761,9 @@ private struct HoldingsTable: View {
     @State private var colWidths: [Column: CGFloat] = [:]
     @State private var updateCounts: [Int: Int] = [:]
     @State private var openUpdates: UpdatesTarget?
+    @State private var confirmRemoveId: Int? = nil
+    @State private var showToast: Bool = false
+    @State private var toastMessage: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -769,15 +811,7 @@ private struct HoldingsTable: View {
                                         .frame(width: width(for: .delta), alignment: .trailing)
                                         .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
                                 }
-                                if columns.contains(.notes) {
-                                    TextField("Notes", text: bindingNotes(for: r.instrumentId))
-                                        .textFieldStyle(.roundedBorder)
-                                        .padding(.vertical, 2)
-                                        .frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading)
-                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
-                                        .disabled(isArchived)
-                                        .onSubmit { saveRow(r.instrumentId) }
-                                }
+                                // Updates column — place before Notes so Notes (flex) doesn't push it off-screen
                                 if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
                                     Button {
                                         openUpdates = UpdatesTarget(themeId: themeId, instrumentId: r.instrumentId, instrumentName: r.instrumentName)
@@ -789,11 +823,21 @@ private struct HoldingsTable: View {
                                     .frame(width: 44)
                                     .help("Instrument updates")
                                 }
+                                if columns.contains(.notes) {
+                                    TextField("Notes", text: bindingNotes(for: r.instrumentId))
+                                        .textFieldStyle(.roundedBorder)
+                                        .padding(.vertical, 2)
+                                        .frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
+                                        .disabled(isArchived)
+                                        .onSubmit { saveRow(r.instrumentId) }
+                                }
                                 if !isArchived {
                                     Button {
-                                        removeInstrument(r.instrumentId)
+                                        confirmRemoveId = r.instrumentId
                                     } label: { Image(systemName: "trash") }
                                     .buttonStyle(.borderless)
+                                    .help("Remove from theme")
                                 }
                                 if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
@@ -801,6 +845,17 @@ private struct HoldingsTable: View {
                         }
                     }
                 }
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if showToast {
+                Text(toastMessage)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.75)))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .transition(.opacity)
             }
         }
         .onAppear { restoreWidths(); load() }
@@ -816,6 +871,18 @@ private struct HoldingsTable: View {
             )
             .environmentObject(dbManager)
         }
+        .confirmationDialog(
+            "Remove this instrument from the theme?",
+            isPresented: Binding(get: { confirmRemoveId != nil }, set: { if !$0 { confirmRemoveId = nil } })
+        ) {
+            Button("Remove — Do. Or do not. There is no try.", role: .destructive) {
+                if let id = confirmRemoveId { removeInstrument(id) }
+                confirmRemoveId = nil
+            }
+            Button("Cancel", role: .cancel) { confirmRemoveId = nil }
+        } message: {
+            Text("Once removed, even a Jedi can't undo with a wave. ✨")
+        }
     }
 
     private let defaultNumWidth: CGFloat = 80
@@ -827,17 +894,41 @@ private struct HoldingsTable: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             if columns.contains(.instrument) { sortHeader(.instrument, title: "Instrument").frame(width: width(for: .instrument), alignment: .leading) }
+            if resizable(.instrument) { resizeHandle(for: .instrument) }
             if columns.contains(.research) { sortHeader(.research, title: "Research %").frame(width: width(for: .research), alignment: .trailing) }
+            if resizable(.research) { resizeHandle(for: .research) }
             if columns.contains(.user) { sortHeader(.user, title: "User %").frame(width: width(for: .user), alignment: .trailing) }
+            if resizable(.user) { resizeHandle(for: .user) }
             if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: width(for: .actual), alignment: .trailing) }
+            if resizable(.actual) { resizeHandle(for: .actual) }
             if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: width(for: .delta), alignment: .trailing) }
+            if resizable(.delta) { resizeHandle(for: .delta) }
+            // Notes first (flex)
             if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading) }
-            if FeatureFlags.portfolioInstrumentUpdatesEnabled() { Text("Updates").frame(width: 44, alignment: .center) }
+            // Updates header (emoji) after Notes
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() { Text("📝").frame(width: 44, alignment: .center) }
+            if resizable(.notes) { resizeHandle(for: .notes) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
+    }
+
+    private func resizable(_ col: Column) -> Bool { true }
+    private func resizeHandle(for col: Column) -> some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.001)) // wide hit area
+            .frame(width: 6, height: 18)
+            .overlay(Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 2))
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                var w = width(for: col) + value.translation.width
+                w = max(40, min(600, w))
+                colWidths[col] = w
+            }.onEnded { _ in
+                persistWidths()
+            })
+            .help("Drag to resize column")
     }
 
     private func load() {
@@ -852,6 +943,7 @@ private struct HoldingsTable: View {
         }
         edits = dict
         total = snap.totalValueBase
+        restoreSort()
         loadUpdateCounts()
     }
 
@@ -933,6 +1025,7 @@ private struct HoldingsTable: View {
     private func sortHeader(_ col: Column, title: String) -> some View {
         Button {
             if sortField == col { sortAscending.toggle() } else { sortField = col; sortAscending = (col == .instrument) }
+            persistSort()
         } label: {
             HStack(spacing: 4) {
                 Text(title)
@@ -996,8 +1089,29 @@ private struct HoldingsTable: View {
             DispatchQueue.main.async {
                 saving.remove(instrumentId)
                 load() // refresh valuation/deltas after saving
+                showQuickToast("Saved")
             }
         }
+    }
+
+    private func showQuickToast(_ message: String) {
+        toastMessage = message
+        withAnimation { showToast = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            withAnimation { showToast = false }
+        }
+    }
+
+    private func persistSort() {
+        let dir = sortAscending ? "asc" : "desc"
+        UserDefaults.standard.set("\(sortField.rawValue)|\(dir)", forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsSort)
+    }
+    private func restoreSort() {
+        guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsSort) else { return }
+        let parts = raw.split(separator: "|")
+        guard parts.count == 2, let col = Column(rawValue: String(parts[0])) else { return }
+        sortField = col
+        sortAscending = (parts[1] == "asc")
     }
 
     private struct Edit { var research: Double; var user: Double; var notes: String }

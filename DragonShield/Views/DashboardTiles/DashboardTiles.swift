@@ -272,13 +272,8 @@ struct ThemesOverviewTile: DashboardTile {
         .sheet(item: Binding(get: {
             openThemeId.map { Ident(value: $0) }
         }, set: { newVal in openThemeId = newVal?.value })) { ident in
-            if UserDefaults.standard.bool(forKey: UserDefaultsKeys.portfolioThemeWorkspaceEnabled) {
-                PortfolioThemeWorkspaceView(themeId: ident.value, origin: "Dashboard")
-                    .environmentObject(dbManager)
-            } else {
-                PortfolioThemeDetailView(themeId: ident.value, origin: "Dashboard")
-                    .environmentObject(dbManager)
-            }
+            PortfolioThemeWorkspaceView(themeId: ident.value, origin: "Dashboard")
+                .environmentObject(dbManager)
         }
     }
 
