@@ -855,6 +855,18 @@ private struct HoldingsTable: View {
         loadUpdateCounts()
     }
 
+    private func loadUpdateCounts() {
+        guard FeatureFlags.portfolioInstrumentUpdatesEnabled() else {
+            updateCounts = [:]
+            return
+        }
+        var map: [Int: Int] = [:]
+        for r in rows {
+            map[r.instrumentId] = dbManager.countInstrumentUpdates(themeId: themeId, instrumentId: r.instrumentId)
+        }
+        updateCounts = map
+    }
+
     private func fmtPct(_ v: Double?) -> String {
         guard let x = v else { return "—" }
         return String(format: "%.2f", x)
