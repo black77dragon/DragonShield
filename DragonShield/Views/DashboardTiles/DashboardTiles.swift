@@ -112,6 +112,17 @@ struct TotalValueTile: DashboardTile {
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
+            HStack(spacing: 8) {
+                TextField("Search notes", text: $search)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { load() }
+                if !search.isEmpty {
+                    Button("Clear") { search = ""; load() }.buttonStyle(.link)
+                }
+                Toggle("Pinned first", isOn: $pinnedFirst)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: pinnedFirst) { _, _ in load() }
+            }
             if loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -301,7 +312,7 @@ struct ThemesOverviewTile: DashboardTile {
             let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
             for t in themes {
                 let snap = service.snapshot(themeId: t.id)
-                let total = snap.totalValueBase ?? 0
+                let total = snap.totalValueBase
                 result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, totalValue: total))
             }
             result.sort { $0.totalValue > $1.totalValue }
@@ -354,6 +365,8 @@ struct AllNotesTile: DashboardTile {
     @State private var recent: [Row] = []
     @State private var loading = false
     @State private var openAll = false
+    @State private var search: String = ""
+    @State private var pinnedFirst: Bool = true
 
     init() {}
     static let tileID = "all_notes"
@@ -429,8 +442,8 @@ struct AllNotesTile: DashboardTile {
     private func load() {
         loading = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let theme = dbManager.listAllThemeUpdates(view: .active, typeId: nil, searchQuery: nil, pinnedFirst: true)
-            let instr = dbManager.listAllInstrumentUpdates(pinnedFirst: true, searchQuery: nil, typeId: nil)
+            let theme = dbManager.listAllThemeUpdates(view: .active, typeId: nil, searchQuery: q, pinnedFirst: pinnedFirst)
+            let instr = dbManager.listAllInstrumentUpdates(pinnedFirst: pinnedFirst, searchQuery: q, typeId: nil)
             let themes = dbManager.fetchPortfolioThemes(includeArchived: true)
             let themeNameMap = Dictionary(uniqueKeysWithValues: themes.map { ($0.id, $0.name) })
             let instrumentNameMap = Dictionary(uniqueKeysWithValues: dbManager.fetchAssets().map { ($0.id, $0.name) })

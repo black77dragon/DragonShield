@@ -347,6 +347,8 @@ extension DatabaseManager {
         return true
     }
 }
+
+extension DatabaseManager {
     // List all theme updates across all themes with optional filters
     func listAllThemeUpdates(view: ThemeUpdateView = .active, typeId: Int? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
         var items: [PortfolioThemeUpdate] = []
@@ -405,3 +407,4 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+}

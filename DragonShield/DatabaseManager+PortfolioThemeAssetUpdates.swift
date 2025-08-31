@@ -369,6 +369,8 @@ extension DatabaseManager {
         return results
     }
 }
+
+extension DatabaseManager {
     func listAllInstrumentUpdates(pinnedFirst: Bool = true, searchQuery: String? = nil, typeId: Int? = nil) -> [PortfolioThemeAssetUpdate] {
         var items: [PortfolioThemeAssetUpdate] = []
         var clauses: [String] = []
@@ -415,3 +417,4 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return items
     }
+}

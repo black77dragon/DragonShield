@@ -98,6 +98,9 @@ struct InstrumentUpdateEditorView: View {
                 Spacer()
                 Button("Cancel") { onCancel() }
                     .keyboardShortcut(.cancelAction)
+                if existing != nil {
+                    Button("Delete", role: .destructive) { deleteExisting() }
+                }
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!valid)
@@ -110,6 +113,19 @@ struct InstrumentUpdateEditorView: View {
             newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
             if selectedTypeId == nil {
                 selectedTypeId = newsTypes.first?.id
+            }
+        }
+    }
+    private func deleteExisting() {
+        guard let existing = existing else { return }
+        let alert = NSAlert()
+        alert.messageText = "Delete this instrument update?"
+        alert.informativeText = "This cannot be undone."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            if dbManager.deleteInstrumentUpdate(id: existing.id, actor: NSFullUserName()) {
+                onCancel()
             }
         }
     }

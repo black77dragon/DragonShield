@@ -29,21 +29,40 @@ struct AllNotesView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
-                        if kind != .instrument { ForEach(themeUpdates) { updateCard($0) } }
-                        if kind != .theme { ForEach(instrumentUpdates) { instrumentCard($0) } }
+                        if kind != .instrument {
+                            ForEach(themeUpdates, id: \.id) { upd in updateCard(upd).id("t-\(upd.id)") }
+                        }
+                        if kind != .theme {
+                            ForEach(instrumentUpdates, id: \.id) { upd in instrumentCard(upd).id("i-\(upd.id)") }
+                        }
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
         .padding(16)
+        .frame(minWidth: 900, idealWidth: 1100, minHeight: 560, idealHeight: 700)
         .onAppear(perform: initialLoad)
         .sheet(item: $editingTheme) { upd in
-            ThemeUpdateEditorView(themeId: upd.themeId, themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in reload() }, onCancel: {})
+            ThemeUpdateEditorView(
+                themeId: upd.themeId,
+                themeName: themeNames[upd.themeId] ?? "",
+                existing: upd,
+                onSave: { _ in editingTheme = nil; reload() },
+                onCancel: { editingTheme = nil; reload() }
+            )
                 .environmentObject(dbManager)
         }
         .sheet(item: $editingInstrument) { upd in
-            InstrumentUpdateEditorView(themeId: upd.themeId, instrumentId: upd.instrumentId, instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)", themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in reload() }, onCancel: {})
+            InstrumentUpdateEditorView(
+                themeId: upd.themeId,
+                instrumentId: upd.instrumentId,
+                instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)",
+                themeName: themeNames[upd.themeId] ?? "",
+                existing: upd,
+                onSave: { _ in editingInstrument = nil; reload() },
+                onCancel: { editingInstrument = nil; reload() }
+            )
                 .environmentObject(dbManager)
         }
     }
@@ -97,10 +116,15 @@ struct AllNotesView: View {
 
     private func updateCard(_ update: PortfolioThemeUpdate) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 8) {
                 Text(update.title).fontWeight(.semibold)
                 Spacer()
                 Button("Edit") { editingTheme = update }.buttonStyle(.link)
+                Button("Delete", role: .destructive) {
+                    _ = dbManager.softDeleteThemeUpdate(id: update.id, actor: NSFullUserName())
+                    reload()
+                }
+                .buttonStyle(.link)
             }
             Text("Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                 .font(.caption)
@@ -113,10 +137,15 @@ struct AllNotesView: View {
 
     private func instrumentCard(_ update: PortfolioThemeAssetUpdate) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 8) {
                 Text(update.title).fontWeight(.semibold)
                 Spacer()
                 Button("Edit") { editingInstrument = update }.buttonStyle(.link)
+                Button("Delete", role: .destructive) {
+                    _ = dbManager.deleteInstrumentUpdate(id: update.id, actor: NSFullUserName())
+                    reload()
+                }
+                .buttonStyle(.link)
             }
             Text("Instrument: \(instrumentNames[update.instrumentId] ?? "#\(update.instrumentId)") · Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                 .font(.caption)
@@ -127,4 +156,3 @@ struct AllNotesView: View {
         .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
     }
 }
-
