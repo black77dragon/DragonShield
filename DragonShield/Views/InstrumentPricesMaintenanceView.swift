@@ -11,6 +11,9 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var sortAscending: Bool = true
 
     @State private var rows: [DatabaseManager.InstrumentLatestPriceRow] = []
+    // Native Table state (macOS): selection + header sort
+    @State private var selection: Set<DatabaseManager.InstrumentLatestPriceRow.ID> = []
+    @State private var sortOrder: [KeyPathComparator<DatabaseManager.InstrumentLatestPriceRow>] = []
     @State private var editedPrice: [Int: String] = [:]
     @State private var editedAsOf: [Int: Date] = [:]
     @State private var editedSource: [Int: String] = [:]
@@ -151,7 +154,7 @@ struct InstrumentPricesMaintenanceView: View {
     #if os(macOS)
     @ViewBuilder
     private var table: some View {
-        Table(rows) {
+        Table(rows, selection: $selection, sortOrder: $sortOrder) {
             Group {
             TableColumn("Instrument") { (r: DatabaseManager.InstrumentLatestPriceRow) in
                 VStack(alignment: .leading, spacing: 2) {
@@ -239,6 +242,7 @@ struct InstrumentPricesMaintenanceView: View {
             }
         }
         .frame(minWidth: Self.tableMinWidth)
+        .onChange(of: sortOrder) { _, _ in applyTableSort() }
     }
     #else
     private var table: some View {
@@ -433,11 +437,24 @@ struct InstrumentPricesMaintenanceView: View {
             )
             DispatchQueue.main.async {
                 self.rows = data
-                self.applySort()
+                // Apply Table header sort if present; otherwise fall back to custom sort controls
+                if sortOrder.isEmpty { self.applySort() } else { self.applyTableSort() }
                 self.loading = false
                 self.preloadSources()
             }
         }
+    }
+
+    private func applyTableSort() {
+        #if os(macOS)
+        if #available(macOS 13.0, *) {
+            rows.sort(using: sortOrder)
+        } else {
+            applySort()
+        }
+        #else
+        applySort()
+        #endif
     }
 
     private func preloadSources() {
