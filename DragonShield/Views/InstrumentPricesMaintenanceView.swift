@@ -175,29 +175,29 @@ struct InstrumentPricesMaintenanceView: View {
         ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
-                HStack(spacing: 8) {
+                HStack(spacing: 0) {
                     headerCell("Instrument", key: .instrument, width: width(for: .instrument), alignment: .leading)
-                    resizeHandle(for: .instrument)
+                    gap(); resizeHandle(for: .instrument); gap()
                     headerCell("Currency", key: .currency, width: width(for: .currency), alignment: .leading)
-                    resizeHandle(for: .currency)
+                    gap(); resizeHandle(for: .currency); gap()
                     headerCell("Latest Price", key: .price, width: width(for: .latestPrice), alignment: .trailing)
-                    resizeHandle(for: .latestPrice)
+                    gap(); resizeHandle(for: .latestPrice); gap()
                     headerCell("As Of", key: .asOf, width: width(for: .asOf), alignment: .leading)
-                    resizeHandle(for: .asOf)
+                    gap(); resizeHandle(for: .asOf); gap()
                     headerCell("Price Source", key: .source, width: width(for: .source), alignment: .leading)
-                    resizeHandle(for: .source)
+                    gap(); resizeHandle(for: .source); gap()
                     headerCell("Auto", key: .auto, width: width(for: .auto), alignment: .center)
-                    resizeHandle(for: .auto)
+                    gap(); resizeHandle(for: .auto); gap()
                     headerCell("Auto Provider", key: .autoProvider, width: width(for: .provider), alignment: .leading)
-                    resizeHandle(for: .provider)
+                    gap(); resizeHandle(for: .provider); gap()
                     Text("External ID").frame(width: width(for: .externalId), alignment: .leading)
-                    resizeHandle(for: .externalId)
+                    gap(); resizeHandle(for: .externalId); gap()
                     Text("New Price").frame(width: width(for: .newPrice), alignment: .trailing)
-                    resizeHandle(for: .newPrice)
+                    gap(); resizeHandle(for: .newPrice); gap()
                     Text("New As Of").frame(width: width(for: .newAsOf), alignment: .leading)
-                    resizeHandle(for: .newAsOf)
+                    gap(); resizeHandle(for: .newAsOf); gap()
                     headerCell("Manual Source", key: .manualSource, width: width(for: .newSource), alignment: .leading)
-                    resizeHandle(for: .newSource)
+                    gap(); resizeHandle(for: .newSource); gap()
                     Text("Actions").frame(width: width(for: .actions), alignment: .trailing)
                 }
                 .font(.caption)
@@ -207,7 +207,7 @@ struct InstrumentPricesMaintenanceView: View {
                 // Rows
                 LazyVStack(spacing: 1) {
                     ForEach(rows) { r in
-                        HStack(alignment: .center, spacing: 8) {
+                        HStack(alignment: .center, spacing: 0) {
                             // Instrument cell
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 6) {
@@ -225,10 +225,10 @@ struct InstrumentPricesMaintenanceView: View {
                                 }
                             }
                             .frame(width: width(for: .instrument), alignment: .leading)
-                            resizeSpacer(for: .instrument)
+                            gap(); resizeSpacer(for: .instrument); gap()
 
                             Text(r.currency).frame(width: width(for: .currency), alignment: .leading)
-                            resizeSpacer(for: .currency)
+                            gap(); resizeSpacer(for: .currency); gap()
                             Text(formatted(r.latestPrice))
                                 .frame(width: width(for: .latestPrice), alignment: .trailing)
                                 .monospacedDigit()
@@ -236,41 +236,41 @@ struct InstrumentPricesMaintenanceView: View {
                                 .padding(.horizontal, 6)
                                 .background((autoEnabled[r.id] ?? false) ? Color.green.opacity(0.12) : Color.clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                            resizeSpacer(for: .latestPrice)
+                            gap(); resizeSpacer(for: .latestPrice); gap()
                             Text(formatAsOf(r.asOf)).frame(width: width(for: .asOf), alignment: .leading)
-                            resizeSpacer(for: .asOf)
+                            gap(); resizeSpacer(for: .asOf); gap()
                             HStack(spacing: 4) {
                                 Text(r.source ?? "")
                                 if (autoEnabled[r.id] ?? false), let st = lastStatus[r.id], !st.isEmpty, st.lowercased() != "ok" { Text("🚫").help("Last auto update failed: \(st)") }
                             }.frame(width: width(for: .source), alignment: .leading)
-                            resizeSpacer(for: .source)
+                            gap(); resizeSpacer(for: .source); gap()
                             Toggle("", isOn: Binding(get: { autoEnabled[r.id] ?? false }, set: { autoEnabled[r.id] = $0; persistSourceIfComplete(r) }))
                                 .labelsHidden()
                                 .frame(width: width(for: .auto), alignment: .center)
-                            resizeSpacer(for: .auto)
+                            gap(); resizeSpacer(for: .auto); gap()
                             Picker("", selection: Binding(get: { providerCode[r.id] ?? "" }, set: { providerCode[r.id] = $0; persistSourceIfComplete(r) })) {
                                 Text("").tag("")
                                 ForEach(providerOptions, id: \.self) { Text($0).tag($0) }
                             }
                             .labelsHidden()
                             .frame(width: width(for: .provider), alignment: .leading)
-                            resizeSpacer(for: .provider)
+                            gap(); resizeSpacer(for: .provider); gap()
                             TextField("", text: Binding(get: { externalId[r.id] ?? "" }, set: { externalId[r.id] = $0; persistSourceIfComplete(r) }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .externalId), alignment: .leading)
-                            resizeSpacer(for: .externalId)
+                            gap(); resizeSpacer(for: .externalId); gap()
                             TextField("", text: Binding(get: { editedPrice[r.id] ?? "" }, set: { editedPrice[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .newPrice), alignment: .trailing)
-                            resizeSpacer(for: .newPrice)
+                            gap(); resizeSpacer(for: .newPrice); gap()
                             DatePicker("", selection: Binding(get: { editedAsOf[r.id] ?? Date() }, set: { editedAsOf[r.id] = $0 }), displayedComponents: .date)
                                 .labelsHidden()
                                 .frame(width: width(for: .newAsOf), alignment: .leading)
-                            resizeSpacer(for: .newAsOf)
+                            gap(); resizeSpacer(for: .newAsOf); gap()
                             TextField("manual source", text: Binding(get: { editedSource[r.id] ?? "manual" }, set: { editedSource[r.id] = $0 }))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: width(for: .newSource), alignment: .leading)
-                            resizeSpacer(for: .newSource)
+                            gap(); resizeSpacer(for: .newSource); gap()
                             HStack(spacing: 8) {
                                 Button("Save") { saveRow(r) }.disabled(!hasEdits(r.id))
                                 Button("Revert") { revertRow(r.id) }.disabled(!hasEdits(r.id))
@@ -496,6 +496,7 @@ struct InstrumentPricesMaintenanceView: View {
     private func resizeSpacer(for col: Column) -> some View {
         Rectangle().fill(Color.clear).frame(width: 6, height: 18)
     }
+    private func gap() -> some View { Rectangle().fill(Color.clear).frame(width: 8, height: 1) }
     private func restoreWidths() {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.pricesMaintenanceColWidths) else { return }
         var map: [Column: CGFloat] = [:]
