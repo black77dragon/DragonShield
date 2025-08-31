@@ -409,15 +409,57 @@ struct PortfolioThemeWorkspaceView: View {
                     Button("Save Changes") { saveTheme() }.keyboardShortcut(.defaultAction)
                 }
             }
-            if let t = theme, t.archivedAt == nil {
-                Section(header: Text("Actions")) {
-                    Button("Archive in Classic…", role: .destructive) { showClassicDetail = true }
+            Section(header: Text("Danger Zone")) {
+                if let t = theme, t.archivedAt == nil {
+                    HStack {
+                        Text("Archive theme to prevent edits.")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Archive Theme", role: .destructive) { confirmArchive = true }
+                    }
+                } else {
+                    HStack {
+                        Text("Unarchive to allow edits, or soft delete.")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Unarchive") { performUnarchive() }
+                        Button("Soft Delete", role: .destructive) { confirmSoftDelete = true }
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
+        .confirmationDialog("Archive this theme?", isPresented: $confirmArchive, titleVisibility: .visible) {
+            Button("Archive", role: .destructive) { performArchive() }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("You can unarchive later. Edits will be locked.") }
+        .confirmationDialog("Soft delete this theme?", isPresented: $confirmSoftDelete, titleVisibility: .visible) {
+            Button("Soft Delete", role: .destructive) { performSoftDelete() }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This hides the theme from lists. Restore via recycle bin only.") }
+    }
+
+    @State private var confirmArchive = false
+    @State private var confirmSoftDelete = false
+
+    private func performArchive() {
+        if dbManager.archivePortfolioTheme(id: themeId) {
+            theme = dbManager.getPortfolioTheme(id: themeId)
+        }
+    }
+    private func performUnarchive() {
+        let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
+        if dbManager.unarchivePortfolioTheme(id: themeId, statusId: defaultStatus) {
+            theme = dbManager.getPortfolioTheme(id: themeId)
+            statusId = defaultStatus
+        }
+    }
+    private func performSoftDelete() {
+        if dbManager.softDeletePortfolioTheme(id: themeId) {
+            dismiss()
+        }
     }
 
     // MARK: - Overview widgets
@@ -678,6 +720,8 @@ private struct HoldingsTable: View {
     @State private var sortField: Column = .instrument
     @State private var sortAscending: Bool = true
     @State private var colWidths: [Column: CGFloat] = [:]
+    @State private var updateCounts: [Int: Int] = [:]
+    @State private var openUpdates: UpdatesTarget?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -734,6 +778,17 @@ private struct HoldingsTable: View {
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
                                 }
+                                if FeatureFlags.portfolioInstrumentUpdatesEnabled() {
+                                    Button {
+                                        openUpdates = UpdatesTarget(themeId: themeId, instrumentId: r.instrumentId, instrumentName: r.instrumentName)
+                                    } label: {
+                                        let c = updateCounts[r.instrumentId] ?? 0
+                                        Text(c > 0 ? "📝 \(c)" : "📝")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .frame(width: 44)
+                                    .help("Instrument updates")
+                                }
                                 if !isArchived {
                                     Button {
                                         removeInstrument(r.instrumentId)
@@ -750,6 +805,17 @@ private struct HoldingsTable: View {
         }
         .onAppear { restoreWidths(); load() }
         .onChange(of: reloadToken) { _, _ in load() }
+        .sheet(item: $openUpdates) { t in
+            InstrumentUpdatesView(
+                themeId: t.themeId,
+                instrumentId: t.instrumentId,
+                instrumentName: t.instrumentName,
+                themeName: dbManager.getPortfolioTheme(id: t.themeId)?.name ?? "",
+                valuation: nil,
+                onClose: { loadUpdateCounts() }
+            )
+            .environmentObject(dbManager)
+        }
     }
 
     private let defaultNumWidth: CGFloat = 80
@@ -768,6 +834,7 @@ private struct HoldingsTable: View {
             if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: width(for: .actual), alignment: .trailing) }
             if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: width(for: .delta), alignment: .trailing) }
             if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading) }
+            if FeatureFlags.portfolioInstrumentUpdatesEnabled() { Text("Updates").frame(width: 44, alignment: .center) }
         }
         .font(.caption)
         .foregroundColor(.secondary)
@@ -785,6 +852,7 @@ private struct HoldingsTable: View {
         }
         edits = dict
         total = snap.totalValueBase
+        loadUpdateCounts()
     }
 
     private func fmtPct(_ v: Double?) -> String {
@@ -921,6 +989,7 @@ private struct HoldingsTable: View {
     }
 
     private struct Edit { var research: Double; var user: Double; var notes: String }
+    private struct UpdatesTarget: Identifiable { let themeId: Int; let instrumentId: Int; let instrumentName: String; var id: Int { instrumentId } }
 
     // Visible columns
     enum Column: String, CaseIterable, Identifiable, Hashable {
