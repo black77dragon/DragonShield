@@ -874,6 +874,7 @@ private struct HoldingsTable: View {
                                         .frame(width: width(for: .research))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
+                                        .onChange(of: editableResearch(r.instrumentId)) { _, _ in saveRow(r.instrumentId) }
                                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalidKeys.contains(key(for: r.instrumentId, field: .research)) ? Color.red.opacity(0.6) : Color.gray.opacity(0.25)))
                                         .help("0–100")
                                 }
@@ -884,6 +885,7 @@ private struct HoldingsTable: View {
                                         .frame(width: width(for: .user))
                                         .disabled(isArchived)
                                         .onSubmit { saveRow(r.instrumentId) }
+                                        .onChange(of: editableUser(r.instrumentId)) { _, _ in saveRow(r.instrumentId) }
                                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalidKeys.contains(key(for: r.instrumentId, field: .user)) ? Color.red.opacity(0.6) : Color.gray.opacity(0.25)))
                                         .help("0–100")
                                 }
