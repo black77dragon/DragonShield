@@ -1129,6 +1129,12 @@ private struct Tag: View {
                 max(acc, measureText(String(format: "%.2f", v), monospaced: true))
             }
             target = max(60, min(200, maxW + padding))
+        case .userNorm:
+            let candidates = rows.map { normalizedUserPct($0.instrumentId) ?? 0 } + [100.0, 0.0]
+            let maxW = candidates.reduce(60) { acc, v in
+                max(acc, measureText(String(format: "%.2f", v), monospaced: true))
+            }
+            target = max(60, min(200, maxW + padding))
         case .actual:
             let vals = rows.map { $0.actualPct } + [0, 100]
             let maxW = vals.reduce(60) { acc, v in
@@ -1237,6 +1243,27 @@ private struct Tag: View {
                 if lNil != rNil { return rNil } // nils last
                 let lv = l.deltaUserPct ?? 0
                 let rv = r.deltaUserPct ?? 0
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .userNorm:
+            arr.sort { l, r in
+                let lv = normalizedUserPct(l.instrumentId) ?? -1
+                let rv = normalizedUserPct(r.instrumentId) ?? -1
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .targetChf:
+            arr.sort { l, r in
+                let lv = targetChf(l.instrumentId)
+                let rv = targetChf(r.instrumentId)
+                if lv == rv { return tieBreak(l, r) }
+                return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .deltaChf:
+            arr.sort { l, r in
+                let lv = targetChf(l.instrumentId) - l.currentValueBase
+                let rv = targetChf(r.instrumentId) - r.currentValueBase
                 if lv == rv { return tieBreak(l, r) }
                 return sortAscending ? (lv < rv) : (lv > rv)
             }
