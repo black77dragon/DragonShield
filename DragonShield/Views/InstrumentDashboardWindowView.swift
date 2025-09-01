@@ -13,10 +13,11 @@ struct InstrumentDashboardWindowView: View {
     @State private var totalValueCHF: Double = 0
     @State private var instrumentCode: String = ""
     @State private var instrumentName: String = ""
+    @State private var actualChfByTheme: [Int: Double] = [:]
 
     // Layout constants
     private let minRowsToShow: Int = 4
-    private let tileRowHeight: CGFloat = 36
+    private let tileRowHeight: CGFloat = 28
 
     struct AllocationRow: Identifiable {
         let id = UUID()
@@ -114,37 +115,18 @@ struct InstrumentDashboardWindowView: View {
 
     private var overviewTab: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 topCards
-                allocationsSection
                 holdingsSection
             }
-            .padding(16)
+            .padding(12)
         }
     }
 
     private var topCards: some View {
-        let cols = [GridItem(.flexible()), GridItem(.flexible())]
-        return LazyVGrid(columns: cols, spacing: 16) {
-            infoCard(title: "Details") {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            rowKV("Currency", details?.currency)
-                            rowKV("Ticker", details?.tickerSymbol?.uppercased())
-                            rowKV("ISIN", details?.isin?.uppercased())
-                        }
-                        Spacer()
-                        VStack(alignment: .leading, spacing: 6) {
-                            rowKV("Valor", details?.valorNr)
-                            rowKV("Sector", details?.sector)
-                        }
-                    }
-                }
-            }
-
+        HStack(alignment: .top, spacing: 16) {
             infoCard(title: "Price & Value") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     if let p = latestPrice {
                         rowKV("Latest Price", String(format: "%.2f %@", p.price, p.currency))
                         rowKV("As Of", DateFormatting.userFriendly(p.asOf))
@@ -152,28 +134,49 @@ struct InstrumentDashboardWindowView: View {
                         rowKV("Latest Price", "—")
                         rowKV("As Of", "—")
                     }
-                    Divider().padding(.vertical, 4)
+                    Divider().padding(.vertical, 2)
                     rowKV("Total Position (\(dbManager.baseCurrency))", formatCHFNoDecimalsSuffix(totalValueCHF))
                 }
             }
-            infoCard(title: "Portfolios") {
-                VStack(alignment: .leading, spacing: 8) {
+            infoCard(title: "Portfolios & Allocations") {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Portfolio Theme").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Research %").frame(width: 90, alignment: .trailing)
+                        Text("User %").frame(width: 80, alignment: .trailing)
+                        Text("Actual CHF").frame(width: 140, alignment: .trailing)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 4)
+                    Divider()
                     if themes.isEmpty {
                         Text("Not included in any portfolios")
                             .foregroundColor(.secondary)
+                            .padding(8)
                     } else {
                         ForEach(themes, id: \.themeId) { t in
                             HStack {
-                                Button(action: { openThemeId = t.themeId }) {
-                                    Text(t.themeName)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(t.isArchived ? .secondary : .primary)
-                                }
-                                .buttonStyle(.plain)
-                                Spacer()
-                                Text("Updates: \(t.updatesCount) • Mentions: \(t.mentionsCount)")
-                                    .font(.caption).foregroundColor(.secondary)
+                                Text(t.themeName)
+                                    .underline()
+                                    .foregroundColor(Theme.primaryAccent)
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .onTapGesture(count: 2) { openThemeId = t.themeId }
+                                let alloc = allocations.first { $0.themeId == t.themeId }
+                                Text(alloc.map { String(format: "%.1f%%", $0.researchPct) } ?? "—")
+                                    .frame(width: 90, alignment: .trailing)
+                                    .monospacedDigit()
+                                Text(alloc.map { String(format: "%.1f%%", $0.userPct) } ?? "—")
+                                    .frame(width: 80, alignment: .trailing)
+                                    .monospacedDigit()
+                                Text(formatCHFNoDecimalsSuffix(actualChfByTheme[t.themeId] ?? 0))
+                                    .frame(width: 140, alignment: .trailing)
+                                    .monospacedDigit()
                             }
+                            .padding(.horizontal, 8)
+                            .frame(height: 28)
                             if t.themeId != themes.last?.themeId { Divider() }
                         }
                     }
@@ -182,55 +185,7 @@ struct InstrumentDashboardWindowView: View {
         }
     }
 
-    private var allocationsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Allocation Targets").font(.headline)
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                .background(Color.white)
-                .overlay(
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Text("Portfolio Theme").frame(maxWidth: .infinity, alignment: .leading)
-                            Text("Research %").frame(width: 120, alignment: .trailing)
-                            Text("User %").frame(width: 100, alignment: .trailing)
-                        }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
-                        Divider()
-                        if allocations.isEmpty {
-                            Text("currently no targets available")
-                                .foregroundColor(.secondary)
-                                .padding(12)
-                        } else {
-                            ForEach(allocations) { row in
-                                HStack {
-                                    HStack(spacing: 6) {
-                                        Text(row.themeName)
-                                        if row.isArchived { Text("Archived").font(.caption).foregroundColor(.secondary) }
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(String(format: "%.1f%%", row.researchPct))
-                                        .frame(width: 120, alignment: .trailing)
-                                        .monospacedDigit()
-                                    Text(String(format: "%.1f%%", row.userPct))
-                                        .frame(width: 100, alignment: .trailing)
-                                        .monospacedDigit()
-                                }
-                                .padding(.horizontal, 12)
-                                .frame(height: 36)
-                                if row.id != allocations.last?.id { Divider() }
-                            }
-                        }
-                    }
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .frame(maxWidth: .infinity,
-                       minHeight: tileRowHeight * CGFloat(minRowsToShow) + 48)
-        }
-    }
+    // Consolidated into Portfolios & Allocations card
 
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -245,28 +200,28 @@ struct InstrumentDashboardWindowView: View {
                         if accountHoldings.isEmpty {
                             Text("No holdings found in current positions snapshot.")
                                 .foregroundColor(.secondary)
-                                .padding(12)
+                                .padding(8)
                         } else {
                             ForEach(accountHoldings) { r in
                                 HStack {
                                     Text(r.accountName)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     Text(String(format: "%.2f", r.quantity))
-                                        .frame(width: 140, alignment: .trailing)
+                                        .frame(width: 120, alignment: .trailing)
                                         .monospacedDigit()
                                     Text(formatCHFNoDecimalsSuffix(r.valueCHF))
-                                        .frame(width: 180, alignment: .trailing)
+                                        .frame(width: 160, alignment: .trailing)
                                         .monospacedDigit()
                                 }
-                                .padding(.horizontal, 12)
-                                .frame(height: 36)
+                                .padding(.horizontal, 8)
+                                .frame(height: 28)
                                 if r.id != accountHoldings.last?.id { Divider() }
                             }
                         }
                     }
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-                .frame(minHeight: tileRowHeight * CGFloat(minRowsToShow) + 48)
+                .frame(minHeight: tileRowHeight * CGFloat(minRowsToShow) + 40)
         }
     }
 
@@ -278,8 +233,8 @@ struct InstrumentDashboardWindowView: View {
         }
         .font(.caption)
         .foregroundColor(.secondary)
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
     }
 
     private var notesTab: some View {
@@ -305,11 +260,11 @@ struct InstrumentDashboardWindowView: View {
             Text(title).font(.headline)
             content()
         }
-        .padding(12)
+        .padding(8)
         .frame(maxWidth: .infinity)
         .background(Color.white)
         .cornerRadius(10)
-        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 
     private func rowKV(_ key: String, _ value: String?) -> some View {
@@ -355,6 +310,9 @@ struct InstrumentDashboardWindowView: View {
 
         // Positions snapshot -> account holdings and total CHF
         computeHoldings()
+
+        // Compute actual CHF per theme for this instrument
+        computeActualChfPerTheme()
     }
 
     private func computeHoldings() {
@@ -393,6 +351,24 @@ struct InstrumentDashboardWindowView: View {
         let rows = byAccount.values.map { AccountHolding(accountName: $0.acc, institutionName: "", quantity: $0.qty, valueCHF: $0.valueCHF) }
         self.accountHoldings = rows.sorted { $0.valueCHF > $1.valueCHF }
         self.totalValueCHF = rows.reduce(0) { $0 + $1.valueCHF }
+    }
+
+    private func computeActualChfPerTheme() {
+        guard !themes.isEmpty else { actualChfByTheme = [:]; return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var map: [Int: Double] = [:]
+            let fxService = FXConversionService(dbManager: dbManager)
+            let valuationService = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
+            for t in themes {
+                let snap = valuationService.snapshot(themeId: t.themeId)
+                if let row = snap.rows.first(where: { $0.instrumentId == instrumentId }) {
+                    map[t.themeId] = row.currentValueBase
+                } else {
+                    map[t.themeId] = 0
+                }
+            }
+            DispatchQueue.main.async { actualChfByTheme = map }
+        }
     }
 
     private func formatCHFNoDecimalsPrefix(_ v: Double) -> String {
