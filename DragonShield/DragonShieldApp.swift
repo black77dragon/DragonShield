@@ -62,5 +62,16 @@ struct DragonShieldApp: App {
         }
         .defaultSize(width: 800, height: 600)
         .windowResizability(.contentSize)
+
+        WindowGroup(id: "instrumentDashboard", for: Int.self) { $instrumentId in
+            if let iid = instrumentId {
+                InstrumentDashboardWindowView(instrumentId: iid)
+                    .environmentObject(databaseManager)
+            } else {
+                Text("Instrument not found")
+            }
+        }
+        .defaultSize(width: 1080, height: 720)
+        .windowResizability(.contentSize)
     }
 }
