@@ -644,9 +644,21 @@ struct ModernAssetRowView: View {
 
     var body: some View {
         HStack {
-            Text(asset.name)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.primary)
+            HStack(spacing: 6) {
+                Text(asset.name)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(asset.isDeleted ? .secondary : .primary)
+                if asset.isDeleted {
+                    Text("Soft-deleted")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.gray.opacity(0.12))
+                        .clipShape(Capsule())
+                        .help("This instrument is soft-deleted. Double-click to open and restore.")
+                }
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
             
             Text(asset.type)

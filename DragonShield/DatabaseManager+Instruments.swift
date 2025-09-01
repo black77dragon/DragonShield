@@ -10,10 +10,16 @@ extension DatabaseManager {
         var tickerSymbol: String?
         var isin: String?
         var valorNr: String?
+        var isDeleted: Bool
+        var isActive: Bool
     }
 
-    func fetchAssets() -> [InstrumentRow] {
+    func fetchAssets(includeDeleted: Bool = false, includeInactive: Bool = false) -> [InstrumentRow] {
         var rows: [InstrumentRow] = []
+        var clauses: [String] = []
+        if !includeDeleted { clauses.append("is_deleted = 0") }
+        if !includeInactive { clauses.append("is_active = 1") }
+        let whereSql = clauses.isEmpty ? "" : ("WHERE " + clauses.joined(separator: " AND "))
         let sql = """
             SELECT instrument_id,
                    instrument_name,
@@ -21,9 +27,11 @@ extension DatabaseManager {
                    sub_class_id,
                    ticker_symbol,
                    isin,
-                   valor_nr
+                   valor_nr,
+                   is_deleted,
+                   is_active
               FROM Instruments
-             WHERE is_active = 1
+              \(whereSql)
              ORDER BY instrument_name COLLATE NOCASE
         """
         var stmt: OpaquePointer?
@@ -37,7 +45,9 @@ extension DatabaseManager {
             let ticker = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
             let isin = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
             let valor = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-            rows.append(InstrumentRow(id: id, name: name, currency: currency, subClassId: subClassId, tickerSymbol: ticker, isin: isin, valorNr: valor))
+            let isDeleted = sqlite3_column_int(stmt, 7) == 1
+            let isActive = sqlite3_column_int(stmt, 8) == 1
+            rows.append(InstrumentRow(id: id, name: name, currency: currency, subClassId: subClassId, tickerSymbol: ticker, isin: isin, valorNr: valor, isDeleted: isDeleted, isActive: isActive))
         }
         return rows
     }
