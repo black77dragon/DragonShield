@@ -39,7 +39,7 @@ extension DatabaseManager {
         staleDays: Int? = nil
     ) -> [InstrumentLatestPriceRow] {
         var rows: [InstrumentLatestPriceRow] = []
-        var clauses: [String] = ["(i.is_active = 1 OR i.is_deleted = 1)"]
+        var clauses: [String] = ["i.is_active = 1", "i.is_deleted = 0"]
         var binds: [Any] = []
         if let s = search?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
             clauses.append("(LOWER(i.instrument_name) LIKE ? OR LOWER(i.ticker_symbol) LIKE ? OR LOWER(i.isin) LIKE ? OR LOWER(i.valor_nr) LIKE ?)")
