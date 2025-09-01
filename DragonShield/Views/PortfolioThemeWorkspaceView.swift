@@ -284,11 +284,13 @@ struct PortfolioThemeWorkspaceView: View {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns), !raw.isEmpty else { return }
         let set = Set(raw.split(separator: ",").compactMap { HoldingsTable.Column(rawValue: String($0)) })
         if !set.isEmpty { holdingsColumns = set }
-        // One-time soft migration: ensure Actual [baseCurrency] column is visible
-        if !holdingsColumns.contains(.actualChf) {
-            holdingsColumns.insert(.actualChf)
-            persistHoldingsColumns()
-        }
+        // One-time soft migrations: ensure new columns are visible by default
+        var changed = false
+        if !holdingsColumns.contains(.actualChf) { holdingsColumns.insert(.actualChf); changed = true }
+        if !holdingsColumns.contains(.userNorm) { holdingsColumns.insert(.userNorm); changed = true }
+        if !holdingsColumns.contains(.targetChf) { holdingsColumns.insert(.targetChf); changed = true }
+        if !holdingsColumns.contains(.deltaChf) { holdingsColumns.insert(.deltaChf); changed = true }
+        if changed { persistHoldingsColumns() }
     }
 
     // MARK: - Column Widths Editor (sheet in parent scope)

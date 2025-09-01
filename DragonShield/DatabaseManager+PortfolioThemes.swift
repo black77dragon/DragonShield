@@ -416,6 +416,11 @@ extension DatabaseManager {
     // MARK: - Theme Budget
     @discardableResult
     func updateThemeBudget(themeId: Int, budgetChf: Double?) -> Bool {
+        // Backward-compatible: only attempt update if column exists
+        if !tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") {
+            LoggingService.shared.log("skip updateThemeBudget: column theoretical_budget_chf not present", logger: .database)
+            return true // no-op, but succeed to avoid UI error spam on older DBs
+        }
         let sql = "UPDATE PortfolioTheme SET theoretical_budget_chf = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
