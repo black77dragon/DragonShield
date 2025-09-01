@@ -41,6 +41,14 @@ struct InstrumentEditView: View {
     @State private var priceAsOf: Date = Date()
     @State private var priceMessage: String? = nil
     
+    // Soft delete / lifecycle
+    @State private var isActiveFlag: Bool = true
+    @State private var isDeletedFlag: Bool = false
+    @State private var positionsCount: Int = 0
+    @State private var portfoliosCount: Int = 0
+    @State private var deleteReason: String = "No longer tracked"
+    @State private var deleteNote: String = ""
+    
     // MARK: - Validation
     var isValid: Bool {
         let nameValid = !instrumentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -317,6 +325,7 @@ struct InstrumentEditView: View {
                 requiredSection
                 optionalSection
                 priceSection
+                lifecycleSection
                 updatesInThemesSection
             }
             .padding(.horizontal, 24)
@@ -800,6 +809,10 @@ struct InstrumentEditView: View {
             tickerSymbol = details.tickerSymbol ?? ""
             isin = details.isin ?? ""
             sector = details.sector ?? ""
+            isActiveFlag = details.isActive
+            isDeletedFlag = details.isDeleted
+            positionsCount = dbManager.countPositionsForInstrument(id: instrumentId)
+            portfoliosCount = dbManager.countPortfolioMembershipsForInstrument(id: instrumentId)
             
             // Store original values for change detection
             originalName = instrumentName
@@ -809,6 +822,95 @@ struct InstrumentEditView: View {
             originalTickerSymbol = tickerSymbol
             originalIsin = isin
             originalSector = sector
+        }
+    }
+
+    // MARK: - Lifecycle Section (Soft Delete / Restore)
+    private var lifecycleSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Status & Lifecycle", icon: "archivebox", color: .purple)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    statusBadge(title: isDeletedFlag ? "Soft-deleted" : (isActiveFlag ? "Tracked" : "Disabled"), color: isDeletedFlag ? .red : (isActiveFlag ? .green : .gray))
+                    statusBadge(title: positionsCount > 0 ? "Investment: Active" : "Investment: Inactive", color: positionsCount > 0 ? .blue : .orange)
+                }
+                Text("Portfolio memberships: \(portfoliosCount)  •  Current positions: \(positionsCount)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Divider()
+                if !isDeletedFlag {
+                    Text("Soft delete will hide this instrument from search and stop price updates. Requirements: no positions and not part of any portfolios.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 12) {
+                        TextField("Reason (optional)", text: $deleteReason)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Note (optional)", text: $deleteNote)
+                            .textFieldStyle(.roundedBorder)
+                        Button(role: .destructive) { performSoftDelete() } label: {
+                            Label("Soft Delete Instrument", systemImage: "trash")
+                        }
+                        .disabled(positionsCount > 0 || portfoliosCount > 0)
+                    }
+                    if positionsCount > 0 || portfoliosCount > 0 {
+                        Text("Cannot soft delete: remove all positions and portfolio memberships first.")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                } else {
+                    Text("This instrument is soft-deleted. It is hidden in selectors and does not receive price updates.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button { performRestore() } label: {
+                        Label("Restore Instrument", systemImage: "arrow.uturn.left")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+        .padding(24)
+        .background(editGlassMorphismBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .purple.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+
+    private func statusBadge(title: String, color: Color) -> some View {
+        Text(title)
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12))
+            .foregroundColor(color)
+            .clipShape(Capsule())
+    }
+
+    private func performSoftDelete() {
+        let db = DatabaseManager()
+        if db.softDeleteInstrument(id: instrumentId, reason: deleteReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteReason, note: deleteNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteNote) {
+            alertMessage = "✅ Instrument soft-deleted. It will be hidden in search and stop price updates."
+            showingAlert = true
+            isDeletedFlag = true
+            isActiveFlag = false
+        } else {
+            alertMessage = "❌ Unable to soft delete. Ensure it has no positions and is not part of any portfolio."
+            showingAlert = true
+        }
+    }
+
+    private func performRestore() {
+        let db = DatabaseManager()
+        if db.restoreInstrument(id: instrumentId) {
+            alertMessage = "✅ Instrument restored. It is visible again and eligible for price updates."
+            showingAlert = true
+            isDeletedFlag = false
+            isActiveFlag = true
+        } else {
+            alertMessage = "❌ Failed to restore instrument."
+            showingAlert = true
         }
     }
     

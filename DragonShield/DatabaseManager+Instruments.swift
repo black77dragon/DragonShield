@@ -62,11 +62,13 @@ extension DatabaseManager {
         var tickerSymbol: String?
         var isin: String?
         var sector: String?
+        var isActive: Bool
+        var isDeleted: Bool
     }
 
     func fetchInstrumentDetails(id: Int) -> InstrumentDetails? {
         let sql = """
-            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector
+            SELECT instrument_id, instrument_name, sub_class_id, currency, valor_nr, ticker_symbol, isin, sector, is_active, is_deleted
               FROM Instruments
              WHERE instrument_id = ?
              LIMIT 1
@@ -84,9 +86,75 @@ extension DatabaseManager {
             let ticker = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
             let isin = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
             let sector = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
-            return InstrumentDetails(id: iid, name: name, subClassId: subClassId, currency: currency, valorNr: valor, tickerSymbol: ticker, isin: isin, sector: sector)
+            let isActive = sqlite3_column_int(stmt, 8) == 1
+            let isDeleted = sqlite3_column_int(stmt, 9) == 1
+            return InstrumentDetails(id: iid, name: name, subClassId: subClassId, currency: currency, valorNr: valor, tickerSymbol: ticker, isin: isin, sector: sector, isActive: isActive, isDeleted: isDeleted)
         }
         return nil
+    }
+
+    // MARK: - Soft Delete / Restore
+    func countPositionsForInstrument(id: Int) -> Int {
+        let sql = "SELECT COUNT(*) FROM PositionReports WHERE instrument_id = ?"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            if sqlite3_step(stmt) == SQLITE_ROW { count = Int(sqlite3_column_int(stmt, 0)) }
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
+    func countPortfolioMembershipsForInstrument(id: Int) -> Int {
+        let sql = "SELECT COUNT(*) FROM PortfolioThemeAsset WHERE instrument_id = ?"
+        var stmt: OpaquePointer?
+        var count = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            if sqlite3_step(stmt) == SQLITE_ROW { count = Int(sqlite3_column_int(stmt, 0)) }
+        }
+        sqlite3_finalize(stmt)
+        return count
+    }
+
+    func softDeleteInstrument(id: Int, reason: String?, note: String?) -> Bool {
+        // Guard: prevent soft delete if still referenced
+        if countPositionsForInstrument(id: id) > 0 { return false }
+        if countPortfolioMembershipsForInstrument(id: id) > 0 { return false }
+        let sql = """
+            UPDATE Instruments
+               SET is_deleted = 1,
+                   is_active = 0,
+                   deleted_at = CURRENT_TIMESTAMP,
+                   deleted_reason = COALESCE(?, deleted_reason),
+                   user_note = COALESCE(?, user_note)
+             WHERE instrument_id = ? AND is_deleted = 0
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        if let r = reason { sqlite3_bind_text(stmt, 1, r, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 1) }
+        if let n = note { sqlite3_bind_text(stmt, 2, n, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 2) }
+        sqlite3_bind_int(stmt, 3, Int32(id))
+        return sqlite3_step(stmt) == SQLITE_DONE
+    }
+
+    func restoreInstrument(id: Int) -> Bool {
+        let sql = """
+            UPDATE Instruments
+               SET is_deleted = 0,
+                   is_active = 1,
+                   deleted_at = NULL,
+                   deleted_reason = NULL
+             WHERE instrument_id = ?
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        return sqlite3_step(stmt) == SQLITE_DONE
     }
 
     @discardableResult
