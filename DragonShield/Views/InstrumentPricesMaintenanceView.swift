@@ -213,9 +213,19 @@ struct InstrumentPricesMaintenanceView: View {
                                 HStack(spacing: 6) {
                                     Text(r.name)
                                         .fontWeight(.semibold)
+                                        .foregroundColor(r.isDeleted ? .secondary : .primary)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
                                         .help(r.name)
+                                    if r.isDeleted {
+                                        Text("Soft-deleted")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.gray.opacity(0.12))
+                                            .clipShape(Capsule())
+                                    }
                                     if r.latestPrice == nil { missingPriceChip }
                                 }
                                 HStack(spacing: 6) {
