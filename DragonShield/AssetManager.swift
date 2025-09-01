@@ -8,6 +8,8 @@ struct DragonAsset: Identifiable {
     var valorNr: String?
     var tickerSymbol: String?
     var isin: String?
+    var isDeleted: Bool
+    var isActive: Bool
 }
 
 class AssetManager: ObservableObject {
@@ -19,7 +21,8 @@ class AssetManager: ObservableObject {
     }
     
     func loadAssets() {
-        let instrumentData = dbManager.fetchAssets()
+        // Include all instruments (active + soft-deleted) for the Instruments screen
+        let instrumentData = dbManager.fetchAssets(includeDeleted: true, includeInactive: true)
         let assetTypeData = dbManager.fetchAssetTypes()
         
         print("🔍 AssetManager loading: \(instrumentData.count) instruments, \(assetTypeData.count) types")
@@ -36,7 +39,9 @@ class AssetManager: ObservableObject {
                 currency: instrument.currency,
                 valorNr: instrument.valorNr,
                 tickerSymbol: instrument.tickerSymbol,
-                isin: instrument.isin
+                isin: instrument.isin,
+                isDeleted: instrument.isDeleted,
+                isActive: instrument.isActive
             )
         }
         

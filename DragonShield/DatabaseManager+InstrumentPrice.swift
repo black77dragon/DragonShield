@@ -22,6 +22,8 @@ extension DatabaseManager {
         var valorNr: String?
         var className: String?
         var subClassName: String?
+        var isDeleted: Bool
+        var isActive: Bool
     }
 
     /// Lists instruments with their latest price (if any), with optional filters.
@@ -37,7 +39,7 @@ extension DatabaseManager {
         staleDays: Int? = nil
     ) -> [InstrumentLatestPriceRow] {
         var rows: [InstrumentLatestPriceRow] = []
-        var clauses: [String] = ["i.is_active = 1"]
+        var clauses: [String] = ["i.is_active = 1", "i.is_deleted = 0"]
         var binds: [Any] = []
         if let s = search?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
             clauses.append("(LOWER(i.instrument_name) LIKE ? OR LOWER(i.ticker_symbol) LIKE ? OR LOWER(i.isin) LIKE ? OR LOWER(i.valor_nr) LIKE ?)")
@@ -68,7 +70,9 @@ extension DatabaseManager {
                    i.isin,
                    i.valor_nr,
                    ac.class_name,
-                   asc.sub_class_name
+                   asc.sub_class_name,
+                   i.is_deleted,
+                   i.is_active
               FROM Instruments i
               LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = i.instrument_id
               JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
@@ -103,7 +107,23 @@ extension DatabaseManager {
             let valor = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
             let className = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
             let subClassName = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
-            rows.append(InstrumentLatestPriceRow(id: id, name: name, currency: cur, latestPrice: price, asOf: asOf, source: source, ticker: ticker, isin: isin, valorNr: valor, className: className, subClassName: subClassName))
+            let isDeleted = sqlite3_column_int(stmt, 11) == 1
+            let isActive = sqlite3_column_int(stmt, 12) == 1
+            rows.append(InstrumentLatestPriceRow(
+                id: id,
+                name: name,
+                currency: cur,
+                latestPrice: price,
+                asOf: asOf,
+                source: source,
+                ticker: ticker,
+                isin: isin,
+                valorNr: valor,
+                className: className,
+                subClassName: subClassName,
+                isDeleted: isDeleted,
+                isActive: isActive
+            ))
         }
         return rows
     }
