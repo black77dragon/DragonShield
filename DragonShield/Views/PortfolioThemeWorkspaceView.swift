@@ -940,6 +940,8 @@ private struct HoldingsTable: View {
                                 if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
                             }
                             .font(.system(.body, design: .monospaced))
+                            // Grey-out row if user allocation is 0%
+                            .opacity(editableUser(r.instrumentId) == 0 ? 0.6 : 1.0)
                             .contextMenu {
                                 Button("Instrument Updates…") {
                                     openUpdates = UpdatesTarget(themeId: themeId, instrumentId: r.instrumentId, instrumentName: r.instrumentName)

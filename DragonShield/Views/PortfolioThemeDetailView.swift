@@ -410,6 +410,8 @@ struct PortfolioThemeDetailView: View {
                                 Spacer().frame(width: 28)
                             }
                         }
+                        // Grey-out entire row when user allocation is 0%
+                        .foregroundColor(($asset.wrappedValue.userTargetPct == 0) ? .secondary : .primary)
                         .padding(.vertical, 1)
                         .contextMenu {
                             Button("Instrument Updates…") {
