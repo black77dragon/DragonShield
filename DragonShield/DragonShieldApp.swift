@@ -73,5 +73,16 @@ struct DragonShieldApp: App {
         }
         .defaultSize(width: 1080, height: 720)
         .windowResizability(.contentSize)
+
+        WindowGroup(id: "themeWorkspace", for: Int.self) { $themeId in
+            if let tid = themeId {
+                PortfolioThemeWorkspaceView(themeId: tid, origin: "window")
+                    .environmentObject(databaseManager)
+            } else {
+                Text("Theme not found")
+            }
+        }
+        .defaultSize(width: 1750, height: 900)
+        .windowResizability(.contentSize)
     }
 }

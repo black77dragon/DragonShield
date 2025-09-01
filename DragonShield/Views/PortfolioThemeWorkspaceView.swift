@@ -106,7 +106,7 @@ struct PortfolioThemeWorkspaceView: View {
             }
             .navigationTitle("Theme Workspace: \(name)")
         }
-        .frame(minWidth: 1200, idealWidth: 1400, minHeight: 720, idealHeight: 800)
+        .frame(minWidth: 1500, idealWidth: 1750, minHeight: 720, idealHeight: 800)
         .onAppear {
             // Choose initial tab: explicit override > search in updates > last saved > default
             if let t = initialTab {
@@ -270,10 +270,12 @@ struct PortfolioThemeWorkspaceView: View {
         let trimmed = themeBudgetInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = trimmed.replacingOccurrences(of: "'", with: "")
         let value = Double(normalized)
+        // Optimistic update so Target/Δ compute immediately
+        if var t = theme { t.theoreticalBudgetChf = value; theme = t }
         if dbManager.updateThemeBudget(themeId: themeId, budgetChf: value) {
             theme = dbManager.getPortfolioTheme(id: themeId)
-            holdingsReloadToken += 1
         }
+        holdingsReloadToken += 1
     }
 
     private func persistHoldingsColumns() {
@@ -930,21 +932,36 @@ private struct Tag: View {
                                 }
                                 if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
                                 if columns.contains(.actual) {
-                                    Text(fmtPct(r.actualPct))
-                                        .frame(width: width(for: .actual), alignment: .trailing)
+                                    if editableUser(r.instrumentId) == 0 {
+                                        Text("")
+                                            .frame(width: width(for: .actual), alignment: .trailing)
+                                    } else {
+                                        Text(fmtPct(r.actualPct))
+                                            .frame(width: width(for: .actual), alignment: .trailing)
+                                    }
                                 }
                                 if resizable(.actual) { resizeSpacer(for: .actual) }
                                 if columns.contains(.delta) {
-                                    Text(fmtPct(r.deltaUserPct))
-                                        .frame(width: width(for: .delta), alignment: .trailing)
-                                        .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
+                                    if editableUser(r.instrumentId) == 0 {
+                                        Text("")
+                                            .frame(width: width(for: .delta), alignment: .trailing)
+                                    } else {
+                                        Text(fmtPct(r.deltaUserPct))
+                                            .frame(width: width(for: .delta), alignment: .trailing)
+                                            .foregroundColor((r.deltaUserPct ?? 0) >= 0 ? .green : .red)
+                                    }
                                 }
                                 if resizable(.delta) { resizeSpacer(for: .delta) }
                                 if columns.contains(.deltaChf) {
-                                    let d = (targetChf(r.instrumentId) - r.currentValueBase)
-                                    Text(d, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(0)))
-                                        .frame(width: width(for: .actualChf), alignment: .trailing)
-                                        .foregroundColor(d >= 0 ? .green : .red)
+                                    if editableUser(r.instrumentId) == 0 {
+                                        Text("")
+                                            .frame(width: width(for: .actualChf), alignment: .trailing)
+                                    } else {
+                                        let d = (targetChf(r.instrumentId) - r.currentValueBase)
+                                        Text(d, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(0)))
+                                            .frame(width: width(for: .actualChf), alignment: .trailing)
+                                            .foregroundColor(d >= 0 ? .green : .red)
+                                    }
                                 }
                                 if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
                                 if columns.contains(.actualChf) {

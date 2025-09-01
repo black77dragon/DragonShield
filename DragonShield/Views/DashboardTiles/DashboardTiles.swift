@@ -230,6 +230,7 @@ struct TextTile: DashboardTile {
 
 struct ThemesOverviewTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.openWindow) private var openWindow
     @State private var rows: [Row] = []
     @State private var loading = false
     @State private var openThemeId: Int? = nil
@@ -251,7 +252,7 @@ struct ThemesOverviewTile: DashboardTile {
                         header
                         ForEach(rows) { r in
                             HStack {
-                                Button(r.name) { openThemeId = r.id }
+                                Button(r.name) { openWindow(id: "themeWorkspace", value: r.id) }
                                     .buttonStyle(.link)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Text("\(r.instrumentCount)")
@@ -269,12 +270,6 @@ struct ThemesOverviewTile: DashboardTile {
             }
         }
         .onAppear(perform: load)
-        .sheet(item: Binding(get: {
-            openThemeId.map { Ident(value: $0) }
-        }, set: { newVal in openThemeId = newVal?.value })) { ident in
-            PortfolioThemeWorkspaceView(themeId: ident.value, origin: "Dashboard")
-                .environmentObject(dbManager)
-        }
     }
 
     private var header: some View {
