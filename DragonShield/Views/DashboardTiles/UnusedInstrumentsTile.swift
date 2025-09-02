@@ -61,6 +61,25 @@ struct UnusedInstrumentsTile: DashboardTile {
     @State private var showReport = false
     @State private var editingInstrumentId: Int? = nil
 
+    // Extract row to ease the type-checker
+    private func rowView(_ item: UnusedInstrument) -> some View {
+        Text(item.name)
+            .foregroundColor(Theme.primaryAccent)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: DashboardTileLayout.rowHeight, alignment: .leading)
+            .help("Open instrument maintenance (double‑click)")
+            .onTapGesture(count: 2) { editingInstrumentId = item.instrumentId }
+    }
+
+    private var editBinding: Binding<Ident?> {
+        Binding<Ident?>(
+            get: { editingInstrumentId.map { Ident(value: $0) } },
+            set: { newVal in editingInstrumentId = newVal?.value }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -93,17 +112,7 @@ struct UnusedInstrumentsTile: DashboardTile {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
-                        ForEach(viewModel.items) { item in
-                            Text(item.name)
-                                .foregroundColor(Theme.primaryAccent)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: DashboardTileLayout.rowHeight, alignment: .leading)
-                                .help("Open instrument maintenance (double‑click)")
-                                .onTapGesture(count: 2) { editingInstrumentId = item.instrumentId }
-                                .cursor(.pointingHand)
-                        }
+                        ForEach(viewModel.items, content: rowView)
                         if viewModel.hasMore {
                             Text("+ more…")
                                 .foregroundColor(.secondary)
@@ -131,11 +140,7 @@ struct UnusedInstrumentsTile: DashboardTile {
                 showReport = false
             }
         }
-        .sheet(item: Binding(get: {
-            editingInstrumentId.map { Ident(value: $0) }
-        }, set: { newVal in
-            editingInstrumentId = newVal?.value
-        })) { ident in
+        .sheet(item: editBinding) { ident in
             InstrumentEditView(instrumentId: ident.value)
                 .environmentObject(dbManager)
         }

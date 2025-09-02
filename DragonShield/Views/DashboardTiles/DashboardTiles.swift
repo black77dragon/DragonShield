@@ -557,7 +557,6 @@ struct MissingPricesTile: DashboardTile {
                 .foregroundColor(Theme.primaryAccent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onTapGesture(count: 2) { editingInstrumentId = item.id }
-                .cursor(.pointingHand)
                 .help("Open instrument maintenance (double‑click)")
             Text(item.currency)
                 .foregroundColor(.secondary)
