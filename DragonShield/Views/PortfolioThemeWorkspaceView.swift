@@ -933,6 +933,8 @@ private struct Tag: View {
     @State private var confirmRemoveId: Int? = nil
     @State private var showToast: Bool = false
     @State private var toastMessage: String = ""
+    // Debounce note saves per instrument to avoid saving on every keystroke
+    @State private var noteSaveDebounce: [Int: DispatchWorkItem] = [:]
 
     @FocusState private var focusSearch: Bool
 
@@ -1506,6 +1508,11 @@ private struct Tag: View {
                 var e = edits[instrumentId] ?? Edit(research: 0, user: 0, notes: "")
                 e.notes = String(newValue.prefix(NoteEditorView.maxLength))
                 edits[instrumentId] = e
+                // Debounce saves to reduce DB writes while typing
+                noteSaveDebounce[instrumentId]?.cancel()
+                let task = DispatchWorkItem { saveRow(instrumentId) }
+                noteSaveDebounce[instrumentId] = task
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
             }
         )
     }
@@ -1519,7 +1526,8 @@ private struct Tag: View {
                 instrumentId: instrumentId,
                 researchPct: e.research,
                 userPct: e.user,
-                notes: e.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : e.notes
+                // Use empty string to explicitly clear notes; nil would mean "no change" in DB layer
+                notes: e.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : e.notes
             )
             DispatchQueue.main.async {
                 saving.remove(instrumentId)
