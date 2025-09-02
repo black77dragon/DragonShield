@@ -580,7 +580,11 @@ struct MissingPricesTile: DashboardTile {
                         ForEach(items) { item in
                             HStack {
                                 Text(item.name)
+                                    .foregroundColor(Theme.primaryAccent)
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .onTapGesture(count: 2) { editingInstrumentId = item.id }
+                                    .cursor(.pointingHand)
+                                    .help("Open instrument maintenance (double‑click)")
                                 Text(item.currency)
                                     .foregroundColor(.secondary)
                                 Button("Edit Price") { editingInstrumentId = item.id }

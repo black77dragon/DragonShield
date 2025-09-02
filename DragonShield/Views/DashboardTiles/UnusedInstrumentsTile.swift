@@ -59,6 +59,7 @@ struct UnusedInstrumentsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = UnusedInstrumentsTileViewModel()
     @State private var showReport = false
+    @State private var editingInstrumentId: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -94,11 +95,14 @@ struct UnusedInstrumentsTile: DashboardTile {
                     LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(viewModel.items) { item in
                             Text(item.name)
+                                .foregroundColor(Theme.primaryAccent)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: DashboardTileLayout.rowHeight, alignment: .leading)
-                                .help(item.name)
+                                .help("Open instrument maintenance (double‑click)")
+                                .onTapGesture(count: 2) { editingInstrumentId = item.instrumentId }
+                                .cursor(.pointingHand)
                         }
                         if viewModel.hasMore {
                             Text("+ more…")
@@ -127,5 +131,15 @@ struct UnusedInstrumentsTile: DashboardTile {
                 showReport = false
             }
         }
+        .sheet(item: Binding(get: {
+            editingInstrumentId.map { Ident(value: $0) }
+        }, set: { newVal in
+            editingInstrumentId = newVal?.value
+        })) { ident in
+            InstrumentEditView(instrumentId: ident.value)
+                .environmentObject(dbManager)
+        }
     }
 }
+
+private struct Ident: Identifiable { let value: Int; var id: Int { value } }
