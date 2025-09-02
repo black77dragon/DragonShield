@@ -550,6 +550,31 @@ struct MissingPricesTile: DashboardTile {
     @State private var loading = false
     @State private var editingInstrumentId: Int? = nil
 
+    // Split out complex bits to help type-checker
+    private func rowView(_ item: MissingPriceItem) -> some View {
+        HStack {
+            Text(item.name)
+                .foregroundColor(Theme.primaryAccent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onTapGesture(count: 2) { editingInstrumentId = item.id }
+                .cursor(.pointingHand)
+                .help("Open instrument maintenance (double‑click)")
+            Text(item.currency)
+                .foregroundColor(.secondary)
+            Button("Edit Price") { editingInstrumentId = item.id }
+                .buttonStyle(.link)
+        }
+        .font(.system(size: 13))
+        .frame(height: DashboardTileLayout.rowHeight)
+    }
+
+    private var editBinding: Binding<Ident?> {
+        Binding<Ident?>(
+            get: { editingInstrumentId.map { Ident(value: $0) } },
+            set: { newVal in editingInstrumentId = newVal?.value }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -577,22 +602,7 @@ struct MissingPricesTile: DashboardTile {
             } else {
                 ScrollView {
                     VStack(spacing: DashboardTileLayout.rowSpacing) {
-                        ForEach(items) { item in
-                            HStack {
-                                Text(item.name)
-                                    .foregroundColor(Theme.primaryAccent)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .onTapGesture(count: 2) { editingInstrumentId = item.id }
-                                    .cursor(.pointingHand)
-                                    .help("Open instrument maintenance (double‑click)")
-                                Text(item.currency)
-                                    .foregroundColor(.secondary)
-                                Button("Edit Price") { editingInstrumentId = item.id }
-                                    .buttonStyle(.link)
-                            }
-                            .font(.system(size: 13))
-                            .frame(height: DashboardTileLayout.rowHeight)
-                        }
+                        ForEach(items, content: rowView)
                     }
                     .padding(.vertical, DashboardTileLayout.rowSpacing)
                 }
@@ -605,11 +615,7 @@ struct MissingPricesTile: DashboardTile {
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
         .overlay(alignment: .leading) { Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2) }
         .onAppear(perform: load)
-        .sheet(item: Binding(get: {
-            editingInstrumentId.map { Ident(value: $0) }
-        }, set: { newVal in
-            editingInstrumentId = newVal?.value
-        })) { ident in
+        .sheet(item: editBinding) { ident in
             InstrumentEditView(instrumentId: ident.value)
                 .environmentObject(dbManager)
         }
