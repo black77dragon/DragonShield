@@ -14,6 +14,7 @@ struct InstrumentDashboardWindowView: View {
     @State private var instrumentCode: String = ""
     @State private var instrumentName: String = ""
     @State private var actualChfByTheme: [Int: Double] = [:]
+    @State private var editingInstrument: Bool = false
 
     // Layout constants
     private let minRowsToShow: Int = 4
@@ -58,6 +59,10 @@ struct InstrumentDashboardWindowView: View {
         }
         .frame(minWidth: 980, minHeight: 680)
         .onAppear(perform: load)
+        .sheet(isPresented: $editingInstrument) {
+            InstrumentEditView(instrumentId: instrumentId)
+                .environmentObject(dbManager)
+        }
         .sheet(item: Binding(get: {
             openThemeId.map { Ident(value: $0) }
         }, set: { newVal in openThemeId = newVal?.value })) { ident in
@@ -85,6 +90,8 @@ struct InstrumentDashboardWindowView: View {
                         if let i = d.isin, !i.isEmpty { Tag("ISIN: \(i.uppercased())") }
                         if let v = d.valorNr, !v.isEmpty { Tag("Valor: \(v)") }
                         if let s = d.sector, !s.isEmpty { Tag("Sector: \(s)") }
+                        Button("Edit Instrument") { editingInstrument = true }
+                            .buttonStyle(.link)
                     }
                 } else {
                     EmptyView()

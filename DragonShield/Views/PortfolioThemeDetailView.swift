@@ -410,6 +410,8 @@ struct PortfolioThemeDetailView: View {
                                 Spacer().frame(width: 28)
                             }
                         }
+                        // Grey background when user allocation is 0%
+                        .background(($asset.wrappedValue.userTargetPct == 0) ? Color.gray.opacity(0.1) : Color.clear)
                         .padding(.vertical, 1)
                         .contextMenu {
                             Button("Instrument Updates…") {

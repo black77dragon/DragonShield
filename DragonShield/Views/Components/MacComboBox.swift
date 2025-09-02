@@ -22,10 +22,10 @@ struct MacComboBox: NSViewRepresentable {
         cb.isButtonBordered = true
         cb.stringValue = text
         cb.onHover = { [weak coord = context.coordinator] in
-            coord?.openPopupIfNeeded()
+            coord?.openPopupSoon()
         }
         cb.onFocus = { [weak coord = context.coordinator] in
-            coord?.openPopupIfNeeded()
+            coord?.openPopupSoon()
         }
         context.coordinator.combo = cb
         context.coordinator.setItems(items)
@@ -40,6 +40,11 @@ struct MacComboBox: NSViewRepresentable {
             context.coordinator.filter(with: text)
             nsView.reloadData()
             nsView.noteNumberOfItemsChanged()
+        } else {
+            // If items were just loaded while the field is being edited, ensure the popup shows
+            if nsView.currentEditor() != nil {
+                context.coordinator.openPopupSoon()
+            }
         }
     }
 
@@ -83,7 +88,7 @@ struct MacComboBox: NSViewRepresentable {
                 cb.reloadData()
                 cb.noteNumberOfItemsChanged()
                 if !popupVisible {
-                    cb.performClick(nil)
+                    DispatchQueue.main.async { self.openDropdown(cb) }
                 }
             }
         }
@@ -102,11 +107,11 @@ struct MacComboBox: NSViewRepresentable {
             parent.text = value
             filter(with: value)
             // Ensure the popup appears while typing to show filtered matches
-            openPopupIfNeeded()
+            openPopupSoon()
         }
 
         func controlTextDidBeginEditing(_ obj: Notification) {
-            openPopupIfNeeded()
+            openPopupSoon()
         }
 
         func comboBoxSelectionDidChange(_ notification: Notification) {
@@ -128,9 +133,30 @@ struct MacComboBox: NSViewRepresentable {
 
         func openPopupIfNeeded() {
             if popupVisible { return }
-            combo?.reloadData()
-            combo?.noteNumberOfItemsChanged()
-            combo?.performClick(nil)
+            guard let cb = combo else { return }
+            cb.reloadData()
+            cb.noteNumberOfItemsChanged()
+            openDropdown(cb)
+        }
+
+        func openPopupSoon() {
+            guard let cb = combo else { return }
+            if popupVisible { return }
+            // Defer to next runloop so focus/first-responder changes settle
+            DispatchQueue.main.async {
+                cb.reloadData()
+                cb.noteNumberOfItemsChanged()
+                self.openDropdown(cb)
+            }
+        }
+
+        // More robust way to open the popup across macOS versions
+        private func openDropdown(_ cb: NSComboBox) {
+            if cb.responds(to: Selector(("togglePopup:"))) {
+                cb.perform(Selector(("togglePopup:")), with: nil)
+            } else {
+                cb.performClick(nil)
+            }
         }
     }
 }

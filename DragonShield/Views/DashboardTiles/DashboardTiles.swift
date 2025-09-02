@@ -92,6 +92,23 @@ struct MetricTile: DashboardTile {
     }
 }
 
+// Shared CHF whole-number formatter for large sums
+fileprivate enum LargeSumFormatter {
+    static let chfWhole: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 0
+        f.minimumFractionDigits = 0
+        return f
+    }()
+    static func chf(_ v: Double) -> String {
+        let s = chfWhole.string(from: NSNumber(value: v)) ?? String(format: "%.0f", v)
+        return "CHF \(s)"
+    }
+}
+
 struct TotalValueTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @State private var total: Double = 0
@@ -176,7 +193,7 @@ struct TopPositionsTile: DashboardTile {
                                     .multilineTextAlignment(.leading)
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Text(String(format: "%.2f", item.valueCHF))
+                                    Text(LargeSumFormatter.chf(item.valueCHF))
                                         .font(.system(.body, design: .monospaced).bold())
                                     Text(item.currency)
                                         .font(.caption)
@@ -230,6 +247,7 @@ struct TextTile: DashboardTile {
 
 struct ThemesOverviewTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.openWindow) private var openWindow
     @State private var rows: [Row] = []
     @State private var loading = false
     @State private var openThemeId: Int? = nil
@@ -251,12 +269,12 @@ struct ThemesOverviewTile: DashboardTile {
                         header
                         ForEach(rows) { r in
                             HStack {
-                                Button(r.name) { openThemeId = r.id }
+                                Button(r.name) { openWindow(id: "themeWorkspace", value: r.id) }
                                     .buttonStyle(.link)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Text("\(r.instrumentCount)")
                                     .frame(width: 80, alignment: .trailing)
-                                Text(currency(r.totalValue))
+                                Text(LargeSumFormatter.chf(r.totalValue))
                                     .frame(width: 140, alignment: .trailing)
                             }
                             .font(.system(size: 13))
@@ -269,12 +287,6 @@ struct ThemesOverviewTile: DashboardTile {
             }
         }
         .onAppear(perform: load)
-        .sheet(item: Binding(get: {
-            openThemeId.map { Ident(value: $0) }
-        }, set: { newVal in openThemeId = newVal?.value })) { ident in
-            PortfolioThemeWorkspaceView(themeId: ident.value, origin: "Dashboard")
-                .environmentObject(dbManager)
-        }
     }
 
     private var header: some View {
@@ -296,8 +308,11 @@ struct ThemesOverviewTile: DashboardTile {
             let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
             for t in themes {
                 let snap = service.snapshot(themeId: t.id)
-                let total = snap.totalValueBase
-                result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, totalValue: total))
+                // Included total: sum of OK rows where User % > 0
+                let included = snap.rows.reduce(0.0) { acc, r in
+                    (r.userTargetPct > 0 && r.status == .ok) ? acc + r.currentValueBase : acc
+                }
+                result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, totalValue: included))
             }
             result.sort { $0.totalValue > $1.totalValue }
             DispatchQueue.main.async { rows = result; loading = false }
@@ -306,13 +321,7 @@ struct ThemesOverviewTile: DashboardTile {
 
     private struct Ident: Identifiable { let value: Int; var id: Int { value } }
 
-    private func currency(_ v: Double) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencyCode = dbManager.baseCurrency
-        f.maximumFractionDigits = 2
-        return f.string(from: NSNumber(value: v)) ?? String(format: "%.2f", v)
-    }
+    // No longer used; replaced by LargeSumFormatter.chf
 
     private struct Row: Identifiable {
         let id: Int
@@ -351,6 +360,7 @@ struct AllNotesTile: DashboardTile {
     @State private var openAll = false
     @State private var search: String = ""
     @State private var pinnedFirst: Bool = true
+    @State private var suggestions: [String] = []
     @State private var editingTheme: PortfolioThemeUpdate?
     @State private var editingInstrument: PortfolioThemeAssetUpdate?
     @State private var themeNames: [Int: String] = [:]
@@ -373,11 +383,20 @@ struct AllNotesTile: DashboardTile {
                     .foregroundColor(Theme.primaryAccent)
             }
             HStack(spacing: 8) {
-                TextField("Search notes", text: $search)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { load() }
+                SearchDropdown(
+                    items: suggestions,
+                    text: $search,
+                    placeholder: "Search notes",
+                    maxVisibleRows: 10,
+                    onSelectIndex: { idx in
+                        guard idx >= 0 && idx < suggestions.count else { return }
+                        search = suggestions[idx]
+                        load()
+                    }
+                )
+                .frame(minWidth: 260)
                 if !search.isEmpty {
-                    Button("Clear") { search = ""; load() }.buttonStyle(.link)
+                    Button("Clear") { search = ""; load(); loadSuggestions() }.buttonStyle(.link)
                 }
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
@@ -429,7 +448,8 @@ struct AllNotesTile: DashboardTile {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        .onAppear(perform: load)
+        .onAppear { load(); loadSuggestions() }
+        .onChange(of: search) { _, _ in loadSuggestions() }
         .sheet(isPresented: $openAll) {
             AllNotesView().environmentObject(dbManager)
         }
@@ -462,6 +482,24 @@ struct AllNotesTile: DashboardTile {
                 self.recent = combined
                 self.loading = false
             }
+        }
+    }
+
+    private func loadSuggestions() {
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let theme = dbManager.listAllThemeUpdates(view: .active, typeId: nil, searchQuery: q.isEmpty ? nil : q, pinnedFirst: pinnedFirst)
+            let instr = dbManager.listAllInstrumentUpdates(pinnedFirst: pinnedFirst, searchQuery: q.isEmpty ? nil : q, typeId: nil)
+            // Build a set of titles as suggestions, keep order by recency
+            var seen = Set<String>()
+            var sugg: [String] = []
+            for t in theme.prefix(30) {
+                if !t.title.isEmpty && !seen.contains(t.title) { seen.insert(t.title); sugg.append(t.title) }
+            }
+            for u in instr.prefix(30) {
+                if !u.title.isEmpty && !seen.contains(u.title) { seen.insert(u.title); sugg.append(u.title) }
+            }
+            DispatchQueue.main.async { self.suggestions = sugg }
         }
     }
 

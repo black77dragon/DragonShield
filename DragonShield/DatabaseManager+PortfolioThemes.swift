@@ -85,9 +85,28 @@ extension DatabaseManager {
         }
     }
 
+    private func tableHasColumn(table: String, column: String) -> Bool {
+        var stmt: OpaquePointer?
+        var exists = false
+        let sql = "PRAGMA table_info(\(table))"
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let nameC = sqlite3_column_text(stmt, 1) {
+                    let name = String(cString: nameC)
+                    if name.caseInsensitiveCompare(column) == .orderedSame { exists = true; break }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
+
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
-        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
+        let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete"
+        if hasBudget { sql += ",pt.theoretical_budget_chf" }
+        sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
         if !includeArchived { sql += " AND archived_at IS NULL" }
         if !includeSoftDeleted { sql += " AND soft_delete = 0" }
         if let s = search, !s.isEmpty {
@@ -113,8 +132,16 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
                 let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
-                let count = Int(sqlite3_column_int(stmt, 10))
-                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count))
+                var idx = 10
+                let budget: Double?
+                if hasBudget {
+                    budget = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, Int32(idx))
+                    idx += 1
+                } else {
+                    budget = nil
+                }
+                let count = Int(sqlite3_column_int(stmt, Int32(idx)))
+                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -184,7 +211,10 @@ extension DatabaseManager {
     }
 
     func getPortfolioTheme(id: Int) -> PortfolioTheme? {
-        let sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete,(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
+        let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete"
+        if hasBudget { sql += ",pt.theoretical_budget_chf" }
+        sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
         var stmt: OpaquePointer?
         var theme: PortfolioTheme?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -200,8 +230,16 @@ extension DatabaseManager {
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
                 let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
-                let count = Int(sqlite3_column_int(stmt, 10))
-                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, totalValueBase: nil, instrumentCount: count)
+                var idx = 10
+                let budget: Double?
+                if hasBudget {
+                    budget = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, Int32(idx))
+                    idx += 1
+                } else {
+                    budget = nil
+                }
+                let count = Int(sqlite3_column_int(stmt, Int32(idx)))
+                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
@@ -373,5 +411,30 @@ extension DatabaseManager {
         }
         LoggingService.shared.log("softDeletePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         return false
+    }
+
+    // MARK: - Theme Budget
+    private func ensureThemeBudgetColumn() {
+        guard !tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") else { return }
+        let sql = "ALTER TABLE PortfolioTheme ADD COLUMN theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0)"
+        if sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK {
+            LoggingService.shared.log("Added PortfolioTheme.theoretical_budget_chf column via ALTER TABLE", logger: .database)
+        } else {
+            LoggingService.shared.log("Failed to add theoretical_budget_chf: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+    }
+
+    @discardableResult
+    func updateThemeBudget(themeId: Int, budgetChf: Double?) -> Bool {
+        // Ensure column exists (auto-migrate if needed)
+        ensureThemeBudgetColumn()
+        guard tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") else { return false }
+        let sql = "UPDATE PortfolioTheme SET theoretical_budget_chf = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        if let b = budgetChf { sqlite3_bind_double(stmt, 1, b) } else { sqlite3_bind_null(stmt, 1) }
+        sqlite3_bind_int(stmt, 2, Int32(themeId))
+        return sqlite3_step(stmt) == SQLITE_DONE
     }
 }
