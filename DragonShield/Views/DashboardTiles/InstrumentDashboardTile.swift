@@ -11,7 +11,7 @@ struct InstrumentDashboardTile: DashboardTile {
 
     @State private var instruments: [DatabaseManager.InstrumentRow] = []
     @State private var instrumentQuery: String = ""
-    @State private var selectedInstrumentId: Int? = nil
+    // Selection opens dashboard immediately; no extra action button required
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -22,31 +22,21 @@ struct InstrumentDashboardTile: DashboardTile {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Select Instrument").font(.caption).foregroundColor(.secondary)
-                MacComboBox(
+                SearchDropdown(
                     items: instrumentDisplayItems(),
                     text: $instrumentQuery,
+                    placeholder: "Search instrument, ticker, or ISIN",
+                    maxVisibleRows: 12,
                     onSelectIndex: { originalIndex in
                         guard originalIndex >= 0 && originalIndex < instruments.count else { return }
                         let ins = instruments[originalIndex]
-                        selectedInstrumentId = ins.id
                         openInstrument(ins.id)
                     }
                 )
                 .frame(minWidth: 360)
                 .accessibilityLabel("Instrument Selector")
-                // When focused, MacComboBox already opens the popup and filters as you type.
-                // Ensure we start from a full list view.
                 .onAppear { instrumentQuery = "" }
-                HStack(spacing: 8) {
-                    Spacer()
-                    Button {
-                        if let id = selectedInstrumentId { openInstrument(id) }
-                    } label: {
-                        Label("Open Dashboard", systemImage: "arrow.up.right.square")
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(selectedInstrumentId == nil)
-                }
+                // Removed redundant "Open Dashboard" button
             }
         }
         .padding(DashboardTileLayout.tilePadding)

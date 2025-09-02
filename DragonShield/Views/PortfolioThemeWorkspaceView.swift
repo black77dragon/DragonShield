@@ -148,12 +148,35 @@ struct PortfolioThemeWorkspaceView: View {
             Spacer()
             HStack(spacing: 16) {
                 // Quick stats in header (large, total bold)
-                Text("Total: \(currency(valuation?.totalValueBase))")
-                    .font(.title2).bold()
-                    .accessibilityLabel("Total value \((valuation?.totalValueBase ?? 0).formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2))))")
-                Text("Instruments: \(theme?.instrumentCount ?? 0)")
-                    .font(.title2)
-                    .accessibilityLabel("Instrument count \(theme?.instrumentCount ?? 0)")
+                if selectedTab == .holdings {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Total: \(currencyWholeCHF(includedUserTotalBase))")
+                            .font(.title2).bold()
+                            .accessibilityLabel("Included total value \((includedUserTotalBase ?? 0).formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(0))))")
+                        Text("Total (included + excluded): \(currencyWholeCHF(valuation?.totalValueBase))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    // Delta vs Budget (same size)
+                    let budget = currentBudget() ?? 0
+                    let delta = (includedUserTotalBase ?? 0) - budget
+                    let devPct = budget > 0 ? abs(delta) / budget : 0
+                    Text("Δ: \(currencyWholeCHF(delta))")
+                        .font(.title2)
+                        .foregroundColor(devPct > 0.05 ? .red : .primary)
+                        .accessibilityLabel("Delta included minus budget \(delta.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(0))))")
+                    Text("Instruments: \(includedInstrumentCount)")
+                        .font(.title2)
+                        .accessibilityLabel("Included instrument count \(includedInstrumentCount)")
+                } else {
+                    Text("Total: \(currency(valuation?.totalValueBase))")
+                        .font(.title2).bold()
+                        .accessibilityLabel("Total value \((valuation?.totalValueBase ?? 0).formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2))))")
+                    Text("Instruments: \(theme?.instrumentCount ?? 0)")
+                        .font(.title2)
+                        .accessibilityLabel("Instrument count \(theme?.instrumentCount ?? 0)")
+                }
                 Button(role: .none) { runValuation() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -192,7 +215,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     @State private var holdingsSearch: String = ""
-    @FocusState private var focusHoldingsSearch: Bool
+    // Search text moved inside table for tighter grouping
     @State private var holdingsColumns: Set<HoldingsTable.Column> = Set(HoldingsTable.Column.defaultVisible)
     @State private var showWidthsEditor: Bool = false
     @State private var holdingsReloadToken: Int = 0
@@ -238,20 +261,7 @@ struct PortfolioThemeWorkspaceView: View {
                 }
                 Button(action: { showAddInstrument = true }) { Label("Add Instrument", systemImage: "plus") }
             }
-            HStack(spacing: 8) {
-                TextField("Search instruments or notes", text: $holdingsSearch)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focusHoldingsSearch)
-                if !holdingsSearch.isEmpty {
-                    Button("Clear") { holdingsSearch = "" }
-                        .buttonStyle(.link)
-                }
-            }
-            // Hidden shortcut to focus search (Cmd-F)
-            Button("") { focusHoldingsSearch = true }
-                .keyboardShortcut("f", modifiers: .command)
-                .hidden()
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
+            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: $holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
                 .environmentObject(dbManager)
         }
         .padding(20)
@@ -791,9 +801,34 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Utils
+    // Included totals/counts for Holdings tab (based on User % > 0)
+    private var includedUserTotalBase: Double? {
+        guard let rows = valuation?.rows else { return nil }
+        let sum = rows.reduce(0.0) { acc, r in
+            (r.userTargetPct > 0 && r.status == .ok) ? acc + r.currentValueBase : acc
+        }
+        return sum
+    }
+    private var includedInstrumentCount: Int {
+        let count = valuation?.rows.filter { $0.userTargetPct > 0 }.count ?? 0
+        return count
+    }
+
     private func currency(_ value: Double?) -> String {
         guard let v = value else { return "—" }
         return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+    }
+
+    private func currencyWholeCHF(_ value: Double?) -> String {
+        guard let v = value else { return "—" }
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 0
+        f.minimumFractionDigits = 0
+        let body = f.string(from: NSNumber(value: v)) ?? String(format: "%.0f", v)
+        return "CHF \(body)"
     }
 
     private func dateStr(_ date: Date?) -> String {
@@ -880,7 +915,7 @@ private struct Tag: View {
         @EnvironmentObject var dbManager: DatabaseManager
         let themeId: Int
         let isArchived: Bool
-        var search: String = ""
+        @Binding var search: String
         var columns: Set<Column>
         var reloadToken: Int = 0
         var themeBudgetChf: Double? = nil
@@ -899,11 +934,33 @@ private struct Tag: View {
     @State private var showToast: Bool = false
     @State private var toastMessage: String = ""
 
+    @FocusState private var focusSearch: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if rows.isEmpty {
                 Text("No holdings").foregroundColor(.secondary)
             } else {
+                // Search strip grouped tightly with table; visually separated
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        TextField("Search instruments or notes", text: $search)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusSearch)
+                        if !search.isEmpty {
+                            Button("Clear") { search = "" }
+                                .buttonStyle(.link)
+                        }
+                    }
+                    Divider()
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
+                // Hidden shortcut to focus search (Cmd-F)
+                Button("") { focusSearch = true }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .hidden()
                 header
                     .background(GeometryReader { proxy in
                         Color.clear
@@ -917,7 +974,7 @@ private struct Tag: View {
                         }
                     }
                 }
-                // Totals row (Research/User %)
+                // Totals row (Research/User % + Included/Excluded actuals)
                 HStack(spacing: 12) {
                     let rTot = researchTotal
                     let uTot = userTotal
@@ -927,7 +984,11 @@ private struct Tag: View {
                         .foregroundColor(rOk ? .green : .orange)
                     Label("User sum \(uTot, format: .number)%", systemImage: uOk ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .foregroundColor(uOk ? .green : .orange)
-                    Text("Total: \(total, format: .currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))")
+                    // Included and Excluded totals (Actual CHF)
+                    Text("Included Total: \(currencyWholeCHFLocal(includedActualTotal))")
+                        .fontWeight(.semibold)
+                    Text("Excluded: \(currencyWholeCHFLocal(excludedActualTotal))")
+                        .foregroundColor(.secondary)
                 }
                 .font(.caption)
                 .padding(.top, 6)
@@ -1156,7 +1217,10 @@ private struct Tag: View {
                 if editableUser(r.instrumentId) == 0 {
                     Text("").frame(width: width(for: .actual), alignment: .trailing)
                 } else {
-                    Text(fmtPct(r.actualPct)).frame(width: width(for: .actual), alignment: .trailing)
+                    // Recompute Actual % based on included total
+                    let denom = includedActualTotal
+                    let apct: Double? = denom > 0 ? (r.currentValueBase / denom) * 100.0 : nil
+                    Text(fmtPct(apct)).frame(width: width(for: .actual), alignment: .trailing)
                 }
             }
             if resizable(.actual) { resizeSpacer(for: .actual) }
@@ -1183,6 +1247,7 @@ private struct Tag: View {
             if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
             if columns.contains(.actualChf) {
                 Text(formatAmountLocal(r.currentValueBase, decimals: 2))
+                    .foregroundColor(editableUser(r.instrumentId) == 0 ? .secondary : .primary)
                     .frame(width: width(for: .actualChf), alignment: .trailing)
             }
             if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
@@ -1229,6 +1294,10 @@ private struct Tag: View {
         f.minimumFractionDigits = decimals
         return f.string(from: NSNumber(value: v)) ?? String(format: decimals == 0 ? "%.0f" : "%.2f", v)
     }
+    // Local CHF whole-number currency with Swiss grouping (apostrophes)
+    private func currencyWholeCHFLocal(_ v: Double) -> String {
+        "CHF \(formatAmountLocal(v, decimals: 0))"
+    }
 
     private func load() {
         let fx = FXConversionService(dbManager: dbManager)
@@ -1241,7 +1310,12 @@ private struct Tag: View {
             dict[r.instrumentId] = Edit(research: r.researchTargetPct, user: r.userTargetPct, notes: r.notes ?? "")
         }
         edits = dict
-        total = snap.totalValueBase
+        // Compute total Actual CHF excluding instruments with User % = 0
+        let includedTotal = rows.reduce(0.0) { acc, r in
+            let u = editableUser(r.instrumentId)
+            return u > 0 ? acc + r.currentValueBase : acc
+        }
+        total = includedTotal
         restoreSort()
         loadUpdateCounts()
     }
@@ -1377,6 +1451,18 @@ private struct Tag: View {
         rows.reduce(0.0) { acc, r in
             let u = editableUser(r.instrumentId)
             return u > 0 ? acc + u : acc
+        }
+    }
+    private var includedActualTotal: Double {
+        rows.reduce(0.0) { acc, r in
+            let u = editableUser(r.instrumentId)
+            return u > 0 ? acc + r.currentValueBase : acc
+        }
+    }
+    private var excludedActualTotal: Double {
+        rows.reduce(0.0) { acc, r in
+            let u = editableUser(r.instrumentId)
+            return u == 0 ? acc + r.currentValueBase : acc
         }
     }
     private func normalizedUserPct(_ id: Int) -> Double? {

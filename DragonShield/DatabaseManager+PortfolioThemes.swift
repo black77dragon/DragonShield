@@ -414,13 +414,21 @@ extension DatabaseManager {
     }
 
     // MARK: - Theme Budget
+    private func ensureThemeBudgetColumn() {
+        guard !tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") else { return }
+        let sql = "ALTER TABLE PortfolioTheme ADD COLUMN theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0)"
+        if sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK {
+            LoggingService.shared.log("Added PortfolioTheme.theoretical_budget_chf column via ALTER TABLE", logger: .database)
+        } else {
+            LoggingService.shared.log("Failed to add theoretical_budget_chf: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+    }
+
     @discardableResult
     func updateThemeBudget(themeId: Int, budgetChf: Double?) -> Bool {
-        // Backward-compatible: only attempt update if column exists
-        if !tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") {
-            LoggingService.shared.log("skip updateThemeBudget: column theoretical_budget_chf not present", logger: .database)
-            return true // no-op, but succeed to avoid UI error spam on older DBs
-        }
+        // Ensure column exists (auto-migrate if needed)
+        ensureThemeBudgetColumn()
+        guard tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") else { return false }
         let sql = "UPDATE PortfolioTheme SET theoretical_budget_chf = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
