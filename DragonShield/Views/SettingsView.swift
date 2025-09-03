@@ -43,6 +43,22 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            #if os(macOS)
+            Section(header: Text("Data Export (iOS Snapshot)")) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Export Snapshot").frame(width: 160, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Create a consistent, read-only SQLite snapshot for importing into the iOS app.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Export to iCloud Drive…") {
+                            dbManager.presentExportSnapshotPanel()
+                        }
+                    }
+                    Spacer()
+                }
+            }
+            #endif
             Section(header: Text("Price Providers")) {
                 ProviderKeyRow(label: "CoinGecko API Key", account: "coingecko", placeholder: "Enter CoinGecko key")
                 ProviderKeyRow(label: "Finnhub API Key", account: "finnhub", placeholder: "Enter Finnhub key")
