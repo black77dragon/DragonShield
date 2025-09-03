@@ -150,6 +150,28 @@ class DatabaseManager: ObservableObject {
         updateFileMetadata()
     }
 
+    /// Open a specific SQLite file in read-only mode (used by the iOS app to open a snapshot).
+    /// The manager will point to the provided path until reopened or switched.
+    @discardableResult
+    func openReadOnly(at externalPath: String) -> Bool {
+        closeConnection()
+        self.dbPath = externalPath
+        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
+            // It's fine to enable foreign keys pragma in RO; it is ignored if not applicable
+            sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+            let version = loadConfiguration()
+            DispatchQueue.main.async { self.dbVersion = version }
+            updateFileMetadata()
+            print("✅ Opened read-only database at: \(dbPath)")
+            return true
+        } else {
+            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
+            print("❌ Failed to open read-only DB at \(dbPath): \(msg)")
+            return false
+        }
+    }
+
     func rowCount(table: String) throws -> Int {
         guard let db else { return 0 }
         var stmt: OpaquePointer?

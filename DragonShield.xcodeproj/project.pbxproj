@@ -19,6 +19,7 @@
 		B363B37F2D9D921900619C86 /* Asset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Asset.swift; sourceTree = "<group>"; };
 		B37E7DA22D988B1D00100262 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		B3933B0F2D98475A00DDA4C2 /* DragonShield.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DragonShield.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3D7C7802E68C07E00334317 /* DragonShield iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DragonShield iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3ECBE982DFC8D26002110F4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -26,6 +27,11 @@
 		B3933B112D98475A00DDA4C2 /* DragonShield */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = DragonShield;
+			sourceTree = "<group>";
+		};
+		B3D7C7812E68C07E00334317 /* DragonShield iOS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "DragonShield iOS";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -38,6 +44,13 @@
 				B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */,
 				B307908D2DF4D19B00AF445B /* UniformTypeIdentifiers.framework in Frameworks */,
 				B37E7DA32D988B3800100262 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B3D7C77D2E68C07E00334317 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				B363B37E2D9D91BE00619C86 /* Model */,
+				B3D7C7812E68C07E00334317 /* DragonShield iOS */,
 				B37E7DA12D988B1D00100262 /* Frameworks */,
 				B3933B102D98475A00DDA4C2 /* Products */,
 				B3933B112D98475A00DDA4C2 /* DragonShield */,
@@ -76,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				B3933B0F2D98475A00DDA4C2 /* DragonShield.app */,
+				B3D7C7802E68C07E00334317 /* DragonShield iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -107,6 +122,28 @@
 			productReference = B3933B0F2D98475A00DDA4C2 /* DragonShield.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B3D7C77F2E68C07E00334317 /* DragonShield iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B3D7C78A2E68C08000334317 /* Build configuration list for PBXNativeTarget "DragonShield iOS" */;
+			buildPhases = (
+				B3D7C77C2E68C07E00334317 /* Sources */,
+				B3D7C77D2E68C07E00334317 /* Frameworks */,
+				B3D7C77E2E68C07E00334317 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B3D7C7812E68C07E00334317 /* DragonShield iOS */,
+			);
+			name = "DragonShield iOS";
+			packageProductDependencies = (
+			);
+			productName = "DragonShield iOS";
+			productReference = B3D7C7802E68C07E00334317 /* DragonShield iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -114,11 +151,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					B3933B0E2D98475A00DDA4C2 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					B3D7C77F2E68C07E00334317 = {
+						CreatedOnToolsVersion = 16.4;
 					};
 				};
 			};
@@ -140,6 +180,7 @@
 			projectRoot = "";
 			targets = (
 				B3933B0E2D98475A00DDA4C2 /* DragonShield */,
+				B3D7C77F2E68C07E00334317 /* DragonShield iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -150,6 +191,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3ECBE992DFC8D26002110F4 /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B3D7C77E2E68C07E00334317 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -184,6 +232,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B363B3802D9D921900619C86 /* Asset.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B3D7C77C2E68C07E00334317 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -368,6 +423,69 @@
 			};
 			name = Release;
 		};
+		B3D7C7882E68C08000334317 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K64443ANHS;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.blackdragon.DragonShield-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B3D7C7892E68C08000334317 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K64443ANHS;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.blackdragon.DragonShield-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -385,6 +503,15 @@
 			buildConfigurations = (
 				B3933B1F2D98475C00DDA4C2 /* Debug */,
 				B3933B202D98475C00DDA4C2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B3D7C78A2E68C08000334317 /* Build configuration list for PBXNativeTarget "DragonShield iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3D7C7882E68C08000334317 /* Debug */,
+				B3D7C7892E68C08000334317 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
