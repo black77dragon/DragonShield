@@ -48,6 +48,7 @@ This project follows an Agile, iterative approach.
 - ⏭ Options valuation
 - ⏭ Touch ID key management
 - ⏭ Public beta
+- ⏭ iOS App (Phase 1): read‑only viewer for iPhone using a SQLite snapshot exported from the Mac app. See docs/ios_app_design.md. Snapshot export is available in Settings → Data Export.
 
 *Legend: 🟡 = active • ⏭ = next*
 
@@ -69,6 +70,7 @@ DragonShield/
 ├── python_scripts/                # Parsers, analytics
 ├── db/                            # database migrations (dbmate)
 ├── docs/                          # documentation and ADRs
+│   └── ios_app_design.md          # iOS Phase 1 design (read‑only, snapshot import)
 ├── tests/                         # Unit & UI tests
 ├── README.md                      # This file
 └── LICENSE
@@ -123,6 +125,9 @@ DragonShield/
 - **Encryption**: SQLCipher (AES-256)
 - **Migrations**: `DragonShield/db/migrations`
 - **Dev Key**: Temporary; do not use for production data
+
+### Export Snapshot for iOS
+Use Settings → **Export to iCloud Drive…** to generate a consistent read‑only `DragonShield_YYYYMMDD_HHMM.sqlite` file. Import the file in the iOS app via the Files app on your iPhone.
 
 ## Updating the Database
 
@@ -186,4 +191,3 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 - 2.2: Removed bundled database; added generation instructions and ignore rule; documented schema version 4.7 and added `db_version` configuration; added requirements file and clarified setup instructions; automated database build and deployment with version logging; added Python tests and CI workflow.
 - 2.1: Documented database deployment script.
 - 2.0: Initial project documentation.
-
