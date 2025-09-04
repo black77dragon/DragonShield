@@ -31,7 +31,16 @@ struct IOSSettingsView: View {
         .navigationTitle("Settings")
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: [UTType(filenameExtension: "sqlite") ?? .item],
+            allowedContentTypes: {
+                // Accept common SQLite file extensions and fall back to generic data so users can still pick a file
+                var arr: [UTType] = []
+                if let t = UTType(filenameExtension: "sqlite") { arr.append(t) }
+                if let t = UTType(filenameExtension: "sqlite3") { arr.append(t) }
+                if let t = UTType(filenameExtension: "db") { arr.append(t) }
+                if let t = UTType("public.database") { arr.append(t) }
+                arr.append(.data)
+                return arr
+            }(),
             allowsMultipleSelection: false
         ) { result in
             switch result {
@@ -68,4 +77,3 @@ struct IOSSettingsView: View {
     }
 }
 #endif
-
