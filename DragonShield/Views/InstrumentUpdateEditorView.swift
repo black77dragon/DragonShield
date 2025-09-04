@@ -109,7 +109,7 @@ struct InstrumentUpdateEditorView: View {
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
         .onAppear {
-            loadBreadcrumb()
+            loadMetaAndAttachments()
             newsTypes = NewsTypeRepository(dbManager: dbManager).listActive()
             if selectedTypeId == nil {
                 selectedTypeId = newsTypes.first?.id
@@ -134,17 +134,18 @@ struct InstrumentUpdateEditorView: View {
         PortfolioThemeAssetUpdate.isValidTitle(title) && PortfolioThemeAssetUpdate.isValidBody(bodyMarkdown)
     }
 
-    private func loadBreadcrumb() {
-        guard breadcrumb == nil else { return }
-        guard let snap = valuation else { return }
-        let formatter = ISO8601DateFormatter()
-        let pos = snap.positionsAsOf.map { formatter.string(from: $0) }
-        let row = snap.rows.first { $0.instrumentId == instrumentId }
-        breadcrumb = (pos, row?.currentValueBase, row?.actualPct)
+    private func loadMetaAndAttachments() {
+        // Always load existing attachments regardless of valuation availability
         if let existing = existing {
             let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
             attachments = repo.listAttachments(updateId: existing.id)
         }
+        // Compute breadcrumb metadata only if valuation was provided
+        guard breadcrumb == nil, let snap = valuation else { return }
+        let formatter = ISO8601DateFormatter()
+        let pos = snap.positionsAsOf.map { formatter.string(from: $0) }
+        let row = snap.rows.first { $0.instrumentId == instrumentId }
+        breadcrumb = (pos, row?.currentValueBase, row?.actualPct)
     }
 
     private func formatted(_ value: Double?) -> String {
