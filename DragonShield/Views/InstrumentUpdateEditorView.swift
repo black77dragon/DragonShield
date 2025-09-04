@@ -159,16 +159,30 @@ struct InstrumentUpdateEditorView: View {
 
     private func save() {
         if let existing = existing {
-            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let updated = dbManager.updateInstrumentUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt) {
-                let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
-                let currentIds = Set(attachments.map { $0.id })
-                let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
-                let added = currentIds.subtracting(initialIds)
-                let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
-                for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
-                for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
-                onSave(updated)
+            let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code
+            // Attempt to save textual changes first (may be a no-op if unchanged)
+            let updated = dbManager.updateInstrumentUpdate(
+                id: existing.id,
+                title: title,
+                bodyMarkdown: bodyMarkdown,
+                newsTypeCode: code,
+                pinned: pinned,
+                actor: NSFullUserName(),
+                expectedUpdatedAt: existing.updatedAt
+            )
+
+            // Persist attachment link/unlink regardless of text update success
+            let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
+            let currentIds = Set(attachments.map { $0.id })
+            let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
+            let added = currentIds.subtracting(initialIds)
+            let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
+            for id in added { _ = repo.linkAttachment(updateId: existing.id, attachmentId: id) }
+            for id in removed { _ = repo.unlinkAttachment(updateId: existing.id, attachmentId: id) }
+
+            // Prefer returning the updated row if available; otherwise fetch current
+            if let row = updated ?? dbManager.getInstrumentUpdate(id: existing.id) {
+                onSave(row)
             }
         } else {
             if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
