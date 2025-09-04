@@ -45,21 +45,19 @@ class DatabaseManager: ObservableObject {
     // == CORRECTED INIT METHOD                                                    ==
     // ==============================================================================
     init() {
-        // This now correctly and permanently points to the sandboxed container directory.
+        #if os(macOS)
+        // macOS app container directory
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         let containerPath = "Library/Containers/com.rene.DragonShield/Data/Library/Application Support"
         let appSupport = homeDir.appendingPathComponent(containerPath)
         self.appDir = appSupport.appendingPathComponent("DragonShield")
-
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
 
         let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
         let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
         self.dbMode = mode
         self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
-        
-        // Removed force-overwrite debug option; database will persist across launches by default.
-        
+
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
                 do {
@@ -74,8 +72,10 @@ class DatabaseManager: ObservableObject {
         } else {
             print("✅ Using existing database at: \(dbPath)")
         }
-        
+
         openDatabase()
+        // Table setup and migrations are only needed on macOS (authoring environment).
+        // The iOS app opens a read-only snapshot and does not create/modify schema.
         ensurePortfolioThemeStatusDefault()
         ensurePortfolioThemeTable()
         ensurePortfolioThemeAssetTable()
@@ -89,6 +89,14 @@ class DatabaseManager: ObservableObject {
         DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
         print("📂 Database path: \(dbPath) | version: \(version)")
+        #else
+        // iOS: app support path placeholder; openReadOnly(at:) will be used to load a snapshot
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        self.appDir = support.appendingPathComponent("DragonShield")
+        try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
+        self.dbMode = .production
+        self.dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+        #endif
     }
     // ==============================================================================
 
@@ -145,9 +153,11 @@ class DatabaseManager: ObservableObject {
     func reopenDatabase() {
         closeConnection()
         openDatabase()
+        #if os(macOS)
         let version = loadConfiguration()
         DispatchQueue.main.async { self.dbVersion = version }
         updateFileMetadata()
+        #endif
     }
 
     /// Open a specific SQLite file in read-only mode (used by the iOS app to open a snapshot).
@@ -160,8 +170,20 @@ class DatabaseManager: ObservableObject {
         if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
             // It's fine to enable foreign keys pragma in RO; it is ignored if not applicable
             sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+            #if os(macOS)
             let version = loadConfiguration()
             DispatchQueue.main.async { self.dbVersion = version }
+            #else
+            // Lightweight: only load db_version if configuration extension isn't linked
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "SELECT value FROM Configuration WHERE key='db_version'", -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW, let cstr = sqlite3_column_text(stmt, 0) {
+                    let v = String(cString: cstr)
+                    DispatchQueue.main.async { self.dbVersion = v }
+                }
+            }
+            sqlite3_finalize(stmt)
+            #endif
             updateFileMetadata()
             print("✅ Opened read-only database at: \(dbPath)")
             return true
@@ -186,15 +208,19 @@ class DatabaseManager: ObservableObject {
 
     func switchMode() {
         dbMode = dbMode == .production ? .test : .production
+        #if os(macOS)
         UserDefaults.standard.set(dbMode.rawValue, forKey: UserDefaultsKeys.databaseMode)
+        #endif
         dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: dbMode)).path
 
+        #if os(macOS)
         if !FileManager.default.fileExists(atPath: dbPath) {
             if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
                 try? FileManager.default.copyItem(atPath: bundlePath, toPath: dbPath)
             }
         }
         reopenDatabase()
+        #endif
     }
 
     func runMigrations() {

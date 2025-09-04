@@ -68,6 +68,10 @@ struct SidebarView: View {
                     Label("Asset Classes", systemImage: "folder")
                 }
 
+                NavigationLink(destination: AccountTypesView().environmentObject(dbManager)) {
+                    Label("Account Types", systemImage: "creditcard")
+                }
+
                 NavigationLink(destination: AccountsView()) {
                     Label("Accounts", systemImage: "building.columns.fill")
                 }
