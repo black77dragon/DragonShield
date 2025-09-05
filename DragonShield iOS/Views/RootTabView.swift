@@ -3,9 +3,11 @@
 import SwiftUI
 
 struct RootTabView: View {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var showSnapshotGate = false
     var body: some View {
         TabView {
-            NavigationStack { DashboardView() }
+            NavigationStack { IOSDashboardView() }
                 .tabItem { Label("Dashboard", systemImage: "rectangle.grid.2x2") }
             NavigationStack { ThemesListView() }
                 .tabItem { Label("Themes", systemImage: "square.grid.2x2") }
@@ -16,17 +18,19 @@ struct RootTabView: View {
             NavigationStack { IOSSettingsView() }
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
+        .onAppear { showSnapshotGate = dbManager.dbFilePath.isEmpty }
+        .sheet(isPresented: $showSnapshotGate) {
+            SnapshotGateView(onContinue: { showSnapshotGate = false })
+                .environmentObject(dbManager)
+        }
     }
 }
 
 // Minimal placeholders
-struct DashboardView: View { var body: some View { Text("Dashboard").padding() } }
-struct ThemesListView: View { var body: some View { Text("Themes").padding() } }
-struct InstrumentsListView: View { var body: some View { Text("Instruments").padding() } }
-struct SearchView: View { var body: some View { Text("Search").padding() } }
+struct DashboardView: View { var body: some View { Text("Welcome to DragonShield iOS").padding() } }
+struct SearchView: View { @State private var q = ""; var body: some View { VStack { TextField("Search", text: $q).textFieldStyle(.roundedBorder).padding(); Spacer() } .navigationTitle("Search") } }
 
 struct RootTabView_Previews: PreviewProvider {
     static var previews: some View { RootTabView() }
 }
 #endif
-

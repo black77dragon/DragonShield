@@ -101,14 +101,44 @@ extension DatabaseManager {
         return exists
     }
 
+    private func tableExists(_ name: String) -> Bool {
+        var stmt: OpaquePointer?
+        let sql = "SELECT 1 FROM sqlite_master WHERE type='table' AND LOWER(name)=LOWER(?) LIMIT 1"
+        var exists = false
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
+            exists = (sqlite3_step(stmt) == SQLITE_ROW)
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
+
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
+        guard tableExists("PortfolioTheme") else {
+            LoggingService.shared.log("PortfolioTheme table missing in database — returning empty list", type: .info, logger: .database)
+            return []
+        }
+        // Optional: avoid prepare error if asset table is absent in snapshot
+        let hasAssetTable = tableExists("PortfolioThemeAsset")
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
-        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete"
+        let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
+        let hasArchivedAt = tableHasColumn(table: "PortfolioTheme", column: "archived_at")
+
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,"
+        sql += (hasArchivedAt ? "pt.archived_at" : "NULL")
+        sql += ","
+        sql += (hasSoftDelete ? "pt.soft_delete" : "0")
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
-        sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE 1=1"
-        if !includeArchived { sql += " AND archived_at IS NULL" }
-        if !includeSoftDeleted { sql += " AND soft_delete = 0" }
+        if hasAssetTable {
+            sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id)"
+        } else {
+            sql += ",0"
+        }
+        sql += " FROM PortfolioTheme pt WHERE 1=1"
+        if !includeArchived, hasArchivedAt { sql += " AND archived_at IS NULL" }
+        if !includeSoftDeleted, hasSoftDelete { sql += " AND soft_delete = 0" }
         if let s = search, !s.isEmpty {
             sql += " AND (name LIKE ? OR code LIKE ?)"
         }

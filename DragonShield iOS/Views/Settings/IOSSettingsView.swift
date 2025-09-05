@@ -8,9 +8,25 @@ struct IOSSettingsView: View {
     @State private var showImporter = false
     @State private var importError: String?
     @State private var lastImportedPath: String = ""
+    @State private var lastImportedSize: Int64 = 0
+
+    @AppStorage("tile.totalValue") private var showTotalValue: Bool = true
+    @AppStorage("tile.missingPrices") private var showMissingPrices: Bool = true
+    @AppStorage("tile.cryptoAlloc") private var showCryptoAlloc: Bool = true
+    @AppStorage("tile.currencyExposure") private var showCurrencyExposure: Bool = true
+    @AppStorage("privacy.blurValues") private var privacyBlur: Bool = false
 
     var body: some View {
         Form {
+            Section(header: Text("Privacy")) {
+                Toggle("Blur values (CHF)", isOn: $privacyBlur)
+            }
+            Section(header: Text("Dashboard Tiles")) {
+                Toggle("Total Value", isOn: $showTotalValue)
+                Toggle("Missing Prices", isOn: $showMissingPrices)
+                Toggle("Crypto Allocations", isOn: $showCryptoAlloc)
+                Toggle("Portfolio by Currency", isOn: $showCurrencyExposure)
+            }
             Section(header: Text("Data Import")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Import SQLite snapshot exported from the Mac app.")
@@ -26,6 +42,9 @@ struct IOSSettingsView: View {
                 Text("DB Version: \(dbManager.dbVersion)")
                 if let created = dbManager.dbCreated { Text("Created: \(created.description)") }
                 if let modified = dbManager.dbModified { Text("Modified: \(modified.description)") }
+                if !lastImportedPath.isEmpty {
+                    Text("Snapshot: \(lastImportedPath) (") + Text("\(lastImportedSize)").monospacedDigit() + Text(" bytes)")
+                }
             }
         }
         .navigationTitle("Settings")
@@ -61,13 +80,21 @@ struct IOSSettingsView: View {
 
     private func importSnapshot(from url: URL) {
         do {
+            // Gain access if the provider requires security-scoped URLs
+            var needsStop = false
+            if url.startAccessingSecurityScopedResource() { needsStop = true }
+            defer { if needsStop { url.stopAccessingSecurityScopedResource() } }
+
             // Copy into app container (Documents)
             let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             let dest = docs.appendingPathComponent("DragonShield_snapshot.sqlite", conformingTo: UTType(filenameExtension: "sqlite") ?? .data)
             if FileManager.default.fileExists(atPath: dest.path) { try FileManager.default.removeItem(at: dest) }
             try FileManager.default.copyItem(at: url, to: dest)
+            // Normalize snapshot to avoid WAL dependency (DELETE journal + checkpoint)
+            _ = DatabaseManager.normalizeSnapshot(at: dest.path)
             if dbManager.openReadOnly(at: dest.path) {
                 lastImportedPath = dest.lastPathComponent
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: dest.path), let size = attrs[.size] as? NSNumber { lastImportedSize = size.int64Value }
             } else {
                 importError = "Failed to open snapshot."
             }
