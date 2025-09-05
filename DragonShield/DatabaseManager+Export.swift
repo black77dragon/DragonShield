@@ -2,6 +2,7 @@ import Foundation
 import SQLite3
 #if os(macOS)
 import AppKit
+import UniformTypeIdentifiers
 #endif
 
 extension DatabaseManager {
@@ -52,7 +53,11 @@ extension DatabaseManager {
         formatter.dateFormat = "yyyyMMdd_HHmm"
         let ts = formatter.string(from: Date())
         panel.nameFieldStringValue = "DragonShield_\(ts).sqlite"
-        panel.allowedFileTypes = ["sqlite"]
+        if #available(macOS 12.0, *) {
+            panel.allowedContentTypes = [UTType(filenameExtension: "sqlite") ?? .data]
+        } else {
+            panel.allowedFileTypes = ["sqlite"]
+        }
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.level = .modalPanel
@@ -68,4 +73,3 @@ extension DatabaseManager {
     }
     #endif
 }
-
