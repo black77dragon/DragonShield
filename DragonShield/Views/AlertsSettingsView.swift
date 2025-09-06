@@ -154,7 +154,10 @@ private struct AlertEditorView: View {
                 Form {
                     Section("Basics") {
                         LabeledContent("Name") {
-                            TextField("", text: $alert.name).textFieldStyle(.roundedBorder).frame(minWidth: 420)
+                            TextField("", text: $alert.name)
+                                .textFieldStyle(.plain)
+                                .frame(minWidth: 420)
+                                .dsField()
                         }
                         LabeledContent("Enabled") {
                             Toggle("", isOn: $alert.enabled).labelsHidden()
@@ -169,7 +172,10 @@ private struct AlertEditorView: View {
                                 Picker("", selection: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 })) {
                                     ForEach(AlertScopeType.allCases) { Text($0.rawValue).tag($0) }
                                 }.frame(width: 260)
-                                TextField("ID", value: $alert.scopeId, format: .number).frame(width: 120)
+                                TextField("ID", value: $alert.scopeId, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 180)
+                                    .dsField()
                             }
                         }
                     }
@@ -183,8 +189,8 @@ private struct AlertEditorView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 TextEditor(text: $alert.paramsJson)
                                     .font(.system(size: 12, design: .monospaced))
-                                    .frame(minHeight: 160)
-                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
+                                    .frame(minHeight: 200)
+                                    .dsTextEditor()
                                 HStack(spacing: 8) {
                                     Button("Validate") { validateJSON() }
                                     Button("Template") { insertTemplate() }
@@ -197,7 +203,10 @@ private struct AlertEditorView: View {
                     Section("Thresholds") {
                         LabeledContent("Near Window") {
                             HStack(spacing: 8) {
-                                TextField("value", value: Binding(get: { alert.nearValue }, set: { alert.nearValue = $0 }), format: .number).frame(width: 120)
+                                TextField("value", value: Binding(get: { alert.nearValue }, set: { alert.nearValue = $0 }), format: .number)
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 180)
+                                    .dsField()
                                 Picker("", selection: Binding(get: { alert.nearUnit ?? "" }, set: { alert.nearUnit = $0.isEmpty ? nil : $0 })) {
                                     Text("—").tag("")
                                     Text("pct").tag("pct")
@@ -207,7 +216,10 @@ private struct AlertEditorView: View {
                         }
                         LabeledContent("Hysteresis") {
                             HStack(spacing: 8) {
-                                TextField("value", value: Binding(get: { alert.hysteresisValue }, set: { alert.hysteresisValue = $0 }), format: .number).frame(width: 120)
+                                TextField("value", value: Binding(get: { alert.hysteresisValue }, set: { alert.hysteresisValue = $0 }), format: .number)
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 180)
+                                    .dsField()
                                 Picker("", selection: Binding(get: { alert.hysteresisUnit ?? "" }, set: { alert.hysteresisUnit = $0.isEmpty ? nil : $0 })) {
                                     Text("—").tag("")
                                     Text("pct").tag("pct")
@@ -216,24 +228,37 @@ private struct AlertEditorView: View {
                             }
                         }
                         LabeledContent("Cooldown (s)") {
-                            TextField("", value: Binding(get: { alert.cooldownSeconds }, set: { alert.cooldownSeconds = $0 }), format: .number).frame(width: 160)
+                            TextField("", value: Binding(get: { alert.cooldownSeconds }, set: { alert.cooldownSeconds = $0 }), format: .number)
+                                .textFieldStyle(.plain)
+                                .frame(width: 200)
+                                .dsField()
                         }
                     }
                     Section("Scheduling") {
                         LabeledContent("Window") {
                             HStack(spacing: 8) {
-                                TextField("start ISO8601", text: Binding(get: { alert.scheduleStart ?? "" }, set: { alert.scheduleStart = $0.isEmpty ? nil : $0 })).frame(width: 280)
-                                TextField("end ISO8601", text: Binding(get: { alert.scheduleEnd ?? "" }, set: { alert.scheduleEnd = $0.isEmpty ? nil : $0 })).frame(width: 280)
+                                TextField("start ISO8601", text: Binding(get: { alert.scheduleStart ?? "" }, set: { alert.scheduleStart = $0.isEmpty ? nil : $0 }))
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 320)
+                                    .dsField()
+                                TextField("end ISO8601", text: Binding(get: { alert.scheduleEnd ?? "" }, set: { alert.scheduleEnd = $0.isEmpty ? nil : $0 }))
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 320)
+                                    .dsField()
                             }
                         }
                         LabeledContent("Mute Until") {
-                            TextField("ISO8601", text: Binding(get: { alert.muteUntil ?? "" }, set: { alert.muteUntil = $0.isEmpty ? nil : $0 })).frame(width: 280)
+                            TextField("ISO8601", text: Binding(get: { alert.muteUntil ?? "" }, set: { alert.muteUntil = $0.isEmpty ? nil : $0 }))
+                                .textFieldStyle(.plain)
+                                .frame(width: 320)
+                                .dsField()
                         }
                     }
                     Section("Notes & Tags") {
                         LabeledContent("Notes") {
                             TextEditor(text: Binding(get: { alert.notes ?? "" }, set: { alert.notes = $0.isEmpty ? nil : $0 }))
-                                .frame(minHeight: 100)
+                                .frame(minHeight: 140)
+                                .dsTextEditor()
                         }
                         LabeledContent("Tags") {
                             ScrollView(.vertical) {
@@ -278,7 +303,30 @@ private struct AlertEditorView: View {
                 selectedTags = []
             }
         }
+}
+
+// MARK: - Input styling helpers
+private extension View {
+    func dsField() -> some View {
+        self
+            .padding(6)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+            )
     }
+    func dsTextEditor() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .padding(6)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+            )
+    }
+}
 
     private func validateJSON() {
         if let data = alert.paramsJson.data(using: .utf8), (try? JSONSerialization.jsonObject(with: data)) != nil {
