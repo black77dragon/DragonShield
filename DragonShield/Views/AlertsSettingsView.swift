@@ -10,6 +10,9 @@ struct AlertsSettingsView: View {
     @State private var info: String?
 
     @State private var editing: AlertRow? = nil
+    @State private var confirmDelete: AlertRow? = nil
+    @State private var showToast: Bool = false
+    @State private var toastMessage: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -36,7 +39,7 @@ struct AlertsSettingsView: View {
                 TableColumn("Actions") { row in
                     HStack(spacing: 8) {
                         Button("Edit") { openEdit(row) }
-                        Button("Delete", role: .destructive) { delete(row) }
+                        Button("Delete", role: .destructive) { confirmDelete = row }
                     }
                 }.width(160)
             }
@@ -71,6 +74,17 @@ struct AlertsSettingsView: View {
         }
         .navigationTitle("Alerts")
         .frame(minWidth: 1100, minHeight: 700)
+        .toast(isPresented: $showToast, message: toastMessage)
+        .alert(item: $confirmDelete) { row in
+            Alert(
+                title: Text("A disturbance in the Force?"),
+                message: Text("Delete ‘\(row.name)’? This alert will be lost faster than Alderaan. This action cannot be undone."),
+                primaryButton: .destructive(Text("Yes, execute Order 66")) {
+                    performDelete(row)
+                },
+                secondaryButton: .cancel(Text("Do. Or do not. Cancel."))
+            )
+        }
     }
 
     private func load() {
@@ -103,11 +117,18 @@ struct AlertsSettingsView: View {
     }
 
     private func openEdit(_ row: AlertRow) {
-        editing = row
+        // Fetch fresh copy to ensure full fields populated
+        if let fresh = dbManager.getAlert(id: row.id) { editing = fresh } else { editing = row }
     }
 
-    private func delete(_ row: AlertRow) {
-        if dbManager.deleteAlert(id: row.id) { info = "Deleted \(row.name)"; error = nil } else { error = "Failed to delete"; info = nil }
+    private func performDelete(_ row: AlertRow) {
+        if dbManager.deleteAlert(id: row.id) {
+            info = nil
+            toastMessage = "Alert deleted. May the Force rebalance your portfolio."
+            showToast = true
+        } else {
+            error = "Delete failed"
+        }
         load()
     }
 
@@ -130,6 +151,29 @@ struct AlertsSettingsView: View {
             "schedule_end": a.scheduleEnd,
             "notes": a.notes
         ]
+    }
+}
+
+// MARK: - Input styling helpers (file scope)
+private extension View {
+    func dsField() -> some View {
+        self
+            .padding(6)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+            )
+    }
+    func dsTextEditor() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .padding(6)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+            )
     }
 }
 
@@ -305,28 +349,7 @@ private struct AlertEditorView: View {
         }
 }
 
-// MARK: - Input styling helpers
-private extension View {
-    func dsField() -> some View {
-        self
-            .padding(6)
-            .background(Color.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
-            )
-    }
-    func dsTextEditor() -> some View {
-        self
-            .scrollContentBackground(.hidden)
-            .padding(6)
-            .background(Color.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.gray.opacity(0.25), lineWidth: 1)
-            )
-    }
-}
+// (moved helpers to file scope below)
 
     private func validateJSON() {
         if let data = alert.paramsJson.data(using: .utf8), (try? JSONSerialization.jsonObject(with: data)) != nil {
