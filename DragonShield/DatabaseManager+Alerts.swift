@@ -310,30 +310,49 @@ extension DatabaseManager {
     }
 
     // MARK: - Events listing
-    func listAlertEvents(limit: Int = 200) -> [(id: Int, alertId: Int, alertName: String, occurredAt: String, status: String, message: String?)] {
+    func listAlertEvents(limit: Int = 200) -> [(id: Int, alertId: Int, alertName: String, severity: String, occurredAt: String, status: String, message: String?)] {
         guard let db else { return [] }
         let sql = """
-        SELECT e.id, e.alert_id, a.name, e.occurred_at, e.status, e.message
+        SELECT e.id, e.alert_id, a.name, a.severity, e.occurred_at, e.status, e.message
           FROM AlertEvent e
           JOIN Alert a ON a.id = e.alert_id
          ORDER BY e.occurred_at DESC
          LIMIT ?
         """
         var stmt: OpaquePointer?
-        var out: [(Int, Int, String, String, String, String?)] = []
+        var out: [(Int, Int, String, String, String, String, String?)] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(limit))
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(stmt, 0))
                 let aid = Int(sqlite3_column_int(stmt, 1))
                 let name = String(cString: sqlite3_column_text(stmt, 2))
-                let occurred = String(cString: sqlite3_column_text(stmt, 3))
-                let status = String(cString: sqlite3_column_text(stmt, 4))
-                let msg = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
-                out.append((id, aid, name, occurred, status, msg))
+                let sev = String(cString: sqlite3_column_text(stmt, 3))
+                let occurred = String(cString: sqlite3_column_text(stmt, 4))
+                let status = String(cString: sqlite3_column_text(stmt, 5))
+                let msg = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+                out.append((id, aid, name, sev, occurred, status, msg))
             }
         }
         sqlite3_finalize(stmt)
         return out
+    }
+
+    // Upcoming: date alerts with a future or today trigger date
+    func listUpcomingDateAlerts(limit: Int = 200) -> [(alertId: Int, alertName: String, severity: String, upcomingDate: String)] {
+        let alerts = listAlerts(includeDisabled: false)
+        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
+        guard let today = df.date(from: df.string(from: Date())) else { return [] }
+        var out: [(Int, String, String, String)] = []
+        for a in alerts where a.triggerTypeCode == "date" {
+            guard let data = a.paramsJson.data(using: .utf8),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let dateStr = obj["date"] as? String,
+                  let d = df.date(from: dateStr) else { continue }
+            if let e = a.scheduleEnd, let end = df.date(from: e), d > end { continue }
+            if d >= today { out.append((a.id, a.name, a.severity.rawValue, dateStr)) }
+        }
+        out.sort { $0.3 < $1.3 }
+        return out.count > limit ? Array(out.prefix(limit)) : out
     }
 }

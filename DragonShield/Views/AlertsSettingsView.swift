@@ -389,6 +389,30 @@ private struct AlertEditorView: View {
             } else {
                 selectedTags = []
             }
+            // Load scope options (start with Instruments by default)
+            loadScopeOptions()
+        }
+        // Reload available options when scope type changes; clear selection text
+        .onChange(of: alert.scopeType) { _, _ in
+            alert.scopeId = 0
+            scopeText = ""
+            loadScopeOptions()
+        }
+        // Scope picker sheet (searchable MacComboBox)
+        .sheet(isPresented: $showScopePicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Select \(alert.scopeType.rawValue)").font(.headline)
+                MacComboBox(items: scopeNames, text: $scopeText) { idx in
+                    guard idx >= 0 && idx < scopeNames.count else { return }
+                    if let pair = scopeIdMap.first(where: { $0.value == scopeNames[idx] }) {
+                        alert.scopeId = pair.key
+                    }
+                }
+                .frame(width: 520)
+                HStack { Spacer(); Button("Close") { showScopePicker = false } }
+            }
+            .padding(16)
+            .frame(width: 560, height: 180)
         }
 }
 
