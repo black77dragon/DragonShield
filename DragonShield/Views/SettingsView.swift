@@ -145,6 +145,7 @@ struct SettingsView: View {
                 NavigationLink("News Types", destination: NewsTypeSettingsView().environmentObject(dbManager))
                 NavigationLink("Alert Trigger Types", destination: AlertTriggerTypeSettingsView().environmentObject(dbManager))
                 NavigationLink("Tags", destination: TagSettingsView().environmentObject(dbManager))
+                NavigationLink("Alerts", destination: AlertsSettingsView().environmentObject(dbManager))
             }
 
             #if DEBUG
