@@ -53,6 +53,10 @@ struct SidebarView: View {
                 NavigationLink(destination: InstrumentPricesMaintenanceView().environmentObject(dbManager)) {
                     Label("Prices", systemImage: "dollarsign.circle")
                 }
+
+                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
+                    Label("Alerts", systemImage: "bell")
+                }
             }
 
             DisclosureGroup("Configuration", isExpanded: $showConfiguration) {

@@ -9,9 +9,7 @@ struct AlertsSettingsView: View {
     @State private var error: String?
     @State private var info: String?
 
-    @State private var showingEditor = false
     @State private var editing: AlertRow? = nil
-    @State private var selectedTags: Set<Int> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -51,29 +49,25 @@ struct AlertsSettingsView: View {
         }
         .padding(16)
         .onAppear { load() }
-        .sheet(isPresented: $showingEditor) {
-            if let editing = editing {
-                AlertEditorView(alert: editing,
-                                 triggerTypes: triggerTypes,
-                                 allTags: allTags,
-                                 onSave: { updated, tagIds in
-                    if let existing = dbManager.getAlert(id: updated.id) {
-                        // Update
-                        let ok = dbManager.updateAlert(updated.id, fields: fieldsDict(from: updated))
-                        let ok2 = dbManager.setAlertTags(alertId: updated.id, tagIds: Array(tagIds))
-                        if ok && ok2 { info = "Saved \(updated.name)"; error = nil } else { error = "Failed to save alert"; info = nil }
-                    } else {
-                        // Create
-                        if let created = dbManager.createAlert(updated) {
-                            let ok2 = dbManager.setAlertTags(alertId: created.id, tagIds: Array(tagIds))
-                            if ok2 { info = "Created \(created.name)"; error = nil } else { error = "Failed to link tags" }
-                        } else { error = "Failed to create alert (check JSON)"; info = nil }
-                    }
-                    load(); showingEditor = false
-                }, onCancel: { showingEditor = false })
-                .environmentObject(dbManager)
-                .frame(minWidth: 720, minHeight: 560)
-            }
+        .sheet(item: $editing) { item in
+            AlertEditorView(alert: item,
+                             triggerTypes: triggerTypes,
+                             allTags: allTags,
+                             onSave: { updated, tagIds in
+                if let _ = dbManager.getAlert(id: updated.id) {
+                    let ok = dbManager.updateAlert(updated.id, fields: fieldsDict(from: updated))
+                    let ok2 = dbManager.setAlertTags(alertId: updated.id, tagIds: Array(tagIds))
+                    if ok && ok2 { info = "Saved \(updated.name)"; error = nil } else { error = "Failed to save alert"; info = nil }
+                } else {
+                    if let created = dbManager.createAlert(updated) {
+                        let ok2 = dbManager.setAlertTags(alertId: created.id, tagIds: Array(tagIds))
+                        if ok2 { info = "Created \(created.name)"; error = nil } else { error = "Failed to link tags" }
+                    } else { error = "Failed to create alert (check JSON)"; info = nil }
+                }
+                load(); editing = nil
+            }, onCancel: { editing = nil })
+            .environmentObject(dbManager)
+            .frame(width: 820, height: 600)
         }
         .navigationTitle("Alerts")
     }
@@ -105,15 +99,11 @@ struct AlertsSettingsView: View {
             createdAt: now,
             updatedAt: now
         )
-        selectedTags = []
-        showingEditor = true
+        editing = editing
     }
 
     private func openEdit(_ row: AlertRow) {
         editing = row
-        let current = Set(dbManager.listTagsForAlert(alertId: row.id).map { $0.id })
-        selectedTags = current
-        showingEditor = true
     }
 
     private func delete(_ row: AlertRow) {
@@ -272,8 +262,12 @@ private struct AlertEditorView: View {
         }
         .padding(16)
         .onAppear {
-            let current = dbManager.listTagsForAlert(alertId: alert.id).map { $0.id }
-            selectedTags = Set(current)
+            if alert.id > 0 {
+                let current = dbManager.listTagsForAlert(alertId: alert.id).map { $0.id }
+                selectedTags = Set(current)
+            } else {
+                selectedTags = []
+            }
         }
     }
 
@@ -293,4 +287,3 @@ private struct AlertEditorView: View {
         }
     }
 }
-
