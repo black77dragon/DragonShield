@@ -99,7 +99,6 @@ struct AlertsSettingsView: View {
             createdAt: now,
             updatedAt: now
         )
-        editing = editing
     }
 
     private func openEdit(_ row: AlertRow) {
