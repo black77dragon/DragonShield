@@ -14,40 +14,54 @@ struct AlertsSettingsView: View {
     @State private var showToast: Bool = false
     @State private var toastMessage: String = ""
 
+    @State private var page: Int = 0 // 0=Alerts, 1=Events
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Alerts").font(.title3).bold()
+                Picker("", selection: $page) {
+                    Text("Alerts").tag(0)
+                    Text("Events").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 220)
                 Spacer()
-                Toggle("Show disabled", isOn: $includeDisabled)
-                    .onChange(of: includeDisabled) { _, _ in load() }
-                Button("New Alert") { openNew() }
+                if page == 0 {
+                    Toggle("Show disabled", isOn: $includeDisabled)
+                        .onChange(of: includeDisabled) { _, _ in load() }
+                    Button("New Alert") { openNew() }
+                }
             }
             if let err = error { Text(err).foregroundColor(.red).font(.caption) }
-            Table(rows, selection: .constant(nil)) {
-                TableColumn("Enabled") { row in
-                    Toggle("", isOn: Binding(
-                        get: { row.enabled },
-                        set: { val in _ = dbManager.updateAlert(row.id, fields: ["enabled": val]); load() }
-                    )).labelsHidden()
-                }.width(60)
-                TableColumn("Name") { row in Text(row.name) }
-                TableColumn("Severity") { row in Text(row.severity.rawValue) }.width(90)
-                TableColumn("Scope") { row in Text("\(row.scopeType.rawValue)#\(row.scopeId)") }.width(140)
-                TableColumn("Type") { row in Text(row.triggerTypeCode) }.width(120)
-                TableColumn("Updated") { row in Text(row.updatedAt) }.width(180)
-                TableColumn("Actions") { row in
-                    HStack(spacing: 8) {
-                        Button("Edit") { openEdit(row) }
-                        Button("Delete", role: .destructive) { confirmDelete = row }
-                    }
-                }.width(160)
-            }
-            .frame(minHeight: 320)
-            .overlay(alignment: .bottomLeading) {
-                Text(info ?? "Toggle enabled in table. Use Edit to adjust details. Params JSON must be valid.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            if page == 0 {
+                Table(rows, selection: .constant(nil)) {
+                    TableColumn("Enabled") { row in
+                        Toggle("", isOn: Binding(
+                            get: { row.enabled },
+                            set: { val in _ = dbManager.updateAlert(row.id, fields: ["enabled": val]); load() }
+                        )).labelsHidden()
+                    }.width(60)
+                    TableColumn("Name") { row in Text(row.name) }
+                    TableColumn("Severity") { row in Text(row.severity.rawValue) }.width(90)
+                    TableColumn("Scope") { row in Text("\(row.scopeType.rawValue)#\(row.scopeId)") }.width(140)
+                    TableColumn("Type") { row in Text(row.triggerTypeCode) }.width(120)
+                    TableColumn("Updated") { row in Text(row.updatedAt) }.width(180)
+                    TableColumn("Actions") { row in
+                        HStack(spacing: 8) {
+                            Button("Edit") { openEdit(row) }
+                            Button("Delete", role: .destructive) { confirmDelete = row }
+                        }
+                    }.width(160)
+                }
+                .frame(minHeight: 320)
+                .overlay(alignment: .bottomLeading) {
+                    Text(info ?? "Toggle enabled in table. Use Edit to adjust details. Params JSON must be valid.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                AlertEventsView().environmentObject(dbManager)
+                    .frame(minHeight: 360)
             }
         }
         .padding(16)
@@ -187,6 +201,22 @@ private struct AlertEditorView: View {
     @State private var selectedTags: Set<Int> = []
     @State private var jsonError: String?
 
+    // MARK: - Validation
+    private func isDateOrEmpty(_ s: String?) -> Bool {
+        let t = (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return true }
+        // yyyy-MM-dd strict
+        let regex = try! NSRegularExpression(pattern: "^\\d{4}-\\d{2}-\\d{2}$")
+        guard regex.firstMatch(in: t, range: NSRange(location: 0, length: t.utf16.count)) != nil else { return false }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd"
+        return df.date(from: t) != nil
+    }
+    private var datesValid: Bool {
+        isDateOrEmpty(alert.scheduleStart) && isDateOrEmpty(alert.scheduleEnd) && isDateOrEmpty(alert.muteUntil)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Text(alert.id < 0 ? "Create Alert" : "Edit Alert")
@@ -257,45 +287,43 @@ private struct AlertEditorView: View {
                                     Text("abs").tag("abs")
                                 }.frame(width: 140)
                             }
+                            .help("Marks this alert as ‘Near’ when the measured value is within the given window of the threshold. Use pct for percent (e.g., 2 = 2%) or abs for absolute units (e.g., CHF). This does not trigger the alert; it only classifies proximity.")
                         }
-                        LabeledContent("Hysteresis") {
-                            HStack(spacing: 8) {
-                                TextField("value", value: Binding(get: { alert.hysteresisValue }, set: { alert.hysteresisValue = $0 }), format: .number)
-                                    .textFieldStyle(.plain)
-                                    .frame(width: 180)
-                                    .dsField()
-                                Picker("", selection: Binding(get: { alert.hysteresisUnit ?? "" }, set: { alert.hysteresisUnit = $0.isEmpty ? nil : $0 })) {
-                                    Text("—").tag("")
-                                    Text("pct").tag("pct")
-                                    Text("abs").tag("abs")
-                                }.frame(width: 140)
-                            }
-                        }
-                        LabeledContent("Cooldown (s)") {
-                            TextField("", value: Binding(get: { alert.cooldownSeconds }, set: { alert.cooldownSeconds = $0 }), format: .number)
-                                .textFieldStyle(.plain)
-                                .frame(width: 200)
-                                .dsField()
-                        }
+                        // Note: Hysteresis and Cooldown prepared in schema but not used in UI for now.
                     }
                     Section("Scheduling") {
-                        LabeledContent("Window") {
+                        LabeledContent("Start") {
                             HStack(spacing: 8) {
-                                TextField("start ISO8601", text: Binding(get: { alert.scheduleStart ?? "" }, set: { alert.scheduleStart = $0.isEmpty ? nil : $0 }))
+                                let s = Binding(get: { alert.scheduleStart ?? "" }, set: { alert.scheduleStart = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
+                                TextField("", text: s)
                                     .textFieldStyle(.plain)
-                                    .frame(width: 320)
+                                    .frame(width: 200)
                                     .dsField()
-                                TextField("end ISO8601", text: Binding(get: { alert.scheduleEnd ?? "" }, set: { alert.scheduleEnd = $0.isEmpty ? nil : $0 }))
+                                    .foregroundColor(isDateOrEmpty(s.wrappedValue) ? .primary : .red)
+                                Text("(YYYY-MM-DD)").foregroundColor(.secondary)
+                            }
+                        }
+                        LabeledContent("End") {
+                            HStack(spacing: 8) {
+                                let e = Binding(get: { alert.scheduleEnd ?? "" }, set: { alert.scheduleEnd = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
+                                TextField("", text: e)
                                     .textFieldStyle(.plain)
-                                    .frame(width: 320)
+                                    .frame(width: 200)
                                     .dsField()
+                                    .foregroundColor(isDateOrEmpty(e.wrappedValue) ? .primary : .red)
+                                Text("(YYYY-MM-DD)").foregroundColor(.secondary)
                             }
                         }
                         LabeledContent("Mute Until") {
-                            TextField("ISO8601", text: Binding(get: { alert.muteUntil ?? "" }, set: { alert.muteUntil = $0.isEmpty ? nil : $0 }))
-                                .textFieldStyle(.plain)
-                                .frame(width: 320)
-                                .dsField()
+                            HStack(spacing: 8) {
+                                let m = Binding(get: { alert.muteUntil ?? "" }, set: { alert.muteUntil = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
+                                TextField("", text: m)
+                                    .textFieldStyle(.plain)
+                                    .frame(width: 200)
+                                    .dsField()
+                                    .foregroundColor(isDateOrEmpty(m.wrappedValue) ? .primary : .red)
+                                Text("(YYYY-MM-DD)").foregroundColor(.secondary)
+                            }
                         }
                     }
                     Section("Notes & Tags") {
@@ -305,18 +333,24 @@ private struct AlertEditorView: View {
                                 .dsTextEditor()
                         }
                         LabeledContent("Tags") {
-                            ScrollView(.vertical) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ForEach(allTags) { tag in
-                                        Toggle(isOn: Binding(
-                                            get: { selectedTags.contains(tag.id) },
-                                            set: { val in if val { selectedTags.insert(tag.id) } else { selectedTags.remove(tag.id) } }
-                                        )) {
-                                            Text(tag.displayName)
+                            VStack(alignment: .leading, spacing: 8) {
+                                ScrollView(.vertical) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ForEach(allTags) { tag in
+                                            Toggle(isOn: Binding(
+                                                get: { selectedTags.contains(tag.id) },
+                                                set: { val in if val { selectedTags.insert(tag.id) } else { selectedTags.remove(tag.id) } }
+                                            )) {
+                                                Text(tag.displayName)
+                                            }
                                         }
                                     }
                                 }
-                            }.frame(minHeight: 120)
+                                .frame(minHeight: 120)
+                                Text("Tip: Tags can be maintained in Settings → Tags")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
@@ -331,10 +365,11 @@ private struct AlertEditorView: View {
                     Button("Cancel", role: .cancel) { onCancel() }
                     Button("Save") { onSave(alert, selectedTags) }
                         .keyboardShortcut(.defaultAction)
+                        .disabled(!datesValid)
                     Spacer()
-                    Button("Evaluate Now") { /* stub */ }
-                        .disabled(true)
-                        .help("Evaluation engine coming in next phase")
+                    Button("Evaluate Now") { evaluateNow() }
+                        .disabled(alert.triggerTypeCode != "date")
+                        .help("Runs evaluation for this alert now (date alerts supported).")
                 }
                 .padding(.horizontal, 16)
             }
@@ -359,11 +394,19 @@ private struct AlertEditorView: View {
 
     private func insertTemplate() {
         switch alert.triggerTypeCode {
-        case "date": alert.paramsJson = "{\n  \"date\": \"2025-12-31\",\n  \"warn_days\": [14,7,1]\n}"
+        case "date": alert.paramsJson = "{\n  \"date\": \"2025-12-31\"\n}"
         case "price": alert.paramsJson = "{\n  \"mode\": \"cross\",\n  \"threshold\": 75.0,\n  \"currency_mode\": \"instrument\"\n}"
         case "holding_abs": alert.paramsJson = "{\n  \"threshold_chf\": 30000.0,\n  \"currency_mode\": \"base\"\n}"
         case "holding_pct": alert.paramsJson = "{\n  \"threshold_pct\": 10.0\n}"
         default: alert.paramsJson = "{}"
         }
+    }
+
+    private func evaluateNow() {
+        let result = dbManager.evaluateAlertNow(alertId: alert.id)
+        #if os(macOS)
+        NSSound.beep()
+        #endif
+        if !result.0 { jsonError = result.1 }
     }
 }
