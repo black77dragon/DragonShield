@@ -57,8 +57,10 @@ struct AlertTriggerTypeSettingsView: View {
                         set: { new in
                             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
                                 rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: new, active: row.active)
+                                save(rows[idx])
+                            } else {
+                                save(row)
                             }
-                            save(row)
                         }
                     )).frame(width: 80)
                 }.width(90)
@@ -192,4 +194,3 @@ struct AlertTriggerTypeSettingsView: View {
         } else { error = "Failed to restore \(row.code)"; info = nil }
     }
 }
-

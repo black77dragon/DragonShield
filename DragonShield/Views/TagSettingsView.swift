@@ -57,8 +57,10 @@ struct TagSettingsView: View {
                         set: { new in
                             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
                                 rows[idx] = TagRow(id: row.id, code: row.code, displayName: row.displayName, color: row.color, sortOrder: new, active: row.active)
+                                save(rows[idx])
+                            } else {
+                                save(row)
                             }
-                            save(row)
                         }
                     )).frame(width: 80)
                 }.width(90)
@@ -192,4 +194,3 @@ struct TagSettingsView: View {
         } else { error = "Failed to restore \(row.code)"; info = nil }
     }
 }
-
