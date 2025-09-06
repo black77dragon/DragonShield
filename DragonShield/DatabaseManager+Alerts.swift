@@ -221,5 +221,119 @@ extension DatabaseManager {
         guard let data = s.data(using: .utf8) else { return false }
         return (try? JSONSerialization.jsonObject(with: data)) != nil
     }
-}
 
+    // MARK: - Evaluation (Phase 1: date alerts)
+    /// Evaluate a single alert now. Returns (createdEvent, message).
+    @discardableResult
+    func evaluateAlertNow(alertId: Int) -> (Bool, String) {
+        guard let alert = getAlert(id: alertId) else { return (false, "Alert not found") }
+        switch alert.triggerTypeCode {
+        case "date":
+            return evaluateDateAlertNow(alert: alert)
+        default:
+            return (false, "Evaluate Now is supported for date alerts only in Phase 1")
+        }
+    }
+
+    private func evaluateDateAlertNow(alert: AlertRow) -> (Bool, String) {
+        // Parse params_json expecting { "date": "YYYY-MM-DD" }
+        guard let data = alert.paramsJson.data(using: .utf8),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let dateStr = obj["date"] as? String, !dateStr.isEmpty else {
+            return (false, "Missing date in params_json")
+        }
+        // Validate date format strictly yyyy-MM-dd
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        df.dateFormat = "yyyy-MM-dd"
+        guard let triggerDate = df.date(from: dateStr) else { return (false, "Invalid date format (use YYYY-MM-DD)") }
+
+        // Respect schedule_start / schedule_end (date-only if provided)
+        if let s = alert.scheduleStart, let start = df.date(from: s), Date() < start { return (false, "Not within schedule window (starts \(s))") }
+        if let e = alert.scheduleEnd, let end = df.date(from: e), Date() > end.addingTimeInterval(86_400 - 1) { return (false, "Not within schedule window (ended \(e))") }
+        // Mute until
+        if let m = alert.muteUntil, let mut = df.date(from: m), Date() < mut.addingTimeInterval(86_400) {
+            return (false, "Muted until \(m)")
+        }
+
+        // Fire if today >= triggerDate (date alerts that fire in days)
+        // Convert now to date-only in UTC to compare.
+        let todayStr = df.string(from: Date())
+        guard let today = df.date(from: todayStr) else { return (false, "Date parse error") }
+        guard today >= triggerDate else { return (false, "Not due yet") }
+
+        // De-dupe: if an event exists today, skip creating another
+        if hasTriggeredEventToday(alertId: alert.id, day: today) {
+            return (false, "Already triggered today")
+        }
+
+        // Create event
+        let measured: [String: Any] = ["kind": "date", "date": dateStr, "evaluated_at": ISO8601DateFormatter().string(from: Date())]
+        let msg = "Date reached: \(dateStr)"
+        let created = insertAlertEvent(alertId: alert.id, status: "triggered", message: msg, measured: measured)
+        return created ? (true, msg) : (false, "Failed to create event")
+    }
+
+    private func hasTriggeredEventToday(alertId: Int, day: Date) -> Bool {
+        guard let db else { return false }
+        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
+        let dayStart = df.string(from: day) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let sql = "SELECT 1 FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ? LIMIT 1"
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_int(stmt, 1, Int32(alertId))
+        sqlite3_bind_text(stmt, 2, dayStart, -1, T)
+        sqlite3_bind_text(stmt, 3, nextStart, -1, T)
+        return sqlite3_step(stmt) == SQLITE_ROW
+    }
+
+    private func insertAlertEvent(alertId: Int, status: String, message: String?, measured: [String: Any]?) -> Bool {
+        guard let db else { return false }
+        let sql = "INSERT INTO AlertEvent (alert_id, occurred_at, status, message, measured_json) VALUES (?,?,?,?,?)"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_int(stmt, 1, Int32(alertId))
+        let nowIso = ISO8601DateFormatter().string(from: Date())
+        sqlite3_bind_text(stmt, 2, nowIso, -1, T)
+        sqlite3_bind_text(stmt, 3, status, -1, T)
+        if let m = message { sqlite3_bind_text(stmt, 4, m, -1, T) } else { sqlite3_bind_null(stmt, 4) }
+        if let measured, let data = try? JSONSerialization.data(withJSONObject: measured), let str = String(data: data, encoding: .utf8) {
+            sqlite3_bind_text(stmt, 5, str, -1, T)
+        } else { sqlite3_bind_null(stmt, 5) }
+        return sqlite3_step(stmt) == SQLITE_DONE
+    }
+
+    // MARK: - Events listing
+    func listAlertEvents(limit: Int = 200) -> [(id: Int, alertId: Int, alertName: String, occurredAt: String, status: String, message: String?)] {
+        guard let db else { return [] }
+        let sql = """
+        SELECT e.id, e.alert_id, a.name, e.occurred_at, e.status, e.message
+          FROM AlertEvent e
+          JOIN Alert a ON a.id = e.alert_id
+         ORDER BY e.occurred_at DESC
+         LIMIT ?
+        """
+        var stmt: OpaquePointer?
+        var out: [(Int, Int, String, String, String, String?)] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(limit))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let aid = Int(sqlite3_column_int(stmt, 1))
+                let name = String(cString: sqlite3_column_text(stmt, 2))
+                let occurred = String(cString: sqlite3_column_text(stmt, 3))
+                let status = String(cString: sqlite3_column_text(stmt, 4))
+                let msg = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                out.append((id, aid, name, occurred, status, msg))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return out
+    }
+}
