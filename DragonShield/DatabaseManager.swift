@@ -84,6 +84,7 @@ class DatabaseManager: ObservableObject {
         ensureAttachmentTable()
         ensureThemeUpdateAttachmentTable()
         ensureThemeAssetUpdateAttachmentTable()
+        ensureAlertReferenceTables()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
