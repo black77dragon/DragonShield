@@ -61,8 +61,10 @@ struct NewsTypeSettingsView: View {
                         set: { new in
                             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
                                 rows[idx] = NewsTypeRow(id: row.id, code: row.code, displayName: row.displayName, sortOrder: new, active: row.active)
+                                save(rows[idx])
+                            } else {
+                                save(row)
                             }
-                            save(row)
                         }
                     )).frame(width: 80)
                 }.width(90)
