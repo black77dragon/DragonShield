@@ -200,6 +200,12 @@ private struct AlertEditorView: View {
     var onCancel: () -> Void
     @State private var selectedTags: Set<Int> = []
     @State private var jsonError: String?
+    // Scope picker state
+    @State private var showScopePicker: Bool = false
+    @State private var scopeNames: [String] = []
+    @State private var scopeIdMap: [Int: String] = [:]
+    @State private var scopeText: String = ""
+    private var selectedScopeName: String { scopeIdMap[alert.scopeId] ?? "(none)" }
 
     // MARK: - Validation
     private func isDateOrEmpty(_ s: String?) -> Bool {
@@ -245,11 +251,13 @@ private struct AlertEditorView: View {
                             HStack(spacing: 8) {
                                 Picker("", selection: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 })) {
                                     ForEach(AlertScopeType.allCases) { Text($0.rawValue).tag($0) }
-                                }.frame(width: 260)
-                                TextField("ID", value: $alert.scopeId, format: .number)
-                                    .textFieldStyle(.plain)
-                                    .frame(width: 180)
-                                    .dsField()
+                                }.frame(width: 200)
+                                Text(selectedScopeName)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
+                                Button("Choose…") { showScopePicker = true }
                             }
                         }
                     }
@@ -408,5 +416,34 @@ private struct AlertEditorView: View {
         NSSound.beep()
         #endif
         if !result.0 { jsonError = result.1 }
+    }
+}
+
+
+// MARK: - Scope loader
+private extension AlertEditorView {
+    func loadScopeOptions(limit: Int = 500) {
+        switch alert.scopeType {
+        case .Instrument:
+            let items = dbManager.listInstrumentNames(limit: limit)
+            scopeNames = items.map { $0.name }
+            scopeIdMap = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
+        case .Account:
+            let items = dbManager.listAccountNames(limit: limit)
+            scopeNames = items.map { $0.name }
+            scopeIdMap = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
+        case .PortfolioTheme:
+            let items = dbManager.listPortfolioThemeNames(limit: limit)
+            scopeNames = items.map { $0.name }
+            scopeIdMap = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
+        case .AssetClass:
+            let items = dbManager.listAssetClassNames(limit: limit)
+            scopeNames = items.map { $0.name }
+            scopeIdMap = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
+        case .Portfolio:
+            scopeNames = []
+            scopeIdMap = [:]
+        }
+        if let n = scopeIdMap[alert.scopeId] { scopeText = n } else { scopeText = "" }
     }
 }
