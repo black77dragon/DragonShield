@@ -19,7 +19,8 @@ extension DatabaseManager {
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision',
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
-                'include_direct_re', 'direct_re_target_chf', 'db_version'
+                'include_direct_re', 'direct_re_target_chf', 'db_version',
+                'fx_auto_update_enabled', 'fx_update_frequency'
             );
         """
         var statement: OpaquePointer?
@@ -63,6 +64,11 @@ extension DatabaseManager {
                     case "db_version":
                         self.dbVersion = value
                         print("📦 Database version loaded: \(value)")
+                    case "fx_auto_update_enabled":
+                        self.fxAutoUpdateEnabled = value.lowercased() == "true" || value == "1"
+                    case "fx_update_frequency":
+                        let v = value.lowercased()
+                        self.fxUpdateFrequency = (v == "weekly" ? "weekly" : "daily")
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
