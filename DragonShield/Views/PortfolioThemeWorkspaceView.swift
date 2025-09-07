@@ -389,44 +389,49 @@ struct PortfolioThemeWorkspaceView: View {
 
     // MARK: - Add Instrument Sheet
     private var addInstrumentSheet: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let labelWidth: CGFloat = 120
+        return VStack(alignment: .leading, spacing: 0) {
             HStack { Text("Add Instrument to \(name)").font(.headline); Spacer() }
                 .padding(.horizontal, 20).padding(.top, 16)
-            Form {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text("Instrument").frame(width: 120, alignment: .leading)
-                        MacComboBox(
-                            items: availableInstruments().map { $0.name },
+            VStack(alignment: .leading, spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                    GridRow {
+                        Text("Instrument").frame(width: labelWidth, alignment: .leading)
+                        SearchDropdown(
+                            items: availableInstrumentRows().map(displayString(for:)),
                             text: $addInstrumentQuery,
-                            onSelectIndex: { idx in
-                                let items = availableInstruments()
-                                if idx >= 0 && idx < items.count { addInstrumentId = items[idx].id }
+                            placeholder: "Search instrument, ticker, or ISIN",
+                            maxVisibleRows: 12,
+                            onSelectIndex: { originalIndex in
+                                let rows = availableInstrumentRows()
+                                guard originalIndex >= 0 && originalIndex < rows.count else { return }
+                                addInstrumentId = rows[originalIndex].id
                             }
                         )
-                        .frame(minWidth: 360)
+                        .frame(minWidth: 360, maxWidth: .infinity)
                     }
-                    HStack(alignment: .center, spacing: 8) {
-                        Text("Research %").frame(width: 120, alignment: .leading)
+                    GridRow {
+                        Text("Research %").frame(width: labelWidth, alignment: .leading)
                         TextField("", value: $addResearchPct, format: .number)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
                     }
-                    HStack(alignment: .center, spacing: 8) {
-                        Text("User %").frame(width: 120, alignment: .leading)
+                    GridRow {
+                        Text("User %").frame(width: labelWidth, alignment: .leading)
                         TextField("", value: $addUserPct, format: .number)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
                     }
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("Notes").frame(width: 120, alignment: .leading)
+                    GridRow {
+                        Text("Notes").frame(width: labelWidth, alignment: .leading)
                         TextField("", text: $addNotes)
                             .textFieldStyle(.roundedBorder)
-                            .frame(minWidth: 360)
+                            .frame(minWidth: 360, maxWidth: .infinity)
                     }
                 }
-                .padding(.vertical, 12)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
             Divider()
             HStack { Spacer(); Button("Cancel") { showAddInstrument = false }; Button("Add") { addInstrument() }.keyboardShortcut(.defaultAction).disabled(!addValid) }
                 .padding(20)
@@ -435,9 +440,16 @@ struct PortfolioThemeWorkspaceView: View {
         .onAppear { addUserPct = addResearchPct; addInstrumentQuery = ""; addInstrumentId = 0 }
     }
 
-    private func availableInstruments() -> [(id: Int, name: String)] {
+    private func availableInstrumentRows() -> [DatabaseManager.InstrumentRow] {
         let inTheme = Set(dbManager.listThemeAssets(themeId: themeId).map { $0.instrumentId })
-        return dbManager.fetchAssets().map { ($0.id, $0.name) }.filter { !inTheme.contains($0.id) }
+        return dbManager.fetchAssets().filter { !inTheme.contains($0.id) }
+    }
+
+    private func displayString(for ins: DatabaseManager.InstrumentRow) -> String {
+        var parts: [String] = [ins.name]
+        if let t = ins.tickerSymbol, !t.isEmpty { parts.append(t.uppercased()) }
+        if let i = ins.isin, !i.isEmpty { parts.append(i.uppercased()) }
+        return parts.joined(separator: " • ")
     }
     private var addValid: Bool { addInstrumentId > 0 && addResearchPct >= 0 && addResearchPct <= 100 && addUserPct >= 0 && addUserPct <= 100 }
     private func addInstrument() {

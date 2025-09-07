@@ -291,6 +291,43 @@ extension DatabaseManager {
         return sqlite3_step(stmt) == SQLITE_ROW
     }
 
+    // MARK: - UI helpers
+    func hasTriggeredEventOnDay(alertId: Int, day: Date) -> Bool {
+        guard let db else { return false }
+        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
+        let dayStart = df.string(from: day) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let sql = "SELECT 1 FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ? LIMIT 1"
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_int(stmt, 1, Int32(alertId))
+        sqlite3_bind_text(stmt, 2, dayStart, -1, T)
+        sqlite3_bind_text(stmt, 3, nextStart, -1, T)
+        return sqlite3_step(stmt) == SQLITE_ROW
+    }
+
+    @discardableResult
+    func deleteTriggeredEventsOnDay(alertId: Int, day: Date) -> Int {
+        guard let db else { return 0 }
+        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
+        let dayStart = df.string(from: day) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let sql = "DELETE FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_int(stmt, 1, Int32(alertId))
+        sqlite3_bind_text(stmt, 2, dayStart, -1, T)
+        sqlite3_bind_text(stmt, 3, nextStart, -1, T)
+        defer { sqlite3_finalize(stmt) }
+        if sqlite3_step(stmt) == SQLITE_DONE {
+            return Int(sqlite3_changes(db))
+        }
+        return 0
+    }
+
     private func insertAlertEvent(alertId: Int, status: String, message: String?, measured: [String: Any]?) -> Bool {
         guard let db else { return false }
         let sql = "INSERT INTO AlertEvent (alert_id, occurred_at, status, message, measured_json) VALUES (?,?,?,?,?)"
@@ -350,7 +387,10 @@ extension DatabaseManager {
                   let dateStr = obj["date"] as? String,
                   let d = df.date(from: dateStr) else { continue }
             if let e = a.scheduleEnd, let end = df.date(from: e), d > end { continue }
-            if d >= today { out.append((a.id, a.name, a.severity.rawValue, dateStr)) }
+            if d >= today {
+                if d == today, hasTriggeredEventToday(alertId: a.id, day: today) { continue }
+                out.append((a.id, a.name, a.severity.rawValue, dateStr))
+            }
         }
         out.sort { $0.3 < $1.3 }
         return out.count > limit ? Array(out.prefix(limit)) : out
