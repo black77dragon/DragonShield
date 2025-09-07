@@ -320,6 +320,7 @@ private struct ProviderKeyRow: View {
     }
 
     private var defaultsKey: String { "api_key.\(account)" }
+}
 
 extension SettingsView {
     private func updateFxStatus() {
@@ -340,6 +341,4 @@ extension SettingsView {
             fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
         }
     }
-}
-
 }
