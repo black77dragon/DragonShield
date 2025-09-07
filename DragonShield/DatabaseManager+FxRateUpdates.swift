@@ -72,7 +72,8 @@ extension DatabaseManager {
             let status = String(cString: sqlite3_column_text(stmt, 4))
             let err = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
             let count = Int(sqlite3_column_int(stmt, 6))
-            let execMs = sqlite3_column_text(stmt, 7).map { Int(String(cString: $0)) } ?? nil
+            let execType = sqlite3_column_type(stmt, 7)
+            let execMs: Int? = (execType == SQLITE_NULL) ? nil : Int(sqlite3_column_int(stmt, 7))
             let createdStr = String(cString: sqlite3_column_text(stmt, 8))
             let created = DateFormatter.iso8601DateTime.date(from: createdStr) ?? Date()
             return FxRateUpdateLog(id: id, updateDate: updDate, apiProvider: provider, currenciesUpdated: currs, status: status, errorMessage: err, ratesCount: count, executionTimeMs: execMs, createdAt: created)
@@ -80,4 +81,3 @@ extension DatabaseManager {
         return nil
     }
 }
-
