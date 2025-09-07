@@ -13,7 +13,7 @@ final class FXUpdateService {
     private let provider: FXRateProvider
     private(set) var lastError: Error?
 
-    init(dbManager: DatabaseManager, provider: FXRateProvider = ExchangerateHostProvider()) {
+    init(dbManager: DatabaseManager, provider: FXRateProvider = FrankfurterProvider()) {
         self.db = dbManager
         self.provider = provider
     }
