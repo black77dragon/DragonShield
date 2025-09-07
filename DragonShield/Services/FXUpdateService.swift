@@ -100,8 +100,12 @@ final class FXUpdateService {
 
     /// Auto-update on launch if the set is stale beyond threshold.
     func autoUpdateOnLaunchIfStale(thresholdHours: Int = 24, base: String) async {
-        if isStale(thresholdHours: thresholdHours, base: base) {
+        let stale = isStale(thresholdHours: thresholdHours, base: base)
+        print("[FX][Auto] base=\(base.uppercased()) threshold=\(thresholdHours)h stale=\(stale)")
+        if stale {
             _ = await updateLatestForAll(base: base)
+        } else {
+            print("[FX][Auto] Skipping update; rates are fresh.")
         }
     }
 }
