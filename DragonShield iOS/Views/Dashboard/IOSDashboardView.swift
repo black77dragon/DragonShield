@@ -7,17 +7,50 @@ struct IOSDashboardView: View {
     @AppStorage("tile.missingPrices") private var showMissingPrices: Bool = true
     @AppStorage("tile.cryptoAlloc") private var showCryptoAlloc: Bool = true
     @AppStorage("tile.currencyExposure") private var showCurrencyExposure: Bool = true
+    @AppStorage("tile.upcomingAlerts") private var showUpcomingAlerts: Bool = true
+    @AppStorage("ios.dashboard.tileOrder") private var tileOrderRaw: String = ""
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if showTotalValue { TotalValueTileIOS().environmentObject(dbManager) }
-                if showMissingPrices { MissingPricesTileIOS().environmentObject(dbManager) }
-                if showCryptoAlloc { CryptoAllocationsTileIOS().environmentObject(dbManager) }
-                if showCurrencyExposure { CurrencyExposureTileIOS().environmentObject(dbManager) }
+                ForEach(currentTileOrder(), id: \.self) { id in
+                    switch id {
+                    case "totalValue":
+                        if showTotalValue { TotalValueTileIOS().environmentObject(dbManager) }
+                    case "missingPrices":
+                        if showMissingPrices { MissingPricesTileIOS().environmentObject(dbManager) }
+                    case "cryptoAlloc":
+                        if showCryptoAlloc { CryptoAllocationsTileIOS().environmentObject(dbManager) }
+                    case "currencyExposure":
+                        if showCurrencyExposure { CurrencyExposureTileIOS().environmentObject(dbManager) }
+                    case "upcomingAlerts":
+                        if showUpcomingAlerts { UpcomingAlertsTileIOS().environmentObject(dbManager) }
+                    default:
+                        EmptyView()
+                    }
+                }
             }
             .padding(16)
         }
         .navigationTitle("Dashboard")
+    }
+}
+
+// MARK: - Tile order helpers
+private extension IOSDashboardView {
+    func defaultOrder() -> [String] { ["totalValue", "missingPrices", "cryptoAlloc", "currencyExposure", "upcomingAlerts"] }
+    func currentTileOrder() -> [String] {
+        let saved = tileOrderRaw.split(separator: ",").map { String($0) }
+        var set = Set(saved)
+        var order: [String] = saved
+        // Append any new tiles not yet saved
+        for id in defaultOrder() where !set.contains(id) {
+            order.append(id); set.insert(id)
+        }
+        // Filter unknown ids
+        let known = Set(defaultOrder())
+        let filtered = order.filter { known.contains($0) }
+        if tileOrderRaw.isEmpty { tileOrderRaw = filtered.joined(separator: ",") }
+        return filtered
     }
 }
 

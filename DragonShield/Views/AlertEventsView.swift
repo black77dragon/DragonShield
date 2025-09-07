@@ -54,11 +54,20 @@ struct AlertEventsView: View {
     }
 
     private func load() {
+        // Load recent events
         let events = dbManager.listAlertEvents(limit: 300)
         rows = events.map { e in
             .init(id: e.id, alertId: e.alertId, alertName: e.alertName, severity: e.severity, occurredAt: e.occurredAt, when: formatDateTime(e.occurredAt), status: e.status, message: e.message)
         }
+        // Build a recent window set (last 30 days) to prevent duplicates across Recent and Upcoming
+        let iso = ISO8601DateFormatter()
+        let recentCut = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let recentIds: Set<Int> = Set(events.compactMap { e in
+            if let d = iso.date(from: e.occurredAt), d >= recentCut { return e.alertId } else { return nil }
+        })
+        // Load upcoming and exclude any alert that has a recent event
         let ups = dbManager.listUpcomingDateAlerts(limit: 200)
+            .filter { u in !recentIds.contains(u.alertId) }
         upcoming = ups.map { u in .init(id: u.alertId, alertName: u.alertName, severity: u.severity, upcomingDate: u.upcomingDate, when: formatDateOnly(u.upcomingDate)) }
     }
 

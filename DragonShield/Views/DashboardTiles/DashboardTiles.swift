@@ -667,7 +667,8 @@ enum TileRegistry {
         TileInfo(id: AccountsNeedingUpdateTile.tileID, name: AccountsNeedingUpdateTile.tileName, icon: AccountsNeedingUpdateTile.iconName) { AnyView(AccountsNeedingUpdateTile()) },
         TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
         TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) },
-        TileInfo(id: InstrumentDashboardTile.tileID, name: InstrumentDashboardTile.tileName, icon: InstrumentDashboardTile.iconName) { AnyView(InstrumentDashboardTile()) }
+        TileInfo(id: InstrumentDashboardTile.tileID, name: InstrumentDashboardTile.tileName, icon: InstrumentDashboardTile.iconName) { AnyView(InstrumentDashboardTile()) },
+        TileInfo(id: UpcomingAlertsTile.tileID, name: UpcomingAlertsTile.tileName, icon: UpcomingAlertsTile.iconName) { AnyView(UpcomingAlertsTile()) }
     ]
 
     static func view(for id: String) -> AnyView? {

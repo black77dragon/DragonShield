@@ -14,6 +14,9 @@ struct IOSSettingsView: View {
     @AppStorage("tile.missingPrices") private var showMissingPrices: Bool = true
     @AppStorage("tile.cryptoAlloc") private var showCryptoAlloc: Bool = true
     @AppStorage("tile.currencyExposure") private var showCurrencyExposure: Bool = true
+    @AppStorage("tile.upcomingAlerts") private var showUpcomingAlerts: Bool = true
+    @AppStorage("ios.dashboard.tileOrder") private var tileOrderRaw: String = ""
+    @State private var tileOrder: [String] = []
     @AppStorage("privacy.blurValues") private var privacyBlur: Bool = false
 
     var body: some View {
@@ -26,6 +29,20 @@ struct IOSSettingsView: View {
                 Toggle("Missing Prices", isOn: $showMissingPrices)
                 Toggle("Crypto Allocations", isOn: $showCryptoAlloc)
                 Toggle("Portfolio by Currency", isOn: $showCurrencyExposure)
+                Toggle("Upcoming Alerts", isOn: $showUpcomingAlerts)
+            }
+            Section(header: HStack { Text("Tile Order"); Spacer(); EditButton() }) {
+                // Reorderable list of tiles
+                List {
+                    ForEach(tileOrder, id: \.self) { id in
+                        Text(tileName(for: id))
+                    }
+                    .onMove { indices, newOffset in
+                        tileOrder.move(fromOffsets: indices, toOffset: newOffset)
+                        persistTileOrder()
+                    }
+                }
+                .frame(minHeight: 200)
             }
             Section(header: Text("Data Import")) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -48,6 +65,7 @@ struct IOSSettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .onAppear(perform: restoreTileOrder)
         .fileImporter(
             isPresented: $showImporter,
             allowedContentTypes: {
@@ -75,6 +93,29 @@ struct IOSSettingsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(importError ?? "")
+        }
+    }
+
+    // MARK: - Tile order helpers
+    private func defaultOrder() -> [String] { ["totalValue", "missingPrices", "cryptoAlloc", "currencyExposure", "upcomingAlerts"] }
+    private func restoreTileOrder() {
+        let saved = tileOrderRaw.split(separator: ",").map { String($0) }
+        var set = Set(saved)
+        var order: [String] = saved
+        for id in defaultOrder() where !set.contains(id) { order.append(id); set.insert(id) }
+        let known = Set(defaultOrder())
+        tileOrder = order.filter { known.contains($0) }
+        if tileOrderRaw.isEmpty { persistTileOrder() }
+    }
+    private func persistTileOrder() { tileOrderRaw = tileOrder.joined(separator: ",") }
+    private func tileName(for id: String) -> String {
+        switch id {
+        case "totalValue": return "Total Value"
+        case "missingPrices": return "Missing Prices"
+        case "cryptoAlloc": return "Crypto Allocations"
+        case "currencyExposure": return "Portfolio by Currency"
+        case "upcomingAlerts": return "Upcoming Alerts"
+        default: return id
         }
     }
 
