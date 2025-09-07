@@ -207,7 +207,7 @@ extension ExchangeRatesView {
         }
         if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
             await MainActor.run {
-                vm.log.append("Updated FX: \(summary.insertedCount) currencies on \(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
+                vm.log.append("FX Update: updated=\(summary.insertedCount), failed=\(summary.failedCount), skipped=\(summary.skippedCount) — asOf=\(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
                 vm.loadRates()
                 self.updating = false
             }

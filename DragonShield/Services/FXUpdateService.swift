@@ -5,6 +5,8 @@ struct FXUpdateSummary {
     let asOf: Date
     let provider: String
     let insertedCount: Int
+    let failedCount: Int
+    let skippedCount: Int // unsupported/missing from provider response
 }
 
 /// Orchestrates fetching latest FX and persisting to ExchangeRates.
@@ -54,8 +56,10 @@ final class FXUpdateService {
             let response = try await provider.fetchLatest(base: baseUpper, symbols: targets)
             var inserted = 0
             var updated: [String] = []
+            var eligible: [String] = []
             for code in targets {
                 if let rate = response.rates[code] {
+                    eligible.append(code)
                     // response rate is CHF->code when base is CHF; we need code->CHF (rate_to_chf)
                     let toCHF: Double
                     if response.base.uppercased() == baseUpper {
@@ -85,9 +89,13 @@ final class FXUpdateService {
             }
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
-            _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: "SUCCESS", errorMessage: nil, ratesCount: inserted, executionTimeMs: ms)
-            print("[FX][Update] Done inserted=\(inserted) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))")
-            return FXUpdateSummary(updatedCurrencies: updated, asOf: response.asOf, provider: provider.code, insertedCount: inserted)
+            let skipped = targets.count - eligible.count
+            let failed = max(eligible.count - inserted, 0)
+            let status = failed > 0 || skipped > 0 ? "PARTIAL" : "SUCCESS"
+            let errMsg = (failed > 0 || skipped > 0) ? "failed=\(failed); skipped=\(skipped)" : nil
+            _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: status, errorMessage: errMsg, ratesCount: inserted, executionTimeMs: ms)
+            print("[FX][Update] Done inserted=\(inserted) failed=\(failed) skipped=\(skipped) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))")
+            return FXUpdateSummary(updatedCurrencies: updated, asOf: response.asOf, provider: provider.code, insertedCount: inserted, failedCount: failed, skippedCount: skipped)
         } catch {
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)

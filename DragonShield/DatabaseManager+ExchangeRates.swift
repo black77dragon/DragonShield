@@ -100,6 +100,7 @@ extension DatabaseManager {
     }
 
     func insertExchangeRate(currencyCode: String, rateDate: Date, rateToChf: Double, rateSource: String, apiProvider: String?, isLatest: Bool) -> Bool {
+        // If we mark this as latest, clear previous latest for this currency first.
         if isLatest {
             let clear = "UPDATE ExchangeRates SET is_latest = 0 WHERE currency_code = ?;"
             var s: OpaquePointer?
@@ -110,9 +111,16 @@ extension DatabaseManager {
             }
             sqlite3_finalize(s)
         }
+
+        // Use UPSERT to avoid UNIQUE constraint failures on (currency_code, rate_date).
         let query = """
             INSERT INTO ExchangeRates (currency_code, rate_date, rate_to_chf, rate_source, api_provider, is_latest)
-            VALUES (?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(currency_code, rate_date)
+            DO UPDATE SET rate_to_chf = excluded.rate_to_chf,
+                          rate_source = excluded.rate_source,
+                          api_provider = excluded.api_provider,
+                          is_latest = excluded.is_latest;
         """
         var statement: OpaquePointer?
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
