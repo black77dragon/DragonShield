@@ -146,7 +146,13 @@ private struct StartupAlertsPopupView: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack {
-                Image(systemName: "shield.fill").font(.system(size: 34)).foregroundColor(.blue)
+                Image("dragonshieldAppLogo")
+                    .resizable()
+                    .renderingMode(.original)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityHidden(true)
                 Text("Incoming Deadlines Detected")
                     .font(.title2).bold()
                 Spacer()

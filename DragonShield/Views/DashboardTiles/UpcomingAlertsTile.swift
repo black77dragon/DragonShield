@@ -42,18 +42,24 @@ struct UpcomingAlertsTile: DashboardTile {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(Array(items.enumerated()), id: \.1.alertId) { _, row in
-                            let dueSoon = isDueSoon(row.upcomingDate)
+                            let urgent = isWithinWeek(row.upcomingDate)
+                            let dueSoon = !urgent && isDueSoon(row.upcomingDate)
                             HStack {
                                 Text(row.alertName)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
+                                    .foregroundColor(urgent ? .white : (dueSoon ? .red : .primary))
                                 Spacer()
                                 Text(format(dateStr: row.upcomingDate))
-                                    .foregroundColor(dueSoon ? .red : .secondary)
+                                    .foregroundColor(urgent ? .white : (dueSoon ? .red : .secondary))
                             }
-                            .fontWeight(dueSoon ? .bold : .regular)
-                            .foregroundColor(dueSoon ? .red : .primary)
+                            .fontWeight((urgent || dueSoon) ? .bold : .regular)
                             .frame(height: DashboardTileLayout.rowHeight)
+                            .padding(.horizontal, urgent ? 6 : 0)
+                            .padding(.vertical, urgent ? 2 : 0)
+                            .background(
+                                Group { if urgent { RoundedRectangle(cornerRadius: 6).fill(Color.red) } else { Color.clear } }
+                            )
                         }
                     }
                     .padding(.vertical, DashboardTileLayout.rowSpacing)
@@ -89,5 +95,12 @@ struct UpcomingAlertsTile: DashboardTile {
         let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
         guard let twoWeeks = Calendar.current.date(byAdding: .day, value: 14, to: today) else { return false }
         return d < twoWeeks
+    }
+
+    private func isWithinWeek(_ dateStr: String) -> Bool {
+        guard let d = Self.inDf.date(from: dateStr) else { return false }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        guard let oneWeek = Calendar.current.date(byAdding: .day, value: 7, to: today) else { return false }
+        return d < oneWeek
     }
 }

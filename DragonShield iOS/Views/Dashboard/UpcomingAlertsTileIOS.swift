@@ -35,20 +35,16 @@ struct UpcomingAlertsTileIOS: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(items.enumerated()), id: \.1.alertId) { _, row in
-                            let dueSoon = isDueSoon(row.upcomingDate)
-                            HStack {
-                                Text(row.alertName)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                Spacer()
-                                Text(format(dateStr: row.upcomingDate))
-                                    .foregroundColor(dueSoon ? .red : .secondary)
-                            }
-                            .font(.subheadline)
-                            .fontWeight(dueSoon ? .bold : .regular)
-                            .foregroundColor(dueSoon ? .red : .primary)
-                            .frame(height: 22)
+                        ForEach(items, id: \.alertId) { row in
+                            let urgent = isWithinWeek(row.upcomingDate)
+                            let dueSoon = !urgent && isDueSoon(row.upcomingDate)
+                            UpcomingAlertRowIOS(
+                                name: row.alertName,
+                                dateStr: row.upcomingDate,
+                                urgent: urgent,
+                                dueSoon: dueSoon,
+                                formatter: format
+                            )
                         }
                     }
                     .padding(.vertical, 4)
@@ -80,6 +76,43 @@ struct UpcomingAlertsTileIOS: View {
         guard let twoWeeks = Calendar.current.date(byAdding: .day, value: 14, to: today) else { return false }
         return d < twoWeeks
     }
+    private func isWithinWeek(_ dateStr: String) -> Bool {
+        guard let d = Self.inDf.date(from: dateStr) else { return false }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        guard let oneWeek = Calendar.current.date(byAdding: .day, value: 7, to: today) else { return false }
+        return d < oneWeek
+    }
+}
+
+// Small row component to keep main body light for the type-checker
+private struct UpcomingAlertRowIOS: View {
+    let name: String
+    let dateStr: String
+    let urgent: Bool
+    let dueSoon: Bool
+    let formatter: (String) -> String
+
+    var textColor: Color { urgent ? .white : (dueSoon ? .red : .primary) }
+    var dateColor: Color { urgent ? .white : (dueSoon ? .red : .secondary) }
+
+    var body: some View {
+        HStack {
+            Text(name)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundColor(textColor)
+            Spacer()
+            Text(formatter(dateStr))
+                .foregroundColor(dateColor)
+        }
+        .font(.subheadline)
+        .fontWeight((urgent || dueSoon) ? .bold : .regular)
+        .frame(height: 22)
+        .padding(.horizontal, urgent ? 6 : 0)
+        .padding(.vertical, urgent ? 2 : 0)
+        .background(urgent ? Color.red : Color.clear)
+        .cornerRadius(6)
+    }
 }
 #if os(iOS)
 private struct UpcomingAlertsFullListIOS: View {
@@ -99,17 +132,26 @@ private struct UpcomingAlertsFullListIOS: View {
         guard let two = Calendar.current.date(byAdding: .day, value: 14, to: today) else { return false }
         return d < two
     }
+    private func isWithinWeek(_ s: String) -> Bool {
+        guard let d = Self.inDf.date(from: s) else { return false }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        guard let one = Calendar.current.date(byAdding: .day, value: 7, to: today) else { return false }
+        return d < one
+    }
     var body: some View {
         NavigationStack {
             List(items, id: \.alertId) { row in
-                let due = isDueSoon(row.upcomingDate)
+                let urgent = isWithinWeek(row.upcomingDate)
+                let due = !urgent && isDueSoon(row.upcomingDate)
                 HStack {
                     Text(row.alertName)
+                        .foregroundColor(urgent ? .white : (due ? .red : .primary))
                     Spacer()
-                    Text(format(row.upcomingDate)).foregroundColor(due ? .red : .secondary)
+                    Text(format(row.upcomingDate))
+                        .foregroundColor(urgent ? .white : (due ? .red : .secondary))
                 }
-                .fontWeight(due ? .bold : .regular)
-                .foregroundColor(due ? .red : .primary)
+                .fontWeight((urgent || due) ? .bold : .regular)
+                .listRowBackground(urgent ? Color.red : Color.clear)
             }
             .navigationTitle("Upcoming Alerts")
             .toolbar { ToolbarItem(placement: .primaryAction) { Button("Done") { dismiss() } } }

@@ -20,7 +20,17 @@ struct IOSSettingsView: View {
     @AppStorage("privacy.blurValues") private var privacyBlur: Bool = false
 
     var body: some View {
-        Form {
+        VStack(spacing: 8) {
+            // Small brand/logo at the very top
+            HStack {
+                Spacer()
+                AppBrandLogo()
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("DragonShield")
+                Spacer()
+            }
+            .padding(.top, 8)
+            Form {
             Section(header: Text("Privacy")) {
                 Toggle("Blur values (CHF)", isOn: $privacyBlur)
             }
@@ -36,13 +46,19 @@ struct IOSSettingsView: View {
                 List {
                     ForEach(tileOrder, id: \.self) { id in
                         Text(tileName(for: id))
+                            .font(.subheadline)
+                            .padding(.vertical, 0)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
                     }
                     .onMove { indices, newOffset in
                         tileOrder.move(fromOffsets: indices, toOffset: newOffset)
                         persistTileOrder()
                     }
                 }
-                .frame(minHeight: 200)
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 28)
+                .frame(minHeight: 160)
             }
             Section(header: Text("Data Import")) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -62,6 +78,7 @@ struct IOSSettingsView: View {
                 if !lastImportedPath.isEmpty {
                     Text("Snapshot: \(lastImportedPath) (") + Text("\(lastImportedSize)").monospacedDigit() + Text(" bytes)")
                 }
+            }
             }
         }
         .navigationTitle("Settings")
@@ -93,6 +110,21 @@ struct IOSSettingsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(importError ?? "")
+        }
+    }
+
+    // Small helper to resolve the brand image. Tries AppIcon first, then falls back to dragonshieldAppLogo.
+    @ViewBuilder
+    private func AppBrandLogo() -> some View {
+        if let ui = UIImage(named: "AppIcon") ?? UIImage(named: "dragonshieldAppLogo") {
+            Image(uiImage: ui)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        } else {
+            Image(systemName: "shield.fill")
+                .font(.system(size: 34))
+                .foregroundColor(.orange)
         }
     }
 
