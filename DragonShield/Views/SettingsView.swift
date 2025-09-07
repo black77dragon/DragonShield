@@ -43,6 +43,11 @@ struct SettingsView: View {
     @State private var fxAutoEnabled: Bool = true
     @State private var fxFrequency: String = "daily" // "daily" or "weekly"
     @State private var fxLastSummary: String = ""
+    // iOS snapshot settings
+    @State private var iosAutoEnabled: Bool = true
+    @State private var iosFrequency: String = "daily"
+    @State private var iosTargetPath: String = ""
+    @State private var iosStatus: String = ""
     // For steppers/pickers, we can often bind directly to dbManager's @Published vars
 
     var body: some View {
@@ -100,6 +105,10 @@ struct SettingsView: View {
             fxAutoEnabled = dbManager.fxAutoUpdateEnabled
             fxFrequency = dbManager.fxUpdateFrequency
             updateFxStatus()
+            iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
+            iosFrequency = dbManager.iosSnapshotFrequency
+            iosTargetPath = dbManager.iosSnapshotTargetPath
+            updateIOSStatus()
                             }
                         }
                     Spacer()
@@ -154,6 +163,10 @@ struct SettingsView: View {
                         let v = (newValue == "weekly") ? "weekly" : "daily"
                         _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: v, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
                         updateFxStatus()
+            iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
+            iosFrequency = dbManager.iosSnapshotFrequency
+            iosTargetPath = dbManager.iosSnapshotTargetPath
+            updateIOSStatus()
                     }
                     Spacer()
                 }
@@ -162,6 +175,46 @@ struct SettingsView: View {
                     Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary)
                         .foregroundColor(.secondary)
                     Spacer()
+                }
+            }
+
+            // iOS Snapshot Export
+            Section(header: Text("iOS Snapshot (DB Copy for iPhone app)")) {
+                Toggle("Auto-export on Launch", isOn: $iosAutoEnabled)
+                    .onChange(of: iosAutoEnabled) { _, newValue in
+                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                    }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Frequency").frame(width: 160, alignment: .leading)
+                    Picker("", selection: $iosFrequency) {
+                        Text("Daily").tag("daily")
+                        Text("Weekly").tag("weekly")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 240)
+                    .onChange(of: iosFrequency) { _, newValue in
+                        let v = (newValue == "weekly") ? "weekly" : "daily"
+                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: v, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
+                        updateIOSStatus()
+                    }
+                    Spacer()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Destination").frame(width: 160, alignment: .leading)
+                    TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...", text: $iosTargetPath)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(minWidth: 300)
+                        .onSubmit {
+                            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string", description: "Destination folder for iOS snapshot export")
+                            updateIOSStatus()
+                        }
+                    Spacer()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Status").frame(width: 160, alignment: .leading)
+                    Text(iosStatus.isEmpty ? "Unknown" : iosStatus).foregroundColor(.secondary)
+                    Spacer()
+                    Button("Export Now") { exportIOSNow() }
                 }
             }
 
@@ -215,6 +268,10 @@ struct SettingsView: View {
             fxAutoEnabled = dbManager.fxAutoUpdateEnabled
             fxFrequency = dbManager.fxUpdateFrequency
             updateFxStatus()
+            iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
+            iosFrequency = dbManager.iosSnapshotFrequency
+            iosTargetPath = dbManager.iosSnapshotTargetPath
+            updateIOSStatus()
             #if DEBUG
             GitInfoProvider.debugDump()
             #endif
@@ -323,7 +380,11 @@ private struct ProviderKeyRow: View {
 }
 
 extension SettingsView {
-    private func updateFxStatus() {
+    private func updateFxStatus()
+            iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
+            iosFrequency = dbManager.iosSnapshotFrequency
+            iosTargetPath = dbManager.iosSnapshotTargetPath
+            updateIOSStatus() {
         if let last = dbManager.fetchLastFxRateUpdate() {
             let fmt = DateFormatter.iso8601DateOnly
             let freq = fxFrequency.lowercased()
@@ -339,6 +400,36 @@ extension SettingsView {
             fxLastSummary = "Last: \(fmt.string(from: last.updateDate)) (\(last.status)), updated=\(last.ratesCount) via \(last.apiProvider)\(extraStr); Next due: \(fmt.string(from: next)) (\(freq))"
         } else {
             fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
+        }
+    }
+}
+
+extension SettingsView {
+    private func updateIOSStatus() {
+        let svc = IOSSnapshotExportService(dbManager: dbManager)
+        let fmtDate = DateFormatter.iso8601DateOnly
+        let fmtTime = DateFormatter()
+        fmtTime.dateFormat = "HH:mm"
+        if let last = svc.lastExportDate() {
+            // Next due from frequency
+            let freq = iosFrequency.lowercased()
+            let days = (freq == "weekly") ? 7 : 1
+            let next = Calendar.current.date(byAdding: .day, value: days, to: last) ?? Date()
+            iosStatus = "Last: \(fmtDate.string(from: last)) \(fmtTime.string(from: last)), next due: \(fmtDate.string(from: next)) (\(freq))"
+        } else {
+            iosStatus = "No snapshot found. Will export on next launch if enabled."
+        }
+    }
+
+    private func exportIOSNow() {
+        let svc = IOSSnapshotExportService(dbManager: dbManager)
+        do {
+            let url = try svc.exportNow()
+            iosTargetPath = svc.resolvedTargetFolder().path
+            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
+            iosStatus = "Exported: \(url.lastPathComponent) at \(DateFormatter.iso8601DateTime.string(from: Date()))"
+        } catch {
+            iosStatus = "Export failed: \(error.localizedDescription)"
         }
     }
 }

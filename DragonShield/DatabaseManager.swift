@@ -44,6 +44,12 @@ class DatabaseManager: ObservableObject {
     @Published var fxAutoUpdateEnabled: Bool = true
     /// 'daily' or 'weekly'
     @Published var fxUpdateFrequency: String = "daily"
+    // iOS Snapshot Export configuration (defaults)
+    @Published var iosSnapshotAutoEnabled: Bool = true
+    /// 'daily' or 'weekly'
+    @Published var iosSnapshotFrequency: String = "daily"
+    /// Destination folder for iOS snapshot export
+    @Published var iosSnapshotTargetPath: String = ""
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==
