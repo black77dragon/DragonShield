@@ -13,14 +13,16 @@ final class FrankfurterProvider: FXRateProvider {
         let rates: [String: Double]
     }
 
-    private static var cachedSupported: Set<String>? = nil
-    private static let lock = NSLock()
+    // Async-safe cache for supported currency codes
+    private actor SupportCache {
+        static let shared = SupportCache()
+        private var codes: Set<String>? = nil
+        func get() -> Set<String>? { codes }
+        func set(_ new: Set<String>) { codes = new }
+    }
 
     private func ensureSupportedSet() async throws -> Set<String> {
-        FrankfurterProvider.lock.lock()
-        if let s = FrankfurterProvider.cachedSupported { FrankfurterProvider.lock.unlock(); return s }
-        FrankfurterProvider.lock.unlock()
-
+        if let s = await SupportCache.shared.get() { return s }
         guard let url = URL(string: "https://api.frankfurter.app/currencies") else { throw FXProviderError.invalidURL }
         print("[FX][frankfurter.app] GET \(url.absoluteString)")
         let (data, resp) = try await URLSession.shared.data(from: url)
@@ -28,7 +30,7 @@ final class FrankfurterProvider: FXRateProvider {
         let obj = try JSONSerialization.jsonObject(with: data, options: [])
         guard let dict = obj as? [String: Any] else { throw FXProviderError.decodingFailed }
         let codes = Set(dict.keys.map { $0.uppercased() })
-        FrankfurterProvider.lock.lock(); FrankfurterProvider.cachedSupported = codes; FrankfurterProvider.lock.unlock()
+        await SupportCache.shared.set(codes)
         print("[FX][frankfurter.app] Supported codes: \(codes.count)")
         return codes
     }
@@ -70,4 +72,3 @@ final class FrankfurterProvider: FXRateProvider {
         return FXRatesResponse(asOf: asOf, base: api.base.uppercased(), rates: api.rates, providerCode: code)
     }
 }
-
