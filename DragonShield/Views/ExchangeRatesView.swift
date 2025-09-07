@@ -197,6 +197,14 @@ extension ExchangeRatesView {
         if updating { return }
         await MainActor.run { self.updating = true }
         let svc = FXUpdateService(dbManager: dbManager)
+        let targets = svc.targetCurrencies(base: dbManager.baseCurrency)
+        if targets.isEmpty {
+            await MainActor.run {
+                vm.log.append("No API-supported active currencies to update (base=\(dbManager.baseCurrency)).")
+                self.updating = false
+            }
+            return
+        }
         if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
             await MainActor.run {
                 vm.log.append("Updated FX: \(summary.insertedCount) currencies on \(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
@@ -206,7 +214,7 @@ extension ExchangeRatesView {
         } else {
             await MainActor.run {
                 let err = (svc.lastError.map { String(describing: $0) } ?? "unknown error")
-                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err)")
+                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err). Provider=exchangerate.host; base=\(dbManager.baseCurrency); targets=\(targets.joined(separator: ","))")
                 self.updating = false
             }
         }

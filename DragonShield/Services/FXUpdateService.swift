@@ -19,7 +19,7 @@ final class FXUpdateService {
     }
 
     /// Returns the list of currency codes to update: active + API supported, excluding base.
-    private func targetCurrencies(base: String) -> [String] {
+    func targetCurrencies(base: String) -> [String] {
         let all = db.fetchCurrencies() // includes isActive and apiSupported
         return all.filter { $0.isActive && $0.apiSupported && $0.code.uppercased() != base.uppercased() }
             .map { $0.code.uppercased() }
