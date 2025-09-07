@@ -205,7 +205,8 @@ extension ExchangeRatesView {
             }
         } else {
             await MainActor.run {
-                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date()))")
+                let err = (svc.lastError.map { String(describing: $0) } ?? "unknown error")
+                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err)")
                 self.updating = false
             }
         }

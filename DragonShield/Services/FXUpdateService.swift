@@ -11,6 +11,7 @@ struct FXUpdateSummary {
 final class FXUpdateService {
     private let db: DatabaseManager
     private let provider: FXRateProvider
+    private(set) var lastError: Error?
 
     init(dbManager: DatabaseManager, provider: FXRateProvider = ExchangerateHostProvider()) {
         self.db = dbManager
@@ -49,6 +50,7 @@ final class FXUpdateService {
         guard !targets.isEmpty else { return nil }
 
         do {
+            print("[FX][Update] Start provider=\(provider.code) base=\(baseUpper) targets=\(targets.joined(separator: ","))")
             let response = try await provider.fetchLatest(base: baseUpper, symbols: targets)
             var inserted = 0
             var updated: [String] = []
@@ -68,19 +70,29 @@ final class FXUpdateService {
                             toCHF = rate
                         }
                     }
+                    print(String(format: "[FX][Update] %3@ -> CHF rate=%.6f (raw=%.6f, base=%@)", code, toCHF, rate, response.base.uppercased()))
                     if toCHF > 0, db.insertExchangeRate(currencyCode: code, rateDate: response.asOf, rateToChf: toCHF, rateSource: "api", apiProvider: provider.code, isLatest: true) {
                         inserted += 1
                         updated.append(code)
+                    } else if toCHF <= 0 {
+                        print("[FX][Update][WARN] Non-positive computed rate for \(code), skipping.")
+                    } else {
+                        print("[FX][Update][WARN] Insert failed for \(code). See sqlite logs above.")
                     }
+                } else {
+                    print("[FX][Update][WARN] No rate found in response for \(code)")
                 }
             }
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
             _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: "SUCCESS", errorMessage: nil, ratesCount: inserted, executionTimeMs: ms)
+            print("[FX][Update] Done inserted=\(inserted) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))")
             return FXUpdateSummary(updatedCurrencies: updated, asOf: response.asOf, provider: provider.code, insertedCount: inserted)
         } catch {
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
+            lastError = error
+            print("[FX][Update][ERROR] \(error)")
             _ = db.recordFxRateUpdate(updateDate: Date(), apiProvider: provider.code, currenciesUpdated: [], status: "FAILED", errorMessage: String(describing: error), ratesCount: 0, executionTimeMs: ms)
             return nil
         }

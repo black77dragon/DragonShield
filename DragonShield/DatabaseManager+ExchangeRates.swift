@@ -132,6 +132,10 @@ extension DatabaseManager {
         }
         sqlite3_bind_int(statement, 6, isLatest ? 1 : 0)
         let result = sqlite3_step(statement) == SQLITE_DONE
+        if !result {
+            let msg = String(cString: sqlite3_errmsg(db))
+            print("❌ insertExchangeRate step failed for \(currencyCode) date=\(dateStr): \(msg)")
+        }
         sqlite3_finalize(statement)
         return result
     }
@@ -169,6 +173,10 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 5, isLatest ? 1 : 0)
         sqlite3_bind_int(statement, 6, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
+        if !result {
+            let msg = String(cString: sqlite3_errmsg(db))
+            print("❌ updateExchangeRate step failed id=\(id) date=\(dateStr): \(msg)")
+        }
         sqlite3_finalize(statement)
         return result
     }
@@ -182,8 +190,11 @@ extension DatabaseManager {
         }
         sqlite3_bind_int(statement, 1, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
+        if !result {
+            let msg = String(cString: sqlite3_errmsg(db))
+            print("❌ deleteExchangeRate step failed id=\(id): \(msg)")
+        }
         sqlite3_finalize(statement)
         return result
     }
 }
-
