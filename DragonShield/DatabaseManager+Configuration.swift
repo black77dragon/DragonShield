@@ -20,7 +20,8 @@ extension DatabaseManager {
                 'base_currency', 'as_of_date', 'decimal_precision',
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
                 'include_direct_re', 'direct_re_target_chf', 'db_version',
-                'fx_auto_update_enabled', 'fx_update_frequency'
+                'fx_auto_update_enabled', 'fx_update_frequency',
+                'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path'
             );
         """
         var statement: OpaquePointer?
@@ -69,6 +70,13 @@ extension DatabaseManager {
                     case "fx_update_frequency":
                         let v = value.lowercased()
                         self.fxUpdateFrequency = (v == "weekly" ? "weekly" : "daily")
+                    case "ios_snapshot_auto_enabled":
+                        self.iosSnapshotAutoEnabled = value.lowercased() == "true" || value == "1"
+                    case "ios_snapshot_frequency":
+                        let v = value.lowercased()
+                        self.iosSnapshotFrequency = (v == "weekly" ? "weekly" : "daily")
+                    case "ios_snapshot_target_path":
+                        self.iosSnapshotTargetPath = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
