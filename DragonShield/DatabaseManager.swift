@@ -40,6 +40,10 @@ class DatabaseManager: ObservableObject {
     @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
+    // FX Auto Update configuration (defaults)
+    @Published var fxAutoUpdateEnabled: Bool = true
+    /// 'daily' or 'weekly'
+    @Published var fxUpdateFrequency: String = "daily"
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==

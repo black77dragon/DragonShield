@@ -13,6 +13,8 @@ struct DragonShieldApp: App {
         _databaseManager = StateObject(wrappedValue: dbManager)
         _assetManager = StateObject(wrappedValue: AssetManager())
         HealthCheckRegistry.register(DatabaseFileHealthCheck(pathProvider: { dbManager.dbFilePath }))
+        // Register FX health check to display last/next FX update info
+        HealthCheckRegistry.register(FXStatusHealthCheck(dbManager: dbManager))
         _healthRunner = StateObject(wrappedValue: HealthCheckRunner(enabledNames: AppConfiguration.enabledHealthChecks()))
         // Register price providers
         PriceProviderRegistry.shared.register(MockPriceProvider())
@@ -41,6 +43,9 @@ struct DragonShieldApp: App {
                 if AppConfiguration.runStartupHealthChecks() {
                     await healthRunner.runAll()
                 }
+                // Auto-update FX on launch if stale (Option 2)
+                let fxService = FXUpdateService(dbManager: databaseManager)
+                await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
             }
         }
         WindowGroup(id: "accountDetail", for: Int.self) { $accountId in

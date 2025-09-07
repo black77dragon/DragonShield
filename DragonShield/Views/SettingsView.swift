@@ -39,6 +39,10 @@ struct SettingsView: View {
     @State private var isTestingCG: Bool = false
     @State private var showCGResult: Bool = false
     @State private var cgResultMessage: String = ""
+    // FX auto-update settings
+    @State private var fxAutoEnabled: Bool = true
+    @State private var fxFrequency: String = "daily" // "daily" or "weekly"
+    @State private var fxLastSummary: String = ""
     // For steppers/pickers, we can often bind directly to dbManager's @Published vars
 
     var body: some View {
@@ -93,6 +97,9 @@ struct SettingsView: View {
                             } else {
                                 // Revert or show error
                                 tempBaseCurrency = dbManager.baseCurrency
+            fxAutoEnabled = dbManager.fxAutoUpdateEnabled
+            fxFrequency = dbManager.fxUpdateFrequency
+            updateFxStatus()
                             }
                         }
                     Spacer()
@@ -128,6 +135,34 @@ struct SettingsView: View {
                             }
                         ),
                         in: 0.0...20.0, step: 1.0)
+            }
+
+            Section(header: Text("FX Updates")) {
+                Toggle("Auto-update on Launch", isOn: $fxAutoEnabled)
+                    .onChange(of: fxAutoEnabled) { _, newValue in
+                        _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                    }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Frequency").frame(width: 160, alignment: .leading)
+                    Picker("", selection: $fxFrequency) {
+                        Text("Daily").tag("daily")
+                        Text("Weekly").tag("weekly")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 240)
+                    .onChange(of: fxFrequency) { _, newValue in
+                        let v = (newValue == "weekly") ? "weekly" : "daily"
+                        _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: v, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
+                        updateFxStatus()
+                    }
+                    Spacer()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Status").frame(width: 160, alignment: .leading)
+                    Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
             }
 
             Section(header: Text("Health Checks")) {
@@ -177,6 +212,9 @@ struct SettingsView: View {
         .onAppear {
             // Initialize temp states from dbManager's @Published properties
             tempBaseCurrency = dbManager.baseCurrency
+            fxAutoEnabled = dbManager.fxAutoUpdateEnabled
+            fxFrequency = dbManager.fxUpdateFrequency
+            updateFxStatus()
             #if DEBUG
             GitInfoProvider.debugDump()
             #endif
@@ -282,4 +320,25 @@ private struct ProviderKeyRow: View {
     }
 
     private var defaultsKey: String { "api_key.\(account)" }
+}
+
+extension SettingsView {
+    private func updateFxStatus() {
+        if let last = dbManager.fetchLastFxRateUpdate() {
+            let fmt = DateFormatter.iso8601DateOnly
+            let freq = fxFrequency.lowercased()
+            let days = (freq == "weekly") ? 7 : 1
+            let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
+            var extra: [String] = []
+            if last.status == "PARTIAL", let s = last.errorMessage, let data = s.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let arr = obj["failed"] as? [Any] { extra.append("failed=\(arr.count)") }
+                if let arr = obj["skipped"] as? [Any] { extra.append("skipped=\(arr.count)") }
+            }
+            let extraStr = extra.isEmpty ? "" : ", " + extra.joined(separator: ", ")
+            fxLastSummary = "Last: \(fmt.string(from: last.updateDate)) (\(last.status)), updated=\(last.ratesCount) via \(last.apiProvider)\(extraStr); Next due: \(fmt.string(from: next)) (\(freq))"
+        } else {
+            fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
+        }
+    }
 }
