@@ -98,7 +98,6 @@ final class FXUpdateService {
             }
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
-            let skipped = targets.count - eligible.count
             let failedCount = failed.count
             let skippedCount = skipped.count
             let status = (failedCount > 0 || skippedCount > 0) ? "PARTIAL" : "SUCCESS"

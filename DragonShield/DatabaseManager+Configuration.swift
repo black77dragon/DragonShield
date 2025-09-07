@@ -110,6 +110,34 @@ extension DatabaseManager {
         return success
     }
 
+    /// Insert or update a configuration key with explicit data type and optional description.
+    /// Uses an UPSERT to create the key if it doesn't exist.
+    func upsertConfiguration(key: String, value: String, dataType: String, description: String? = nil) -> Bool {
+        let query = """
+            INSERT INTO Configuration (key, value, data_type, description, updated_at)
+            VALUES (?, ?, ?, COALESCE(?, description), CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                data_type = excluded.data_type,
+                description = COALESCE(excluded.description, Configuration.description),
+                updated_at = CURRENT_TIMESTAMP;
+        """
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare upsertConfiguration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(statement) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(statement, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 2, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 3, (dataType as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        if let d = description { sqlite3_bind_text(statement, 4, (d as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(statement, 4) }
+        let success = sqlite3_step(statement) == SQLITE_DONE
+        if success { let _ = loadConfiguration() } else { print("❌ upsertConfiguration failed for key '\(key)': \(String(cString: sqlite3_errmsg(db)))") }
+        return success
+    }
+
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")
         let version = loadConfiguration()
