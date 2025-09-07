@@ -41,6 +41,9 @@ struct DragonShieldApp: App {
                 if AppConfiguration.runStartupHealthChecks() {
                     await healthRunner.runAll()
                 }
+                // Auto-update FX on launch if stale (Option 2)
+                let fxService = FXUpdateService(dbManager: databaseManager)
+                await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
             }
         }
         WindowGroup(id: "accountDetail", for: Int.self) { $accountId in

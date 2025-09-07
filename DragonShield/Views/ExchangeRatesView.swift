@@ -37,6 +37,11 @@ struct ExchangeRatesView: View {
             .keyboardShortcut("n", modifiers: [.command])
             .buttonStyle(PrimaryButtonStyle())
             .sheet(isPresented: $showAddSheet) { addSheet }
+            Button(action: { Task { await updateFxNow() } }) {
+                if updating { ProgressView().scaleEffect(0.8) } else { Label("Update FX Now", systemImage: "arrow.triangle.2.circlepath") }
+            }
+            .disabled(updating)
+            .buttonStyle(SecondaryButtonStyle())
         }
     }
 
@@ -44,6 +49,7 @@ struct ExchangeRatesView: View {
     @State private var editRate: DatabaseManager.ExchangeRate? = nil
     @State private var showDeleteAlert = false
     @State private var rateToDelete: DatabaseManager.ExchangeRate? = nil
+    @State private var updating: Bool = false
 
     private var ratesTable: some View {
         Table(vm.rates, selection: $selection, sortOrder: $sortOrder) {
@@ -184,3 +190,24 @@ struct ExchangeRatesView_Previews: PreviewProvider {
     }
 }
 
+// MARK: - FX Update helpers (View private extension)
+extension ExchangeRatesView {
+
+    private func updateFxNow() async {
+        if updating { return }
+        await MainActor.run { self.updating = true }
+        let svc = FXUpdateService(dbManager: dbManager)
+        if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
+            await MainActor.run {
+                vm.log.append("Updated FX: \(summary.insertedCount) currencies on \(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
+                vm.loadRates()
+                self.updating = false
+            }
+        } else {
+            await MainActor.run {
+                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date()))")
+                self.updating = false
+            }
+        }
+    }
+}
