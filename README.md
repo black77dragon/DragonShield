@@ -21,6 +21,7 @@ For detailed interface guidelines, see the [Dragon Shield UI/UX Design Guide](Dr
 - **Strategy Documentation**: Markdown notes field beside each instrument and at portfolio level
 - **Native macOS Experience**: Swift + SwiftUI, system dark/light mode, Touch ID unlock (planned)
 - **Minimalist UI**: Single accent color, generous whitespace, keyboard-first workflow (⌘-K palette)
+- **Ichimoku Dragon Scanner**: Python tool that ranks S&P 500 and Nasdaq 100 stocks by Ichimoku momentum and emails the top five daily
 
 ## 🚧 Current Status & Roadmap
 
