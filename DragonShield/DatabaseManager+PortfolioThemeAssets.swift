@@ -2,6 +2,21 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
+    // Local schema helper: check if a table has a given column (resilient to older DBs)
+    private func hasColumn(_ table: String, _ column: String) -> Bool {
+        var stmt: OpaquePointer?
+        var exists = false
+        if sqlite3_prepare_v2(db, "PRAGMA table_info(\(table));", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let nameC = sqlite3_column_text(stmt, 1) {
+                    let name = String(cString: nameC)
+                    if name.caseInsensitiveCompare(column) == .orderedSame { exists = true; break }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
     func ensurePortfolioThemeAssetTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS PortfolioThemeAsset (
@@ -22,23 +37,32 @@ extension DatabaseManager {
     }
 
     private func themeEditable(themeId: Int) -> Bool {
-        let sql = "SELECT archived_at, soft_delete FROM PortfolioTheme WHERE id = ?"
+        let hasSoftDelete = hasColumn("PortfolioTheme", "soft_delete")
+        let sql = hasSoftDelete
+            ? "SELECT archived_at, soft_delete FROM PortfolioTheme WHERE id = ?"
+            : "SELECT archived_at FROM PortfolioTheme WHERE id = ?"
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
-
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare themeEditable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
-
         sqlite3_bind_int(stmt, 1, Int32(themeId))
-
         if sqlite3_step(stmt) == SQLITE_ROW {
-            let archived = sqlite3_column_text(stmt, 0)
-            let softDelete = sqlite3_column_int(stmt, 1) == 1
-            return archived == nil && !softDelete
+            // archived_at may be stored as NULL or an empty string in legacy DBs. Treat empty string as not archived.
+            let archivedValIsNull = (sqlite3_column_type(stmt, 0) == SQLITE_NULL)
+            var archived = false
+            if !archivedValIsNull {
+                if let c = sqlite3_column_text(stmt, 0) {
+                    let s = String(cString: c).trimmingCharacters(in: .whitespacesAndNewlines)
+                    archived = !s.isEmpty
+                } else {
+                    archived = false
+                }
+            }
+            let softDel = hasSoftDelete ? (sqlite3_column_int(stmt, 1) == 1) : false
+            return !(archived || softDel)
         }
-
         return false
     }
 
@@ -61,7 +85,7 @@ extension DatabaseManager {
             return nil
         }
         guard themeEditable(themeId: themeId) else {
-            LoggingService.shared.log("Theme \(themeId) not editable", type: .info, logger: .database)
+            LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
             return nil
         }
         guard instrumentExists(instrumentId) else {
@@ -146,13 +170,23 @@ extension DatabaseManager {
         return assets
     }
 
-    func updateThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> PortfolioThemeAsset? {
+    /// Detailed variant: returns updated asset and optional user-facing error.
+    func updateThemeAssetDetailed(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> (PortfolioThemeAsset?, String?) {
         guard themeEditable(themeId: themeId) else {
-            LoggingService.shared.log("Theme \(themeId) not editable", type: .info, logger: .database)
-            return nil
+            let msg = "no changes possible, restore theme first"
+            LoggingService.shared.log("updateThemeAsset denied themeId=\(themeId) instrumentId=\(instrumentId): \(msg)", type: .info, logger: .database)
+            return (nil, msg)
         }
-        if let r = researchPct, !PortfolioThemeAsset.isValidPercentage(r) { return nil }
-        if let u = userPct, !PortfolioThemeAsset.isValidPercentage(u) { return nil }
+        if let r = researchPct, !PortfolioThemeAsset.isValidPercentage(r) {
+            let msg = "Invalid Research % (must be 0–100)."
+            LoggingService.shared.log("updateThemeAsset invalid researchPct themeId=\(themeId) instrumentId=\(instrumentId): \(r)", type: .info, logger: .database)
+            return (nil, msg)
+        }
+        if let u = userPct, !PortfolioThemeAsset.isValidPercentage(u) {
+            let msg = "Invalid User % (must be 0–100)."
+            LoggingService.shared.log("updateThemeAsset invalid userPct themeId=\(themeId) instrumentId=\(instrumentId): \(u)", type: .info, logger: .database)
+            return (nil, msg)
+        }
         let sql = """
             UPDATE PortfolioThemeAsset
             SET research_target_pct = COALESCE(?, research_target_pct),
@@ -163,7 +197,9 @@ extension DatabaseManager {
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            return nil
+            let err = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("prepare updateThemeAsset failed: \(err)", type: .error, logger: .database)
+            return (nil, "Database error: \(err)")
         }
         if let r = researchPct { sqlite3_bind_double(stmt, 1, r) } else { sqlite3_bind_null(stmt, 1) }
         if let u = userPct { sqlite3_bind_double(stmt, 2, u) } else { sqlite3_bind_null(stmt, 2) }
@@ -176,26 +212,46 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 4, Int32(themeId))
         sqlite3_bind_int(stmt, 5, Int32(instrumentId))
         guard sqlite3_step(stmt) == SQLITE_DONE else {
-            LoggingService.shared.log("updateThemeAsset failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            let err = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err)", type: .error, logger: .database)
             sqlite3_finalize(stmt)
-            return nil
+            return (nil, "Database error: \(err)")
         }
         sqlite3_finalize(stmt)
-        return getThemeAsset(themeId: themeId, instrumentId: instrumentId)
+        return (getThemeAsset(themeId: themeId, instrumentId: instrumentId), nil)
     }
 
-    func removeThemeAsset(themeId: Int, instrumentId: Int) -> Bool {
+    func updateThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> PortfolioThemeAsset? {
+        return updateThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId, researchPct: researchPct, userPct: userPct, notes: notes).0
+    }
+
+    func removeThemeAssetDetailed(themeId: Int, instrumentId: Int) -> (Bool, String?) {
         guard themeEditable(themeId: themeId) else {
-            LoggingService.shared.log("Theme \(themeId) not editable", type: .info, logger: .database)
-            return false
+            let msg = "no changes possible, restore theme first"
+            LoggingService.shared.log("removeThemeAsset denied themeId=\(themeId) instrumentId=\(instrumentId): \(msg)", type: .info, logger: .database)
+            return (false, msg)
         }
         let sql = "DELETE FROM PortfolioThemeAsset WHERE theme_id = ? AND instrument_id = ?"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let err = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("prepare removeThemeAsset failed: \(err)", type: .error, logger: .database)
+            return (false, "Database error: \(err)")
+        }
         sqlite3_bind_int(stmt, 1, Int32(themeId))
         sqlite3_bind_int(stmt, 2, Int32(instrumentId))
         let ok = sqlite3_step(stmt) == SQLITE_DONE
+        if !ok {
+            let err = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("removeThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err)", type: .error, logger: .database)
+            sqlite3_finalize(stmt)
+            return (false, "Database error: \(err)")
+        }
         sqlite3_finalize(stmt)
-        return ok
+        return (true, nil)
+    }
+
+    func removeThemeAsset(themeId: Int, instrumentId: Int) -> Bool {
+        return removeThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId).0
     }
 }

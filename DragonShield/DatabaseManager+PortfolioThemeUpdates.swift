@@ -46,6 +46,22 @@ extension DatabaseManager {
         }
     }
 
+    // Local guard: prevent changes when the theme is archived or soft-deleted
+    private func themeEditableForUpdates(themeId: Int) -> Bool {
+        var stmt: OpaquePointer?
+        var editable = false
+        if sqlite3_prepare_v2(db, "SELECT archived_at, COALESCE(soft_delete, 0) FROM PortfolioTheme WHERE id = ?", -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(themeId))
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                let archived = sqlite3_column_text(stmt, 0) != nil
+                let soft = sqlite3_column_int(stmt, 1) == 1
+                editable = !(archived || soft)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return editable
+    }
+
     func listThemeUpdates(themeId: Int, view: ThemeUpdateView = .active, typeId: Int? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
         var items: [PortfolioThemeUpdate] = []
         var clauses: [String] = ["u.theme_id = ?", "u.soft_delete = \(view == .active ? 0 : 1)"]
@@ -108,6 +124,10 @@ extension DatabaseManager {
     }
 
     func createThemeUpdate(themeId: Int, title: String, bodyMarkdown: String, newsTypeCode: String, pinned: Bool, author: String, positionsAsOf: String?, totalValueChf: Double?, source: String? = nil) -> PortfolioThemeUpdate? {
+        guard themeEditableForUpdates(themeId: themeId) else {
+            LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
+            return nil
+        }
         guard PortfolioThemeUpdate.isValidTitle(title), PortfolioThemeUpdate.isValidBody(bodyMarkdown) else {
             LoggingService.shared.log("Invalid title/body for theme update", type: .info, logger: .database)
             return nil
@@ -195,6 +215,18 @@ extension DatabaseManager {
     }
 
     func updateThemeUpdate(id: Int, title: String?, bodyMarkdown: String?, newsTypeCode: String?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeUpdate? {
+        // Guard: block changes when parent theme is locked
+        var themeId: Int = 0
+        var guardStmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "SELECT theme_id FROM PortfolioThemeUpdate WHERE id = ?", -1, &guardStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(guardStmt, 1, Int32(id))
+            if sqlite3_step(guardStmt) == SQLITE_ROW { themeId = Int(sqlite3_column_int(guardStmt, 0)) }
+        }
+        sqlite3_finalize(guardStmt)
+        if themeId > 0 && !themeEditableForUpdates(themeId: themeId) {
+            LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
+            return nil
+        }
         var sets: [String] = []
         var bind: [Any] = []
         if let title = title { sets.append("title = ?"); bind.append(title) }

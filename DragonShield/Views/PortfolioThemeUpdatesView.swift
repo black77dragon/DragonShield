@@ -225,7 +225,7 @@ struct PortfolioThemeUpdatesView: View {
         extras = map
         if let theme = dbManager.getPortfolioTheme(id: themeId) {
             themeName = theme.name
-            isArchived = theme.archivedAt != nil
+            isArchived = (theme.archivedAt != nil) || theme.softDelete
         }
     }
 
