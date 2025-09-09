@@ -47,6 +47,18 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ### Security
 
+## [4.7.0] - 2025-09-09
+
+### Changed
+- Portfolio Theme handling tightened: edits are blocked when a theme is archived or soft-deleted (database guards across theme meta, holdings, and updates) (#1048)
+- Standardized error messaging when attempting edits on locked themes: "no changes possible, restore theme first" (#1048)
+- Theme Workspace → Settings: improved readability with white backgrounds for editable text fields and dropdowns; Name input right-aligned and bold; header canvas right-aligned for clearer emphasis (#1048)
+- Theme Workspace → Danger Zone: restructured into separate lines with toggles for "Soft Deleted" and "Archived Theme", plus a standalone "Full Restore" button (#1048)
+- Theme Updates UI: disallow creating/ editing updates when the parent theme is soft-deleted (previously only archived was blocked) (#1048)
+
+### Removed
+- Portfolio Themes list: removed "New Update" and "Edit Theme" actions to simplify the flow; create updates from within the Theme Workspace instead (#1048)
+
 ## [4.6.0] - 2025-06-15
 
 ### Added
