@@ -129,9 +129,10 @@ struct PortfolioThemeWorkspaceView: View {
     // MARK: - Header
     private var header: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 4) {
                 Text(name.isEmpty ? "—" : name)
                     .font(.title2).bold()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 HStack(spacing: 12) {
                     Tag(text: code)
                     if let s = statuses.first(where: { $0.id == statusId }) {
@@ -145,6 +146,7 @@ struct PortfolioThemeWorkspaceView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
             Spacer()
             HStack(spacing: 16) {
                 // Quick stats in header (large, total bold)
@@ -261,7 +263,7 @@ struct PortfolioThemeWorkspaceView: View {
                 }
                 Button(action: { showAddInstrument = true }) { Label("Add Instrument", systemImage: "plus") }
             }
-            HoldingsTable(themeId: themeId, isArchived: theme?.archivedAt != nil, search: $holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
+            HoldingsTable(themeId: themeId, isArchived: (theme?.archivedAt != nil) || (theme?.softDelete ?? false), search: $holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
                 .environmentObject(dbManager)
         }
         .padding(20)
@@ -520,17 +522,27 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     private var settingsTab: some View {
-        Form {
+        let labelWidth: CGFloat = 120
+        return Form {
             Section(header: Text("Theme")) {
-                let labelWidth: CGFloat = 120
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Name").frame(width: labelWidth, alignment: .leading)
-                    TextField("", text: $name).frame(width: 320)
+                    TextField("", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 320)
+                        .padding(.vertical, 2)
+                        .background(Color.white)
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
                     Spacer()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Code").frame(width: labelWidth, alignment: .leading)
-                    Text(code).foregroundColor(.secondary)
+                    Text(code)
+                        .foregroundColor(.secondary)
+                        .frame(width: 320, alignment: .trailing)
                     Spacer()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -538,7 +550,17 @@ struct PortfolioThemeWorkspaceView: View {
                     Picker("", selection: $statusId) {
                         ForEach(statuses) { s in Text(s.name).tag(s.id) }
                     }
-                    .labelsHidden().frame(width: 240)
+                    .labelsHidden()
+                    .frame(width: 240)
+                    .padding(.vertical, 2)
+                    .background(Color.white)
+                    .cornerRadius(6)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
+                    if let t = theme, (t.archivedAt != nil || t.softDelete) {
+                        Text("Theme content cannot be changed (%, delete instruments etc). Restore first")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
                     Spacer()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -547,36 +569,69 @@ struct PortfolioThemeWorkspaceView: View {
                         Text("None").tag(nil as Int?)
                         ForEach(institutions) { inst in Text(inst.name).tag(inst.id as Int?) }
                     }
-                    .labelsHidden().frame(width: 240)
+                    .labelsHidden()
+                    .frame(width: 240)
+                    .padding(.vertical, 2)
+                    .background(Color.white)
+                    .cornerRadius(6)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
                     Spacer()
                 }
                 HStack(alignment: .top, spacing: 12) {
                     Text("Description").frame(width: labelWidth, alignment: .leading)
                     TextEditor(text: $descriptionText)
                         .frame(minHeight: 100)
+                        .background(Color.white)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
                 }
                 HStack {
                     Spacer()
-                    Button("Save Changes") { saveTheme() }.keyboardShortcut(.defaultAction)
+                    Button("Save Changes") { saveTheme() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled((theme?.archivedAt != nil) || (theme?.softDelete ?? false))
+                        .help(((theme?.archivedAt != nil) || (theme?.softDelete ?? false)) ? "no changes possible, restore theme first" : "")
                 }
             }
             Section(header: Text("Danger Zone")) {
-                if let t = theme, t.archivedAt == nil {
-                    HStack {
-                        Text("Archive theme to prevent edits.")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button("Archive Theme", role: .destructive) { confirmArchive = true }
+                // Soft Deleted toggle on its own line
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Soft Deleted").frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: Binding(
+                        get: { theme?.softDelete ?? false },
+                        set: { newVal in
+                            if dbManager.setThemeSoftDelete(id: themeId, softDelete: newVal) {
+                                theme = dbManager.getPortfolioTheme(id: themeId)
+                            }
+                        })
+                    )
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    Spacer()
+                }
+                // Archived Theme toggle on its own line
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Archived Theme").frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: Binding(
+                        get: { theme?.archivedAt != nil },
+                        set: { newVal in
+                            if newVal { performArchive() } else { performUnarchive() }
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    Spacer()
+                }
+                // Full Restore button on its own line
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Full Restore").frame(width: labelWidth, alignment: .leading)
+                    Button("Full Restore") {
+                        if dbManager.fullRestoreTheme(id: themeId) {
+                            theme = dbManager.getPortfolioTheme(id: themeId)
+                            let draft = dbManager.fetchPortfolioThemeStatuses().first { $0.code.uppercased() == "DRAFT" }?.id
+                            statusId = draft ?? (dbManager.fetchPortfolioThemeStatuses().first { $0.isDefault }?.id ?? statusId)
+                        }
                     }
-                } else {
-                    HStack {
-                        Text("Unarchive to allow edits, or soft delete.")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button("Unarchive") { performUnarchive() }
-                        Button("Soft Delete", role: .destructive) { confirmSoftDelete = true }
-                    }
+                    Spacer()
                 }
             }
         }
@@ -1021,6 +1076,22 @@ private struct Tag: View {
         }
         .onAppear { restoreWidths(); load() }
         .onChange(of: reloadToken) { _, _ in load() }
+        .alert("Remove Instrument from Theme", isPresented: Binding(
+            get: { confirmRemoveId != nil },
+            set: { newVal in if !newVal { confirmRemoveId = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { confirmRemoveId = nil }
+            Button("Remove", role: .destructive) {
+                if let iid = confirmRemoveId { removeInstrument(iid) }
+                confirmRemoveId = nil
+            }
+        } message: {
+            if let iid = confirmRemoveId, let row = rows.first(where: { $0.instrumentId == iid }) {
+                Text("Are you sure you want to remove \(row.instrumentName) from this theme?")
+            } else {
+                Text("Are you sure you want to remove this instrument from this theme?")
+            }
+        }
         .sheet(item: $openUpdates) { t in
             InstrumentUpdatesView(
                 themeId: t.themeId,
@@ -1533,7 +1604,7 @@ private struct Tag: View {
         guard let e = edits[instrumentId] else { return }
         saving.insert(instrumentId)
         DispatchQueue.global(qos: .userInitiated).async {
-            let updated = dbManager.updateThemeAsset(
+            let result = dbManager.updateThemeAssetDetailed(
                 themeId: themeId,
                 instrumentId: instrumentId,
                 researchPct: e.research,
@@ -1543,12 +1614,13 @@ private struct Tag: View {
             )
             DispatchQueue.main.async {
                 saving.remove(instrumentId)
-                if updated != nil {
+                if result.0 != nil {
                     load() // refresh valuation/deltas after saving
                     showQuickToast("Saved")
                 } else {
-                    LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId)", logger: .ui)
-                    showQuickToast("Save failed")
+                    let msg = result.1 ?? "Save failed"
+                    LoggingService.shared.log("[UI] updateThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(msg)", logger: .ui)
+                    showQuickToast(msg)
                 }
             }
         }
@@ -1660,8 +1732,8 @@ private struct Tag: View {
 
     private func removeInstrument(_ instrumentId: Int) {
         guard !isArchived else { return }
-        if dbManager.removeThemeAsset(themeId: themeId, instrumentId: instrumentId) {
-            load()
-        }
+        let (ok, err) = dbManager.removeThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId)
+        if ok { load(); showQuickToast("Removed") }
+        else { showQuickToast(err ?? "Delete failed"); LoggingService.shared.log("[UI] removeThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err ?? "unknown")", logger: .ui) }
     }
 }

@@ -21,10 +21,12 @@ struct PortfolioThemesListView: View {
 
     // State for selection and sheets
     @State private var selectedThemeId: PortfolioTheme.ID?
-    @State private var themeToEdit: PortfolioTheme?
+    // Removed inline edit; editing now via workspace only
+    @State private var themeToEdit: PortfolioTheme? = nil
     @State private var showingAddSheet = false
     @State private var themeToOpen: PortfolioTheme?
-    @State private var newUpdateTheme: PortfolioTheme?
+    // Removed 'New Update' entry point from list view
+    @State private var newUpdateTheme: PortfolioTheme? = nil
     @State private var detailInitialTab: DetailTab = .composition
     @State private var detailOrigin: String = "themesList"
 
@@ -34,12 +36,25 @@ struct PortfolioThemesListView: View {
     @State private var showArchiveAlert = false
     @State private var alertMessage = ""
     @State private var showingResultAlert = false
+    @State private var showArchivedThemes: Bool = true
+    @State private var showSoftDeletedThemes: Bool = false
+    @State private var showHardDeleteConfirm: Bool = false
 
     private var canNewUpdate: Bool { selectedThemeId != nil }
 
     var body: some View {
         NavigationStack {
             VStack {
+                // Filters and actions toolbar
+                HStack(spacing: 16) {
+                    Toggle("Show archived", isOn: $showArchivedThemes)
+                        .onChange(of: showArchivedThemes) { _, _ in loadData() }
+                    Toggle("Show soft-deleted", isOn: $showSoftDeletedThemes)
+                        .onChange(of: showSoftDeletedThemes) { _, _ in loadData() }
+                    Spacer()
+                }
+                .padding(.horizontal)
+
                 themesTable // The Table view, now correctly defined
 
                 // Invisible button to handle Return key opening the selected theme
@@ -50,37 +65,14 @@ struct PortfolioThemesListView: View {
                 .hidden()
                 .disabled(selectedThemeId == nil)
 
-                Button(action: { openNewUpdate(source: "shortcut") }) {
-                    EmptyView()
-                }
-                .keyboardShortcut("u", modifiers: .command)
-                .hidden()
-                .disabled(!canNewUpdate)
-
                 HStack {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
-                    Button(action: { openNewUpdate(source: "toolbar") }) {
-                        Label("New Update", systemImage: "square.and.pencil")
-                    }
-                    .disabled(!canNewUpdate)
+                // Edit Theme and New Update buttons removed per simplified workflow
 
-                Button(action: {
-                    if let selectedId = selectedThemeId {
-                        themeToEdit = themes.first { $0.id == selectedId }
-                    }
-                }) {
-                    Label("Edit Theme", systemImage: "pencil")
-                }
-                .disabled(selectedThemeId == nil)
-
-                Button(action: {
-                    if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
-                        handleDelete(theme)
-                    }
-                }) {
-                    Label("Delete Theme", systemImage: "trash")
+                Button(action: { prepareHardDelete() }) {
+                    Label("Delete Permanently", systemImage: "trash.slash")
                 }
                 .disabled(selectedThemeId == nil)
                 }
@@ -93,27 +85,18 @@ struct PortfolioThemesListView: View {
             AddPortfolioThemeView(isPresented: $showingAddSheet, onSave: {})
                 .environmentObject(dbManager)
         }
-        .sheet(item: $themeToEdit, onDismiss: loadData) { theme in
-            EditPortfolioThemeView(theme: theme, onSave: {})
-                .environmentObject(dbManager)
-        }
-        .sheet(item: $newUpdateTheme) { theme in
-            ThemeUpdateEditorView(themeId: theme.id, themeName: theme.name, onSave: { update in
-                LoggingService.shared.log("new_update_saved themeId=\(theme.id) updateId=\(update.id) source=fast_path", logger: .ui)
-                newUpdateTheme = nil
-                detailInitialTab = .updates
-                detailOrigin = "post_create"
-                selectedThemeId = theme.id
-                open(theme, source: "post_create", tab: .updates)
-            }, onCancel: {
-                LoggingService.shared.log("new_update_canceled themeId=\(theme.id) source=fast_path", logger: .ui)
-                newUpdateTheme = nil
-            })
-            .environmentObject(dbManager)
-        }
+        // Removed inline edit/new-update sheets
         .sheet(item: $themeToOpen, onDismiss: loadData) { theme in
             PortfolioThemeWorkspaceView(themeId: theme.id, origin: detailOrigin)
                 .environmentObject(dbManager)
+        }
+        .alert("Confirm Permanent Deletion", isPresented: $showHardDeleteConfirm) {
+            Button("Cancel (Stay on the Light Side)", role: .cancel) { }
+            Button("Delete Permanently (Do it)", role: .destructive) {
+                hardDeleteSelected()
+            }
+        } message: {
+            Text("This action executes Order 66 on this theme. It will be fully purged from the Jedi Archives. Prefer a safer path? Try Archive (carbonite) or Soft Delete (vanish into the Force). Proceed?")
         }
         .alert("Delete Theme", isPresented: $showArchiveAlert) {
             Button("Archive and Delete") { archiveAndDelete() }
@@ -212,15 +195,13 @@ struct PortfolioThemesListView: View {
     .onTapGesture(count: 2) { openSelected() }
     .contextMenu(forSelectionType: PortfolioTheme.ID.self) { _ in
         Button("Open Theme Details") { openSelected() }.disabled(selectedThemeId == nil)
-        Button("New Update…") { openNewUpdate(source: "context_menu") }
-            .keyboardShortcut("u")
-            .disabled(!canNewUpdate)
+        // 'New Update…' removed from list context menu
     }
 }
     
     func loadData() {
         self.statuses = dbManager.fetchPortfolioThemeStatuses()
-        self.themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: nil)
+        self.themes = dbManager.fetchPortfolioThemes(includeArchived: showArchivedThemes, includeSoftDeleted: showSoftDeletedThemes, search: nil)
         // Ensure data is sorted when first loaded
         self.themes.sort(using: self.sortOrder)
         loadValuations()
@@ -348,6 +329,36 @@ struct PortfolioThemesListView: View {
         }
     }
 
+    private func hardDeleteSelected() {
+        guard let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) else { return }
+        let check = dbManager.canHardDeletePortfolioTheme(id: theme.id)
+        if !check.ok {
+            alertMessage = "❌ The Force resists. Cannot permanently delete: \(check.reason)\nHint: Archive (freeze in carbonite) or Soft Delete (fade into the Force) first."
+            showingResultAlert = true
+            return
+        }
+        if dbManager.hardDeletePortfolioTheme(id: theme.id) {
+            alertMessage = "✅ It is done. The theme has become one with the Force."
+            showingResultAlert = true
+            selectedThemeId = nil
+            loadData()
+        } else {
+            alertMessage = "❌ A disturbance in the Force. Failed to permanently delete theme."
+            showingResultAlert = true
+        }
+    }
+
+    private func prepareHardDelete() {
+        guard let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) else { NSSound.beep(); return }
+        let check = dbManager.canHardDeletePortfolioTheme(id: theme.id)
+        if !check.ok {
+            alertMessage = "❌ The Force resists. Cannot permanently delete: \(check.reason)\nHint: Archive (freeze in carbonite) or Soft Delete (fade into the Force) first."
+            showingResultAlert = true
+            return
+        }
+        showHardDeleteConfirm = true
+    }
+
     private func openSelected() {
         if let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) {
             open(theme)
@@ -368,12 +379,5 @@ struct PortfolioThemesListView: View {
         themeToOpen = theme
     }
 
-    private func openNewUpdate(source: String) {
-        guard canNewUpdate, let selectedId = selectedThemeId, let theme = themes.first(where: { $0.id == selectedId }) else {
-            NSSound.beep()
-            return
-        }
-        LoggingService.shared.log("new_update_invoke themeId=\(theme.id) source=\(source)", logger: .ui)
-        newUpdateTheme = theme
-    }
+    // New Update creation is now handled within the Theme Workspace → Updates tab
 }

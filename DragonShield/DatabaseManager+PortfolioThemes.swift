@@ -61,6 +61,27 @@ extension DatabaseManager {
             LoggingService.shared.log("ensurePortfolioThemeTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
     }
+
+    /// Normalize legacy archived_at values: some older DBs stored empty string instead of NULL.
+    /// This migration is safe and idempotent.
+    func normalizeThemeArchivedMarkers() {
+        var hasArchived = false
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "PRAGMA table_info(PortfolioTheme);", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let nameC = sqlite3_column_text(stmt, 1) {
+                    let name = String(cString: nameC)
+                    if name.caseInsensitiveCompare("archived_at") == .orderedSame { hasArchived = true; break }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        guard hasArchived else { return }
+        let sql = "UPDATE PortfolioTheme SET archived_at = NULL WHERE archived_at IS NOT NULL AND LENGTH(TRIM(archived_at)) = 0;"
+        if sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK {
+            LoggingService.shared.log("Normalized empty archived_at markers to NULL", logger: .database)
+        }
+    }
     private func singleIntQuery(_ sql: String, bind: ((OpaquePointer) -> Void)? = nil) -> Int? {
         var stmt: OpaquePointer?
         var result: Int?
@@ -83,6 +104,58 @@ extension DatabaseManager {
             let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
             sqlite3_bind_text(stmt, 1, PortfolioThemeStatus.archivedCode, -1, SQLITE_TRANSIENT)
         }
+    }
+
+    // Lookup status id by code (e.g., "DRAFT")
+    private func statusId(code: String) -> Int? {
+        singleIntQuery("SELECT id FROM PortfolioThemeStatus WHERE code = ? LIMIT 1") { stmt in
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(stmt, 1, code, -1, SQLITE_TRANSIENT)
+        }
+    }
+
+    /// Set or clear soft delete flag on a theme.
+    func setThemeSoftDelete(id: Int, softDelete: Bool) -> Bool {
+        guard tableHasColumn(table: "PortfolioTheme", column: "soft_delete") else { return false }
+        let sql = "UPDATE PortfolioTheme SET soft_delete = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare setThemeSoftDelete failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, softDelete ? 1 : 0)
+        sqlite3_bind_int(stmt, 2, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE { LoggingService.shared.log("setThemeSoftDelete id=\(id) -> \(softDelete)", logger: .database); return true }
+        LoggingService.shared.log("setThemeSoftDelete failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
+    }
+
+    /// Full restore: clears soft delete, unarchives, and sets status to DRAFT (fallback to default if missing).
+    func fullRestoreTheme(id: Int) -> Bool {
+        let draft = statusId(code: "DRAFT")
+        let targetStatus = draft ?? defaultThemeStatusId()
+        guard let statusId = targetStatus else {
+            LoggingService.shared.log("fullRestoreTheme failed: no DRAFT or default status found", type: .error, logger: .database)
+            return false
+        }
+        let hasSoft = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
+        let sql = hasSoft
+            ? "UPDATE PortfolioTheme SET status_id = ?, archived_at = NULL, soft_delete = 0, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+            : "UPDATE PortfolioTheme SET status_id = ?, archived_at = NULL, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare fullRestoreTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, Int32(statusId))
+        sqlite3_bind_int(stmt, 2, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE { LoggingService.shared.log("Full restored theme id=\(id) -> status=\(statusId)", logger: .database); return true }
+        LoggingService.shared.log("fullRestoreTheme failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
     }
 
     private func tableHasColumn(table: String, column: String) -> Bool {
@@ -160,7 +233,8 @@ extension DatabaseManager {
                 let statusId = Int(sqlite3_column_int(stmt, 5))
                 let createdAt = String(cString: sqlite3_column_text(stmt, 6))
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
-                let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let archivedRaw = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let archivedAt = (archivedRaw?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : archivedRaw
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
                 var idx = 10
                 let budget: Double?
@@ -258,7 +332,8 @@ extension DatabaseManager {
                 let statusId = Int(sqlite3_column_int(stmt, 5))
                 let createdAt = String(cString: sqlite3_column_text(stmt, 6))
                 let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
-                let archivedAt = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let archivedRaw = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
+                let archivedAt = (archivedRaw?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : archivedRaw
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
                 var idx = 10
                 let budget: Double?
@@ -277,6 +352,22 @@ extension DatabaseManager {
     }
 
     func updatePortfolioTheme(id: Int, name: String, description: String?, institutionId: Int?, statusId: Int, archivedAt: String?) -> Bool {
+        // Disallow any changes when theme is archived or soft-deleted
+        var guardStmt: OpaquePointer?
+        var locked = false
+        if sqlite3_prepare_v2(db, "SELECT archived_at, COALESCE(soft_delete, 0) FROM PortfolioTheme WHERE id = ?", -1, &guardStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(guardStmt, 1, Int32(id))
+            if sqlite3_step(guardStmt) == SQLITE_ROW {
+                let archived = sqlite3_column_text(guardStmt, 0) != nil
+                let soft = sqlite3_column_int(guardStmt, 1) == 1
+                locked = archived || soft
+            }
+        }
+        sqlite3_finalize(guardStmt)
+        if locked {
+            LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
+            return false
+        }
         let trimmedDesc = description?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let d = trimmedDesc, d.count > 2000 {
             LoggingService.shared.log("Description too long", type: .info, logger: .database)
@@ -362,13 +453,26 @@ extension DatabaseManager {
     }
 
     func unarchivePortfolioTheme(id: Int, statusId: Int) -> Bool {
+        // Validate status exists to avoid FK failures
+        var check: OpaquePointer?
+        var valid = false
+        if sqlite3_prepare_v2(db, "SELECT 1 FROM PortfolioThemeStatus WHERE id = ?", -1, &check, nil) == SQLITE_OK {
+            sqlite3_bind_int(check, 1, Int32(statusId))
+            valid = (sqlite3_step(check) == SQLITE_ROW)
+        }
+        sqlite3_finalize(check)
+        let finalStatusId: Int
+        if valid { finalStatusId = statusId }
+        else if let def = defaultThemeStatusId() { finalStatusId = def }
+        else { finalStatusId = statusId } // last resort
+
         let sql = "UPDATE PortfolioTheme SET status_id = ?, archived_at = NULL, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare unarchivePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
-        sqlite3_bind_int(stmt, 1, Int32(statusId))
+        sqlite3_bind_int(stmt, 1, Int32(finalStatusId))
         sqlite3_bind_int(stmt, 2, Int32(id))
         let rc = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -376,7 +480,8 @@ extension DatabaseManager {
             LoggingService.shared.log("Unarchived theme id=\(id)", type: .info, logger: .database)
             return true
         }
-        LoggingService.shared.log("unarchivePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        let err = String(cString: sqlite3_errmsg(db))
+        LoggingService.shared.log("unarchivePortfolioTheme failed id=\(id) statusId=\(finalStatusId): \(err)", type: .error, logger: .database)
         return false
     }
 
@@ -440,6 +545,50 @@ extension DatabaseManager {
             return true
         }
         LoggingService.shared.log("softDeletePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
+    }
+
+    // MARK: - Hard delete (only if no attachments)
+    func canHardDeletePortfolioTheme(id: Int) -> (ok: Bool, reason: String) {
+        // Count direct links to provide actionable guidance
+        let assetLinks = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
+        let themeUpdates = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeUpdate WHERE theme_id = ? AND soft_delete = 0") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
+        var instrumentUpdates = 0
+        if tableExists("PortfolioThemeAssetUpdate") {
+            instrumentUpdates = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAssetUpdate WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
+        }
+        if assetLinks > 0 || themeUpdates > 0 || instrumentUpdates > 0 {
+            // Build a precise message with only non-zero categories
+            var parts: [String] = []
+            if assetLinks > 0 { parts.append("instruments=\(assetLinks)") }
+            if themeUpdates > 0 { parts.append("notes/updates=\(themeUpdates)") }
+            if instrumentUpdates > 0 { parts.append("instrument-updates=\(instrumentUpdates)") }
+            let details = parts.joined(separator: ", ")
+            let msg = "Linked data prevents deletion: \(details). Remove these links (or archive/soft delete) and try again."
+            return (false, msg)
+        }
+        return (true, "OK")
+    }
+
+    func hardDeletePortfolioTheme(id: Int) -> Bool {
+        let chk = canHardDeletePortfolioTheme(id: id)
+        guard chk.ok else {
+            LoggingService.shared.log("hardDeletePortfolioTheme denied id=\(id): \(chk.reason)", type: .info, logger: .database)
+            return false
+        }
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "DELETE FROM PortfolioTheme WHERE id = ?", -1, &stmt, nil) != SQLITE_OK {
+            LoggingService.shared.log("prepare hardDeletePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE {
+            LoggingService.shared.log("Hard deleted theme id=\(id)", type: .info, logger: .database)
+            return true
+        }
+        LoggingService.shared.log("hardDeletePortfolioTheme step failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         return false
     }
 
