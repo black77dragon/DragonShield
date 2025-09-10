@@ -21,7 +21,8 @@ struct InstrumentPricesMaintenanceView: View {
     @State private var providerCode: [Int: String] = [:]
     @State private var externalId: [Int: String] = [:]
     @State private var lastStatus: [Int: String] = [:]
-    private let providerOptions: [String] = ["coingecko", "finnhub", "yahoo", "alphavantage", "mock"]
+    // Only include providers that are registered in PriceProviderRegistry
+    private let providerOptions: [String] = ["coingecko", "finnhub", "yahoo", "mock"]
     @State private var loading = false
     // Debounce for live search typing
     @State private var searchDebounce: DispatchWorkItem? = nil
@@ -587,11 +588,16 @@ struct InstrumentPricesMaintenanceView: View {
 
     private func persistSourceIfComplete(_ r: DatabaseManager.InstrumentLatestPriceRow) {
         let enabled = autoEnabled[r.id] ?? false
-        let prov = providerCode[r.id] ?? ""
-        let ext = externalId[r.id] ?? ""
-        // Only persist when we have provider and external id (or when disabling)
-        if (!prov.isEmpty && !ext.isEmpty) || !enabled {
-            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: enabled, priority: 1)
+        let prov = (providerCode[r.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let ext = (externalId[r.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // Persist when disabling OR when a provider is chosen (even if external ID is not yet set).
+        // This allows the UI to remember provider/auto selections before the external ID is entered.
+        if !enabled {
+            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: false, priority: 1)
+            return
+        }
+        if !prov.isEmpty {
+            _ = dbManager.upsertPriceSource(instrumentId: r.id, providerCode: prov, externalId: ext, enabled: true, priority: 1)
         }
     }
 
