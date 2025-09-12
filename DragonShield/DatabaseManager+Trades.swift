@@ -523,4 +523,55 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return rows
     }
+
+    // MARK: - Derived balances for preview/holdings
+    /// Sum of cash leg deltas for a bank account up to (and including) a date.
+    func currentCashBalance(accountId: Int, upTo date: Date) -> Double {
+        guard let db else { return 0 }
+        let sql = """
+            SELECT COALESCE(SUM(l.delta_quantity), 0)
+              FROM TradeLeg l
+              JOIN Trade t ON t.trade_id = l.trade_id
+             WHERE l.leg_type = 'CASH'
+               AND l.account_id = ?
+               AND t.trade_date <= ?
+        """
+        var stmt: OpaquePointer?
+        var total: Double = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            sqlite3_bind_text(stmt, 2, DateFormatter.iso8601DateOnly.string(from: date), -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                total = sqlite3_column_double(stmt, 0)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return round4(total)
+    }
+
+    /// Sum of instrument leg deltas for a custody account/instrument up to (and including) a date.
+    func currentInstrumentHolding(accountId: Int, instrumentId: Int, upTo date: Date) -> Double {
+        guard let db else { return 0 }
+        let sql = """
+            SELECT COALESCE(SUM(l.delta_quantity), 0)
+              FROM TradeLeg l
+              JOIN Trade t ON t.trade_id = l.trade_id
+             WHERE l.leg_type = 'INSTRUMENT'
+               AND l.account_id = ?
+               AND l.instrument_id = ?
+               AND t.trade_date <= ?
+        """
+        var stmt: OpaquePointer?
+        var total: Double = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            sqlite3_bind_int(stmt, 2, Int32(instrumentId))
+            sqlite3_bind_text(stmt, 3, DateFormatter.iso8601DateOnly.string(from: date), -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                total = sqlite3_column_double(stmt, 0)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return round4(total)
+    }
 }

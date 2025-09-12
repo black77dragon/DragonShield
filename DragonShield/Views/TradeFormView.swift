@@ -64,6 +64,24 @@ struct TradeFormView: View {
         return (round(cash * 10000)/10000, round(instr * 10000)/10000)
     }
 
+    // Current holdings based on selected accounts/instrument and date
+    private var currentCash: Double? {
+        guard let acc = cashAccountId else { return nil }
+        return dbManager.currentCashBalance(accountId: acc, upTo: date)
+    }
+    private var currentHolding: Double? {
+        guard let acc = custodyAccountId, let iid = instrumentId else { return nil }
+        return dbManager.currentInstrumentHolding(accountId: acc, instrumentId: iid, upTo: date)
+    }
+    private var updatedCash: Double? {
+        guard let cur = currentCash, let pv = preview else { return nil }
+        return (cur + pv.cashDelta).rounded(toPlaces: 4)
+    }
+    private var updatedHolding: Double? {
+        guard let cur = currentHolding, let pv = preview else { return nil }
+        return (cur + pv.instrDelta).rounded(toPlaces: 4)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(editTradeId == nil ? "New Trade" : "Edit Trade").font(.title2).bold()
@@ -103,6 +121,18 @@ struct TradeFormView: View {
                         HStack { Text("Instrument Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f", pv.instrDelta)) }
                     } else {
                         Text("Enter instrument, qty and price to preview.").foregroundColor(.secondary)
+                    }
+                }
+                Section("Holdings (as of date)") {
+                    if let curC = currentCash, let upC = updatedCash, let code = (cashCurrency ?? currency) {
+                        HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@ → %.4f %@", curC, code, upC, code)) }
+                    } else {
+                        HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text("Select cash account and fill preview inputs").foregroundColor(.secondary) }
+                    }
+                    if let curH = currentHolding, let upH = updatedHolding {
+                        HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f → %.4f", curH, upH)) }
+                    } else {
+                        HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text("Select custody account and instrument").foregroundColor(.secondary) }
                     }
                 }
                 Section("Notes") {
