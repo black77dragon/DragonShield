@@ -163,6 +163,27 @@ extension DatabaseManager {
         return sqlite3_step(stmt) == SQLITE_DONE
     }
 
+    private func ensureCoreTransactionTypes() {
+        // Ensure required core types exist (idempotent)
+        func ensure(_ code: String, _ name: String, _ desc: String, _ affectsPosition: Bool, _ affectsCash: Bool, _ isIncome: Bool, _ sort: Int) {
+            if findTransactionTypeId(code: code) == nil {
+                _ = updateTransactionType // no-op to silence unused warning if signature changes
+                // Use TransactionTypes helper via extension defined elsewhere
+                _ = self.addTransactionType(code: code, name: name, description: desc, affectsPosition: affectsPosition, affectsCash: affectsCash, isIncome: isIncome, sortOrder: sort)
+            }
+        }
+        ensure("BUY", "Purchase", "Buy securities or assets", true, true, false, 1)
+        ensure("SELL", "Sale", "Sell securities or assets", true, true, false, 2)
+        ensure("DIVIDEND", "Dividend", "Dividend payment received", false, true, true, 3)
+        ensure("INTEREST", "Interest", "Interest payment received", false, true, true, 4)
+        ensure("FEE", "Fee", "Transaction or management fee", false, true, false, 5)
+        ensure("TAX", "Tax", "Withholding or other taxes", false, true, false, 6)
+        ensure("DEPOSIT", "Cash Deposit", "Cash deposit to account", false, true, false, 7)
+        ensure("WITHDRAWAL", "Cash Withdrawal", "Cash withdrawal from account", false, true, false, 8)
+        ensure("TRANSFER_IN", "Transfer In", "Securities transferred into account", true, false, false, 9)
+        ensure("TRANSFER_OUT", "Transfer Out", "Securities transferred out of account", true, false, false, 10)
+    }
+
     /// Create a paired BUY/SELL trade: (position leg + cash leg) atomically.
     /// Enforces currency match and non-negative holdings.
     func createPairedTrade(
@@ -193,11 +214,16 @@ extension DatabaseManager {
                 return false
             }
         }
+        // Be defensive: core types might be missing in some DBs; seed if needed
+        ensureCoreTransactionTypes()
         let orderRef = UUID().uuidString
         let gross = quantity * price
         let f = fee ?? 0
         let tx = tax ?? 0
-        let posTypeId = findTransactionTypeId(code: typeCode)!
+        guard let posTypeId = findTransactionTypeId(code: typeCode) else {
+            print("❌ Missing transaction type id for \(typeCode)")
+            return false
+        }
         let cashTypeCode = (typeCode.uppercased() == "BUY") ? "WITHDRAWAL" : "DEPOSIT"
         guard let cashTypeId = findTransactionTypeId(code: cashTypeCode) else {
             print("❌ Missing cash type id for \(cashTypeCode)")
