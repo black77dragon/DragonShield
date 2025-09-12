@@ -35,7 +35,8 @@ extension DatabaseManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, code, -1, nil)
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        (code as NSString).utf8String.map { sqlite3_bind_text(stmt, 1, $0, -1, SQLITE_TRANSIENT) }
         if sqlite3_step(stmt) == SQLITE_ROW { return Int(sqlite3_column_int(stmt, 0)) }
         return nil
     }
@@ -319,7 +320,8 @@ extension DatabaseManager {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return 0 }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, orderReference, -1, nil)
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        (orderReference as NSString).utf8String.map { sqlite3_bind_text(stmt, 1, $0, -1, SQLITE_TRANSIENT) }
         let step = sqlite3_step(stmt)
         if step == SQLITE_DONE { return Int(sqlite3_changes(db)) }
         return 0
