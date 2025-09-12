@@ -382,7 +382,9 @@ extension DatabaseManager {
         var tax: Double?
         var description: String?
         var currency: String
-        var orderReference: String
+        var orderReference: String?
+        var posTransactionId: Int?
+        var cashTransactionId: Int?
     }
 
     func fetchPairedTradeDetails(transactionId: Int) -> PairedTradeDetails? {
@@ -423,17 +425,18 @@ extension DatabaseManager {
             guard sqlite3_prepare_v2(db, sql2, -1, &stmt2, nil) == SQLITE_OK else { return nil }
             defer { sqlite3_finalize(stmt2) }
             sqlite3_bind_text(stmt2, 1, ord, -1, nil)
-            var posLeg: (accountId: Int, instrumentId: Int, type: String, qty: Double, price: Double)?
-            var cashLegAccount: Int?
+            var posLeg: (txId: Int, accountId: Int, instrumentId: Int, type: String, qty: Double, price: Double)?
+            var cashLeg: (txId: Int, accountId: Int)?
             while sqlite3_step(stmt2) == SQLITE_ROW {
+                let txid = Int(sqlite3_column_int(stmt2, 0))
                 let accId = Int(sqlite3_column_int(stmt2, 1))
                 let instr: Int? = sqlite3_column_type(stmt2, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt2, 2)) : nil
                 let tcode = String(cString: sqlite3_column_text(stmt2, 3))
                 let q: Double = sqlite3_column_type(stmt2, 4) != SQLITE_NULL ? sqlite3_column_double(stmt2, 4) : 0
                 let p: Double = sqlite3_column_type(stmt2, 5) != SQLITE_NULL ? sqlite3_column_double(stmt2, 5) : 0
-                if let iid = instr { posLeg = (accId, iid, tcode, q, p) } else { cashLegAccount = accId }
+                if let iid = instr { posLeg = (txid, accId, iid, tcode, q, p) } else { cashLeg = (txid, accId) }
             }
-            guard let pos = posLeg, let cashAcc = cashLegAccount else { return nil }
+            guard let pos = posLeg, let cashAcc = cashLeg?.accountId else { return nil }
             let normalizedType = pos.type.uppercased() == "SELL" ? "SELL" : "BUY"
             return PairedTradeDetails(
                 typeCode: normalizedType,
@@ -447,7 +450,9 @@ extension DatabaseManager {
                 tax: thisTax,
                 description: thisDesc,
                 currency: thisCurrency,
-                orderReference: ord
+                orderReference: ord,
+                posTransactionId: pos.txId,
+                cashTransactionId: cashLeg?.txId
             )
         }
 
@@ -465,7 +470,7 @@ extension DatabaseManager {
              LIMIT 1;
         """
         let sqlOppPos = """
-            SELECT t.account_id, t.instrument_id, t.quantity, t.price
+            SELECT t.account_id, t.instrument_id, t.quantity, t.price, t.transaction_id
               FROM Transactions t
               JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
              WHERE t.transaction_id != ?
@@ -488,7 +493,7 @@ extension DatabaseManager {
                 sqlite3_finalize(stmt3)
                 if let cashAcc = cashAcc, let iid = thisInstrumentId {
                     let normalizedType = thisType.uppercased() == "SELL" ? "SELL" : "BUY"
-                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: thisAccountId, cashAccountId: cashAcc, date: thisDate, quantity: thisQty ?? 0, price: thisPrice ?? 0, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: "")
+                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: thisAccountId, cashAccountId: cashAcc, date: thisDate, quantity: thisQty ?? 0, price: thisPrice ?? 0, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: nil, posTransactionId: transactionId, cashTransactionId: nil)
                 }
             }
         } else {
@@ -503,16 +508,18 @@ extension DatabaseManager {
                 var iid: Int?
                 var q: Double = 0
                 var p: Double = 0
+                var posTxId: Int?
                 if sqlite3_step(stmt4) == SQLITE_ROW {
                     secAcc = Int(sqlite3_column_int(stmt4, 0))
                     iid = Int(sqlite3_column_int(stmt4, 1))
                     if sqlite3_column_type(stmt4, 2) != SQLITE_NULL { q = sqlite3_column_double(stmt4, 2) }
                     if sqlite3_column_type(stmt4, 3) != SQLITE_NULL { p = sqlite3_column_double(stmt4, 3) }
+                    posTxId = Int(sqlite3_column_int(stmt4, 4))
                 }
                 sqlite3_finalize(stmt4)
                 if let secAcc = secAcc, let iid = iid {
                     let normalizedType = thisType.uppercased() == "DEPOSIT" ? "SELL" : "BUY"
-                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: secAcc, cashAccountId: thisAccountId, date: thisDate, quantity: thisQty ?? q, price: thisPrice ?? p, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: "")
+                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: secAcc, cashAccountId: thisAccountId, date: thisDate, quantity: thisQty ?? q, price: thisPrice ?? p, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: nil, posTransactionId: posTxId, cashTransactionId: transactionId)
                 }
             }
         }

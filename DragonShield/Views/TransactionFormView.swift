@@ -17,6 +17,8 @@ struct TransactionFormView: View {
     @State private var selectedInstrumentId: Int? = nil
     @State private var selectedSecuritiesAccountId: Int? = nil
     @State private var selectedCashAccountId: Int? = nil
+    @State private var pairedPosTxId: Int? = nil
+    @State private var pairedCashTxId: Int? = nil
 
     @State private var quantity: String = ""
     @State private var price: String = ""
@@ -40,15 +42,26 @@ struct TransactionFormView: View {
 
     // Show all non-BANK accounts for securities (custody) account, no currency restriction
     private var securitiesAccountOptions: [DatabaseManager.AccountData] {
-        accounts.filter { !bankTypeIds.contains($0.accountTypeId) }
+        var base = accounts.filter { !bankTypeIds.contains($0.accountTypeId) }
             .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
+        if let sel = selectedSecuritiesAccountId, !base.contains(where: { $0.id == sel }), let acc = accounts.first(where: { $0.id == sel }) {
+            base.insert(acc, at: 0)
+        }
+        return base
     }
 
     // Show only BANK accounts whose currency matches instrument currency for cash account
     private var cashAccountOptions: [DatabaseManager.AccountData] {
-        guard let code = currency?.uppercased() else { return [] }
-        return accounts.filter { bankTypeIds.contains($0.accountTypeId) && $0.currencyCode.uppercased() == code }
+        guard let code = currency?.uppercased() else {
+            if let sel = selectedCashAccountId, let acc = accounts.first(where: { $0.id == sel }) { return [acc] }
+            return []
+        }
+        var base = accounts.filter { bankTypeIds.contains($0.accountTypeId) && $0.currencyCode.uppercased() == code }
             .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
+        if let sel = selectedCashAccountId, !base.contains(where: { $0.id == sel }), let acc = accounts.first(where: { $0.id == sel }) {
+            base.insert(acc, at: 0)
+        }
+        return base
     }
 
     private var securitiesCurrencyMismatchMessage: String? {
@@ -139,6 +152,10 @@ struct TransactionFormView: View {
                     }
                     TextField("Description (optional)", text: $descriptionText)
                 }
+                Section("Paired Legs (read-only)") {
+                    HStack { Text("Securities Tx").frame(width: 120, alignment: .trailing); Text(pairedPosTxId.map { "#\($0)" } ?? "—").foregroundColor(.secondary) }
+                    HStack { Text("Cash Tx").frame(width: 120, alignment: .trailing); Text(pairedCashTxId.map { "#\($0)" } ?? "—").foregroundColor(.secondary) }
+                }
             }
             }
             if let msg = errorMessage {
@@ -171,6 +188,8 @@ struct TransactionFormView: View {
             DispatchQueue.main.async {
                 selectedSecuritiesAccountId = details.securitiesAccountId
                 selectedCashAccountId = details.cashAccountId
+                pairedPosTxId = details.posTransactionId
+                pairedCashTxId = details.cashTransactionId
             }
             date = details.date
             quantity = String(details.quantity)
