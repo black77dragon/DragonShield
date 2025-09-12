@@ -73,7 +73,8 @@ struct TransactionFormView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New Transaction").font(.title2).bold()
+            Text(editTransactionId == nil ? "New Transaction" : "Edit Transaction").font(.title2).bold()
+            ScrollView { // allow overflow if needed
             Form {
                 Section("Basics") {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
@@ -122,8 +123,10 @@ struct TransactionFormView: View {
                     TextField("Description (optional)", text: $descriptionText)
                 }
             }
+            }
+            }
             if let msg = errorMessage {
-                Text(msg).foregroundColor(.red)
+                Text(msg).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 Spacer()
@@ -133,9 +136,9 @@ struct TransactionFormView: View {
                     .disabled(!canSave)
             }
         }
-        .padding(20)
-        .frame(minWidth: 560, minHeight: 520)
-        .onAppear { loadData(); populateIfEditing() }
+        .padding(24)
+        .frame(minWidth: 760, minHeight: 720)
+        .onAppear { errorMessage = nil; loadData(); populateIfEditing() }
     }
 
     private func loadData() {

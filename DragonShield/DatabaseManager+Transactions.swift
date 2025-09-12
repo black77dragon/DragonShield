@@ -31,7 +31,7 @@ extension DatabaseManager {
 
     // MARK: - Helpers
     private func findTransactionTypeId(code: String) -> Int? {
-        let sql = "SELECT transaction_type_id FROM TransactionTypes WHERE type_code = ? COLLATE NOCASE LIMIT 1;"
+        let sql = "SELECT transaction_type_id FROM TransactionTypes WHERE UPPER(TRIM(type_code)) = UPPER(TRIM(?)) LIMIT 1;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
@@ -104,7 +104,9 @@ extension DatabaseManager {
         notes: String? = nil
     ) -> Int? {
         guard let rate = latestFxRateToChf(code: transactionCurrency, on: transactionDate) ?? (transactionCurrency.uppercased() == "CHF" ? 1.0 : nil) else {
-            print("❌ No FX rate for \(transactionCurrency) on/before \(transactionDate)")
+            let msg = "No FX rate for \(transactionCurrency) on or before \(DateFormatter.iso8601DateOnly.string(from: transactionDate))."
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
             return nil
         }
         let amountChf = netAmount * rate
@@ -120,7 +122,9 @@ extension DatabaseManager {
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare addTransaction: \(String(cString: sqlite3_errmsg(db)))")
+            let msg = "Failed to prepare addTransaction: \(String(cString: sqlite3_errmsg(db)))"
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
             return nil
         }
         defer { sqlite3_finalize(stmt) }
@@ -148,7 +152,9 @@ extension DatabaseManager {
         if let desc = description { sqlite3_bind_text(stmt, 21, desc, -1, T) } else { sqlite3_bind_null(stmt, 21) }
         if let n = notes { sqlite3_bind_text(stmt, 22, n, -1, T) } else { sqlite3_bind_null(stmt, 22) }
         guard sqlite3_step(stmt) == SQLITE_DONE else {
-            print("❌ addTransaction step failed: \(String(cString: sqlite3_errmsg(db)))")
+            let msg = "addTransaction step failed: \(String(cString: sqlite3_errmsg(db)))"
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
             return nil
         }
         return Int(sqlite3_last_insert_rowid(db))
@@ -205,7 +211,14 @@ extension DatabaseManager {
         let secType = accountTypeCode(for: sec.accountTypeId)?.uppercased()
         let secCurrencyOk = (secType == "CUSTODY") || (sec.currencyCode.uppercased() == currency)
         let cashCurrencyOk = (cash.currencyCode.uppercased() == currency)
-        guard secCurrencyOk && cashCurrencyOk else { print("❌ Currency mismatch: cash must be \(currency); custody may ignore"); return false }
+        guard secCurrencyOk && cashCurrencyOk else {
+            let msg = !cashCurrencyOk
+                ? "Cash account currency must be \(currency)."
+                : "Securities account currency must be \(currency) unless account type is CUSTODY."
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
+            return false
+        }
         // Negative holdings guard for SELL
         if typeCode.uppercased() == "SELL" {
             let cur = currentQuantity(accountId: securitiesAccountId, instrumentId: instrumentId, upTo: date)
@@ -221,12 +234,16 @@ extension DatabaseManager {
         let f = fee ?? 0
         let tx = tax ?? 0
         guard let posTypeId = findTransactionTypeId(code: typeCode) else {
-            print("❌ Missing transaction type id for \(typeCode)")
+            let msg = "Missing Transaction Type with code \(typeCode). Add it in Configuration → Transaction Types."
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
             return false
         }
         let cashTypeCode = (typeCode.uppercased() == "BUY") ? "WITHDRAWAL" : "DEPOSIT"
         guard let cashTypeId = findTransactionTypeId(code: cashTypeCode) else {
-            print("❌ Missing cash type id for \(cashTypeCode)")
+            let msg = "Missing cash Transaction Type with code \(cashTypeCode). Add it in Configuration → Transaction Types."
+            print("❌ \(msg)")
+            self.lastTransactionErrorMessage = msg
             return false
         }
         // Net amounts from account perspective
@@ -277,6 +294,9 @@ extension DatabaseManager {
             return true
         } else {
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            if self.lastTransactionErrorMessage == nil {
+                self.lastTransactionErrorMessage = "Failed to save trade. See Console for details."
+            }
             return false
         }
     }
