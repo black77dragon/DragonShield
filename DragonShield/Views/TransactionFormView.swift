@@ -48,11 +48,22 @@ struct TransactionFormView: View {
             .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
     }
 
+    private var securitiesCurrencyMismatchMessage: String? {
+        guard let iid = selectedInstrumentId,
+              let ins = instruments.first(where: { $0.id == iid }),
+              let sa = selectedSecuritiesAccountId,
+              let sec = accounts.first(where: { $0.id == sa })
+        else { return nil }
+        let ic = ins.currency.uppercased()
+        let ac = sec.currencyCode.uppercased()
+        return ic == ac ? nil : "Securities account currency (\(ac)) must match instrument currency (\(ic))."
+    }
+
     private var canSave: Bool {
-        guard let iid = selectedInstrumentId, let sa = selectedSecuritiesAccountId, let ca = selectedCashAccountId else { return false }
+        guard selectedInstrumentId != nil, selectedSecuritiesAccountId != nil, selectedCashAccountId != nil else { return false }
         guard Double(quantity) != nil, Double(price) != nil else { return false }
-        // Currency match via filteredAccounts already
-        return iid > 0 && sa > 0 && ca > 0
+        // Enforce currency match for securities account at save time
+        return securitiesCurrencyMismatchMessage == nil
     }
 
     var body: some View {
@@ -79,6 +90,7 @@ struct TransactionFormView: View {
                             Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id))
                         }
                     }
+                    if let msg = securitiesCurrencyMismatchMessage { Text(msg).font(.caption).foregroundColor(.red) }
                     if let code = currency {
                         Picker("Cash Account (\(code))", selection: $selectedCashAccountId) {
                             Text("Select Account").tag(Optional<Int>(nil))
@@ -86,6 +98,7 @@ struct TransactionFormView: View {
                                 Text(a.accountName).tag(Optional(a.id))
                             }
                         }
+                        Text("Only BANK accounts in instrument currency are shown.").font(.caption).foregroundColor(.secondary)
                     }
                 }
                 Section("Amounts") {
