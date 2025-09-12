@@ -25,6 +25,7 @@ struct PositionsView: View {
   @State private var positionToEdit: PositionReportData? = nil
   @State private var positionToDelete: PositionReportData? = nil
   @State private var showDeleteSingleAlert = false
+  @State private var showDeleteSelectedAlert = false
   @State private var buttonsOpacity: Double = 0
 
   @State private var currencyFilters: Set<String> = []
@@ -182,11 +183,12 @@ struct PositionsView: View {
         if let p = positionToDelete {
           _ = dbManager.deletePositionReport(id: p.id)
           loadPositions()
+          positionToDelete = nil
         }
       }
     } message: {
       if let p = positionToDelete {
-        Text("Delete position #\(p.id)?")
+        Text("This will permanently delete '\(p.instrumentName)' from account '\(p.accountName)'. This action cannot be undone.")
       }
     }
     .sheet(isPresented: $showAddSheet) {
@@ -205,6 +207,19 @@ struct PositionsView: View {
     .toast(isPresented: $showDeleteSuccessToast, message: deleteSummaryMessage)
     .onChange(of: visibleColumns) {
       persistVisibleColumns()
+    }
+    .alert("Delete Selected Positions", isPresented: $showDeleteSelectedAlert) {
+      Button("Cancel", role: .cancel) {}
+      Button("Delete", role: .destructive) {
+        let ids = Array(selectedRows)
+        let deleted = dbManager.deletePositionReports(ids: ids)
+        deleteSummaryMessage = "Deleted \(deleted) positions"
+        showDeleteSuccessToast = true
+        selectedRows.removeAll()
+        loadPositions()
+      }
+    } message: {
+      Text("This will permanently delete \(selectedRows.count) selected position(s). This action cannot be undone.")
     }
   }
 
@@ -379,12 +394,12 @@ struct PositionsView: View {
         TableColumn("Actions") { (position: PositionReportData) in
           HStack(spacing: 8) {
             Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-              .buttonStyle(PlainButtonStyle())
+              .buttonStyle(.borderless)
             Button(action: {
               positionToDelete = position
               showDeleteSingleAlert = true
             }) { Image(systemName: "trash") }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.borderless)
           }
           .frame(maxWidth: .infinity)
         }
@@ -711,11 +726,22 @@ struct PositionsView: View {
         } label: {
           HStack(spacing: 6) {
             Image(systemName: "trash")
-            Text("Delete Positions")
+            Text("Delete by Filter…")
           }
         }
         .buttonStyle(DestructiveButtonStyle())
         .disabled(selectedInstitutionIds.isEmpty)
+
+        Button {
+          showDeleteSelectedAlert = true
+        } label: {
+          HStack(spacing: 6) {
+            Image(systemName: "trash.fill")
+            Text("Delete Selected (\(selectedRows.count))")
+          }
+        }
+        .buttonStyle(DestructiveButtonStyle())
+        .disabled(selectedRows.isEmpty)
 
         Spacer()
       }
@@ -732,11 +758,13 @@ struct PositionsView: View {
   }
 
   private func loadInstitutions() {
-    institutions = dbManager.fetchInstitutions()
+    // Include inactive institutions to allow deleting all relevant positions.
+    institutions = dbManager.fetchInstitutions(activeOnly: false)
   }
 
   private func loadAccountTypes() {
-    accountTypes = dbManager.fetchAccountTypes()
+    // Include inactive account types so counts/deletions include all.
+    accountTypes = dbManager.fetchAccountTypes(activeOnly: false)
   }
 
   private func animateEntrance() {
