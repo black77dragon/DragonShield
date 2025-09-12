@@ -44,6 +44,18 @@ extension DatabaseManager {
         return fetchExchangeRates(currencyCode: code, upTo: date).first?.rateToChf
     }
 
+    private func accountTypeCode(for id: Int) -> String? {
+        let sql = "SELECT type_code FROM AccountTypes WHERE account_type_id = ? LIMIT 1;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        if sqlite3_step(stmt) == SQLITE_ROW, let c = sqlite3_column_text(stmt, 0) {
+            return String(cString: c)
+        }
+        return nil
+    }
+
     /// Current quantity for given account+instrument up to and including date.
     private func currentQuantity(accountId: Int, instrumentId: Int, upTo date: Date) -> Double {
         let dateStr = DateFormatter.iso8601DateOnly.string(from: date)
@@ -168,10 +180,11 @@ extension DatabaseManager {
         guard let instrument = fetchInstrumentDetails(id: instrumentId) else { return false }
         guard let sec = fetchAccountDetails(id: securitiesAccountId), let cash = fetchAccountDetails(id: cashAccountId) else { return false }
         let currency = instrument.currency.uppercased()
-        guard sec.currencyCode.uppercased() == currency && cash.currencyCode.uppercased() == currency else {
-            print("❌ Currency mismatch: instrument/account/cash must be \(currency)")
-            return false
-        }
+        // Allow custody account as securities account to ignore currency, but enforce cash account currency match
+        let secType = accountTypeCode(for: sec.accountTypeId)?.uppercased()
+        let secCurrencyOk = (secType == "CUSTODY") || (sec.currencyCode.uppercased() == currency)
+        let cashCurrencyOk = (cash.currencyCode.uppercased() == currency)
+        guard secCurrencyOk && cashCurrencyOk else { print("❌ Currency mismatch: cash must be \(currency); custody may ignore"); return false }
         // Negative holdings guard for SELL
         if typeCode.uppercased() == "SELL" {
             let cur = currentQuantity(accountId: securitiesAccountId, instrumentId: instrumentId, upTo: date)

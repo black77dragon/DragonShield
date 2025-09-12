@@ -34,6 +34,9 @@ struct TransactionFormView: View {
     private var bankTypeIds: Set<Int> {
         Set(accountTypes.filter { $0.code.uppercased() == "BANK" }.map { $0.id })
     }
+    private var custodyTypeIds: Set<Int> {
+        Set(accountTypes.filter { $0.code.uppercased() == "CUSTODY" }.map { $0.id })
+    }
 
     // Show all non-BANK accounts for securities (custody) account, no currency restriction
     private var securitiesAccountOptions: [DatabaseManager.AccountData] {
@@ -56,6 +59,8 @@ struct TransactionFormView: View {
         else { return nil }
         let ic = ins.currency.uppercased()
         let ac = sec.currencyCode.uppercased()
+        // Allow custody accounts to hold any currency
+        if custodyTypeIds.contains(sec.accountTypeId) { return nil }
         return ic == ac ? nil : "Securities account currency (\(ac)) must match instrument currency (\(ic))."
     }
 
