@@ -12,6 +12,7 @@ struct TransactionFormView: View {
     @State private var type: String = "BUY" // BUY or SELL for Phase 1
     @State private var instruments: [DatabaseManager.InstrumentRow] = []
     @State private var accounts: [DatabaseManager.AccountData] = []
+    @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
 
     @State private var selectedInstrumentId: Int? = nil
     @State private var selectedSecuritiesAccountId: Int? = nil
@@ -30,9 +31,21 @@ struct TransactionFormView: View {
         return nil
     }
 
-    private var filteredAccounts: [DatabaseManager.AccountData] {
+    private var bankTypeIds: Set<Int> {
+        Set(accountTypes.filter { $0.code.uppercased() == "BANK" }.map { $0.id })
+    }
+
+    // Show all non-BANK accounts for securities (custody) account, no currency restriction
+    private var securitiesAccountOptions: [DatabaseManager.AccountData] {
+        accounts.filter { !bankTypeIds.contains($0.accountTypeId) }
+            .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
+    }
+
+    // Show only BANK accounts whose currency matches instrument currency for cash account
+    private var cashAccountOptions: [DatabaseManager.AccountData] {
         guard let code = currency?.uppercased() else { return [] }
-        return accounts.filter { $0.currencyCode.uppercased() == code }
+        return accounts.filter { bankTypeIds.contains($0.accountTypeId) && $0.currencyCode.uppercased() == code }
+            .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
     }
 
     private var canSave: Bool {
@@ -60,16 +73,16 @@ struct TransactionFormView: View {
                             Text("\(ins.name) [\(ins.currency)]").tag(Optional(ins.id))
                         }
                     }
-                    if let code = currency {
-                        Picker("Securities Account (\(code))", selection: $selectedSecuritiesAccountId) {
-                            Text("Select Account").tag(Optional<Int>(nil))
-                            ForEach(filteredAccounts, id: \.id) { a in
-                                Text(a.accountName).tag(Optional(a.id))
-                            }
+                    Picker("Securities Account", selection: $selectedSecuritiesAccountId) {
+                        Text("Select Account").tag(Optional<Int>(nil))
+                        ForEach(securitiesAccountOptions, id: \.id) { a in
+                            Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id))
                         }
+                    }
+                    if let code = currency {
                         Picker("Cash Account (\(code))", selection: $selectedCashAccountId) {
                             Text("Select Account").tag(Optional<Int>(nil))
-                            ForEach(filteredAccounts, id: \.id) { a in
+                            ForEach(cashAccountOptions, id: \.id) { a in
                                 Text(a.accountName).tag(Optional(a.id))
                             }
                         }
@@ -110,6 +123,7 @@ struct TransactionFormView: View {
     private func loadData() {
         instruments = dbManager.fetchAssets()
         accounts = dbManager.fetchAccounts()
+        accountTypes = dbManager.fetchAccountTypes(activeOnly: true)
     }
 
     private func populateIfEditing() {
