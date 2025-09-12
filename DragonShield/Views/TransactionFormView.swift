@@ -108,21 +108,34 @@ struct TransactionFormView: View {
                     }
                 }
                 Section("Amounts") {
-                    HStack {
-                        Text("Quantity"); Spacer(); TextField("", text: $quantity).multilineTextAlignment(.trailing).frame(width: 140)
-                    }
-                    HStack {
-                        Text("Price"); Spacer(); TextField("", text: $price).multilineTextAlignment(.trailing).frame(width: 140)
-                    }
-                    HStack {
-                        Text("Fee"); Spacer(); TextField("", text: $fee).multilineTextAlignment(.trailing).frame(width: 140)
-                    }
-                    HStack {
-                        Text("Tax"); Spacer(); TextField("", text: $tax).multilineTextAlignment(.trailing).frame(width: 140)
+                    Grid(horizontalSpacing: 12, verticalSpacing: 10) {
+                        GridRow {
+                            Text("Quantity").frame(width: 120, alignment: .trailing)
+                            TextField("", text: $quantity)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 140)
+                        }
+                        GridRow {
+                            Text("Price").frame(width: 120, alignment: .trailing)
+                            TextField("", text: $price)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 140)
+                        }
+                        GridRow {
+                            Text("Fee").frame(width: 120, alignment: .trailing)
+                            TextField("", text: $fee)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 140)
+                        }
+                        GridRow {
+                            Text("Tax").frame(width: 120, alignment: .trailing)
+                            TextField("", text: $tax)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 140)
+                        }
                     }
                     TextField("Description (optional)", text: $descriptionText)
                 }
-            }
             }
             }
             if let msg = errorMessage {
