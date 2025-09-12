@@ -58,20 +58,25 @@ extension DatabaseManager {
         return Double(f.string(from: NSNumber(value: v)) ?? String(format: "%.4f", v)) ?? (v * 10000).rounded() / 10000
     }
 
-    private func cashInstrumentId(for currency: String) -> Int? {
+    private func cashInstrumentId(forAccountId accountId: Int) -> (id: Int, currency: String)? {
+        // Resolve via account's currency to the CASH instrument; include currency in return for diagnostics
         let sql = """
-            SELECT i.instrument_id
-              FROM Instruments i
+            SELECT i.instrument_id, i.currency
+              FROM Accounts a
+              JOIN Instruments i ON i.currency = a.currency_code
               JOIN AssetSubClasses s ON s.sub_class_id = i.sub_class_id
-             WHERE s.sub_class_code = 'CASH' AND i.currency = ?
+             WHERE a.account_id = ?
+               AND s.sub_class_code = 'CASH'
              LIMIT 1;
         """
         var stmt: OpaquePointer?
-        var result: Int? = nil
+        var result: (Int, String)? = nil
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_text(stmt, 1, currency, -1, nil)
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
             if sqlite3_step(stmt) == SQLITE_ROW {
-                result = Int(sqlite3_column_int(stmt, 0))
+                let iid = Int(sqlite3_column_int(stmt, 0))
+                let cur = String(cString: sqlite3_column_text(stmt, 1))
+                result = (iid, cur)
             }
         }
         sqlite3_finalize(stmt)
@@ -109,6 +114,55 @@ extension DatabaseManager {
         var custodyAccountId: Int
         var cashAccountId: Int
         var notes: String?
+    }
+
+    struct EditTradeDetails {
+        var tradeId: Int
+        var typeCode: String
+        var date: Date
+        var instrumentId: Int
+        var quantity: Double
+        var priceTxn: Double
+        var feesChf: Double
+        var commissionChf: Double
+        var custodyAccountId: Int
+        var cashAccountId: Int
+        var notes: String?
+    }
+
+    func fetchTradeForEdit(tradeId: Int) -> EditTradeDetails? {
+        guard let db else { return nil }
+        let headerSQL = "SELECT type_code, trade_date, instrument_id, quantity, price_txn, fees_chf, commission_chf, notes FROM Trade WHERE trade_id = ?"
+        var h: OpaquePointer?
+        guard sqlite3_prepare_v2(db, headerSQL, -1, &h, nil) == SQLITE_OK else { return nil }
+        sqlite3_bind_int(h, 1, Int32(tradeId))
+        guard sqlite3_step(h) == SQLITE_ROW else { sqlite3_finalize(h); return nil }
+        let type = String(cString: sqlite3_column_text(h, 0))
+        let dstr = String(cString: sqlite3_column_text(h, 1))
+        let date = DateFormatter.iso8601DateOnly.date(from: dstr) ?? Date()
+        let instrId = Int(sqlite3_column_int(h, 2))
+        let qty = sqlite3_column_double(h, 3)
+        let price = sqlite3_column_double(h, 4)
+        let fees = sqlite3_column_double(h, 5)
+        let comm = sqlite3_column_double(h, 6)
+        let notes = sqlite3_column_text(h, 7).map { String(cString: $0) }
+        sqlite3_finalize(h)
+
+        let legsSQL = "SELECT leg_type, account_id FROM TradeLeg WHERE trade_id = ?"
+        var s: OpaquePointer?
+        var custody: Int? = nil
+        var cash: Int? = nil
+        if sqlite3_prepare_v2(db, legsSQL, -1, &s, nil) == SQLITE_OK {
+            sqlite3_bind_int(s, 1, Int32(tradeId))
+            while sqlite3_step(s) == SQLITE_ROW {
+                let legType = String(cString: sqlite3_column_text(s, 0))
+                let accId = Int(sqlite3_column_int(s, 1))
+                if legType == "INSTRUMENT" { custody = accId } else if legType == "CASH" { cash = accId }
+            }
+        }
+        sqlite3_finalize(s)
+        guard let ca = custody, let cashAcc = cash else { return nil }
+        return EditTradeDetails(tradeId: tradeId, typeCode: type, date: date, instrumentId: instrId, quantity: qty, priceTxn: price, feesChf: fees, commissionChf: comm, custodyAccountId: ca, cashAccountId: cashAcc, notes: notes)
     }
 
     @discardableResult
@@ -212,9 +266,10 @@ extension DatabaseManager {
         }
 
         // Cash leg
-        guard let cashInstrId = cashInstrumentId(for: cashCurrency) else {
+        guard let (cashInstrId, resolvedCurrency) = cashInstrumentId(forAccountId: input.cashAccountId) else {
             let avail = availableCashCurrencies().joined(separator: ", ")
-            let msg = "No CASH instrument found for currency \(cashCurrency). Cash leg requires an Instruments row with sub_class_code='CASH' and currency='\(cashCurrency)'. Available CASH currencies: [\(avail)]."
+            let accName = fetchAccountDetails(id: input.cashAccountId)?.accountName ?? "#\(input.cashAccountId)"
+            let msg = "No CASH instrument found for cash account '\(accName)'. Expected Instruments row with sub_class_code='CASH' and currency matching the account (\(cashCurrency)). Available CASH currencies in Instruments: [\(avail)]."
             LoggingService.shared.log(msg, type: .error)
             self.lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
@@ -235,6 +290,129 @@ extension DatabaseManager {
 
         sqlite3_exec(db, "COMMIT;", nil, nil, nil)
         return tradeId
+    }
+
+    // MARK: - Update trade (edit)
+    func updateTrade(tradeId: Int, _ input: NewTradeInput) -> Bool {
+        self.lastTradeErrorMessage = nil
+        guard let db else { return false }
+
+        // Validate instrument and accounts
+        guard let instr = fetchInstrumentDetails(id: input.instrumentId) else {
+            let msg = "Instrument not found (id=\(input.instrumentId))."
+            LoggingService.shared.log(msg, type: .error)
+            self.lastTradeErrorMessage = msg
+            return false
+        }
+        let instrCurrency = instr.currency.uppercased()
+        guard let cashAcc = fetchAccountDetails(id: input.cashAccountId) else {
+            let msg = "Cash account not found (id=\(input.cashAccountId))."
+            LoggingService.shared.log(msg, type: .error)
+            self.lastTradeErrorMessage = msg
+            return false
+        }
+        let cashCurrency = cashAcc.currencyCode.uppercased()
+        guard cashCurrency == instrCurrency else {
+            let msg = "Cash account currency (\(cashCurrency)) must match instrument currency (\(instrCurrency))."
+            LoggingService.shared.log(msg, type: .error)
+            self.lastTradeErrorMessage = msg
+            return false
+        }
+        // FX CHF->txn
+        let fxToChf = fetchExchangeRates(currencyCode: cashCurrency, upTo: input.date).first?.rateToChf
+        guard let rateToChf = fxToChf, rateToChf > 0 else {
+            let msg = "Missing FX for CHF→\(cashCurrency) on/before \(DateFormatter.iso8601DateOnly.string(from: input.date))."
+            LoggingService.shared.log(msg, type: .error)
+            self.lastTradeErrorMessage = msg
+            return false
+        }
+        let fxChfToTxn: Double = 1.0 / rateToChf
+
+        // Compute amounts
+        let qty = round4(input.quantity)
+        let price = round4(input.priceTxn)
+        let tradeValue = round4(qty * price)
+        let feesTxn = round4(input.feesChf * fxChfToTxn)
+        let commTxn = round4(input.commissionChf * fxChfToTxn)
+        let isBuy = input.typeCode.uppercased() == "BUY"
+        let cashDelta = isBuy ? -round4(tradeValue + feesTxn + commTxn) : +round4(tradeValue - feesTxn - commTxn)
+        let instrDelta = isBuy ? +qty : -qty
+        LoggingService.shared.log("[Trade-Update] id=\(tradeId) type=\(input.typeCode) date=\(DateFormatter.iso8601DateOnly.string(from: input.date)) instr=\(instrCurrency) cash=\(cashCurrency) qty=\(qty) price=\(price) trade_val=\(tradeValue) fees_chf=\(input.feesChf) comm_chf=\(input.commissionChf) fx_chf_to_txn=\(String(format: "%.6f", fxChfToTxn)) fees_txn=\(feesTxn) comm_txn=\(commTxn) cash_delta=\(cashDelta) instr_delta=\(instrDelta)", type: .info)
+
+        // Resolve cash instrument via account
+        guard let (cashInstrId, _) = cashInstrumentId(forAccountId: input.cashAccountId) else {
+            let avail = availableCashCurrencies().joined(separator: ", ")
+            let accName = fetchAccountDetails(id: input.cashAccountId)?.accountName ?? "#\(input.cashAccountId)"
+            let msg = "No CASH instrument found for cash account '\(accName)'. Available CASH currencies in Instruments: [\(avail)]."
+            LoggingService.shared.log(msg, type: .error)
+            self.lastTradeErrorMessage = msg
+            return false
+        }
+
+        // Atomic update: header, then legs (delete + insert)
+        sqlite3_exec(db, "BEGIN IMMEDIATE;", nil, nil, nil)
+        let updateSQL = """
+            UPDATE Trade SET type_code = ?, trade_date = ?, instrument_id = ?, quantity = ?, price_txn = ?, currency_code = ?, fees_chf = ?, commission_chf = ?, fx_chf_to_txn = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE trade_id = ?;
+        """
+        var u: OpaquePointer?
+        let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        guard sqlite3_prepare_v2(db, updateSQL, -1, &u, nil) == SQLITE_OK else {
+            let msg = "Prepare Trade update failed: \(String(cString: sqlite3_errmsg(db)))"
+            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
+        }
+        sqlite3_bind_text(u, 1, input.typeCode.uppercased(), -1, T)
+        sqlite3_bind_text(u, 2, DateFormatter.iso8601DateOnly.string(from: input.date), -1, T)
+        sqlite3_bind_int(u, 3, Int32(input.instrumentId))
+        sqlite3_bind_double(u, 4, qty)
+        sqlite3_bind_double(u, 5, price)
+        sqlite3_bind_text(u, 6, instrCurrency, -1, T)
+        sqlite3_bind_double(u, 7, round4(input.feesChf))
+        sqlite3_bind_double(u, 8, round4(input.commissionChf))
+        sqlite3_bind_double(u, 9, fxChfToTxn)
+        if let n = input.notes, !n.isEmpty { sqlite3_bind_text(u, 10, n, -1, T) } else { sqlite3_bind_null(u, 10) }
+        sqlite3_bind_int(u, 11, Int32(tradeId))
+        guard sqlite3_step(u) == SQLITE_DONE else {
+            let msg = "Trade update failed: \(String(cString: sqlite3_errmsg(db)))"
+            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            sqlite3_finalize(u); sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
+        }
+        sqlite3_finalize(u)
+
+        // Delete old legs
+        if sqlite3_exec(db, "DELETE FROM TradeLeg WHERE trade_id = \(tradeId);", nil, nil, nil) != SQLITE_OK {
+            let msg = "Delete legs failed: \(String(cString: sqlite3_errmsg(db)))"
+            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
+        }
+
+        func insertLeg(type: String, accountId: Int, instrumentId: Int, delta: Double) -> Bool {
+            let sql = "INSERT INTO TradeLeg (trade_id, leg_type, account_id, instrument_id, delta_quantity) VALUES (?, ?, ?, ?, ?)"
+            var s: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &s, nil) == SQLITE_OK else { return false }
+            sqlite3_bind_int(s, 1, Int32(tradeId))
+            sqlite3_bind_text(s, 2, type, -1, T)
+            sqlite3_bind_int(s, 3, Int32(accountId))
+            sqlite3_bind_int(s, 4, Int32(instrumentId))
+            sqlite3_bind_double(s, 5, delta)
+            let ok = sqlite3_step(s) == SQLITE_DONE
+            sqlite3_finalize(s)
+            return ok
+        }
+
+        guard insertLeg(type: "CASH", accountId: input.cashAccountId, instrumentId: cashInstrId, delta: cashDelta) else {
+            let msg = "Insert cash leg (update) failed: \(String(cString: sqlite3_errmsg(db)))"
+            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
+        }
+        guard insertLeg(type: "INSTRUMENT", accountId: input.custodyAccountId, instrumentId: input.instrumentId, delta: instrDelta) else {
+            let msg = "Insert instrument leg (update) failed: \(String(cString: sqlite3_errmsg(db)))"
+            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
+        }
+
+        sqlite3_exec(db, "COMMIT;", nil, nil, nil)
+        return true
     }
 
     // MARK: - Delete / Rewind

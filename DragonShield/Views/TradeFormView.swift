@@ -5,6 +5,7 @@ struct TradeFormView: View {
     @Environment(\.presentationMode) var presentation
     var onSaved: () -> Void
     var onCancel: () -> Void
+    var editTradeId: Int? = nil
 
     @State private var typeCode: String = "BUY"
     @State private var date: Date = Date()
@@ -65,7 +66,7 @@ struct TradeFormView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New Trade").font(.title2).bold()
+            Text(editTradeId == nil ? "New Trade" : "Edit Trade").font(.title2).bold()
             ScrollView {
             Form {
                 Section("Basics") {
@@ -118,7 +119,7 @@ struct TradeFormView: View {
         }
         .padding(24)
         .frame(minWidth: 820, minHeight: 760)
-        .onAppear { load() }
+        .onAppear { load(); populateIfEditing() }
     }
 
     private func load() {
@@ -127,13 +128,35 @@ struct TradeFormView: View {
         accountTypes = dbManager.fetchAccountTypes(activeOnly: true)
     }
 
+    private func populateIfEditing() {
+        guard let tid = editTradeId, let d = dbManager.fetchTradeForEdit(tradeId: tid) else { return }
+        typeCode = d.typeCode.uppercased()
+        date = d.date
+        instrumentId = d.instrumentId
+        custodyAccountId = d.custodyAccountId
+        cashAccountId = d.cashAccountId
+        quantity = String(format: "%.4f", d.quantity)
+        price = String(format: "%.4f", d.priceTxn)
+        feesChf = String(format: "%.4f", d.feesChf)
+        commissionChf = String(format: "%.4f", d.commissionChf)
+        notes = d.notes ?? ""
+    }
+
     private func save() {
         guard let instr = instrumentId, let cust = custodyAccountId, let cash = cashAccountId, let qty = Double(quantity), let pr = Double(price) else { return }
         let input = DatabaseManager.NewTradeInput(typeCode: typeCode, date: date, instrumentId: instr, quantity: qty, priceTxn: pr, feesChf: Double(feesChf) ?? 0, commissionChf: Double(commissionChf) ?? 0, custodyAccountId: cust, cashAccountId: cash, notes: notes.trimmingCharacters(in: .whitespacesAndNewlines))
-        if let _ = dbManager.createTrade(input) {
-            onSaved(); presentation.wrappedValue.dismiss()
+        if let tid = editTradeId {
+            if dbManager.updateTrade(tradeId: tid, input) {
+                onSaved(); presentation.wrappedValue.dismiss()
+            } else {
+                errorMessage = dbManager.lastTradeErrorMessage ?? "Failed to update trade."
+            }
         } else {
-            errorMessage = dbManager.lastTradeErrorMessage ?? "Failed to save trade. Check currency of cash account, FX for fees, and inputs."
+            if let _ = dbManager.createTrade(input) {
+                onSaved(); presentation.wrappedValue.dismiss()
+            } else {
+                errorMessage = dbManager.lastTradeErrorMessage ?? "Failed to save trade. Check currency of cash account, FX for fees, and inputs."
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ struct TradesHistoryView: View {
     @State private var showForm = false
     @State private var showReverseConfirm = false
     @State private var showDeleteConfirm = false
+    @State private var editTradeId: Int? = nil
     @State private var search = ""
 
     var filtered: [DatabaseManager.TradeWithLegs] {
@@ -34,7 +35,7 @@ struct TradesHistoryView: View {
         }
         .onAppear { dbManager.ensureTradeSchema(); reload() }
         .sheet(isPresented: $showForm) {
-            TradeFormView(onSaved: { reload(); showForm = false }, onCancel: { showForm = false })
+            TradeFormView(onSaved: { reload(); showForm = false }, onCancel: { showForm = false }, editTradeId: editTradeId)
                 .environmentObject(dbManager)
         }
         .alert("Reverse Trade", isPresented: $showReverseConfirm) {
@@ -138,8 +139,11 @@ struct TradesHistoryView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 12) {
-                Button { showForm = true } label: { Label("New Trade", systemImage: "plus") }
+                Button { editTradeId = nil; showForm = true } label: { Label("New Trade", systemImage: "plus") }
                     .buttonStyle(PrimaryButtonStyle())
+                Button { if let s = selected { editTradeId = s.tradeId; showForm = true } } label: { Label("Edit", systemImage: "pencil") }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(selected == nil)
                 Button { showReverseConfirm = true } label: { Label("Reverse", systemImage: "arrow.uturn.left") }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(selected == nil)
@@ -162,4 +166,3 @@ struct TradesHistoryView_Previews: PreviewProvider {
         TradesHistoryView().environmentObject(DatabaseManager())
     }
 }
-
