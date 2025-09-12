@@ -33,7 +33,7 @@ extension DatabaseManager {
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
         defer { sqlite3_finalize(stmt) }
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let portfolioIdType = sqlite3_column_type(stmt, 0)
+            _ = sqlite3_column_type(stmt, 0) // portfolio_id is currently unused, skip
             let portfolioName: String? = sqlite3_column_type(stmt, 1) != SQLITE_NULL ? String(cString: sqlite3_column_text(stmt, 1)) : nil
             let instrumentId = Int(sqlite3_column_int(stmt, 2))
             let instrumentName = String(cString: sqlite3_column_text(stmt, 3))
@@ -56,4 +56,3 @@ extension DatabaseManager {
         return rows
     }
 }
-

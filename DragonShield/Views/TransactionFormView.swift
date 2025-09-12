@@ -204,7 +204,8 @@ struct TransactionFormView: View {
             onSaved()
             presentation.wrappedValue.dismiss()
         } else {
-            errorMessage = "Failed to save. Check currencies, FX, or holdings (no negative sells)."
+            // Prefer specific backend message when available
+            errorMessage = dbManager.lastTransactionErrorMessage ?? "Failed to save. Check currencies, FX, or holdings (no negative sells)."
         }
     }
 }

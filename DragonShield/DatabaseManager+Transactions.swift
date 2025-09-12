@@ -353,8 +353,8 @@ extension DatabaseManager {
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_int(stmt, 1, Int32(transactionId))
         guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-        let thisAccountId = Int(sqlite3_column_int(stmt, 1))
-        let thisInstrumentId: Int? = sqlite3_column_type(stmt, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 2)) : nil
+        _ = Int(sqlite3_column_int(stmt, 1)) // account_id not directly used here
+        _ = sqlite3_column_type(stmt, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 2)) : nil // instrument_id not directly used here
         let _ = String(cString: sqlite3_column_text(stmt, 3)) // not used directly
         let dateStr = String(cString: sqlite3_column_text(stmt, 4))
         let thisDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
