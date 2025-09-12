@@ -80,4 +80,38 @@ extension DatabaseManager {
         }
         return nil
     }
+
+    /// Returns the last successful FX update (status = 'SUCCESS'), ordered by creation time.
+    func fetchLastSuccessfulFxRateUpdate() -> FxRateUpdateLog? {
+        let sql = """
+            SELECT update_id, update_date, api_provider, currencies_updated, status, error_message, rates_count, execution_time_ms, created_at
+              FROM FxRateUpdates
+             WHERE status = 'SUCCESS'
+             ORDER BY created_at DESC
+             LIMIT 1;
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare fetchLastSuccessfulFxRateUpdate: \(String(cString: sqlite3_errmsg(db)))")
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let dateStr = String(cString: sqlite3_column_text(stmt, 1))
+            let updDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
+            let provider = String(cString: sqlite3_column_text(stmt, 2))
+            let currs = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+            let status = String(cString: sqlite3_column_text(stmt, 4))
+            let err = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+            let count = Int(sqlite3_column_int(stmt, 6))
+            let execType = sqlite3_column_type(stmt, 7)
+            let execMs: Int? = (execType == SQLITE_NULL) ? nil : Int(sqlite3_column_int(stmt, 7))
+            let createdStr = String(cString: sqlite3_column_text(stmt, 8))
+            let created = DateFormatter.iso8601DateTime.date(from: createdStr) ?? Date()
+            return FxRateUpdateLog(id: id, updateDate: updDate, apiProvider: provider, currenciesUpdated: currs, status: status, errorMessage: err, ratesCount: count, executionTimeMs: execMs, createdAt: created)
+        }
+        return nil
+    }
 }

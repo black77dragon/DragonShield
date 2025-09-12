@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -92,7 +93,7 @@ struct PortfolioView: View {
             }
         }
         .onAppear {
-            assetManager.loadAssets()
+            Task { @MainActor in assetManager.loadAssets() }
             animateEntrance()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshPortfolio"))) { _ in
@@ -624,7 +625,6 @@ struct PortfolioView: View {
     
     // MARK: - Functions
     func confirmDelete(_ asset: DragonAsset) {
-        let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrument(id: asset.id)
 
         if success {
@@ -741,6 +741,7 @@ struct NotesIconView: View {
     let instrumentName: String
     let instrumentCode: String
 
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var updatesCount: Int?
     @State private var mentionsCount: Int?
     @State private var showModal = false
@@ -768,7 +769,7 @@ struct NotesIconView: View {
                 NotesIconView.invalidateCache(instrumentId: instrumentId)
                 loadCounts()
             })
-                .environmentObject(DatabaseManager())
+                .environmentObject(dbManager)
         }
         .onAppear { loadCounts() }
     }
@@ -808,8 +809,7 @@ struct NotesIconView: View {
             return
         }
         DispatchQueue.global().async {
-            let db = DatabaseManager()
-            let summary = db.instrumentNotesSummary(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
+            let summary = dbManager.instrumentNotesSummary(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
             DispatchQueue.main.async {
                 updatesCount = summary.updates
                 mentionsCount = summary.mentions
@@ -877,7 +877,9 @@ struct InstrumentParticle {
 // MARK: - Preview
 struct PortfolioView_Previews: PreviewProvider {
     static var previews: some View {
-        PortfolioView()
-            .environmentObject(AssetManager())
+        let db = DatabaseManager()
+        return PortfolioView()
+            .environmentObject(db)
+            .environmentObject(AssetManager(dbManager: db))
     }
 }

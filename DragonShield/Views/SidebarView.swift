@@ -19,6 +19,7 @@ struct SidebarView: View {
     @State private var showSystem = true
 
     var body: some View {
+        VStack(spacing: 12) {
         List {
             DisclosureGroup("Overview", isExpanded: $showOverview) {
                 NavigationLink(destination: DashboardView()) {
@@ -41,11 +42,7 @@ struct SidebarView: View {
                     Label("Asset Allocation", systemImage: "chart.pie")
                 }
 
-                NavigationLink(destination: RebalancingView()) {
-                    Label("Rebalancing", systemImage: "arrow.left.arrow.right")
-                        .foregroundColor(.gray)
-                }
-                .disabled(true)
+                // Rebalancing link removed per request
                 NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
                     Label("Portfolio Themes", systemImage: "list.bullet")
                 }
@@ -105,18 +102,47 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        aboutCard
+            .padding(.horizontal, 8)
+            .padding(.bottom, 8)
+        }
         .navigationTitle("Dragon Shield")
+    }
+}
+
+// MARK: - About Card
+private extension SidebarView {
+    var aboutCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("About").font(.headline)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("App Version").frame(width: 120, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(GitInfoProvider.displayVersion).foregroundColor(.secondary)
+                    if let branch = GitInfoProvider.branch, !branch.isEmpty {
+                        Text("Branch: \(branch)").font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(12)
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.15), lineWidth: 1))
     }
 }
 
 struct SidebarView_Previews: PreviewProvider {
     static var previews: some View {
-        NavigationSplitView {
+        let db = DatabaseManager()
+        return NavigationSplitView {
             SidebarView()
         } detail: {
             DashboardView()
         }
-        .environmentObject(DatabaseManager())
-        .environmentObject(AssetManager())
+        .environmentObject(db)
+        .environmentObject(AssetManager(dbManager: db))
     }
 }

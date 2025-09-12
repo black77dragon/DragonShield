@@ -132,7 +132,7 @@ struct CurrenciesView: View {
                 .buttonStyle(SecondaryButtonStyle())
                 Spacer()
             }
-            ExchangeRatesView()
+            ExchangeRatesView(dbManager: dbManager)
                 .environmentObject(dbManager)
         }
     }

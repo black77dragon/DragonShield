@@ -4,8 +4,8 @@ struct ExchangeRatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var vm: ExchangeRatesViewModel
 
-    init() {
-        _vm = StateObject(wrappedValue: ExchangeRatesViewModel(db: DatabaseManager()))
+    init(dbManager: DatabaseManager) {
+        _vm = StateObject(wrappedValue: ExchangeRatesViewModel(db: dbManager))
     }
 
     var body: some View {
@@ -18,6 +18,9 @@ struct ExchangeRatesView: View {
         .background(Theme.surface)
         .cornerRadius(8)
         .onAppear { vm.loadRates() }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FXRatesUpdated")).receive(on: RunLoop.main)) { _ in
+            vm.loadRates()
+        }
     }
 
     private var filterBar: some View {
@@ -30,6 +33,13 @@ struct ExchangeRatesView: View {
             }
             DatePicker("As of", selection: $vm.asOfDate, displayedComponents: .date)
                 .onChange(of: vm.asOfDate) { _, _ in vm.loadRates() }
+            Button("Reset Filters") {
+                vm.selectedCurrency = nil
+                vm.asOfDate = Date()
+                vm.loadRates()
+                LoggingService.shared.log("[FX][UI] Filters reset (code=ALL, asOf=today)", logger: .ui)
+            }
+            .buttonStyle(SecondaryButtonStyle())
             Spacer()
             Button(action: { showAddSheet = true }) {
                 Label("New Rate", systemImage: "plus")
@@ -185,7 +195,7 @@ private struct RateFormView: View {
 
 struct ExchangeRatesView_Previews: PreviewProvider {
     static var previews: some View {
-        ExchangeRatesView()
+        ExchangeRatesView(dbManager: DatabaseManager())
             .environmentObject(DatabaseManager())
     }
 }
@@ -205,9 +215,11 @@ extension ExchangeRatesView {
             }
             return
         }
+        LoggingService.shared.log("[FX][UI] Manual update requested base=\(dbManager.baseCurrency)", logger: .ui)
         if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
             await MainActor.run {
                 vm.log.append("FX Update: updated=\(summary.insertedCount), failed=\(summary.failedCount), skipped=\(summary.skippedCount) — asOf=\(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
+                LoggingService.shared.log("[FX][UI] Update success updated=\(summary.insertedCount) failed=\(summary.failedCount) skipped=\(summary.skippedCount) asOf=\(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via=\(summary.provider)", logger: .ui)
                 if !summary.updatedCurrencies.isEmpty {
                     vm.log.append("  Updated: \(summary.updatedCurrencies.joined(separator: ","))")
                 }
@@ -225,7 +237,9 @@ extension ExchangeRatesView {
         } else {
             await MainActor.run {
                 let err = (svc.lastError.map { String(describing: $0) } ?? "unknown error")
-                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err). Provider=exchangerate.host; base=\(dbManager.baseCurrency); targets=\(targets.joined(separator: ","))")
+                let msg = "FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err). Provider=\(svc.providerCode); base=\(dbManager.baseCurrency); targets=\(targets.joined(separator: ","))"
+                vm.log.append(msg)
+                LoggingService.shared.log("[FX][UI] \(msg)", type: .error, logger: .ui)
                 self.updating = false
             }
         }

@@ -96,9 +96,20 @@ class DatabaseManager: ObservableObject {
         ensureThemeAssetUpdateAttachmentTable()
         ensureAlertReferenceTables()
         let version = loadConfiguration()
-        self.dbVersion = version
+        // Publish dbVersion outside of init's synchronous path to avoid SwiftUI view update warnings
         DispatchQueue.main.async { self.dbVersion = version }
-        updateFileMetadata()
+        // Seed robust default for iOS snapshot target path if missing (deferred) and normalize theme markers
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let def = IOSSnapshotExportService.defaultAbsolutePath
+                _ = self.upsertConfiguration(key: "ios_snapshot_target_path", value: def, dataType: "string", description: "Destination folder for iOS snapshot export (seeded)")
+            }
+            // Fix legacy empty archived_at values to NULL to preserve editability
+            self.normalizeThemeArchivedMarkers()
+            // Defer file metadata publication to the next runloop tick as well
+            self.updateFileMetadata()
+        }
         print("📂 Database path: \(dbPath) | version: \(version)")
         #else
         // iOS: app support path placeholder; openReadOnly(at:) will be used to load a snapshot
@@ -132,7 +143,7 @@ class DatabaseManager: ObservableObject {
     private func updateFileMetadata() {
         do {
             let attrs = try FileManager.default.attributesOfItem(atPath: dbPath)
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.dbFilePath = self.dbPath
                 if let size = attrs[.size] as? NSNumber {
                     self.dbFileSize = size.int64Value

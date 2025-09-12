@@ -170,6 +170,7 @@ struct TopPositionsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = PositionsViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @State private var consolidate: Bool = false
 
     init() {}
     static let tileID = "top_positions"
@@ -178,15 +179,34 @@ struct TopPositionsTile: DashboardTile {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(Self.tileName)
-                .font(.system(size: 18, weight: .bold))
+            HStack {
+                Text(Self.tileName)
+                    .font(.system(size: 18, weight: .bold))
+                Spacer()
+                Toggle("consolidate", isOn: $consolidate)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .help("Consolidate positions by instrument")
+            }
             if viewModel.calculating {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
-                        ForEach(Array(viewModel.topPositions.enumerated()), id: \.element.id) { index, item in
+                        let rows: [(instrument: String, valueCHF: Double, currency: String)] = {
+                            if consolidate {
+                                let grouped = Dictionary(grouping: viewModel.topPositions, by: { $0.instrument })
+                                let summed = grouped.map { (key, items) in
+                                    (instrument: key, valueCHF: items.reduce(0) { $0 + $1.valueCHF }, currency: "CHF")
+                                }
+                                return summed.sorted { $0.valueCHF > $1.valueCHF }
+                            } else {
+                                return viewModel.topPositions.map { ($0.instrument, $0.valueCHF, $0.currency) }
+                            }
+                        }()
+                        ForEach(rows.indices, id: \.self) { index in
+                            let item = rows[index]
                             HStack(alignment: .top) {
                                 Text(item.instrument)
                                     .fontWeight(.semibold)
@@ -201,7 +221,7 @@ struct TopPositionsTile: DashboardTile {
                                 }
                             }
                             .frame(height: DashboardTileLayout.rowHeight)
-                            if index != viewModel.topPositions.count - 1 {
+                            if index != rows.count - 1 {
                                 Divider().foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
                             }
                         }

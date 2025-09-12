@@ -14,10 +14,10 @@ struct DragonAsset: Identifiable {
 
 class AssetManager: ObservableObject {
     @Published var assets: [DragonAsset] = []
-    private let dbManager = DatabaseManager()
-    
-    init() {
-        loadAssets()
+    private let dbManager: DatabaseManager
+
+    init(dbManager: DatabaseManager) {
+        self.dbManager = dbManager
     }
     
     func loadAssets() {
@@ -45,7 +45,7 @@ class AssetManager: ObservableObject {
             )
         }
         
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.assets = loadedAssets
             print("✅ AssetManager loaded \(self.assets.count) assets")
         }

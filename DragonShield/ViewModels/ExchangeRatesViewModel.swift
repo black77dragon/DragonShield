@@ -11,7 +11,8 @@ class ExchangeRatesViewModel: ObservableObject {
 
     init(db: DatabaseManager) {
         self.db = db
-        self.asOfDate = db.asOfDate
+        // Default to 'today' to avoid filtering away fresh API data when db.asOfDate is stale
+        self.asOfDate = Date()
         loadCurrencies()
         loadRates()
     }
@@ -24,6 +25,9 @@ class ExchangeRatesViewModel: ObservableObject {
 
     func loadRates() {
         rates = db.fetchExchangeRates(currencyCode: selectedCurrency, upTo: asOfDate)
+        let code = selectedCurrency ?? "ALL"
+        let msg = "[FX][UI] Loaded \(rates.count) rates (code=\(code), asOf=\(DateFormatter.iso8601DateOnly.string(from: asOfDate)))"
+        LoggingService.shared.log(msg, logger: .ui)
     }
 
     func addRate(currency: String, date: Date, rate: Double, source: String, apiProvider: String?, latest: Bool) {

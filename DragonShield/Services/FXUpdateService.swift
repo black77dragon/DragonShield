@@ -17,6 +17,8 @@ final class FXUpdateService {
     private let provider: FXRateProvider
     private(set) var lastError: Error?
 
+    var providerCode: String { provider.code }
+
     init(dbManager: DatabaseManager, provider: FXRateProvider = FrankfurterProvider()) {
         self.db = dbManager
         self.provider = provider
@@ -54,7 +56,9 @@ final class FXUpdateService {
         guard !targets.isEmpty else { return nil }
 
         do {
-            print("[FX][Update] Start provider=\(provider.code) base=\(baseUpper) targets=\(targets.joined(separator: ","))")
+            let startMsg = "[FX][Update] Start provider=\(provider.code) base=\(baseUpper) targets=\(targets.joined(separator: ","))"
+            print(startMsg)
+            LoggingService.shared.log(startMsg, logger: .database)
             let response = try await provider.fetchLatest(base: baseUpper, symbols: targets)
             var inserted = 0
             var updated: [String] = []
@@ -111,14 +115,38 @@ final class FXUpdateService {
                 return "failed=\(failedCount); skipped=\(skippedCount)"
             }()
             _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: status, errorMessage: errMsg, ratesCount: inserted, executionTimeMs: ms)
-            print("[FX][Update] Done inserted=\(inserted) failed=\(failedCount) skipped=\(skippedCount) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))")
+            let asOf = response.asOf
+            let providerCode = self.provider.code
+            let insertedCount = inserted
+            let failedC = failedCount
+            let skippedC = skippedCount
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("FXRatesUpdated"), object: nil, userInfo: [
+                    "asOf": asOf,
+                    "provider": providerCode,
+                    "inserted": insertedCount,
+                    "failed": failedC,
+                    "skipped": skippedC
+                ])
+            }
+            let doneMsg = "[FX][Update] Done inserted=\(inserted) failed=\(failedCount) skipped=\(skippedCount) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))"
+            print(doneMsg)
+            LoggingService.shared.log(doneMsg, logger: .database)
             return FXUpdateSummary(updatedCurrencies: updated, asOf: response.asOf, provider: provider.code, insertedCount: inserted, failedCount: failedCount, skippedCount: skippedCount, failedDetails: failed, skippedDetails: skipped)
         } catch {
             let end = DispatchTime.now()
             let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
             lastError = error
-            print("[FX][Update][ERROR] \(error)")
+            let errMsg = "[FX][Update][ERROR] \(String(describing: error))"
+            print(errMsg)
+            LoggingService.shared.log(errMsg, type: .error, logger: .database)
             _ = db.recordFxRateUpdate(updateDate: Date(), apiProvider: provider.code, currenciesUpdated: [], status: "FAILED", errorMessage: String(describing: error), ratesCount: 0, executionTimeMs: ms)
+            let errStr = String(describing: error)
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("FXRatesUpdated"), object: nil, userInfo: [
+                    "error": errStr
+                ])
+            }
             return nil
         }
     }
@@ -132,5 +160,20 @@ final class FXUpdateService {
         } else {
             print("[FX][Auto] Skipping update; rates are fresh.")
         }
+    }
+
+    /// Auto-update once per calendar day on app launch.
+    /// Skips if an FX update has already been recorded today.
+    func autoUpdateOncePerDayOnLaunch(base: String) async {
+        guard db.fxAutoUpdateEnabled else {
+            print("[FX][AutoDaily] Disabled via configuration; skipping.")
+            return
+        }
+        if let last = db.fetchLastFxRateUpdate(), Calendar.current.isDate(last.createdAt, inSameDayAs: Date()) {
+            print("[FX][AutoDaily] Already updated today (\(DateFormatter.iso8601DateOnly.string(from: last.createdAt))). Skipping.")
+            return
+        }
+        print("[FX][AutoDaily] Running daily FX update...")
+        _ = await updateLatestForAll(base: base)
     }
 }

@@ -65,6 +65,8 @@ extension DatabaseManager {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try exportSnapshot(to: url)
+                // Persist chosen folder for future automatic exports
+                _ = self.upsertConfiguration(key: "ios_snapshot_target_path", value: url.deletingLastPathComponent().path, dataType: "string", description: "Destination folder for iOS snapshot export")
                 LoggingService.shared.log("Exported snapshot to \(url.path)", logger: .ui)
             } catch {
                 LoggingService.shared.log("Export snapshot failed: \(error.localizedDescription)", type: .error, logger: .ui)

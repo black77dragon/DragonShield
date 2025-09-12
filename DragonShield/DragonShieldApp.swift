@@ -11,7 +11,7 @@ struct DragonShieldApp: App {
         UserDefaults.standard.removeObject(forKey: "portfolioAttachmentsEnabled")
         let dbManager = DatabaseManager()
         _databaseManager = StateObject(wrappedValue: dbManager)
-        _assetManager = StateObject(wrappedValue: AssetManager())
+        _assetManager = StateObject(wrappedValue: AssetManager(dbManager: dbManager))
         HealthCheckRegistry.register(DatabaseFileHealthCheck(pathProvider: { dbManager.dbFilePath }))
         // Register FX health check to display last/next FX update info
         HealthCheckRegistry.register(FXStatusHealthCheck(dbManager: dbManager))
@@ -43,9 +43,14 @@ struct DragonShieldApp: App {
                 if AppConfiguration.runStartupHealthChecks() {
                     await healthRunner.runAll()
                 }
-                // Auto-update FX on launch if stale (Option 2)
+                // Auto-update FX on launch once per day
                 let fxService = FXUpdateService(dbManager: databaseManager)
-                await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
+                await fxService.autoUpdateOncePerDayOnLaunch(base: databaseManager.baseCurrency)
+                // Auto-export iOS snapshot if due (daily/weekly)
+                let iosSnap = IOSSnapshotExportService(dbManager: databaseManager)
+                iosSnap.autoExportOnLaunchIfDue()
+                // Load assets after UI is up to avoid publishing during view updates
+                await MainActor.run { assetManager.loadAssets() }
             }
         }
         WindowGroup(id: "accountDetail", for: Int.self) { $accountId in

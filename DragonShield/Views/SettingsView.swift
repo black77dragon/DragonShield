@@ -25,12 +25,13 @@ struct SettingsView: View {
     @State private var fxAutoEnabled: Bool = true
     @State private var fxFrequency: String = "daily"
     @State private var fxLastSummary: String = ""
+    @State private var fxOverdue: Bool = false
 
     // iOS snapshot settings
     @State private var iosAutoEnabled: Bool = true
     @State private var iosFrequency: String = "daily"
-    @State private var iosTargetPath: String = ""
     @State private var iosStatus: String = ""
+    @State private var iosOverdue: Bool = false
 
     var body: some View {
         ZStack {
@@ -62,12 +63,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    CardSection(title: "Table Display Settings") {
-                        Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
-                                value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0...10.0, step: 0.5)
-                        Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
-                                value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0...20.0, step: 1.0)
-                    }
+                    
 
                     CardSection(title: "Price Providers") {
                         ProviderKeyRow(label: "CoinGecko API Key", account: "coingecko", placeholder: "Enter CoinGecko key")
@@ -85,6 +81,7 @@ struct SettingsView: View {
                         Toggle("Auto-update on Launch", isOn: $fxAutoEnabled)
                             .onChange(of: fxAutoEnabled) { _, newValue in
                                 _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                                updateFxStatus()
                             }
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("Frequency").frame(width: 160, alignment: .leading)
@@ -100,8 +97,23 @@ struct SettingsView: View {
                         }
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("Status").frame(width: 160, alignment: .leading)
-                            Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary).foregroundColor(.secondary)
+                            Text(fxLastSummary.isEmpty ? (fxAutoEnabled ? "Loading status…" : "No FX updates yet. Auto-update disabled.") : fxLastSummary)
+                                .foregroundColor(fxOverdue ? .red : .secondary)
                             Spacer()
+                            Button("Update FX Now") {
+                                Task {
+                                    let svc = FXUpdateService(dbManager: dbManager)
+                                    LoggingService.shared.log("[FX][UI] Manual update requested from Settings base=\(dbManager.baseCurrency)", logger: .ui)
+                                    if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
+                                        LoggingService.shared.log("[FX][UI] Settings update success updated=\(summary.insertedCount) failed=\(summary.failedCount) skipped=\(summary.skippedCount) asOf=\(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via=\(summary.provider)", logger: .ui)
+                                    } else if let err = svc.lastError {
+                                        LoggingService.shared.log("[FX][UI] Settings update failed: \(String(describing: err))", type: .error, logger: .ui)
+                                    } else {
+                                        LoggingService.shared.log("[FX][UI] Settings update failed: unknown error", type: .error, logger: .ui)
+                                    }
+                                    updateFxStatus()
+                                }
+                            }
                         }
                     }
 
@@ -109,6 +121,7 @@ struct SettingsView: View {
                         Toggle("Auto-export on Launch", isOn: $iosAutoEnabled)
                             .onChange(of: iosAutoEnabled) { _, newValue in
                                 _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                                updateIOSStatus()
                             }
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("Frequency").frame(width: 160, alignment: .leading)
@@ -124,18 +137,23 @@ struct SettingsView: View {
                         }
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("Destination").frame(width: 160, alignment: .leading)
-                            TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...", text: $iosTargetPath)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(minWidth: 300)
-                                .onSubmit {
-                                    _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string", description: "Destination folder for iOS snapshot export")
-                                    updateIOSStatus()
-                                }
+                            TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...",
+                                      text: Binding(
+                                        get: { dbManager.iosSnapshotTargetPath },
+                                        set: { newValue in
+                                            dbManager.iosSnapshotTargetPath = newValue
+                                            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: newValue, dataType: "string", description: "Destination folder for iOS snapshot export")
+                                            updateIOSStatus()
+                                        })
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .frame(minWidth: 300)
                             Spacer()
                         }
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("Status").frame(width: 160, alignment: .leading)
-                            Text(iosStatus.isEmpty ? "Unknown" : iosStatus).foregroundColor(.secondary)
+                            Text(iosStatus.isEmpty ? (iosAutoEnabled ? "Loading status…" : "No successful snapshot yet. Auto-export disabled.") : iosStatus)
+                                .foregroundColor(iosOverdue ? .red : .secondary)
                             Spacer()
                             Button("Export Now") { exportIOSNow() }
                             #if os(macOS)
@@ -144,11 +162,26 @@ struct SettingsView: View {
                         }
                     }
 
-                    CardSection(title: "Portfolio Management") {
-                        NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
-                        NavigationLink("News Types", destination: NewsTypeSettingsView().environmentObject(dbManager))
-                        NavigationLink("Alert Trigger Types", destination: AlertTriggerTypeSettingsView().environmentObject(dbManager))
-                        NavigationLink("Tags", destination: TagSettingsView().environmentObject(dbManager))
+                    // Row: Static Data Maintenance + Table Display Settings
+                    HStack(alignment: .top, spacing: 16) {
+                        CardSection(title: "Static Data Maintenance") {
+                            HStack(alignment: .top, spacing: 32) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    NavigationLink("Theme Status", destination: ThemeStatusSettingsView().environmentObject(dbManager))
+                                    NavigationLink("News Types", destination: NewsTypeSettingsView().environmentObject(dbManager))
+                                }
+                                VStack(alignment: .leading, spacing: 8) {
+                                    NavigationLink("Alert Trigger Types", destination: AlertTriggerTypeSettingsView().environmentObject(dbManager))
+                                    NavigationLink("Tags", destination: TagSettingsView().environmentObject(dbManager))
+                                }
+                            }
+                        }
+                        CardSection(title: "Table Display Settings") {
+                            Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
+                                    value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0...10.0, step: 0.5)
+                            Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
+                                    value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0...20.0, step: 1.0)
+                        }
                     }
 
                     #if DEBUG
@@ -157,18 +190,7 @@ struct SettingsView: View {
                     }
                     #endif
 
-                    CardSection(title: "About") {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("App Version").frame(width: 160, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(GitInfoProvider.displayVersion).foregroundColor(.secondary)
-                                if let branch = GitInfoProvider.branch, !branch.isEmpty {
-                                    Text("Branch: \(branch)").font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                            Spacer()
-                        }
-                    }
+                    // About section moved to SidebarView
                 }
                 .padding(16)
             }
@@ -182,11 +204,16 @@ struct SettingsView: View {
             updateFxStatus()
             iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
             iosFrequency = dbManager.iosSnapshotFrequency
-            iosTargetPath = dbManager.iosSnapshotTargetPath
             updateIOSStatus()
             #if DEBUG
             GitInfoProvider.debugDump()
             #endif
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FXRatesUpdated")).receive(on: RunLoop.main)) { _ in
+            updateFxStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("IOSSnapshotExported")).receive(on: RunLoop.main)) { _ in
+            updateIOSStatus()
         }
         .sheet(isPresented: $showLogs) { LogViewerView().environmentObject(dbManager) }
         .alert("CoinGecko Test", isPresented: $showCGResult) {
@@ -282,20 +309,32 @@ extension SettingsView {
     }
 
     private func updateFxStatus() {
-        if let last = dbManager.fetchLastFxRateUpdate() {
-            let fmt = DateFormatter.iso8601DateOnly
-            let freq = fxFrequency.lowercased()
-            let days = (freq == "weekly") ? 7 : 1
-            let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
-            var extra: [String] = []
-            if last.status == "PARTIAL", let s = last.errorMessage, let data = s.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if let arr = obj["failed"] as? [Any] { extra.append("failed=\(arr.count)") }
-                if let arr = obj["skipped"] as? [Any] { extra.append("skipped=\(arr.count)") }
-            }
-            let extraStr = extra.isEmpty ? "" : ", " + extra.joined(separator: ", ")
-            fxLastSummary = "Last: \(fmt.string(from: last.updateDate)) (\(last.status)), updated=\(last.ratesCount) via \(last.apiProvider)\(extraStr); Next due: \(fmt.string(from: next)) (\(freq))"
+        let fmt = DateFormatter.iso8601DateOnly
+        let freq = fxFrequency.lowercased()
+        let days = (freq == "weekly") ? 7 : 1
+        if let last = dbManager.fetchLastFxRateUpdate() { // consider PARTIAL as a valid run for scheduling
+            // Use createdAt (when the update actually ran) to compute next due
+            let cal = Calendar.current
+            let start = cal.startOfDay(for: last.createdAt)
+            let next = cal.date(byAdding: .day, value: days, to: start) ?? Date()
+            let overdue = fxAutoEnabled && Date() > next
+            fxOverdue = overdue
+            let nextStr = fmt.string(from: next)
+            // Show both as-of date (provider) and run date for clarity
+            let asOfStr = fmt.string(from: last.updateDate)
+            let runStr = DateFormatter.iso8601DateTime.string(from: last.createdAt)
+            fxLastSummary = "Latest: asOf=\(asOfStr) (\(last.status)) via \(last.apiProvider), updated=\(last.ratesCount); Run=\(runStr); Next due: \(nextStr) (\(freq))" + (overdue ? " — overdue by \(max(0, cal.dateComponents([.day], from: next, to: Date()).day ?? 0))d" : "")
+            LoggingService.shared.log("[FX][Status] \(fxLastSummary)", logger: .ui)
         } else {
-            fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
+            // No updates recorded
+            if fxAutoEnabled {
+                fxOverdue = true
+                fxLastSummary = "No FX updates yet — overdue (\(freq)). Will auto-update on launch."
+            } else {
+                fxOverdue = false
+                fxLastSummary = "No FX updates yet. Auto-update disabled."
+            }
+            LoggingService.shared.log("[FX][Status] \(fxLastSummary)", logger: .ui)
         }
     }
 
@@ -307,9 +346,25 @@ extension SettingsView {
             let freq = iosFrequency.lowercased()
             let days = (freq == "weekly") ? 7 : 1
             let next = Calendar.current.date(byAdding: .day, value: days, to: last) ?? Date()
-            iosStatus = "Last: \(fmtDate.string(from: last)) \(fmtTime.string(from: last)), next due: \(fmtDate.string(from: next)) (\(freq))"
+            let due = iosAutoEnabled && svc.isDueToday(frequency: freq)
+            iosOverdue = due
+            var extra = due ? " — overdue" : ""
+            if due {
+                // Provide how overdue this is, in days
+                let comps = Calendar.current.dateComponents([.day], from: next, to: Date())
+                if let d = comps.day, d > 0 { extra = " — overdue by \(d)d" }
+            }
+            iosStatus = "Latest success: \(fmtDate.string(from: last)) \(fmtTime.string(from: last)); Next due: \(fmtDate.string(from: next)) (\(freq))\(extra)"
+            LoggingService.shared.log("[iOS Snapshot][Status] \(iosStatus)", logger: .ui)
         } else {
-            iosStatus = "No snapshot found. Will export on next launch if enabled."
+            if iosAutoEnabled {
+                iosOverdue = true
+                iosStatus = "No successful snapshot yet — overdue (\(iosFrequency)). Will export on next launch."
+            } else {
+                iosOverdue = false
+                iosStatus = "No successful snapshot yet. Auto-export disabled."
+            }
+            LoggingService.shared.log("[iOS Snapshot][Status] \(iosStatus)", logger: .ui)
         }
     }
 
@@ -317,8 +372,8 @@ extension SettingsView {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         do {
             let url = try svc.exportNow()
-            iosTargetPath = svc.resolvedTargetFolder().path
-            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
+            dbManager.iosSnapshotTargetPath = svc.resolvedTargetFolder().path
+            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: dbManager.iosSnapshotTargetPath, dataType: "string")
             iosStatus = "Exported: \(url.lastPathComponent) at \(DateFormatter.iso8601DateTime.string(from: Date()))"
         } catch {
             iosStatus = "Export failed: \(error.localizedDescription)"

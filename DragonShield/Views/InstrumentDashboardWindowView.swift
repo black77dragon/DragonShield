@@ -11,6 +11,7 @@ struct InstrumentDashboardWindowView: View {
     @State private var allocations: [AllocationRow] = []
     @State private var accountHoldings: [AccountHolding] = []
     @State private var totalValueCHF: Double = 0
+    @State private var totalUnits: Double = 0
     @State private var instrumentCode: String = ""
     @State private var instrumentName: String = ""
     @State private var actualChfByTheme: [Int: Double] = [:]
@@ -99,12 +100,17 @@ struct InstrumentDashboardWindowView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
+                let bigFontSize: CGFloat = 36
                 Text(formatCHFNoDecimalsPrefix(totalValueCHF))
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(size: bigFontSize, weight: .bold))
                     .foregroundColor(Theme.primaryAccent)
                 Text("Total Position")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                // Total units displayed under the Total Position label
+                Text(String(format: "%.2f units", totalUnits))
+                    .font(.system(size: bigFontSize / 2, weight: .bold))
+                    .foregroundColor(Theme.primaryAccent)
             }
         }
         .padding(16)
@@ -329,6 +335,7 @@ struct InstrumentDashboardWindowView: View {
         guard !filtered.isEmpty else {
             self.accountHoldings = []
             self.totalValueCHF = 0
+            self.totalUnits = 0
             return
         }
         // Determine price and currency
@@ -358,6 +365,7 @@ struct InstrumentDashboardWindowView: View {
         let rows = byAccount.values.map { AccountHolding(accountName: $0.acc, institutionName: "", quantity: $0.qty, valueCHF: $0.valueCHF) }
         self.accountHoldings = rows.sorted { $0.valueCHF > $1.valueCHF }
         self.totalValueCHF = rows.reduce(0) { $0 + $1.valueCHF }
+        self.totalUnits = rows.reduce(0) { $0 + $1.quantity }
     }
 
     private func computeActualChfPerTheme() {
