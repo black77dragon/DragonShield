@@ -65,6 +65,9 @@ __pycache__/
 # --- User-specific files ---
 *.user
 
+# --- Editor settings (local only) ---
+.vscode/
+
 # --- Generated source ---
 DragonShield/Helpers/Version.swift
 
