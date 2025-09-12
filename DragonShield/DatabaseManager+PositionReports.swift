@@ -352,6 +352,32 @@ extension DatabaseManager {
         return result
     }
 
+    /// Deletes multiple position reports by their primary keys.
+    /// - Parameter ids: The `position_id` values to delete.
+    /// - Returns: The number of rows deleted.
+    func deletePositionReports(ids: [Int]) -> Int {
+        guard !ids.isEmpty else { return 0 }
+        let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ", ")
+        let sql = "DELETE FROM PositionReports WHERE position_id IN (\(placeholders));"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare bulk delete positions: \(String(cString: sqlite3_errmsg(db)))")
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        for (i, id) in ids.enumerated() {
+            sqlite3_bind_int(stmt, Int32(i + 1), Int32(id))
+        }
+        let step = sqlite3_step(stmt)
+        let deleted = sqlite3_changes(db)
+        if step == SQLITE_DONE {
+            print("🗑️ Deleted \(deleted) position reports (ids: count=\(ids.count))")
+        } else {
+            print("❌ Failed to bulk delete positions: \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return Int(deleted)
+    }
+
     struct EditablePositionData: Identifiable {
         var id: Int
         var accountId: Int
