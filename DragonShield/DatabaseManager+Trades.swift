@@ -95,14 +95,17 @@ extension DatabaseManager {
     @discardableResult
     func createTrade(_ input: NewTradeInput) -> Int? {
         guard let db else { return nil }
-        // Currency from instrument
+        // Currency from instrument and cash account
         guard let instr = fetchInstrumentDetails(id: input.instrumentId) else { return nil }
-        let currency = instr.currency.uppercased()
-        // Cash account must match currency
-        guard let cashAcc = fetchAccountDetails(id: input.cashAccountId), cashAcc.currencyCode.uppercased() == currency else { return nil }
-        // FX for CHF fees
-        let fx = fetchExchangeRates(currencyCode: currency, upTo: input.date).first?.rateToChf
-        let fxChfToTxn: Double = (fx != nil && fx! > 0) ? (1.0 / fx!) : 1.0 // ExchangeRates likely stores rate_to_chf; invert to CHF->txn
+        let instrCurrency = instr.currency.uppercased()
+        guard let cashAcc = fetchAccountDetails(id: input.cashAccountId) else { return nil }
+        let cashCurrency = cashAcc.currencyCode.uppercased()
+        // Enforce: cash account currency must equal instrument currency
+        guard cashCurrency == instrCurrency else { return nil }
+        // FX for CHF fees: convert CHF -> cash account currency (which equals transaction currency)
+        // fetchExchangeRates returns rates with rate_to_chf; invert for CHF->currency
+        let fxToChf = fetchExchangeRates(currencyCode: cashCurrency, upTo: input.date).first?.rateToChf
+        let fxChfToTxn: Double = (fxToChf != nil && fxToChf! > 0) ? (1.0 / fxToChf!) : 1.0
         // Round values
         let qty = round4(input.quantity)
         let price = round4(input.priceTxn)
@@ -128,7 +131,7 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 3, Int32(input.instrumentId))
         sqlite3_bind_double(stmt, 4, qty)
         sqlite3_bind_double(stmt, 5, price)
-        sqlite3_bind_text(stmt, 6, currency, -1, T)
+        sqlite3_bind_text(stmt, 6, cashCurrency, -1, T)
         sqlite3_bind_double(stmt, 7, round4(input.feesChf))
         sqlite3_bind_double(stmt, 8, round4(input.commissionChf))
         sqlite3_bind_double(stmt, 9, fxChfToTxn)
@@ -156,7 +159,7 @@ extension DatabaseManager {
         }
 
         // Cash leg
-        guard let cashInstrId = cashInstrumentId(for: currency) else { sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil }
+        guard let cashInstrId = cashInstrumentId(for: cashCurrency) else { sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil }
         guard insertLeg(type: "CASH", accountId: input.cashAccountId, instrumentId: cashInstrId, delta: cashDelta) else { sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil }
         // Instrument leg
         guard insertLeg(type: "INSTRUMENT", accountId: input.custodyAccountId, instrumentId: input.instrumentId, delta: instrDelta) else { sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil }
@@ -274,4 +277,3 @@ extension DatabaseManager {
         return rows
     }
 }
-

@@ -21,6 +21,7 @@ struct TradeFormView: View {
     @State private var errorMessage: String? = nil
 
     private var currency: String? { instrumentId.flatMap { id in instruments.first(where: { $0.id == id })?.currency } }
+    private var cashCurrency: String? { cashAccountId.flatMap { id in accounts.first(where: { $0.id == id })?.currencyCode } }
 
     private var cashAccounts: [DatabaseManager.AccountData] {
         guard let code = currency?.uppercased() else { return [] }
@@ -34,8 +35,11 @@ struct TradeFormView: View {
     }
 
     private var preview: (cashDelta: Double, instrDelta: Double)? {
-        guard let qty = Double(quantity), let p = Double(price), let code = currency else { return nil }
-        let fxRate = dbManager.fetchExchangeRates(currencyCode: code, upTo: date).first?.rateToChf
+        guard let qty = Double(quantity), let p = Double(price) else { return nil }
+        // Prefer cash account currency for fees conversion; fallback to instrument currency
+        let code = (cashCurrency ?? currency)?.uppercased()
+        guard let c = code else { return nil }
+        let fxRate = dbManager.fetchExchangeRates(currencyCode: c, upTo: date).first?.rateToChf
         let chfToTxn = (fxRate != nil && fxRate! > 0) ? (1.0 / fxRate!) : 1.0
         let fees = (Double(feesChf) ?? 0) * chfToTxn
         let comm = (Double(commissionChf) ?? 0) * chfToTxn
@@ -79,7 +83,7 @@ struct TradeFormView: View {
                     }
                 }
                 Section("Preview") {
-                    if let pv = preview, let code = currency {
+                    if let pv = preview, let code = (cashCurrency ?? currency) {
                         HStack { Text("Cash Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@", pv.cashDelta, code)).foregroundColor(pv.cashDelta >= 0 ? .green : .red) }
                         HStack { Text("Instrument Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f", pv.instrDelta)) }
                     } else {
@@ -124,4 +128,3 @@ struct TradeFormView_Previews: PreviewProvider {
         TradeFormView(onSaved: {}, onCancel: {}).environmentObject(DatabaseManager())
     }
 }
-
