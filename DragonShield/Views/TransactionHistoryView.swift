@@ -18,6 +18,10 @@ struct TransactionRowData: Identifiable, Equatable {
     var netAmount: Double
     var currency: String
     var portfolioName: String?
+    // Added for leg grouping and display
+    var orderReference: String?
+    var typeCode: String
+    var isPositionLeg: Bool
 
     static func == (lhs: TransactionRowData, rhs: TransactionRowData) -> Bool {
         lhs.id == rhs.id
@@ -41,10 +45,11 @@ struct TransactionHistoryView: View {
     @State private var toastMessage: String = ""
 
     var filteredTransactions: [TransactionRowData] {
+        let base: [TransactionRowData]
         if searchText.isEmpty {
-            return transactions.sorted { $0.date > $1.date }
+            base = transactions
         } else {
-            return transactions.filter { transaction in
+            base = transactions.filter { transaction in
                 transaction.accountName.localizedCaseInsensitiveContains(searchText) ||
                 (transaction.instrumentName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
                 transaction.typeName.localizedCaseInsensitiveContains(searchText) ||
@@ -52,7 +57,20 @@ struct TransactionHistoryView: View {
                 transaction.currency.localizedCaseInsensitiveContains(searchText) ||
                 (transaction.portfolioName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
                 String(format: "%.2f", transaction.netAmount).localizedCaseInsensitiveContains(searchText)
-            }.sorted { $0.date > $1.date }
+            }
+        }
+        // Group by date desc, then by order_reference (or id), then show position leg first
+        return base.sorted {
+            if $0.date == $1.date {
+                let l = $0.orderReference ?? String($0.id)
+                let r = $1.orderReference ?? String($1.id)
+                if l == r {
+                    // position leg before cash leg
+                    return ($0.isPositionLeg ? 0 : 1) < ($1.isPositionLeg ? 0 : 1)
+                }
+                return l < r
+            }
+            return $0.date > $1.date
         }
     }
 
@@ -375,6 +393,11 @@ extension TransactionHistoryView {
         }, onCancel: {
             showAddTransactionSheet = false
         }).environmentObject(dbManager)
+    }
+
+    func pairedId(for tx: TransactionRowData) -> Int? {
+        guard let ord = tx.orderReference else { return nil }
+        return transactions.first(where: { $0.orderReference == ord && $0.id != tx.id })?.id
     }
 }
 
