@@ -23,7 +23,10 @@ extension DatabaseManager {
                 t.price,
                 t.net_amount,
                 t.transaction_currency,
-                p.portfolio_name
+                p.portfolio_name,
+                t.order_reference,
+                tt.type_code,
+                t.instrument_id
             FROM Transactions t
             JOIN Accounts a ON t.account_id = a.account_id
             JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
@@ -83,6 +86,10 @@ extension DatabaseManager {
                     portfolioName = nil
                 }
 
+                let orderRef: String? = sqlite3_column_text(statement, 11).map { String(cString: $0) }
+                let typeCode = String(cString: sqlite3_column_text(statement, 12))
+                let isPositionLeg = sqlite3_column_type(statement, 13) != SQLITE_NULL
+
                 transactions.append(TransactionRowData(
                     id: id,
                     date: date,
@@ -94,7 +101,10 @@ extension DatabaseManager {
                     price: price,
                     netAmount: netAmount,
                     currency: currency,
-                    portfolioName: portfolioName
+                    portfolioName: portfolioName,
+                    orderReference: orderRef,
+                    typeCode: typeCode,
+                    isPositionLeg: isPositionLeg
                 ))
             }
         } else {

@@ -261,6 +261,7 @@ struct TransactionHistoryView: View {
                     ForEach(filteredTransactions) { transaction in
                         ModernTransactionRowView(
                             transaction: transaction,
+                            pairedId: pairedId(for: transaction),
                             isSelected: selectedTransaction?.id == transaction.id,
                             rowPadding: CGFloat(dbManager.tableRowPadding),
                             onTap: { selectedTransaction = transaction },
@@ -379,6 +380,7 @@ extension TransactionHistoryView {
 
 struct ModernTransactionRowView: View {
     let transaction: TransactionRowData
+    let pairedId: Int?
     let isSelected: Bool
     let rowPadding: CGFloat
     let onTap: () -> Void
@@ -402,11 +404,11 @@ struct ModernTransactionRowView: View {
                 .font(.system(size: 14, weight: .regular, design: .monospaced)).foregroundColor(.primary) // Monospaced for dates
                 .frame(width: 100, alignment: .leading)
 
-            Text(transaction.typeName)
+            Text(displayType(transaction))
                 .font(.system(size: 13, weight: .medium)) // Slightly smaller
-                .foregroundColor(transactionTypeColor(transaction.typeName))
+                .foregroundColor(transactionLegColor(transaction))
                 .padding(.horizontal, 8).padding(.vertical, 3) // Adjusted padding
-                .background(transactionTypeColor(transaction.typeName).opacity(0.1))
+                .background(transactionLegColor(transaction).opacity(0.1))
                 .clipShape(Capsule())
                 .frame(width: 120, alignment: .leading)
             
@@ -430,6 +432,16 @@ struct ModernTransactionRowView: View {
                 .font(.system(size: 13)).foregroundColor(.secondary) // Slightly smaller
                 .lineLimit(1)
                 .frame(width: 150, alignment: .leading)
+
+            if let pid = pairedId {
+                Text("Pair #\(pid)")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 90, alignment: .leading)
+            } else {
+                Text("")
+                    .frame(width: 90)
+            }
 
             Text(String(format: "%.2f", transaction.netAmount))
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
@@ -456,16 +468,19 @@ struct ModernTransactionRowView: View {
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
     
-    private func transactionTypeColor(_ typeName: String) -> Color {
-        switch typeName.uppercased() {
-        case "PURCHASE", "BUY", "TRANSFER OUT": return .red
-        case "SALE", "SELL", "TRANSFER IN": return .green
-        case "DIVIDEND", "INTEREST": return .purple
-        case "FEE", "TAX": return .orange
-        case "DEPOSIT": return .blue
-        case "WITHDRAWAL": return .pink
-        default: return .gray
+    private func transactionLegColor(_ tx: TransactionRowData) -> Color {
+        if tx.isPositionLeg {
+            return tx.typeCode.uppercased() == "SELL" ? .green : .red
+        } else {
+            return tx.typeCode.uppercased() == "DEPOSIT" ? .green : .red
         }
+    }
+
+    private func displayType(_ tx: TransactionRowData) -> String {
+        let code = tx.typeCode.uppercased()
+        if code == "BUY" || code == "WITHDRAWAL" { return "Buy" }
+        if code == "SELL" || code == "DEPOSIT" { return "Sold" }
+        return tx.typeName
     }
 }
 
