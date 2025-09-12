@@ -95,6 +95,8 @@ class DatabaseManager: ObservableObject {
         ensureThemeUpdateAttachmentTable()
         ensureThemeAssetUpdateAttachmentTable()
         ensureAlertReferenceTables()
+        // New trades schema (buy/sell with legs)
+        ensureTradeSchema()
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
