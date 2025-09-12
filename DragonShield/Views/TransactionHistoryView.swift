@@ -31,6 +31,7 @@ struct TransactionHistoryView: View {
     @State private var selectedTransaction: TransactionRowData? = nil
     @State private var showingDeleteAlert = false
     @State private var transactionToDelete: TransactionRowData? = nil
+    @State private var editTransactionId: Int? = nil
     @State private var searchText = ""
 
     @State private var headerOpacity: Double = 0
@@ -81,6 +82,43 @@ struct TransactionHistoryView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshTransactionHistory"))) { _ in
             loadTransactionHistory()
+        }
+        .sheet(isPresented: $showAddTransactionSheet) {
+            TransactionFormView(onSaved: {
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionHistory"), object: nil)
+                showAddTransactionSheet = false
+            }, onCancel: {
+                showAddTransactionSheet = false
+            })
+            .environmentObject(dbManager)
+        }
+        .sheet(isPresented: Binding(get: { editTransactionId != nil }, set: { if !$0 { editTransactionId = nil } })) {
+            TransactionFormView(onSaved: {
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionHistory"), object: nil)
+                editTransactionId = nil
+            }, onCancel: {
+                editTransactionId = nil
+            }, editTransactionId: editTransactionId)
+            .environmentObject(dbManager)
+        }
+        .alert("Delete Transaction", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let tx = transactionToDelete {
+                    if let ord = dbManager.fetchTransactionOrderReference(id: tx.id) {
+                        _ = dbManager.deleteTransactions(orderReference: ord)
+                    } else {
+                        _ = dbManager.deleteTransaction(id: tx.id)
+                    }
+                    NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionHistory"), object: nil)
+                    selectedTransaction = nil
+                    transactionToDelete = nil
+                }
+            }
+        } message: {
+            if let _ = transactionToDelete {
+                Text("Are you sure you want to delete this transaction? If it is part of a paired trade, both legs will be removed.")
+            }
         }
     }
 
@@ -222,6 +260,12 @@ struct TransactionHistoryView: View {
                             onTap: { selectedTransaction = transaction },
                             onEdit: {
                                 selectedTransaction = transaction
+                                editTransactionId = transaction.id
+                            },
+                            onDelete: {
+                                selectedTransaction = transaction
+                                transactionToDelete = transaction
+                                showingDeleteAlert = true
                             }
                         )
                     }
@@ -253,6 +297,7 @@ struct TransactionHistoryView: View {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
                 Button {
+                    showAddTransactionSheet = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus")
@@ -267,7 +312,6 @@ struct TransactionHistoryView: View {
                     .shadow(color: .teal.opacity(0.3), radius: 6, x: 0, y: 3)
                 }
                 .buttonStyle(ScaleButtonStyle())
-                .disabled(true)
                 
                 Spacer()
                 
@@ -314,12 +358,25 @@ struct TransactionHistoryView: View {
     }
 }
 
+extension TransactionHistoryView {
+    @ViewBuilder
+    var addTransactionSheet: some View {
+        TransactionFormView(onSaved: {
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionHistory"), object: nil)
+            showAddTransactionSheet = false
+        }, onCancel: {
+            showAddTransactionSheet = false
+        }).environmentObject(dbManager)
+    }
+}
+
 struct ModernTransactionRowView: View {
     let transaction: TransactionRowData
     let isSelected: Bool
     let rowPadding: CGFloat
     let onTap: () -> Void
     let onEdit: () -> Void
+    let onDelete: () -> Void
 
     private static var dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -368,8 +425,15 @@ struct ModernTransactionRowView: View {
                 .frame(width: 100, alignment: .trailing) // Adjusted width
             
             Text(transaction.currency)
-                .font(.system(size: 12, weight: .semibold)).foregroundColor(.gray) // Slightly smaller
-                .frame(width: 40, alignment: .leading) // Adjusted width
+                .font(.system(size: 12, weight: .semibold)).foregroundColor(.gray)
+                .frame(width: 40, alignment: .leading)
+
+            HStack(spacing: 6) {
+                Button(action: { onEdit() }) { Image(systemName: "pencil") }
+                    .buttonStyle(.borderless)
+                Button(action: { onDelete() }) { Image(systemName: "trash") }
+                    .buttonStyle(.borderless)
+            }
         }
         .padding(.horizontal, rowPadding)
         .padding(.vertical, rowPadding / 1.8) // Adjusted vertical padding

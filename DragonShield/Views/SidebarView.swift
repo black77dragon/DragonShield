@@ -30,6 +30,10 @@ struct SidebarView: View {
                     Label("Positions", systemImage: "tablecells")
                 }
 
+                NavigationLink(destination: HoldingsView()) {
+                    Label("Holdings (Live)", systemImage: "tray.full.fill")
+                }
+
                 NavigationLink(destination: PerformanceView()) {
                     Label("Performance", systemImage: "chart.bar.fill")
                         .foregroundColor(.gray)
@@ -53,6 +57,10 @@ struct SidebarView: View {
 
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
                     Label("Alerts", systemImage: "bell")
+                }
+
+                NavigationLink(destination: TransactionHistoryView()) {
+                    Label("Transactions", systemImage: "arrow.left.arrow.right")
                 }
             }
 
