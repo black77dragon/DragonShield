@@ -83,6 +83,45 @@ extension DatabaseManager {
         return qty
     }
 
+    /// Public: Holding quantity for an account+instrument up to a date (inclusive).
+    func getHoldingQuantity(accountId: Int, instrumentId: Int, upTo date: Date) -> Double {
+        let dateStr = DateFormatter.iso8601DateOnly.string(from: date)
+        let sql = """
+            SELECT COALESCE(SUM(CASE
+                       WHEN tt.type_code IN ('BUY','TRANSFER_IN') THEN t.quantity
+                       WHEN tt.type_code IN ('SELL','TRANSFER_OUT') THEN -t.quantity
+                       ELSE 0 END), 0)
+              FROM Transactions t
+              JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
+             WHERE t.account_id = ? AND t.instrument_id = ? AND t.transaction_date <= ?;
+        """
+        var stmt: OpaquePointer?
+        var qty: Double = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            sqlite3_bind_int(stmt, 2, Int32(instrumentId))
+            sqlite3_bind_text(stmt, 3, dateStr, -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW { qty = sqlite3_column_double(stmt, 0) }
+        }
+        sqlite3_finalize(stmt)
+        return qty
+    }
+
+    /// Public: Cash balance for an account up to a date (inclusive).
+    func getCashBalance(accountId: Int, upTo date: Date) -> Double {
+        let dateStr = DateFormatter.iso8601DateOnly.string(from: date)
+        let sql = "SELECT COALESCE(SUM(net_amount),0) FROM Transactions WHERE account_id = ? AND transaction_date <= ?;"
+        var stmt: OpaquePointer?
+        var total: Double = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(accountId))
+            sqlite3_bind_text(stmt, 2, dateStr, -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW { total = sqlite3_column_double(stmt, 0) }
+        }
+        sqlite3_finalize(stmt)
+        return total
+    }
+
     // MARK: - CRUD
     func addTransaction(
         accountId: Int,
@@ -359,57 +398,170 @@ extension DatabaseManager {
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_int(stmt, 1, Int32(transactionId))
         guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-        _ = Int(sqlite3_column_int(stmt, 1)) // account_id not directly used here
-        _ = sqlite3_column_type(stmt, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 2)) : nil // instrument_id not directly used here
-        let _ = String(cString: sqlite3_column_text(stmt, 3)) // not used directly
+        let thisAccountId = Int(sqlite3_column_int(stmt, 1))
+        let thisInstrumentId: Int? = sqlite3_column_type(stmt, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 2)) : nil
+        let thisType = String(cString: sqlite3_column_text(stmt, 3))
         let dateStr = String(cString: sqlite3_column_text(stmt, 4))
         let thisDate = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
         let thisQty: Double? = sqlite3_column_type(stmt, 5) != SQLITE_NULL ? sqlite3_column_double(stmt, 5) : nil
         let thisPrice: Double? = sqlite3_column_type(stmt, 6) != SQLITE_NULL ? sqlite3_column_double(stmt, 6) : nil
         let thisFee: Double? = sqlite3_column_type(stmt, 7) != SQLITE_NULL ? sqlite3_column_double(stmt, 7) : nil
         let thisTax: Double? = sqlite3_column_type(stmt, 8) != SQLITE_NULL ? sqlite3_column_double(stmt, 8) : nil
+        let thisNet = sqlite3_column_double(stmt, 9)
         let thisCurrency = String(cString: sqlite3_column_text(stmt, 10))
         let orderRef = sqlite3_column_text(stmt, 11).map { String(cString: $0) }
         let thisDesc = sqlite3_column_text(stmt, 12).map { String(cString: $0) }
+        if let ord = orderRef {
+            // Fetch both legs by order reference
+            let sql2 = """
+                SELECT t.transaction_id, t.account_id, t.instrument_id, tt.type_code, t.quantity, t.price
+                  FROM Transactions t
+                  JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
+                 WHERE t.order_reference = ?
+            """
+            var stmt2: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql2, -1, &stmt2, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt2) }
+            sqlite3_bind_text(stmt2, 1, ord, -1, nil)
+            var posLeg: (accountId: Int, instrumentId: Int, type: String, qty: Double, price: Double)?
+            var cashLegAccount: Int?
+            while sqlite3_step(stmt2) == SQLITE_ROW {
+                let accId = Int(sqlite3_column_int(stmt2, 1))
+                let instr: Int? = sqlite3_column_type(stmt2, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt2, 2)) : nil
+                let tcode = String(cString: sqlite3_column_text(stmt2, 3))
+                let q: Double = sqlite3_column_type(stmt2, 4) != SQLITE_NULL ? sqlite3_column_double(stmt2, 4) : 0
+                let p: Double = sqlite3_column_type(stmt2, 5) != SQLITE_NULL ? sqlite3_column_double(stmt2, 5) : 0
+                if let iid = instr { posLeg = (accId, iid, tcode, q, p) } else { cashLegAccount = accId }
+            }
+            guard let pos = posLeg, let cashAcc = cashLegAccount else { return nil }
+            let normalizedType = pos.type.uppercased() == "SELL" ? "SELL" : "BUY"
+            return PairedTradeDetails(
+                typeCode: normalizedType,
+                instrumentId: pos.instrumentId,
+                securitiesAccountId: pos.accountId,
+                cashAccountId: cashAcc,
+                date: thisDate,
+                quantity: thisQty ?? pos.qty,
+                price: thisPrice ?? pos.price,
+                fee: thisFee,
+                tax: thisTax,
+                description: thisDesc,
+                currency: thisCurrency,
+                orderReference: ord
+            )
+        }
 
-        guard let ord = orderRef else { return nil }
-
-        // Fetch both legs by order reference
-        let sql2 = """
-            SELECT t.transaction_id, t.account_id, t.instrument_id, tt.type_code, t.quantity, t.price
+        // Fallback inference without order_reference
+        let tol = 0.01
+        let sqlOppCash = """
+            SELECT t.account_id
               FROM Transactions t
               JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
-             WHERE t.order_reference = ?
+             WHERE t.transaction_id != ?
+               AND t.transaction_date = ?
+               AND t.transaction_currency = ?
+               AND t.instrument_id IS NULL
+               AND ABS(t.net_amount + ?) < ?
+             LIMIT 1;
         """
-        var stmt2: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql2, -1, &stmt2, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_finalize(stmt2) }
-        sqlite3_bind_text(stmt2, 1, ord, -1, nil)
-        var posLeg: (accountId: Int, instrumentId: Int, type: String, qty: Double, price: Double)?
-        var cashLegAccount: Int?
-        while sqlite3_step(stmt2) == SQLITE_ROW {
-            let accId = Int(sqlite3_column_int(stmt2, 1))
-            let instr: Int? = sqlite3_column_type(stmt2, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt2, 2)) : nil
-            let tcode = String(cString: sqlite3_column_text(stmt2, 3))
-            let q: Double = sqlite3_column_type(stmt2, 4) != SQLITE_NULL ? sqlite3_column_double(stmt2, 4) : 0
-            let p: Double = sqlite3_column_type(stmt2, 5) != SQLITE_NULL ? sqlite3_column_double(stmt2, 5) : 0
-            if let iid = instr { posLeg = (accId, iid, tcode, q, p) } else { cashLegAccount = accId }
+        let sqlOppPos = """
+            SELECT t.account_id, t.instrument_id, t.quantity, t.price
+              FROM Transactions t
+              JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
+             WHERE t.transaction_id != ?
+               AND t.transaction_date = ?
+               AND t.transaction_currency = ?
+               AND t.instrument_id IS NOT NULL
+               AND ABS(t.net_amount + ?) < ?
+             LIMIT 1;
+        """
+        if thisInstrumentId != nil {
+            var stmt3: OpaquePointer?
+            if sqlite3_prepare_v2(db, sqlOppCash, -1, &stmt3, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt3, 1, Int32(transactionId))
+                sqlite3_bind_text(stmt3, 2, dateStr, -1, nil)
+                sqlite3_bind_text(stmt3, 3, thisCurrency, -1, nil)
+                sqlite3_bind_double(stmt3, 4, thisNet)
+                sqlite3_bind_double(stmt3, 5, tol)
+                var cashAcc: Int?
+                if sqlite3_step(stmt3) == SQLITE_ROW { cashAcc = Int(sqlite3_column_int(stmt3, 0)) }
+                sqlite3_finalize(stmt3)
+                if let cashAcc = cashAcc, let iid = thisInstrumentId {
+                    let normalizedType = thisType.uppercased() == "SELL" ? "SELL" : "BUY"
+                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: thisAccountId, cashAccountId: cashAcc, date: thisDate, quantity: thisQty ?? 0, price: thisPrice ?? 0, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: "")
+                }
+            }
+        } else {
+            var stmt4: OpaquePointer?
+            if sqlite3_prepare_v2(db, sqlOppPos, -1, &stmt4, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt4, 1, Int32(transactionId))
+                sqlite3_bind_text(stmt4, 2, dateStr, -1, nil)
+                sqlite3_bind_text(stmt4, 3, thisCurrency, -1, nil)
+                sqlite3_bind_double(stmt4, 4, thisNet)
+                sqlite3_bind_double(stmt4, 5, tol)
+                var secAcc: Int?
+                var iid: Int?
+                var q: Double = 0
+                var p: Double = 0
+                if sqlite3_step(stmt4) == SQLITE_ROW {
+                    secAcc = Int(sqlite3_column_int(stmt4, 0))
+                    iid = Int(sqlite3_column_int(stmt4, 1))
+                    if sqlite3_column_type(stmt4, 2) != SQLITE_NULL { q = sqlite3_column_double(stmt4, 2) }
+                    if sqlite3_column_type(stmt4, 3) != SQLITE_NULL { p = sqlite3_column_double(stmt4, 3) }
+                }
+                sqlite3_finalize(stmt4)
+                if let secAcc = secAcc, let iid = iid {
+                    let normalizedType = thisType.uppercased() == "DEPOSIT" ? "SELL" : "BUY"
+                    return PairedTradeDetails(typeCode: normalizedType, instrumentId: iid, securitiesAccountId: secAcc, cashAccountId: thisAccountId, date: thisDate, quantity: thisQty ?? q, price: thisPrice ?? p, fee: thisFee, tax: thisTax, description: thisDesc, currency: thisCurrency, orderReference: "")
+                }
+            }
         }
-        guard let pos = posLeg, let cashAcc = cashLegAccount else { return nil }
-        let normalizedType = pos.type.uppercased() == "SELL" ? "SELL" : "BUY"
-        return PairedTradeDetails(
-            typeCode: normalizedType,
-            instrumentId: pos.instrumentId,
-            securitiesAccountId: pos.accountId,
-            cashAccountId: cashAcc,
-            date: thisDate,
-            quantity: thisQty ?? pos.qty,
-            price: thisPrice ?? pos.price,
-            fee: thisFee,
-            tax: thisTax,
-            description: thisDesc,
-            currency: thisCurrency,
-            orderReference: ord
-        )
+        return nil
+    }
+
+    struct BasicTransactionDetails {
+        var transactionId: Int
+        var accountId: Int
+        var instrumentId: Int?
+        var typeCode: String
+        var date: Date
+        var quantity: Double?
+        var price: Double?
+        var fee: Double?
+        var tax: Double?
+        var currency: String
+        var orderReference: String?
+        var description: String?
+    }
+
+    func fetchTransactionDetails(id: Int) -> BasicTransactionDetails? {
+        let sql = """
+            SELECT t.transaction_id, t.account_id, t.instrument_id, tt.type_code, t.transaction_date,
+                   t.quantity, t.price, t.fee, t.tax, t.transaction_currency, t.order_reference, t.description
+              FROM Transactions t
+              JOIN TransactionTypes tt ON t.transaction_type_id = tt.transaction_type_id
+             WHERE t.transaction_id = ?
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        let txId = Int(sqlite3_column_int(stmt, 0))
+        let accId = Int(sqlite3_column_int(stmt, 1))
+        let instrId: Int? = sqlite3_column_type(stmt, 2) != SQLITE_NULL ? Int(sqlite3_column_int(stmt, 2)) : nil
+        let tcode = String(cString: sqlite3_column_text(stmt, 3))
+        let dateStr = String(cString: sqlite3_column_text(stmt, 4))
+        let d = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date()
+        let qty: Double? = sqlite3_column_type(stmt, 5) != SQLITE_NULL ? sqlite3_column_double(stmt, 5) : nil
+        let pr: Double? = sqlite3_column_type(stmt, 6) != SQLITE_NULL ? sqlite3_column_double(stmt, 6) : nil
+        let f: Double? = sqlite3_column_type(stmt, 7) != SQLITE_NULL ? sqlite3_column_double(stmt, 7) : nil
+        let t: Double? = sqlite3_column_type(stmt, 8) != SQLITE_NULL ? sqlite3_column_double(stmt, 8) : nil
+        let cur = String(cString: sqlite3_column_text(stmt, 9))
+        let ord = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+        let desc = sqlite3_column_text(stmt, 11).map { String(cString: $0) }
+        return BasicTransactionDetails(
+            transactionId: txId, accountId: accId, instrumentId: instrId, typeCode: tcode,
+            date: d, quantity: qty, price: pr, fee: f, tax: t, currency: cur, orderReference: ord, description: desc)
     }
 }

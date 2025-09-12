@@ -77,6 +77,9 @@ struct TransactionFormView: View {
             ScrollView { // allow overflow if needed
             Form {
                 Section("Basics") {
+                    if let tid = editTransactionId {
+                        HStack { Text("ID").frame(width: 120, alignment: .trailing); Text("#\(tid)").foregroundColor(.secondary) }
+                    }
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                     Picker("Type", selection: $type) {
                         Text("BUY").tag("BUY")
@@ -155,27 +158,49 @@ struct TransactionFormView: View {
     }
 
     private func loadData() {
-        instruments = dbManager.fetchAssets()
+        instruments = dbManager.fetchAssets(includeDeleted: false, includeInactive: true)
         accounts = dbManager.fetchAccounts()
         accountTypes = dbManager.fetchAccountTypes(activeOnly: true)
     }
 
     private func populateIfEditing() {
-        guard let tid = editTransactionId, let details = dbManager.fetchPairedTradeDetails(transactionId: tid) else { return }
-        // Populate fields
-        type = details.typeCode
-        selectedInstrumentId = details.instrumentId
-        // After instrument set, currency filter will constrain accounts; delay selection to next runloop
-        DispatchQueue.main.async {
-            selectedSecuritiesAccountId = details.securitiesAccountId
-            selectedCashAccountId = details.cashAccountId
+        guard let tid = editTransactionId else { return }
+        if let details = dbManager.fetchPairedTradeDetails(transactionId: tid) {
+            type = details.typeCode
+            selectedInstrumentId = details.instrumentId
+            DispatchQueue.main.async {
+                selectedSecuritiesAccountId = details.securitiesAccountId
+                selectedCashAccountId = details.cashAccountId
+            }
+            date = details.date
+            quantity = String(details.quantity)
+            price = String(details.price)
+            if let f = details.fee { fee = String(f) }
+            if let t = details.tax { tax = String(t) }
+            descriptionText = details.description ?? ""
+            return
         }
-        date = details.date
-        quantity = String(details.quantity)
-        price = String(details.price)
-        if let f = details.fee { fee = String(f) }
-        if let t = details.tax { tax = String(t) }
-        descriptionText = details.description ?? ""
+
+        if let single = dbManager.fetchTransactionDetails(id: tid) {
+            // Fallback: prefill what we can from a single row (even without order_reference)
+            type = single.typeCode.uppercased()
+            selectedInstrumentId = single.instrumentId
+            date = single.date
+            if let q = single.quantity { quantity = String(q) }
+            if let p = single.price { price = String(p) }
+            if let f = single.fee { fee = String(f) }
+            if let t = single.tax { tax = String(t) }
+            descriptionText = single.description ?? ""
+            // Heuristic: if instrumentId exists -> it's the position leg; use its account as securities account
+            // Otherwise, it's likely the cash leg; use its account as cash account
+            DispatchQueue.main.async {
+                if single.instrumentId != nil {
+                    selectedSecuritiesAccountId = single.accountId
+                } else {
+                    selectedCashAccountId = single.accountId
+                }
+            }
+        }
     }
 
     private func save() {
@@ -183,6 +208,9 @@ struct TransactionFormView: View {
         guard let qty = Double(quantity), let pr = Double(price) else { return }
         let f = Double(fee) ?? 0
         let t = Double(tax) ?? 0
+        // Pre-capture balances
+        let oldCash = dbManager.getCashBalance(accountId: ca, upTo: date)
+        let oldQty = dbManager.getHoldingQuantity(accountId: sa, instrumentId: iid, upTo: date)
         var ok = false
         if let tid = editTransactionId, let existing = dbManager.fetchPairedTradeDetails(transactionId: tid) {
             // Replace pair: delete by order reference then create anew
@@ -214,6 +242,18 @@ struct TransactionFormView: View {
             )
         }
         if ok {
+            // Post-capture balances
+            let newCash = dbManager.getCashBalance(accountId: ca, upTo: date)
+            let newQty = dbManager.getHoldingQuantity(accountId: sa, instrumentId: iid, upTo: date)
+            let currency = self.currency ?? ""
+            let cashDelta = newCash - oldCash
+            let qtyDelta = newQty - oldQty
+            let nf = NumberFormatter(); nf.numberStyle = .decimal; nf.maximumFractionDigits = 2
+            let cashStrOld = nf.string(from: NSNumber(value: oldCash)) ?? String(format: "%.2f", oldCash)
+            let cashStrNew = nf.string(from: NSNumber(value: newCash)) ?? String(format: "%.2f", newCash)
+            let msg = "Cash: \(cashStrOld) \(currency) → \(cashStrNew) \(currency)  (Δ \(String(format: "%.2f", cashDelta)) \(currency))\nHolding: \(String(format: "%.4f", oldQty)) → \(String(format: "%.4f", newQty))  (Δ \(String(format: "%.4f", qtyDelta)))"
+            // Show quick popup summary
+            NotificationCenter.default.post(name: NSNotification.Name("ShowToast"), object: msg)
             onSaved()
             presentation.wrappedValue.dismiss()
         } else {

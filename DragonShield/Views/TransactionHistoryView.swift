@@ -37,6 +37,8 @@ struct TransactionHistoryView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
+    @State private var showToast: Bool = false
+    @State private var toastMessage: String = ""
 
     var filteredTransactions: [TransactionRowData] {
         if searchText.isEmpty {
@@ -83,6 +85,9 @@ struct TransactionHistoryView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshTransactionHistory"))) { _ in
             loadTransactionHistory()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowToast"))) { output in
+            if let msg = output.object as? String { toastMessage = msg; showToast = true }
+        }
         .sheet(isPresented: $showAddTransactionSheet) {
             TransactionFormView(onSaved: {
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionHistory"), object: nil)
@@ -120,6 +125,7 @@ struct TransactionHistoryView: View {
                 Text("Are you sure you want to delete this transaction? If it is part of a paired trade, both legs will be removed.")
             }
         }
+        .toast(isPresented: $showToast, message: toastMessage)
     }
 
     private var modernHeader: some View {
@@ -279,6 +285,7 @@ struct TransactionHistoryView: View {
     
     private var modernTableHeader: some View {
         HStack {
+            Text("ID").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 60, alignment: .leading)
             Text("Date").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 100, alignment: .leading)
             Text("Type").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 120, alignment: .leading)
             Text("Instrument/Desc.").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(maxWidth: .infinity, alignment: .leading) // Adjusted Header
@@ -386,6 +393,11 @@ struct ModernTransactionRowView: View {
 
     var body: some View {
         HStack {
+            Text("#\(transaction.id)")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 60, alignment: .leading)
+
             Text(transaction.date, formatter: Self.dateFormatter)
                 .font(.system(size: 14, weight: .regular, design: .monospaced)).foregroundColor(.primary) // Monospaced for dates
                 .frame(width: 100, alignment: .leading)
