@@ -10,6 +10,7 @@ struct TradeFormView: View {
     @State private var date: Date = Date()
     @State private var instruments: [DatabaseManager.InstrumentRow] = []
     @State private var accounts: [DatabaseManager.AccountData] = []
+    @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
     @State private var instrumentId: Int? = nil
     @State private var custodyAccountId: Int? = nil
     @State private var cashAccountId: Int? = nil
@@ -22,6 +23,19 @@ struct TradeFormView: View {
 
     private var currency: String? { instrumentId.flatMap { id in instruments.first(where: { $0.id == id })?.currency } }
     private var cashCurrency: String? { cashAccountId.flatMap { id in accounts.first(where: { $0.id == id })?.currencyCode } }
+
+    private var custodyTypeIds: Set<Int> {
+        Set(accountTypes.filter { $0.code.uppercased() == "CUSTODY" }.map { $0.id })
+    }
+
+    private var custodyAccounts: [DatabaseManager.AccountData] {
+        var base = accounts.filter { custodyTypeIds.contains($0.accountTypeId) }
+            .sorted { $0.accountName.localizedCaseInsensitiveCompare($1.accountName) == .orderedAscending }
+        if let sel = custodyAccountId, !base.contains(where: { $0.id == sel }), let acc = accounts.first(where: { $0.id == sel }) {
+            base.insert(acc, at: 0)
+        }
+        return base
+    }
 
     private var cashAccounts: [DatabaseManager.AccountData] {
         guard let code = currency?.uppercased() else { return [] }
@@ -65,7 +79,7 @@ struct TradeFormView: View {
                 Section("Accounts") {
                     Picker("Custody Account", selection: $custodyAccountId) {
                         Text("Select Account").tag(Optional<Int>(nil))
-                        ForEach(accounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
+                        ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
                     }
                     if let code = currency {
                         Picker("Cash Account (\(code))", selection: $cashAccountId) {
@@ -110,6 +124,7 @@ struct TradeFormView: View {
     private func load() {
         instruments = dbManager.fetchAssets(includeDeleted: false, includeInactive: true)
         accounts = dbManager.fetchAccounts()
+        accountTypes = dbManager.fetchAccountTypes(activeOnly: true)
     }
 
     private func save() {
@@ -118,7 +133,7 @@ struct TradeFormView: View {
         if let _ = dbManager.createTrade(input) {
             onSaved(); presentation.wrappedValue.dismiss()
         } else {
-            errorMessage = "Failed to save trade. Check currency of cash account, FX for fees, and inputs."
+            errorMessage = dbManager.lastTradeErrorMessage ?? "Failed to save trade. Check currency of cash account, FX for fees, and inputs."
         }
     }
 }
