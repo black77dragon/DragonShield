@@ -57,6 +57,10 @@ struct SidebarView: View {
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
                     Label("Alerts", systemImage: "bell")
                 }
+
+                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
+                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
+                }
             }
 
             DisclosureGroup("Configuration", isExpanded: $showConfiguration) {

@@ -50,6 +50,8 @@ class DatabaseManager: ObservableObject {
     @Published var iosSnapshotFrequency: String = "daily"
     /// Destination folder for iOS snapshot export
     @Published var iosSnapshotTargetPath: String = ""
+    // Last trade error for UI feedback
+    @Published var lastTradeErrorMessage: String? = nil
 
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==
@@ -95,6 +97,7 @@ class DatabaseManager: ObservableObject {
         ensureThemeUpdateAttachmentTable()
         ensureThemeAssetUpdateAttachmentTable()
         ensureAlertReferenceTables()
+        // Trades schema now provisioned via db/migrations (dbmate). No runtime DDL here.
         let version = loadConfiguration()
         self.dbVersion = version
         DispatchQueue.main.async { self.dbVersion = version }
