@@ -28,6 +28,7 @@ struct TradesHistoryView: View {
 
             VStack(spacing: 0) {
                 header
+                infoBanner
                 controls
                 table
                 actionBar
@@ -54,6 +55,26 @@ struct TradesHistoryView: View {
         } message: {
             Text("Permanently delete trade #\(selected?.tradeId ?? 0)?")
         }
+    }
+
+    // MARK: - Info Banner
+    private var infoBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+            Text("Transactions are NOT updating the custody and cash accounts. They are maintained manually. Currently the purpose of the transaction journal is to calculate the P&L of transactions only.")
+                .font(.callout)
+                .foregroundColor(.primary)
+        }
+        .padding(12)
+        .background(Color.blue.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+        .cornerRadius(8)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
     }
 
     private var header: some View {
