@@ -50,6 +50,12 @@ Each pull request must add a one-line, user-facing entry under **Unreleased** in
 
 ## [4.7.0] - 2025-09-09
 
+## [4.7.1] - 20 20 12 61 79 80 81 98 701 33 100 204 250 395 398 399 400date +%Y-%m-%d)
+
+### Added
+- Transactions Phase 1 (buy/sell): Trade + TradeLeg schema (dbmate migrations 032/033), new Transactions UI (history + CRUD), detailed validation and logging. Balances in the form read snapshots (PositionReports); trades do NOT update snapshots (P&L only).
+
+
 ### Changed
 - Portfolio Theme handling tightened: edits are blocked when a theme is archived or soft-deleted (database guards across theme meta, holdings, and updates) (#1048)
 - Standardized error messaging when attempting edits on locked themes: "no changes possible, restore theme first" (#1048)
