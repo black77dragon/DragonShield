@@ -266,7 +266,7 @@ extension DatabaseManager {
         }
 
         // Cash leg
-        guard let (cashInstrId, resolvedCurrency) = cashInstrumentId(forAccountId: input.cashAccountId) else {
+        guard let (cashInstrId, _) = cashInstrumentId(forAccountId: input.cashAccountId) else {
             let avail = availableCashCurrencies().joined(separator: ", ")
             let accName = fetchAccountDetails(id: input.cashAccountId)?.accountName ?? "#\(input.cashAccountId)"
             let msg = "No CASH instrument found for cash account '\(accName)'. Expected Instruments row with sub_class_code='CASH' and currency matching the account (\(cashCurrency)). Available CASH currencies in Instruments: [\(avail)]."
@@ -546,6 +546,22 @@ extension DatabaseManager {
             }
         }
         sqlite3_finalize(stmt)
+        // Fallback to snapshot (PositionReports) if there are no trades up to date
+        if abs(total) < 1e-12 { // effectively zero
+            if let (cashInstrId, _) = cashInstrumentId(forAccountId: accountId) {
+                let snapSQL = "SELECT COALESCE(SUM(quantity),0) FROM PositionReports WHERE account_id = ? AND instrument_id = ? AND report_date <= ?"
+                var s: OpaquePointer?
+                var snap: Double = 0
+                if sqlite3_prepare_v2(db, snapSQL, -1, &s, nil) == SQLITE_OK {
+                    sqlite3_bind_int(s, 1, Int32(accountId))
+                    sqlite3_bind_int(s, 2, Int32(cashInstrId))
+                    sqlite3_bind_text(s, 3, DateFormatter.iso8601DateOnly.string(from: date), -1, nil)
+                    if sqlite3_step(s) == SQLITE_ROW { snap = sqlite3_column_double(s, 0) }
+                }
+                sqlite3_finalize(s)
+                return round4(snap)
+            }
+        }
         return round4(total)
     }
 
@@ -572,6 +588,20 @@ extension DatabaseManager {
             }
         }
         sqlite3_finalize(stmt)
+        if abs(total) < 1e-12 {
+            // Fallback to latest snapshot
+            let snapSQL = "SELECT COALESCE(SUM(quantity),0) FROM PositionReports WHERE account_id = ? AND instrument_id = ? AND report_date <= ?"
+            var s: OpaquePointer?
+            var snap: Double = 0
+            if sqlite3_prepare_v2(db, snapSQL, -1, &s, nil) == SQLITE_OK {
+                sqlite3_bind_int(s, 1, Int32(accountId))
+                sqlite3_bind_int(s, 2, Int32(instrumentId))
+                sqlite3_bind_text(s, 3, DateFormatter.iso8601DateOnly.string(from: date), -1, nil)
+                if sqlite3_step(s) == SQLITE_ROW { snap = sqlite3_column_double(s, 0) }
+            }
+            sqlite3_finalize(s)
+            return round4(snap)
+        }
         return round4(total)
     }
 }

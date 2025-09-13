@@ -96,14 +96,30 @@ struct TradeFormView: View {
                     }
                 }
                 Section("Accounts") {
-                    Picker("Custody Account", selection: $custodyAccountId) {
-                        Text("Select Account").tag(Optional<Int>(nil))
-                        ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
+                    HStack(alignment: .firstTextBaseline) {
+                        Picker("Custody Account", selection: $custodyAccountId) {
+                            Text("Select Account").tag(Optional<Int>(nil))
+                            ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
+                        }
+                        Spacer()
+                        if let curH = currentHolding {
+                            Text(String(format: "Holding: %.4f", curH))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     if let code = currency {
-                        Picker("Cash Account (\(code))", selection: $cashAccountId) {
-                            Text("Select Account").tag(Optional<Int>(nil))
-                            ForEach(cashAccounts, id: \.id) { a in Text(a.accountName).tag(Optional(a.id)) }
+                        HStack(alignment: .firstTextBaseline) {
+                            Picker("Cash Account (\(code))", selection: $cashAccountId) {
+                                Text("Select Account").tag(Optional<Int>(nil))
+                                ForEach(cashAccounts, id: \.id) { a in Text(a.accountName).tag(Optional(a.id)) }
+                            }
+                            Spacer()
+                            if let curC = currentCash {
+                                Text(String(format: "Cash: %.4f %@", curC, (cashCurrency ?? code)))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
@@ -119,6 +135,18 @@ struct TradeFormView: View {
                     if let pv = preview, let code = (cashCurrency ?? currency) {
                         HStack { Text("Cash Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@", pv.cashDelta, code)).foregroundColor(pv.cashDelta >= 0 ? .green : .red) }
                         HStack { Text("Instrument Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f", pv.instrDelta)) }
+                        if let code = (cashCurrency ?? currency) {
+                            // FX used for CHF->cash conversion
+                            if let rate = dbManager.fetchExchangeRates(currencyCode: code, upTo: date).first {
+                                let chfToTxn = rate.rateToChf > 0 ? (1.0 / rate.rateToChf) : 1.0
+                                HStack {
+                                    Text("FX used").frame(width: 120, alignment: .trailing)
+                                    Text(String(format: "1 CHF = %.6f %@ (as of %@)", chfToTxn, code, DateFormatter.iso8601DateOnly.string(from: rate.rateDate)))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
                     } else {
                         Text("Enter instrument, qty and price to preview.").foregroundColor(.secondary)
                     }
