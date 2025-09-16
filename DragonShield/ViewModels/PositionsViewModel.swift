@@ -10,10 +10,20 @@ class PositionsViewModel: ObservableObject {
   /// All positions sorted by value in CHF descending.
   @Published var topPositions: [TopPosition] = []
 
+  private var individualTopPositions: [TopPosition] = []
+  private var consolidatedTopPositions: [TopPosition] = []
+  private var showsConsolidatedTopPositions = true
+
   struct TopPosition: Identifiable {
-    let id: Int
+    let id: String
     let instrument: String
     let valueCHF: Double
+    let currency: String
+  }
+
+  private struct InstrumentGroupingKey: Hashable {
+    let instrumentId: Int?
+    let instrumentName: String
     let currency: String
   }
 
@@ -123,22 +133,75 @@ class PositionsViewModel: ObservableObject {
         self.positionValueCHF = chf
         self.currencySymbols = symbolCache
         self.totalAssetValueCHF = total
-        self.topPositions = orig.keys.compactMap { id in
-          if let value = chf[id], let v = value {
-            let name = positions.first { $0.id == id }?.instrumentName ?? ""
-            let currency = positions.first { $0.id == id }?.instrumentCurrency.uppercased() ?? "CHF"
-            return TopPosition(id: id, instrument: name, valueCHF: v, currency: currency)
+
+        let individual: [TopPosition] = positions.compactMap { position in
+          if let value = chf[position.id], let unwrapped = value {
+            let currency = position.instrumentCurrency.uppercased()
+            return TopPosition(
+              id: "position-\(position.id)",
+              instrument: position.instrumentName,
+              valueCHF: unwrapped,
+              currency: currency
+            )
           }
           return nil
         }
         .sorted { $0.valueCHF > $1.valueCHF }
+
+        let grouped = Dictionary(grouping: positions) { position in
+          InstrumentGroupingKey(
+            instrumentId: position.instrumentId,
+            instrumentName: position.instrumentName,
+            currency: position.instrumentCurrency.uppercased()
+          )
+        }
+
+        var consolidated: [TopPosition] = []
+        for (key, group) in grouped {
+          var sumCHF: Double = 0
+          var hasValue = false
+          for position in group {
+            if let value = chf[position.id], let unwrapped = value {
+              sumCHF += unwrapped
+              hasValue = true
+            }
+          }
+          guard hasValue else { continue }
+
+          let id: String
+          if let instrumentId = key.instrumentId {
+            id = "instrument-\(instrumentId)"
+          } else {
+            id = "instrument-\(key.instrumentName.lowercased())-\(key.currency)"
+          }
+
+          consolidated.append(
+            TopPosition(
+              id: id,
+              instrument: key.instrumentName,
+              valueCHF: sumCHF,
+              currency: key.currency
+            )
+          )
+        }
+        consolidated.sort { $0.valueCHF > $1.valueCHF }
+
+        self.individualTopPositions = individual
+        self.consolidatedTopPositions = consolidated
+        self.setConsolidation(enabled: self.showsConsolidatedTopPositions)
         self.calculating = false
         self.showErrorToast = missingRate
       }
     }
   }
 
-  func calculateTopPositions(db: DatabaseManager) {
+  func setConsolidation(enabled: Bool) {
+    showsConsolidatedTopPositions = enabled
+    topPositions = enabled ? consolidatedTopPositions : individualTopPositions
+  }
+
+  func calculateTopPositions(db: DatabaseManager, consolidated: Bool) {
+    showsConsolidatedTopPositions = consolidated
     let positions = db.fetchPositionReports()
     calculateValues(positions: positions, db: db)
   }

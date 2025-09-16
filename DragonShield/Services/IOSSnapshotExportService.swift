@@ -42,12 +42,54 @@ final class IOSSnapshotExportService {
     }
 
     @discardableResult
-    func exportNow() throws -> URL {
+    func exportNow(trigger: String = "manual") throws -> URL {
+        let startedAt = Date()
         let destFolder = resolvedTargetFolder()
-        try ensureFolderExists(destFolder)
         let fileURL = targetFileURL()
-        try db.exportSnapshot(to: fileURL)
-        return fileURL
+        do {
+            try ensureFolderExists(destFolder)
+            try db.exportSnapshot(to: fileURL)
+            let finishedAt = Date()
+            let durationMs = max(Int(finishedAt.timeIntervalSince(startedAt) * 1000), 0)
+            let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+            let byteCount = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .binary
+            let sizeString = byteCount > 0 ? formatter.string(fromByteCount: byteCount) : nil
+            let messageBase = "Exported \(fileURL.lastPathComponent)" + (sizeString != nil ? " (\(sizeString!))" : "")
+            let message = messageBase + " via \(trigger)"
+            var metadata: [String: Any] = [
+                "targetPath": destFolder.path,
+                "filename": fileURL.lastPathComponent,
+                "trigger": trigger
+            ]
+            if byteCount > 0 { metadata["bytes"] = byteCount }
+            _ = db.recordSystemJobRun(jobKey: .iosSnapshotExport,
+                                      status: .success,
+                                      message: message,
+                                      metadata: metadata,
+                                      startedAt: startedAt,
+                                      finishedAt: finishedAt,
+                                      durationMs: durationMs)
+            return fileURL
+        } catch {
+            let finishedAt = Date()
+            let durationMs = max(Int(finishedAt.timeIntervalSince(startedAt) * 1000), 0)
+            let metadata: [String: Any] = [
+                "targetPath": destFolder.path,
+                "filename": fileURL.lastPathComponent,
+                "trigger": trigger
+            ]
+            let message = "Export failed: \(error.localizedDescription) via \(trigger)"
+            _ = db.recordSystemJobRun(jobKey: .iosSnapshotExport,
+                                      status: .failed,
+                                      message: message,
+                                      metadata: metadata,
+                                      startedAt: startedAt,
+                                      finishedAt: finishedAt,
+                                      durationMs: durationMs)
+            throw error
+        }
     }
 
     func isDueToday(frequency: String) -> Bool {
@@ -69,7 +111,7 @@ final class IOSSnapshotExportService {
         guard db.iosSnapshotAutoEnabled else { return }
         if isDueToday(frequency: db.iosSnapshotFrequency) {
             do {
-                let url = try exportNow()
+                let url = try exportNow(trigger: "auto")
                 LoggingService.shared.log("[iOS Snapshot] Exported to \(url.path)")
             } catch {
                 LoggingService.shared.log("[iOS Snapshot] Export failed: \(error.localizedDescription)", type: .error)

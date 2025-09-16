@@ -5,9 +5,11 @@ extension DatabaseManager {
     func listAlertTriggerTypes(includeInactive: Bool = true) -> [AlertTriggerTypeRow] {
         var rows: [AlertTriggerTypeRow] = []
         guard let db else { return rows }
+        let hasRequiresDate = hasRequiresDateColumn()
+        let column = hasRequiresDate ? "requires_date" : "0 AS requires_date"
         let sql = includeInactive ?
-        "SELECT id, code, display_name, description, sort_order, active FROM AlertTriggerType ORDER BY sort_order, id" :
-        "SELECT id, code, display_name, description, sort_order, active FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
+        "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType ORDER BY sort_order, id" :
+        "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             defer { sqlite3_finalize(stmt) }
@@ -18,15 +20,16 @@ extension DatabaseManager {
                 let desc = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
                 let order = Int(sqlite3_column_int(stmt, 4))
                 let active = sqlite3_column_int(stmt, 5) == 1
-                rows.append(AlertTriggerTypeRow(id: id, code: code, displayName: name, description: desc, sortOrder: order, active: active))
+                let requiresDate = sqlite3_column_int(stmt, 6) == 1
+                rows.append(AlertTriggerTypeRow(id: id, code: code, displayName: name, description: desc, sortOrder: order, active: active, requiresDate: requiresDate))
             }
         }
         return rows
     }
 
-    func createAlertTriggerType(code: String, displayName: String, description: String?, sortOrder: Int, active: Bool) -> AlertTriggerTypeRow? {
+    func createAlertTriggerType(code: String, displayName: String, description: String?, sortOrder: Int, active: Bool, requiresDate: Bool) -> AlertTriggerTypeRow? {
         guard let db else { return nil }
-        let sql = "INSERT INTO AlertTriggerType(code, display_name, description, sort_order, active) VALUES(?,?,?,?,?)"
+        let sql = "INSERT INTO AlertTriggerType(code, display_name, description, sort_order, active, requires_date) VALUES(?,?,?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
@@ -36,12 +39,13 @@ extension DatabaseManager {
         if let description { sqlite3_bind_text(stmt, 3, description, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 3) }
         sqlite3_bind_int(stmt, 4, Int32(sortOrder))
         sqlite3_bind_int(stmt, 5, active ? 1 : 0)
+        sqlite3_bind_int(stmt, 6, requiresDate ? 1 : 0)
         guard sqlite3_step(stmt) == SQLITE_DONE else { return nil }
         let id = Int(sqlite3_last_insert_rowid(db))
-        return AlertTriggerTypeRow(id: id, code: code, displayName: displayName, description: description, sortOrder: sortOrder, active: active)
+        return AlertTriggerTypeRow(id: id, code: code, displayName: displayName, description: description, sortOrder: sortOrder, active: active, requiresDate: requiresDate)
     }
 
-    func updateAlertTriggerType(id: Int, code: String?, displayName: String?, description: String?, sortOrder: Int?, active: Bool?) -> Bool {
+    func updateAlertTriggerType(id: Int, code: String?, displayName: String?, description: String?, sortOrder: Int?, active: Bool?, requiresDate: Bool? = nil) -> Bool {
         guard let db else { return false }
         var sets: [String] = []
         var bind: [Any?] = []
@@ -50,6 +54,7 @@ extension DatabaseManager {
         if let description { sets.append("description = ?"); bind.append(description) }
         if let sortOrder { sets.append("sort_order = ?"); bind.append(sortOrder) }
         if let active { sets.append("active = ?"); bind.append(active ? 1 : 0) }
+        if let requiresDate { sets.append("requires_date = ?"); bind.append(requiresDate ? 1 : 0) }
         guard !sets.isEmpty else { return true }
         let sql = "UPDATE AlertTriggerType SET \(sets.joined(separator: ", ")), updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
         var stmt: OpaquePointer?
@@ -97,5 +102,23 @@ extension DatabaseManager {
         }
         return ok
     }
-}
 
+    private func hasRequiresDateColumn() -> Bool {
+        guard let db else { return false }
+        var stmt: OpaquePointer?
+        var found = false
+        if sqlite3_prepare_v2(db, "PRAGMA table_info(AlertTriggerType)", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let namePtr = sqlite3_column_text(stmt, 1) {
+                    let name = String(cString: namePtr)
+                    if name == "requires_date" {
+                        found = true
+                        break
+                    }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return found
+    }
+}

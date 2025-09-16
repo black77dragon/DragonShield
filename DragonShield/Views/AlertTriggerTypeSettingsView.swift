@@ -7,6 +7,7 @@ struct AlertTriggerTypeSettingsView: View {
     @State private var newName: String = ""
     @State private var newDesc: String = ""
     @State private var error: String?
+    @State private var newRequiresDate: Bool = false
     @FocusState private var addFocus: AddField?
 
     private enum AddField { case code, name, desc }
@@ -41,6 +42,10 @@ struct AlertTriggerTypeSettingsView: View {
                     .frame(minWidth: 260)
                     .focused($addFocus, equals: .desc)
                     .onSubmit { if canAdd { addType() } }
+                Toggle("Requires Date", isOn: $newRequiresDate)
+                    .toggleStyle(.switch)
+                    .frame(width: 150)
+                    .help("Enable when alerts of this type should expose a trigger date field.")
                 Button("Add Type") { addType() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canAdd)
@@ -50,81 +55,66 @@ struct AlertTriggerTypeSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Table(rows, selection: .constant(nil)) {
-                TableColumn("Order") { row in
-                    Stepper("\(row.sortOrder)", value: Binding(
-                        get: { row.sortOrder },
-                        set: { new in
-                            if let idx = rows.firstIndex(where: { $0.id == row.id }) {
-                                rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: new, active: row.active)
-                                save(rows[idx])
-                            } else {
-                                save(row)
-                            }
-                        }
-                    )).frame(width: 80)
-                }.width(90)
-                TableColumn("Code") { row in
-                    TextField("Code", text: binding(for: row).code)
-                        .onSubmit { save(row) }
-                        .frame(width: 160)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Order").font(.caption).foregroundColor(.secondary).frame(width: 60, alignment: .leading)
+                    Text("Code").font(.caption).foregroundColor(.secondary).frame(width: 160, alignment: .leading)
+                    Text("Display Name").font(.caption).foregroundColor(.secondary).frame(minWidth: 200, alignment: .leading)
+                    Text("Description").font(.caption).foregroundColor(.secondary).frame(minWidth: 260, alignment: .leading)
+                    Text("Requires Date").font(.caption).foregroundColor(.secondary).frame(width: 120, alignment: .center)
+                    Text("Active").font(.caption).foregroundColor(.secondary).frame(width: 80, alignment: .center)
+                    Spacer()
+                    Text("Actions").font(.caption).foregroundColor(.secondary)
                 }
-                TableColumn("Display Name") { row in
-                    TextField("Name", text: binding(for: row).name)
-                        .onSubmit { save(row) }
-                        .frame(width: 220)
-                }
-                TableColumn("Description") { row in
-                    TextField("Description", text: binding(for: row).desc)
-                        .onSubmit { save(row) }
-                        .frame(minWidth: 260)
-                }
-                TableColumn("Active") { row in
-                    Toggle("", isOn: binding(for: row).active)
-                        .labelsHidden()
-                        .onChange(of: binding(for: row).active.wrappedValue) { _, _ in save(row) }
-                }.width(60)
-                TableColumn("Actions") { row in
-                    HStack(spacing: 8) {
-                        Button("Save") { save(row) }
-                        if row.active { Button("Deactivate", role: .destructive) { delete(row) } }
-                        else { Button("Restore") { restore(row) } }
+                .padding(.horizontal, 4)
+
+                List {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { _, row in
+                        rowView(row)
                     }
-                }.width(180)
+                    .onMove(perform: moveRows)
+                }
+                .listStyle(.inset)
+                .frame(minHeight: 320)
             }
-            .frame(minHeight: 280)
             .overlay(alignment: .bottomLeading) {
-                Text(info ?? "Save changes or Deactivate/Restore. Use Stepper to adjust order.")
+                Text(info ?? "Drag the handle to reorder. Save to persist edits; Deactivate/Restore toggles availability.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            HStack { Button("Save Order") { saveOrder() }; Spacer() }
         }
         .padding(16)
         .navigationTitle("Alert Trigger Types")
         .onAppear { load() }
+#if os(iOS)
+        .environment(\.editMode, .constant(.active))
+#endif
     }
 
-    private func binding(for row: AlertTriggerTypeRow) -> (code: Binding<String>, name: Binding<String>, desc: Binding<String>, active: Binding<Bool>) {
+    private func binding(for row: AlertTriggerTypeRow) -> (code: Binding<String>, name: Binding<String>, desc: Binding<String>, active: Binding<Bool>, requiresDate: Binding<Bool>) {
         guard let idx = rows.firstIndex(where: { $0.id == row.id }) else {
-            return (Binding.constant(row.code), Binding.constant(row.displayName), Binding.constant(row.description ?? ""), Binding.constant(row.active))
+            return (Binding.constant(row.code), Binding.constant(row.displayName), Binding.constant(row.description ?? ""), Binding.constant(row.active), Binding.constant(row.requiresDate))
         }
         return (
             Binding<String>(
                 get: { rows[idx].code },
-                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: $0, displayName: rows[idx].displayName, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: rows[idx].active) }
+                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: $0, displayName: rows[idx].displayName, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: rows[idx].active, requiresDate: rows[idx].requiresDate) }
             ),
             Binding<String>(
                 get: { rows[idx].displayName },
-                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: $0, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: rows[idx].active) }
+                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: $0, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: rows[idx].active, requiresDate: rows[idx].requiresDate) }
             ),
             Binding<String>(
                 get: { rows[idx].description ?? "" },
-                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: rows[idx].displayName, description: $0, sortOrder: rows[idx].sortOrder, active: rows[idx].active) }
+                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: rows[idx].displayName, description: $0, sortOrder: rows[idx].sortOrder, active: rows[idx].active, requiresDate: rows[idx].requiresDate) }
             ),
             Binding<Bool>(
                 get: { rows[idx].active },
-                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: rows[idx].displayName, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: $0) }
+                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: rows[idx].displayName, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: $0, requiresDate: rows[idx].requiresDate) }
+            ),
+            Binding<Bool>(
+                get: { rows[idx].requiresDate },
+                set: { rows[idx] = AlertTriggerTypeRow(id: row.id, code: rows[idx].code, displayName: rows[idx].displayName, description: rows[idx].description, sortOrder: rows[idx].sortOrder, active: rows[idx].active, requiresDate: $0) }
             )
         )
     }
@@ -132,6 +122,7 @@ struct AlertTriggerTypeSettingsView: View {
     private func load() {
         rows = dbManager.listAlertTriggerTypes()
         if newCode.isEmpty { newCode = nextCodeSuggestion() }
+        newRequiresDate = false
         addFocus = .code
     }
 
@@ -156,41 +147,107 @@ struct AlertTriggerTypeSettingsView: View {
             error = "Code already exists"; return
         }
         let order = (rows.map { $0.sortOrder }.max() ?? 0) + 1
-        if let created = dbManager.createAlertTriggerType(code: code.lowercased(), displayName: name, description: desc.isEmpty ? nil : desc, sortOrder: order, active: true) {
+        if let created = dbManager.createAlertTriggerType(code: code.lowercased(), displayName: name, description: desc.isEmpty ? nil : desc, sortOrder: order, active: true, requiresDate: newRequiresDate) {
             rows.append(created)
             rows.sort { $0.sortOrder < $1.sortOrder }
-            newName = ""; newDesc = ""; newCode = nextCodeSuggestion(); error = nil; addFocus = .code
+            newName = ""; newDesc = ""; newRequiresDate = false; newCode = nextCodeSuggestion(); error = nil; addFocus = .code
         } else { error = "Failed to add type (unique code?)" }
     }
 
     private func save(_ row: AlertTriggerTypeRow) {
-        let ok = dbManager.updateAlertTriggerType(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: row.active)
+        let ok = dbManager.updateAlertTriggerType(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: row.active, requiresDate: row.requiresDate)
         if ok { info = "Saved \(row.code)"; error = nil } else { error = "Failed to save row (unique code?)"; info = nil }
-        load()
-    }
-
-    private func saveOrder() {
-        let orderedIds = rows.sorted { $0.sortOrder < $1.sortOrder }.map { $0.id }
-        if dbManager.reorderAlertTriggerTypes(idsInOrder: orderedIds) { info = "Order saved"; error = nil } else { error = "Failed to save order"; info = nil }
         load()
     }
 
     private func delete(_ row: AlertTriggerTypeRow) {
         if dbManager.deleteAlertTriggerType(id: row.id) {
             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
-                rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: false)
+                rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: false, requiresDate: row.requiresDate)
             }
             info = "Deactivated \(row.code)"; error = nil
         } else { error = "No change (already inactive?)"; info = nil }
     }
 
     private func restore(_ row: AlertTriggerTypeRow) {
-        let ok = dbManager.updateAlertTriggerType(id: row.id, code: nil, displayName: nil, description: nil, sortOrder: nil, active: true)
+        let ok = dbManager.updateAlertTriggerType(id: row.id, code: nil, displayName: nil, description: nil, sortOrder: nil, active: true, requiresDate: row.requiresDate)
         if ok {
             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
-                rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: true)
+                rows[idx] = AlertTriggerTypeRow(id: row.id, code: row.code, displayName: row.displayName, description: row.description, sortOrder: row.sortOrder, active: true, requiresDate: row.requiresDate)
             }
             info = "Restored \(row.code)"; error = nil
         } else { error = "Failed to restore \(row.code)"; info = nil }
+    }
+
+    private func rowView(_ row: AlertTriggerTypeRow) -> some View {
+        let binding = binding(for: row)
+        return HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.secondary)
+            Text("\(row.sortOrder)")
+                .foregroundColor(.secondary)
+                .frame(width: 28, alignment: .trailing)
+            TextField("Code", text: binding.code)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 160)
+                .onSubmit { save(currentRow(row.id)) }
+            TextField("Display name", text: binding.name)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 200)
+                .onSubmit { save(currentRow(row.id)) }
+            TextField("Description", text: binding.desc)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 220)
+                .onSubmit { save(currentRow(row.id)) }
+            Toggle("", isOn: binding.requiresDate)
+                .labelsHidden()
+                .help("When enabled, alerts of this type expose a trigger date field.")
+                .onChange(of: binding.requiresDate.wrappedValue) { _, _ in save(currentRow(row.id)) }
+                .frame(width: 40)
+            Toggle("", isOn: binding.active)
+                .labelsHidden()
+                .onChange(of: binding.active.wrappedValue) { _, _ in save(currentRow(row.id)) }
+                .frame(width: 40)
+            Spacer(minLength: 12)
+            HStack(spacing: 8) {
+                Button("Save") { save(currentRow(row.id)) }
+                if row.active {
+                    Button("Deactivate", role: .destructive) { delete(row) }
+                } else {
+                    Button("Restore") { restore(row) }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func currentRow(_ id: Int) -> AlertTriggerTypeRow {
+        if let inMemory = rows.first(where: { $0.id == id }) { return inMemory }
+        if let refreshed = dbManager.listAlertTriggerTypes(includeInactive: true).first(where: { $0.id == id }) {
+            return refreshed
+        }
+        return AlertTriggerTypeRow(id: id, code: "", displayName: "", description: nil, sortOrder: 0, active: true, requiresDate: false)
+    }
+
+    private func moveRows(from source: IndexSet, to destination: Int) {
+        rows.move(fromOffsets: source, toOffset: destination)
+        for idx in rows.indices {
+            let r = rows[idx]
+            rows[idx] = AlertTriggerTypeRow(id: r.id, code: r.code, displayName: r.displayName, description: r.description, sortOrder: idx + 1, active: r.active, requiresDate: r.requiresDate)
+        }
+        persistCurrentOrder()
+    }
+
+    private func persistCurrentOrder() {
+        let orderedIds = rows.map { $0.id }
+        if dbManager.reorderAlertTriggerTypes(idsInOrder: orderedIds) {
+            info = "Order saved"
+            error = nil
+            load()
+        } else {
+            error = "Failed to save order"
+            info = nil
+        }
     }
 }

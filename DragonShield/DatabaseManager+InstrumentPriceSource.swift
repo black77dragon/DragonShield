@@ -13,6 +13,40 @@ struct InstrumentPriceSource: Identifiable {
 }
 
 extension DatabaseManager {
+    func enabledPriceSourceRecords() -> [PriceSourceRecord] {
+        var records: [PriceSourceRecord] = []
+        // Restrict to active, non-deleted instruments to mirror the maintenance UI.
+        let activeInstruments = Dictionary(uniqueKeysWithValues: fetchAssets().map { ($0.id, $0.currency) })
+        let sql = """
+            SELECT instrument_id,
+                   provider_code,
+                   external_id,
+                   priority,
+                   updated_at
+              FROM InstrumentPriceSource
+             WHERE enabled = 1
+               AND LENGTH(TRIM(provider_code)) > 0
+               AND LENGTH(TRIM(external_id)) > 0
+             ORDER BY instrument_id ASC, priority ASC, updated_at DESC
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        var seen: Set<Int> = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let instrumentId = Int(sqlite3_column_int(stmt, 0))
+            if seen.contains(instrumentId) { continue }
+            guard let currency = activeInstruments[instrumentId] else { continue }
+            guard let providerPtr = sqlite3_column_text(stmt, 1), let externalPtr = sqlite3_column_text(stmt, 2) else { continue }
+            let provider = String(cString: providerPtr).trimmingCharacters(in: .whitespacesAndNewlines)
+            let external = String(cString: externalPtr).trimmingCharacters(in: .whitespacesAndNewlines)
+            if provider.isEmpty || external.isEmpty { continue }
+            records.append(PriceSourceRecord(instrumentId: instrumentId, providerCode: provider, externalId: external, expectedCurrency: currency))
+            seen.insert(instrumentId)
+        }
+        return records
+    }
+
     func getPriceSource(instrumentId: Int) -> InstrumentPriceSource? {
         let sql = """
             SELECT id, instrument_id, provider_code, external_id, enabled, priority, last_status, last_checked_at

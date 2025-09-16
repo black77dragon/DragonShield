@@ -10,6 +10,7 @@ struct AlertTriggerTypeRow: Identifiable, Hashable {
     let description: String?
     let sortOrder: Int
     let active: Bool
+    let requiresDate: Bool
 }
 
 final class AlertTriggerTypeRepository {
@@ -21,7 +22,7 @@ final class AlertTriggerTypeRepository {
 
     func listActive() -> [AlertTriggerTypeRow] {
         guard let db else { return [] }
-        let sql = "SELECT id, code, display_name, description, sort_order, active FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
+        let sql = "SELECT id, code, display_name, description, sort_order, active, requires_date FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
         var stmt: OpaquePointer?
         var rows: [AlertTriggerTypeRow] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
@@ -33,10 +34,10 @@ final class AlertTriggerTypeRepository {
                 let desc = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
                 let order = Int(sqlite3_column_int(stmt, 4))
                 let active = sqlite3_column_int(stmt, 5) == 1
-                rows.append(AlertTriggerTypeRow(id: id, code: code, displayName: name, description: desc, sortOrder: order, active: active))
+                let requiresDate = sqlite3_column_int(stmt, 6) == 1
+                rows.append(AlertTriggerTypeRow(id: id, code: code, displayName: name, description: desc, sortOrder: order, active: active, requiresDate: requiresDate))
             }
         }
         return rows
     }
 }
-

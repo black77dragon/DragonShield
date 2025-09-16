@@ -44,6 +44,19 @@ CREATE TABLE FxRateUpdates (
     execution_time_ms INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE SystemJobRuns (
+    run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_key TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('SUCCESS','PARTIAL','FAILED')),
+    message TEXT,
+    metadata_json TEXT,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    duration_ms INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_system_job_runs_job_key ON SystemJobRuns(job_key);
+CREATE INDEX idx_system_job_runs_job_key_finished ON SystemJobRuns(job_key, finished_at);
 CREATE TABLE AssetClasses (
     class_id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_code TEXT NOT NULL UNIQUE,
@@ -919,7 +932,7 @@ CREATE TABLE PortfolioTheme (
     updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
     archived_at TEXT NULL,
     soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1))
-, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL);
+, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL, theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0));
 CREATE UNIQUE INDEX idx_portfolio_theme_name_unique
 ON PortfolioTheme(LOWER(name))
 WHERE soft_delete = 0;
@@ -1468,6 +1481,135 @@ CREATE TABLE InstrumentPriceFetchLog (
   message        TEXT,
   created_at     TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+CREATE TABLE AlertTriggerType (
+  id           INTEGER PRIMARY KEY,
+  code         TEXT    NOT NULL UNIQUE,   -- e.g., 'date', 'price', 'holding_abs', 'holding_pct'
+  display_name TEXT    NOT NULL,
+  description  TEXT    NULL,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  active       INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  requires_date INTEGER NOT NULL DEFAULT 0 CHECK (requires_date IN (0,1)),
+  created_at   TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at   TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX idx_alert_trigger_type_code ON AlertTriggerType(code);
+CREATE INDEX idx_alert_trigger_type_active ON AlertTriggerType(active, sort_order);
+CREATE TABLE Alert (
+  id                 INTEGER PRIMARY KEY,
+  name               TEXT    NOT NULL,
+  enabled            INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
+  severity           TEXT    NOT NULL CHECK (severity IN ('info','warning','critical')),
+  scope_type         TEXT    NOT NULL CHECK (scope_type IN ('Instrument','PortfolioTheme','AssetClass','Portfolio','Account')),
+  scope_id           INTEGER NOT NULL,
+  trigger_type_code  TEXT    NOT NULL REFERENCES AlertTriggerType(code) ON UPDATE CASCADE,
+  params_json        TEXT    NOT NULL DEFAULT '{}',
+  near_value         REAL    NULL,
+  near_unit          TEXT    NULL CHECK (near_unit IN ('pct','abs')),
+  hysteresis_value   REAL    NULL,
+  hysteresis_unit    TEXT    NULL CHECK (hysteresis_unit IN ('pct','abs')),
+  cooldown_seconds   INTEGER NULL,
+  mute_until         TEXT    NULL,
+  schedule_start     TEXT    NULL,
+  schedule_end       TEXT    NULL,
+  notes              TEXT    NULL,
+  created_by         TEXT    NULL,
+  created_at         TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at         TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+, subject_type TEXT NULL, subject_reference TEXT NULL);
+CREATE INDEX idx_alert_enabled_type ON Alert(enabled, trigger_type_code);
+CREATE INDEX idx_alert_scope ON Alert(scope_type, scope_id);
+CREATE INDEX idx_alert_severity ON Alert(severity);
+CREATE TABLE AlertEvent (
+  id            INTEGER PRIMARY KEY,
+  alert_id      INTEGER NOT NULL REFERENCES Alert(id) ON DELETE CASCADE,
+  occurred_at   TEXT    NOT NULL,
+  status        TEXT    NOT NULL CHECK (status IN ('triggered','acknowledged','snoozed','resolved')),
+  message       TEXT    NULL,
+  measured_json TEXT    NULL,
+  ack_by        TEXT    NULL,
+  ack_at        TEXT    NULL,
+  snooze_until  TEXT    NULL,
+  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_alert_event_alert ON AlertEvent(alert_id, occurred_at DESC);
+CREATE INDEX idx_alert_event_status ON AlertEvent(status);
+CREATE TABLE AlertAttachment (
+  id            INTEGER PRIMARY KEY,
+  alert_id      INTEGER NOT NULL REFERENCES Alert(id) ON DELETE CASCADE,
+  attachment_id INTEGER NOT NULL REFERENCES Attachment(id) ON DELETE RESTRICT,
+  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_alert_attachment_alert ON AlertAttachment(alert_id);
+CREATE INDEX idx_alert_attachment_attachment ON AlertAttachment(attachment_id);
+CREATE TABLE Tag (
+  id           INTEGER PRIMARY KEY,
+  code         TEXT    NOT NULL UNIQUE,
+  display_name TEXT    NOT NULL,
+  color        TEXT    NULL,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  active       INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  created_at   TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at   TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX idx_tag_code ON Tag(code);
+CREATE INDEX idx_tag_active ON Tag(active, sort_order);
+CREATE TABLE AlertTag (
+  id       INTEGER PRIMARY KEY,
+  alert_id INTEGER NOT NULL REFERENCES Alert(id) ON DELETE CASCADE,
+  tag_id   INTEGER NOT NULL REFERENCES Tag(id) ON DELETE RESTRICT,
+  created_at TEXT  NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE(alert_id, tag_id)
+);
+CREATE INDEX idx_alert_tag_alert ON AlertTag(alert_id);
+CREATE INDEX idx_alert_tag_tag ON AlertTag(tag_id);
+CREATE TABLE Trade (
+  trade_id        INTEGER PRIMARY KEY,
+  type_code       TEXT    NOT NULL CHECK (type_code IN ('BUY','SELL')),
+  trade_date      TEXT    NOT NULL, -- YYYY-MM-DD
+  instrument_id   INTEGER NOT NULL REFERENCES Instruments(instrument_id),
+  quantity        REAL    NOT NULL,
+  price_txn       REAL    NOT NULL,
+  currency_code   TEXT    NOT NULL REFERENCES Currencies(currency_code),
+  fees_chf        REAL    NOT NULL DEFAULT 0,
+  commission_chf  REAL    NOT NULL DEFAULT 0,
+  fx_chf_to_txn   REAL    NULL, -- CHF -> transaction currency rate used for fees conversion
+  notes           TEXT    NULL,
+  created_at      TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at      TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_trade_date   ON Trade(trade_date);
+CREATE INDEX idx_trade_instr  ON Trade(instrument_id);
+CREATE TABLE TradeLeg (
+  leg_id        INTEGER PRIMARY KEY,
+  trade_id      INTEGER NOT NULL REFERENCES Trade(trade_id) ON DELETE CASCADE,
+  leg_type      TEXT    NOT NULL CHECK (leg_type IN ('CASH','INSTRUMENT')),
+  account_id    INTEGER NOT NULL REFERENCES Accounts(account_id),
+  instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id),
+  delta_quantity REAL   NOT NULL,  -- cash delta (txn currency) for CASH leg; +/- qty for INSTRUMENT leg
+  fx_to_chf     REAL    NULL,      -- optional normalized reporting
+  amount_chf    REAL    NULL,
+  created_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at    TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE(trade_id, leg_type)
+);
+CREATE INDEX idx_tradeleg_account ON TradeLeg(account_id);
+CREATE INDEX idx_tradeleg_instr   ON TradeLeg(instrument_id);
+CREATE INDEX idx_alert_subject ON Alert(subject_type, subject_reference);
+CREATE TABLE EventCalendar (
+  id             INTEGER PRIMARY KEY,
+  code           TEXT    NOT NULL UNIQUE,
+  title          TEXT    NOT NULL,
+  category       TEXT    NOT NULL,
+  event_date     TEXT    NOT NULL, -- YYYY-MM-DD (local date)
+  event_time     TEXT    NULL,      -- HH:MM (24h, local)
+  timezone       TEXT    NULL,
+  status         TEXT    NOT NULL DEFAULT 'scheduled', -- scheduled|tentative|confirmed|actual
+  source         TEXT    NULL,
+  notes          TEXT    NULL,
+  created_at     TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at     TEXT    NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_event_calendar_date ON EventCalendar(event_date, category);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -1497,4 +1639,9 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('025'),
   ('026'),
   ('028'),
-  ('029');
+  ('029'),
+  ('030'),
+  ('031'),
+  ('032'),
+  ('033'),
+  ('034');

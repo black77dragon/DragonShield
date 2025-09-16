@@ -117,7 +117,7 @@ struct AlertsTimelineView: View {
                     Text("Selected: \(row.name)").font(.headline)
                     Text("Severity: \(row.severity.rawValue.capitalized)")
                     Text("Type: \(row.triggerTypeCode)")
-                    Text("Scope: \(row.scopeType.rawValue)#\(row.scopeId)")
+                    Text("Subject: \(subjectSummary(for: row))")
                 }
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.06)))
@@ -233,6 +233,36 @@ private extension AlertsTimelineView {
             }
         }
         return out
+    }
+
+    private func subjectSummary(for alert: AlertRow) -> String {
+        switch alert.scopeType {
+        case .Instrument:
+            let name = dbManager.getInstrumentName(id: alert.scopeId) ?? "Instrument #\(alert.scopeId)"
+            return name
+        case .PortfolioTheme:
+            return dbManager.getPortfolioTheme(id: alert.scopeId)?.name ?? "Theme #\(alert.scopeId)"
+        case .AssetClass:
+            return dbManager.fetchAssetClassDetails(id: alert.scopeId)?.name ?? "AssetClass #\(alert.scopeId)"
+        case .Portfolio:
+            return dbManager.fetchPortfolios().first(where: { $0.id == alert.scopeId })?.name ?? "Portfolio #\(alert.scopeId)"
+        case .Account:
+            return dbManager.fetchAccountDetails(id: alert.scopeId)?.accountName ?? "Account #\(alert.scopeId)"
+        case .Global:
+            return "Global"
+        case .MarketEvent:
+            if let code = alert.subjectReference, let event = dbManager.getEventCalendar(code: code) {
+                return "\(event.title) [\(code)]"
+            }
+            return alert.subjectReference ?? "Market Event"
+        case .EconomicSeries:
+            return alert.subjectReference ?? "Economic Series"
+        case .CustomGroup:
+            return alert.subjectReference ?? "Custom Group"
+        case .NotApplicable:
+            if let reference = alert.subjectReference, !reference.isEmpty { return reference }
+            return "Not applicable"
+        }
     }
 }
 

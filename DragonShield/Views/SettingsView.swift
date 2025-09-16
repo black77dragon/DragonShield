@@ -282,20 +282,36 @@ extension SettingsView {
     }
 
     private func updateFxStatus() {
+        let fmtDate = DateFormatter.iso8601DateOnly
+        let fmtTime = DateFormatter(); fmtTime.dateFormat = "HH:mm"
+        var parts: [String] = []
+
+        if let job = dbManager.fetchLastSystemJobRun(jobKey: .fxUpdate) {
+            let timestamp = job.finishedOrStarted
+            parts.append("Last: \(fmtDate.string(from: timestamp)) \(fmtTime.string(from: timestamp)) (\(job.status.displayName))")
+            if let message = job.message, !message.isEmpty { parts.append(message) }
+        }
+
         if let last = dbManager.fetchLastFxRateUpdate() {
-            let fmt = DateFormatter.iso8601DateOnly
             let freq = fxFrequency.lowercased()
             let days = (freq == "weekly") ? 7 : 1
             let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
-            var extra: [String] = []
+            var breakdown: [String] = []
             if last.status == "PARTIAL", let s = last.errorMessage, let data = s.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if let arr = obj["failed"] as? [Any] { extra.append("failed=\(arr.count)") }
-                if let arr = obj["skipped"] as? [Any] { extra.append("skipped=\(arr.count)") }
+                if let arr = obj["failed"] as? [Any] { breakdown.append("failed=\(arr.count)") }
+                if let arr = obj["skipped"] as? [Any] { breakdown.append("skipped=\(arr.count)") }
             }
-            let extraStr = extra.isEmpty ? "" : ", " + extra.joined(separator: ", ")
-            fxLastSummary = "Last: \(fmt.string(from: last.updateDate)) (\(last.status)), updated=\(last.ratesCount) via \(last.apiProvider)\(extraStr); Next due: \(fmt.string(from: next)) (\(freq))"
-        } else {
+            var statusPart = "asOf=\(fmtDate.string(from: last.updateDate)) status=\(last.status.lowercased()) updated=\(last.ratesCount)"
+            if !breakdown.isEmpty { statusPart += " (\(breakdown.joined(separator: ", ")))" }
+            statusPart += " via \(last.apiProvider)"
+            parts.append(statusPart)
+            parts.append("Next due: \(fmtDate.string(from: next)) (\(freq))")
+        }
+
+        if parts.isEmpty {
             fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
+        } else {
+            fxLastSummary = parts.joined(separator: " — ")
         }
     }
 
@@ -303,11 +319,24 @@ extension SettingsView {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         let fmtDate = DateFormatter.iso8601DateOnly
         let fmtTime = DateFormatter(); fmtTime.dateFormat = "HH:mm"
-        if let last = svc.lastExportDate() {
-            let freq = iosFrequency.lowercased()
-            let days = (freq == "weekly") ? 7 : 1
-            let next = Calendar.current.date(byAdding: .day, value: days, to: last) ?? Date()
-            iosStatus = "Last: \(fmtDate.string(from: last)) \(fmtTime.string(from: last)), next due: \(fmtDate.string(from: next)) (\(freq))"
+        let freq = iosFrequency.lowercased()
+        let days = (freq == "weekly") ? 7 : 1
+        if let job = dbManager.fetchLastSystemJobRun(jobKey: .iosSnapshotExport) {
+            let timestamp = job.finishedOrStarted
+            var parts: [String] = []
+            parts.append("Last: \(fmtDate.string(from: timestamp)) \(fmtTime.string(from: timestamp)) (\(job.status.displayName))")
+            if let message = job.message, !message.isEmpty { parts.append(message) }
+            if let target = job.metadata?["targetPath"] as? String, !target.isEmpty {
+                let home = FileManager.default.homeDirectoryForCurrentUser.path
+                let friendly = target.hasPrefix(home) ? target.replacingOccurrences(of: home, with: "~") : target
+                parts.append("Target: \(friendly)")
+            }
+            let next = Calendar.current.date(byAdding: .day, value: days, to: timestamp) ?? Date()
+            parts.append("Next due: \(fmtDate.string(from: next)) (\(freq))")
+            iosStatus = parts.joined(separator: " — ")
+        } else if let fallback = svc.lastExportDate() {
+            let next = Calendar.current.date(byAdding: .day, value: days, to: fallback) ?? Date()
+            iosStatus = "Last: \(fmtDate.string(from: fallback)) \(fmtTime.string(from: fallback)), next due: \(fmtDate.string(from: next)) (\(freq))"
         } else {
             iosStatus = "No snapshot found. Will export on next launch if enabled."
         }
@@ -319,9 +348,9 @@ extension SettingsView {
             let url = try svc.exportNow()
             iosTargetPath = svc.resolvedTargetFolder().path
             _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
-            iosStatus = "Exported: \(url.lastPathComponent) at \(DateFormatter.iso8601DateTime.string(from: Date()))"
+            updateIOSStatus()
         } catch {
-            iosStatus = "Export failed: \(error.localizedDescription)"
+            updateIOSStatus()
         }
     }
 }
