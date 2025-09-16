@@ -49,7 +49,7 @@ final class FXUpdateService {
     @discardableResult
     func updateLatestForAll(base: String) async -> FXUpdateSummary? {
         let baseUpper = base.uppercased()
-        let start = DispatchTime.now()
+        let startedAt = Date()
         let targets = targetCurrencies(base: baseUpper)
         guard !targets.isEmpty else { return nil }
 
@@ -96,8 +96,8 @@ final class FXUpdateService {
                     skipped.append((code, "not_provided_by_provider"))
                 }
             }
-            let end = DispatchTime.now()
-            let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
+            let finishedAt = Date()
+            let durationMs = max(Int(finishedAt.timeIntervalSince(startedAt) * 1000), 0)
             let failedCount = failed.count
             let skippedCount = skipped.count
             let status = (failedCount > 0 || skippedCount > 0) ? "PARTIAL" : "SUCCESS"
@@ -110,15 +110,54 @@ final class FXUpdateService {
                 if let data = try? JSONSerialization.data(withJSONObject: obj, options: []), let s = String(data: data, encoding: .utf8) { return s }
                 return "failed=\(failedCount); skipped=\(skippedCount)"
             }()
-            _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: status, errorMessage: errMsg, ratesCount: inserted, executionTimeMs: ms)
+            _ = db.recordFxRateUpdate(updateDate: response.asOf, apiProvider: provider.code, currenciesUpdated: updated, status: status, errorMessage: errMsg, ratesCount: inserted, executionTimeMs: durationMs)
+            let jobStatus: DatabaseManager.SystemJobStatus = {
+                switch status {
+                case "SUCCESS": return .success
+                case "PARTIAL": return .partial
+                default: return .failed
+                }
+            }()
+            var summaryParts: [String] = []
+            summaryParts.append("updated=\(inserted)")
+            if failedCount > 0 { summaryParts.append("failed=\(failedCount)") }
+            if skippedCount > 0 { summaryParts.append("skipped=\(skippedCount)") }
+            summaryParts.append("provider=\(provider.code)")
+            let summary = "asOf=\(DateFormatter.iso8601DateTime.string(from: response.asOf)) — status=\(status.lowercased()) (\(summaryParts.joined(separator: ", ")) )"
+            let metadata: [String: Any] = [
+                "updatedCount": inserted,
+                "failedCount": failedCount,
+                "skippedCount": skippedCount,
+                "provider": provider.code,
+                "base": baseUpper,
+                "asOf": DateFormatter.iso8601DateTime.string(from: response.asOf)
+            ]
+            _ = db.recordSystemJobRun(jobKey: .fxUpdate,
+                                      status: jobStatus,
+                                      message: summary,
+                                      metadata: metadata,
+                                      startedAt: startedAt,
+                                      finishedAt: finishedAt,
+                                      durationMs: durationMs)
             print("[FX][Update] Done inserted=\(inserted) failed=\(failedCount) skipped=\(skippedCount) asOf=\(DateFormatter.iso8601DateOnly.string(from: response.asOf))")
             return FXUpdateSummary(updatedCurrencies: updated, asOf: response.asOf, provider: provider.code, insertedCount: inserted, failedCount: failedCount, skippedCount: skippedCount, failedDetails: failed, skippedDetails: skipped)
         } catch {
-            let end = DispatchTime.now()
-            let ms = Int(Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000.0)
+            let finishedAt = Date()
+            let durationMs = max(Int(finishedAt.timeIntervalSince(startedAt) * 1000), 0)
             lastError = error
             print("[FX][Update][ERROR] \(error)")
-            _ = db.recordFxRateUpdate(updateDate: Date(), apiProvider: provider.code, currenciesUpdated: [], status: "FAILED", errorMessage: String(describing: error), ratesCount: 0, executionTimeMs: ms)
+            _ = db.recordFxRateUpdate(updateDate: Date(), apiProvider: provider.code, currenciesUpdated: [], status: "FAILED", errorMessage: String(describing: error), ratesCount: 0, executionTimeMs: durationMs)
+            let metadata: [String: Any] = [
+                "provider": provider.code,
+                "base": baseUpper
+            ]
+            _ = db.recordSystemJobRun(jobKey: .fxUpdate,
+                                      status: .failed,
+                                      message: "Error: \(error.localizedDescription)",
+                                      metadata: metadata,
+                                      startedAt: startedAt,
+                                      finishedAt: finishedAt,
+                                      durationMs: durationMs)
             return nil
         }
     }

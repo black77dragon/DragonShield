@@ -19,6 +19,16 @@ struct DashboardView: View {
     @State private var showUpcomingWeekPopup = false
     @State private var startupChecked = false
     @State private var upcomingWeek: [(id: Int, name: String, date: String)] = []
+    @State private var isUpdatingFx = false
+    @State private var isUpdatingPrices = false
+    @State private var dashboardAlert: DashboardActionAlert?
+    @State private var refreshToken = UUID()
+
+    private struct DashboardActionAlert: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -36,6 +46,7 @@ struct DashboardView: View {
                         }
                     }
                 }
+                .id(refreshToken)
                 .frame(maxWidth: gridWidth(for: columnCount), alignment: .topLeading)
                 .padding(Layout.spacing)
                 .animation(.easeInOut(duration: 0.2), value: columnCount)
@@ -45,9 +56,46 @@ struct DashboardView: View {
         }
         .navigationTitle("Dashboard")
         .toolbar {
+            ToolbarItemGroup(placement: .automatic) {
+                Button(action: triggerFxUpdate) {
+                    VStack(spacing: 2) {
+                        if isUpdatingFx {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        Text("FX")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minWidth: 48)
+                }
+                .disabled(isUpdatingFx)
+                Button(action: triggerPriceUpdate) {
+                    VStack(spacing: 2) {
+                        if isUpdatingPrices {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                        }
+                        Text("Price")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minWidth: 48)
+                }
+                .disabled(isUpdatingPrices)
+            }
             ToolbarItem(placement: .automatic) {
                 Button("Configure") { showingPicker = true }
             }
+        }
+        .alert(item: $dashboardAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text(alert.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
         .sheet(isPresented: $showingPicker) {
             TilePickerView(tileIDs: $tileIDs)
@@ -67,6 +115,106 @@ struct DashboardView: View {
                 loadUpcomingWeekAlerts()
             }
         }
+    }
+
+    private func triggerFxUpdate() {
+        if isUpdatingFx { return }
+        Task {
+            await MainActor.run { isUpdatingFx = true }
+            let base = await MainActor.run { dbManager.baseCurrency }
+            let service = FXUpdateService(dbManager: dbManager)
+            let targets = service.targetCurrencies(base: base)
+            guard !targets.isEmpty else {
+                await MainActor.run {
+                    isUpdatingFx = false
+                    refreshDashboard()
+                    dashboardAlert = DashboardActionAlert(
+                        title: "FX Update",
+                        message: "No API-supported active currencies are configured for updates."
+                    )
+                }
+                return
+            }
+            if let summary = await service.updateLatestForAll(base: base) {
+                let dateText = DateFormatter.iso8601DateOnly.string(from: summary.asOf)
+                var details = "Inserted: \(summary.insertedCount)"
+                details += " • Failed: \(summary.failedCount)"
+                details += " • Skipped: \(summary.skippedCount)"
+                if !summary.updatedCurrencies.isEmpty {
+                    details += "\nUpdated: \(summary.updatedCurrencies.joined(separator: ", "))"
+                }
+                await MainActor.run {
+                    isUpdatingFx = false
+                    refreshDashboard()
+                    dashboardAlert = DashboardActionAlert(
+                        title: "FX Update Complete",
+                        message: "Provider: \(summary.provider.uppercased())\nAs of: \(dateText)\n\(details)"
+                    )
+                }
+            } else {
+                let errorText = service.lastError.map { String(describing: $0) } ?? "No update details returned."
+                await MainActor.run {
+                    isUpdatingFx = false
+                    refreshDashboard()
+                    dashboardAlert = DashboardActionAlert(
+                        title: "FX Update Failed",
+                        message: errorText
+                    )
+                }
+            }
+        }
+    }
+
+    private func triggerPriceUpdate() {
+        if isUpdatingPrices { return }
+        Task {
+            await MainActor.run { isUpdatingPrices = true }
+            let records = dbManager.enabledPriceSourceRecords()
+            guard !records.isEmpty else {
+                await MainActor.run {
+                    isUpdatingPrices = false
+                    refreshDashboard()
+                    dashboardAlert = DashboardActionAlert(
+                        title: "Price Update",
+                        message: "No auto-enabled instrument price sources with provider + external ID configured."
+                    )
+                }
+                return
+            }
+            let service = PriceUpdateService(dbManager: dbManager)
+            let results = await service.fetchAndUpsert(records)
+            let successes = results.filter { $0.status == "ok" }.count
+            let failures = results.count - successes
+            let failureDetails = results.filter { $0.status != "ok" }
+            let previewLines = failureDetails.prefix(3).map { item -> String in
+                let name = dbManager.getInstrumentName(id: item.instrumentId) ?? "Instrument #\(item.instrumentId)"
+                return "\(name): \(item.message)"
+            }
+            let remainingIssues = max(0, failureDetails.count - previewLines.count)
+            await MainActor.run {
+                isUpdatingPrices = false
+                refreshDashboard()
+                var message = "Processed \(results.count) instrument(s). Updated \(successes)."
+                if failures > 0 {
+                    message += "\nIssues: \(failures)."
+                    if !previewLines.isEmpty {
+                        message += "\n" + previewLines.joined(separator: "\n")
+                    }
+                    if remainingIssues > 0 {
+                        message += "\n+ \(remainingIssues) more issue(s)."
+                    }
+                }
+                dashboardAlert = DashboardActionAlert(
+                    title: failures == 0 ? "Price Update Complete" : "Price Update Completed with Issues",
+                    message: message
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func refreshDashboard() {
+        refreshToken = UUID()
     }
 
     private func loadLayout() {
@@ -140,7 +288,21 @@ private struct StartupAlertsPopupView: View {
     private static let outDf: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "de_CH"); f.dateFormat = "dd.MM.yy"; return f
     }()
-    private func format(_ s: String) -> String { if let d = Self.inDf.date(from: s) { return Self.outDf.string(from: d) }; return s }
+    private func format(_ s: String) -> String {
+        if let d = Self.inDf.date(from: s) {
+            return Self.outDf.string(from: d)
+        }
+        return s
+    }
+
+    private func daysUntilText(_ s: String) -> String? {
+        guard let dueDate = Self.inDf.date(from: s) else { return nil }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        let diff = Calendar.current.dateComponents([.day], from: today, to: dueDate).day ?? 0
+        if diff <= 0 { return "Today" }
+        if diff == 1 { return "1 day" }
+        return "\(diff) days"
+    }
 
     @Environment(\.dismiss) private var dismiss
     var body: some View {
@@ -170,8 +332,15 @@ private struct StartupAlertsPopupView: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                         Spacer()
-                        Text(format(it.date))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Text(format(it.date))
+                                .foregroundColor(.secondary)
+                            if let daysText = daysUntilText(it.date) {
+                                Text(daysText)
+                                    .bold()
+                                    .foregroundColor(.red)
+                            }
+                        }
                     }
                 }
             }

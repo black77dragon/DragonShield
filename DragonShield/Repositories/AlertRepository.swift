@@ -7,9 +7,34 @@ enum AlertSeverity: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum AlertScopeType: String, CaseIterable, Identifiable {
+enum AlertSubjectType: String, CaseIterable, Identifiable {
     case Instrument, PortfolioTheme, AssetClass, Portfolio, Account
+    case Global, MarketEvent, EconomicSeries, CustomGroup, NotApplicable
     var id: String { rawValue }
+}
+
+extension AlertSubjectType {
+    var requiresNumericScope: Bool {
+        switch self {
+        case .Instrument, .PortfolioTheme, .AssetClass, .Portfolio, .Account:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var storageScopeTypeValue: String {
+        switch self {
+        case .NotApplicable:
+            return AlertSubjectType.Instrument.rawValue
+        default:
+            return rawValue
+        }
+    }
+
+    func storageScopeIdValue(_ scopeId: Int) -> Int {
+        requiresNumericScope ? scopeId : 0
+    }
 }
 
 struct AlertRow: Identifiable, Hashable {
@@ -17,8 +42,9 @@ struct AlertRow: Identifiable, Hashable {
     var name: String
     var enabled: Bool
     var severity: AlertSeverity
-    var scopeType: AlertScopeType
+    var scopeType: AlertSubjectType
     var scopeId: Int
+    var subjectReference: String?
     var triggerTypeCode: String
     var paramsJson: String
     var nearValue: Double?
@@ -33,4 +59,3 @@ struct AlertRow: Identifiable, Hashable {
     var createdAt: String
     var updatedAt: String
 }
-

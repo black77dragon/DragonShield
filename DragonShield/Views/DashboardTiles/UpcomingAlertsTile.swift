@@ -50,8 +50,15 @@ struct UpcomingAlertsTile: DashboardTile {
                                     .truncationMode(.tail)
                                     .foregroundColor(urgent ? .white : (dueSoon ? .red : .primary))
                                 Spacer()
-                                Text(format(dateStr: row.upcomingDate))
-                                    .foregroundColor(urgent ? .white : (dueSoon ? .red : .secondary))
+                                HStack(spacing: 8) {
+                                    Text(format(dateStr: row.upcomingDate))
+                                        .foregroundColor(urgent ? .white : (dueSoon ? .red : .secondary))
+                                    if let daysText = daysUntilText(for: row.upcomingDate) {
+                                        Text(daysText)
+                                            .bold()
+                                            .foregroundColor(urgent ? .white : .red)
+                                    }
+                                }
                             }
                             .fontWeight((urgent || dueSoon) ? .bold : .regular)
                             .frame(height: DashboardTileLayout.rowHeight)
@@ -81,6 +88,15 @@ struct UpcomingAlertsTile: DashboardTile {
     private func format(dateStr: String) -> String {
         if let d = Self.inDf.date(from: dateStr) { return Self.outDf.string(from: d) }
         return dateStr
+    }
+
+    private func daysUntilText(for dateStr: String) -> String? {
+        guard let dueDate = Self.inDf.date(from: dateStr) else { return nil }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        let diff = Calendar.current.dateComponents([.day], from: today, to: dueDate).day ?? 0
+        if diff <= 0 { return "Today" }
+        if diff == 1 { return "1 day" }
+        return "\(diff) days"
     }
 
     private func load() {

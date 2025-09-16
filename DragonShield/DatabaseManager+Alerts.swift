@@ -8,7 +8,8 @@ extension DatabaseManager {
         guard let db else { return rows }
         let sql = includeDisabled ?
         """
-        SELECT id, name, enabled, severity, scope_type, scope_id, trigger_type_code,
+        SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
+               trigger_type_code,
                params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
                cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
                created_at, updated_at
@@ -16,7 +17,8 @@ extension DatabaseManager {
          ORDER BY updated_at DESC, id DESC
         """ :
         """
-        SELECT id, name, enabled, severity, scope_type, scope_id, trigger_type_code,
+        SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
+               trigger_type_code,
                params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
                cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
                created_at, updated_at
@@ -41,26 +43,38 @@ extension DatabaseManager {
         let severity = String(cString: sqlite3_column_text(stmt, 3))
         let scopeType = String(cString: sqlite3_column_text(stmt, 4))
         let scopeId = Int(sqlite3_column_int(stmt, 5))
-        let trig = String(cString: sqlite3_column_text(stmt, 6))
-        let params = String(cString: sqlite3_column_text(stmt, 7))
-        let nearVal = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 8)
-        let nearUnit = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
-        let hystVal = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 10)
-        let hystUnit = sqlite3_column_text(stmt, 11).map { String(cString: $0) }
-        let cooldown = sqlite3_column_type(stmt, 12) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 12))
-        let muteUntil = sqlite3_column_text(stmt, 13).map { String(cString: $0) }
-        let schedStart = sqlite3_column_text(stmt, 14).map { String(cString: $0) }
-        let schedEnd = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
-        let notes = sqlite3_column_text(stmt, 16).map { String(cString: $0) }
-        let createdAt = String(cString: sqlite3_column_text(stmt, 17))
-        let updatedAt = String(cString: sqlite3_column_text(stmt, 18))
+        let subjectTypeStr = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+        let subjectRef = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+        let trig = String(cString: sqlite3_column_text(stmt, 8))
+        let params = String(cString: sqlite3_column_text(stmt, 9))
+        let nearVal = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 10)
+        let nearUnit = sqlite3_column_text(stmt, 11).map { String(cString: $0) }
+        let hystVal = sqlite3_column_type(stmt, 12) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 12)
+        let hystUnit = sqlite3_column_text(stmt, 13).map { String(cString: $0) }
+        let cooldown = sqlite3_column_type(stmt, 14) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 14))
+        let muteUntil = sqlite3_column_text(stmt, 15).map { String(cString: $0) }
+        let schedStart = sqlite3_column_text(stmt, 16).map { String(cString: $0) }
+        let schedEnd = sqlite3_column_text(stmt, 17).map { String(cString: $0) }
+        let notes = sqlite3_column_text(stmt, 18).map { String(cString: $0) }
+        let createdAt = String(cString: sqlite3_column_text(stmt, 19))
+        let updatedAt = String(cString: sqlite3_column_text(stmt, 20))
+        let resolvedSubjectType = subjectTypeStr.flatMap { AlertSubjectType(rawValue: $0) } ?? AlertSubjectType(rawValue: scopeType) ?? .Instrument
+        let resolvedSubjectRef: String?
+        if let subjectRef {
+            resolvedSubjectRef = subjectRef
+        } else if scopeId != 0 {
+            resolvedSubjectRef = String(scopeId)
+        } else {
+            resolvedSubjectRef = nil
+        }
         return AlertRow(
             id: id,
             name: name,
             enabled: enabled,
             severity: AlertSeverity(rawValue: severity) ?? .info,
-            scopeType: AlertScopeType(rawValue: scopeType) ?? .Instrument,
+            scopeType: resolvedSubjectType,
             scopeId: scopeId,
+            subjectReference: resolvedSubjectRef,
             triggerTypeCode: trig,
             paramsJson: params,
             nearValue: nearVal,
@@ -82,10 +96,11 @@ extension DatabaseManager {
         guard isValidJSON(a.paramsJson) else { return nil }
         let sql = """
         INSERT INTO Alert
-            (name, enabled, severity, scope_type, scope_id, trigger_type_code,
+            (name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
+             trigger_type_code,
              params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
              cooldown_seconds, mute_until, schedule_start, schedule_end, notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
@@ -94,19 +109,21 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 1, a.name, -1, T)
         sqlite3_bind_int(stmt, 2, a.enabled ? 1 : 0)
         sqlite3_bind_text(stmt, 3, a.severity.rawValue, -1, T)
-        sqlite3_bind_text(stmt, 4, a.scopeType.rawValue, -1, T)
-        sqlite3_bind_int(stmt, 5, Int32(a.scopeId))
-        sqlite3_bind_text(stmt, 6, a.triggerTypeCode, -1, T)
-        sqlite3_bind_text(stmt, 7, a.paramsJson, -1, T)
-        if let v = a.nearValue { sqlite3_bind_double(stmt, 8, v) } else { sqlite3_bind_null(stmt, 8) }
-        if let u = a.nearUnit { sqlite3_bind_text(stmt, 9, u, -1, T) } else { sqlite3_bind_null(stmt, 9) }
-        if let v = a.hysteresisValue { sqlite3_bind_double(stmt, 10, v) } else { sqlite3_bind_null(stmt, 10) }
-        if let u = a.hysteresisUnit { sqlite3_bind_text(stmt, 11, u, -1, T) } else { sqlite3_bind_null(stmt, 11) }
-        if let s = a.cooldownSeconds { sqlite3_bind_int(stmt, 12, Int32(s)) } else { sqlite3_bind_null(stmt, 12) }
-        if let s = a.muteUntil { sqlite3_bind_text(stmt, 13, s, -1, T) } else { sqlite3_bind_null(stmt, 13) }
-        if let s = a.scheduleStart { sqlite3_bind_text(stmt, 14, s, -1, T) } else { sqlite3_bind_null(stmt, 14) }
-        if let s = a.scheduleEnd { sqlite3_bind_text(stmt, 15, s, -1, T) } else { sqlite3_bind_null(stmt, 15) }
-        if let n = a.notes { sqlite3_bind_text(stmt, 16, n, -1, T) } else { sqlite3_bind_null(stmt, 16) }
+        sqlite3_bind_text(stmt, 4, a.scopeType.storageScopeTypeValue, -1, T)
+        sqlite3_bind_int(stmt, 5, Int32(a.scopeType.storageScopeIdValue(a.scopeId)))
+        sqlite3_bind_text(stmt, 6, a.scopeType.rawValue, -1, T)
+        if let subjRef = a.subjectReference { sqlite3_bind_text(stmt, 7, subjRef, -1, T) } else { sqlite3_bind_null(stmt, 7) }
+        sqlite3_bind_text(stmt, 8, a.triggerTypeCode, -1, T)
+        sqlite3_bind_text(stmt, 9, a.paramsJson, -1, T)
+        if let v = a.nearValue { sqlite3_bind_double(stmt, 10, v) } else { sqlite3_bind_null(stmt, 10) }
+        if let u = a.nearUnit { sqlite3_bind_text(stmt, 11, u, -1, T) } else { sqlite3_bind_null(stmt, 11) }
+        if let v = a.hysteresisValue { sqlite3_bind_double(stmt, 12, v) } else { sqlite3_bind_null(stmt, 12) }
+        if let u = a.hysteresisUnit { sqlite3_bind_text(stmt, 13, u, -1, T) } else { sqlite3_bind_null(stmt, 13) }
+        if let s = a.cooldownSeconds { sqlite3_bind_int(stmt, 14, Int32(s)) } else { sqlite3_bind_null(stmt, 14) }
+        if let s = a.muteUntil { sqlite3_bind_text(stmt, 15, s, -1, T) } else { sqlite3_bind_null(stmt, 15) }
+        if let s = a.scheduleStart { sqlite3_bind_text(stmt, 16, s, -1, T) } else { sqlite3_bind_null(stmt, 16) }
+        if let s = a.scheduleEnd { sqlite3_bind_text(stmt, 17, s, -1, T) } else { sqlite3_bind_null(stmt, 17) }
+        if let n = a.notes { sqlite3_bind_text(stmt, 18, n, -1, T) } else { sqlite3_bind_null(stmt, 18) }
         guard sqlite3_step(stmt) == SQLITE_DONE else { return nil }
         let id = Int(sqlite3_last_insert_rowid(db))
         return getAlert(id: id)
@@ -114,7 +131,7 @@ extension DatabaseManager {
 
     func getAlert(id: Int) -> AlertRow? {
         guard let db else { return nil }
-        let sql = "SELECT id, name, enabled, severity, scope_type, scope_id, trigger_type_code, params_json, near_value, near_unit, hysteresis_value, hysteresis_unit, cooldown_seconds, mute_until, schedule_start, schedule_end, notes, created_at, updated_at FROM Alert WHERE id = ?"
+        let sql = "SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference, trigger_type_code, params_json, near_value, near_unit, hysteresis_value, hysteresis_unit, cooldown_seconds, mute_until, schedule_start, schedule_end, notes, created_at, updated_at FROM Alert WHERE id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
@@ -127,12 +144,21 @@ extension DatabaseManager {
 
     func updateAlert(_ id: Int, fields: [String: Any?]) -> Bool {
         guard let db else { return false }
+        var fields = fields
+        if let subjectTypeString = fields["subject_type"] as? String, let subjectType = AlertSubjectType(rawValue: subjectTypeString) {
+            fields["scope_type"] = subjectType.storageScopeTypeValue
+            if !subjectType.requiresNumericScope { fields["scope_id"] = 0 }
+        } else if let scopeTypeString = fields["scope_type"] as? String, let scopeType = AlertSubjectType(rawValue: scopeTypeString) {
+            fields["subject_type"] = scopeType.rawValue
+            fields["scope_type"] = scopeType.storageScopeTypeValue
+            if !scopeType.requiresNumericScope { fields["scope_id"] = 0 }
+        }
         var sets: [String] = []
         var bind: [Any?] = []
         func push(_ k: String, _ v: Any?) { sets.append("\(k) = ?"); bind.append(v) }
         for (k, v) in fields {
             switch k {
-            case "name", "severity", "scope_type", "trigger_type_code", "params_json", "near_unit", "hysteresis_unit", "mute_until", "schedule_start", "schedule_end", "notes":
+            case "name", "severity", "scope_type", "subject_type", "subject_reference", "trigger_type_code", "params_json", "near_unit", "hysteresis_unit", "mute_until", "schedule_start", "schedule_end", "notes":
                 if k == "params_json", let s = v as? String, !isValidJSON(s) { return false }
                 push(k, v)
             case "enabled": push(k, (v as? Bool) == true ? 1 : 0)
@@ -230,8 +256,10 @@ extension DatabaseManager {
         switch alert.triggerTypeCode {
         case "date":
             return evaluateDateAlertNow(alert: alert)
+        case "calendar_event":
+            return evaluateCalendarEventAlertNow(alert: alert)
         default:
-            return (false, "Evaluate Now is supported for date alerts only in Phase 1")
+            return (false, "Evaluate Now supports date and calendar_event alerts in this phase")
         }
     }
 
@@ -271,6 +299,58 @@ extension DatabaseManager {
         // Create event
         let measured: [String: Any] = ["kind": "date", "date": dateStr, "evaluated_at": ISO8601DateFormatter().string(from: Date())]
         let msg = "Date reached: \(dateStr)"
+        let created = insertAlertEvent(alertId: alert.id, status: "triggered", message: msg, measured: measured)
+        return created ? (true, msg) : (false, "Failed to create event")
+    }
+
+    private func evaluateCalendarEventAlertNow(alert: AlertRow) -> (Bool, String) {
+        guard let data = alert.paramsJson.data(using: .utf8),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let eventCode = obj["event_code"] as? String, !eventCode.isEmpty else {
+            return (false, "Missing event_code in params_json")
+        }
+        guard let event = getEventCalendar(code: eventCode) else {
+            return (false, "Event \(eventCode) not found in EventCalendar")
+        }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        df.dateFormat = "yyyy-MM-dd"
+        guard let eventDate = df.date(from: event.eventDate) else {
+            return (false, "Invalid event_date format for \(eventCode)")
+        }
+        let warnDays: [Int] = (obj["warn_days"] as? [Any])?.compactMap {
+            if let n = $0 as? NSNumber { return n.intValue }
+            if let s = $0 as? String, let v = Int(s) { return v }
+            return nil
+        } ?? []
+        let todayStr = df.string(from: Date())
+        guard let today = df.date(from: todayStr) else {
+            return (false, "Date parse error")
+        }
+        let secondsDiff = eventDate.timeIntervalSince(today)
+        let diffDays = Int(floor(secondsDiff / 86_400.0))
+        if diffDays < 0 {
+            return (false, "Event already occurred on \(event.eventDate)")
+        }
+        if diffDays > 0 && !warnDays.contains(diffDays) {
+            return (false, "Event is in \(diffDays) day(s); no warn_days match")
+        }
+        if hasTriggeredEventToday(alertId: alert.id, day: today) {
+            return (false, "Already triggered today")
+        }
+        var measured: [String: Any] = [
+            "kind": "calendar_event",
+            "event_code": event.code,
+            "title": event.title,
+            "category": event.category,
+            "event_date": event.eventDate,
+            "status": event.status
+        ]
+        if let tz = event.timezone { measured["timezone"] = tz }
+        if let t = event.eventTime { measured["event_time"] = t }
+        if diffDays > 0 { measured["days_until"] = diffDays }
+        let msg = diffDays == 0 ? "Event today: \(event.title)" : "Event in \(diffDays) day(s): \(event.title)"
         let created = insertAlertEvent(alertId: alert.id, status: "triggered", message: msg, measured: measured)
         return created ? (true, msg) : (false, "Failed to create event")
     }
@@ -378,10 +458,16 @@ extension DatabaseManager {
     // Upcoming: date alerts with a future or today trigger date
     func listUpcomingDateAlerts(limit: Int = 200) -> [(alertId: Int, alertName: String, severity: String, upcomingDate: String)] {
         let alerts = listAlerts(includeDisabled: false)
+        var dateTriggers = Set(listAlertTriggerTypes(includeInactive: false).filter { $0.requiresDate }.map { $0.code })
+        if dateTriggers.isEmpty {
+            dateTriggers = ["date", "calendar_event", "macro_indicator_threshold"]
+        } else {
+            dateTriggers.formUnion(["date", "calendar_event", "macro_indicator_threshold"])
+        }
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
         guard let today = df.date(from: df.string(from: Date())) else { return [] }
         var out: [(Int, String, String, String)] = []
-        for a in alerts where a.triggerTypeCode == "date" {
+        for a in alerts where dateTriggers.contains(a.triggerTypeCode) {
             guard let data = a.paramsJson.data(using: .utf8),
                   let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                   let dateStr = obj["date"] as? String,

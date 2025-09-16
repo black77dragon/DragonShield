@@ -170,6 +170,7 @@ struct TopPositionsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = PositionsViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @State private var isConsolidated = true
 
     init() {}
     static let tileID = "top_positions"
@@ -178,8 +179,17 @@ struct TopPositionsTile: DashboardTile {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(Self.tileName)
-                .font(.system(size: 18, weight: .bold))
+            HStack(alignment: .center) {
+                Text(Self.tileName)
+                    .font(.system(size: 18, weight: .bold))
+                Spacer()
+                Toggle(isOn: $isConsolidated) {
+                    Text("Consolidate")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .toggleStyle(SwitchToggleStyle())
+            }
             if viewModel.calculating {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -222,7 +232,10 @@ struct TopPositionsTile: DashboardTile {
         )
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        .onAppear { viewModel.calculateTopPositions(db: dbManager) }
+        .onChange(of: isConsolidated) { value in
+            viewModel.setConsolidation(enabled: value)
+        }
+        .onAppear { viewModel.calculateTopPositions(db: dbManager, consolidated: isConsolidated) }
         .accessibilityElement(children: .combine)
     }
 }

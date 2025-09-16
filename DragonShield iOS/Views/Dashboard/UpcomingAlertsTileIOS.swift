@@ -43,7 +43,8 @@ struct UpcomingAlertsTileIOS: View {
                                 dateStr: row.upcomingDate,
                                 urgent: urgent,
                                 dueSoon: dueSoon,
-                                formatter: format
+                                formatter: format,
+                                daysText: daysUntilText(for: row.upcomingDate)
                             )
                         }
                     }
@@ -63,6 +64,15 @@ struct UpcomingAlertsTileIOS: View {
     private func format(dateStr: String) -> String {
         if let d = Self.inDf.date(from: dateStr) { return Self.outDf.string(from: d) }
         return dateStr
+    }
+
+    private func daysUntilText(for dateStr: String) -> String? {
+        guard let dueDate = Self.inDf.date(from: dateStr) else { return nil }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        let diff = Calendar.current.dateComponents([.day], from: today, to: dueDate).day ?? 0
+        if diff <= 0 { return "Today" }
+        if diff == 1 { return "1 day" }
+        return "\(diff) days"
     }
 
     private func load() {
@@ -91,6 +101,7 @@ private struct UpcomingAlertRowIOS: View {
     let urgent: Bool
     let dueSoon: Bool
     let formatter: (String) -> String
+    let daysText: String?
 
     var textColor: Color { urgent ? .white : (dueSoon ? .red : .primary) }
     var dateColor: Color { urgent ? .white : (dueSoon ? .red : .secondary) }
@@ -102,8 +113,15 @@ private struct UpcomingAlertRowIOS: View {
                 .truncationMode(.tail)
                 .foregroundColor(textColor)
             Spacer()
-            Text(formatter(dateStr))
-                .foregroundColor(dateColor)
+            HStack(spacing: 8) {
+                Text(formatter(dateStr))
+                    .foregroundColor(dateColor)
+                if let daysText {
+                    Text(daysText)
+                        .bold()
+                        .foregroundColor(urgent ? .white : .red)
+                }
+            }
         }
         .font(.subheadline)
         .fontWeight((urgent || dueSoon) ? .bold : .regular)

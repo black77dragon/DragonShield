@@ -26,11 +26,10 @@ struct RootTabView: View {
     }
 }
 
-// Minimal placeholders
-struct DashboardView: View { var body: some View { Text("Welcome to DragonShield iOS").padding() } }
-struct SearchView: View { @State private var q = ""; var body: some View { VStack { TextField("Search", text: $q).textFieldStyle(.roundedBorder).padding(); Spacer() } .navigationTitle("Search") } }
-
 struct RootTabView_Previews: PreviewProvider {
-    static var previews: some View { RootTabView() }
+    static var previews: some View {
+        RootTabView()
+            .environmentObject(DatabaseManager())
+    }
 }
 #endif

@@ -1,5 +1,25 @@
 import SwiftUI
 
+private let isoOutputFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "en_US_POSIX")
+    df.timeZone = TimeZone(secondsFromGMT: 0)
+    df.dateFormat = "yyyy-MM-dd"
+    return df
+}()
+
+private let displayDateFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "de_CH")
+    df.dateFormat = "dd.MM.yy"
+    return df
+}()
+
+private func dateFromISO(_ value: String?) -> Date? {
+    guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+    return isoOutputFormatter.date(from: raw)
+}
+
 struct AlertsSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dbManager: DatabaseManager
@@ -16,6 +36,7 @@ struct AlertsSettingsView: View {
     @State private var toastMessage: String = ""
 
     @State private var page: Int = 0 // 0=Alerts, 1=Events, 2=Timeline
+    @State private var showTriggerTypes: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -31,6 +52,7 @@ struct AlertsSettingsView: View {
                 if page == 0 {
                     Toggle("Show disabled", isOn: $includeDisabled)
                         .onChange(of: includeDisabled) { _, _ in load() }
+                    Button("Edit Alert Types") { showTriggerTypes = true }
                     Button("New Alert") { openNew() }
                 }
                 Button("Close") { dismiss() }
@@ -51,8 +73,8 @@ struct AlertsSettingsView: View {
                     }.width(60)
                     TableColumn("Name") { row in Text(row.name) }
                     TableColumn("Severity") { row in Text(row.severity.rawValue) }.width(90)
-                    TableColumn("Scope") { row in
-                        Text(scopeDisplay(for: row))
+                    TableColumn("Subject") { row in
+                        Text(subjectDisplay(for: row))
                     }.width(220)
                     TableColumn("Type") { row in Text(row.triggerTypeCode) }.width(120)
                     TableColumn("Trigger Date") { row in
@@ -107,6 +129,21 @@ struct AlertsSettingsView: View {
         .navigationTitle("Alerts")
         .frame(minWidth: 1100, minHeight: 700)
         .toast(isPresented: $showToast, message: toastMessage)
+        .sheet(isPresented: $showTriggerTypes) {
+            NavigationView {
+                AlertTriggerTypeSettingsView()
+                    .environmentObject(dbManager)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                showTriggerTypes = false
+                                triggerTypes = dbManager.listAlertTriggerTypes()
+                            }
+                        }
+                    }
+            }
+            .frame(minWidth: 1100, minHeight: 680)
+        }
         .alert(item: $confirmDelete) { row in
             Alert(
                 title: Text("A disturbance in the Force?"),
@@ -121,17 +158,24 @@ struct AlertsSettingsView: View {
 
     // MARK: - Formatting helpers
     private func triggerDateDisplay(for row: AlertRow) -> String {
-        guard row.triggerTypeCode == "date" else { return "" }
+        guard triggerTypeRequiresDate(row.triggerTypeCode) else { return "" }
         guard let data = row.paramsJson.data(using: .utf8),
               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let dateStr = obj["date"] as? String, !dateStr.isEmpty else { return "" }
-        let inDf = DateFormatter(); inDf.locale = Locale(identifier: "en_US_POSIX"); inDf.timeZone = TimeZone(secondsFromGMT: 0); inDf.dateFormat = "yyyy-MM-dd"
-        guard let d = inDf.date(from: dateStr) else { return "" }
-        let outDf = DateFormatter(); outDf.locale = Locale(identifier: "de_CH"); outDf.dateFormat = "dd.MM.yy"
-        return outDf.string(from: d)
+              let dateStr = obj["date"] as? String, !dateStr.isEmpty,
+              let d = isoOutputFormatter.date(from: dateStr) else { return "" }
+        return displayDateFormatter.string(from: d)
     }
 
-    private func scopeDisplay(for row: AlertRow) -> String {
+private let defaultDateTriggerCodes: Set<String> = ["date", "calendar_event", "macro_indicator_threshold"]
+
+private func triggerTypeRequiresDate(_ code: String) -> Bool {
+        if let requiresDate = triggerTypes.first(where: { $0.code == code })?.requiresDate {
+            return requiresDate || defaultDateTriggerCodes.contains(code)
+        }
+        return defaultDateTriggerCodes.contains(code)
+    }
+
+    private func subjectDisplay(for row: AlertRow) -> String {
         switch row.scopeType {
         case .Instrument:
             return dbManager.getInstrumentName(id: row.scopeId) ?? "Instrument #\(row.scopeId)"
@@ -142,9 +186,21 @@ struct AlertsSettingsView: View {
         case .Account:
             return dbManager.fetchAccountDetails(id: row.scopeId)?.accountName ?? "Account #\(row.scopeId)"
         case .Portfolio:
-            // Fallback using list, as dedicated lookup may not exist yet
             let name = dbManager.fetchPortfolios().first(where: { $0.id == row.scopeId })?.name
             return name ?? "Portfolio #\(row.scopeId)"
+        case .Global:
+            return "Global"
+        case .MarketEvent:
+            if let code = row.subjectReference, let event = dbManager.getEventCalendar(code: code) {
+                return "\(event.title) [\(code)]"
+            }
+            return row.subjectReference ?? "Market Event"
+        case .EconomicSeries:
+            return row.subjectReference ?? "Economic Series"
+        case .CustomGroup:
+            return row.subjectReference ?? "Custom Group"
+        case .NotApplicable:
+            return row.subjectReference?.isEmpty == false ? row.subjectReference! : "Not applicable"
         }
     }
 
@@ -163,6 +219,7 @@ struct AlertsSettingsView: View {
             severity: .info,
             scopeType: .Instrument,
             scopeId: 0,
+            subjectReference: nil,
             triggerTypeCode: triggerTypes.first?.code ?? "price",
             paramsJson: "{}",
             nearValue: nil, nearUnit: nil,
@@ -200,12 +257,16 @@ struct AlertsSettingsView: View {
     }
 
     private func fieldsDict(from a: AlertRow) -> [String: Any?] {
+        let storageScopeType = a.scopeType.storageScopeTypeValue
+        let storageScopeId = a.scopeType.storageScopeIdValue(a.scopeId)
         return [
             "name": a.name,
             "enabled": a.enabled,
             "severity": a.severity.rawValue,
-            "scope_type": a.scopeType.rawValue,
-            "scope_id": a.scopeId,
+            "scope_type": storageScopeType,
+            "scope_id": storageScopeId,
+            "subject_type": a.scopeType.rawValue,
+            "subject_reference": a.subjectReference,
             "trigger_type_code": a.triggerTypeCode,
             "params_json": a.paramsJson,
             "near_value": a.nearValue,
@@ -294,12 +355,17 @@ private struct AlertEditorView: View {
     // Near window (thresholds) state
     @State private var nearValueText: String = ""
     @State private var nearUnitText: String = ""
+    // Scheduling state
+    @State private var scheduleStartDate: Date? = nil
+    @State private var scheduleEndDate: Date? = nil
+    @State private var muteUntilDate: Date? = nil
     // Scope picker state
     @State private var showScopePicker: Bool = false
     @State private var scopeNames: [String] = []
     @State private var scopeIdMap: [Int: String] = [:]
     @State private var scopeText: String = ""
     private var selectedScopeName: String { scopeIdMap[alert.scopeId] ?? "(none)" }
+    @State private var subjectReferenceText: String = ""
     // Instrument picker (SearchDropdown) state
     @State private var instrumentRows: [DatabaseManager.InstrumentRow] = []
     @State private var instrumentQuery: String = ""
@@ -308,20 +374,6 @@ private struct AlertEditorView: View {
     @State private var showResetConfirm: Bool = false
 
     // MARK: - Validation
-    private func isDateOrEmpty(_ s: String?) -> Bool {
-        let t = (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.isEmpty { return true }
-        // yyyy-MM-dd strict
-        let regex = try! NSRegularExpression(pattern: "^\\d{4}-\\d{2}-\\d{2}$")
-        guard regex.firstMatch(in: t, range: NSRange(location: 0, length: t.utf16.count)) != nil else { return false }
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "yyyy-MM-dd"
-        return df.date(from: t) != nil
-    }
-    private var datesValid: Bool {
-        isDateOrEmpty(alert.scheduleStart) && isDateOrEmpty(alert.scheduleEnd) && isDateOrEmpty(alert.muteUntil)
-    }
     private func isDateStrict(_ s: String) -> Bool {
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return false }
@@ -332,7 +384,7 @@ private struct AlertEditorView: View {
         df.dateFormat = "yyyy-MM-dd"
         return df.date(from: t) != nil
     }
-    private var formValid: Bool { datesValid && triggerValid }
+    private var formValid: Bool { triggerValid }
 
     private func instrumentDisplay(_ ins: DatabaseManager.InstrumentRow) -> String {
         var parts: [String] = [ins.name]
@@ -354,8 +406,10 @@ private struct AlertEditorView: View {
                     BasicsSectionView(name: $alert.name,
                                       enabled: $alert.enabled,
                                       severity: Binding(get: { alert.severity }, set: { alert.severity = $0 }),
-                                      scopeType: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 }),
+                                      subjectType: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 }),
                                       selectedScopeName: selectedScopeName,
+                                      requiresNumericScope: alert.scopeType.requiresNumericScope,
+                                      subjectReference: $subjectReferenceText,
                                       onChooseScope: { showScopePicker = true })
                     AnyView(TriggerSectionView(triggerTypes: triggerTypes,
                                        triggerTypeCode: Binding(get: { alert.triggerTypeCode }, set: { alert.triggerTypeCode = $0 }),
@@ -366,10 +420,9 @@ private struct AlertEditorView: View {
                                        onInsertTemplate: { insertTemplate() },
                                        onValidityChange: { ok in triggerValid = ok }))
                     AnyView(ThresholdsSectionView(nearValueText: $nearValueText, nearUnitText: $nearUnitText))
-                    AnyView(SchedulingSectionView(scheduleStart: Binding(get: { alert.scheduleStart }, set: { alert.scheduleStart = $0 }),
-                                          scheduleEnd: Binding(get: { alert.scheduleEnd }, set: { alert.scheduleEnd = $0 }),
-                                          muteUntil: Binding(get: { alert.muteUntil }, set: { alert.muteUntil = $0 }),
-                                          isDateOrEmpty: { s in isDateOrEmpty(s) }))
+                    AnyView(SchedulingSectionView(scheduleStart: $scheduleStartDate,
+                                          scheduleEnd: $scheduleEndDate,
+                                          muteUntil: $muteUntilDate))
                     AnyView(NotesAndTagsSectionView(notes: Binding(get: { alert.notes }, set: { alert.notes = $0 }),
                                             allTags: allTags,
                                             selectedTags: $selectedTags))
@@ -401,6 +454,7 @@ private struct AlertEditorView: View {
             }
         }
         .onAppear {
+            subjectReferenceText = alert.subjectReference ?? ""
             if alert.id > 0 {
                 let current = dbManager.listTagsForAlert(alertId: alert.id).map { $0.id }
                 selectedTags = Set(current)
@@ -414,14 +468,26 @@ private struct AlertEditorView: View {
             // Pre-fill near window state
             nearValueText = alert.nearValue.map { String($0) } ?? ""
             nearUnitText = alert.nearUnit ?? ""
+            scheduleStartDate = dateFromISO(alert.scheduleStart)
+            scheduleEndDate = dateFromISO(alert.scheduleEnd)
+            muteUntilDate = dateFromISO(alert.muteUntil)
+            syncScheduleStrings()
             refreshTodayTriggerFlag()
+            handleSubjectTypeChange(alert.scopeType)
+            syncSubjectReferenceFromScope()
+            if !alert.scopeType.requiresNumericScope {
+                syncSubjectReferenceFromText()
+            }
         }
         // Reload available options when scope type changes; clear selection text
-        .onChange(of: alert.scopeType) { _, _ in
+        .onChange(of: alert.scopeType) { _, newType in
             alert.scopeId = 0
             scopeText = ""
             loadScopeOptions()
+            handleSubjectTypeChange(newType)
         }
+        .onChange(of: alert.scopeId) { _, _ in syncSubjectReferenceFromScope() }
+        .onChange(of: subjectReferenceText) { _, _ in syncSubjectReferenceFromText() }
         // Trigger type change and typed params are handled inside subviews
         // If JSON changes externally (e.g., Template), typed subviews will re-render with the new JSON
         .onChange(of: alert.paramsJson) { _, _ in }
@@ -434,6 +500,9 @@ private struct AlertEditorView: View {
             let t = nearUnitText.trimmingCharacters(in: .whitespaces)
             alert.nearUnit = t.isEmpty ? nil : t
         }
+        .onChange(of: scheduleStartDate) { _, _ in syncScheduleStrings() }
+        .onChange(of: scheduleEndDate) { _, _ in syncScheduleStrings() }
+        .onChange(of: muteUntilDate) { _, _ in syncScheduleStrings() }
         // Scope picker sheet
         .sheet(isPresented: $showScopePicker) {
             VStack(alignment: .leading, spacing: 12) {
@@ -484,44 +553,87 @@ private struct AlertEditorView: View {
 private struct DateTriggerForm: View {
     @Binding var paramsJson: String
     var onValidityChange: (Bool) -> Void
-    @State private var dateParam: String = ""
-    private func isDateStrict(_ s: String) -> Bool {
-        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return false }
-        let regex = try! NSRegularExpression(pattern: "^\\d{4}-\\d{2}-\\d{2}$")
-        guard regex.firstMatch(in: t, range: NSRange(location: 0, length: t.utf16.count)) != nil else { return false }
-        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd"
-        return df.date(from: t) != nil
-    }
+    @State private var selectedDate: Date? = nil
+    @State private var showPicker: Bool = false
+    @State private var tempDate: Date = Date()
     var body: some View {
         LabeledContent("Trigger Date") {
-            HStack(spacing: 8) {
-                TextField("", text: $dateParam)
-                    .textFieldStyle(.plain)
-                    .frame(width: 200)
-                    .dsField()
-                    .foregroundColor(isDateStrict(dateParam) ? .primary : .red)
-                Button("Today") {
-                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd"; dateParam = df.string(from: Date())
+            Button {
+                tempDate = selectedDate ?? Date()
+                showPicker = true
+            } label: {
+                HStack {
+                    let text = selectedDate.map { displayDateFormatter.string(from: $0) } ?? ""
+                    Text(text)
+                        .foregroundColor(selectedDate == nil ? .secondary : .primary)
+                        .frame(minWidth: 120, alignment: .leading)
+                    Spacer()
+                    Image(systemName: "calendar")
+                        .foregroundColor(.secondary)
                 }
-                Text("(YYYY-MM-DD)").foregroundColor(.secondary)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showPicker, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 16) {
+                    DatePicker("Select Date", selection: $tempDate, displayedComponents: [.date])
+                        .datePickerStyle(.graphical)
+                    HStack {
+                        Button("Clear") {
+                            selectedDate = nil
+                            syncJSON()
+                            showPicker = false
+                        }
+                        Spacer()
+                        Button("Set") {
+                            selectedDate = tempDate
+                            syncJSON()
+                            showPicker = false
+                        }
+                        .keyboardShortcut(.defaultAction)
+                    }
+                }
+                .padding(16)
+                .frame(width: 320)
             }
         }
         .onAppear {
             if let data = paramsJson.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let d = obj["date"] as? String {
-                dateParam = d
-                onValidityChange(isDateStrict(d))
-            } else { onValidityChange(false) }
+               let d = obj["date"] as? String,
+               let parsed = isoOutputFormatter.date(from: d) {
+                selectedDate = parsed
+            } else {
+                selectedDate = nil
+            }
+            onValidityChange(true)
         }
-        .onChange(of: dateParam) { _, _ in
-            var dict: [String: Any] = [:]
-            if let data = paramsJson.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { dict = obj }
-            dict["date"] = dateParam
-            if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]), let s = String(data: data, encoding: .utf8) { paramsJson = s }
-            onValidityChange(isDateStrict(dateParam))
+        .onChange(of: selectedDate) { _, _ in
+            onValidityChange(true)
         }
+    }
+    private func syncJSON() {
+        var dict: [String: Any] = [:]
+        if let data = paramsJson.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            dict = obj
+        }
+        if let selectedDate {
+            dict["date"] = isoOutputFormatter.string(from: selectedDate)
+        } else {
+            dict.removeValue(forKey: "date")
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]),
+           let s = String(data: data, encoding: .utf8) {
+            paramsJson = s
+        }
+        onValidityChange(true)
     }
 }
 
@@ -698,8 +810,10 @@ private struct BasicsSectionView: View {
     @Binding var name: String
     @Binding var enabled: Bool
     @Binding var severity: AlertSeverity
-    @Binding var scopeType: AlertScopeType
+    @Binding var subjectType: AlertSubjectType
     let selectedScopeName: String
+    let requiresNumericScope: Bool
+    @Binding var subjectReference: String
     var onChooseScope: () -> Void
     var body: some View {
         Section("Basics") {
@@ -715,17 +829,32 @@ private struct BasicsSectionView: View {
                     ForEach(AlertSeverity.allCases) { Text($0.rawValue.capitalized).tag($0) }
                 }.pickerStyle(.segmented).frame(width: 360)
             }
-            LabeledContent("Scope") {
-                HStack(spacing: 8) {
-                    Picker("", selection: $scopeType) {
-                        ForEach(AlertScopeType.allCases) { Text($0.rawValue).tag($0) }
-                    }.frame(width: 200)
-                    Text(selectedScopeName)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
-                    Button("Choose…") { onChooseScope() }
+            Text("Severity controls how prominently an alert is surfaced in lists and notifications.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            LabeledContent("Subject Type") {
+                Picker("", selection: $subjectType) {
+                    ForEach(AlertSubjectType.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 220)
+            }
+            if requiresNumericScope {
+                LabeledContent("Subject") {
+                    HStack(spacing: 8) {
+                        Text(selectedScopeName)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
+                        Button("Choose…") { onChooseScope() }
+                    }
+                }
+            } else {
+                LabeledContent("Subject Reference") {
+                    TextField("Enter reference", text: $subjectReference)
+                        .textFieldStyle(.plain)
+                        .frame(minWidth: 320)
+                        .dsField()
                 }
             }
         }
@@ -743,12 +872,23 @@ private struct TriggerSectionView: View {
     var onValidityChange: (Bool) -> Void
     var body: some View {
         Section("Trigger") {
-            LabeledContent("Type") {
+            LabeledContent("Trigger Family") {
                 Picker("", selection: $triggerTypeCode) {
                     ForEach(triggerTypes, id: \.code) { Text($0.displayName).tag($0.code) }
                 }.frame(width: 360)
             }
-            if triggerTypeCode == "date" { DateTriggerForm(paramsJson: $paramsJson, onValidityChange: onValidityChange) }
+            Text("Trigger family defines how the alert condition is evaluated and which parameters apply.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if let current = triggerTypes.first(where: { $0.code == triggerTypeCode }) {
+                Text(current.description ?? "")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 4)
+                if current.requiresDate {
+                    DateTriggerForm(paramsJson: $paramsJson, onValidityChange: onValidityChange)
+                }
+            }
             if triggerTypeCode == "price" {
                 PriceTriggerForm(paramsJson: $paramsJson, onValidityChange: onValidityChange)
             }
@@ -780,44 +920,66 @@ private struct TriggerSectionView: View {
 }
 
 private struct SchedulingSectionView: View {
-    @Binding var scheduleStart: String?
-    @Binding var scheduleEnd: String?
-    @Binding var muteUntil: String?
-    var isDateOrEmpty: (String?) -> Bool
+    @Binding var scheduleStart: Date?
+    @Binding var scheduleEnd: Date?
+    @Binding var muteUntil: Date?
     var body: some View {
         Section("Scheduling") {
-            LabeledContent("Start") {
-                HStack(spacing: 8) {
-                    let s = Binding(get: { scheduleStart ?? "" }, set: { scheduleStart = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
-                    TextField("", text: s)
-                        .textFieldStyle(.plain)
-                        .frame(width: 200)
-                        .dsField()
-                        .foregroundColor(isDateOrEmpty(scheduleStart) ? .primary : .red)
-                    Text("(YYYY-MM-DD)").foregroundColor(.secondary)
+            OptionalDateField(title: "Start", date: $scheduleStart)
+            OptionalDateField(title: "End", date: $scheduleEnd)
+            OptionalDateField(title: "Mute Until", date: $muteUntil)
+        }
+    }
+}
+
+private struct OptionalDateField: View {
+    let title: String
+    @Binding var date: Date?
+    @State private var showPicker: Bool = false
+    @State private var tempDate: Date = Date()
+    var body: some View {
+        LabeledContent(title) {
+            Button {
+                tempDate = date ?? Date()
+                showPicker = true
+            } label: {
+                HStack {
+                    let text = date.map { displayDateFormatter.string(from: $0) } ?? ""
+                    Text(text)
+                        .foregroundColor(date == nil ? .secondary : .primary)
+                        .frame(minWidth: 120, alignment: .leading)
+                    Spacer()
+                    Image(systemName: "calendar")
+                        .foregroundColor(.secondary)
                 }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                )
             }
-            LabeledContent("End") {
-                HStack(spacing: 8) {
-                    let e = Binding(get: { scheduleEnd ?? "" }, set: { scheduleEnd = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
-                    TextField("", text: e)
-                        .textFieldStyle(.plain)
-                        .frame(width: 200)
-                        .dsField()
-                        .foregroundColor(isDateOrEmpty(scheduleEnd) ? .primary : .red)
-                    Text("(YYYY-MM-DD)").foregroundColor(.secondary)
+            .buttonStyle(.plain)
+            .popover(isPresented: $showPicker, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 16) {
+                    DatePicker("Select Date", selection: $tempDate, displayedComponents: [.date])
+                        .datePickerStyle(.graphical)
+                    HStack {
+                        Button("Clear") {
+                            date = nil
+                            showPicker = false
+                        }
+                        Spacer()
+                        Button("Set") {
+                            date = tempDate
+                            showPicker = false
+                        }
+                        .keyboardShortcut(.defaultAction)
+                    }
                 }
-            }
-            LabeledContent("Mute Until") {
-                HStack(spacing: 8) {
-                    let m = Binding(get: { muteUntil ?? "" }, set: { muteUntil = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
-                    TextField("", text: m)
-                        .textFieldStyle(.plain)
-                        .frame(width: 200)
-                        .dsField()
-                        .foregroundColor(isDateOrEmpty(muteUntil) ? .primary : .red)
-                    Text("(YYYY-MM-DD)").foregroundColor(.secondary)
-                }
+                .padding(16)
+                .frame(width: 320)
             }
         }
     }
@@ -831,6 +993,7 @@ private struct NotesAndTagsSectionView: View {
         Section("Notes & Tags") {
             LabeledContent("Notes") {
                 TextEditor(text: Binding(get: { notes ?? "" }, set: { notes = $0.isEmpty ? nil : $0 }))
+                    .multilineTextAlignment(.leading)
                     .frame(minHeight: 140)
                     .dsTextEditor()
             }
@@ -867,6 +1030,34 @@ private struct ThresholdsSectionView: View {
 
 private extension AlertEditorView {
 // (moved helpers to file scope below)
+
+    private func handleSubjectTypeChange(_ newType: AlertSubjectType) {
+        if newType.requiresNumericScope {
+            subjectReferenceText = ""
+            syncSubjectReferenceFromScope()
+        } else {
+            alert.scopeId = 0
+            subjectReferenceText = alert.subjectReference ?? ""
+            syncSubjectReferenceFromText()
+        }
+    }
+
+    private func syncSubjectReferenceFromScope() {
+        guard alert.scopeType.requiresNumericScope else { return }
+        alert.subjectReference = alert.scopeId > 0 ? String(alert.scopeId) : nil
+    }
+
+    private func syncSubjectReferenceFromText() {
+        guard !alert.scopeType.requiresNumericScope else { return }
+        let trimmed = subjectReferenceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        alert.subjectReference = trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func syncScheduleStrings() {
+        alert.scheduleStart = scheduleStartDate.map { isoOutputFormatter.string(from: $0) }
+        alert.scheduleEnd = scheduleEndDate.map { isoOutputFormatter.string(from: $0) }
+        alert.muteUntil = muteUntilDate.map { isoOutputFormatter.string(from: $0) }
+    }
 
     private func validateJSON() {
         if let data = alert.paramsJson.data(using: .utf8), (try? JSONSerialization.jsonObject(with: data)) != nil {
@@ -1005,6 +1196,9 @@ private extension AlertEditorView {
             scopeNames = items.map { $0.name }
             scopeIdMap = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
         case .Portfolio:
+            scopeNames = []
+            scopeIdMap = [:]
+        case .Global, .MarketEvent, .EconomicSeries, .CustomGroup, .NotApplicable:
             scopeNames = []
             scopeIdMap = [:]
         }
