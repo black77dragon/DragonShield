@@ -1,56 +1,48 @@
 # Dragon Shield – Personal Asset Management 🐉🛡️
 
-**Version 2.24** | August, 17th, 2025
+**Version 4.7.1** | September 13th, 2025
 
 Dragon Shield is a native macOS application for private investors to track, analyze and document all assets entirely offline. Every byte of financial data remains on your Mac, encrypted in a local database—no cloud, no telemetry.
 
 The app follows Apple's best-in-class UX conventions while embracing ZEN-minimalism for clarity and focus.
 For detailed interface guidelines, see the [Dragon Shield UI/UX Design Guide](DragonShield/docs/UX_UI_concept/dragon_shield_ui_guide.md).
 
-## ✨ Key Features (End-Goal Vision)
+## ✨ Feature Overview
 
-- **Local-First & Private**: Data never leaves your Mac. No sync, no external servers.
-- **Encrypted Storage**: Portfolio encrypted at rest with SQLCipher (AES-256).
-- **Diverse Asset Tracking**: Stocks, ETFs, Bonds, Real Estate, Crypto, Options, Structured Products, Cash/Bank Accounts.
-- **Document Parsing**: Import monthly statements in CSV, XLSX or PDF (German & English) with automatic ISIN/symbol, quantity, price and fee extraction.
+- **Local-first & private**: Data stays on-device and is encrypted with SQLCipher (AES-256). All analytics run locally via Swift and Python helpers.
+- **Configurable dashboard**: Drag, drop, and persist custom tile layouts (accounts needing updates, upcoming alerts, strict unused/unthemed instruments, top positions, crypto top 5, themes overview, currency exposure, risk buckets, etc.) with a shared tile style (`View+DashboardTileStyle`).
+- **Alerts cockpit**: The Alerts & Events area combines a severity-filtered timeline (Charts-based), trigger-type chips, rich detail table, and a startup popup that surfaces near-term deadlines.
+- **Portfolio & instrument management**: Maintain institutions, accounts, instruments, portfolio themes, and tags using the new floating search pickers and autosaving table layouts; column widths persist across sessions.
+- **Transactions journal**: Record buy/sell trades with the two-leg `Trade` + `TradeLeg` schema, validation, holdings preview, and history view (Release 4.7.1).
+- **Import & maintenance tooling**: Python utilities parse CSV/XLSX/PDF statements (e.g. Credit Suisse), refresh FX & instrument prices, and perform encrypted database backup/restore. Settings export also generates the read-only SQLite snapshot used by the iOS viewer prototype.
 
-### Additional Features
-- **Target Allocation & Alerts**: Define goals per class/instrument; automatic gap calculation and alerting
-- **Transaction History**: Chronological log with rich filter & sort, CSV export
-- **Positions**: Lists position reports directly from the database with account and instrument details
-- **Strategy Documentation**: Markdown notes field beside each instrument and at portfolio level
-- **Native macOS Experience**: Swift + SwiftUI, system dark/light mode, Touch ID unlock (planned)
-- **Minimalist UI**: Single accent color, generous whitespace, keyboard-first workflow (⌘-K palette)
+### In Design / Planned
+- Alerts timeline narrative mode and AI-assisted summaries (`docs/new_alerts_timeline_tab.md`).
+- Ichimoku Dragon momentum scanner pipeline (`docs/IchimokuDragon/`).
+- Touch ID-secured key management & notarised macOS build.
+- Options valuation models and what-if rebalancing.
+- Signed public beta and iOS companion (Phase 1 read-only viewer via snapshot import).
 
 ## 🚧 Current Status & Roadmap
 
-This project follows an Agile, iterative approach.
+Highlights from the latest iterations:
 
-### Completed
-- ✅ **Iteration 0 — Bedrock**
-  - Repo & Xcode scaffold
-  - Encrypted SQLite schema
-  - Swift⇄Python CLI bridge
-
-- ✅ **Iteration 1 — Manual CRUD**
-  - Add / edit instruments & transactions
-
-- ✅ **Iteration 2 — Dashboard Tile 1**
-  - Allocation vs. target visual
+### Delivered
+- Dashboard tile system with autosaved layouts, FX/price update actions, and upcoming-alert popups on launch.
+- Alerts settings + timeline rebuild (Charts-based) with severity filters, trigger chips, and detailed table view.
+- Portfolio themes workspace, strict unused/unthemed instrument reports, and floating search pickers across forms.
+- Transactions journal (Trade/TradeLeg schema) with holdings preview, validation, and history view (Release 4.7.1).
+- Database tooling: dbmate migrations, encrypted backup/restore, import sessions, and Settings → Data Export snapshot for the iOS viewer prototype.
 
 ### In Progress
-- 🟡 **Iteration 3 — Import v1**
-  - CSV/XLSX parser (German)
+- CSV/XLSX import refinement and alert timeline UX follow-up (`docs/new_alerts_timeline_tab.md`).
+- Research spikes for the Ichimoku Dragon scanner (models/services under `DragonShield/Ichimoku`).
 
-### Upcoming
-- ⏭ Alerts engine
-- ⏭ PDF parser
-- ⏭ Options valuation
-- ⏭ Touch ID key management
-- ⏭ Public beta
-- ⏭ iOS App (Phase 1): read‑only viewer for iPhone using a SQLite snapshot exported from the Mac app. See docs/ios_app_design.md. Snapshot export is available in Settings → Data Export.
-
-*Legend: 🟡 = active • ⏭ = next*
+### Next Up
+- Touch ID-secured key storage and notarised macOS build pipeline.
+- Options pricing experiments and rebalancing workflow.
+- Expanded PDF import coverage & automation.
+- Signed public beta and packaged iOS read-only client via snapshot export.
 
 ## 🛠️ Technology Stack
 
@@ -64,17 +56,27 @@ This project follows an Agile, iterative approach.
 
 ```
 DragonShield/
-├── DragonShieldApp.swift          # Entry point
-├── Views/                         # SwiftUI screens
-├── Models/ & Services/            # Combine, data access
-├── python_scripts/                # Parsers, analytics
-├── db/                            # database migrations (dbmate)
-├── docs/                          # documentation and ADRs
-│   └── ios_app_design.md          # iOS Phase 1 design (read‑only, snapshot import)
-├── tests/                         # Unit & UI tests
-├── README.md                      # This file
-└── LICENSE
+├── DragonShield/                    # macOS app sources (SwiftUI views, helpers, db access, python bridge)
+│   ├── Views/                       # Dashboard, alerts, portfolio, trades, settings
+│   ├── helpers/                     # Palette, modifiers, shared UI components (e.g. dashboard tile style)
+│   ├── db/migrations/               # dbmate SQL migrations (e.g. Trade/TradeLeg, ichimoku schema)
+│   ├── python_scripts/              # Offline import, analytics, and backup tooling
+│   ├── Ichimoku/                    # Experimental scanner models, repositories, services
+│   └── (additional feature modules)
+├── DragonShield iOS/                # Designed-for-iPad viewer target (snapshot import prototype)
+├── DragonShieldTests/               # XCTest target (floating picker, autosave table, data access)
+├── Model/                           # Shared Swift model definitions
+├── docs/                            # Architecture notes, design proposals, release notes
+│   └── IchimokuDragon/              # Ichimoku momentum scanner documentation
+├── DragonShield/docs/               # Legacy documentation set (UI guide, troubleshooting, scripts)
+├── CHANGELOG.md
+├── README.md
+└── requirements.txt
 ```
+
+Additional references:
+- `docs/releases/` retains release briefs (latest: `4.7.1.md`).
+- `DragonShield/docs/UX_UI_concept/dragon_shield_ui_guide.md` covers detailed UI/UX conventions.
 
 ## 🚀 Getting Started / Setup
 
@@ -112,6 +114,16 @@ DragonShield/
    - Select DragonShield → My Mac and press ⌘R
 
 > **⚠️ Important**: The current build is developer-only. Replace the default DB key with a Keychain-managed key before storing real data.
+
+## 🧪 Testing
+
+- Unit tests live in the `DragonShieldTests` target (e.g. floating search picker, autosave table helpers).
+- The bundled schemes (`DragonShield`, `DragonShield iOS`) do not include a Test action by default. Add one via **Product → Scheme → Edit Scheme…** (or duplicate a scheme) before running `xcodebuild test`.
+- Once the Test action is enabled you can exercise the suite from Xcode or the CLI, for example:
+  ```bash
+  xcodebuild test -scheme DragonShield -destination 'platform=macOS,arch=arm64'
+  ```
+- Tests rely on macOS 14+/Xcode 15+ for SwiftUI + Charts APIs.
 
 ## 💾 Database Information
 
@@ -168,6 +180,7 @@ This is a personal passion project, but issues and PRs are welcome. Please keep 
 
 
 ## Version History
+- 4.7.1: Added transactions journal (Trade/TradeLeg schema), new timeline UX, dashboard tile updates. See docs/releases/4.7.1.md for full notes.
 - 2.24: Search for Python interpreter in Homebrew locations or env var.
 - 2.23: Run parser via /usr/bin/python3 to avoid sandbox xcrun error.
 - 2.22: Launch parser via /usr/bin/env and return exit codes.
