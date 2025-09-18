@@ -1,11 +1,51 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
+#if os(macOS)
+private func adaptiveColor(light: NSColor, dark: NSColor) -> Color {
+    let name = NSColor.Name(UUID().uuidString)
+    let dynamic = NSColor(name: name, dynamicProvider: { appearance in
+        let match = appearance.bestMatch(from: [.darkAqua, .vibrantDark, .aqua, .vibrantLight])
+        switch match {
+        case .darkAqua?, .vibrantDark?:
+            return dark
+        default:
+            return light
+        }
+    })
+    return Color(nsColor: dynamic)
+}
+#else
+private func adaptiveColor(light: UIColor, dark: UIColor) -> Color {
+    Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? dark : light
+    })
+}
+#endif
+
 extension Color {
     static let success = Color(red: 48/255, green: 209/255, blue: 88/255)
     static let warning = Color(red: 255/255, green: 159/255, blue: 10/255)
     static let error = Color(red: 255/255, green: 59/255, blue: 48/255)
     /// Light red used to highlight validation warnings.
-    static let paleRed = Color(red: 1.0, green: 236/255, blue: 236/255)
+    static var paleRed: Color {
+#if os(macOS)
+        adaptiveColor(
+            light: NSColor(red: 1.0, green: 236/255, blue: 236/255, alpha: 1.0),
+            dark: NSColor.systemRed.withAlphaComponent(0.35)
+        )
+#else
+        adaptiveColor(
+            light: UIColor(red: 1.0, green: 236/255, blue: 236/255, alpha: 1.0),
+            dark: UIColor.systemRed.withAlphaComponent(0.35)
+        )
+#endif
+    }
     /// Light orange used to highlight subclass-only activity.
     static let paleOrange = Color(red: 1.0, green: 244/255, blue: 229/255)
     /// Soft beige used to group asset classes.

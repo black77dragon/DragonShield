@@ -10,6 +10,8 @@ struct IOSDashboardView: View {
     @AppStorage("tile.currencyExposure") private var showCurrencyExposure: Bool = true
     @AppStorage("tile.upcomingAlerts") private var showUpcomingAlerts: Bool = true
     @AppStorage("ios.dashboard.tileOrder") private var tileOrderRaw: String = ""
+    @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
+    @AppStorage(UserDefaultsKeys.dashboardIncomingPopupShownThisLaunch) private var incomingDeadlinesPopupShownThisLaunch: Bool = false
     @State private var showUpcomingWeekPopup = false
     @State private var startupChecked = false
     @State private var upcomingWeek: [(name: String, date: String)] = []
@@ -86,7 +88,18 @@ private extension IOSDashboardView {
         let nextWeek = rows.filter { inDf.date(from: $0.date).map { $0 <= week } ?? false }
         if !nextWeek.isEmpty {
             upcomingWeek = nextWeek.map { ($0.name, $0.date) }
-            showUpcomingWeekPopup = true
+
+            let shouldShowPopup: Bool
+            if !incomingDeadlinesPopupShownThisLaunch {
+                incomingDeadlinesPopupShownThisLaunch = true
+                shouldShowPopup = true
+            } else {
+                shouldShowPopup = showIncomingDeadlinesEveryVisit
+            }
+
+            if shouldShowPopup {
+                showUpcomingWeekPopup = true
+            }
         }
     }
 

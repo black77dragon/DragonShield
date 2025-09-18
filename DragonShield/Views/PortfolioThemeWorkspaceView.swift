@@ -399,16 +399,45 @@ struct PortfolioThemeWorkspaceView: View {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                     GridRow {
                         Text("Instrument").frame(width: labelWidth, alignment: .leading)
-                        SearchDropdown(
-                            items: availableInstrumentRows().map(displayString(for:)),
-                            text: $addInstrumentQuery,
+                        let rows = availableInstrumentRows()
+                        let pickerItems = rows.map { row in
+                            FloatingSearchPicker.Item(
+                                id: AnyHashable(row.id),
+                                title: displayString(for: row),
+                                subtitle: nil,
+                                searchText: instrumentSearchKey(for: row)
+                            )
+                        }
+                        FloatingSearchPicker(
                             placeholder: "Search instrument, ticker, or ISIN",
-                            maxVisibleRows: 12,
-                            onSelectIndex: { originalIndex in
-                                let rows = availableInstrumentRows()
-                                guard originalIndex >= 0 && originalIndex < rows.count else { return }
-                                addInstrumentId = rows[originalIndex].id
-                            }
+                            items: pickerItems,
+                            selectedId: Binding<AnyHashable?>(
+                                get: { addInstrumentId > 0 ? AnyHashable(addInstrumentId) : nil },
+                                set: { newValue in
+                                    if let value = newValue as? Int,
+                                       let match = rows.first(where: { $0.id == value }) {
+                                        addInstrumentId = value
+                                        addInstrumentQuery = displayString(for: match)
+                                    } else {
+                                        addInstrumentId = 0
+                                        addInstrumentQuery = ""
+                                    }
+                                }
+                            ),
+                            showsClearButton: true,
+                            emptyStateText: "No instruments",
+                            query: $addInstrumentQuery,
+                            onSelection: { selected in
+                                if let value = selected.id as? Int {
+                                    addInstrumentId = value
+                                }
+                                addInstrumentQuery = selected.title
+                            },
+                            onClear: {
+                                addInstrumentId = 0
+                                addInstrumentQuery = ""
+                            },
+                            selectsFirstOnSubmit: false
                         )
                         .frame(minWidth: 360, maxWidth: .infinity)
                     }
@@ -452,6 +481,19 @@ struct PortfolioThemeWorkspaceView: View {
         if let t = ins.tickerSymbol, !t.isEmpty { parts.append(t.uppercased()) }
         if let i = ins.isin, !i.isEmpty { parts.append(i.uppercased()) }
         return parts.joined(separator: " • ")
+    }
+
+    private func instrumentSearchKey(for ins: DatabaseManager.InstrumentRow) -> String {
+        [
+            ins.name,
+            ins.tickerSymbol?.uppercased() ?? "",
+            ins.isin?.uppercased() ?? "",
+            ins.valorNr?.uppercased() ?? "",
+            ins.currency.uppercased()
+        ]
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
     }
     private var addValid: Bool { addInstrumentId > 0 && addResearchPct >= 0 && addResearchPct <= 100 && addUserPct >= 0 && addUserPct <= 100 }
     private func addInstrument() {

@@ -128,9 +128,7 @@ struct UnusedInstrumentsTile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 12)
         .overlay(alignment: .leading) {
             Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2)
         }

@@ -65,9 +65,7 @@ struct RiskBucketsTile: DashboardTile {
             }
         }
         .padding(16)
-        .background(Color(red: 245/255, green: 247/255, blue: 250/255))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 12)
         .onAppear { viewModel.load(using: dbManager) }
         .accessibilityElement(children: .combine)
     }

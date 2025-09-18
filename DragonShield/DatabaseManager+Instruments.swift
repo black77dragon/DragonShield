@@ -2,6 +2,18 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
+    private func tableExists(_ name: String) -> Bool {
+        guard let db = db else { return false }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_master WHERE type='table' AND LOWER(name)=LOWER(?) LIMIT 1", -1, &stmt, nil) == SQLITE_OK else {
+            return false
+        }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
+        return sqlite3_step(stmt) == SQLITE_ROW
+    }
+
     struct InstrumentRow: Identifiable {
         var id: Int
         var name: String
@@ -33,6 +45,47 @@ extension DatabaseManager {
               FROM Instruments
               \(whereSql)
              ORDER BY instrument_name COLLATE NOCASE
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let name = String(cString: sqlite3_column_text(stmt, 1))
+            let currency = String(cString: sqlite3_column_text(stmt, 2))
+            let subClassId = Int(sqlite3_column_int(stmt, 3))
+            let ticker = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
+            let isin = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+            let valor = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+            let isDeleted = sqlite3_column_int(stmt, 7) == 1
+            let isActive = sqlite3_column_int(stmt, 8) == 1
+            rows.append(InstrumentRow(id: id, name: name, currency: currency, subClassId: subClassId, tickerSymbol: ticker, isin: isin, valorNr: valor, isDeleted: isDeleted, isActive: isActive))
+        }
+        return rows
+    }
+
+    func fetchInstrumentsWithoutThemes(includeDeleted: Bool = false, includeInactive: Bool = false) -> [InstrumentRow] {
+        var rows: [InstrumentRow] = []
+        var filters: [String] = []
+        if !includeDeleted { filters.append("i.is_deleted = 0") }
+        if !includeInactive { filters.append("i.is_active = 1") }
+        if tableExists("PortfolioThemeAsset") {
+            filters.append("NOT EXISTS (SELECT 1 FROM PortfolioThemeAsset a WHERE a.instrument_id = i.instrument_id)")
+        }
+        let whereSql = filters.isEmpty ? "" : ("WHERE " + filters.joined(separator: " AND "))
+        let sql = """
+            SELECT i.instrument_id,
+                   i.instrument_name,
+                   i.currency,
+                   i.sub_class_id,
+                   i.ticker_symbol,
+                   i.isin,
+                   i.valor_nr,
+                   i.is_deleted,
+                   i.is_active
+              FROM Instruments i
+              \(whereSql)
+             ORDER BY i.instrument_name COLLATE NOCASE
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }

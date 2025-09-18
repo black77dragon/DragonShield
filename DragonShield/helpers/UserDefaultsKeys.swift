@@ -34,6 +34,12 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceHoldingsSort = "portfolioThemeWorkspaceHoldingsSort"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
+    /// Persist column widths for Portfolio Themes list.
+    static let portfolioThemesColumnWidths = "portfolioThemesColumnWidths"
+    /// Toggle for showing the incoming deadlines popup on each dashboard visit.
+    static let dashboardShowIncomingDeadlinesEveryVisit = "dashboardShowIncomingDeadlinesEveryVisit"
+    /// Tracks whether the incoming deadline popup has been shown during the current launch.
+    static let dashboardIncomingPopupShownThisLaunch = "dashboardIncomingPopupShownThisLaunch"
     /// Column widths for Instrument Prices Maintenance table (csv: col:width,...)
     static let pricesMaintenanceColWidths = "pricesMaintenanceColWidths"
 }

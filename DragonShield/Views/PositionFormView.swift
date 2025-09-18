@@ -210,7 +210,11 @@ struct PositionFormView: View {
     private var datesGrid: some View {
         Grid(horizontalSpacing: 16, verticalSpacing: 8) {
             GridRow {
-                dateField(label: "Last Update", date: $instrumentUpdatedAt)
+                dateField(
+                    label: "Last Update",
+                    date: $instrumentUpdatedAt,
+                    onSetToday: { instrumentUpdatedAt = Calendar.current.startOfDay(for: Date()) }
+                )
                 dateField(label: "Uploaded At", date: $uploadedAt)
             }
             GridRow {
@@ -219,17 +223,26 @@ struct PositionFormView: View {
         }
     }
 
-    private func dateField(label: String, date: Binding<Date>) -> some View {
-        HStack {
+    private func dateField(label: String, date: Binding<Date>, onSetToday: (() -> Void)? = nil) -> some View {
+        HStack(spacing: 8) {
             Text(label)
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .font(.headline)
+            Spacer(minLength: 8)
             DatePicker("", selection: date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.field)
-                .frame(maxWidth: .infinity, alignment: .trailing)
                 .font(.body)
+            if let onSetToday {
+                Button(action: onSetToday) {
+                    Image(systemName: "calendar.badge.clock")
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.borderless)
+                .help("Set to today")
+                .accessibilityLabel("Set \(label) to today")
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var isValid: Bool {

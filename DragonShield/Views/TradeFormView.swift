@@ -100,10 +100,28 @@ struct TradeFormView: View {
                 Section("Basics") {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                     Picker("Type", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
-                    Picker("Instrument", selection: $instrumentId) {
-                        Text("Select Instrument").tag(Optional<Int>(nil))
-                        ForEach(instruments, id: \.id) { ins in Text("\(ins.name) [\(ins.currency)]").tag(Optional(ins.id)) }
+                    let instrumentItems = instruments.map { ins in
+                        FloatingSearchPicker.Item(
+                            id: AnyHashable(ins.id),
+                            title: ins.name,
+                            subtitle: instrumentSubtitle(ins),
+                            searchText: instrumentSearchText(ins)
+                        )
                     }
+                    FloatingSearchPicker(
+                        title: "Instrument",
+                        placeholder: "Search instruments",
+                        items: instrumentItems,
+                        selectedId: Binding<AnyHashable?>(
+                            get: { instrumentId.map { AnyHashable($0) } },
+                            set: { newValue in
+                                instrumentId = newValue as? Int
+                            }
+                        ),
+                        onSelection: { _ in },
+                        onClear: { instrumentId = nil },
+                        selectsFirstOnSubmit: false
+                    )
                 }
                 Section("Accounts") {
                     HStack(alignment: .firstTextBaseline) {
@@ -208,6 +226,32 @@ struct TradeFormView: View {
         feesChf = String(format: "%.4f", d.feesChf)
         commissionChf = String(format: "%.4f", d.commissionChf)
         notes = d.notes ?? ""
+    }
+
+    private func instrumentSubtitle(_ ins: DatabaseManager.InstrumentRow) -> String? {
+        var parts: [String] = []
+        if let ticker = ins.tickerSymbol, !ticker.isEmpty {
+            parts.append(ticker.uppercased())
+        }
+        if !ins.currency.isEmpty {
+            parts.append(ins.currency.uppercased())
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
+    private func instrumentSearchText(_ ins: DatabaseManager.InstrumentRow) -> String {
+        var parts: [String] = [ins.name]
+        if let ticker = ins.tickerSymbol?.trimmingCharacters(in: .whitespacesAndNewlines), !ticker.isEmpty {
+            parts.append(ticker.uppercased())
+        }
+        if let isin = ins.isin?.trimmingCharacters(in: .whitespacesAndNewlines), !isin.isEmpty {
+            parts.append(isin.uppercased())
+        }
+        if let valor = ins.valorNr?.trimmingCharacters(in: .whitespacesAndNewlines), !valor.isEmpty {
+            parts.append(valor.uppercased())
+        }
+        parts.append(ins.currency.uppercased())
+        return parts.joined(separator: " ")
     }
 
     private func save() {

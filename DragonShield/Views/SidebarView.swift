@@ -13,10 +13,11 @@ import AppKit
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
-    @State private var showOverview = true
-    @State private var showManagement = true
-    @State private var showConfiguration = true
-    @State private var showSystem = true
+    @AppStorage("sidebar.showOverview") private var showOverview = true
+    @AppStorage("sidebar.showManagement") private var showManagement = true
+    @AppStorage("sidebar.showConfiguration") private var showConfiguration = true
+    @AppStorage("sidebar.showStaticData") private var showStaticData = true
+    @AppStorage("sidebar.showSystem") private var showSystem = true
 
     var body: some View {
         List {
@@ -55,7 +56,7 @@ struct SidebarView: View {
                 }
 
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
-                    Label("Alerts", systemImage: "bell")
+                    Label("Alerts & Events", systemImage: "bell")
                 }
 
                 NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
@@ -72,6 +73,16 @@ struct SidebarView: View {
                     Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
                 }
 
+                NavigationLink(destination: AccountsView()) {
+                    Label("Accounts", systemImage: "building.columns.fill")
+                }
+
+                NavigationLink(destination: PortfolioView()) {
+                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
+                }
+            }
+
+            DisclosureGroup("Static Data", isExpanded: $showStaticData) {
                 NavigationLink(destination: ClassManagementView()) {
                     Label("Asset Classes", systemImage: "folder")
                 }
@@ -80,16 +91,24 @@ struct SidebarView: View {
                     Label("Account Types", systemImage: "creditcard")
                 }
 
-                NavigationLink(destination: AccountsView()) {
-                    Label("Accounts", systemImage: "building.columns.fill")
-                }
-
                 NavigationLink(destination: TransactionTypesView()) {
                     Label("Transaction Types", systemImage: "tag.circle.fill")
                 }
 
-                NavigationLink(destination: PortfolioView()) {
-                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
+                NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
+                    Label("Theme Statuses", systemImage: "paintpalette")
+                }
+
+                NavigationLink(destination: NewsTypeSettingsView().environmentObject(dbManager)) {
+                    Label("News Types", systemImage: "newspaper")
+                }
+
+                NavigationLink(destination: AlertTriggerTypeSettingsView().environmentObject(dbManager)) {
+                    Label("Alert Trigger Types", systemImage: "bell.badge")
+                }
+
+                NavigationLink(destination: TagSettingsView().environmentObject(dbManager)) {
+                    Label("Tags", systemImage: "tag.fill")
                 }
             }
 

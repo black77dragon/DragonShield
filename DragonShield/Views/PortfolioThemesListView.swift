@@ -155,6 +155,7 @@ struct PortfolioThemesListView: View {
             }
             .width(80)
         }
+        .background(AutosaveTableView(name: "PortfolioThemesTable"))
         .onChange(of: sortOrder) { _, newOrder in
             guard let comparator = newOrder.first else { return }
             persistSortOrder()
