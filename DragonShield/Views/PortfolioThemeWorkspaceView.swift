@@ -227,6 +227,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var showAddInstrument: Bool = false
     @State private var addInstrumentQuery: String = ""
     @State private var addInstrumentId: Int = 0
+    @State private var showAddInstrumentPicker: Bool = false
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
     @State private var addNotes: String = ""
@@ -399,46 +400,19 @@ struct PortfolioThemeWorkspaceView: View {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                     GridRow {
                         Text("Instrument").frame(width: labelWidth, alignment: .leading)
-                        let rows = availableInstrumentRows()
-                        let pickerItems = rows.map { row in
-                            FloatingSearchPicker.Item(
-                                id: AnyHashable(row.id),
-                                title: displayString(for: row),
-                                subtitle: nil,
-                                searchText: instrumentSearchKey(for: row)
-                            )
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Text(addInstrumentSelectedDisplay)
+                                    .foregroundColor(addInstrumentSelectedDisplay == "No instrument selected" ? .secondary : .primary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Button("Choose Instrument…") {
+                                    addInstrumentQuery = addInstrumentSelectedDisplay == "No instrument selected" ? "" : addInstrumentSelectedDisplay
+                                    showAddInstrumentPicker = true
+                                }
+                            }
                         }
-                        FloatingSearchPicker(
-                            placeholder: "Search instrument, ticker, or ISIN",
-                            items: pickerItems,
-                            selectedId: Binding<AnyHashable?>(
-                                get: { addInstrumentId > 0 ? AnyHashable(addInstrumentId) : nil },
-                                set: { newValue in
-                                    if let value = newValue as? Int,
-                                       let match = rows.first(where: { $0.id == value }) {
-                                        addInstrumentId = value
-                                        addInstrumentQuery = displayString(for: match)
-                                    } else {
-                                        addInstrumentId = 0
-                                        addInstrumentQuery = ""
-                                    }
-                                }
-                            ),
-                            showsClearButton: true,
-                            emptyStateText: "No instruments",
-                            query: $addInstrumentQuery,
-                            onSelection: { selected in
-                                if let value = selected.id as? Int {
-                                    addInstrumentId = value
-                                }
-                                addInstrumentQuery = selected.title
-                            },
-                            onClear: {
-                                addInstrumentId = 0
-                                addInstrumentQuery = ""
-                            },
-                            selectsFirstOnSubmit: false
-                        )
                         .frame(minWidth: 360, maxWidth: .infinity)
                     }
                     GridRow {
@@ -468,7 +442,75 @@ struct PortfolioThemeWorkspaceView: View {
                 .padding(20)
         }
         .frame(width: 600)
+        .sheet(isPresented: $showAddInstrumentPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose Instrument")
+                    .font(.headline)
+                FloatingSearchPicker(
+                    title: "Choose Instrument",
+                    placeholder: "Search instrument, ticker, or ISIN",
+                    items: addInstrumentPickerItems,
+                    selectedId: addInstrumentPickerBinding,
+                    showsClearButton: true,
+                    emptyStateText: "No instruments",
+                    query: $addInstrumentQuery,
+                    onSelection: { _ in
+                        showAddInstrumentPicker = false
+                    },
+                    onClear: {
+                        addInstrumentPickerBinding.wrappedValue = nil
+                    },
+                    onSubmit: { _ in
+                        if addInstrumentId > 0 { showAddInstrumentPicker = false }
+                    },
+                    selectsFirstOnSubmit: false
+                )
+                .frame(minWidth: 360)
+                HStack {
+                    Spacer()
+                    Button("Close") { showAddInstrumentPicker = false }
+                }
+            }
+            .padding(16)
+            .frame(width: 520)
+        }
         .onAppear { addUserPct = addResearchPct; addInstrumentQuery = ""; addInstrumentId = 0 }
+    }
+
+    private var addInstrumentSelectedDisplay: String {
+        if addInstrumentId > 0,
+           let match = dbManager.fetchAssets().first(where: { $0.id == addInstrumentId }) {
+            return displayString(for: match)
+        }
+        let trimmed = addInstrumentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No instrument selected" : trimmed
+    }
+
+    private var addInstrumentPickerItems: [FloatingSearchPicker.Item] {
+        availableInstrumentRows().map { row in
+            FloatingSearchPicker.Item(
+                id: AnyHashable(row.id),
+                title: displayString(for: row),
+                subtitle: nil,
+                searchText: instrumentSearchKey(for: row)
+            )
+        }
+    }
+
+    private var addInstrumentPickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: { addInstrumentId > 0 ? AnyHashable(addInstrumentId) : nil },
+            set: { newValue in
+                if let value = newValue as? Int,
+                   let match = dbManager.fetchAssets().first(where: { $0.id == value }) {
+                    addInstrumentId = value
+                    addInstrumentQuery = displayString(for: match)
+                } else {
+                    addInstrumentId = 0
+                    addInstrumentQuery = ""
+                }
+            }
+        )
     }
 
     private func availableInstrumentRows() -> [DatabaseManager.InstrumentRow] {

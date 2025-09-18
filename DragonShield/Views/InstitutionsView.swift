@@ -414,22 +414,12 @@ private extension InstitutionsView {
                 }
 
                 if searchText.isEmpty && institutions.isEmpty {
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                            Text("Add First Institution")
-                        }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.blue)
-                        .clipShape(Capsule())
-                        .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                    Button { showAddSheet = true } label: {
+                        Label("Add Institution", systemImage: "plus")
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .padding(.top, 8)
                 }
             }
@@ -516,19 +506,11 @@ private extension InstitutionsView {
 
             HStack(spacing: 16) {
                 Button { showAddSheet = true } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                        Text("Add New Institution")
-                    }
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .clipShape(Capsule())
-                    .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                    Label("Add Institution", systemImage: "plus")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
 
                 if selectedInstitution != nil {
                     Button { showEditSheet = true } label: {

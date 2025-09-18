@@ -118,7 +118,10 @@ struct InstrumentNotesView: View {
     private var updatesList: some View {
         VStack(alignment: .leading) {
             HStack {
-                Button("+ New Update") {}
+                Button("Add Update") {}
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .disabled(selectedThemeId == nil)
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)

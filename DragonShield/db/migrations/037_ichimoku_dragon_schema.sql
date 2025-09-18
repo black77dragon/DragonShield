@@ -95,6 +95,9 @@ CREATE TABLE IF NOT EXISTS ichimoku_positions (
 CREATE INDEX IF NOT EXISTS idx_ichimoku_positions_status
     ON ichimoku_positions(status, datetime(date_opened) DESC);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ichimoku_positions_active_unq
+    ON ichimoku_positions(ticker_id) WHERE status = 'ACTIVE';
+
 CREATE TABLE IF NOT EXISTS ichimoku_sell_alerts (
     alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker_id INTEGER NOT NULL,
@@ -104,6 +107,7 @@ CREATE TABLE IF NOT EXISTS ichimoku_sell_alerts (
     reason TEXT NOT NULL,
     resolved_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticker_id) REFERENCES ichimoku_tickers(ticker_id) ON DELETE CASCADE
 );
 
@@ -119,7 +123,8 @@ CREATE TABLE IF NOT EXISTS ichimoku_run_log (
     ticks_processed INTEGER DEFAULT 0,
     candidates_found INTEGER DEFAULT 0,
     alerts_triggered INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Trigger helpers for updated_at maintenance

@@ -539,7 +539,7 @@ struct AlertsSettingsView: View {
                 Toggle("Show disabled", isOn: $includeDisabled)
                     .onChange(of: includeDisabled) { _, _ in load() }
                 Button("Edit Alert Types") { showTriggerTypes = true }
-                Button("New Alert") { openNew() }
+                Button("Add Alert") { openNew() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
                     .foregroundColor(.black)
@@ -2076,7 +2076,13 @@ private struct AlertEditorView: View {
                     }
                     .frame(width: 520)
                 }
-                HStack { Spacer(); Button("Close") { showScopePicker = false } }
+                HStack {
+                    Spacer()
+                    Button("Close") { showScopePicker = false }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.gray)
+                        .foregroundColor(.white)
+                }
             }
             .padding(16)
             .frame(width: 600)

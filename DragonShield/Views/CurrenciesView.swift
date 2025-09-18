@@ -193,11 +193,17 @@ struct CurrenciesView: View {
                     Text(searchText.isEmpty ? "No currencies yet" : "No matching currencies").font(.title2).fontWeight(.semibold).foregroundColor(.gray)
                     Text(searchText.isEmpty ? "Add your first currency to start managing exchange rates" : "Try adjusting your search terms").font(.body).foregroundColor(.gray).multilineTextAlignment(.center)
                 }
-                if searchText.isEmpty { Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add Your First Currency") } }
-                    .buttonStyle(PrimaryButtonStyle())
+                if searchText.isEmpty {
+                    Button { showAddCurrencySheet = true } label: {
+                        Label("Add Currency", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .accessibilityLabel("Add Currency")
                     .focusable()
-                    .padding(.top, 8) }
+                    .padding(.top, 8)
+                }
             }
             Spacer()
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -242,8 +248,12 @@ struct CurrenciesView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
-                Button { showAddCurrencySheet = true } label: { HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Currency") } }
-                    .buttonStyle(PrimaryButtonStyle())
+                Button { showAddCurrencySheet = true } label: {
+                    Label("Add Currency", systemImage: "plus")
+                }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .accessibilityLabel("Add Currency")
                     .focusable()
                 if selectedCurrency != nil {

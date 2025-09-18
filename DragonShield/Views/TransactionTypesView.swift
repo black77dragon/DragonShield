@@ -231,22 +231,12 @@ struct TransactionTypesView: View {
                 }
                 
                 if searchText.isEmpty {
-                    Button {
-                        showAddTypeSheet = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                            Text("Add Your First Type")
-                        }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.orange)
-                        .clipShape(Capsule())
-                        .shadow(color: .orange.opacity(0.3), radius: 8, x: 0, y: 4)
+                    Button { showAddTypeSheet = true } label: {
+                        Label("Add Transaction Type", systemImage: "plus")
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .padding(.top, 8)
                 }
             }
@@ -350,22 +340,12 @@ struct TransactionTypesView: View {
             
             HStack(spacing: 16) {
                 // Primary action
-                Button {
-                    showAddTypeSheet = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                        Text("Add New Type")
-                    }
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color.orange)
-                    .clipShape(Capsule())
-                    .shadow(color: .orange.opacity(0.3), radius: 6, x: 0, y: 3)
+                Button { showAddTypeSheet = true } label: {
+                    Label("Add Transaction Type", systemImage: "plus")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
                 
                 // Secondary actions
                 if selectedType != nil {

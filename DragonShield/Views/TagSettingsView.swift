@@ -42,6 +42,9 @@ struct TagSettingsView: View {
                     .focused($addFocus, equals: .color)
                     .onSubmit { if canAdd { addTag() } }
                 Button("Add Tag") { addTag() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canAdd)
             }

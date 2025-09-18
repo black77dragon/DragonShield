@@ -6,6 +6,9 @@ struct DragonShieldApp: App {
     @StateObject private var databaseManager: DatabaseManager
     @StateObject private var assetManager: AssetManager
     @StateObject private var healthRunner: HealthCheckRunner
+    @StateObject private var ichimokuSettingsService: IchimokuSettingsService
+    @StateObject private var ichimokuViewModel: IchimokuDragonViewModel
+    @StateObject private var ichimokuScheduler: IchimokuScheduler
 
     init() {
         UserDefaults.standard.removeObject(forKey: "portfolioAttachmentsEnabled")
@@ -22,6 +25,11 @@ struct DragonShieldApp: App {
         PriceProviderRegistry.shared.register(CoinGeckoProvider())
         PriceProviderRegistry.shared.register(FinnhubProvider())
         PriceProviderRegistry.shared.register(YahooFinanceProvider())
+        let settingsService = IchimokuSettingsService(dbManager: dbManager)
+        let ichimokuVM = IchimokuDragonViewModel(dbManager: dbManager, settingsService: settingsService)
+        _ichimokuSettingsService = StateObject(wrappedValue: settingsService)
+        _ichimokuViewModel = StateObject(wrappedValue: ichimokuVM)
+        _ichimokuScheduler = StateObject(wrappedValue: IchimokuScheduler(settingsService: settingsService, viewModel: ichimokuVM))
     }
 
     var body: some Scene {
@@ -34,6 +42,9 @@ struct DragonShieldApp: App {
             .environmentObject(assetManager) // Your existing one
             .environmentObject(databaseManager) // <<<< ADD THIS LINE
             .environmentObject(healthRunner)
+            .environmentObject(ichimokuSettingsService)
+            .environmentObject(ichimokuViewModel)
+            .environmentObject(ichimokuScheduler)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     ModeBadge()
@@ -47,6 +58,7 @@ struct DragonShieldApp: App {
                 // Auto-update FX on launch if stale (Option 2)
                 let fxService = FXUpdateService(dbManager: databaseManager)
                 await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
+                ichimokuScheduler.start()
             }
         }
         WindowGroup(id: "accountDetail", for: Int.self) { $accountId in
@@ -54,6 +66,9 @@ struct DragonShieldApp: App {
                let account = databaseManager.fetchAccountDetails(id: id) {
                 AccountDetailWindowView(account: account)
                     .environmentObject(databaseManager)
+                    .environmentObject(ichimokuSettingsService)
+                    .environmentObject(ichimokuViewModel)
+                    .environmentObject(ichimokuScheduler)
             } else {
                 Text("Account not found")
             }
@@ -62,6 +77,9 @@ struct DragonShieldApp: App {
             if let cid = classId {
                 TargetEditPanel(classId: cid)
                     .environmentObject(databaseManager)
+                    .environmentObject(ichimokuSettingsService)
+                    .environmentObject(ichimokuViewModel)
+                    .environmentObject(ichimokuScheduler)
             } else {
                 Text("Asset class not found")
             }
@@ -73,6 +91,9 @@ struct DragonShieldApp: App {
             if let iid = instrumentId {
                 InstrumentDashboardWindowView(instrumentId: iid)
                     .environmentObject(databaseManager)
+                    .environmentObject(ichimokuSettingsService)
+                    .environmentObject(ichimokuViewModel)
+                    .environmentObject(ichimokuScheduler)
             } else {
                 Text("Instrument not found")
             }
@@ -84,6 +105,9 @@ struct DragonShieldApp: App {
             if let tid = themeId {
                 PortfolioThemeWorkspaceView(themeId: tid, origin: "window")
                     .environmentObject(databaseManager)
+                    .environmentObject(ichimokuSettingsService)
+                    .environmentObject(ichimokuViewModel)
+                    .environmentObject(ichimokuScheduler)
             } else {
                 Text("Theme not found")
             }

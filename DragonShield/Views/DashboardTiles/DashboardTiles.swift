@@ -11,19 +11,21 @@ struct DashboardCard<Content: View>: View {
     let title: String
     let headerIcon: Image?
     let content: Content
+    private let titleFont: Font
     private let cornerRadius: CGFloat = 12
 
-    init(title: String, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
+    init(title: String, titleFont: Font = .headline, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
         self.headerIcon = headerIcon
         self.content = content()
+        self.titleFont = titleFont
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(title)
-                    .font(.headline)
+                    .font(titleFont)
                 Spacer()
                 if let icon = headerIcon {
                     icon
@@ -376,8 +378,7 @@ struct AllNotesTile: DashboardTile {
     @State private var pinnedFirst: Bool = true
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionId: String? = nil
-    @State private var tileFrame: CGRect = .zero
-    @State private var searchFieldFrame: CGRect = .zero
+    @State private var showNotePicker = false
     @State private var editingTheme: PortfolioThemeUpdate?
     @State private var editingInstrument: PortfolioThemeAssetUpdate?
     @State private var themeNames: [Int: String] = [:]
@@ -400,49 +401,24 @@ struct AllNotesTile: DashboardTile {
                     .foregroundColor(Theme.primaryAccent)
             }
             HStack(spacing: 8) {
-                let pickerItems = suggestionItems.map { suggestion in
-                    FloatingSearchPicker.Item(
-                        id: AnyHashable(suggestion.value),
-                        title: suggestion.value,
-                        subtitle: nil,
-                        searchText: suggestion.value
-                    )
-                }
-                FloatingSearchPicker(
-                    placeholder: "Search notes",
-                    items: pickerItems,
-                    selectedId: Binding<AnyHashable?>(
-                        get: { selectedSuggestionId.map { AnyHashable($0) } },
-                        set: { newValue in
-                            if let value = newValue as? String {
-                                selectedSuggestionId = value
-                                search = value
-                                load()
-                            } else {
-                                selectedSuggestionId = nil
-                                search = ""
-                                load()
-                                loadSuggestions()
-                            }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Choose Note")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        Text(selectedNoteDisplay)
+                            .foregroundColor(search.isEmpty ? .secondary : .primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Choose Note…") {
+                            showNotePicker = true
+                            loadSuggestions()
                         }
-                    ),
-                    showsClearButton: true,
-                    emptyStateText: "No suggestions",
-                    query: $search,
-                    maxDropdownHeight: notesDropdownMaxHeight,
-                    onFieldFrameChange: { searchFieldFrame = $0 },
-                    onSelection: { _ in },
-                    onClear: {
-                        selectedSuggestionId = nil
-                        search = ""
-                        load()
-                        loadSuggestions()
-                    },
-                    onSubmit: { _ in load() },
-                    selectsFirstOnSubmit: false
-                )
-                .frame(minWidth: 260)
-                .zIndex(1)
+                    }
+                    .frame(minWidth: 260, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
                     .onChange(of: pinnedFirst) { _, _ in load() }
@@ -497,14 +473,41 @@ struct AllNotesTile: DashboardTile {
             loadSuggestions()
             if newValue.isEmpty { selectedSuggestionId = nil }
         }
-        .background(
-            GeometryReader { proxy in
-                Color.clear.preference(key: NotesTileFramePreferenceKey.self, value: proxy.frame(in: .global))
-            }
-        )
-        .onPreferenceChange(NotesTileFramePreferenceKey.self) { tileFrame = $0 }
         .sheet(isPresented: $openAll) {
             AllNotesView().environmentObject(dbManager)
+        }
+        .sheet(isPresented: $showNotePicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose Note")
+                    .font(.headline)
+                FloatingSearchPicker(
+                    title: "Choose Note",
+                    placeholder: "Search notes",
+                    items: notePickerItems,
+                    selectedId: notePickerBinding,
+                    showsClearButton: true,
+                    emptyStateText: "No suggestions",
+                    query: $search,
+                    onSelection: { _ in
+                        showNotePicker = false
+                    },
+                    onClear: {
+                        notePickerBinding.wrappedValue = nil
+                    },
+                    onSubmit: { _ in load() },
+                    selectsFirstOnSubmit: false
+                )
+                .frame(minWidth: 360)
+                HStack {
+                    Spacer()
+                    Button("Close") {
+                        showNotePicker = false
+                    }
+                }
+            }
+            .padding(16)
+            .frame(width: 480)
+            .onAppear { loadSuggestions() }
         }
         .sheet(item: $editingTheme) { upd in
             ThemeUpdateEditorView(themeId: upd.themeId, themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in editingTheme = nil; load() }, onCancel: { editingTheme = nil })
@@ -572,12 +575,38 @@ struct AllNotesTile: DashboardTile {
         suggestions.map { NoteSuggestion(value: $0) }
     }
 
-    private var notesDropdownMaxHeight: CGFloat? {
-        guard tileFrame != .zero, searchFieldFrame != .zero else { return nil }
-        let bottomLimit = tileFrame.maxY - 2
-        let dropdownGap: CGFloat = 6
-        let dropdownTop = searchFieldFrame.maxY + dropdownGap
-        return max(0, bottomLimit - dropdownTop)
+    private var notePickerItems: [FloatingSearchPicker.Item] {
+        suggestionItems.map { suggestion in
+            FloatingSearchPicker.Item(
+                id: AnyHashable(suggestion.value),
+                title: suggestion.value,
+                subtitle: nil,
+                searchText: suggestion.value
+            )
+        }
+    }
+
+    private var notePickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: { selectedSuggestionId.map { AnyHashable($0) } },
+            set: { newValue in
+                if let value = newValue as? String {
+                    selectedSuggestionId = value
+                    search = value
+                    load()
+                } else {
+                    selectedSuggestionId = nil
+                    search = ""
+                    load()
+                    loadSuggestions()
+                }
+            }
+        )
+    }
+
+    private var selectedNoteDisplay: String {
+        let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No note selected" : trimmed
     }
 
     private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
@@ -586,13 +615,6 @@ struct AllNotesTile: DashboardTile {
 private struct NoteSuggestion: Identifiable {
     let value: String
     var id: String { value }
-}
-
-private struct NotesTileFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
 }
 
 struct MapTile: DashboardTile {

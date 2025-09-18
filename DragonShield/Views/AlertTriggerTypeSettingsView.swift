@@ -47,6 +47,9 @@ struct AlertTriggerTypeSettingsView: View {
                     .frame(width: 150)
                     .help("Enable when alerts of this type should expose a trigger date field.")
                 Button("Add Type") { addType() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canAdd)
             }

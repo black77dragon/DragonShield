@@ -69,6 +69,9 @@ struct PortfolioThemesListView: View {
                     Button(action: { showingAddSheet = true }) {
                         Label("Add Theme", systemImage: "plus")
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                 // Edit Theme and New Update buttons removed per simplified workflow
 
                 Button(action: { prepareHardDelete() }) {

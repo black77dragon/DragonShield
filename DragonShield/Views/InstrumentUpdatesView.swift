@@ -58,7 +58,10 @@ struct InstrumentUpdatesView: View {
                     .background(Color.yellow.opacity(0.1))
             }
             HStack {
-                Button("+ New Update") { showEditor = true }
+                Button("Add Update") { showEditor = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .disabled(!instrumentExists)
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)

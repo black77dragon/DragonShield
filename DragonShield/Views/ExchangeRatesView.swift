@@ -32,10 +32,12 @@ struct ExchangeRatesView: View {
                 .onChange(of: vm.asOfDate) { _, _ in vm.loadRates() }
             Spacer()
             Button(action: { showAddSheet = true }) {
-                Label("New Rate", systemImage: "plus")
+                Label("Add Rate", systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: [.command])
-            .buttonStyle(PrimaryButtonStyle())
+            .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+            .foregroundColor(.black)
             .sheet(isPresented: $showAddSheet) { addSheet }
             Button(action: { Task { await updateFxNow() } }) {
                 if updating { ProgressView().scaleEffect(0.8) } else { Label("Update FX Now", systemImage: "arrow.triangle.2.circlepath") }

@@ -306,8 +306,10 @@ struct PortfolioThemeDetailView: View {
     private var compositionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Composition").font(.headline)
-            Button("+ Add Instrument") { showAdd = true }
+            Button("Add Instrument") { showAdd = true }
                 .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
                 .disabled(isReadOnly || availableInstruments.isEmpty)
 
             // Charts moved into headerBlock on the right for a lean top layout
@@ -813,7 +815,10 @@ private var dangerZone: some View {
             HStack {
                 Spacer()
                 Button("Cancel") { showAdd = false }
-                Button("Add") { addInstrument() }
+                Button("Add Instrument") { addInstrument() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!addValid)
             }
