@@ -11,8 +11,8 @@ struct InstrumentDashboardTile: DashboardTile {
 
     @State private var instruments: [DatabaseManager.InstrumentRow] = []
     @State private var selectedInstrumentId: Int? = nil
-    @State private var tileFrame: CGRect = .zero
-    @State private var pickerFieldFrame: CGRect = .zero
+    @State private var instrumentSearch: String = ""
+    @State private var showInstrumentPicker = false
     // Selection opens dashboard immediately; no extra action button required
 
     var body: some View {
@@ -23,50 +23,69 @@ struct InstrumentDashboardTile: DashboardTile {
                 Spacer()
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Select Instrument").font(.caption).foregroundColor(.secondary)
-                let pickerItems = instruments.map { ins in
-                    let display = instrumentDisplayData(for: ins)
-                    return FloatingSearchPicker.Item(
-                        id: AnyHashable(ins.id),
-                        title: display.title,
-                        subtitle: display.subtitle,
-                        searchText: searchText(for: ins)
-                    )
+                Text("Choose Instrument")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Text(selectedInstrumentDisplay)
+                        .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Choose Instrument…") {
+                        instrumentSearch = selectedInstrumentDisplay == "No instrument selected" ? "" : selectedInstrumentDisplay
+                        showInstrumentPicker = true
+                    }
                 }
-                FloatingSearchPicker(
-                    placeholder: "Search instruments",
-                    items: pickerItems,
-                    selectedId: Binding<AnyHashable?>(
-                        get: { selectedInstrumentId.map { AnyHashable($0) } },
-                        set: { newValue in
-                            selectedInstrumentId = newValue as? Int
-                        }
-                    ),
-                    maxDropdownHeight: instrumentDropdownMaxHeight,
-                    onFieldFrameChange: { pickerFieldFrame = $0 },
-                    onSelection: { item in
-                        if let value = item.id as? Int {
-                            openInstrument(value)
-                        }
-                    },
-                    onClear: { selectedInstrumentId = nil },
-                    selectsFirstOnSubmit: false
-                )
-                .frame(minWidth: 360)
-                .accessibilityLabel("Instrument Selector")
+                .frame(minWidth: 360, alignment: .leading)
             }
         }
-        .frame(minHeight: 440, alignment: .topLeading)
         .padding(DashboardTileLayout.tilePadding)
         .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: loadInstruments)
         .accessibilityElement(children: .combine)
-        .background(
-            GeometryReader { proxy in
-                Color.clear.preference(key: TileFramePreferenceKey.self, value: proxy.frame(in: .global))
+        .sheet(isPresented: $showInstrumentPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose Instrument")
+                    .font(.headline)
+                FloatingSearchPicker(
+                    title: "Choose Instrument",
+                    placeholder: "Search instruments",
+                    items: instrumentPickerItems,
+                    selectedId: instrumentPickerBinding,
+                    showsClearButton: true,
+                    emptyStateText: "No instruments",
+                    query: $instrumentSearch,
+                    onSelection: { item in
+                        if let value = item.id as? Int {
+                            selectedInstrumentId = value
+                            openInstrument(value)
+                        }
+                        showInstrumentPicker = false
+                    },
+                    onClear: {
+                        instrumentPickerBinding.wrappedValue = nil
+                    },
+                    onSubmit: { _ in
+                        if let id = selectedInstrumentId {
+                            openInstrument(id)
+                            showInstrumentPicker = false
+                        }
+                    },
+                    selectsFirstOnSubmit: false
+                )
+                .frame(minWidth: 360)
+                HStack {
+                    Spacer()
+                    Button("Close") { showInstrumentPicker = false }
+                }
             }
-        )
-        .onPreferenceChange(TileFramePreferenceKey.self) { tileFrame = $0 }
+            .padding(16)
+            .frame(width: 520)
+            .onAppear {
+                loadInstruments()
+            }
+        }
     }
 
     private func loadInstruments() {
@@ -105,18 +124,47 @@ struct InstrumentDashboardTile: DashboardTile {
         openWindow(id: "instrumentDashboard", value: id)
     }
 
-    private var instrumentDropdownMaxHeight: CGFloat? {
-        guard tileFrame != .zero, pickerFieldFrame != .zero else { return nil }
-        let bottomLimit = tileFrame.maxY - 2
-        let dropdownGap: CGFloat = 6
-        let dropdownTop = pickerFieldFrame.maxY + dropdownGap
-        return max(0, bottomLimit - dropdownTop)
+    private var instrumentPickerItems: [FloatingSearchPicker.Item] {
+        instruments.map { ins in
+            let display = instrumentDisplayData(for: ins)
+            return FloatingSearchPicker.Item(
+                id: AnyHashable(ins.id),
+                title: display.title,
+                subtitle: display.subtitle,
+                searchText: searchText(for: ins)
+            )
+        }
     }
-}
 
-private struct TileFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
+    private var instrumentPickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: { selectedInstrumentId.map { AnyHashable($0) } },
+            set: { newValue in
+                if let value = newValue as? Int {
+                    selectedInstrumentId = value
+                    instrumentSearch = instrumentDisplay(for: value) ?? ""
+                } else {
+                    selectedInstrumentId = nil
+                    instrumentSearch = ""
+                }
+            }
+        )
+    }
+
+    private var selectedInstrumentDisplay: String {
+        if let id = selectedInstrumentId, let display = instrumentDisplay(for: id) {
+            return display
+        }
+        let trimmed = instrumentSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No instrument selected" : trimmed
+    }
+
+    private func instrumentDisplay(for id: Int) -> String? {
+        guard let match = instruments.first(where: { $0.id == id }) else { return nil }
+        let data = instrumentDisplayData(for: match)
+        if let subtitle = data.subtitle {
+            return "\(data.title) • \(subtitle)"
+        }
+        return data.title
     }
 }

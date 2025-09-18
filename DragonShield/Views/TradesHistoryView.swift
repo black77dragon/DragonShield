@@ -160,8 +160,10 @@ struct TradesHistoryView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 12) {
-                Button { editTradeId = nil; showForm = true } label: { Label("New Trade", systemImage: "plus") }
-                    .buttonStyle(PrimaryButtonStyle())
+                Button { editTradeId = nil; showForm = true } label: { Label("Add Trade", systemImage: "plus") }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
                 Button { if let s = selected { editTradeId = s.tradeId; showForm = true } } label: { Label("Edit", systemImage: "pencil") }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(selected == nil)

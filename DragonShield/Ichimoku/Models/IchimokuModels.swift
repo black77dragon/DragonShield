@@ -49,6 +49,21 @@ struct IchimokuIndicatorRow: Hashable {
     let momentumScore: Double?
 }
 
+struct IchimokuCandidateStoreRow {
+    let scanDate: Date
+    let tickerId: Int
+    let rank: Int
+    let momentumScore: Double
+    let closePrice: Double
+    let tenkan: Double?
+    let kijun: Double?
+    let tenkanSlope: Double?
+    let kijunSlope: Double?
+    let priceToKijunRatio: Double?
+    let tenkanKijunDistance: Double?
+    let notes: String?
+}
+
 struct IchimokuCandidateRow: Identifiable, Hashable {
     let id: UUID = UUID()
     let scanDate: Date
@@ -104,6 +119,7 @@ enum IchimokuRunStatus: String {
     case success = "SUCCESS"
     case failed = "FAILED"
     case partial = "PARTIAL"
+    case inProgress = "IN_PROGRESS"
 }
 
 struct IchimokuRunLogRow: Identifiable, Hashable {

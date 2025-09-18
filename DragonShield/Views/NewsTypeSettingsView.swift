@@ -52,6 +52,9 @@ struct NewsTypeSettingsView: View {
                 } label: {
                     Text("Add Type")
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canAdd)
             }

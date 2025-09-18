@@ -87,7 +87,10 @@ struct PortfolioThemeUpdatesView: View {
 
     private var filterRow: some View {
         HStack {
-            Button("+ New Update") { showEditor = true }
+            Button("Add Update") { showEditor = true }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
                 .disabled(isArchived)
             TextField("Search", text: $searchText)
                 .textFieldStyle(.roundedBorder)

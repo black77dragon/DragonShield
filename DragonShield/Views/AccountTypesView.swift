@@ -156,13 +156,13 @@ struct AccountTypesView: View {
                         .font(.body).foregroundColor(.gray).multilineTextAlignment(.center)
                 }
                 if searchText.isEmpty && accountTypes.isEmpty {
-                     Button { showAddTypeSheet = true } label: {
-                        HStack(spacing: 8) { Image(systemName: "plus"); Text("Add First Account Type") }
-                        .font(.headline).foregroundColor(.white)
-                        .padding(.horizontal, 24).padding(.vertical, 12)
-                        .background(Color.indigo).clipShape(Capsule())
-                        .shadow(color: .indigo.opacity(0.3), radius: 8, x: 0, y: 4)
-                    }.buttonStyle(ScaleButtonStyle()).padding(.top, 8)
+                    Button { showAddTypeSheet = true } label: {
+                        Label("Add Account Type", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
+                    .padding(.top, 8)
                 }
             }
             Spacer()
@@ -207,12 +207,11 @@ struct AccountTypesView: View {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
                 Button { showAddTypeSheet = true } label: {
-                    HStack(spacing: 8) { Image(systemName: "plus"); Text("Add New Type") }
-                    .font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
-                    .padding(.horizontal, 20).padding(.vertical, 12)
-                    .background(Color.indigo).clipShape(Capsule())
-                    .shadow(color: .indigo.opacity(0.3), radius: 6, x: 0, y: 3)
-                }.buttonStyle(ScaleButtonStyle())
+                    Label("Add Account Type", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
 
                 if selectedType != nil {
                      // MODIFIED: Edit button is now enabled

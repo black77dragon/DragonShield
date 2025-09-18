@@ -23,6 +23,19 @@ For detailed interface guidelines, see the [Dragon Shield UI/UX Design Guide](Dr
 - Options valuation models and what-if rebalancing.
 - Signed public beta and iOS companion (Phase 1 read-only viewer via snapshot import).
 
+
+## 🐉 Ichimoku Dragon Market Scanner
+
+The new **Ichimoku Dragon** module automates daily scans of S&P 500 and Nasdaq 100 constituents using full Ichimoku Kinko Hyo analytics.
+
+- Pulls up to 300 days of history per ticker from Yahoo Finance (Finnhub fallback planned).
+- Computes Tenkan, Kijun, cloud spans and regression-based slopes to rank top momentum candidates.
+- Tracks open positions, raises sell alerts when price closes below the Kijun Sen and logs every pipeline run.
+- Provides a dedicated SwiftUI dashboard with watchlist, alert center, history browser and configurable schedule (default 22:00 Europe/London).
+- Generates a daily CSV report stored under `~/Library/Application Support/DragonShield/IchimokuReports`.
+
+See `docs/IchimokuDragon/user_guide.md` for the workflow and screen tour.
+
 ## 🚧 Current Status & Roadmap
 
 Highlights from the latest iterations:

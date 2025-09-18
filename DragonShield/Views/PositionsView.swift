@@ -325,7 +325,9 @@ struct PositionsView: View {
       } label: {
         Label("Add Position", systemImage: "plus")
       }
-      .buttonStyle(PrimaryButtonStyle())
+      .buttonStyle(.borderedProminent)
+      .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+      .foregroundColor(.black)
       Spacer()
     }
     .padding(.horizontal, 24)

@@ -26,6 +26,10 @@ struct SidebarView: View {
                     Label("Dashboard", systemImage: "chart.pie.fill")
                 }
 
+                NavigationLink(destination: IchimokuDragonView()) {
+                    Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
+                }
+
                 NavigationLink(destination: PositionsView()) {
                     Label("Positions", systemImage: "tablecells")
                 }

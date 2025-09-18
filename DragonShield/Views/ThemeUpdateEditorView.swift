@@ -370,7 +370,10 @@ struct ThemeUpdateEditorView: View {
             HStack {
                 TextField("https://…", text: $newLinkURL)
                     .textFieldStyle(.roundedBorder)
-                Button("Add") { addLink() }
+                Button("Add Link") { addLink() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                    .foregroundColor(.black)
             }
             if let err = linkError {
                 Text(err)

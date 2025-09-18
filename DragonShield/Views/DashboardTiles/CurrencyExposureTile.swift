@@ -15,7 +15,7 @@ struct CurrencyExposureTile: DashboardTile {
     }
 
     var body: some View {
-        DashboardCard(title: Self.tileName) {
+        DashboardCard(title: Self.tileName, titleFont: .system(size: 18, weight: .bold)) {
             if viewModel.loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)

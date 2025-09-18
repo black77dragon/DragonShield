@@ -46,10 +46,13 @@ struct ThemeStatusSettingsView: View {
                 }
             }
             HStack {
-                Button("+ Add Status") {
+                Button("Add Status") {
                     editing = PortfolioThemeStatus(id: 0, code: "", name: "", colorHex: "", isDefault: false)
                     isNew = true
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
                 Spacer()
             }
             .padding()
@@ -318,4 +321,3 @@ struct ColorSwatch: View {
             .accessibilityLabel(hex)
     }
 }
-

@@ -13,6 +13,8 @@ struct TradeFormView: View {
     @State private var accounts: [DatabaseManager.AccountData] = []
     @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
     @State private var instrumentId: Int? = nil
+    @State private var instrumentSearch: String = ""
+    @State private var showInstrumentPicker = false
     @State private var custodyAccountId: Int? = nil
     @State private var cashAccountId: Int? = nil
     @State private var quantity: String = ""
@@ -100,28 +102,21 @@ struct TradeFormView: View {
                 Section("Basics") {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                     Picker("Type", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
-                    let instrumentItems = instruments.map { ins in
-                        FloatingSearchPicker.Item(
-                            id: AnyHashable(ins.id),
-                            title: ins.name,
-                            subtitle: instrumentSubtitle(ins),
-                            searchText: instrumentSearchText(ins)
-                        )
-                    }
-                    FloatingSearchPicker(
-                        title: "Instrument",
-                        placeholder: "Search instruments",
-                        items: instrumentItems,
-                        selectedId: Binding<AnyHashable?>(
-                            get: { instrumentId.map { AnyHashable($0) } },
-                            set: { newValue in
-                                instrumentId = newValue as? Int
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Instrument")
+                            .font(.subheadline)
+                        HStack(spacing: 8) {
+                            Text(selectedInstrumentDisplay)
+                                .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button("Choose Instrument…") {
+                                instrumentSearch = instrumentDisplayForCurrent() ?? ""
+                                showInstrumentPicker = true
                             }
-                        ),
-                        onSelection: { _ in },
-                        onClear: { instrumentId = nil },
-                        selectsFirstOnSubmit: false
-                    )
+                        }
+                    }
                 }
                 Section("Accounts") {
                     HStack(alignment: .firstTextBaseline) {
@@ -205,6 +200,41 @@ struct TradeFormView: View {
         }
         .padding(24)
         .frame(minWidth: 820, minHeight: 760)
+        .sheet(isPresented: $showInstrumentPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose Instrument")
+                    .font(.headline)
+                FloatingSearchPicker(
+                    title: "Choose Instrument",
+                    placeholder: "Search instruments",
+                    items: instrumentPickerItems,
+                    selectedId: instrumentPickerBinding,
+                    showsClearButton: true,
+                    emptyStateText: "No instruments",
+                    query: $instrumentSearch,
+                    onSelection: { _ in
+                        showInstrumentPicker = false
+                    },
+                    onClear: {
+                        instrumentPickerBinding.wrappedValue = nil
+                    },
+                    onSubmit: { _ in
+                        if instrumentId != nil { showInstrumentPicker = false }
+                    },
+                    selectsFirstOnSubmit: false
+                )
+                .frame(minWidth: 360)
+                HStack {
+                    Spacer()
+                    Button("Close") { showInstrumentPicker = false }
+                }
+            }
+            .padding(16)
+            .frame(width: 520)
+            .onAppear {
+                instrumentSearch = instrumentDisplayForCurrent() ?? ""
+            }
+        }
         .onAppear { load(); populateIfEditing() }
     }
 
@@ -226,6 +256,49 @@ struct TradeFormView: View {
         feesChf = String(format: "%.4f", d.feesChf)
         commissionChf = String(format: "%.4f", d.commissionChf)
         notes = d.notes ?? ""
+    }
+
+    private var instrumentPickerItems: [FloatingSearchPicker.Item] {
+        instruments.map { ins in
+            FloatingSearchPicker.Item(
+                id: AnyHashable(ins.id),
+                title: ins.name,
+                subtitle: instrumentSubtitle(ins),
+                searchText: instrumentSearchText(ins)
+            )
+        }
+    }
+
+    private var instrumentPickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: { instrumentId.map { AnyHashable($0) } },
+            set: { newValue in
+                if let value = newValue as? Int {
+                    instrumentId = value
+                    instrumentSearch = instrumentDisplay(for: value) ?? ""
+                } else {
+                    instrumentId = nil
+                    instrumentSearch = ""
+                }
+            }
+        )
+    }
+
+    private var selectedInstrumentDisplay: String {
+        instrumentDisplayForCurrent() ?? "No instrument selected"
+    }
+
+    private func instrumentDisplayForCurrent() -> String? {
+        guard let id = instrumentId else { return nil }
+        return instrumentDisplay(for: id)
+    }
+
+    private func instrumentDisplay(for id: Int) -> String? {
+        guard let ins = instruments.first(where: { $0.id == id }) else { return nil }
+        if let subtitle = instrumentSubtitle(ins) {
+            return "\(ins.name) • \(subtitle)"
+        }
+        return ins.name
     }
 
     private func instrumentSubtitle(_ ins: DatabaseManager.InstrumentRow) -> String? {
