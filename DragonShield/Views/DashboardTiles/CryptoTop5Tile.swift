@@ -42,7 +42,7 @@ struct CryptoTop5Tile: DashboardTile {
                             rowView(item)
                             if index != rows.count - 1 {
                                 Divider()
-                                    .foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
+                                    .foregroundColor(Theme.tileBorder)
                             }
                         }
                     }
@@ -52,9 +52,7 @@ struct CryptoTop5Tile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: calculate)
         .accessibilityElement(children: .combine)
     }
@@ -92,13 +90,13 @@ struct CryptoTop5Tile: DashboardTile {
                 .frame(width: 60, alignment: .trailing)
         }
         .font(.system(size: 11))
-        .foregroundColor(Color(red: 100/255, green: 116/255, blue: 139/255))
+        .foregroundColor(.secondary)
         .textCase(.uppercase)
         .padding(.vertical, DashboardTileLayout.rowSpacing)
     }
 
     private func weightBar(percent: Double) -> some View {
-        let trackColor = colorScheme == .dark ? Color(red: 46/255, green: 46/255, blue: 46/255) : Color(red: 241/255, green: 245/255, blue: 249/255)
+        let trackColor = colorScheme == .dark ? Color.white.opacity(0.12) : Theme.tileBorder.opacity(0.5)
         let fillWidth = max(CGFloat(percent / 100) * 60, 2)
         return ZStack(alignment: .leading) {
             Capsule()

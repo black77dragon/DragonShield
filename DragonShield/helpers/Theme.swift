@@ -1,9 +1,42 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 enum Theme {
     static let primaryAccent = Color(red: 26/255, green: 115/255, blue: 232/255)
-    static let surface = Color(red: 248/255, green: 249/255, blue: 250/255)
-    static let textPrimary = Color(red: 33/255, green: 33/255, blue: 33/255)
+
+    /// Neutral surface used by dashboard tiles and cards. Adapts to the active color scheme.
+    static var surface: Color { tileBackground }
+
+    static var textPrimary: Color { .primary }
+
+    static var tileBackground: Color {
+#if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+#else
+        Color(uiColor: .secondarySystemBackground)
+#endif
+    }
+
+    static var tileBorder: Color {
+#if os(macOS)
+        Color(nsColor: .separatorColor).opacity(0.35)
+#else
+        Color(uiColor: .separator).opacity(0.35)
+#endif
+    }
+
+    static var tileShadow: Color {
+#if os(macOS)
+        Color.black.opacity(0.25)
+#else
+        Color.black.opacity(0.2)
+#endif
+    }
 }
 
 enum AssetClassCode: String {

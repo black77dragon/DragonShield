@@ -55,8 +55,8 @@ struct UpcomingAlertsTile: DashboardTile {
                                         .foregroundColor(urgent ? .white : (dueSoon ? .red : .secondary))
                                     if let daysText = daysUntilText(for: row.upcomingDate) {
                                         Text(daysText)
-                                            .bold()
-                                            .foregroundColor(urgent ? .white : .red)
+                                            .fontWeight(urgent ? .bold : .regular)
+                                            .foregroundColor(urgent ? .white : .blue)
                                     }
                                 }
                             }
@@ -75,9 +75,7 @@ struct UpcomingAlertsTile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: load)
         .sheet(isPresented: $showAlerts) {
             AlertsSettingsView().environmentObject(dbManager)

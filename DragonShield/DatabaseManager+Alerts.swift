@@ -2,6 +2,34 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
+    struct AlertEventSummary: Identifiable, Hashable {
+        let id: Int
+        let alertId: Int
+        let alertName: String
+        let severity: String
+        let occurredAt: String
+        let status: String
+        let message: String?
+        let measuredJson: String?
+    }
+
+    struct HoldingAbsSnapshot: Identifiable, Hashable {
+        let id: Int
+        let alert: AlertRow
+        let instrumentId: Int
+        let instrumentName: String
+        let currency: String
+        let currentValue: Double
+        let thresholdValue: Double
+        let difference: Double
+        let percent: Double?
+        let quantity: Double
+        let calculatedAt: Date
+
+        var isExceeded: Bool { difference >= 0 }
+        var isNear: Bool { !isExceeded && percent.map { abs($0) <= 0.05 } ?? false }
+    }
+
     // MARK: - Alerts CRUD
     func listAlerts(includeDisabled: Bool = true) -> [AlertRow] {
         var rows: [AlertRow] = []
@@ -258,8 +286,44 @@ extension DatabaseManager {
             return evaluateDateAlertNow(alert: alert)
         case "calendar_event":
             return evaluateCalendarEventAlertNow(alert: alert)
+        case "holding_abs":
+            return evaluateHoldingAbsAlertNow(alert: alert)
         default:
-            return (false, "Evaluate Now supports date and calendar_event alerts in this phase")
+            return (false, "Evaluate Now supports date, calendar_event, and holding_abs alerts in this phase")
+        }
+    }
+
+    func isAlertNear(_ alert: AlertRow, dateWindowDays: Int = 7, absoluteTolerance: Double = 0.05) -> Bool {
+        switch alert.triggerTypeCode {
+        case "date":
+            guard let data = alert.paramsJson.data(using: .utf8),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let dateStr = obj["date"] as? String,
+                  let triggerDate = DateFormatter.iso8601DateOnly.date(from: dateStr) else {
+                return false
+            }
+            let today = DateFormatter.iso8601DateOnly.date(from: DateFormatter.iso8601DateOnly.string(from: Date())) ?? Date()
+            let diff = Calendar(identifier: .iso8601).dateComponents([.day], from: today, to: triggerDate).day ?? Int.max
+            return diff >= 0 && diff <= dateWindowDays
+
+        case "holding_abs":
+            guard let metrics = holdingAbsMetrics(for: alert) else { return false }
+            if metrics.comparisonValue >= metrics.thresholdComparison { return false }
+            let tolerance = metrics.thresholdComparison * absoluteTolerance
+            return abs(metrics.comparisonValue - metrics.thresholdComparison) <= tolerance
+
+        default:
+            return false
+        }
+    }
+
+    func isAlertExceeded(_ alert: AlertRow) -> Bool {
+        switch alert.triggerTypeCode {
+        case "holding_abs":
+            guard let metrics = holdingAbsMetrics(for: alert) else { return false }
+            return metrics.comparisonValue >= metrics.thresholdComparison
+        default:
+            return false
         }
     }
 
@@ -355,6 +419,150 @@ extension DatabaseManager {
         return created ? (true, msg) : (false, "Failed to create event")
     }
 
+    private func evaluateHoldingAbsAlertNow(alert: AlertRow) -> (Bool, String) {
+        if let reason = scheduleOrMuteBlock(for: alert) {
+            return (false, reason)
+        }
+        guard let metrics = holdingAbsMetrics(for: alert) else {
+            return (false, "Unable to evaluate holding value")
+        }
+
+        if let cooldown = alert.cooldownSeconds, cooldown > 0, let last = latestAlertTriggerDate(alertId: alert.id) {
+            let elapsed = Date().timeIntervalSince(last)
+            if elapsed < Double(cooldown) {
+                let remaining = Int(Double(cooldown) - elapsed)
+                return (false, "In cooldown for another \(remaining) seconds")
+            }
+        }
+
+        let dateFormatter = DateFormatter.iso8601DateOnly
+        guard let today = dateFormatter.date(from: dateFormatter.string(from: Date())) else {
+            return (false, "Date parse error")
+        }
+        if hasTriggeredEventToday(alertId: alert.id, day: today) {
+            return (false, "Already triggered today")
+        }
+
+        if metrics.comparisonValue < metrics.thresholdComparison {
+            let valueStr = formatCurrency(metrics.comparisonValue, currency: metrics.comparisonCurrency)
+            let thresholdStr = formatCurrency(metrics.thresholdComparison, currency: metrics.comparisonCurrency)
+            return (false, "\(metrics.instrumentName): holding value \(valueStr) below threshold \(thresholdStr)")
+        }
+
+        let valueMessage = formatCurrency(metrics.comparisonValue, currency: metrics.comparisonCurrency)
+        let thresholdMessage = formatCurrency(metrics.thresholdComparison, currency: metrics.comparisonCurrency)
+        let message = "\(metrics.instrumentName): holding value \(valueMessage) ≥ threshold \(thresholdMessage)"
+
+        var measured: [String: Any] = [
+            "kind": "holding_abs",
+            "instrument_id": metrics.instrumentId,
+            "instrument_name": metrics.instrumentName,
+            "quantity_signed": metrics.quantitySigned,
+            "quantity_abs": metrics.quantityAbs,
+            "price": metrics.price,
+            "price_currency": metrics.priceCurrency,
+            "value_instrument": metrics.valueInInstrument,
+            "instrument_currency": metrics.priceCurrency,
+            "currency_mode": metrics.currencyMode,
+            "comparison_currency": metrics.comparisonCurrency,
+            "threshold": metrics.rawThreshold
+        ]
+
+        if metrics.currencyMode == "base" {
+            measured["value_base"] = metrics.comparisonValue
+            measured["base_currency"] = metrics.comparisonCurrency
+            measured["threshold_base"] = metrics.thresholdComparison
+        } else if let conversion = convertValueToBase(value: metrics.valueInInstrument, from: metrics.priceCurrency, baseCurrency: baseCurrency.uppercased()) {
+            measured["value_base"] = conversion.value
+            measured["base_currency"] = baseCurrency.uppercased()
+        }
+
+        if let fx = metrics.fxInstrument {
+            measured["fx_rate_source_to_chf"] = fx.rate
+            measured["fx_rate_source_date"] = DateFormatter.iso8601DateOnly.string(from: fx.date)
+        }
+        if let fx = metrics.fxBase {
+            measured["fx_rate_base_to_chf"] = fx.rate
+            measured["fx_rate_base_date"] = DateFormatter.iso8601DateOnly.string(from: fx.date)
+        }
+
+        let created = insertAlertEvent(alertId: alert.id, status: "triggered", message: message, measured: measured)
+        return created ? (true, message) : (false, "Failed to create event")
+    }
+
+    private struct HoldingAbsMetrics {
+        let instrumentId: Int
+        let instrumentName: String
+        let price: Double
+        let priceCurrency: String
+        let valueInInstrument: Double
+        let comparisonValue: Double
+        let thresholdComparison: Double
+        let comparisonCurrency: String
+        let rawThreshold: Double
+        let currencyMode: String
+        let quantitySigned: Double
+        let quantityAbs: Double
+        let fxInstrument: (rate: Double, date: Date)?
+        let fxBase: (rate: Double, date: Date)?
+    }
+
+    private func holdingAbsMetrics(for alert: AlertRow) -> HoldingAbsMetrics? {
+        guard alert.triggerTypeCode == "holding_abs" else { return nil }
+
+        var instrumentId = alert.scopeId
+        if instrumentId <= 0, let reference = alert.subjectReference, let parsed = Int(reference) {
+            instrumentId = parsed
+        }
+        guard instrumentId > 0, let instrument = fetchInstrumentDetails(id: instrumentId) else { return nil }
+
+        guard let data = alert.paramsJson.data(using: .utf8),
+              let params = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+
+        guard let rawThreshold = (params["threshold_chf"] as? Double) ?? (params["threshold"] as? Double), rawThreshold > 0 else { return nil }
+        let currencyMode = (params["currency_mode"] as? String ?? "instrument").lowercased()
+
+        let quantitySigned = totalInstrumentHoldingQuantity(instrumentId: instrumentId)
+        let quantityAbs = abs(quantitySigned)
+
+        guard let priceInfo = getLatestPrice(instrumentId: instrumentId) else { return nil }
+        let price = priceInfo.price
+        let priceCurrency = priceInfo.currency.uppercased()
+        let valueInInstrument = quantityAbs * price
+
+        let baseCode = baseCurrency.uppercased()
+        var comparisonValue = valueInInstrument
+        var comparisonCurrency = priceCurrency
+        var thresholdComparison = rawThreshold
+        var fxInstrument: (Double, Date)? = nil
+        var fxBase: (Double, Date)? = nil
+
+        if currencyMode == "base" {
+            comparisonCurrency = baseCode
+            guard let conversion = convertValueToBase(value: valueInInstrument, from: priceCurrency, baseCurrency: baseCode) else { return nil }
+            comparisonValue = conversion.value
+            fxInstrument = conversion.fxInstrument
+            fxBase = conversion.fxBase
+
+            guard let thresholdConversion = convertValueToBase(value: rawThreshold, from: priceCurrency, baseCurrency: baseCode) else { return nil }
+            thresholdComparison = thresholdConversion.value
+        }
+
+        return HoldingAbsMetrics(instrumentId: instrumentId,
+                                 instrumentName: instrument.name,
+                                 price: price,
+                                 priceCurrency: priceCurrency,
+                                 valueInInstrument: valueInInstrument,
+                                 comparisonValue: comparisonValue,
+                                 thresholdComparison: thresholdComparison,
+                                 comparisonCurrency: comparisonCurrency,
+                                 rawThreshold: rawThreshold,
+                                 currencyMode: currencyMode,
+                                 quantitySigned: quantitySigned,
+                                 quantityAbs: quantityAbs,
+                                 fxInstrument: fxInstrument,
+                                 fxBase: fxBase)
+    }
     private func hasTriggeredEventToday(alertId: Int, day: Date) -> Bool {
         guard let db else { return false }
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
@@ -426,18 +634,164 @@ extension DatabaseManager {
         return sqlite3_step(stmt) == SQLITE_DONE
     }
 
+    func totalInstrumentHoldingQuantity(instrumentId: Int, upTo date: Date = Date()) -> Double {
+        guard let db else { return 0 }
+        let sql = """
+            SELECT COALESCE(SUM(l.delta_quantity), 0)
+              FROM TradeLeg l
+              JOIN Trade t ON t.trade_id = l.trade_id
+             WHERE l.leg_type = 'INSTRUMENT'
+               AND l.instrument_id = ?
+               AND t.trade_date <= ?
+        """
+        var stmt: OpaquePointer?
+        var total: Double = 0
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+            sqlite3_bind_text(stmt, 2, DateFormatter.iso8601DateOnly.string(from: date), -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                total = sqlite3_column_double(stmt, 0)
+            }
+        }
+        sqlite3_finalize(stmt)
+        if abs(total) < 1e-9 {
+            let fallbackSql = """
+                SELECT COALESCE(SUM(quantity), 0)
+                  FROM PositionReports
+                 WHERE instrument_id = ?
+                   AND report_date = (
+                        SELECT MAX(report_date)
+                          FROM PositionReports
+                         WHERE instrument_id = ?
+                   )
+            """
+            var s: OpaquePointer?
+            if sqlite3_prepare_v2(db, fallbackSql, -1, &s, nil) == SQLITE_OK {
+                sqlite3_bind_int(s, 1, Int32(instrumentId))
+                sqlite3_bind_int(s, 2, Int32(instrumentId))
+                if sqlite3_step(s) == SQLITE_ROW {
+                    total = sqlite3_column_double(s, 0)
+                }
+            }
+            sqlite3_finalize(s)
+        }
+        return total
+    }
+
+    func convertValueToBase(value: Double, from sourceCurrency: String, baseCurrency: String) -> (value: Double, fxInstrument: (rate: Double, date: Date)?, fxBase: (rate: Double, date: Date)?)? {
+        let source = sourceCurrency.uppercased()
+        let base = baseCurrency.uppercased()
+        if source == base {
+            return (value, nil, nil)
+        }
+
+        var valueChf = value
+        var fxInstrument: (Double, Date)? = nil
+        if source != "CHF" {
+            guard let rate = fetchLatestExchangeRate(currencyCode: source) else { return nil }
+            valueChf = value * rate.rateToChf
+            fxInstrument = (rate.rateToChf, rate.rateDate)
+        }
+
+        if base == "CHF" {
+            return (valueChf, fxInstrument, nil)
+        }
+
+        guard let baseRate = fetchLatestExchangeRate(currencyCode: base) else { return nil }
+        let valueBase = valueChf / baseRate.rateToChf
+        let fxBase = (baseRate.rateToChf, baseRate.rateDate)
+        return (valueBase, fxInstrument, fxBase)
+    }
+
+    func holdingValueSnapshot(instrumentId: Int) -> (currency: String, quantity: Double, value: Double?)? {
+        guard let instrument = fetchInstrumentDetails(id: instrumentId) else { return nil }
+        let currency = instrument.currency.uppercased()
+        let quantity = totalInstrumentHoldingQuantity(instrumentId: instrumentId)
+        if abs(quantity) < 1e-9 {
+            return (currency, quantity, 0)
+        }
+        guard let priceInfo = getLatestPrice(instrumentId: instrumentId) else {
+            return (currency, quantity, nil)
+        }
+        let value = quantity * priceInfo.price
+        return (currency, quantity, value)
+    }
+
+    private func scheduleOrMuteBlock(for alert: AlertRow) -> String? {
+        let now = Date()
+        if let startStr = alert.scheduleStart, let (startDate, isDateOnly) = parseScheduleDate(startStr) {
+            let effectiveStart = isDateOnly ? startDate : startDate
+            if now < effectiveStart { return "Not within schedule window (starts \(startStr))" }
+        }
+        if let endStr = alert.scheduleEnd, let (endDate, isDateOnly) = parseScheduleDate(endStr) {
+            let effectiveEnd = isDateOnly ? endDate.addingTimeInterval(86_400 - 1) : endDate
+            if now > effectiveEnd { return "Not within schedule window (ended \(endStr))" }
+        }
+        if let muteStr = alert.muteUntil, let (muteDate, isDateOnly) = parseScheduleDate(muteStr) {
+            let effectiveMute = isDateOnly ? muteDate.addingTimeInterval(86_400) : muteDate
+            if now < effectiveMute { return "Muted until \(muteStr)" }
+        }
+        return nil
+    }
+
+    private func parseScheduleDate(_ string: String) -> (Date, Bool)? {
+        if let date = DateFormatter.iso8601DateOnly.date(from: string) {
+            return (date, true)
+        }
+        if let date = parseISODateFlexible(string) {
+            return (date, false)
+        }
+        return nil
+    }
+
+    private func latestAlertTriggerDate(alertId: Int) -> Date? {
+        guard let db else { return nil }
+        let sql = "SELECT occurred_at FROM AlertEvent WHERE alert_id = ? ORDER BY occurred_at DESC LIMIT 1"
+        var stmt: OpaquePointer?
+        var date: Date? = nil
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(alertId))
+            if sqlite3_step(stmt) == SQLITE_ROW, let ptr = sqlite3_column_text(stmt, 0) {
+                let str = String(cString: ptr)
+                date = parseISODateFlexible(str)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return date
+    }
+
+    private func parseISODateFlexible(_ string: String) -> Date? {
+        let isoFraction = ISO8601DateFormatter()
+        isoFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFraction.date(from: string) { return date }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: string) { return date }
+        if let date = DateFormatter.iso8601DateTime.date(from: string) { return date }
+        return DateFormatter.iso8601DateOnly.date(from: string)
+    }
+
+    private func formatCurrency(_ value: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
+    }
+
     // MARK: - Events listing
-    func listAlertEvents(limit: Int = 200) -> [(id: Int, alertId: Int, alertName: String, severity: String, occurredAt: String, status: String, message: String?)] {
+    func listAlertEvents(limit: Int = 200) -> [AlertEventSummary] {
         guard let db else { return [] }
         let sql = """
-        SELECT e.id, e.alert_id, a.name, a.severity, e.occurred_at, e.status, e.message
+        SELECT e.id, e.alert_id, a.name, a.severity, e.occurred_at, e.status, e.message, e.measured_json
           FROM AlertEvent e
           JOIN Alert a ON a.id = e.alert_id
          ORDER BY e.occurred_at DESC
          LIMIT ?
         """
         var stmt: OpaquePointer?
-        var out: [(Int, Int, String, String, String, String, String?)] = []
+        var out: [AlertEventSummary] = []
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(limit))
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -448,11 +802,44 @@ extension DatabaseManager {
                 let occurred = String(cString: sqlite3_column_text(stmt, 4))
                 let status = String(cString: sqlite3_column_text(stmt, 5))
                 let msg = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
-                out.append((id, aid, name, sev, occurred, status, msg))
+                let measured = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                out.append(AlertEventSummary(id: id,
+                                             alertId: aid,
+                                             alertName: name,
+                                             severity: sev,
+                                             occurredAt: occurred,
+                                             status: status,
+                                             message: msg,
+                                             measuredJson: measured))
             }
         }
         sqlite3_finalize(stmt)
         return out
+    }
+
+    func listHoldingAbsSnapshots(includeDisabled: Bool = false) -> [HoldingAbsSnapshot] {
+        let alerts = listAlerts(includeDisabled: includeDisabled)
+        var snapshots: [HoldingAbsSnapshot] = []
+        let timestamp = Date()
+        for alert in alerts where alert.triggerTypeCode == "holding_abs" {
+            if !includeDisabled && !alert.enabled { continue }
+            guard let metrics = holdingAbsMetrics(for: alert) else { continue }
+            let difference = metrics.comparisonValue - metrics.thresholdComparison
+            let percent = metrics.thresholdComparison != 0 ? difference / metrics.thresholdComparison : nil
+            let snapshot = HoldingAbsSnapshot(id: alert.id,
+                                              alert: alert,
+                                              instrumentId: metrics.instrumentId,
+                                              instrumentName: metrics.instrumentName,
+                                              currency: metrics.comparisonCurrency,
+                                              currentValue: metrics.comparisonValue,
+                                              thresholdValue: metrics.thresholdComparison,
+                                              difference: difference,
+                                              percent: percent,
+                                              quantity: metrics.quantitySigned,
+                                              calculatedAt: timestamp)
+            snapshots.append(snapshot)
+        }
+        return snapshots
     }
 
     // Upcoming: date alerts with a future or today trigger date

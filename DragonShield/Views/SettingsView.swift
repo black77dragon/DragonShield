@@ -1,5 +1,7 @@
 // DragonShield/Views/SettingsView.swift
+
 // MARK: - Version 1.5 (UI Refactor)
+
 import SwiftUI
 
 struct SettingsView: View {
@@ -9,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(UserDefaultsKeys.enableParsingCheckpoints) private var enableParsingCheckpoints: Bool = false
     @AppStorage("runStartupHealthChecks") private var runStartupHealthChecks: Bool = true
     @AppStorage("coingeckoPreferFree") private var coingeckoPreferFree: Bool = false
+    @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
 
     private var okCount: Int { runner.reports.filter { if case .ok = $0.result { true } else { false } }.count }
     private var warningCount: Int { runner.reports.filter { if case .warning = $0.result { true } else { false } }.count }
@@ -37,36 +40,41 @@ struct SettingsView: View {
             Color.gray.opacity(0.06).ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 16) {
-                    CardSection(title: "App Basics") {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Base Currency").frame(width: 160, alignment: .leading)
-                            TextField("", text: $tempBaseCurrency)
-                                .frame(width: 100)
-                                .multilineTextAlignment(.trailing)
-                                .onSubmit {
-                                    let v = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if v.count == 3 && v.allSatisfy({ $0.isLetter }) { _ = dbManager.updateConfiguration(key: "base_currency", value: v) }
-                                    else { tempBaseCurrency = dbManager.baseCurrency }
-                                }
-                            Spacer()
+                    HStack(alignment: .top, spacing: 16) {
+                        CardSection(title: "App Basics") {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Base Currency").frame(width: 160, alignment: .leading)
+                                TextField("", text: $tempBaseCurrency)
+                                    .frame(width: 100)
+                                    .multilineTextAlignment(.trailing)
+                                    .onSubmit {
+                                        let v = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                                        if v.count == 3 && v.allSatisfy({ $0.isLetter }) { _ = dbManager.updateConfiguration(key: "base_currency", value: v) }
+                                        else { tempBaseCurrency = dbManager.baseCurrency }
+                                    }
+                                Spacer()
+                            }
+                            Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
+                                    value: Binding(get: { dbManager.decimalPrecision }, set: { _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\($0)") }), in: 0 ... 8)
+                            Divider().padding(.vertical, 2)
+                            Toggle("Run Health Checks on Startup", isOn: $runStartupHealthChecks)
+                            Toggle("Show \"Incoming Deadlines\" pop-up every time Dashboard opens", isOn: $showIncomingDeadlinesEveryVisit)
+                            HStack {
+                                Text("Last Result").frame(width: 160, alignment: .leading)
+                                Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
+                                Spacer()
+                                NavigationLink("Detailed Report", destination: HealthCheckResultsView())
+                            }
                         }
-                        Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
-                                value: Binding(get: { dbManager.decimalPrecision }, set: { _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\($0)") }), in: 0...8)
-                        Divider().padding(.vertical, 2)
-                        Toggle("Run Health Checks on Startup", isOn: $runStartupHealthChecks)
-                        HStack {
-                            Text("Last Result").frame(width: 160, alignment: .leading)
-                            Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
-                            Spacer()
-                            NavigationLink("Detailed Report", destination: HealthCheckResultsView())
-                        }
-                    }
+                        .frame(maxWidth: .infinity)
 
-                    CardSection(title: "Table Display Settings") {
-                        Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
-                                value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0...10.0, step: 0.5)
-                        Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
-                                value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0...20.0, step: 1.0)
+                        CardSection(title: "Table Display Settings") {
+                            Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
+                                    value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0 ... 10.0, step: 0.5)
+                            Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
+                                    value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0 ... 20.0, step: 1.0)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
 
                     CardSection(title: "Price Providers") {
@@ -81,80 +89,77 @@ struct SettingsView: View {
                         HStack { Spacer(); Button(action: testCoinGecko) { isTestingCG ? AnyView(AnyView(ProgressView())) : AnyView(Text("Test CoinGecko")) }; Button("View Logs") { showLogs = true } }
                     }
 
-                    CardSection(title: "FX Updates") {
-                        Toggle("Auto-update on Launch", isOn: $fxAutoEnabled)
-                            .onChange(of: fxAutoEnabled) { _, newValue in
-                                _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                    HStack(alignment: .top, spacing: 16) {
+                        CardSection(title: "FX Updates") {
+                            Toggle("Auto-update on Launch", isOn: $fxAutoEnabled)
+                                .onChange(of: fxAutoEnabled) { _, newValue in
+                                    _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                                }
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Frequency").frame(width: 160, alignment: .leading)
+                                Picker("", selection: $fxFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 240)
+                                    .onChange(of: fxFrequency) { _, newValue in
+                                        let v = (newValue == "weekly") ? "weekly" : "daily"
+                                        _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: v, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
+                                        updateFxStatus()
+                                    }
+                                Spacer()
                             }
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Frequency").frame(width: 160, alignment: .leading)
-                            Picker("", selection: $fxFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
-                                .pickerStyle(.segmented)
-                                .frame(width: 240)
-                                .onChange(of: fxFrequency) { _, newValue in
-                                    let v = (newValue == "weekly") ? "weekly" : "daily"
-                                    _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: v, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
-                                    updateFxStatus()
-                                }
-                            Spacer()
-                        }
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Status").frame(width: 160, alignment: .leading)
-                            Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary).foregroundColor(.secondary)
-                            Spacer()
-                        }
-                    }
-
-                    CardSection(title: "iOS Snapshot (DB Copy for iPhone app)") {
-                        Toggle("Auto-export on Launch", isOn: $iosAutoEnabled)
-                            .onChange(of: iosAutoEnabled) { _, newValue in
-                                _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Status").frame(width: 160, alignment: .leading)
+                                Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary).foregroundColor(.secondary)
+                                Spacer()
                             }
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Frequency").frame(width: 160, alignment: .leading)
-                            Picker("", selection: $iosFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
-                                .pickerStyle(.segmented)
-                                .frame(width: 240)
-                                .onChange(of: iosFrequency) { _, newValue in
-                                    let v = (newValue == "weekly") ? "weekly" : "daily"
-                                    _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: v, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
-                                    updateIOSStatus()
-                                }
-                            Spacer()
                         }
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Destination").frame(width: 160, alignment: .leading)
-                            TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...", text: $iosTargetPath)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(minWidth: 300)
-                                .onSubmit {
-                                    _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string", description: "Destination folder for iOS snapshot export")
-                                    updateIOSStatus()
-                                }
-                            Spacer()
-                        }
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Status").frame(width: 160, alignment: .leading)
-                            Text(iosStatus.isEmpty ? "Unknown" : iosStatus).foregroundColor(.secondary)
-                            Spacer()
-                            Button("Export Now") { exportIOSNow() }
-                            #if os(macOS)
-                            Button("Export to iCloud Drive…") { dbManager.presentExportSnapshotPanel() }
-                            #endif
-                        }
-                    }
+                        .frame(maxWidth: .infinity)
 
-                    CardSection(title: "Portfolio Management") {
-                        NavigationLink("Theme Statuses", destination: ThemeStatusSettingsView().environmentObject(dbManager))
-                        NavigationLink("News Types", destination: NewsTypeSettingsView().environmentObject(dbManager))
-                        NavigationLink("Alert Trigger Types", destination: AlertTriggerTypeSettingsView().environmentObject(dbManager))
-                        NavigationLink("Tags", destination: TagSettingsView().environmentObject(dbManager))
+                        CardSection(title: "iOS Snapshot (DB Copy for iPhone app)") {
+                            Toggle("Auto-export on Launch", isOn: $iosAutoEnabled)
+                                .onChange(of: iosAutoEnabled) { _, newValue in
+                                    _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                                }
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Frequency").frame(width: 160, alignment: .leading)
+                                Picker("", selection: $iosFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 240)
+                                    .onChange(of: iosFrequency) { _, newValue in
+                                        let v = (newValue == "weekly") ? "weekly" : "daily"
+                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: v, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
+                                        updateIOSStatus()
+                                    }
+                                Spacer()
+                            }
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Destination").frame(width: 160, alignment: .leading)
+                                TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...", text: $iosTargetPath)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(minWidth: 300)
+                                    .onSubmit {
+                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string", description: "Destination folder for iOS snapshot export")
+                                        updateIOSStatus()
+                                    }
+                                Spacer()
+                            }
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Status").frame(width: 160, alignment: .leading)
+                                Text(iosStatus.isEmpty ? "Unknown" : iosStatus).foregroundColor(.secondary)
+                                Spacer()
+                                Button("Export Now") { exportIOSNow() }
+                                #if os(macOS)
+                                    Button("Export to iCloud Drive…") { dbManager.presentExportSnapshotPanel() }
+                                #endif
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
 
                     #if DEBUG
-                    CardSection(title: "Development / Debug Options") {
-                        Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                    }
+                        CardSection(title: "Development / Debug Options") {
+                            Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
+                        }
                     #endif
 
                     CardSection(title: "About") {
@@ -185,17 +190,18 @@ struct SettingsView: View {
             iosTargetPath = dbManager.iosSnapshotTargetPath
             updateIOSStatus()
             #if DEBUG
-            GitInfoProvider.debugDump()
+                GitInfoProvider.debugDump()
             #endif
         }
         .sheet(isPresented: $showLogs) { LogViewerView().environmentObject(dbManager) }
         .alert("CoinGecko Test", isPresented: $showCGResult) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: { Text(cgResultMessage) }
     }
 }
 
 // MARK: - ProviderKeyRow
+
 private struct ProviderKeyRow: View {
     let label: String
     let account: String
@@ -235,10 +241,12 @@ private struct ProviderKeyRow: View {
         default: return account.uppercased() + "_API_KEY"
         }
     }
+
     private var defaultsKey: String { "api_key.\(account)" }
 }
 
 // MARK: - Card Section helper
+
 private struct CardSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
@@ -257,6 +265,7 @@ private struct CardSection<Content: View>: View {
 }
 
 // MARK: - Helpers
+
 extension SettingsView {
     private func testCoinGecko() {
         guard !isTestingCG else { return }
@@ -345,7 +354,7 @@ extension SettingsView {
     private func exportIOSNow() {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         do {
-            let url = try svc.exportNow()
+            _ = try svc.exportNow()
             iosTargetPath = svc.resolvedTargetFolder().path
             _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
             updateIOSStatus()

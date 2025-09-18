@@ -4,6 +4,8 @@ private let layoutKey = "dashboardTileLayout"
 
 struct DashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
+    @AppStorage(UserDefaultsKeys.dashboardIncomingPopupShownThisLaunch) private var incomingDeadlinesPopupShownThisLaunch: Bool = false
     private enum Layout {
         static let spacing: CGFloat = 24
         static let minWidth: CGFloat = 260
@@ -109,7 +111,6 @@ struct DashboardView: View {
             StartupAlertsPopupView(items: upcomingWeek)
         }
         .onAppear {
-            // Run once on initial dashboard appearance
             if !startupChecked {
                 startupChecked = true
                 loadUpcomingWeekAlerts()
@@ -366,7 +367,18 @@ private extension DashboardView {
         let nextWeek = rows.filter { inDf.date(from: $0.upcomingDate).map { $0 <= week } ?? false }
         if !nextWeek.isEmpty {
             upcomingWeek = nextWeek.map { (id: $0.alertId, name: $0.alertName, date: $0.upcomingDate) }
-            showUpcomingWeekPopup = true
+
+            let shouldShowPopup: Bool
+            if !incomingDeadlinesPopupShownThisLaunch {
+                incomingDeadlinesPopupShownThisLaunch = true
+                shouldShowPopup = true
+            } else {
+                shouldShowPopup = showIncomingDeadlinesEveryVisit
+            }
+
+            if shouldShowPopup {
+                showUpcomingWeekPopup = true
+            }
         }
     }
 }

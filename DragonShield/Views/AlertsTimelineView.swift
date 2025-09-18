@@ -2,6 +2,9 @@ import SwiftUI
 #if canImport(Charts)
 import Charts
 #endif
+#if os(macOS)
+import AppKit
+#endif
 
 struct AlertsTimelineView: View {
     var onOpen: ((Int) -> Void)? = nil
@@ -269,22 +272,327 @@ private extension AlertsTimelineView {
 private struct TimelineDetailsTable: View {
     let items: [TimelineItem]
     var onOpen: ((Int) -> Void)? = nil
+#if os(macOS)
+    @AppStorage("timelineTableColumnWidths") private var storedTimelineTableColumnWidths: Data = Data()
+    @State private var columnWidths: [String: CGFloat] = [:]
+    @State private var didRestoreColumnWidths = false
+
+    private enum TimelineColumn: String, CaseIterable {
+        case reference
+        case when
+        case series
+        case alert
+        case severity
+
+        var title: String {
+            switch self {
+            case .reference: return "Ref"
+            case .when: return "When"
+            case .series: return "Series"
+            case .alert: return "Alert"
+            case .severity: return "Severity"
+            }
+        }
+
+        var defaultWidth: CGFloat {
+            switch self {
+            case .reference: return 60
+            case .when: return 140
+            case .series: return 100
+            case .alert: return 240
+            case .severity: return 120
+            }
+        }
+
+        var minWidth: CGFloat {
+            switch self {
+            case .reference: return 40
+            case .when: return 110
+            case .series: return 80
+            case .alert: return 180
+            case .severity: return 90
+            }
+        }
+
+        var maxWidth: CGFloat {
+            switch self {
+            case .reference: return 100
+            case .when: return 220
+            case .series: return 200
+            case .alert: return 520
+            case .severity: return 220
+            }
+        }
+
+        var alignment: NSTextAlignment {
+            switch self {
+            case .reference: return .center
+            case .series: return .center
+            case .severity: return .center
+            default: return .left
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Details").font(.headline)
+            TimelineDetailsNSTable(items: items,
+                                   columns: TimelineColumn.allCases,
+                                   columnWidths: $columnWidths,
+                                   onOpen: onOpen)
+                .frame(minHeight: 160)
+        }
+        .onAppear { restoreColumnWidths() }
+        .onChange(of: columnWidths) { _, newValue in persistColumnWidths(newValue) }
+    }
+
+    private func restoreColumnWidths() {
+        guard !didRestoreColumnWidths else { return }
+        didRestoreColumnWidths = true
+        var defaults: [String: CGFloat] = [:]
+        for column in TimelineColumn.allCases {
+            defaults[column.rawValue] = column.defaultWidth
+        }
+        if !storedTimelineTableColumnWidths.isEmpty,
+           let decoded = try? JSONDecoder().decode([String: Double].self, from: storedTimelineTableColumnWidths) {
+            for (key, value) in decoded {
+                guard let column = TimelineColumn(rawValue: key) else { continue }
+                let clamped = clamp(CGFloat(value), for: column)
+                defaults[column.rawValue] = clamped
+            }
+        }
+        columnWidths = defaults
+    }
+
+    private func clamp(_ value: CGFloat, for column: TimelineColumn) -> CGFloat {
+        max(column.minWidth, min(column.maxWidth, value))
+    }
+
+    private func persistColumnWidths(_ widths: [String: CGFloat]) {
+        guard !widths.isEmpty else { return }
+        var payload: [String: Double] = [:]
+        for (key, value) in widths {
+            payload[key] = Double(value)
+        }
+        if let data = try? JSONEncoder().encode(payload) {
+            storedTimelineTableColumnWidths = data
+        }
+    }
+
+    private struct TimelineDetailsNSTable: NSViewRepresentable {
+        var items: [TimelineItem]
+        var columns: [TimelineColumn]
+        var columnWidths: Binding<[String: CGFloat]>
+        var onOpen: ((Int) -> Void)?
+
+        func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+        func makeNSView(context: Context) -> NSScrollView {
+            let scrollView = NSScrollView()
+            scrollView.drawsBackground = false
+            scrollView.hasVerticalScroller = true
+            scrollView.hasHorizontalScroller = true
+            scrollView.autohidesScrollers = true
+
+            let tableView = context.coordinator.makeTableView()
+            scrollView.documentView = tableView
+            context.coordinator.tableView = tableView
+
+            tableView.translatesAutoresizingMaskIntoConstraints = false
+            tableView.widthAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.widthAnchor).isActive = true
+
+            if let documentView = scrollView.documentView {
+                documentView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            }
+
+            NotificationCenter.default.addObserver(context.coordinator,
+                                                   selector: #selector(Coordinator.columnDidResize(_:)),
+                                                   name: NSTableView.columnDidResizeNotification,
+                                                   object: tableView)
+
+            return scrollView
+        }
+
+        func updateNSView(_ nsView: NSScrollView, context: Context) {
+            context.coordinator.parent = self
+            guard let tableView = context.coordinator.tableView else { return }
+            tableView.reloadData()
+            context.coordinator.syncColumnWidths()
+        }
+
+        static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+            if let tableView = coordinator.tableView {
+                NotificationCenter.default.removeObserver(coordinator,
+                                                          name: NSTableView.columnDidResizeNotification,
+                                                          object: tableView)
+            }
+        }
+
+        final class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
+            var parent: TimelineDetailsNSTable
+            weak var tableView: NSTableView?
+
+            private let dateFormatter: DateFormatter = {
+                let df = DateFormatter()
+                df.dateFormat = "dd.MM.yy"
+                df.locale = Locale(identifier: "de_CH")
+                return df
+            }()
+
+            init(parent: TimelineDetailsNSTable) {
+                self.parent = parent
+            }
+
+            func makeTableView() -> NSTableView {
+                let tableView = NSTableView()
+                tableView.delegate = self
+                tableView.dataSource = self
+                tableView.headerView = NSTableHeaderView()
+                tableView.usesAutomaticRowHeights = false
+                tableView.rowHeight = 28
+                tableView.allowsColumnResizing = true
+                tableView.allowsMultipleSelection = false
+                tableView.selectionHighlightStyle = .none
+                tableView.columnAutoresizingStyle = .reverseSequentialColumnAutoresizingStyle
+                tableView.gridStyleMask = []
+                tableView.target = self
+                tableView.doubleAction = #selector(handleDoubleClick(_:))
+
+                for column in parent.columns {
+                    tableView.addTableColumn(configureColumn(for: column))
+                }
+
+                return tableView
+            }
+
+            private func configureColumn(for column: TimelineColumn) -> NSTableColumn {
+                let identifier = NSUserInterfaceItemIdentifier(column.rawValue)
+                let tableColumn = NSTableColumn(identifier: identifier)
+                tableColumn.title = column.title
+                tableColumn.minWidth = column.minWidth
+                tableColumn.maxWidth = column.maxWidth
+                tableColumn.width = parent.columnWidths.wrappedValue[column.rawValue] ?? column.defaultWidth
+                tableColumn.resizingMask = [.userResizingMask, .autoresizingMask]
+                if let cell = tableColumn.headerCell as? NSTableHeaderCell {
+                    cell.alignment = column.alignment
+                }
+                return tableColumn
+            }
+
+            func numberOfRows(in tableView: NSTableView) -> Int {
+                parent.items.count
+            }
+
+            func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+                guard row < parent.items.count,
+                      let tableColumn,
+                      let column = TimelineColumn(rawValue: tableColumn.identifier.rawValue) else { return nil }
+
+                let item = parent.items[row]
+
+                switch column {
+                case .reference:
+                    return makeLabelCell(text: "(\(item.refIndex))", alignment: .center)
+                case .when:
+                    let text = dateFormatter.string(from: item.when)
+                    return makeLabelCell(text: text, alignment: .left)
+                case .series:
+                    return makeLabelCell(text: item.series, alignment: .center)
+                case .alert:
+                    return makeButtonCell(title: item.alertName, alertId: item.alertId)
+                case .severity:
+                    return makeLabelCell(text: item.severity.capitalized, alignment: .center)
+                }
+            }
+
+            func syncColumnWidths() {
+                guard let tableView = tableView else { return }
+                for column in tableView.tableColumns {
+                    guard let spec = TimelineColumn(rawValue: column.identifier.rawValue) else { continue }
+                    let target = parent.columnWidths.wrappedValue[spec.rawValue] ?? spec.defaultWidth
+                    if abs(column.width - target) > 0.5 {
+                        column.width = target
+                    }
+                }
+            }
+
+            @objc func columnDidResize(_ notification: Notification) {
+                guard let tableView = tableView,
+                      notification.object as? NSTableView === tableView,
+                      let column = notification.userInfo?["NSTableColumn"] as? NSTableColumn,
+                      let spec = TimelineColumn(rawValue: column.identifier.rawValue) else { return }
+                DispatchQueue.main.async { [parent = self.parent] in
+                    var widths = parent.columnWidths.wrappedValue
+                    let clamped = max(spec.minWidth, min(spec.maxWidth, column.width))
+                    widths[spec.rawValue] = clamped
+                    parent.columnWidths.wrappedValue = widths
+                }
+            }
+
+            @objc func handleDoubleClick(_ sender: NSTableView) {
+                let row = sender.clickedRow
+                guard row >= 0, row < parent.items.count else { return }
+                parent.onOpen?(parent.items[row].alertId)
+            }
+
+            private func makeLabelCell(text: String, alignment: NSTextAlignment) -> NSTableCellView {
+                let cell = NSTableCellView()
+                let field = NSTextField(labelWithString: text)
+                field.alignment = alignment
+                field.lineBreakMode = .byTruncatingTail
+                field.translatesAutoresizingMaskIntoConstraints = false
+                cell.addSubview(field)
+                NSLayoutConstraint.activate([
+                    field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+                    field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+                    field.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+                ])
+                return cell
+            }
+
+            private func makeButtonCell(title: String, alertId: Int) -> NSTableCellView {
+                let cell = NSTableCellView()
+                let button = NSButton(title: title, target: self, action: #selector(openAlert(_:)))
+                button.bezelStyle = .inline
+                button.setButtonType(.momentaryPushIn)
+                button.alignment = .left
+                button.isBordered = false
+                button.translatesAutoresizingMaskIntoConstraints = false
+                button.lineBreakMode = .byTruncatingTail
+                button.tag = alertId
+                cell.addSubview(button)
+                NSLayoutConstraint.activate([
+                    button.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                    button.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                    button.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+                ])
+                return cell
+            }
+
+            @objc private func openAlert(_ sender: NSButton) {
+                parent.onOpen?(sender.tag)
+            }
+        }
+    }
+#else
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Details").font(.headline)
             Table(items) {
-                TableColumn("Ref") { Text("(\($0.refIndex))") }.width(40)
-                TableColumn("When") { Text($0.when, style: .date) }.width(140)
-                TableColumn("Series") { Text($0.series) }.width(90)
+                TableColumn("Ref") { Text("(\($0.refIndex))") }
+                TableColumn("When") { Text($0.when, style: .date) }
+                TableColumn("Series") { Text($0.series) }
                 TableColumn("Alert") { r in
                     let id = r.alertId
                     Button(action: { onOpen?(id) }) { Text(r.alertName) }
                         .buttonStyle(.plain)
                 }
-                TableColumn("Severity") { Text($0.severity.capitalized) }.width(100)
+                TableColumn("Severity") { Text($0.severity.capitalized) }
             }
             .frame(minHeight: 160)
         }
     }
+#endif
 }
 #endif

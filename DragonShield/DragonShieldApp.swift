@@ -9,6 +9,7 @@ struct DragonShieldApp: App {
 
     init() {
         UserDefaults.standard.removeObject(forKey: "portfolioAttachmentsEnabled")
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.dashboardIncomingPopupShownThisLaunch)
         let dbManager = DatabaseManager()
         _databaseManager = StateObject(wrappedValue: dbManager)
         _assetManager = StateObject(wrappedValue: AssetManager())

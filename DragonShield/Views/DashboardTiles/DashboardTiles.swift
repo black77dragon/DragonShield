@@ -11,6 +11,7 @@ struct DashboardCard<Content: View>: View {
     let title: String
     let headerIcon: Image?
     let content: Content
+    private let cornerRadius: CGFloat = 12
 
     init(title: String, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
@@ -33,9 +34,7 @@ struct DashboardCard<Content: View>: View {
             content
         }
         .padding(16)
-        .background(Theme.surface)
-        .cornerRadius(8)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: cornerRadius)
     }
 }
 
@@ -93,7 +92,7 @@ struct MetricTile: DashboardTile {
 }
 
 // Shared CHF whole-number formatter for large sums
-fileprivate enum LargeSumFormatter {
+private enum LargeSumFormatter {
     static let chfWhole: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -103,6 +102,7 @@ fileprivate enum LargeSumFormatter {
         f.minimumFractionDigits = 0
         return f
     }()
+
     static func chf(_ v: Double) -> String {
         let s = chfWhole.string(from: NSNumber(value: v)) ?? String(format: "%.0f", v)
         return "CHF \(s)"
@@ -169,7 +169,6 @@ struct TotalValueTile: DashboardTile {
 struct TopPositionsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var viewModel = PositionsViewModel()
-    @Environment(\.colorScheme) private var colorScheme
     @State private var isConsolidated = true
 
     init() {}
@@ -212,7 +211,7 @@ struct TopPositionsTile: DashboardTile {
                             }
                             .frame(height: DashboardTileLayout.rowHeight)
                             if index != viewModel.topPositions.count - 1 {
-                                Divider().foregroundColor(Color(red: 226/255, green: 232/255, blue: 240/255))
+                                Divider().foregroundColor(Theme.tileBorder)
                             }
                         }
                     }
@@ -221,19 +220,9 @@ struct TopPositionsTile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(
-            Group {
-                if colorScheme == .dark {
-                    Color(red: 30/255, green: 30/255, blue: 30/255)
-                } else {
-                    Color.white
-                }
-            }
-        )
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
-        .onChange(of: isConsolidated) { value in
-            viewModel.setConsolidation(enabled: value)
+        .dashboardTileBackground(cornerRadius: 16)
+        .onChange(of: isConsolidated) { _, newValue in
+            viewModel.setConsolidation(enabled: newValue)
         }
         .onAppear { viewModel.calculateTopPositions(db: dbManager, consolidated: isConsolidated) }
         .accessibilityElement(children: .combine)
@@ -271,7 +260,17 @@ struct ThemesOverviewTile: DashboardTile {
     static let iconName = "square.grid.2x2"
 
     var body: some View {
-        DashboardCard(title: Self.tileName) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(Self.tileName)
+                    .font(.system(size: 17, weight: .semibold))
+                Spacer()
+                if loading == false && !rows.isEmpty {
+                    Text("\(rows.count)")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Theme.primaryAccent)
+                }
+            }
             if loading {
                 ProgressView().frame(maxWidth: .infinity)
             } else if rows.isEmpty {
@@ -299,6 +298,8 @@ struct ThemesOverviewTile: DashboardTile {
                 .frame(maxHeight: 320)
             }
         }
+        .padding(DashboardTileLayout.tilePadding)
+        .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: load)
     }
 
@@ -355,8 +356,8 @@ struct ImageTile: DashboardTile {
             Color.gray.opacity(0.3)
                 .frame(height: 100)
                 .overlay(Image(systemName: "photo")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
+                    .font(.largeTitle)
+                    .foregroundColor(.gray))
                 .cornerRadius(4)
         }
         .accessibilityElement(children: .combine)
@@ -374,6 +375,9 @@ struct AllNotesTile: DashboardTile {
     @State private var search: String = ""
     @State private var pinnedFirst: Bool = true
     @State private var suggestions: [String] = []
+    @State private var selectedSuggestionId: String? = nil
+    @State private var tileFrame: CGRect = .zero
+    @State private var searchFieldFrame: CGRect = .zero
     @State private var editingTheme: PortfolioThemeUpdate?
     @State private var editingInstrument: PortfolioThemeAssetUpdate?
     @State private var themeNames: [Int: String] = [:]
@@ -396,21 +400,49 @@ struct AllNotesTile: DashboardTile {
                     .foregroundColor(Theme.primaryAccent)
             }
             HStack(spacing: 8) {
-                SearchDropdown(
-                    items: suggestions,
-                    text: $search,
+                let pickerItems = suggestionItems.map { suggestion in
+                    FloatingSearchPicker.Item(
+                        id: AnyHashable(suggestion.value),
+                        title: suggestion.value,
+                        subtitle: nil,
+                        searchText: suggestion.value
+                    )
+                }
+                FloatingSearchPicker(
                     placeholder: "Search notes",
-                    maxVisibleRows: 10,
-                    onSelectIndex: { idx in
-                        guard idx >= 0 && idx < suggestions.count else { return }
-                        search = suggestions[idx]
+                    items: pickerItems,
+                    selectedId: Binding<AnyHashable?>(
+                        get: { selectedSuggestionId.map { AnyHashable($0) } },
+                        set: { newValue in
+                            if let value = newValue as? String {
+                                selectedSuggestionId = value
+                                search = value
+                                load()
+                            } else {
+                                selectedSuggestionId = nil
+                                search = ""
+                                load()
+                                loadSuggestions()
+                            }
+                        }
+                    ),
+                    showsClearButton: true,
+                    emptyStateText: "No suggestions",
+                    query: $search,
+                    maxDropdownHeight: notesDropdownMaxHeight,
+                    onFieldFrameChange: { searchFieldFrame = $0 },
+                    onSelection: { _ in },
+                    onClear: {
+                        selectedSuggestionId = nil
+                        search = ""
                         load()
-                    }
+                        loadSuggestions()
+                    },
+                    onSubmit: { _ in load() },
+                    selectsFirstOnSubmit: false
                 )
                 .frame(minWidth: 260)
-                if !search.isEmpty {
-                    Button("Clear") { search = ""; load(); loadSuggestions() }.buttonStyle(.link)
-                }
+                .zIndex(1)
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
                     .onChange(of: pinnedFirst) { _, _ in load() }
@@ -454,15 +486,23 @@ struct AllNotesTile: DashboardTile {
                             Divider()
                         }
                     }
+                    .zIndex(0)
                 }
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 16)
         .onAppear { load(); loadSuggestions() }
-        .onChange(of: search) { _, _ in loadSuggestions() }
+        .onChange(of: search) { _, newValue in
+            loadSuggestions()
+            if newValue.isEmpty { selectedSuggestionId = nil }
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: NotesTileFramePreferenceKey.self, value: proxy.frame(in: .global))
+            }
+        )
+        .onPreferenceChange(NotesTileFramePreferenceKey.self) { tileFrame = $0 }
         .sheet(isPresented: $openAll) {
             AllNotesView().environmentObject(dbManager)
         }
@@ -507,16 +547,15 @@ struct AllNotesTile: DashboardTile {
             var seen = Set<String>()
             var sugg: [String] = []
             for t in theme.prefix(30) {
-                if !t.title.isEmpty && !seen.contains(t.title) { seen.insert(t.title); sugg.append(t.title) }
+                if !t.title.isEmpty, !seen.contains(t.title) { seen.insert(t.title); sugg.append(t.title) }
             }
             for u in instr.prefix(30) {
-                if !u.title.isEmpty && !seen.contains(u.title) { seen.insert(u.title); sugg.append(u.title) }
+                if !u.title.isEmpty, !seen.contains(u.title) { seen.insert(u.title); sugg.append(u.title) }
             }
             DispatchQueue.main.async { self.suggestions = sugg }
         }
     }
 
-    
     private func openEditor(_ row: Row) {
         if row.id.hasPrefix("t-") {
             if let id = Int(row.id.dropFirst(2)), let upd = dbManager.getThemeUpdate(id: id) {
@@ -529,7 +568,31 @@ struct AllNotesTile: DashboardTile {
         }
     }
 
-private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
+    private var suggestionItems: [NoteSuggestion] {
+        suggestions.map { NoteSuggestion(value: $0) }
+    }
+
+    private var notesDropdownMaxHeight: CGFloat? {
+        guard tileFrame != .zero, searchFieldFrame != .zero else { return nil }
+        let bottomLimit = tileFrame.maxY - 2
+        let dropdownGap: CGFloat = 6
+        let dropdownTop = searchFieldFrame.maxY + dropdownGap
+        return max(0, bottomLimit - dropdownTop)
+    }
+
+    private struct Row: Identifiable { let id: String; let title: String; let subtitle: String; let type: String; let when: String }
+}
+
+private struct NoteSuggestion: Identifiable {
+    let value: String
+    var id: String { value }
+}
+
+private struct NotesTileFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
 }
 
 struct MapTile: DashboardTile {
@@ -543,8 +606,8 @@ struct MapTile: DashboardTile {
             Color.gray.opacity(0.3)
                 .frame(height: 120)
                 .overlay(Image(systemName: "map")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray))
+                    .font(.largeTitle)
+                    .foregroundColor(.gray))
                 .cornerRadius(4)
         }
         .accessibilityElement(children: .combine)
@@ -622,9 +685,7 @@ struct MissingPricesTile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .dashboardTileBackground(cornerRadius: 16)
         .overlay(alignment: .leading) { Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2) }
         .onAppear(perform: load)
         .sheet(item: editBinding) { ident in
@@ -670,6 +731,7 @@ enum TileRegistry {
         TileInfo(id: CryptoTop5Tile.tileID, name: CryptoTop5Tile.tileName, icon: CryptoTop5Tile.iconName) { AnyView(CryptoTop5Tile()) },
         TileInfo(id: InstitutionsAUMTile.tileID, name: InstitutionsAUMTile.tileName, icon: InstitutionsAUMTile.iconName) { AnyView(InstitutionsAUMTile()) },
         TileInfo(id: UnusedInstrumentsTile.tileID, name: UnusedInstrumentsTile.tileName, icon: UnusedInstrumentsTile.iconName) { AnyView(UnusedInstrumentsTile()) },
+        TileInfo(id: UnthemedInstrumentsTile.tileID, name: UnthemedInstrumentsTile.tileName, icon: UnthemedInstrumentsTile.iconName) { AnyView(UnthemedInstrumentsTile()) },
         TileInfo(id: ThemesOverviewTile.tileID, name: ThemesOverviewTile.tileName, icon: ThemesOverviewTile.iconName) { AnyView(ThemesOverviewTile()) },
 
         TileInfo(id: CurrencyExposureTile.tileID, name: CurrencyExposureTile.tileName, icon: CurrencyExposureTile.iconName) { AnyView(CurrencyExposureTile()) },
@@ -681,7 +743,7 @@ enum TileRegistry {
         TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
         TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) },
         TileInfo(id: InstrumentDashboardTile.tileID, name: InstrumentDashboardTile.tileName, icon: InstrumentDashboardTile.iconName) { AnyView(InstrumentDashboardTile()) },
-        TileInfo(id: UpcomingAlertsTile.tileID, name: UpcomingAlertsTile.tileName, icon: UpcomingAlertsTile.iconName) { AnyView(UpcomingAlertsTile()) }
+        TileInfo(id: UpcomingAlertsTile.tileID, name: UpcomingAlertsTile.tileName, icon: UpcomingAlertsTile.iconName) { AnyView(UpcomingAlertsTile()) },
     ]
 
     static func view(for id: String) -> AnyView? {

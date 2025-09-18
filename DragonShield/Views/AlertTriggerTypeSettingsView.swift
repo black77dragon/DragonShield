@@ -50,23 +50,23 @@ struct AlertTriggerTypeSettingsView: View {
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canAdd)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             if let err = error { Text(err).foregroundColor(.red).font(.caption) }
             Text("Codes are lowercase and must be unique.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text("Order").font(.caption).foregroundColor(.secondary).frame(width: 60, alignment: .leading)
-                    Text("Code").font(.caption).foregroundColor(.secondary).frame(width: 160, alignment: .leading)
-                    Text("Display Name").font(.caption).foregroundColor(.secondary).frame(minWidth: 200, alignment: .leading)
-                    Text("Description").font(.caption).foregroundColor(.secondary).frame(minWidth: 260, alignment: .leading)
-                    Text("Requires Date").font(.caption).foregroundColor(.secondary).frame(width: 120, alignment: .center)
-                    Text("Active").font(.caption).foregroundColor(.secondary).frame(width: 80, alignment: .center)
-                    Spacer()
-                    Text("Actions").font(.caption).foregroundColor(.secondary)
+                    Text("Code").font(.caption).foregroundColor(.secondary).frame(width: 140, alignment: .leading)
+                    Text("Display Name").font(.caption).foregroundColor(.secondary).frame(minWidth: 180, alignment: .leading)
+                    Text("Description").font(.caption).foregroundColor(.secondary).frame(minWidth: 260, maxWidth: .infinity, alignment: .leading)
+                    Text("Requires Date").font(.caption).foregroundColor(.secondary).frame(width: 110, alignment: .center)
+                    Text("Active").font(.caption).foregroundColor(.secondary).frame(width: 70, alignment: .center)
+                    Text("Actions").font(.caption).foregroundColor(.secondary).frame(width: 160, alignment: .trailing)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 2)
 
                 List {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { _, row in
@@ -74,8 +74,11 @@ struct AlertTriggerTypeSettingsView: View {
                     }
                     .onMove(perform: moveRows)
                 }
-                .listStyle(.inset)
-                .frame(minHeight: 320)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 360)
+                .environment(\.defaultMinListRowHeight, 36)
+                .frame(maxWidth: .infinity)
             }
             .overlay(alignment: .bottomLeading) {
                 Text(info ?? "Drag the handle to reorder. Save to persist edits; Deactivate/Restore toggles availability.")
@@ -84,6 +87,7 @@ struct AlertTriggerTypeSettingsView: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .navigationTitle("Alert Trigger Types")
         .onAppear { load() }
 #if os(iOS)
@@ -190,15 +194,15 @@ struct AlertTriggerTypeSettingsView: View {
                 .frame(width: 28, alignment: .trailing)
             TextField("Code", text: binding.code)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 160)
+                .frame(width: 140)
                 .onSubmit { save(currentRow(row.id)) }
             TextField("Display name", text: binding.name)
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 200)
+                .frame(minWidth: 180)
                 .onSubmit { save(currentRow(row.id)) }
             TextField("Description", text: binding.desc)
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 220)
+                .frame(minWidth: 260, maxWidth: .infinity)
                 .onSubmit { save(currentRow(row.id)) }
             Toggle("", isOn: binding.requiresDate)
                 .labelsHidden()
@@ -209,7 +213,6 @@ struct AlertTriggerTypeSettingsView: View {
                 .labelsHidden()
                 .onChange(of: binding.active.wrappedValue) { _, _ in save(currentRow(row.id)) }
                 .frame(width: 40)
-            Spacer(minLength: 12)
             HStack(spacing: 8) {
                 Button("Save") { save(currentRow(row.id)) }
                 if row.active {
@@ -218,8 +221,10 @@ struct AlertTriggerTypeSettingsView: View {
                     Button("Restore") { restore(row) }
                 }
             }
+            .frame(width: 150, alignment: .trailing)
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func currentRow(_ id: Int) -> AlertTriggerTypeRow {
