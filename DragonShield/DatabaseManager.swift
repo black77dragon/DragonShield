@@ -50,6 +50,11 @@ class DatabaseManager: ObservableObject {
     @Published var iosSnapshotFrequency: String = "daily"
     /// Destination folder for iOS snapshot export
     @Published var iosSnapshotTargetPath: String = ""
+    // Table view personalisation
+    @Published var institutionsTableFontSize: String = "medium"
+    @Published var institutionsTableColumnFractions: [String: Double] = [:]
+    @Published var instrumentsTableFontSize: String = "medium"
+    @Published var instrumentsTableColumnFractions: [String: Double] = [:]
     // Last trade error for UI feedback
     @Published var lastTradeErrorMessage: String? = nil
 

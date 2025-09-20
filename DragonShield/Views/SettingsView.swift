@@ -9,7 +9,6 @@ struct SettingsView: View {
     @EnvironmentObject var runner: HealthCheckRunner
 
     @AppStorage(UserDefaultsKeys.enableParsingCheckpoints) private var enableParsingCheckpoints: Bool = false
-    @AppStorage("runStartupHealthChecks") private var runStartupHealthChecks: Bool = true
     @AppStorage("coingeckoPreferFree") private var coingeckoPreferFree: Bool = false
     @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
 
@@ -25,13 +24,9 @@ struct SettingsView: View {
     @State private var cgResultMessage: String = ""
 
     // FX auto-update settings
-    @State private var fxAutoEnabled: Bool = true
-    @State private var fxFrequency: String = "daily"
     @State private var fxLastSummary: String = ""
 
     // iOS snapshot settings
-    @State private var iosAutoEnabled: Bool = true
-    @State private var iosFrequency: String = "daily"
     @State private var iosTargetPath: String = ""
     @State private var iosStatus: String = ""
 
@@ -57,7 +52,6 @@ struct SettingsView: View {
                             Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
                                     value: Binding(get: { dbManager.decimalPrecision }, set: { _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\($0)") }), in: 0 ... 8)
                             Divider().padding(.vertical, 2)
-                            Toggle("Run Health Checks on Startup", isOn: $runStartupHealthChecks)
                             Toggle("Show \"Incoming Deadlines\" pop-up every time Dashboard opens", isOn: $showIncomingDeadlinesEveryVisit)
                             HStack {
                                 Text("Last Result").frame(width: 160, alignment: .leading)
@@ -91,20 +85,30 @@ struct SettingsView: View {
 
                     HStack(alignment: .top, spacing: 16) {
                         CardSection(title: "FX Updates") {
-                            Toggle("Auto-update on Launch", isOn: $fxAutoEnabled)
-                                .onChange(of: fxAutoEnabled) { _, newValue in
+                            Toggle("Auto-update on Launch", isOn: Binding(
+                                get: { dbManager.fxAutoUpdateEnabled },
+                                set: { newValue in
+                                    guard dbManager.fxAutoUpdateEnabled != newValue else { return }
+                                    dbManager.fxAutoUpdateEnabled = newValue
                                     _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                                    updateFxStatus()
                                 }
+                            ))
+                            .toggleStyle(.switch)
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
-                                Picker("", selection: $fxFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
-                                    .pickerStyle(.segmented)
-                                    .frame(width: 240)
-                                    .onChange(of: fxFrequency) { _, newValue in
-                                        let v = (newValue == "weekly") ? "weekly" : "daily"
-                                        _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: v, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
+                                Picker("", selection: Binding(
+                                    get: { dbManager.fxUpdateFrequency },
+                                    set: { newValue in
+                                        let value = (newValue == "weekly") ? "weekly" : "daily"
+                                        guard dbManager.fxUpdateFrequency != value else { return }
+                                        dbManager.fxUpdateFrequency = value
+                                        _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: value, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
                                         updateFxStatus()
                                     }
+                                )) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 240)
                                 Spacer()
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -116,20 +120,30 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
 
                         CardSection(title: "iOS Snapshot (DB Copy for iPhone app)") {
-                            Toggle("Auto-export on Launch", isOn: $iosAutoEnabled)
-                                .onChange(of: iosAutoEnabled) { _, newValue in
+                            Toggle("Create iOS DB Snapshot", isOn: Binding(
+                                get: { dbManager.iosSnapshotAutoEnabled },
+                                set: { newValue in
+                                    guard dbManager.iosSnapshotAutoEnabled != newValue else { return }
+                                    dbManager.iosSnapshotAutoEnabled = newValue
                                     _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                                    updateIOSStatus()
                                 }
+                            ))
+                            .toggleStyle(.switch)
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
-                                Picker("", selection: $iosFrequency) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
-                                    .pickerStyle(.segmented)
-                                    .frame(width: 240)
-                                    .onChange(of: iosFrequency) { _, newValue in
-                                        let v = (newValue == "weekly") ? "weekly" : "daily"
-                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: v, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
+                                Picker("", selection: Binding(
+                                    get: { dbManager.iosSnapshotFrequency },
+                                    set: { newValue in
+                                        let value = (newValue == "weekly") ? "weekly" : "daily"
+                                        guard dbManager.iosSnapshotFrequency != value else { return }
+                                        dbManager.iosSnapshotFrequency = value
+                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: value, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
                                         updateIOSStatus()
                                     }
+                                )) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 240)
                                 Spacer()
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -182,16 +196,29 @@ struct SettingsView: View {
         .frame(minWidth: 600, idealWidth: 760, minHeight: 520)
         .onAppear {
             tempBaseCurrency = dbManager.baseCurrency
-            fxAutoEnabled = dbManager.fxAutoUpdateEnabled
-            fxFrequency = dbManager.fxUpdateFrequency
             updateFxStatus()
-            iosAutoEnabled = dbManager.iosSnapshotAutoEnabled
-            iosFrequency = dbManager.iosSnapshotFrequency
             iosTargetPath = dbManager.iosSnapshotTargetPath
             updateIOSStatus()
             #if DEBUG
                 GitInfoProvider.debugDump()
             #endif
+        }
+        .onChange(of: dbManager.fxAutoUpdateEnabled) { _, _ in
+            updateFxStatus()
+        }
+        .onChange(of: dbManager.fxUpdateFrequency) { _, _ in
+            updateFxStatus()
+        }
+        .onChange(of: dbManager.iosSnapshotAutoEnabled) { _, _ in
+            updateIOSStatus()
+        }
+        .onChange(of: dbManager.iosSnapshotFrequency) { _, _ in
+            updateIOSStatus()
+        }
+        .onChange(of: dbManager.iosSnapshotTargetPath) { _, newValue in
+            if iosTargetPath != newValue {
+                iosTargetPath = newValue
+            }
         }
         .sheet(isPresented: $showLogs) { LogViewerView().environmentObject(dbManager) }
         .alert("CoinGecko Test", isPresented: $showCGResult) {
@@ -302,7 +329,7 @@ extension SettingsView {
         }
 
         if let last = dbManager.fetchLastFxRateUpdate() {
-            let freq = fxFrequency.lowercased()
+            let freq = dbManager.fxUpdateFrequency.lowercased()
             let days = (freq == "weekly") ? 7 : 1
             let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
             var breakdown: [String] = []
@@ -318,7 +345,7 @@ extension SettingsView {
         }
 
         if parts.isEmpty {
-            fxLastSummary = "Never (auto-update \(fxAutoEnabled ? "enabled" : "disabled"))"
+            fxLastSummary = "Never (auto-update \(dbManager.fxAutoUpdateEnabled ? "enabled" : "disabled"))"
         } else {
             fxLastSummary = parts.joined(separator: " — ")
         }
@@ -328,7 +355,7 @@ extension SettingsView {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         let fmtDate = DateFormatter.iso8601DateOnly
         let fmtTime = DateFormatter(); fmtTime.dateFormat = "HH:mm"
-        let freq = iosFrequency.lowercased()
+        let freq = dbManager.iosSnapshotFrequency.lowercased()
         let days = (freq == "weekly") ? 7 : 1
         if let job = dbManager.fetchLastSystemJobRun(jobKey: .iosSnapshotExport) {
             let timestamp = job.finishedOrStarted

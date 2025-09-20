@@ -21,7 +21,9 @@ extension DatabaseManager {
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
                 'include_direct_re', 'direct_re_target_chf', 'db_version',
                 'fx_auto_update_enabled', 'fx_update_frequency',
-                'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path'
+                'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path',
+                'institutions_table_font', 'institutions_table_column_fractions',
+                'instruments_table_font', 'instruments_table_column_fractions'
             );
         """
         var statement: OpaquePointer?
@@ -77,6 +79,20 @@ extension DatabaseManager {
                         self.iosSnapshotFrequency = (v == "weekly" ? "weekly" : "daily")
                     case "ios_snapshot_target_path":
                         self.iosSnapshotTargetPath = value
+                    case "institutions_table_font":
+                        print("ℹ️ [config] Loaded institutions_table_font=\(value)")
+                        self.institutionsTableFontSize = value
+                    case "institutions_table_column_fractions":
+                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                        print("ℹ️ [config] Loaded institutions_table_column_fractions=\(parsed)")
+                        self.institutionsTableColumnFractions = parsed
+                    case "instruments_table_font":
+                        print("ℹ️ [config] Loaded instruments_table_font=\(value)")
+                        self.instrumentsTableFontSize = value
+                    case "instruments_table_column_fractions":
+                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                        print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
+                        self.instrumentsTableColumnFractions = parsed
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -95,7 +111,7 @@ extension DatabaseManager {
         var statement: OpaquePointer?
         
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare updateConfiguration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            print("❌ [config] Failed to prepare update for key \(key): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
         
@@ -105,34 +121,65 @@ extension DatabaseManager {
         
         let success = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
         if success {
-            print("✅ Configuration updated for key '\(key)' to value '\(value)'")
-            // Reload configuration to update @Published properties
-            // This ensures that if one part of the app updates config, others see it if observing DatabaseManager
-            let version = loadConfiguration()
-            DispatchQueue.main.async { self.dbVersion = version }
+            let changeCount = sqlite3_changes(db)
+            if changeCount > 0 {
+                print("💾 [config] Updated key \(key) to value=\(value)")
+                let version = loadConfiguration()
+                DispatchQueue.main.async { self.dbVersion = version }
+                return true
+            } else {
+                print("ℹ️ [config] No existing row for key \(key); update affected 0 rows")
+                return false
+            }
         } else {
-            print("❌ Failed to update configuration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            print("❌ [config] Failed to update key \(key): \(String(cString: sqlite3_errmsg(db)))")
+            return false
         }
-        return success
     }
 
     /// Insert or update a configuration key with explicit data type and optional description.
     /// Uses an UPSERT to create the key if it doesn't exist.
     func upsertConfiguration(key: String, value: String, dataType: String, description: String? = nil) -> Bool {
         let query = """
-            INSERT INTO Configuration (key, value, data_type, description, updated_at)
-            VALUES (?, ?, ?, COALESCE(?, description), CURRENT_TIMESTAMP)
+            INSERT INTO Configuration (key, value, data_type, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(key) DO UPDATE SET
                 value = excluded.value,
                 data_type = excluded.data_type,
-                description = COALESCE(excluded.description, Configuration.description),
                 updated_at = CURRENT_TIMESTAMP;
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare upsertConfiguration for key '\(key)': \(String(cString: sqlite3_errmsg(db)))")
+            let errorMessage = String(cString: sqlite3_errmsg(db))
+            print("❌ [config] Failed to prepare upsert for key \(key): \(errorMessage)")
+            return updateOrInsertConfigurationFallback(key: key, value: value, dataType: dataType)
+        }
+        defer { sqlite3_finalize(statement) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(statement, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 2, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(statement, 3, (dataType as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        let success = sqlite3_step(statement) == SQLITE_DONE
+        if success {
+            print("💾 [config] Upserted key \(key) value=\(value)")
+            let _ = loadConfiguration()
+        } else {
+            let errorMessage = String(cString: sqlite3_errmsg(db))
+            print("❌ [config] upsertConfiguration failed for key \(key): \(errorMessage)")
+        }
+        return success
+    }
+
+    private func updateOrInsertConfigurationFallback(key: String, value: String, dataType: String) -> Bool {
+        print("⚠️ [config] Falling back to manual update/insert for key \(key)")
+        if updateConfiguration(key: key, value: value) {
+            return true
+        }
+        let insertQuery = "INSERT INTO Configuration (key, value, data_type, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP);"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, insertQuery, -1, &statement, nil) == SQLITE_OK else {
+            print("❌ [config] Fallback insert prepare failed for key \(key): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
         defer { sqlite3_finalize(statement) }
@@ -140,9 +187,13 @@ extension DatabaseManager {
         sqlite3_bind_text(statement, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 2, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 3, (dataType as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        if let d = description { sqlite3_bind_text(statement, 4, (d as NSString).utf8String, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(statement, 4) }
         let success = sqlite3_step(statement) == SQLITE_DONE
-        if success { let _ = loadConfiguration() } else { print("❌ upsertConfiguration failed for key '\(key)': \(String(cString: sqlite3_errmsg(db)))") }
+        if success {
+            print("💾 [config] Inserted key \(key) via fallback")
+            let _ = loadConfiguration()
+        } else {
+            print("❌ [config] Fallback insert failed for key \(key): \(String(cString: sqlite3_errmsg(db)))")
+        }
         return success
     }
 
@@ -151,5 +202,78 @@ extension DatabaseManager {
         let version = loadConfiguration()
         DispatchQueue.main.async { self.dbVersion = version }
         NotificationCenter.default.post(name: NSNotification.Name("DatabaseForceReloaded"), object: nil)
+    }
+
+    // MARK: - Table Preference Helpers
+
+    private static func decodeFractionDictionary(from json: String) -> [String: Double] {
+        guard let data = json.data(using: .utf8),
+              let raw = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+            return [:]
+        }
+        var result: [String: Double] = [:]
+        for (key, value) in raw {
+            if let number = value as? NSNumber {
+                result[key] = number.doubleValue
+            } else if let string = value as? String, let doubleValue = Double(string) {
+                result[key] = doubleValue
+            }
+        }
+        return result
+    }
+
+    private static func encodeFractionDictionary(_ dictionary: [String: Double]) -> String? {
+        guard JSONSerialization.isValidJSONObject(dictionary) else { return nil }
+        guard let data = try? JSONSerialization.data(withJSONObject: dictionary, options: [.sortedKeys]) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func normaliseFractionsForStorage(_ dictionary: [String: Double]) -> [String: Double] {
+        dictionary.reduce(into: [String: Double]()) { partialResult, element in
+            guard element.value.isFinite else { return }
+            let clamped = max(0.0, element.value)
+            let rounded = (clamped * 10_000).rounded() / 10_000
+            partialResult[element.key] = rounded
+        }
+    }
+
+    func setInstitutionsTableFontSize(_ value: String) {
+        guard institutionsTableFontSize != value else { return }
+        print("📝 [config] Request to store institutions_table_font=\(value)")
+        _ = upsertConfiguration(key: "institutions_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Institutions table")
+    }
+
+    func setInstitutionsTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard institutionsTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store institutions_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "institutions_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Institutions table")
+    }
+
+    func setInstrumentsTableFontSize(_ value: String) {
+        guard instrumentsTableFontSize != value else { return }
+        print("📝 [config] Request to store instruments_table_font=\(value)")
+        _ = upsertConfiguration(key: "instruments_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Instruments table")
+    }
+
+    func setInstrumentsTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard instrumentsTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store instruments_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "instruments_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Instruments table")
     }
 }

@@ -474,9 +474,7 @@ private struct TimelineDetailsTable: View {
                 tableColumn.maxWidth = column.maxWidth
                 tableColumn.width = parent.columnWidths.wrappedValue[column.rawValue] ?? column.defaultWidth
                 tableColumn.resizingMask = [.userResizingMask, .autoresizingMask]
-                if let cell = tableColumn.headerCell as? NSTableHeaderCell {
-                    cell.alignment = column.alignment
-                }
+                tableColumn.headerCell.alignment = column.alignment
                 return tableColumn
             }
 

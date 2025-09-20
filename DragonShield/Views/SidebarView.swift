@@ -19,6 +19,14 @@ struct SidebarView: View {
     @AppStorage("sidebar.showStaticData") private var showStaticData = true
     @AppStorage("sidebar.showSystem") private var showSystem = true
 
+    private var applicationStartupIconName: String {
+        if #available(macOS 13.0, iOS 16.0, *) {
+            return "rocket.fill"
+        } else {
+            return "paperplane.fill"
+        }
+    }
+
     var body: some View {
         List {
             DisclosureGroup("Overview", isExpanded: $showOverview) {
@@ -117,6 +125,10 @@ struct SidebarView: View {
             }
 
             DisclosureGroup("System", isExpanded: $showSystem) {
+                NavigationLink(destination: ApplicationStartupView()) {
+                    Label("Application Start Up", systemImage: applicationStartupIconName)
+                }
+
                 NavigationLink(destination: DataImportExportView()) {
                     Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
                 }

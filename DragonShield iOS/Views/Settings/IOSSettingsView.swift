@@ -18,6 +18,9 @@ struct IOSSettingsView: View {
     @AppStorage("ios.dashboard.tileOrder") private var tileOrderRaw: String = ""
     @State private var tileOrder: [String] = []
     @AppStorage("privacy.blurValues") private var privacyBlur: Bool = false
+    @AppStorage("ios.fontSizePreference") private var fontSizePreferenceRaw: String = FontSizePreference.standard.rawValue
+
+    private var fontSizePreference: FontSizePreference { FontSizePreference(rawValue: fontSizePreferenceRaw) ?? .standard }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -31,54 +34,64 @@ struct IOSSettingsView: View {
             }
             .padding(.top, 8)
             Form {
-            Section(header: Text("Privacy")) {
-                Toggle("Blur values (CHF)", isOn: $privacyBlur)
-            }
-            Section(header: Text("Dashboard Tiles")) {
-                Toggle("Total Value", isOn: $showTotalValue)
-                Toggle("Missing Prices", isOn: $showMissingPrices)
-                Toggle("Crypto Allocations", isOn: $showCryptoAlloc)
-                Toggle("Portfolio by Currency", isOn: $showCurrencyExposure)
-                Toggle("Upcoming Alerts", isOn: $showUpcomingAlerts)
-            }
-            Section(header: HStack { Text("Tile Order"); Spacer(); EditButton() }) {
-                // Reorderable list of tiles
-                List {
-                    ForEach(tileOrder, id: \.self) { id in
-                        Text(tileName(for: id))
-                            .font(.subheadline)
-                            .padding(.vertical, 0)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
-                    }
-                    .onMove { indices, newOffset in
-                        tileOrder.move(fromOffsets: indices, toOffset: newOffset)
-                        persistTileOrder()
+                Section(header: Text("Privacy")) {
+                    Toggle("Blur values (CHF)", isOn: $privacyBlur)
+                }
+                Section(header: Text("Data Import")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Import SQLite snapshot exported from the Mac app.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Import Snapshot…") { showImporter = true }
+                        if !lastImportedPath.isEmpty {
+                            Text("Using: \(lastImportedPath)").font(.caption).foregroundColor(.secondary)
+                        }
                     }
                 }
-                .listStyle(.plain)
-                .environment(\.defaultMinListRowHeight, 28)
-                .frame(minHeight: 160)
-            }
-            Section(header: Text("Data Import")) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Import SQLite snapshot exported from the Mac app.")
+                Section(header: Text("Font Size")) {
+                    Picker("Font Size", selection: $fontSizePreferenceRaw) {
+                        ForEach(FontSizePreference.allCases) { option in
+                            Text(option.label).tag(option.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Text(fontSizePreference.description)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Button("Import Snapshot…") { showImporter = true }
+                }
+                Section(header: HStack { Text("Dashboard Tile Settings"); Spacer(); EditButton() }) {
+                    Toggle("Total Value", isOn: $showTotalValue)
+                    Toggle("Missing Prices", isOn: $showMissingPrices)
+                    Toggle("Crypto Allocations", isOn: $showCryptoAlloc)
+                    Toggle("Portfolio by Currency", isOn: $showCurrencyExposure)
+                    Toggle("Upcoming Alerts", isOn: $showUpcomingAlerts)
+
+                    // Reorderable list of tiles
+                    List {
+                        ForEach(tileOrder, id: \.self) { id in
+                            Text(tileName(for: id))
+                                .font(.subheadline)
+                                .padding(.vertical, 0)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
+                        }
+                        .onMove { indices, newOffset in
+                            tileOrder.move(fromOffsets: indices, toOffset: newOffset)
+                            persistTileOrder()
+                        }
+                    }
+                    .listStyle(.plain)
+                    .environment(\.defaultMinListRowHeight, 28)
+                    .frame(minHeight: 160)
+                }
+                Section(header: Text("About")) {
+                    Text("DB Version: \(dbManager.dbVersion)")
+                    if let created = dbManager.dbCreated { Text("Created: \(created.description)") }
+                    if let modified = dbManager.dbModified { Text("Modified: \(modified.description)") }
                     if !lastImportedPath.isEmpty {
-                        Text("Using: \(lastImportedPath)").font(.caption).foregroundColor(.secondary)
+                        Text("Snapshot: \(lastImportedPath) (") + Text("\(lastImportedSize)").monospacedDigit() + Text(" bytes)")
                     }
                 }
-            }
-            Section(header: Text("About")) {
-                Text("DB Version: \(dbManager.dbVersion)")
-                if let created = dbManager.dbCreated { Text("Created: \(created.description)") }
-                if let modified = dbManager.dbModified { Text("Modified: \(modified.description)") }
-                if !lastImportedPath.isEmpty {
-                    Text("Snapshot: \(lastImportedPath) (") + Text("\(lastImportedSize)").monospacedDigit() + Text(" bytes)")
-                }
-            }
             }
         }
         .navigationTitle("Settings")
@@ -177,3 +190,35 @@ struct IOSSettingsView: View {
     }
 }
 #endif
+
+enum FontSizePreference: String, CaseIterable, Identifiable {
+    case compact
+    case standard
+    case expanded
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .compact: return "Small"
+        case .standard: return "Default"
+        case .expanded: return "Large"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .compact: return "Use a tighter font size across the app."
+        case .standard: return "Use the standard font size."
+        case .expanded: return "Use a larger font size for improved readability."
+        }
+    }
+
+    var dynamicTypeSize: DynamicTypeSize {
+        switch self {
+        case .compact: return .medium
+        case .standard: return .large
+        case .expanded: return .xLarge
+        }
+    }
+}

@@ -1,8 +1,36 @@
 import SwiftUI
+import Foundation
+#if os(macOS)
+import AppKit
+#endif
+
+fileprivate struct TableFontConfig {
+    let nameSize: CGFloat
+    let secondarySize: CGFloat
+    let headerSize: CGFloat
+    let badgeSize: CGFloat
+}
+
+private enum InstrumentTableColumn: String, CaseIterable, Codable {
+    case name, type, currency, symbol, valor, isin, notes
+
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .type: return "Type"
+        case .currency: return "$£"
+        case .symbol: return "Ticker"
+        case .valor: return "Valor"
+        case .isin: return "ISIN"
+        case .notes: return ""
+        }
+    }
+}
 
 // MARK: - Main Portfolio View
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
+    @EnvironmentObject var dbManager: DatabaseManager
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -15,9 +43,67 @@ struct PortfolioView: View {
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
     @State private var showUnusedReport = false
+    @State private var columnFractions: [InstrumentTableColumn: CGFloat]
+    @State private var resolvedColumnWidths: [InstrumentTableColumn: CGFloat]
+    @State private var visibleColumns: Set<InstrumentTableColumn>
+    @State private var selectedFontSize: TableFontSize
+    @State private var didRestoreColumnFractions = false
+    @State private var availableTableWidth: CGFloat = 0
+    @State private var dragContext: ColumnDragContext? = nil
+    @State private var hasHydratedPreferences = false
+    @State private var isHydratingPreferences = false
+    private static let legacyColumnFractionsKey = "PortfolioView.instrumentColumnFractions.v2"
+    private static let visibleColumnsKey = "PortfolioView.visibleColumns.v1"
+    private static let legacyFontSizeKey = "PortfolioView.tableFontSize.v1"
+    private let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+
+    init() {
+        let defaults = PortfolioView.initialColumnFractions
+        _columnFractions = State(initialValue: defaults)
+        _resolvedColumnWidths = State(initialValue: PortfolioView.defaultColumnWidths)
+        let storedVisible = UserDefaults.standard.array(forKey: PortfolioView.visibleColumnsKey) as? [String]
+        if let storedVisible {
+            let set = Set(storedVisible.compactMap(InstrumentTableColumn.init(rawValue:)))
+            _visibleColumns = State(initialValue: set.isEmpty ? PortfolioView.defaultVisibleColumns : set)
+        } else {
+            _visibleColumns = State(initialValue: PortfolioView.defaultVisibleColumns)
+        }
+        _selectedFontSize = State(initialValue: .medium)
+    }
 
     enum SortColumn {
         case name, type, currency, symbol, valor, isin
+    }
+
+    private static let columnOrder: [InstrumentTableColumn] = [.name, .type, .currency, .symbol, .valor, .isin, .notes]
+    private static let defaultVisibleColumns: Set<InstrumentTableColumn> = Set(columnOrder)
+
+    private enum TableFontSize: String, CaseIterable {
+        case xSmall, small, medium, large, xLarge
+
+        var label: String {
+            switch self {
+            case .xSmall: return "XS"
+            case .small: return "S"
+            case .medium: return "M"
+            case .large: return "L"
+            case .xLarge: return "XL"
+            }
+        }
+
+        var baseSize: CGFloat {
+            switch self {
+            case .xSmall: return 12
+            case .small: return 13.5
+            case .medium: return 15
+            case .large: return 16.5
+            case .xLarge: return 18
+            }
+        }
+
+        var secondarySize: CGFloat { baseSize - 1 }
+        var badgeSize: CGFloat { baseSize - 2 }
+        var headerSize: CGFloat { baseSize - 1 }
     }
 
     // Animation states
@@ -47,6 +133,21 @@ struct PortfolioView: View {
         return result
     }
 
+    private var activeColumns: [InstrumentTableColumn] {
+        let set = visibleColumns.intersection(PortfolioView.columnOrder)
+        let ordered = PortfolioView.columnOrder.filter { set.contains($0) }
+        return ordered.isEmpty ? [.name] : ordered
+    }
+
+    private var fontConfig: TableFontConfig {
+        TableFontConfig(
+            nameSize: selectedFontSize.baseSize,
+            secondarySize: max(11, selectedFontSize.secondarySize),
+            headerSize: selectedFontSize.headerSize,
+            badgeSize: max(10, selectedFontSize.badgeSize)
+        )
+    }
+
     // Sorted assets based on selected column
     var sortedAssets: [DragonAsset] {
         filteredAssets.sorted { a, b in
@@ -65,6 +166,585 @@ struct PortfolioView: View {
                 return sortAscending ? (a.isin ?? "") < (b.isin ?? "") : (a.isin ?? "") > (b.isin ?? "")
             }
         }
+    }
+
+    private struct ColumnDragContext {
+        let primary: InstrumentTableColumn
+        let neighbor: InstrumentTableColumn
+        let primaryBaseWidth: CGFloat
+        let neighborBaseWidth: CGFloat
+    }
+
+    private struct TableWidthPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = nextValue()
+        }
+    }
+
+    private static let defaultColumnWidths: [InstrumentTableColumn: CGFloat] = [
+        .name: 280,
+        .type: 140,
+        .currency: 90,
+        .symbol: 120,
+        .valor: 110,
+        .isin: 160,
+        .notes: 40
+    ]
+
+    private static let minimumColumnWidths: [InstrumentTableColumn: CGFloat] = [
+        .name: 200,
+        .type: 110,
+        .currency: 80,
+        .symbol: 90,
+        .valor: 90,
+        .isin: 140,
+        .notes: 40
+    ]
+
+    private static let initialColumnFractions: [InstrumentTableColumn: CGFloat] = {
+        let total = defaultColumnWidths.values.reduce(0, +)
+        guard total > 0 else {
+            let fallback = 1.0 / CGFloat(InstrumentTableColumn.allCases.count)
+            return InstrumentTableColumn.allCases.reduce(into: [:]) { $0[$1] = fallback }
+        }
+        return InstrumentTableColumn.allCases.reduce(into: [:]) { result, column in
+            let width = defaultColumnWidths[column] ?? 0
+            result[column] = max(0.0001, width / total)
+        }
+    }()
+
+#if os(macOS)
+    private static let columnResizeCursor: NSCursor = {
+        let size = NSSize(width: 8, height: 24)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        let barWidth: CGFloat = 2
+        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+        NSColor.systemBlue.setFill()
+        barRect.fill()
+        image.unlockFocus()
+        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+    }()
+#endif
+
+    fileprivate static let columnHandleWidth: CGFloat = 10
+    fileprivate static let columnTextInset: CGFloat = 12
+
+    private func minimumWidth(for column: InstrumentTableColumn) -> CGFloat {
+        Self.minimumColumnWidths[column] ?? 60
+    }
+
+    private func width(for column: InstrumentTableColumn) -> CGFloat {
+        guard visibleColumns.contains(column) else { return 0 }
+        return resolvedColumnWidths[column] ?? Self.defaultColumnWidths[column] ?? minimumWidth(for: column)
+    }
+
+    private func totalMinimumWidth() -> CGFloat {
+        activeColumns.reduce(0) { $0 + minimumWidth(for: $1) }
+    }
+
+    private func persistColumnFractions() {
+        guard !isHydratingPreferences else {
+            print("ℹ️ [instruments] Skipping persistColumnFractions during hydration")
+            return
+        }
+        isHydratingPreferences = true
+        let payload = columnFractions.reduce(into: [String: Double]()) { result, entry in
+            guard entry.value.isFinite else { return }
+            result[entry.key.rawValue] = Double(entry.value)
+        }
+        print("💾 [instruments] Persisting column fractions: \(payload)")
+        dbManager.setInstrumentsTableColumnFractions(payload)
+        DispatchQueue.main.async { isHydratingPreferences = false }
+    }
+
+    private func restoreColumnFractions() {
+        if restoreFromStoredColumnFractions(dbManager.instrumentsTableColumnFractions) {
+            print("📥 [instruments] Applied stored column fractions from configuration table")
+            return
+        }
+
+        if let legacy = legacyColumnFractionDictionary() {
+            columnFractions = normalizedFractions(legacy)
+            let storage = legacy.reduce(into: [String: Double]()) { result, entry in
+                result[entry.key.rawValue] = Double(entry.value)
+            }
+            dbManager.setInstrumentsTableColumnFractions(storage)
+            UserDefaults.standard.removeObject(forKey: PortfolioView.legacyColumnFractionsKey)
+            print("♻️ [instruments] Migrated legacy column fractions to configuration table")
+            return
+        }
+
+        columnFractions = defaultFractions()
+        print("ℹ️ [instruments] Using default column fractions")
+    }
+
+    @discardableResult
+    private func restoreFromStoredColumnFractions(_ stored: [String: Double]) -> Bool {
+        guard !stored.isEmpty else {
+            print("⚠️ [instruments] Stored column fractions empty")
+            return false
+        }
+        let restored = stored.reduce(into: [InstrumentTableColumn: CGFloat]()) { result, entry in
+            guard let column = InstrumentTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
+            let fraction = max(0, entry.value)
+            if fraction > 0 {
+                result[column] = CGFloat(fraction)
+            }
+        }
+        guard !restored.isEmpty else {
+            print("⚠️ [instruments] Stored column fractions all zero")
+            return false
+        }
+        columnFractions = normalizedFractions(restored)
+        print("🎯 [instruments] Restored column fractions: \(restored)")
+        return true
+    }
+
+    private func legacyColumnFractionDictionary() -> [InstrumentTableColumn: CGFloat]? {
+        let defaults = UserDefaults.standard
+        var restored: [InstrumentTableColumn: CGFloat] = [:]
+
+        if let dictionary = defaults.dictionary(forKey: PortfolioView.legacyColumnFractionsKey) {
+            for (key, value) in dictionary {
+                guard let column = InstrumentTableColumn(rawValue: key) else { continue }
+                if let parsed = parseLegacyFraction(value) {
+                    restored[column] = max(0, CGFloat(parsed))
+                }
+            }
+        } else if let raw = defaults.string(forKey: PortfolioView.legacyColumnFractionsKey) {
+            for part in raw.split(separator: ",") {
+                let pieces = part.split(separator: ":", maxSplits: 1)
+                guard pieces.count == 2,
+                      let column = InstrumentTableColumn(rawValue: String(pieces[0])),
+                      let parsed = parseLegacyFraction(String(pieces[1])) else { continue }
+                restored[column] = max(0, CGFloat(parsed))
+            }
+        }
+
+        if restored.isEmpty {
+            print("ℹ️ [instruments] No legacy column fractions found")
+            return nil
+        }
+        print("📦 [instruments] Loaded legacy column fractions: \(restored)")
+        return restored
+    }
+
+    private func parseLegacyFraction(_ value: Any) -> Double? {
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+        let trimmed: String?
+        if let string = value as? String {
+            trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            trimmed = nil
+        }
+        guard let candidate = trimmed, !candidate.isEmpty else { return nil }
+        if let direct = Double(candidate) { return direct }
+        let formatters: [NumberFormatter] = {
+            let enFormatter = NumberFormatter()
+            enFormatter.locale = Locale(identifier: "en_US_POSIX")
+            enFormatter.numberStyle = .decimal
+
+            let currentFormatter = NumberFormatter()
+            currentFormatter.locale = Locale.current
+            currentFormatter.numberStyle = .decimal
+
+            return [enFormatter, currentFormatter]
+        }()
+        for formatter in formatters {
+            if let number = formatter.number(from: candidate) {
+                return number.doubleValue
+            }
+        }
+        let normalized = candidate.replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
+    }
+
+    private func hydratePreferencesIfNeeded() {
+        guard !hasHydratedPreferences else { return }
+        hasHydratedPreferences = true
+        isHydratingPreferences = true
+
+        migrateLegacyFontIfNeeded()
+
+        if let storedSize = TableFontSize(rawValue: dbManager.instrumentsTableFontSize) {
+            print("📥 [instruments] Applying stored font size: \(storedSize.rawValue)")
+            selectedFontSize = storedSize
+        }
+
+        DispatchQueue.main.async { isHydratingPreferences = false }
+    }
+
+    private func migrateLegacyFontIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let legacy = defaults.string(forKey: PortfolioView.legacyFontSizeKey) else { return }
+        if dbManager.instrumentsTableFontSize != legacy {
+            print("♻️ [instruments] Migrating legacy font size \(legacy) to configuration table")
+            dbManager.setInstrumentsTableFontSize(legacy)
+        }
+        defaults.removeObject(forKey: PortfolioView.legacyFontSizeKey)
+    }
+
+    private func defaultFractions() -> [InstrumentTableColumn: CGFloat] {
+        normalizedFractions(PortfolioView.initialColumnFractions)
+    }
+
+    private func normalizedFractions(_ input: [InstrumentTableColumn: CGFloat]? = nil) -> [InstrumentTableColumn: CGFloat] {
+        let source = input ?? columnFractions
+        let active = activeColumns
+        var result: [InstrumentTableColumn: CGFloat] = [:]
+        guard !active.isEmpty else {
+            for column in PortfolioView.columnOrder { result[column] = 0 }
+            return result
+        }
+        let total = active.reduce(0) { $0 + max(0, source[$1] ?? 0) }
+        if total <= 0 {
+            let share = 1.0 / CGFloat(active.count)
+            for column in PortfolioView.columnOrder {
+                result[column] = active.contains(column) ? share : 0
+            }
+            return result
+        }
+        for column in PortfolioView.columnOrder {
+            if active.contains(column) {
+                result[column] = max(0.0001, source[column] ?? 0) / total
+            } else {
+                result[column] = 0
+            }
+        }
+        return result
+    }
+
+    private func instrumentColumn(for sortColumn: SortColumn) -> InstrumentTableColumn {
+        switch sortColumn {
+        case .name: return .name
+        case .type: return .type
+        case .currency: return .currency
+        case .symbol: return .symbol
+        case .valor: return .valor
+        case .isin: return .isin
+        }
+    }
+
+    private func sortOption(for column: InstrumentTableColumn) -> SortColumn? {
+        switch column {
+        case .name: return .name
+        case .type: return .type
+        case .currency: return .currency
+        case .symbol: return .symbol
+        case .valor: return .valor
+        case .isin: return .isin
+        case .notes: return nil
+        }
+    }
+
+    private func filterBinding(for column: InstrumentTableColumn) -> Binding<Set<String>>? {
+        switch column {
+        case .type:
+            return $typeFilters
+        case .currency:
+            return $currencyFilters
+        default:
+            return nil
+        }
+    }
+
+    private func filterValues(for column: InstrumentTableColumn) -> [String] {
+        switch column {
+        case .type:
+            return Array(Set(assetManager.assets.map { $0.type })).sorted()
+        case .currency:
+            return Array(Set(assetManager.assets.map { $0.currency })).sorted()
+        default:
+            return []
+        }
+    }
+
+    private func isLastActiveColumn(_ column: InstrumentTableColumn) -> Bool {
+        activeColumns.last == column
+    }
+
+    private func leadingHandleTarget(for column: InstrumentTableColumn) -> InstrumentTableColumn? {
+        let columns = activeColumns
+        guard let index = columns.firstIndex(of: column) else { return nil }
+        if index == 0 {
+            return column
+        }
+        return columns[index - 1]
+    }
+
+    private func resizeHandle(for column: InstrumentTableColumn) -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: Self.columnHandleWidth, height: 24)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+#if os(macOS)
+                        PortfolioView.columnResizeCursor.set()
+#endif
+                        guard availableTableWidth > 0 else { return }
+                        if dragContext?.primary != column {
+                            beginDrag(for: column)
+                        }
+                        updateDrag(for: column, translation: value.translation.width)
+                    }
+                    .onEnded { _ in
+                        finalizeDrag()
+#if os(macOS)
+                        NSCursor.arrow.set()
+#endif
+                    }
+            )
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 0.5)
+                    .fill(Color.gray.opacity(0.8))
+                    .frame(width: 2, height: 22)
+            }
+            .padding(.vertical, 2)
+            .background(Color.clear)
+#if os(macOS)
+            .onHover { inside in
+                if inside {
+                    PortfolioView.columnResizeCursor.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+#endif
+    }
+
+    private func updateAvailableWidth(_ width: CGFloat) {
+        let targetWidth = max(width, totalMinimumWidth())
+        guard targetWidth.isFinite, targetWidth > 0 else { return }
+        print("📏 [instruments] updateAvailableWidth(width=\(width), target=\(targetWidth))")
+
+        if !didRestoreColumnFractions {
+            restoreColumnFractions()
+            didRestoreColumnFractions = true
+        }
+
+        if abs(availableTableWidth - targetWidth) < 0.5 { return }
+
+        availableTableWidth = targetWidth
+        print("📏 [instruments] Stored availableTableWidth=\(availableTableWidth)")
+        adjustResolvedWidths(for: targetWidth)
+        persistColumnFractions()
+    }
+
+    private func adjustResolvedWidths(for availableWidth: CGFloat) {
+        guard availableWidth > 0 else { return }
+        let fractions = normalizedFractions()
+        var remainingColumns = activeColumns
+        var remainingWidth = availableWidth
+        var remainingFraction = remainingColumns.reduce(0) { $0 + (fractions[$1] ?? 0) }
+        var resolved: [InstrumentTableColumn: CGFloat] = [:]
+
+        while !remainingColumns.isEmpty {
+            var clampedColumns: [InstrumentTableColumn] = []
+            for column in remainingColumns {
+                let fraction = fractions[column] ?? 0
+                guard fraction > 0 else { continue }
+                let proposed = remainingFraction > 0 ? remainingWidth * fraction / remainingFraction : 0
+                let minWidth = minimumWidth(for: column)
+                if proposed < minWidth - 0.5 {
+                    resolved[column] = minWidth
+                    remainingWidth = max(0, remainingWidth - minWidth)
+                    remainingFraction -= fraction
+                    clampedColumns.append(column)
+                }
+            }
+            if clampedColumns.isEmpty { break }
+            remainingColumns.removeAll { clampedColumns.contains($0) }
+            if remainingFraction <= 0 { break }
+        }
+
+        if !remainingColumns.isEmpty {
+            if remainingFraction > 0 {
+                for column in remainingColumns {
+                    let fraction = fractions[column] ?? 0
+                    let share = remainingWidth * fraction / remainingFraction
+                    let minWidth = minimumWidth(for: column)
+                    resolved[column] = max(minWidth, share)
+                }
+            } else {
+                let share = remainingColumns.isEmpty ? 0 : remainingWidth / CGFloat(remainingColumns.count)
+                for column in remainingColumns {
+                    resolved[column] = max(minimumWidth(for: column), share)
+                }
+            }
+        }
+
+        balanceResolvedWidths(&resolved, targetWidth: availableWidth)
+        for column in PortfolioView.columnOrder {
+            if !visibleColumns.contains(column) {
+                resolved[column] = 0
+            } else if resolved[column] == nil {
+                resolved[column] = minimumWidth(for: column)
+            }
+        }
+        resolvedColumnWidths = resolved
+        print("📐 [instruments] Resolved column widths: \(resolvedColumnWidths)")
+
+        var updatedFractions: [InstrumentTableColumn: CGFloat] = [:]
+        let safeWidth = max(availableWidth, 1)
+        for column in PortfolioView.columnOrder {
+            let widthValue = resolved[column] ?? 0
+            updatedFractions[column] = max(0.0001, widthValue / safeWidth)
+        }
+        columnFractions = normalizedFractions(updatedFractions)
+    }
+
+    private func persistVisibleColumns() {
+        let ordered = PortfolioView.columnOrder.filter { visibleColumns.contains($0) }
+        UserDefaults.standard.set(ordered.map { $0.rawValue }, forKey: PortfolioView.visibleColumnsKey)
+    }
+
+    private func persistFontSize() {
+        guard !isHydratingPreferences else {
+            print("ℹ️ [instruments] Skipping persistFontSize during hydration")
+            return
+        }
+        isHydratingPreferences = true
+        print("💾 [instruments] Persisting font size: \(selectedFontSize.rawValue)")
+        dbManager.setInstrumentsTableFontSize(selectedFontSize.rawValue)
+        DispatchQueue.main.async { isHydratingPreferences = false }
+    }
+
+    private func ensureValidSortColumn() {
+        let currentColumn = instrumentColumn(for: sortColumn)
+        if !visibleColumns.contains(currentColumn) {
+            if let fallbackSort = activeColumns.compactMap(sortOption(for:)).first {
+                sortColumn = fallbackSort
+            } else {
+                sortColumn = .name
+            }
+        }
+    }
+
+    private func toggleColumn(_ column: InstrumentTableColumn) {
+        var newSet = visibleColumns
+        if newSet.contains(column) {
+            guard newSet.count > 1 else { return }
+            newSet.remove(column)
+        } else {
+            newSet.insert(column)
+        }
+        visibleColumns = newSet
+        persistVisibleColumns()
+        ensureValidSortColumn()
+        recalcColumnWidths()
+    }
+
+    private func resetVisibleColumns() {
+        visibleColumns = PortfolioView.defaultVisibleColumns
+        persistVisibleColumns()
+        ensureValidSortColumn()
+        recalcColumnWidths()
+    }
+
+    private func resetTablePreferences() {
+        visibleColumns = PortfolioView.defaultVisibleColumns
+        selectedFontSize = .medium
+        persistVisibleColumns()
+        persistFontSize()
+        ensureValidSortColumn()
+        recalcColumnWidths()
+    }
+
+    private func recalcColumnWidths() {
+        let width = max(availableTableWidth, totalMinimumWidth())
+        guard availableTableWidth > 0 else {
+            print("ℹ️ [instruments] Skipping recalcColumnWidths — available width not ready")
+            return
+        }
+        print("🔧 [instruments] Recalculating column layout with availableWidth=\(availableTableWidth)")
+        adjustResolvedWidths(for: width)
+        persistColumnFractions()
+    }
+
+    private func balanceResolvedWidths(_ resolved: inout [InstrumentTableColumn: CGFloat], targetWidth: CGFloat) {
+        let currentTotal = resolved.values.reduce(0, +)
+        let difference = targetWidth - currentTotal
+        guard abs(difference) > 0.5 else { return }
+
+        if difference > 0 {
+            if let column = activeColumns.first {
+                resolved[column, default: minimumWidth(for: column)] += difference
+            }
+        } else {
+            var remainingDifference = difference
+            var adjustable = activeColumns.filter {
+                let current = resolved[$0] ?? minimumWidth(for: $0)
+                return current - minimumWidth(for: $0) > 0.5
+            }
+
+            while remainingDifference < -0.5, !adjustable.isEmpty {
+                let share = remainingDifference / CGFloat(adjustable.count)
+                var columnsAtMinimum: [InstrumentTableColumn] = []
+                for column in adjustable {
+                    let minWidth = minimumWidth(for: column)
+                    let current = resolved[column] ?? minWidth
+                    let adjusted = max(minWidth, current + share)
+                    resolved[column] = adjusted
+                    remainingDifference -= (adjusted - current)
+                    if adjusted - minWidth < 0.5 {
+                        columnsAtMinimum.append(column)
+                    }
+                    if remainingDifference >= -0.5 { break }
+                }
+                adjustable.removeAll { columnsAtMinimum.contains($0) }
+                if adjustable.isEmpty { break }
+            }
+        }
+    }
+
+    private func beginDrag(for column: InstrumentTableColumn) {
+        guard let neighbor = neighborColumn(for: column) else { return }
+        let primaryWidth = resolvedColumnWidths[column] ?? (Self.defaultColumnWidths[column] ?? minimumWidth(for: column))
+        let neighborWidth = resolvedColumnWidths[neighbor] ?? (Self.defaultColumnWidths[neighbor] ?? minimumWidth(for: neighbor))
+        dragContext = ColumnDragContext(primary: column, neighbor: neighbor, primaryBaseWidth: primaryWidth, neighborBaseWidth: neighborWidth)
+    }
+
+    private func updateDrag(for column: InstrumentTableColumn, translation: CGFloat) {
+        guard let context = dragContext, context.primary == column else { return }
+        let totalWidth = max(availableTableWidth, 1)
+        let minPrimary = minimumWidth(for: context.primary)
+        let minNeighbor = minimumWidth(for: context.neighbor)
+        let combined = context.primaryBaseWidth + context.neighborBaseWidth
+
+        var newPrimary = context.primaryBaseWidth + translation
+        let maximumPrimary = combined - minNeighbor
+        newPrimary = min(max(newPrimary, minPrimary), maximumPrimary)
+        let newNeighbor = combined - newPrimary
+
+        var updatedFractions = columnFractions
+        updatedFractions[context.primary] = max(0.0001, newPrimary / totalWidth)
+        updatedFractions[context.neighbor] = max(0.0001, newNeighbor / totalWidth)
+        columnFractions = normalizedFractions(updatedFractions)
+        adjustResolvedWidths(for: totalWidth)
+    }
+
+    private func finalizeDrag() {
+        dragContext = nil
+        persistColumnFractions()
+    }
+
+    private func neighborColumn(for column: InstrumentTableColumn) -> InstrumentTableColumn? {
+        let columns = activeColumns
+        guard let index = columns.firstIndex(of: column) else { return nil }
+        if index < columns.count - 1 {
+            return columns[index + 1]
+        } else if index > 0 {
+            return columns[index - 1]
+        }
+        return nil
     }
     
     var body: some View {
@@ -92,8 +772,35 @@ struct PortfolioView: View {
             }
         }
         .onAppear {
+            hydratePreferencesIfNeeded()
             assetManager.loadAssets()
             animateEntrance()
+            if !didRestoreColumnFractions {
+                restoreColumnFractions()
+                didRestoreColumnFractions = true
+                recalcColumnWidths()
+            }
+        }
+        .onChange(of: selectedFontSize) { _ in
+            persistFontSize()
+        }
+        .onReceive(dbManager.$instrumentsTableFontSize) { newValue in
+            guard !isHydratingPreferences, let size = TableFontSize(rawValue: newValue), size != selectedFontSize else { return }
+            isHydratingPreferences = true
+            print("📥 [instruments] Received font size update from configuration: \(newValue)")
+            selectedFontSize = size
+            DispatchQueue.main.async { isHydratingPreferences = false }
+        }
+        .onReceive(dbManager.$instrumentsTableColumnFractions) { newValue in
+            guard !isHydratingPreferences else { return }
+            isHydratingPreferences = true
+            print("📥 [instruments] Received column fractions from configuration: \(newValue)")
+            let restored = restoreFromStoredColumnFractions(newValue)
+            if restored {
+                didRestoreColumnFractions = true
+                recalcColumnWidths()
+            }
+            DispatchQueue.main.async { isHydratingPreferences = false }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshPortfolio"))) { _ in
             assetManager.loadAssets()
@@ -247,7 +954,8 @@ struct PortfolioView: View {
     
     // MARK: - Instruments Content
     private var instrumentsContent: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
+            tableControls
             if sortedAssets.isEmpty {
                 emptyStateView
             } else {
@@ -256,6 +964,49 @@ struct PortfolioView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
+    }
+
+    private var tableControls: some View {
+        HStack(spacing: 12) {
+            columnsMenu
+            fontSizePicker
+            Spacer()
+            if visibleColumns != PortfolioView.defaultVisibleColumns || selectedFontSize != .medium {
+                Button("Reset View", action: resetTablePreferences)
+                    .buttonStyle(.link)
+            }
+        }
+        .padding(.horizontal, 4)
+        .font(.system(size: 12))
+    }
+
+    private var columnsMenu: some View {
+        Menu {
+            ForEach(PortfolioView.columnOrder, id: \.self) { column in
+                let isVisible = visibleColumns.contains(column)
+                Button {
+                    toggleColumn(column)
+                } label: {
+                    Label(column.title, systemImage: isVisible ? "checkmark" : "")
+                }
+                .disabled(isVisible && visibleColumns.count == 1)
+            }
+            Divider()
+            Button("Reset Columns", action: resetVisibleColumns)
+        } label: {
+            Label("Columns", systemImage: "slider.horizontal.3")
+        }
+    }
+
+    private var fontSizePicker: some View {
+        Picker("Font Size", selection: $selectedFontSize) {
+            ForEach(TableFontSize.allCases, id: \.self) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 260)
+        .labelsHidden()
     }
     
     // MARK: - Empty State
@@ -306,122 +1057,150 @@ struct PortfolioView: View {
     
     // MARK: - Instruments Table
     private var instrumentsTable: some View {
-        VStack(spacing: 0) {
-            // Table header
-            modernTableHeader
-            
-            // Table content
-            ScrollView {
-                LazyVStack(spacing: 1) {
-                    ForEach(sortedAssets) { asset in
-                        ModernAssetRowView(
-                            asset: asset,
-                            isSelected: selectedAsset?.id == asset.id,
-                            onTap: {
-                                selectedAsset = asset
-                            },
-                            onEdit: {
-                                selectedAsset = asset
-                                showEditInstrumentSheet = true
-                            }
-                        )
-                    }
+        GeometryReader { proxy in
+            let availableWidth = max(proxy.size.width, 0)
+            let targetWidth = max(availableWidth, totalMinimumWidth())
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    modernTableHeader
+                    instrumentsTableRows
+                }
+                .frame(width: targetWidth, alignment: .leading)
+            }
+            .frame(width: availableWidth, alignment: .leading)
+            .onAppear {
+                updateAvailableWidth(targetWidth)
+            }
+            .onChange(of: proxy.size.width) { _, newWidth in
+                updateAvailableWidth(max(newWidth, totalMinimumWidth()))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 0)
+    }
+
+    private var instrumentsTableRows: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(sortedAssets) { asset in
+                    ModernAssetRowView(
+                        asset: asset,
+                        columns: activeColumns,
+                        fontConfig: fontConfig,
+                        isSelected: selectedAsset?.id == asset.id,
+                        onTap: {
+                            selectedAsset = asset
+                        },
+                        onEdit: {
+                            selectedAsset = asset
+                            showEditInstrumentSheet = true
+                        },
+                        widthFor: { width(for: $0) }
+                    )
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         }
+        .background(
+            Rectangle()
+                .fill(.regularMaterial)
+                .overlay(Rectangle().stroke(Color.gray.opacity(0.12), lineWidth: 1))
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
     
     // MARK: - Modern Table Header
     private var modernTableHeader: some View {
-        HStack {
-            headerCell(title: "Name", column: .name)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            headerCell(title: "Type", column: .type, filterValues: Array(Set(assetManager.assets.map(\.type))), filterSelection: $typeFilters)
-                .frame(width: 120, alignment: .leading)
-
-            headerCell(title: "Currency", column: .currency, filterValues: Array(Set(assetManager.assets.map(\.currency))), filterSelection: $currencyFilters)
-                .frame(width: 80, alignment: .leading)
-
-            headerCell(title: "Symbol", column: .symbol)
-                .frame(width: 100, alignment: .leading)
-
-            headerCell(title: "Valor", column: .valor)
-                .frame(width: 100, alignment: .leading)
-
-            headerCell(title: "ISIN", column: .isin)
-                .frame(width: 140, alignment: .leading)
-
-            Image(systemName: "note.text")
-                .frame(width: 32, alignment: .center)
-                .help("Notes")
+        HStack(spacing: 0) {
+            ForEach(activeColumns, id: \.self) { column in
+                headerCell(for: column)
+                    .frame(width: width(for: column), alignment: .leading)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.trailing, 12)
+        .padding(.vertical, 2)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.1))
+            Rectangle()
+                .fill(headerBackground)
+                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
         )
-        .padding(.bottom, 1)
+        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
 
-    private func headerCell(title: String, column: SortColumn, filterValues: [String] = [], filterSelection: Binding<Set<String>>? = nil) -> some View {
-        let sortedValues = filterValues.sorted { a, b in
-            if a == "—" { return false }
-            if b == "—" { return true }
-            return a.localizedCaseInsensitiveCompare(b) == .orderedAscending
-        }
+    private func headerCell(for column: InstrumentTableColumn) -> some View {
+        let leadingTarget = leadingHandleTarget(for: column)
+        let isLast = isLastActiveColumn(column)
+        let sortOption = sortOption(for: column)
+        let isActiveSort = sortOption.map { $0 == sortColumn } ?? false
+        let filterBinding = filterBinding(for: column)
+        let filterOptions = filterValues(for: column)
 
-        return HStack(spacing: 4) {
-            Button(action: {
-                if sortColumn == column {
-                    sortAscending.toggle()
-                } else {
-                    sortColumn = column
-                    sortAscending = true
-                }
-            }) {
-                HStack(spacing: 2) {
-                    Text(title)
-                    Image(systemName: sortColumn == column && sortAscending ? "arrow.up" : "arrow.down")
-                        .opacity(sortColumn == column ? 1 : 0.2)
-                        .font(.system(size: 9))
-                }
+        return ZStack(alignment: .leading) {
+            if let target = leadingTarget {
+                resizeHandle(for: target)
             }
-            .buttonStyle(PlainButtonStyle())
+            if isLast {
+                resizeHandle(for: column)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
 
-            if let binding = filterSelection {
-                Menu {
-                    ForEach(sortedValues, id: \.self) { val in
-                        Button(action: {
-                            if binding.wrappedValue.contains(val) {
-                                binding.wrappedValue.remove(val)
-                            } else {
-                                binding.wrappedValue.insert(val)
-                            }
-                        }) {
-                            Label(val, systemImage: binding.wrappedValue.contains(val) ? "checkmark" : "")
+            HStack(spacing: 6) {
+                if let sortOption {
+                    Button(action: {
+                        if isActiveSort {
+                            sortAscending.toggle()
+                        } else {
+                            sortColumn = sortOption
+                            sortAscending = true
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(column.title)
+                                .font(.system(size: fontConfig.headerSize, weight: .semibold))
+                                .foregroundColor(.black)
+                            Text(sortAscending ? "▲" : "▼")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(isActiveSort ? .accentColor : .clear)
+                                .accessibilityHidden(!isActiveSort)
                         }
                     }
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .opacity(binding.wrappedValue.isEmpty ? 0.3 : 1)
+                    .buttonStyle(.plain)
+                } else {
+                    Text(column.title)
+                        .font(.system(size: fontConfig.headerSize, weight: .semibold))
+                        .foregroundColor(.black)
                 }
-                .menuStyle(BorderlessButtonMenuStyle())
+
+                if let binding = filterBinding, !filterOptions.isEmpty {
+                    Menu {
+                        ForEach(filterOptions, id: \.self) { value in
+                            Button {
+                                if binding.wrappedValue.contains(value) {
+                                    binding.wrappedValue.remove(value)
+                                } else {
+                                    binding.wrappedValue.insert(value)
+                                }
+                            } label: {
+                                Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
+                    }
+                    .menuStyle(BorderlessButtonMenuStyle())
+                }
+
+                if column == .notes {
+                    Image(systemName: "note.text")
+                        .font(.system(size: fontConfig.headerSize, weight: .semibold))
+                        .foregroundColor(.black)
+                        .help("Notes")
+                }
             }
+            .padding(.leading, Self.columnTextInset + (leadingTarget == nil ? 0 : Self.columnHandleWidth))
+            .padding(.trailing, isLast ? Self.columnHandleWidth + 8 : 8)
         }
-        .font(.system(size: 14, weight: .semibold))
-        .foregroundColor(.gray)
     }
 
     private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
@@ -459,21 +1238,10 @@ struct PortfolioView: View {
                 Button {
                     showUnusedReport = true
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text.magnifyingglass")
-                        Text("Unused Instruments")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.blue)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                    )
+                    Label("Unused Instruments", systemImage: "doc.text.magnifyingglass")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(.borderedProminent)
+                .tint(.accentColor)
                 .accessibilityLabel("Open unused instruments report")
 
                 // Secondary actions
@@ -604,89 +1372,63 @@ struct PortfolioView: View {
 }
 
 // MARK: - Modern Asset Row
-struct ModernAssetRowView: View {
+fileprivate struct ModernAssetRowView: View {
     let asset: DragonAsset
+    fileprivate let columns: [InstrumentTableColumn]
+    fileprivate let fontConfig: TableFontConfig
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
+    fileprivate let widthFor: (InstrumentTableColumn) -> CGFloat
+
+    fileprivate init(
+        asset: DragonAsset,
+        columns: [InstrumentTableColumn],
+        fontConfig: TableFontConfig,
+        isSelected: Bool,
+        onTap: @escaping () -> Void,
+        onEdit: @escaping () -> Void,
+        widthFor: @escaping (InstrumentTableColumn) -> CGFloat
+    ) {
+        self.asset = asset
+        self.columns = columns
+        self.fontConfig = fontConfig
+        self.isSelected = isSelected
+        self.onTap = onTap
+        self.onEdit = onEdit
+        self.widthFor = widthFor
+    }
 
     var body: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Text(asset.name)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(asset.isDeleted ? .secondary : .primary)
-                if asset.isDeleted {
-                    Text("Soft-deleted")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.gray.opacity(0.12))
-                        .clipShape(Capsule())
-                        .help("This instrument is soft-deleted. Double-click to open and restore.")
-                }
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                columnView(for: column)
             }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text(asset.type)
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .frame(width: 120, alignment: .leading)
-            
-            Text(asset.currency)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Color.blue.opacity(0.1))
-                .clipShape(Capsule())
-                .frame(width: 80, alignment: .leading)
-            
-            Text(asset.tickerSymbol ?? "--")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .leading)
-
-            Text(asset.valorNr ?? "--")
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .leading)
-
-            Text(asset.isin ?? "--")
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .frame(width: 140, alignment: .leading)
-
-            NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
-                .frame(width: 32, alignment: .center)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.trailing, 12)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            Rectangle()
                 .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    Rectangle()
                         .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
+        .overlay(
+            Rectangle()
+                .fill(Color.black.opacity(0.06))
+                .frame(height: 1),
+            alignment: .bottom
+        )
         .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
-        .onTapGesture(count: 2) {
-            onEdit()
-        }
+        .onTapGesture { onTap() }
+        .onTapGesture(count: 2) { onEdit() }
         .contextMenu {
-            Button("Edit Instrument") {
-                onEdit()
-            }
-            Button("Select Instrument") {
-                onTap()
-            }
+            Button("Edit Instrument", action: onEdit)
+            Button("Select Instrument", action: onTap)
             Divider()
+#if os(macOS)
             Button("Copy Name") {
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
@@ -699,8 +1441,83 @@ struct ModernAssetRowView: View {
                     pasteboard.setString(isin, forType: .string)
                 }
             }
+#endif
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    @ViewBuilder
+    private func columnView(for column: InstrumentTableColumn) -> some View {
+        switch column {
+        case .name:
+            HStack(spacing: 6) {
+                Text(asset.name)
+                    .font(.system(size: fontConfig.nameSize, weight: .medium))
+                    .foregroundColor(asset.isDeleted ? .secondary : .primary)
+                if asset.isDeleted {
+                    Text("Soft-deleted")
+                        .font(.system(size: max(10, fontConfig.secondarySize - 1), weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.gray.opacity(0.12))
+                        .clipShape(Capsule())
+                        .help("This instrument is soft-deleted. Double-click to open and restore.")
+                }
+            }
+            .padding(.leading, PortfolioView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.name), alignment: .leading)
+            .onTapGesture(count: 2) {
+                onTap()
+                onEdit()
+            }
+        case .type:
+            Text(asset.type)
+                .font(.system(size: fontConfig.secondarySize))
+                .foregroundColor(.secondary)
+                .padding(.leading, PortfolioView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.type), alignment: .leading)
+        case .currency:
+            HStack {
+                Text(asset.currency)
+                    .font(.system(size: fontConfig.badgeSize, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+            .padding(.leading, PortfolioView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.currency), alignment: .leading)
+        case .symbol:
+            Text(asset.tickerSymbol ?? "--")
+                .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                .foregroundColor(.secondary)
+                .padding(.leading, PortfolioView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.symbol), alignment: .leading)
+        case .valor:
+            Text(asset.valorNr ?? "--")
+                .font(.system(size: fontConfig.secondarySize, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.leading, PortfolioView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.valor), alignment: .leading)
+        case .isin:
+            Text(asset.isin ?? "--")
+                .font(.system(size: fontConfig.secondarySize, design: .monospaced))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .padding(.leading, PortfolioView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.isin), alignment: .leading)
+        case .notes:
+            NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
+                .frame(width: widthFor(.notes), alignment: .center)
+        }
     }
 }
 
