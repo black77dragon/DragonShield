@@ -55,9 +55,15 @@ struct DragonShieldApp: App {
                 if AppConfiguration.runStartupHealthChecks() {
                     await healthRunner.runAll()
                 }
-                // Auto-update FX on launch if stale (Option 2)
-                let fxService = FXUpdateService(dbManager: databaseManager)
-                await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
+                // Auto-update FX on launch if enabled and stale (Option 2)
+                if databaseManager.fxAutoUpdateEnabled {
+                    let fxService = FXUpdateService(dbManager: databaseManager)
+                    await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
+                }
+
+                // Export iOS snapshot if the auto-export toggle is enabled and run is due
+                let iosSnapshotService = IOSSnapshotExportService(dbManager: databaseManager)
+                iosSnapshotService.autoExportOnLaunchIfDue()
                 ichimokuScheduler.start()
             }
         }

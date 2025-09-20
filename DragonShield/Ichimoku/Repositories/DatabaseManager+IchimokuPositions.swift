@@ -95,7 +95,7 @@ extension DatabaseManager {
                                       status: IchimokuPositionStatus,
                                       closedDate: Date? = nil) -> Bool {
         var sql = "UPDATE ichimoku_positions SET status = ?, updated_at = CURRENT_TIMESTAMP"
-        if let closedDate = closedDate {
+        if closedDate != nil {
             sql.append(", last_evaluated = ?")
         }
         sql.append(" WHERE position_id = ?")

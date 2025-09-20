@@ -79,6 +79,17 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 - Use dropdown selectors for Date, Asset, Type, etc.
 - Bulk actions (Import, Export) always bottom-aligned
 
+### Data Tables (macOS)
+- Instruments maintenance view sets the template for every data grid.
+- Always provide an inline search field with clear/reset affordance and a live result counter.
+- Include a `Columns` menu that lets users show/hide optional columns; remember at least one column must remain visible.
+- Offer a segmented `Font Size` control (XS–XL) and persist the selection via `UserDefaults`.
+- Make every sortable column header a button: tap toggles ASC/DESC and shows a blue triangle indicator next to the label.
+- Allow column resizing with draggable handles; persist fractional widths per column so the layout restores across launches.
+- Surface column-specific filters right inside the header (Type, Currency, Status, etc.) using the filter icon pattern.
+- Wrap the table in a horizontal scroll container; clamp minimum widths to avoid clipped content.
+- Empty states should mirror the instrument view: friendly illustration, actionable primary button, and context hint.
+
 ---
 
 ## ⚖️ Functional Modules
