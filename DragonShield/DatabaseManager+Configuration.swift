@@ -23,7 +23,9 @@ extension DatabaseManager {
                 'fx_auto_update_enabled', 'fx_update_frequency',
                 'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path',
                 'institutions_table_font', 'institutions_table_column_fractions',
-                'instruments_table_font', 'instruments_table_column_fractions'
+                'instruments_table_font', 'instruments_table_column_fractions',
+                'currencies_table_font', 'currencies_table_column_fractions',
+                'accounts_table_font', 'accounts_table_column_fractions'
             );
         """
         var statement: OpaquePointer?
@@ -93,6 +95,20 @@ extension DatabaseManager {
                         let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                         print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
                         self.instrumentsTableColumnFractions = parsed
+                    case "currencies_table_font":
+                        print("ℹ️ [config] Loaded currencies_table_font=\(value)")
+                        self.currenciesTableFontSize = value
+                    case "currencies_table_column_fractions":
+                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                        print("ℹ️ [config] Loaded currencies_table_column_fractions=\(parsed)")
+                        self.currenciesTableColumnFractions = parsed
+                    case "accounts_table_font":
+                        print("ℹ️ [config] Loaded accounts_table_font=\(value)")
+                        self.accountsTableFontSize = value
+                    case "accounts_table_column_fractions":
+                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                        print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
+                        self.accountsTableColumnFractions = parsed
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -275,5 +291,45 @@ extension DatabaseManager {
                                 value: payload,
                                 dataType: "string",
                                 description: "Column width fractions for Instruments table")
+    }
+
+    func setCurrenciesTableFontSize(_ value: String) {
+        guard currenciesTableFontSize != value else { return }
+        print("📝 [config] Request to store currencies_table_font=\(value)")
+        _ = upsertConfiguration(key: "currencies_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Currencies table")
+    }
+
+    func setCurrenciesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard currenciesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store currencies_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "currencies_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Currencies table")
+    }
+
+    func setAccountsTableFontSize(_ value: String) {
+        guard accountsTableFontSize != value else { return }
+        print("📝 [config] Request to store accounts_table_font=\(value)")
+        _ = upsertConfiguration(key: "accounts_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Accounts table")
+    }
+
+    func setAccountsTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard accountsTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store accounts_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "accounts_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Accounts table")
     }
 }

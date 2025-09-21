@@ -19,6 +19,10 @@ import AppKit
 #endif
 
 
+private let isoRegionIdentifiers: [String] = Locale.Region.isoRegions.map(\.identifier)
+private let isoRegionIdentifierSet: Set<String> = Set(isoRegionIdentifiers)
+
+
 fileprivate struct TableFontConfig {
     let nameSize: CGFloat
     let secondarySize: CGFloat
@@ -164,6 +168,7 @@ struct InstitutionsView: View {
     }()
 
     fileprivate static let columnHandleWidth: CGFloat = 10
+    fileprivate static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
 
 #if os(macOS)
@@ -332,7 +337,7 @@ struct InstitutionsView: View {
                 recalcColumnWidths()
             }
         }
-        .onChange(of: selectedFontSize) { _ in
+        .onChange(of: selectedFontSize) {
             persistFontSize()
         }
         .onReceive(dbManager.$institutionsTableFontSize) { newValue in
@@ -1094,7 +1099,9 @@ private extension InstitutionsView {
     func resizeHandle(for column: InstitutionTableColumn) -> some View {
         Rectangle()
             .fill(Color.clear)
-            .frame(width: InstitutionsView.columnHandleWidth, height: 24)
+            .frame(width: InstitutionsView.columnHandleWidth + InstitutionsView.columnHandleHitSlop * 2,
+                   height: 28)
+            .offset(x: -InstitutionsView.columnHandleHitSlop)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -1476,23 +1483,25 @@ private extension InstitutionsView {
             result[entry.key.rawValue] = Double(entry.value)
         }
         print("💾 [institutions] Persisting column fractions: \(payload)")
-        dbManager.setInstitutionsTableColumnFractions(payload)
+        dbManager.setTableColumnFractions(payload, for: .institutions)
         DispatchQueue.main.async { isHydratingPreferences = false }
     }
 
     func restoreColumnFractions() {
-        if restoreFromStoredColumnFractions(dbManager.institutionsTableColumnFractions) {
+        if restoreFromStoredColumnFractions(dbManager.tableColumnFractions(for: .institutions)) {
             print("📥 [institutions] Applied stored column fractions from configuration table")
             return
         }
 
-        if let legacy = legacyColumnFractionDictionary() {
-            columnFractions = normalizedFractions(legacy)
-            let storage = legacy.reduce(into: [String: Double]()) { result, entry in
-                result[entry.key.rawValue] = Double(entry.value)
+        if let legacy = dbManager.legacyTableColumnFractions(for: .institutions) {
+            let typed = typedFractions(from: legacy)
+            guard !typed.isEmpty else {
+                dbManager.clearLegacyTableColumnFractions(for: .institutions)
+                return
             }
-            dbManager.setInstitutionsTableColumnFractions(storage)
-            UserDefaults.standard.removeObject(forKey: InstitutionsView.legacyColumnFractionsKey)
+            columnFractions = normalizedFractions(typed)
+            dbManager.setTableColumnFractions(legacy, for: .institutions)
+            dbManager.clearLegacyTableColumnFractions(for: .institutions)
             print("♻️ [institutions] Migrated legacy column fractions to configuration table")
             return
         }
@@ -1503,19 +1512,9 @@ private extension InstitutionsView {
 
     @discardableResult
     func restoreFromStoredColumnFractions(_ stored: [String: Double]) -> Bool {
-        guard !stored.isEmpty else {
-            print("⚠️ [institutions] Stored column fractions empty")
-            return false
-        }
-        let restored = stored.reduce(into: [InstitutionTableColumn: CGFloat]()) { result, entry in
-            guard let column = InstitutionTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
-            let fraction = max(0, entry.value)
-            if fraction > 0 {
-                result[column] = CGFloat(fraction)
-            }
-        }
+        let restored = typedFractions(from: stored)
         guard !restored.isEmpty else {
-            print("⚠️ [institutions] Stored column fractions all zero")
+            print("⚠️ [institutions] Stored column fractions empty or invalid")
             return false
         }
         columnFractions = normalizedFractions(restored)
@@ -1523,65 +1522,12 @@ private extension InstitutionsView {
         return true
     }
 
-    func legacyColumnFractionDictionary() -> [InstitutionTableColumn: CGFloat]? {
-        let defaults = UserDefaults.standard
-        var restored: [InstitutionTableColumn: CGFloat] = [:]
-
-        if let dictionary = defaults.dictionary(forKey: InstitutionsView.legacyColumnFractionsKey) {
-            for (key, value) in dictionary {
-                guard let column = InstitutionTableColumn(rawValue: key) else { continue }
-                if let parsed = parseLegacyFraction(value) {
-                    restored[column] = max(0, CGFloat(parsed))
-                }
-            }
-        } else if let raw = defaults.string(forKey: InstitutionsView.legacyColumnFractionsKey) {
-            for part in raw.split(separator: ",") {
-                let pieces = part.split(separator: ":", maxSplits: 1)
-                guard pieces.count == 2,
-                      let column = InstitutionTableColumn(rawValue: String(pieces[0])),
-                      let parsed = parseLegacyFraction(String(pieces[1])) else { continue }
-                restored[column] = max(0, CGFloat(parsed))
-            }
+    private func typedFractions(from raw: [String: Double]) -> [InstitutionTableColumn: CGFloat] {
+        raw.reduce(into: [InstitutionTableColumn: CGFloat]()) { result, entry in
+            guard let column = InstitutionTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
+            let fraction = max(0, entry.value)
+            if fraction > 0 { result[column] = CGFloat(fraction) }
         }
-
-        if restored.isEmpty {
-            print("ℹ️ [institutions] No legacy column fractions found")
-            return nil
-        }
-        print("📦 [institutions] Loaded legacy column fractions: \(restored)")
-        return restored
-    }
-
-    private func parseLegacyFraction(_ value: Any) -> Double? {
-        if let number = value as? NSNumber {
-            return number.doubleValue
-        }
-        let trimmed: String?
-        if let string = value as? String {
-            trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            trimmed = nil
-        }
-        guard let candidate = trimmed, !candidate.isEmpty else { return nil }
-        if let direct = Double(candidate) { return direct }
-        let formatters: [NumberFormatter] = {
-            let enFormatter = NumberFormatter()
-            enFormatter.locale = Locale(identifier: "en_US_POSIX")
-            enFormatter.numberStyle = .decimal
-
-            let currentFormatter = NumberFormatter()
-            currentFormatter.locale = Locale.current
-            currentFormatter.numberStyle = .decimal
-
-            return [enFormatter, currentFormatter]
-        }()
-        for formatter in formatters {
-            if let number = formatter.number(from: candidate) {
-                return number.doubleValue
-            }
-        }
-        let normalized = candidate.replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
     }
 
     func hydratePreferencesIfNeeded() {
@@ -1591,7 +1537,8 @@ private extension InstitutionsView {
 
         migrateLegacyFontIfNeeded()
 
-        if let storedSize = TableFontSize(rawValue: dbManager.institutionsTableFontSize) {
+        let storedFont = dbManager.tableFontSize(for: .institutions)
+        if let storedSize = TableFontSize(rawValue: storedFont) {
             print("📥 [institutions] Applying stored font size: \(storedSize.rawValue)")
             selectedFontSize = storedSize
         }
@@ -1600,13 +1547,12 @@ private extension InstitutionsView {
     }
 
     func migrateLegacyFontIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard let legacy = defaults.string(forKey: InstitutionsView.legacyFontSizeKey) else { return }
-        if dbManager.institutionsTableFontSize != legacy {
+        guard let legacy = dbManager.legacyTableFontSize(for: .institutions) else { return }
+        if dbManager.tableFontSize(for: .institutions) != legacy {
             print("♻️ [institutions] Migrating legacy font size \(legacy) to configuration table")
-            dbManager.setInstitutionsTableFontSize(legacy)
+            dbManager.setTableFontSize(legacy, for: .institutions)
         }
-        defaults.removeObject(forKey: InstitutionsView.legacyFontSizeKey)
+        dbManager.clearLegacyTableFontSize(for: .institutions)
     }
 
     func persistVisibleColumns() {
@@ -1621,7 +1567,7 @@ private extension InstitutionsView {
         }
         isHydratingPreferences = true
         print("💾 [institutions] Persisting font size: \(selectedFontSize.rawValue)")
-        dbManager.setInstitutionsTableFontSize(selectedFontSize.rawValue)
+        dbManager.setTableFontSize(selectedFontSize.rawValue, for: .institutions)
         DispatchQueue.main.async { isHydratingPreferences = false }
     }
 
@@ -1846,9 +1792,7 @@ fileprivate struct ModernInstitutionRowView: View {
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.currency), alignment: .leading)
         case .country:
-            Text(countryDisplay)
-                .font(.system(size: fontConfig.secondarySize))
-                .foregroundColor(.secondary)
+            countryColumn
                 .padding(.leading, InstitutionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.country), alignment: .leading)
@@ -1886,20 +1830,76 @@ fileprivate struct ModernInstitutionRowView: View {
         }
     }
 
-    private var countryDisplay: String {
-        guard let raw = institution.countryCode?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return "--" }
-        if let code = normalizedRegionCode(from: raw) {
-            let flag = flagEmoji(code)
-            let localized = Locale.current.localizedString(forRegionCode: code) ?? code
-            if flag.isEmpty {
-                return localized
-            }
-            if localized.caseInsensitiveCompare(code) == .orderedSame {
-                return flag
-            }
-            return "\\(flag) \\(localized)"
+    private struct CountryPresentation {
+        let flag: String?
+        let name: String
+        let code: String?
+
+        var accessibilityLabel: String {
+            guard let code = code, code.caseInsensitiveCompare(name) != .orderedSame else { return name }
+            return "\(name), \(code)"
         }
-        return raw
+    }
+
+    @ViewBuilder
+    private var countryColumn: some View {
+        if let info = countryPresentation {
+            HStack(spacing: 6) {
+                if let flag = info.flag {
+                    Text(flag)
+                        .accessibilityHidden(true)
+                }
+                Text(info.name)
+                    .foregroundColor(.secondary)
+            }
+            .font(.system(size: fontConfig.secondarySize))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(info.accessibilityLabel)
+        } else {
+            Text("--")
+                .font(.system(size: fontConfig.secondarySize))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var countryPresentation: CountryPresentation? {
+        guard let raw = institution.countryCode?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty, raw != "--" else { return nil }
+        if let code = normalizedRegionCode(from: raw) {
+            let localized = localizedName(forRegionCode: code)
+            let flag = flagEmoji(code)
+            return CountryPresentation(flag: flag.isEmpty ? nil : flag, name: localized, code: code)
+        }
+        if let legacy = parseLegacyCountryField(raw) {
+            return legacy
+        }
+        if let cleanedName = sanitizedCountryName(from: raw), !cleanedName.isEmpty {
+            return CountryPresentation(flag: nil, name: cleanedName, code: nil)
+        }
+        return CountryPresentation(flag: nil, name: raw, code: nil)
+    }
+
+    private func parseLegacyCountryField(_ raw: String) -> CountryPresentation? {
+        let flag = extractFlag(from: raw)
+        let nameCandidate = sanitizedCountryName(from: raw)
+
+        if flag == nil, nameCandidate == nil { return nil }
+
+        if let flag = flag {
+            let code = regionCode(fromFlag: flag)
+            let localized = code.flatMap { localizedName(forRegionCode: $0) } ?? nameCandidate ?? raw
+            return CountryPresentation(flag: flag, name: localized, code: code)
+        }
+
+        if let name = nameCandidate {
+            if let code = matchRegionCode(forName: name) {
+                let flag = flagEmoji(code)
+                let localized = localizedName(forRegionCode: code)
+                return CountryPresentation(flag: flag.isEmpty ? nil : flag, name: localized, code: code)
+            }
+            return CountryPresentation(flag: nil, name: name, code: nil)
+        }
+
+        return nil
     }
 
     private var websiteDisplay: String {
@@ -1943,24 +1943,42 @@ fileprivate struct ModernInstitutionRowView: View {
 private func normalizedRegionCode(from raw: String) -> String? {
     let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
-    let uppercase = trimmed.uppercased()
+
     let separators = CharacterSet(charactersIn: " -_/|.,")
-    let components = uppercase.components(separatedBy: separators).filter { !$0.isEmpty }
-    let codes = [uppercase] + components
-    for candidate in codes {
-        if candidate.count == 2, Locale.isoRegionCodes.contains(candidate) {
+    let uppercase = trimmed.uppercased()
+    let uppercaseComponents = uppercase.components(separatedBy: separators).filter { !$0.isEmpty }
+    let tokens = ([uppercase] + uppercaseComponents)
+        .map { $0.filter { ("A"..."Z").contains($0) } }
+        .filter { !$0.isEmpty }
+
+    for candidate in tokens where candidate.count == 2 {
+        if isoRegionIdentifierSet.contains(candidate) {
             return candidate
         }
     }
-    if let fallback = components.first(where: { $0.count == 2 }) {
-        return fallback
+
+    if let flag = extractFlag(from: trimmed), let code = regionCode(fromFlag: flag) {
+        return code
     }
-    if uppercase.count >= 2 {
-        let prefix = String(uppercase.prefix(2))
-        if prefix.unicodeScalars.allSatisfy({ (65...90).contains($0.value) }) {
+
+    if let name = sanitizedCountryName(from: trimmed), let code = matchRegionCode(forName: name) {
+        return code
+    }
+
+    if let fallback = tokens.first(where: { $0.count >= 2 }) {
+        let prefix = String(fallback.prefix(2))
+        if isoRegionIdentifierSet.contains(prefix) {
             return prefix
         }
     }
+
+    if uppercase.count >= 2 {
+        let prefix = String(uppercase.prefix(2))
+        if isoRegionIdentifierSet.contains(prefix) {
+            return prefix
+        }
+    }
+
     return nil
 }
 
@@ -1973,6 +1991,92 @@ private func flagEmoji(_ code: String) -> String {
         scalars.append(flagScalar)
     }
     return String(scalars)
+}
+
+private func extractFlag(from raw: String) -> String? {
+    var buffer = String.UnicodeScalarView()
+    for scalar in raw.unicodeScalars {
+        let value = scalar.value
+        if (127462...127487).contains(value) {
+            buffer.append(scalar)
+            if buffer.count == 2 {
+                return String(buffer)
+            }
+        } else {
+            buffer.removeAll(keepingCapacity: false)
+        }
+    }
+    return nil
+}
+
+private func regionCode(fromFlag flag: String) -> String? {
+    let scalars = flag.unicodeScalars.filter { (127462...127487).contains($0.value) }
+    guard scalars.count == 2 else { return nil }
+    var code = ""
+    for scalar in scalars {
+        let value = scalar.value - 127397
+        guard let letter = UnicodeScalar(value) else { return nil }
+        code.append(Character(letter))
+    }
+    return code
+}
+
+private func sanitizedCountryName(from raw: String) -> String? {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+
+    let separators = CharacterSet(charactersIn: "/|")
+    let parentheses = CharacterSet(charactersIn: "()[]{}")
+    let segments = trimmed.components(separatedBy: separators)
+
+    for segment in segments.reversed() {
+        let cleaned = segment.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: parentheses)
+        guard !cleaned.isEmpty else { continue }
+        if extractFlag(from: cleaned) != nil { continue }
+        return cleaned
+    }
+
+    return nil
+}
+
+private func matchRegionCode(forName candidate: String) -> String? {
+    let key = normalizedCountryLookupKey(candidate)
+    guard !key.isEmpty else { return nil }
+
+    struct LookupCache {
+        static let english = build(locale: Locale(identifier: "en_US"))
+        static let current = build(locale: Locale.current)
+
+        static func build(locale: Locale) -> [String: String] {
+            var map: [String: String] = [:]
+            for code in isoRegionIdentifiers {
+                if let name = locale.localizedString(forRegionCode: code) {
+                    let key = normalizedCountryLookupKey(name)
+                    if !key.isEmpty {
+                        map[key] = code
+                    }
+                }
+            }
+            return map
+        }
+    }
+
+    return LookupCache.current[key] ?? LookupCache.english[key]
+}
+
+private func localizedName(forRegionCode code: String) -> String {
+    for locale in [Locale.current, Locale(identifier: "en_US"), Locale(identifier: "en_GB")] {
+        if let name = locale.localizedString(forRegionCode: code) {
+            return name
+        }
+    }
+    return code
+}
+
+private func normalizedCountryLookupKey(_ value: String) -> String {
+    value
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US"))
 }
 
 struct InstitutionParticle: Identifiable {
