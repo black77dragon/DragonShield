@@ -80,15 +80,14 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 - Bulk actions (Import, Export) always bottom-aligned
 
 ### Data Tables (macOS)
-- Instruments maintenance view sets the template for every data grid.
-- Always provide an inline search field with clear/reset affordance and a live result counter.
-- Include a `Columns` menu that lets users show/hide optional columns; remember at least one column must remain visible.
-- Offer a segmented `Font Size` control (XS–XL) and persist the selection via `UserDefaults`.
-- Make every sortable column header a button: tap toggles ASC/DESC and shows a blue triangle indicator next to the label.
-- Allow column resizing with draggable handles; persist fractional widths per column so the layout restores across launches.
-- Surface column-specific filters right inside the header (Type, Currency, Status, etc.) using the filter icon pattern.
-- Wrap the table in a horizontal scroll container; clamp minimum widths to avoid clipped content.
-- Empty states should mirror the instrument view: friendly illustration, actionable primary button, and context hint.
+- **Search-first header**: Inline search with live result count, removable filter chips, and contextual empty states with a primary CTA.
+- **Column controls**: Standard “Columns” menu + segmented font size picker (XS–XL). Both persist through the configuration table, not per-view defaults.
+- **Interactive headers**: Every sortable column toggles ASC/DESC with a blue indicator; filterable columns expose the `line.3.horizontal.decrease.circle` menu.
+- **Resizing UX**: Handles have generous hit-tests (+8pt slop) for easy grabbing. Column widths are persisted as normalized fractions per user and restored on launch.
+- **Selection + actions**: Double-click/edit patterns, context menus, and an adaptive action bar that highlights the current selection.
+- **Visual polish**: Gradient background, particle accents, stat cards, and consistent padding/margins shared with Instruments & Institutions.
+- **Scroll behaviour**: Tables live in a horizontal scroll container, enforcing per-column minimums to avoid clipping without forcing zoomed fonts.
+- **Persistence**: Column widths and font size are stored in the `Configuration` table (`*_table_font`, `*_table_column_fractions`) with legacy `UserDefaults` automatically migrated.
 
 ---
 
@@ -189,4 +188,3 @@ See the [Dragon Shield Database Documentation](../dragon_shield_db_documentation
 ---
 
 End of Guide
-

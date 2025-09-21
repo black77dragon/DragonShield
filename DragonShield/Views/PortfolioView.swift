@@ -232,6 +232,7 @@ struct PortfolioView: View {
 
     fileprivate static let columnHandleWidth: CGFloat = 10
     fileprivate static let columnTextInset: CGFloat = 12
+    private static let columnHandleHitSlop: CGFloat = 8
 
     private func minimumWidth(for column: InstrumentTableColumn) -> CGFloat {
         Self.minimumColumnWidths[column] ?? 60
@@ -257,23 +258,25 @@ struct PortfolioView: View {
             result[entry.key.rawValue] = Double(entry.value)
         }
         print("💾 [instruments] Persisting column fractions: \(payload)")
-        dbManager.setInstrumentsTableColumnFractions(payload)
+        dbManager.setTableColumnFractions(payload, for: .instruments)
         DispatchQueue.main.async { isHydratingPreferences = false }
     }
 
     private func restoreColumnFractions() {
-        if restoreFromStoredColumnFractions(dbManager.instrumentsTableColumnFractions) {
+        if restoreFromStoredColumnFractions(dbManager.tableColumnFractions(for: .instruments)) {
             print("📥 [instruments] Applied stored column fractions from configuration table")
             return
         }
 
-        if let legacy = legacyColumnFractionDictionary() {
-            columnFractions = normalizedFractions(legacy)
-            let storage = legacy.reduce(into: [String: Double]()) { result, entry in
-                result[entry.key.rawValue] = Double(entry.value)
+        if let legacy = dbManager.legacyTableColumnFractions(for: .instruments) {
+            let typed = typedFractions(from: legacy)
+            guard !typed.isEmpty else {
+                dbManager.clearLegacyTableColumnFractions(for: .instruments)
+                return
             }
-            dbManager.setInstrumentsTableColumnFractions(storage)
-            UserDefaults.standard.removeObject(forKey: PortfolioView.legacyColumnFractionsKey)
+            columnFractions = normalizedFractions(typed)
+            dbManager.setTableColumnFractions(legacy, for: .instruments)
+            dbManager.clearLegacyTableColumnFractions(for: .instruments)
             print("♻️ [instruments] Migrated legacy column fractions to configuration table")
             return
         }
@@ -284,19 +287,9 @@ struct PortfolioView: View {
 
     @discardableResult
     private func restoreFromStoredColumnFractions(_ stored: [String: Double]) -> Bool {
-        guard !stored.isEmpty else {
-            print("⚠️ [instruments] Stored column fractions empty")
-            return false
-        }
-        let restored = stored.reduce(into: [InstrumentTableColumn: CGFloat]()) { result, entry in
-            guard let column = InstrumentTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
-            let fraction = max(0, entry.value)
-            if fraction > 0 {
-                result[column] = CGFloat(fraction)
-            }
-        }
+        let restored = typedFractions(from: stored)
         guard !restored.isEmpty else {
-            print("⚠️ [instruments] Stored column fractions all zero")
+            print("⚠️ [instruments] Stored column fractions empty or invalid")
             return false
         }
         columnFractions = normalizedFractions(restored)
@@ -304,65 +297,12 @@ struct PortfolioView: View {
         return true
     }
 
-    private func legacyColumnFractionDictionary() -> [InstrumentTableColumn: CGFloat]? {
-        let defaults = UserDefaults.standard
-        var restored: [InstrumentTableColumn: CGFloat] = [:]
-
-        if let dictionary = defaults.dictionary(forKey: PortfolioView.legacyColumnFractionsKey) {
-            for (key, value) in dictionary {
-                guard let column = InstrumentTableColumn(rawValue: key) else { continue }
-                if let parsed = parseLegacyFraction(value) {
-                    restored[column] = max(0, CGFloat(parsed))
-                }
-            }
-        } else if let raw = defaults.string(forKey: PortfolioView.legacyColumnFractionsKey) {
-            for part in raw.split(separator: ",") {
-                let pieces = part.split(separator: ":", maxSplits: 1)
-                guard pieces.count == 2,
-                      let column = InstrumentTableColumn(rawValue: String(pieces[0])),
-                      let parsed = parseLegacyFraction(String(pieces[1])) else { continue }
-                restored[column] = max(0, CGFloat(parsed))
-            }
+    private func typedFractions(from raw: [String: Double]) -> [InstrumentTableColumn: CGFloat] {
+        raw.reduce(into: [InstrumentTableColumn: CGFloat]()) { result, entry in
+            guard let column = InstrumentTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
+            let fraction = max(0, entry.value)
+            if fraction > 0 { result[column] = CGFloat(fraction) }
         }
-
-        if restored.isEmpty {
-            print("ℹ️ [instruments] No legacy column fractions found")
-            return nil
-        }
-        print("📦 [instruments] Loaded legacy column fractions: \(restored)")
-        return restored
-    }
-
-    private func parseLegacyFraction(_ value: Any) -> Double? {
-        if let number = value as? NSNumber {
-            return number.doubleValue
-        }
-        let trimmed: String?
-        if let string = value as? String {
-            trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            trimmed = nil
-        }
-        guard let candidate = trimmed, !candidate.isEmpty else { return nil }
-        if let direct = Double(candidate) { return direct }
-        let formatters: [NumberFormatter] = {
-            let enFormatter = NumberFormatter()
-            enFormatter.locale = Locale(identifier: "en_US_POSIX")
-            enFormatter.numberStyle = .decimal
-
-            let currentFormatter = NumberFormatter()
-            currentFormatter.locale = Locale.current
-            currentFormatter.numberStyle = .decimal
-
-            return [enFormatter, currentFormatter]
-        }()
-        for formatter in formatters {
-            if let number = formatter.number(from: candidate) {
-                return number.doubleValue
-            }
-        }
-        let normalized = candidate.replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
     }
 
     private func hydratePreferencesIfNeeded() {
@@ -372,7 +312,8 @@ struct PortfolioView: View {
 
         migrateLegacyFontIfNeeded()
 
-        if let storedSize = TableFontSize(rawValue: dbManager.instrumentsTableFontSize) {
+        let storedFont = dbManager.tableFontSize(for: .instruments)
+        if let storedSize = TableFontSize(rawValue: storedFont) {
             print("📥 [instruments] Applying stored font size: \(storedSize.rawValue)")
             selectedFontSize = storedSize
         }
@@ -381,13 +322,12 @@ struct PortfolioView: View {
     }
 
     private func migrateLegacyFontIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard let legacy = defaults.string(forKey: PortfolioView.legacyFontSizeKey) else { return }
-        if dbManager.instrumentsTableFontSize != legacy {
+        guard let legacy = dbManager.legacyTableFontSize(for: .instruments) else { return }
+        if dbManager.tableFontSize(for: .instruments) != legacy {
             print("♻️ [instruments] Migrating legacy font size \(legacy) to configuration table")
-            dbManager.setInstrumentsTableFontSize(legacy)
+            dbManager.setTableFontSize(legacy, for: .instruments)
         }
-        defaults.removeObject(forKey: PortfolioView.legacyFontSizeKey)
+        dbManager.clearLegacyTableFontSize(for: .instruments)
     }
 
     private func defaultFractions() -> [InstrumentTableColumn: CGFloat] {
@@ -481,7 +421,9 @@ struct PortfolioView: View {
     private func resizeHandle(for column: InstrumentTableColumn) -> some View {
         Rectangle()
             .fill(Color.clear)
-            .frame(width: Self.columnHandleWidth, height: 24)
+            .frame(width: Self.columnHandleWidth + Self.columnHandleHitSlop * 2,
+                   height: 28)
+            .offset(x: -Self.columnHandleHitSlop)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -613,7 +555,7 @@ struct PortfolioView: View {
         }
         isHydratingPreferences = true
         print("💾 [instruments] Persisting font size: \(selectedFontSize.rawValue)")
-        dbManager.setInstrumentsTableFontSize(selectedFontSize.rawValue)
+        dbManager.setTableFontSize(selectedFontSize.rawValue, for: .instruments)
         DispatchQueue.main.async { isHydratingPreferences = false }
     }
 
@@ -781,7 +723,7 @@ struct PortfolioView: View {
                 recalcColumnWidths()
             }
         }
-        .onChange(of: selectedFontSize) { _ in
+        .onChange(of: selectedFontSize) { _, _ in
             persistFontSize()
         }
         .onReceive(dbManager.$instrumentsTableFontSize) { newValue in
