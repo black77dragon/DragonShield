@@ -1021,6 +1021,7 @@ private var dangerZone: some View {
             instrumentId: asset.instrumentId,
             researchPct: asset.researchTargetPct,
             userPct: asset.userTargetPct,
+            setTargetChf: asset.setTargetChf,
             notes: asset.notes
         ) {
             if let idx = assets.firstIndex(where: { $0.instrumentId == updated.instrumentId }) {

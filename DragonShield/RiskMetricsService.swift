@@ -26,6 +26,7 @@ final class RiskMetricsService {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: python)
         process.arguments = [scriptURL?.path ?? "", "--csv", csvPath, "--period", period]
+        process.environment = PythonEnvironment.enrichedEnvironment(anchorFile: #file)
 
         let outPipe = Pipe()
         process.standardOutput = outPipe

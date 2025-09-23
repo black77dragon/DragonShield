@@ -61,13 +61,15 @@ private enum TableFontSize: String, CaseIterable {
     }
 
     var baseSize: CGFloat {
+        let index: Int
         switch self {
-        case .xSmall: return 12
-        case .small: return 13.5
-        case .medium: return 15
-        case .large: return 16.5
-        case .xLarge: return 18
+        case .xSmall: index = 0
+        case .small: index = 1
+        case .medium: index = 2
+        case .large: index = 3
+        case .xLarge: index = 4
         }
+        return TableFontMetrics.baseSize(for: index)
     }
 
     var secondarySize: CGFloat { baseSize - 1 }

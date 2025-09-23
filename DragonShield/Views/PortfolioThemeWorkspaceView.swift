@@ -9,6 +9,46 @@ import Charts
 import AppKit
 #endif
 
+private struct HoldingsTableFontConfig {
+    let rowSize: CGFloat
+    let secondarySize: CGFloat
+    let headerSize: CGFloat
+}
+
+private struct HoldingsColumnsInfoView: View {
+    private let items: [(String, String)] = [
+        ("Research %", "Baseline allocation suggested by research or strategy."),
+        ("User %", "Your custom allocation target for the instrument."),
+        ("User % (Norm)", "User target adjusted to sum to 100% of included holdings."),
+        ("Calc Target CHF", "Budget-based CHF target using the normalised user %."),
+        ("Set Target (ST) CHF", "Manually entered CHF target override."),
+        ("Normalised %", "Actual holdings percentage calculated from included positions."),
+        ("Δ Actual-User", "Percentage gap between actual holdings and your user target."),
+        ("Δ Calc CHF", "CHF gap between actual holdings and the calculated target."),
+        ("ST Delta CHF", "CHF gap between actual holdings and the manual set target."),
+        ("Actual CHF", "Current market value of the holdings in CHF."),
+        ("Notes", "Free-form notes per instrument.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Holdings Column Overview")
+                .font(.headline)
+            ForEach(items, id: \.0) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.0)
+                        .font(.subheadline)
+                        .bold()
+                    Text(item.1)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
 struct PortfolioThemeWorkspaceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     let themeId: Int
@@ -67,6 +107,38 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var institutionId: Int? = nil
     @State private var institutions: [DatabaseManager.InstitutionData] = []
 
+    private enum HoldingsFontSize: String, CaseIterable {
+        case xSmall, small, medium, large, xLarge
+
+        var label: String {
+            switch self {
+            case .xSmall: return "XS"
+            case .small: return "S"
+            case .medium: return "M"
+            case .large: return "L"
+            case .xLarge: return "XL"
+            }
+        }
+
+        var baseSize: CGFloat {
+            let index: Int
+            switch self {
+            case .xSmall: index = 0
+            case .small: index = 1
+            case .medium: index = 2
+            case .large: index = 3
+            case .xLarge: index = 4
+            }
+            return TableFontMetrics.baseSize(for: index)
+        }
+
+        var secondarySize: CGFloat { baseSize - 1 }
+        var headerSize: CGFloat { baseSize - 1 }
+    }
+
+    private static let holdingsFontSizeKey = UserDefaultsKeys.portfolioThemeWorkspaceHoldingsFontSize
+    @State private var holdingsFontSize: HoldingsFontSize = .medium
+
     init(themeId: Int,
          origin: String,
          initialTab: WorkspaceTab? = nil,
@@ -77,6 +149,11 @@ struct PortfolioThemeWorkspaceView: View {
         self.initialTab = initialTab
         self.initialUpdatesSearch = initialUpdatesSearch
         self.initialUpdatesSearchHint = initialUpdatesSearchHint
+
+        if let stored = UserDefaults.standard.string(forKey: Self.holdingsFontSizeKey),
+           let size = HoldingsFontSize(rawValue: stored) {
+            _holdingsFontSize = State(initialValue: size)
+        }
     }
 
     var body: some View {
@@ -231,6 +308,21 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var addResearchPct: Double = 0
     @State private var addUserPct: Double = 0
     @State private var addNotes: String = ""
+    @State private var showHoldingsInfo: Bool = false
+    @State private var holdingsInfoHovering: Bool = false
+
+    private var holdingsFontConfig: HoldingsTableFontConfig {
+        HoldingsTableFontConfig(
+            rowSize: holdingsFontSize.baseSize,
+            secondarySize: max(8, holdingsFontSize.secondarySize),
+            headerSize: holdingsFontSize.headerSize
+        )
+    }
+
+    private func persistHoldingsFontSize(_ size: HoldingsFontSize) {
+        UserDefaults.standard.set(size.rawValue, forKey: Self.holdingsFontSizeKey)
+    }
+
     private var holdingsTab: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -244,6 +336,17 @@ struct PortfolioThemeWorkspaceView: View {
                         .textFieldStyle(.roundedBorder)
                         .onSubmit { saveThemeBudget() }
                     Button("Save Budget") { saveThemeBudget() }
+                }
+                Picker("Font Size", selection: $holdingsFontSize) {
+                    ForEach(HoldingsFontSize.allCases, id: \.self) { size in
+                        Text(size.label).tag(size)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 220)
+                .labelsHidden()
+                .onChange(of: holdingsFontSize) { _, newValue in
+                    persistHoldingsFontSize(newValue)
                 }
                 Menu {
                     Text("Columns").font(.caption).foregroundColor(.secondary)
@@ -263,15 +366,58 @@ struct PortfolioThemeWorkspaceView: View {
                     Label("Columns", systemImage: "slider.horizontal.3")
                 }
                 Button(action: { showAddInstrument = true }) { Label("Add Instrument", systemImage: "plus") }
+                if holdingsColumns != Set(HoldingsTable.Column.defaultVisible) || holdingsFontSize != .medium {
+                    Button("Reset View", action: resetHoldingsPreferences)
+                        .buttonStyle(.link)
+                }
             }
-            HoldingsTable(themeId: themeId, isArchived: (theme?.archivedAt != nil) || (theme?.softDelete ?? false), search: $holdingsSearch, columns: holdingsColumns, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
+            HoldingsTable(themeId: themeId, isArchived: (theme?.archivedAt != nil) || (theme?.softDelete ?? false), search: $holdingsSearch, columns: holdingsColumns, fontConfig: holdingsFontConfig, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
                 .environmentObject(dbManager)
+
+            Button(action: { showHoldingsInfo = true }) {
+                Label("ℹ️ more information", systemImage: "info.circle")
+            }
+            .buttonStyle(.link)
+            .padding(.top, 8)
+            .onHover { hovering in
+                if hovering {
+                    showHoldingsInfo = true
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        if !holdingsInfoHovering { showHoldingsInfo = false }
+                    }
+                }
+            }
+            .popover(isPresented: $showHoldingsInfo, arrowEdge: .bottom) {
+                HoldingsColumnsInfoView()
+                    .padding(20)
+                    .frame(minWidth: 320, alignment: Alignment.leading)
+                    .onHover { hovering in
+                        holdingsInfoHovering = hovering
+                        if !hovering {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                if !holdingsInfoHovering { showHoldingsInfo = false }
+                            }
+                        }
+                    }
+                    .onDisappear {
+                        holdingsInfoHovering = false
+                    }
+            }
         }
         .padding(20)
         .onAppear(perform: restoreHoldingsColumns)
         .onAppear { themeBudgetInput = formatBudgetValue(currentBudget()) }
         .sheet(isPresented: $showWidthsEditor) { ColumnWidthsEditor(onSave: { holdingsReloadToken += 1 }) }
         .sheet(isPresented: $showAddInstrument) { addInstrumentSheet }
+    }
+
+    private func resetHoldingsPreferences() {
+        holdingsColumns = Set(HoldingsTable.Column.defaultVisible)
+        persistHoldingsColumns()
+        holdingsFontSize = .medium
+        persistHoldingsFontSize(.medium)
+        holdingsReloadToken += 1
     }
 
     private func currentBudget() -> Double? {
@@ -328,7 +474,9 @@ struct PortfolioThemeWorkspaceView: View {
         if !holdingsColumns.contains(.actualChf) { holdingsColumns.insert(.actualChf); changed = true }
         if !holdingsColumns.contains(.userNorm) { holdingsColumns.insert(.userNorm); changed = true }
         if !holdingsColumns.contains(.targetChf) { holdingsColumns.insert(.targetChf); changed = true }
+        if !holdingsColumns.contains(.setTargetChf) { holdingsColumns.insert(.setTargetChf); changed = true }
         if !holdingsColumns.contains(.deltaChf) { holdingsColumns.insert(.deltaChf); changed = true }
+        if !holdingsColumns.contains(.setDeltaChf) { holdingsColumns.insert(.setDeltaChf); changed = true }
         if changed { persistHoldingsColumns() }
     }
 
@@ -1064,30 +1212,39 @@ private struct Tag: View {
 // MARK: - Holdings Table (read-only summary)
     private struct HoldingsTable: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @Environment(\.openWindow) private var openWindow
         let themeId: Int
         let isArchived: Bool
         @Binding var search: String
         var columns: Set<Column>
+        let fontConfig: HoldingsTableFontConfig
         var reloadToken: Int = 0
         var themeBudgetChf: Double? = nil
-    @State private var rows: [ValuationRow] = []
-    @State private var total: Double = 0
-    @State private var saving: Set<Int> = [] // instrumentId currently saving
-    @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
-    @State private var invalidKeys: Set<String> = [] // "<instrumentId>:<field>" markers for subtle validation
-    @State private var tableWidth: CGFloat = 0
-    @State private var sortField: Column = .instrument
-    @State private var sortAscending: Bool = true
-    @State private var colWidths: [Column: CGFloat] = [:]
-    @State private var updateCounts: [Int: Int] = [:]
-    @State private var openUpdates: UpdatesTarget?
-    @State private var confirmRemoveId: Int? = nil
-    @State private var showToast: Bool = false
-    @State private var toastMessage: String = ""
-    // Debounce note saves per instrument to avoid saving on every keystroke
-    @State private var noteSaveDebounce: [Int: DispatchWorkItem] = [:]
+        @State private var rows: [ValuationRow] = []
+        @State private var total: Double = 0
+        @State private var saving: Set<Int> = [] // instrumentId currently saving
+        @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
+        @State private var invalidKeys: Set<String> = [] // "<instrumentId>:<field>" markers for subtle validation
+        @State private var tableWidth: CGFloat = 0
+        @State private var sortField: Column = .instrument
+        @State private var sortAscending: Bool = true
+        @State private var colWidths: [Column: CGFloat] = [:]
+        @State private var updateCounts: [Int: Int] = [:]
+        @State private var openUpdates: UpdatesTarget?
+        @State private var confirmRemoveId: Int? = nil
+        @State private var showToast: Bool = false
+        @State private var toastMessage: String = ""
+        // Debounce note saves per instrument to avoid saving on every keystroke
+        @State private var noteSaveDebounce: [Int: DispatchWorkItem] = [:]
 
-    @FocusState private var focusSearch: Bool
+        @State private var rebalanceTagId: Int? = nil
+        @State private var hasLoadedRebalanceTag = false
+
+        @FocusState private var focusSearch: Bool
+        @FocusState private var focusedSetTargetField: Int?
+
+        private let autoTargetColor = Color(red: 1.0, green: 0.98, blue: 0.82)
+        private let manualTargetColor = Color(red: 0.86, green: 0.93, blue: 0.98)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1107,6 +1264,7 @@ private struct Tag: View {
                     }
                     Divider()
                 }
+                .font(.system(size: fontConfig.secondarySize))
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.06)))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
@@ -1143,7 +1301,7 @@ private struct Tag: View {
                     Text("Excluded: \(currencyWholeCHFLocal(excludedActualTotal))")
                         .foregroundColor(.secondary)
                 }
-                .font(.caption)
+                .font(.system(size: fontConfig.secondarySize))
                 .padding(.top, 6)
             }
         }
@@ -1199,6 +1357,11 @@ private struct Tag: View {
         } message: {
             Text("Once removed, even a Jedi can't undo with a wave. ✨")
         }
+        .onChange(of: focusedSetTargetField) { oldValue, newValue in
+            if let previous = oldValue, previous != newValue {
+                commitSetTarget(previous)
+            }
+        }
     }
 
     private let defaultNumWidth: CGFloat = 80
@@ -1207,8 +1370,64 @@ private struct Tag: View {
         if let w = draftColWidths[col] { return w }
         if col == .notes { return colWidths[col] ?? 200 }
         if col == .instrument { return colWidths[col] ?? 300 }
-        if col == .actualChf || col == .targetChf || col == .deltaChf { return colWidths[col] ?? 140 }
+        if col == .actualChf || col == .targetChf || col == .deltaChf || col == .setTargetChf || col == .setDeltaChf { return colWidths[col] ?? 140 }
         return colWidths[col] ?? defaultNumWidth
+    }
+
+    private func labelForColumn(_ col: Column) -> String {
+        switch col {
+        case .actualChf:
+            return "Actual \(dbManager.baseCurrency)"
+        case .targetChf:
+            return "Calc Target \(dbManager.baseCurrency)"
+        case .setTargetChf:
+            return "Set Target \(dbManager.baseCurrency)"
+        case .deltaChf:
+            return "Δ Calc \(dbManager.baseCurrency)"
+        case .setDeltaChf:
+            return "ST Delta \(dbManager.baseCurrency)"
+        default:
+            return col.title
+        }
+    }
+
+    private func backgroundColor(for column: Column) -> Color? {
+        switch column {
+        case .targetChf, .deltaChf:
+            return autoTargetColor.opacity(0.45)
+        case .setTargetChf, .setDeltaChf:
+            return manualTargetColor.opacity(0.45)
+        default:
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func headerCell<Content: View>(for column: Column, @ViewBuilder content: () -> Content) -> some View {
+        if let color = backgroundColor(for: column) {
+            content()
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(color)
+                )
+        } else {
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private func dataCell<Content: View>(for column: Column, @ViewBuilder content: () -> Content) -> some View {
+        if let color = backgroundColor(for: column) {
+            content()
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(color)
+                )
+        } else {
+            content()
+        }
     }
 
     private var header: some View {
@@ -1221,13 +1440,37 @@ private struct Tag: View {
             if resizable(.user) { resizeHandle(for: .user) }
             if columns.contains(.userNorm) { sortHeader(.userNorm, title: "User % (Norm)").frame(width: width(for: .user), alignment: .trailing) }
             if resizable(.user) { resizeHandle(for: .user) }
-            if columns.contains(.targetChf) { sortHeader(.targetChf, title: "Target \(dbManager.baseCurrency)").frame(width: width(for: .actualChf), alignment: .trailing) }
+            if columns.contains(.targetChf) {
+                headerCell(for: .targetChf) {
+                    sortHeader(.targetChf, title: "Calc Target \(dbManager.baseCurrency)")
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                }
+            }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
-            if columns.contains(.actual) { sortHeader(.actual, title: "Actual %").frame(width: width(for: .actual), alignment: .trailing) }
+            if columns.contains(.setTargetChf) {
+                headerCell(for: .setTargetChf) {
+                    sortHeader(.setTargetChf, title: "Set Target (ST) \(dbManager.baseCurrency)")
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                }
+            }
+            if resizable(.actualChf) { resizeHandle(for: .actualChf) }
+            if columns.contains(.actual) { sortHeader(.actual, title: "Normalised %").frame(width: width(for: .actual), alignment: .trailing) }
             if resizable(.actual) { resizeHandle(for: .actual) }
             if columns.contains(.delta) { sortHeader(.delta, title: "Δ Actual-User").frame(width: width(for: .delta), alignment: .trailing) }
             if resizable(.delta) { resizeHandle(for: .delta) }
-            if columns.contains(.deltaChf) { sortHeader(.deltaChf, title: "Δ \(dbManager.baseCurrency)").frame(width: width(for: .actualChf), alignment: .trailing) }
+            if columns.contains(.deltaChf) {
+                headerCell(for: .deltaChf) {
+                    sortHeader(.deltaChf, title: "Δ Calc \(dbManager.baseCurrency)")
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                }
+            }
+            if resizable(.actualChf) { resizeHandle(for: .actualChf) }
+            if columns.contains(.setDeltaChf) {
+                headerCell(for: .setDeltaChf) {
+                    sortHeader(.setDeltaChf, title: "ST Delta \(dbManager.baseCurrency)")
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                }
+            }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
             if columns.contains(.actualChf) { sortHeader(.actualChf, title: "Actual \(dbManager.baseCurrency)").frame(width: width(for: .actualChf), alignment: .trailing).accessibilityLabel("Actual \(dbManager.baseCurrency)") }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
@@ -1237,7 +1480,7 @@ private struct Tag: View {
             Text("📝").frame(width: 44, alignment: .center)
             if resizable(.notes) { resizeHandle(for: .notes) }
         }
-        .font(.caption)
+        .font(.system(size: fontConfig.headerSize, weight: .semibold))
         .foregroundColor(.secondary)
     }
 
@@ -1305,7 +1548,7 @@ private struct Tag: View {
                 max(acc, measureText(String(format: "%.2f", v), monospaced: true))
             }
             target = max(60, min(220, maxW + padding))
-        case .targetChf, .deltaChf, .actualChf:
+        case .targetChf, .setTargetChf, .deltaChf, .setDeltaChf, .actualChf:
             let codes = dbManager.baseCurrency
             let f = NumberFormatter()
             f.numberStyle = .currency
@@ -1351,6 +1594,7 @@ private struct Tag: View {
             if columns.contains(.research) {
                 TextField("", value: bindingDouble(for: r.instrumentId, field: .research), format: .number)
                     .multilineTextAlignment(.trailing)
+                    .font(.system(size: fontConfig.rowSize, design: .monospaced))
                     .frame(width: width(for: .research))
                     .disabled(isArchived)
                     .onSubmit { saveRow(r.instrumentId) }
@@ -1362,6 +1606,7 @@ private struct Tag: View {
             if columns.contains(.user) {
                 TextField("", value: bindingDouble(for: r.instrumentId, field: .user), format: .number)
                     .multilineTextAlignment(.trailing)
+                    .font(.system(size: fontConfig.rowSize, design: .monospaced))
                     .frame(width: width(for: .user))
                     .disabled(isArchived)
                     .onSubmit { saveRow(r.instrumentId) }
@@ -1371,17 +1616,36 @@ private struct Tag: View {
             }
             if resizable(.user) { resizeSpacer(for: .user) }
             if columns.contains(.userNorm) {
-                Text(fmtPct(normalizedUserPct(r.instrumentId)))
+                Text(fmtPctWhole(normalizedUserPct(r.instrumentId)))
                     .frame(width: width(for: .user), alignment: .trailing)
             }
             if resizable(.user) { resizeSpacer(for: .user) }
             if columns.contains(.targetChf) {
-                Text(formatAmountLocal(targetChf(r.instrumentId), decimals: 0))
-                    .fontWeight(.bold)
-                    .foregroundColor(Theme.primaryAccent)
-                    .frame(width: width(for: .actualChf), alignment: .trailing)
+                dataCell(for: .targetChf) {
+                    Text(formatAmountLocal(targetChf(r.instrumentId), decimals: 0))
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.primaryAccent)
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                }
             }
-            if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
+            if resizable(.actualChf) { resizeSpacer(for: .targetChf) }
+            if columns.contains(.setTargetChf) {
+                dataCell(for: .setTargetChf) {
+                    TextField("", text: bindingSetTarget(for: r.instrumentId))
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: fontConfig.rowSize, design: .monospaced))
+                        .frame(width: width(for: .actualChf), alignment: .trailing)
+                        .disabled(isArchived)
+                        .focused($focusedSetTargetField, equals: r.instrumentId)
+                        .onSubmit { commitSetTarget(r.instrumentId) }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(invalidKeys.contains(key(for: r.instrumentId, field: .setTarget)) ? Color.red.opacity(0.6) : Color.gray.opacity(0.25))
+                        )
+                }
+            }
+            if resizable(.actualChf) { resizeSpacer(for: .setTargetChf) }
             if columns.contains(.actual) {
                 if editableUser(r.instrumentId) == 0 {
                     Text("").frame(width: width(for: .actual), alignment: .trailing)
@@ -1389,7 +1653,7 @@ private struct Tag: View {
                     // Recompute Actual % based on included total
                     let denom = includedActualTotal
                     let apct: Double? = denom > 0 ? (r.currentValueBase / denom) * 100.0 : nil
-                    Text(fmtPct(apct)).frame(width: width(for: .actual), alignment: .trailing)
+                    Text(fmtPctWhole(apct)).frame(width: width(for: .actual), alignment: .trailing)
                 }
             }
             if resizable(.actual) { resizeSpacer(for: .actual) }
@@ -1404,18 +1668,36 @@ private struct Tag: View {
             }
             if resizable(.delta) { resizeSpacer(for: .delta) }
             if columns.contains(.deltaChf) {
-                if editableUser(r.instrumentId) == 0 {
-                    Text("").frame(width: width(for: .actualChf), alignment: .trailing)
-                } else {
-                    let d = (targetChf(r.instrumentId) - r.currentValueBase)
-                    Text(formatAmountLocal(d, decimals: 0))
-                        .frame(width: width(for: .actualChf), alignment: .trailing)
-                        .foregroundColor(d >= 0 ? .green : .red)
+                dataCell(for: .deltaChf) {
+                    if editableUser(r.instrumentId) == 0 {
+                        Text("").frame(width: width(for: .actualChf), alignment: .trailing)
+                    } else {
+                        let d = (targetChf(r.instrumentId) - r.currentValueBase)
+                        Text(formatAmountLocal(d, decimals: 0))
+                            .frame(width: width(for: .actualChf), alignment: .trailing)
+                            .foregroundColor(d >= 0 ? .green : .red)
+                    }
                 }
             }
-            if resizable(.actualChf) { resizeSpacer(for: .actualChf) }
+            if resizable(.actualChf) { resizeSpacer(for: .deltaChf) }
+            if columns.contains(.setDeltaChf) {
+                dataCell(for: .setDeltaChf) {
+                    if editableUser(r.instrumentId) == 0 {
+                        Text("").frame(width: width(for: .actualChf), alignment: .trailing)
+                    } else if let delta = setTargetDelta(r.instrumentId, actual: r.currentValueBase) {
+                        Text(formatAmountLocal(delta, decimals: 0))
+                            .frame(width: width(for: .actualChf), alignment: .trailing)
+                            .foregroundColor(delta >= 0 ? .green : .red)
+                    } else {
+                        Text("—")
+                            .frame(width: width(for: .actualChf), alignment: .trailing)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            if resizable(.actualChf) { resizeSpacer(for: .setDeltaChf) }
             if columns.contains(.actualChf) {
-                Text(formatAmountLocal(r.currentValueBase, decimals: 2))
+                Text(wholeNumberAmountString(r.currentValueBase))
                     .foregroundColor(editableUser(r.instrumentId) == 0 ? .secondary : .primary)
                     .frame(width: width(for: .actualChf), alignment: .trailing)
             }
@@ -1424,12 +1706,25 @@ private struct Tag: View {
                 TextField("Notes", text: bindingNotes(for: r.instrumentId))
                     .textFieldStyle(.roundedBorder)
                     .padding(.vertical, 2)
+                    .font(.system(size: fontConfig.rowSize))
                     .frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.25)))
                     .disabled(isArchived)
                     .onSubmit { saveRow(r.instrumentId) }
             }
             if resizable(.notes) { resizeSpacer(for: .notes) }
+            if let delta = setTargetDelta(r.instrumentId, actual: r.currentValueBase),
+               abs(delta) >= 5000,
+               editableUser(r.instrumentId) > 0 {
+                Button {
+                    triggerRebalance(for: r, delta: delta)
+                } label: {
+                    Text("🔔")
+                }
+                .buttonStyle(.borderless)
+                .frame(width: 34)
+                .help("Create rebalance to-do")
+            }
             if !isArchived {
                 Button { confirmRemoveId = r.instrumentId } label: { Image(systemName: "trash") }
                     .buttonStyle(.borderless)
@@ -1448,7 +1743,7 @@ private struct Tag: View {
             .keyboardShortcut(.return, modifiers: .command)
             if saving.contains(r.instrumentId) { ProgressView().controlSize(.small) }
         }
-        .font(.system(.body, design: .monospaced))
+        .font(.system(size: fontConfig.rowSize, design: .monospaced))
         .background(editableUser(r.instrumentId) == 0 ? Color.gray.opacity(0.1) : Color.clear)
         .contextMenu { Button("Instrument Updates…") { openUpdates = UpdatesTarget(themeId: themeId, instrumentId: r.instrumentId, instrumentName: r.instrumentName) } }
     }
@@ -1468,6 +1763,99 @@ private struct Tag: View {
         "CHF \(formatAmountLocal(v, decimals: 0))"
     }
 
+    private func ensureRebalanceTagId() -> Int? {
+        if hasLoadedRebalanceTag {
+            return rebalanceTagId
+        }
+        hasLoadedRebalanceTag = true
+        let repository = TagRepository(dbManager: dbManager)
+        let match = repository.listActive().first { tag in
+            let code = tag.code.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = tag.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return code.caseInsensitiveCompare("REBALANCE") == .orderedSame ||
+                code.caseInsensitiveCompare("#REBALANCE") == .orderedSame ||
+                name.caseInsensitiveCompare("REBALANCE") == .orderedSame ||
+                name.caseInsensitiveCompare("#REBALANCE") == .orderedSame
+        }
+        rebalanceTagId = match?.id
+        return rebalanceTagId
+    }
+
+    private func triggerRebalance(for row: ValuationRow, delta: Double) {
+        let direction = delta < 0 ? "SELL" : "BUY"
+        let amountText = formatAmountLocal(abs(delta), decimals: 0)
+        let description = "Rebalance \(row.instrumentName) \(direction) CHF \(amountText)"
+        var tagIDs: [Int] = []
+        if let tagId = ensureRebalanceTagId() {
+            tagIDs = [tagId]
+        }
+        let dueDate = Calendar.current.startOfDay(for: Date())
+        let request = KanbanTodoQuickAddRequest(description: description,
+                                                priority: .medium,
+                                                dueDate: dueDate,
+                                                column: .prioritised,
+                                                tagIDs: tagIDs)
+        KanbanTodoQuickAddRouter.shared.stash(request)
+        NotificationCenter.default.post(name: .kanbanTodoQuickAddRequested, object: request)
+        openWindow(id: "todoBoard")
+    }
+
+    private func manualTargetDisplayString(_ value: Double?) -> String {
+        guard let value else { return "" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 6
+        guard var str = formatter.string(from: NSNumber(value: value)) else { return "" }
+        if abs(value) < 1 {
+            if str.hasPrefix("-0.") {
+                str = "-" + str.dropFirst(2)
+            } else if str.hasPrefix("0.") {
+                str = String(str.dropFirst(1))
+            }
+        }
+        return str
+    }
+
+    private func setTargetDraft(_ value: Double?) -> String {
+        manualTargetDisplayString(value)
+    }
+
+    private func sanitizeAmountString(_ raw: String) -> String {
+        var sanitized = raw.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "’", with: "")
+        if sanitized.contains(".") {
+            sanitized = sanitized.replacingOccurrences(of: ",", with: "")
+        } else if sanitized.contains(",") {
+            sanitized = sanitized.replacingOccurrences(of: ",", with: ".")
+        }
+        return sanitized
+    }
+
+    private func parseAmount(_ raw: String) -> Double? {
+        let sanitized = sanitizeAmountString(raw)
+        return Double(sanitized)
+    }
+
+    private func isPartialNumericDraft(_ raw: String) -> Bool {
+        let sanitized = sanitizeAmountString(raw)
+        if sanitized.isEmpty { return false }
+        if sanitized == "-" || sanitized == "." || sanitized == "-." { return true }
+        if sanitized.hasSuffix(".") { return true }
+        return false
+    }
+
+    private func editableSetTarget(_ instrumentId: Int) -> Double? {
+        edits[instrumentId]?.setTargetChf
+    }
+
+    private func setTargetDelta(_ instrumentId: Int, actual: Double) -> Double? {
+        guard let target = editableSetTarget(instrumentId) else { return nil }
+        return target - actual
+    }
+
     private func load() {
         let fx = FXConversionService(dbManager: dbManager)
         let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
@@ -1476,9 +1864,16 @@ private struct Tag: View {
         // seed editable fields from valuation rows
         var dict: [Int: Edit] = [:]
         for r in rows {
-            dict[r.instrumentId] = Edit(research: r.researchTargetPct, user: r.userTargetPct, notes: r.notes ?? "")
+            dict[r.instrumentId] = Edit(
+                research: r.researchTargetPct,
+                user: r.userTargetPct,
+                setTargetChf: r.setTargetChf,
+                setTargetDraft: setTargetDraft(r.setTargetChf),
+                notes: r.notes ?? ""
+            )
         }
         edits = dict
+        invalidKeys.removeAll()
         // Compute total Actual CHF excluding instruments with User % = 0
         let includedTotal = rows.reduce(0.0) { acc, r in
             let u = editableUser(r.instrumentId)
@@ -1556,12 +1951,40 @@ private struct Tag: View {
                 if lv == rv { return tieBreak(l, r) }
                 return sortAscending ? (lv < rv) : (lv > rv)
             }
+        case .setTargetChf:
+            arr.sort { l, r in
+                let lv = editableSetTarget(l.instrumentId)
+                let rv = editableSetTarget(r.instrumentId)
+                if lv == rv { return tieBreak(l, r) }
+                switch (lv, rv) {
+                case (nil, nil): return tieBreak(l, r)
+                case (nil, _): return !sortAscending
+                case (_, nil): return sortAscending
+                case let (lv?, rv?):
+                    if lv == rv { return tieBreak(l, r) }
+                    return sortAscending ? (lv < rv) : (lv > rv)
+                }
+            }
         case .deltaChf:
             arr.sort { l, r in
                 let lv = targetChf(l.instrumentId) - l.currentValueBase
                 let rv = targetChf(r.instrumentId) - r.currentValueBase
                 if lv == rv { return tieBreak(l, r) }
                 return sortAscending ? (lv < rv) : (lv > rv)
+            }
+        case .setDeltaChf:
+            arr.sort { l, r in
+                let lv = setTargetDelta(l.instrumentId, actual: l.currentValueBase)
+                let rv = setTargetDelta(r.instrumentId, actual: r.currentValueBase)
+                if lv == rv { return tieBreak(l, r) }
+                switch (lv, rv) {
+                case (nil, nil): return tieBreak(l, r)
+                case (nil, _): return !sortAscending
+                case (_, nil): return sortAscending
+                case let (lv?, rv?):
+                    if lv == rv { return tieBreak(l, r) }
+                    return sortAscending ? (lv < rv) : (lv > rv)
+                }
             }
         case .notes:
             arr.sort { l, r in
@@ -1641,6 +2064,23 @@ private struct Tag: View {
         guard s > 0 else { return nil }
         return (u / s) * 100.0
     }
+
+    private func fmtPctWhole(_ v: Double?) -> String {
+        guard let x = v else { return "—" }
+        return String(format: "%.0f", x.rounded())
+    }
+
+    private func wholeNumberAmountString(_ value: Double?) -> String {
+        guard let value else { return "" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        let rounded = value.rounded()
+        return formatter.string(from: NSNumber(value: rounded)) ?? String(format: "%.0f", rounded)
+    }
+
     private func targetChf(_ id: Int) -> Double {
         guard let b = themeBudgetChf, b > 0 else { return 0 }
         guard let n = normalizedUserPct(id) else { return 0 }
@@ -1648,9 +2088,15 @@ private struct Tag: View {
     }
 
     // MARK: - Editing helpers
-    private enum Field { case research, user }
+    private enum Field { case research, user, setTarget }
     private func key(for instrumentId: Int, field: Field) -> String {
-        "\(instrumentId):\(field == .research ? "research" : "user")"
+        let suffix: String
+        switch field {
+        case .research: suffix = "research"
+        case .user: suffix = "user"
+        case .setTarget: suffix = "setTarget"
+        }
+        return "\(instrumentId):\(suffix)"
     }
     private func bindingDouble(for instrumentId: Int, field: Field) -> Binding<Double> {
         Binding<Double>(
@@ -1660,11 +2106,35 @@ private struct Tag: View {
             },
             set: { newValue in
                 let clamped = max(0, min(100, newValue))
-                var e = edits[instrumentId] ?? Edit(research: 0, user: 0, notes: "")
+                var e = edits[instrumentId] ?? Edit(research: 0, user: 0, setTargetChf: nil, setTargetDraft: "", notes: "")
                 if field == .research { e.research = clamped } else { e.user = clamped }
                 edits[instrumentId] = e
                 let k = key(for: instrumentId, field: field)
                 if newValue != clamped { invalidKeys.insert(k) } else { invalidKeys.remove(k) }
+            }
+        )
+    }
+    private func bindingSetTarget(for instrumentId: Int) -> Binding<String> {
+        Binding<String>(
+            get: { edits[instrumentId]?.setTargetDraft ?? "" },
+            set: { newValue in
+                var e = edits[instrumentId] ?? Edit(research: 0, user: 0, setTargetChf: nil, setTargetDraft: "", notes: "")
+                e.setTargetDraft = newValue
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                let keyName = key(for: instrumentId, field: .setTarget)
+                if trimmed.isEmpty {
+                    e.setTargetChf = nil
+                    invalidKeys.remove(keyName)
+                } else if let parsed = parseAmount(trimmed) {
+                    e.setTargetChf = parsed
+                    invalidKeys.remove(keyName)
+                } else if isPartialNumericDraft(trimmed) {
+                    invalidKeys.remove(keyName)
+                } else {
+                    e.setTargetChf = nil
+                    invalidKeys.insert(keyName)
+                }
+                edits[instrumentId] = e
             }
         )
     }
@@ -1684,8 +2154,14 @@ private struct Tag: View {
         )
     }
 
+    private func commitSetTarget(_ instrumentId: Int) {
+        guard !invalidKeys.contains(key(for: instrumentId, field: .setTarget)) else { return }
+        saveRow(instrumentId)
+    }
+
     private func saveRow(_ instrumentId: Int) {
         guard let e = edits[instrumentId] else { return }
+        if invalidKeys.contains(key(for: instrumentId, field: .setTarget)) { return }
         saving.insert(instrumentId)
         DispatchQueue.global(qos: .userInitiated).async {
             let result = dbManager.updateThemeAssetDetailed(
@@ -1693,6 +2169,7 @@ private struct Tag: View {
                 instrumentId: instrumentId,
                 researchPct: e.research,
                 userPct: e.user,
+                setTargetChf: e.setTargetChf,
                 // Use empty string to explicitly clear notes; nil would mean "no change" in DB layer
                 notes: e.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : e.notes
             )
@@ -1730,7 +2207,25 @@ private struct Tag: View {
         sortAscending = (parts[1] == "asc")
     }
 
-    private struct Edit { var research: Double; var user: Double; var notes: String }
+    private struct Edit {
+        var research: Double
+        var user: Double
+        var setTargetChf: Double?
+        var setTargetDraft: String
+        var notes: String
+
+        init(research: Double, user: Double, setTargetChf: Double?, setTargetDraft: String, notes: String) {
+            self.research = research
+            self.user = user
+            self.setTargetChf = setTargetChf
+            self.setTargetDraft = setTargetDraft
+            self.notes = notes
+        }
+
+        init(research: Double, user: Double, notes: String) {
+            self.init(research: research, user: user, setTargetChf: nil, setTargetDraft: "", notes: notes)
+        }
+    }
     private struct UpdatesTarget: Identifiable { let themeId: Int; let instrumentId: Int; let instrumentName: String; var id: Int { instrumentId } }
 
     // Totals computed from current editable values
@@ -1747,7 +2242,7 @@ private struct Tag: View {
 
     // Visible columns
     enum Column: String, CaseIterable, Identifiable, Hashable {
-        case instrument, research, user, userNorm, targetChf, actual, delta, deltaChf, actualChf, notes
+        case instrument, research, user, userNorm, targetChf, setTargetChf, actual, delta, deltaChf, setDeltaChf, actualChf, notes
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -1755,15 +2250,17 @@ private struct Tag: View {
             case .research: return "Research %"
             case .user: return "User %"
             case .userNorm: return "User % (Norm)"
-            case .targetChf: return "Target CHF"
-            case .actual: return "Actual %"
+            case .targetChf: return "Calc Target CHF"
+            case .setTargetChf: return "Set Target (ST) CHF"
+            case .actual: return "Normalised %"
             case .delta: return "Δ Actual-User"
-            case .deltaChf: return "Δ CHF"
+            case .deltaChf: return "Δ Calc CHF"
+            case .setDeltaChf: return "ST Delta CHF"
             case .actualChf: return "Actual CHF"
             case .notes: return "Notes"
             }
         }
-        static let defaultVisible: [Column] = [.instrument, .research, .user, .userNorm, .targetChf, .actual, .delta, .deltaChf, .actualChf, .notes]
+        static let defaultVisible: [Column] = [.instrument, .research, .user, .userNorm, .targetChf, .setTargetChf, .actual, .delta, .deltaChf, .setDeltaChf, .actualChf, .notes]
     }
 
     // MARK: - Column widths persistence
@@ -1790,9 +2287,9 @@ private struct Tag: View {
     private func ColumnWidthsEditor(onSave: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Adjust Column Widths").font(.headline)
-            ForEach(Column.allCases) { col in
+            ForEach(Array(Column.allCases), id: \.self) { col in
                 HStack {
-                    Text(col == .actualChf ? "Actual \(dbManager.baseCurrency)" : col.title).frame(width: 140, alignment: .leading)
+                    Text(labelForColumn(col)).frame(width: 140, alignment: .leading)
                     Slider(value: Binding(
                         get: { Double(width(for: col)) },
                         set: { colWidths[col] = CGFloat($0) }

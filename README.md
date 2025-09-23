@@ -99,14 +99,14 @@ Additional references:
    cd DragonShield
    ```
 
-2. **Create Python virtual environment**
+2. **Create Python virtual environment (outside of the `DragonShield` app folder)**
    ```bash
-   python3 -m venv .venv
+   python3 -m venv python_scripts_venv
    ```
 
 3. **Activate virtual environment**
    ```bash
-   source .venv/bin/activate
+   source python_scripts_venv/bin/activate
    ```
 
 4. **Install Python dependencies**

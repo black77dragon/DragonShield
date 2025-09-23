@@ -81,7 +81,7 @@ struct TargetEditPanel: View {
                                 .frame(minWidth: 200, maxWidth: .infinity, alignment: .leading)
                             Text("Kind").frame(width: 80)
                             Text("Target %").frame(width: 80, alignment: .trailing)
-                            Text("Target CHF").frame(width: 100, alignment: .trailing)
+                            Text("Calc Target CHF").frame(width: 100, alignment: .trailing)
                             Text("Tol %").frame(width: 60, alignment: .trailing)
                         }
                         Divider()
@@ -216,7 +216,7 @@ struct TargetEditPanel: View {
                 }
 
                 VStack(alignment: .leading) {
-                    Text("Target CHF")
+                    Text("Calc Target CHF")
                     TextField("", text: chfBinding(key: "parent", value: $parentAmount))
                         .frame(width: 100)
                         .multilineTextAlignment(.trailing)

@@ -73,3 +73,66 @@ extension DatabaseManager {
     }
     #endif
 }
+
+#if os(macOS)
+extension DatabaseManager {
+    /// Store the destination folder path and capture a security-scoped bookmark for later use.
+    @discardableResult
+    func setIOSSnapshotTargetFolder(_ url: URL) -> Bool {
+        let path = url.path
+        iosSnapshotTargetPath = path
+        _ = upsertConfiguration(key: "ios_snapshot_target_path", value: path, dataType: "string", description: "Destination folder for iOS snapshot export")
+        do {
+            let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            iosSnapshotTargetBookmark = bookmark
+            let encoded = bookmark.base64EncodedString()
+            _ = upsertConfiguration(key: "ios_snapshot_target_bookmark", value: encoded, dataType: "data", description: "Security-scoped bookmark for iOS snapshot export folder")
+            return true
+        } catch {
+            iosSnapshotTargetBookmark = nil
+            _ = upsertConfiguration(key: "ios_snapshot_target_bookmark", value: "", dataType: "data", description: "Security-scoped bookmark for iOS snapshot export folder")
+            print("⚠️ [iOS Snapshot] Failed to create bookmark: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Resolve the stored bookmark into a URL, refreshing the bookmark if needed.
+    func resolveIOSSnapshotBookmarkURL() -> URL? {
+        guard let data = iosSnapshotTargetBookmark else { return nil }
+        do {
+            var stale = false
+            let url = try URL(resolvingBookmarkData: data, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale)
+            if stale {
+                do {
+                    let refreshed = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                    iosSnapshotTargetBookmark = refreshed
+                    let encoded = refreshed.base64EncodedString()
+                    _ = upsertConfiguration(key: "ios_snapshot_target_bookmark", value: encoded, dataType: "data", description: "Security-scoped bookmark for iOS snapshot export folder")
+                } catch {
+                    print("⚠️ [iOS Snapshot] Failed to refresh stale bookmark: \(error.localizedDescription)")
+                }
+            }
+            return url
+        } catch {
+            print("⚠️ [iOS Snapshot] Failed to resolve bookmark: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Begin security-scoped access to the bookmarked destination directory if available.
+    func beginIOSSnapshotTargetAccess() -> (url: URL, needsStop: Bool)? {
+        guard let url = resolveIOSSnapshotBookmarkURL() else { return nil }
+        let granted = url.startAccessingSecurityScopedResource()
+        if !granted {
+            print("⚠️ [iOS Snapshot] startAccessingSecurityScopedResource returned false for \(url.path)")
+        }
+        return (url, granted)
+    }
+
+    /// Clear any cached bookmark when the user manually edits the destination path.
+    func clearIOSSnapshotBookmark() {
+        iosSnapshotTargetBookmark = nil
+        _ = upsertConfiguration(key: "ios_snapshot_target_bookmark", value: "", dataType: "data", description: "Security-scoped bookmark for iOS snapshot export folder")
+    }
+}
+#endif

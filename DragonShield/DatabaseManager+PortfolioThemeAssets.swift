@@ -24,6 +24,7 @@ extension DatabaseManager {
             instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE RESTRICT,
             research_target_pct REAL NOT NULL DEFAULT 0.0 CHECK (research_target_pct >= 0.0 AND research_target_pct <= 100.0),
             user_target_pct REAL NOT NULL DEFAULT 0.0 CHECK (user_target_pct >= 0.0 AND user_target_pct <= 100.0),
+            rwk_set_target_chf REAL NULL,
             notes TEXT NULL,
             created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
             updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -33,6 +34,11 @@ extension DatabaseManager {
         """
         if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
             LoggingService.shared.log("ensurePortfolioThemeAssetTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        if !hasColumn("PortfolioThemeAsset", "rwk_set_target_chf") {
+            if sqlite3_exec(db, "ALTER TABLE PortfolioThemeAsset ADD COLUMN rwk_set_target_chf REAL NULL;", nil, nil, nil) != SQLITE_OK {
+                LoggingService.shared.log("add rwk_set_target_chf failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
         }
     }
 
@@ -78,7 +84,7 @@ extension DatabaseManager {
         return exists
     }
 
-    func createThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double, userPct: Double? = nil, notes: String? = nil) -> PortfolioThemeAsset? {
+    func createThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double, userPct: Double? = nil, setTargetChf: Double? = nil, notes: String? = nil) -> PortfolioThemeAsset? {
         guard PortfolioThemeAsset.isValidPercentage(researchPct),
               PortfolioThemeAsset.isValidPercentage(userPct ?? researchPct) else {
             LoggingService.shared.log("Invalid percentage bounds", type: .info, logger: .database)
@@ -94,8 +100,8 @@ extension DatabaseManager {
         }
         let uPct = userPct ?? researchPct
         let sql = """
-            INSERT INTO PortfolioThemeAsset (theme_id, instrument_id, research_target_pct, user_target_pct, notes)
-            VALUES (?,?,?,?,?)
+            INSERT INTO PortfolioThemeAsset (theme_id, instrument_id, research_target_pct, user_target_pct, rwk_set_target_chf, notes)
+            VALUES (?,?,?,?,?,?)
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -106,11 +112,16 @@ extension DatabaseManager {
         sqlite3_bind_int(stmt, 2, Int32(instrumentId))
         sqlite3_bind_double(stmt, 3, researchPct)
         sqlite3_bind_double(stmt, 4, uPct)
-        if let notes = notes {
-            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_text(stmt, 5, notes, -1, SQLITE_TRANSIENT)
+        if let setTargetChf {
+            sqlite3_bind_double(stmt, 5, setTargetChf)
         } else {
             sqlite3_bind_null(stmt, 5)
+        }
+        if let notes = notes {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(stmt, 6, notes, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 6)
         }
         if sqlite3_step(stmt) != SQLITE_DONE {
             LoggingService.shared.log("createThemeAsset failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -123,7 +134,7 @@ extension DatabaseManager {
 
     func getThemeAsset(themeId: Int, instrumentId: Int) -> PortfolioThemeAsset? {
         let sql = """
-            SELECT theme_id, instrument_id, research_target_pct, user_target_pct, notes, created_at, updated_at
+            SELECT theme_id, instrument_id, research_target_pct, user_target_pct, rwk_set_target_chf, notes, created_at, updated_at
             FROM PortfolioThemeAsset WHERE theme_id = ? AND instrument_id = ?
         """
         var stmt: OpaquePointer?
@@ -136,10 +147,11 @@ extension DatabaseManager {
                 let instrId = Int(sqlite3_column_int(stmt, 1))
                 let research = sqlite3_column_double(stmt, 2)
                 let user = sqlite3_column_double(stmt, 3)
-                let notes = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
-                let createdAt = String(cString: sqlite3_column_text(stmt, 5))
-                let updatedAt = String(cString: sqlite3_column_text(stmt, 6))
-                asset = PortfolioThemeAsset(themeId: themeId, instrumentId: instrId, researchTargetPct: research, userTargetPct: user, notes: notes, createdAt: createdAt, updatedAt: updatedAt)
+                let setTarget = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 4)
+                let notes = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                let createdAt = String(cString: sqlite3_column_text(stmt, 6))
+                let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
+                asset = PortfolioThemeAsset(themeId: themeId, instrumentId: instrId, researchTargetPct: research, userTargetPct: user, setTargetChf: setTarget, notes: notes, createdAt: createdAt, updatedAt: updatedAt)
             }
         }
         sqlite3_finalize(stmt)
@@ -149,7 +161,7 @@ extension DatabaseManager {
     func listThemeAssets(themeId: Int) -> [PortfolioThemeAsset] {
         var assets: [PortfolioThemeAsset] = []
         let sql = """
-            SELECT theme_id, instrument_id, research_target_pct, user_target_pct, notes, created_at, updated_at
+            SELECT theme_id, instrument_id, research_target_pct, user_target_pct, rwk_set_target_chf, notes, created_at, updated_at
             FROM PortfolioThemeAsset WHERE theme_id = ? ORDER BY instrument_id
         """
         var stmt: OpaquePointer?
@@ -160,10 +172,11 @@ extension DatabaseManager {
                 let instrId = Int(sqlite3_column_int(stmt, 1))
                 let research = sqlite3_column_double(stmt, 2)
                 let user = sqlite3_column_double(stmt, 3)
-                let notes = sqlite3_column_text(stmt, 4).map { String(cString: $0) }
-                let createdAt = String(cString: sqlite3_column_text(stmt, 5))
-                let updatedAt = String(cString: sqlite3_column_text(stmt, 6))
-                assets.append(PortfolioThemeAsset(themeId: themeId, instrumentId: instrId, researchTargetPct: research, userTargetPct: user, notes: notes, createdAt: createdAt, updatedAt: updatedAt))
+                let setTarget = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 4)
+                let notes = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
+                let createdAt = String(cString: sqlite3_column_text(stmt, 6))
+                let updatedAt = String(cString: sqlite3_column_text(stmt, 7))
+                assets.append(PortfolioThemeAsset(themeId: themeId, instrumentId: instrId, researchTargetPct: research, userTargetPct: user, setTargetChf: setTarget, notes: notes, createdAt: createdAt, updatedAt: updatedAt))
             }
         }
         sqlite3_finalize(stmt)
@@ -171,7 +184,7 @@ extension DatabaseManager {
     }
 
     /// Detailed variant: returns updated asset and optional user-facing error.
-    func updateThemeAssetDetailed(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> (PortfolioThemeAsset?, String?) {
+    func updateThemeAssetDetailed(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, setTargetChf: Double? = nil, notes: String? = nil) -> (PortfolioThemeAsset?, String?) {
         guard themeEditable(themeId: themeId) else {
             let msg = "no changes possible, restore theme first"
             LoggingService.shared.log("updateThemeAsset denied themeId=\(themeId) instrumentId=\(instrumentId): \(msg)", type: .info, logger: .database)
@@ -191,6 +204,7 @@ extension DatabaseManager {
             UPDATE PortfolioThemeAsset
             SET research_target_pct = COALESCE(?, research_target_pct),
                 user_target_pct = COALESCE(?, user_target_pct),
+                rwk_set_target_chf = ?,
                 notes = COALESCE(?, notes),
                 updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')
             WHERE theme_id = ? AND instrument_id = ?
@@ -203,14 +217,19 @@ extension DatabaseManager {
         }
         if let r = researchPct { sqlite3_bind_double(stmt, 1, r) } else { sqlite3_bind_null(stmt, 1) }
         if let u = userPct { sqlite3_bind_double(stmt, 2, u) } else { sqlite3_bind_null(stmt, 2) }
-        if let notes = notes {
-            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_text(stmt, 3, notes, -1, SQLITE_TRANSIENT)
+        if let setTargetChf {
+            sqlite3_bind_double(stmt, 3, setTargetChf)
         } else {
             sqlite3_bind_null(stmt, 3)
         }
-        sqlite3_bind_int(stmt, 4, Int32(themeId))
-        sqlite3_bind_int(stmt, 5, Int32(instrumentId))
+        if let notes = notes {
+            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            sqlite3_bind_text(stmt, 4, notes, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 4)
+        }
+        sqlite3_bind_int(stmt, 5, Int32(themeId))
+        sqlite3_bind_int(stmt, 6, Int32(instrumentId))
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             let err = String(cString: sqlite3_errmsg(db))
             LoggingService.shared.log("updateThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err)", type: .error, logger: .database)
@@ -221,8 +240,8 @@ extension DatabaseManager {
         return (getThemeAsset(themeId: themeId, instrumentId: instrumentId), nil)
     }
 
-    func updateThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, notes: String?) -> PortfolioThemeAsset? {
-        return updateThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId, researchPct: researchPct, userPct: userPct, notes: notes).0
+    func updateThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double?, userPct: Double?, setTargetChf: Double? = nil, notes: String? = nil) -> PortfolioThemeAsset? {
+        return updateThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId, researchPct: researchPct, userPct: userPct, setTargetChf: setTargetChf, notes: notes).0
     }
 
     func removeThemeAssetDetailed(themeId: Int, instrumentId: Int) -> (Bool, String?) {

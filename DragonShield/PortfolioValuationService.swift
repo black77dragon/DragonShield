@@ -13,6 +13,7 @@ struct ValuationRow: Identifiable {
     let instrumentName: String
     let researchTargetPct: Double
     let userTargetPct: Double
+    let setTargetChf: Double?
     let currentValueBase: Double
     let actualPct: Double
     let deltaResearchPct: Double?
@@ -79,6 +80,7 @@ final class PortfolioValuationService {
                i.instrument_name,
                a.research_target_pct,
                a.user_target_pct,
+               a.rwk_set_target_chf,
                i.currency,
                COALESCE(SUM(pr.quantity),0) AS qty,
                ipl.price,
@@ -97,12 +99,13 @@ final class PortfolioValuationService {
                 let name = String(cString: sqlite3_column_text(stmt, 1))
                 let research = sqlite3_column_double(stmt, 2)
                 let user = sqlite3_column_double(stmt, 3)
-                let currency = String(cString: sqlite3_column_text(stmt, 4))
-                let qty = sqlite3_column_double(stmt, 5)
-                let hasPrice = sqlite3_column_type(stmt, 6) != SQLITE_NULL
-                let price = hasPrice ? sqlite3_column_double(stmt, 6) : 0
+                let setTargetValue = sqlite3_column_type(stmt, 4) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 4)
+                let currency = String(cString: sqlite3_column_text(stmt, 5))
+                let qty = sqlite3_column_double(stmt, 6)
+                let hasPrice = sqlite3_column_type(stmt, 7) != SQLITE_NULL
+                let price = hasPrice ? sqlite3_column_double(stmt, 7) : 0
                 let nativeValue = qty * price
-                let note = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+                let note = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
                 var status: ValuationStatus = .ok
                 var valueBase: Double = 0
                 if qty == 0 {
@@ -119,7 +122,7 @@ final class PortfolioValuationService {
                     excludedFx += 1
                     missing.insert(currency)
                 }
-                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, currentValueBase: valueBase, actualPct: 0, deltaResearchPct: nil, deltaUserPct: nil, notes: note, status: status))
+                rows.append(ValuationRow(instrumentId: instrId, instrumentName: name, researchTargetPct: research, userTargetPct: user, setTargetChf: setTargetValue, currentValueBase: valueBase, actualPct: 0, deltaResearchPct: nil, deltaUserPct: nil, notes: note, status: status))
                 if status == .ok { total += valueBase }
             }
         }
@@ -132,7 +135,7 @@ final class PortfolioValuationService {
             }
             let deltaResearch = row.status == .fxMissing ? nil : pct - row.researchTargetPct
             let deltaUser = row.status == .fxMissing ? nil : pct - row.userTargetPct
-            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, currentValueBase: row.currentValueBase, actualPct: pct, deltaResearchPct: deltaResearch, deltaUserPct: deltaUser, notes: row.notes, status: row.status)
+            return ValuationRow(instrumentId: row.instrumentId, instrumentName: row.instrumentName, researchTargetPct: row.researchTargetPct, userTargetPct: row.userTargetPct, setTargetChf: row.setTargetChf, currentValueBase: row.currentValueBase, actualPct: pct, deltaResearchPct: deltaResearch, deltaUserPct: deltaUser, notes: row.notes, status: row.status)
         }
 
         let duration = Int(Date().timeIntervalSince(start) * 1000)

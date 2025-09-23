@@ -129,23 +129,25 @@ struct TradesHistoryView: View {
             case .small: return "S"
             case .medium: return "M"
             case .large: return "L"
-            case .xLarge: return "XL"
-            }
+        case .xLarge: return "XL"
         }
+    }
 
-        var baseSize: CGFloat {
-            switch self {
-            case .xSmall: return 12
-            case .small: return 13.5
-            case .medium: return 15
-            case .large: return 16.5
-            case .xLarge: return 18
-            }
+    var baseSize: CGFloat {
+        let index: Int
+        switch self {
+        case .xSmall: index = 0
+        case .small: index = 1
+        case .medium: index = 2
+        case .large: index = 3
+        case .xLarge: index = 4
         }
+        return TableFontMetrics.baseSize(for: index)
+    }
 
-        var secondarySize: CGFloat { baseSize - 1 }
-        var badgeSize: CGFloat { baseSize - 2 }
-        var headerSize: CGFloat { baseSize - 1 }
+    var secondarySize: CGFloat { baseSize - 1 }
+    var badgeSize: CGFloat { baseSize - 2 }
+    var headerSize: CGFloat { baseSize - 1 }
     }
 
     private static let visibleColumnsKey = "TradesHistoryView.visibleColumns.v1"

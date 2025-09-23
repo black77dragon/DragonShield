@@ -9,14 +9,14 @@ protocol DashboardTile: View {
 
 struct DashboardCard<Content: View>: View {
     let title: String
-    let headerIcon: Image?
+    let headerAccessory: AnyView?
     let content: Content
     private let titleFont: Font
     private let cornerRadius: CGFloat = 12
 
-    init(title: String, titleFont: Font = .headline, headerIcon: Image? = nil, @ViewBuilder content: () -> Content) {
+    init(title: String, titleFont: Font = .headline, headerAccessory: AnyView? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
-        self.headerIcon = headerIcon
+        self.headerAccessory = headerAccessory
         self.content = content()
         self.titleFont = titleFont
     }
@@ -27,10 +27,8 @@ struct DashboardCard<Content: View>: View {
                 Text(title)
                     .font(titleFont)
                 Spacer()
-                if let icon = headerIcon {
-                    icon
-                        .resizable()
-                        .frame(width: 24, height: 24)
+                if let accessory = headerAccessory {
+                    accessory
                 }
             }
             content
@@ -765,6 +763,7 @@ enum TileRegistry {
         TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
         TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) },
         TileInfo(id: InstrumentDashboardTile.tileID, name: InstrumentDashboardTile.tileName, icon: InstrumentDashboardTile.iconName) { AnyView(InstrumentDashboardTile()) },
+        TileInfo(id: TodoDashboardTile.tileID, name: TodoDashboardTile.tileName, icon: TodoDashboardTile.iconName) { AnyView(TodoDashboardTile()) },
         TileInfo(id: UpcomingAlertsTile.tileID, name: UpcomingAlertsTile.tileName, icon: UpcomingAlertsTile.iconName) { AnyView(UpcomingAlertsTile()) },
     ]
 

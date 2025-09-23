@@ -9,6 +9,8 @@ struct RootTabView: View {
         TabView {
             NavigationStack { IOSDashboardView() }
                 .tabItem { Label("Dashboard", systemImage: "rectangle.grid.2x2") }
+            NavigationStack { TodoBoardView() }
+                .tabItem { Label("To-Dos", systemImage: "checklist") }
             NavigationStack { ThemesListView() }
                 .tabItem { Label("Themes", systemImage: "square.grid.2x2") }
             NavigationStack { InstrumentsListView() }

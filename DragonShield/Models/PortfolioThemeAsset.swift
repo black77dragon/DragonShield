@@ -6,6 +6,7 @@ struct PortfolioThemeAsset: Identifiable, Hashable {
     let instrumentId: Int
     var researchTargetPct: Double
     var userTargetPct: Double
+    var setTargetChf: Double?
     var notes: String?
     var createdAt: String
     var updatedAt: String

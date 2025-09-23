@@ -107,6 +107,13 @@ struct DragonShieldApp: App {
         .defaultSize(width: 1080, height: 720)
         .windowResizability(.contentSize)
 
+        WindowGroup(id: "todoBoard") {
+            TodoKanbanBoardView()
+                .environmentObject(databaseManager)
+        }
+        .defaultSize(width: 1120, height: 720)
+        .windowResizability(.contentSize)
+
         WindowGroup(id: "themeWorkspace", for: Int.self) { $themeId in
             if let tid = themeId {
                 PortfolioThemeWorkspaceView(themeId: tid, origin: "window")

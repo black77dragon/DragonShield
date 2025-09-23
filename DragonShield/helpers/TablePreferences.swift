@@ -5,6 +5,7 @@ enum TablePreferenceKind {
     case instruments
     case currencies
     case accounts
+    case portfolioThemes
 
     var fractionsKeyPath: ReferenceWritableKeyPath<DatabaseManager, [String: Double]> {
         switch self {
@@ -12,6 +13,7 @@ enum TablePreferenceKind {
         case .instruments: return \DatabaseManager.instrumentsTableColumnFractions
         case .currencies: return \DatabaseManager.currenciesTableColumnFractions
         case .accounts: return \DatabaseManager.accountsTableColumnFractions
+        case .portfolioThemes: return \DatabaseManager.portfolioThemesTableColumnFractions
         }
     }
 
@@ -21,6 +23,7 @@ enum TablePreferenceKind {
         case .instruments: return \DatabaseManager.instrumentsTableFontSize
         case .currencies: return \DatabaseManager.currenciesTableFontSize
         case .accounts: return \DatabaseManager.accountsTableFontSize
+        case .portfolioThemes: return \DatabaseManager.portfolioThemesTableFontSize
         }
     }
 
@@ -30,6 +33,7 @@ enum TablePreferenceKind {
         case .instruments: return "PortfolioView.instrumentColumnFractions.v2"
         case .currencies: return "CurrenciesView.columnFractions.v1"
         case .accounts: return "AccountsView.columnFractions.v1"
+        case .portfolioThemes: return "NewPortfoliosView.columnFractions.v1"
         }
     }
 
@@ -39,6 +43,7 @@ enum TablePreferenceKind {
         case .instruments: return "PortfolioView.tableFontSize.v1"
         case .currencies: return "CurrenciesView.tableFontSize.v1"
         case .accounts: return "AccountsView.tableFontSize.v1"
+        case .portfolioThemes: return "NewPortfoliosView.tableFontSize.v1"
         }
     }
 }
@@ -54,6 +59,7 @@ extension DatabaseManager {
         case .instruments: setInstrumentsTableColumnFractions(fractions)
         case .currencies: setCurrenciesTableColumnFractions(fractions)
         case .accounts: setAccountsTableColumnFractions(fractions)
+        case .portfolioThemes: setPortfolioThemesTableColumnFractions(fractions)
         }
     }
 
@@ -67,6 +73,7 @@ extension DatabaseManager {
         case .instruments: setInstrumentsTableFontSize(value)
         case .currencies: setCurrenciesTableFontSize(value)
         case .accounts: setAccountsTableFontSize(value)
+        case .portfolioThemes: setPortfolioThemesTableFontSize(value)
         }
     }
 

@@ -17,7 +17,7 @@ final class InstrumentUsageRepositoryTests: XCTestCase {
         sqlite3_exec(db, "CREATE TABLE AssetSubClasses(sub_class_id INTEGER PRIMARY KEY, sub_class_name TEXT);", nil, nil, nil)
         sqlite3_exec(db, "INSERT INTO AssetSubClasses(sub_class_id, sub_class_name) VALUES(1,'Cash'),(2,'Single Stock');", nil, nil, nil)
         sqlite3_exec(db, "CREATE TABLE Instruments(instrument_id INTEGER PRIMARY KEY, instrument_name TEXT NOT NULL, sub_class_id INTEGER NOT NULL, currency TEXT NOT NULL, is_active INTEGER DEFAULT 1);", nil, nil, nil)
-        sqlite3_exec(db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER);", nil, nil, nil)
+        sqlite3_exec(db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER, rwk_set_target_chf REAL);", nil, nil, nil)
         sqlite3_exec(db, "CREATE TABLE PositionReports(instrument_id INTEGER, quantity REAL, report_date TEXT);", nil, nil, nil)
         sqlite3_exec(db, "CREATE TABLE Transactions(tx_id INTEGER PRIMARY KEY, instrument_id INTEGER);", nil, nil, nil)
         // Instrument with position to establish snapshot
