@@ -15,7 +15,7 @@ final class PortfolioThemesListValuationTests: XCTestCase {
         INSERT INTO PortfolioThemeStatus VALUES (1,'ACTIVE','Active','#fff',1);
         CREATE TABLE PortfolioTheme (id INTEGER PRIMARY KEY, name TEXT, code TEXT, status_id INTEGER, created_at TEXT DEFAULT '', updated_at TEXT DEFAULT '', archived_at TEXT, soft_delete INTEGER DEFAULT 0);
         INSERT INTO PortfolioTheme VALUES (1,'Core','CORE',1,'','',NULL,0);
-        CREATE TABLE PortfolioThemeAsset (theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, PRIMARY KEY(theme_id,instrument_id));
+        CREATE TABLE PortfolioThemeAsset (theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, rwk_set_target_chf REAL, notes TEXT, PRIMARY KEY(theme_id,instrument_id));
         INSERT INTO PortfolioThemeAsset VALUES (1,1,100,100,NULL);
         CREATE TABLE Instruments (instrument_id INTEGER PRIMARY KEY, instrument_name TEXT, sub_class_id INTEGER, currency TEXT);
         INSERT INTO Instruments VALUES (1,'AAPL',1,'CHF');

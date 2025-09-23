@@ -509,7 +509,7 @@ struct AllocationTargetsTableView: View {
                     .frame(width: 80)
                 sortHeader(title: "Target %", column: .targetPct)
                     .frame(width: 80)
-                Text("Target CHF")
+                Text("Calc Target CHF")
                     .frame(width: 100)
             }
             Divider()

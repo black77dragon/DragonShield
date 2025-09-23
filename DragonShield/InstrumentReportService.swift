@@ -11,6 +11,7 @@ final class InstrumentReportService {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = [scriptPath, outputPath]
+        process.environment = PythonEnvironment.enrichedEnvironment(anchorFile: #file)
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe

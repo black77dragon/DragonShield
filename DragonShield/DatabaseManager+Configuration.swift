@@ -10,6 +10,35 @@ import Foundation
 
 extension DatabaseManager {
 
+    /// Returns whether the manager currently has an open SQLite connection.
+    /// iOS views rely on this to decide if snapshot data can be read.
+    func hasOpenConnection() -> Bool {
+        db != nil
+    }
+
+    /// Returns the raw configuration value for the provided key, if it exists.
+    /// Falls back to `nil` when the connection is missing or an error occurs.
+    func configurationValue(for key: String) -> String? {
+        guard let db else { return nil }
+        let query = "SELECT value FROM Configuration WHERE key = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            #if DEBUG
+            let message = String(cString: sqlite3_errmsg(db))
+            print("❌ [config] Failed to prepare lookup for key \(key): \(message)")
+            #endif
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(statement, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(statement) == SQLITE_ROW,
+              let pointer = sqlite3_column_text(statement, 0) else {
+            return nil
+        }
+        return String(cString: pointer)
+    }
+
     /// Loads configuration values from the database and returns the db_version.
     /// The db_version is also applied to the `dbVersion` property.
     func loadConfiguration() -> String {
@@ -21,11 +50,12 @@ extension DatabaseManager {
                 'default_timezone', 'table_row_spacing', 'table_row_padding',
                 'include_direct_re', 'direct_re_target_chf', 'db_version',
                 'fx_auto_update_enabled', 'fx_update_frequency',
-                'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path',
+                'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path', 'ios_snapshot_target_bookmark',
                 'institutions_table_font', 'institutions_table_column_fractions',
                 'instruments_table_font', 'instruments_table_column_fractions',
                 'currencies_table_font', 'currencies_table_column_fractions',
-                'accounts_table_font', 'accounts_table_column_fractions'
+                'accounts_table_font', 'accounts_table_column_fractions',
+                'portfolio_themes_table_font', 'portfolio_themes_table_column_fractions'
             );
         """
         var statement: OpaquePointer?
@@ -81,6 +111,16 @@ extension DatabaseManager {
                         self.iosSnapshotFrequency = (v == "weekly" ? "weekly" : "daily")
                     case "ios_snapshot_target_path":
                         self.iosSnapshotTargetPath = value
+                    case "ios_snapshot_target_bookmark":
+                        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed.isEmpty {
+                            self.iosSnapshotTargetBookmark = nil
+                        } else if let data = Data(base64Encoded: trimmed) {
+                            self.iosSnapshotTargetBookmark = data
+                        } else {
+                            self.iosSnapshotTargetBookmark = nil
+                            print("⚠️ [config] Failed to decode ios_snapshot_target_bookmark")
+                        }
                     case "institutions_table_font":
                         print("ℹ️ [config] Loaded institutions_table_font=\(value)")
                         self.institutionsTableFontSize = value
@@ -105,10 +145,17 @@ extension DatabaseManager {
                     case "accounts_table_font":
                         print("ℹ️ [config] Loaded accounts_table_font=\(value)")
                         self.accountsTableFontSize = value
+                    case "portfolio_themes_table_font":
+                        print("ℹ️ [config] Loaded portfolio_themes_table_font=\(value)")
+                        self.portfolioThemesTableFontSize = value
                     case "accounts_table_column_fractions":
                         let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                         print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
                         self.accountsTableColumnFractions = parsed
+                    case "portfolio_themes_table_column_fractions":
+                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                        print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
+                        self.portfolioThemesTableColumnFractions = parsed
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -331,5 +378,25 @@ extension DatabaseManager {
                                 value: payload,
                                 dataType: "string",
                                 description: "Column width fractions for Accounts table")
+    }
+
+    func setPortfolioThemesTableFontSize(_ value: String) {
+        guard portfolioThemesTableFontSize != value else { return }
+        print("📝 [config] Request to store portfolio_themes_table_font=\(value)")
+        _ = upsertConfiguration(key: "portfolio_themes_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for New Portfolios table")
+    }
+
+    func setPortfolioThemesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard portfolioThemesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store portfolio_themes_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "portfolio_themes_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for New Portfolios table")
     }
 }

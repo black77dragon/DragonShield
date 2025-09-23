@@ -59,6 +59,8 @@ dragonshield.sqlite-wal
 
 # --- Python ---
 .venv/
+python_scripts_venv/
+DragonShield/python_scripts/.venv/
 __pycache__/
 *.pyc
 

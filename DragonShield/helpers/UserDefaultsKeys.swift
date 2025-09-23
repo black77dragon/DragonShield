@@ -32,6 +32,8 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceHoldingsColWidths = "portfolioThemeWorkspaceHoldingsColWidths"
     /// Sort for Workspace Holdings table: e.g. "instrument|asc"
     static let portfolioThemeWorkspaceHoldingsSort = "portfolioThemeWorkspaceHoldingsSort"
+    /// Preferred font size for Workspace Holdings table.
+    static let portfolioThemeWorkspaceHoldingsFontSize = "portfolioThemeWorkspaceHoldingsFontSize"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
     /// Persist column widths for Portfolio Themes list.
@@ -42,4 +44,6 @@ struct UserDefaultsKeys {
     static let dashboardIncomingPopupShownThisLaunch = "dashboardIncomingPopupShownThisLaunch"
     /// Column widths for Instrument Prices Maintenance table (csv: col:width,...)
     static let pricesMaintenanceColWidths = "pricesMaintenanceColWidths"
+    /// Persist Kanban board to-do items (JSON encoded).
+    static let kanbanTodos = "kanbanTodos"
 }

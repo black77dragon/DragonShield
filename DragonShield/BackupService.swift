@@ -175,7 +175,7 @@ class BackupService: ObservableObject {
     }
 
     private func runPythonScript(arguments: [String]) throws -> String {
-        let scriptPath = "/Users/renekeller/Projects/DragonShield/DragonShield/DragonShield/python_scripts/backup_restore.py"
+        let scriptPath = "/Users/renekeller/Projects/DragonShield/DragonShield/python_scripts/backup_restore.py"
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")

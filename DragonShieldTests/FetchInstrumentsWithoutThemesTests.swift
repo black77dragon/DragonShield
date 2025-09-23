@@ -22,7 +22,8 @@ final class FetchInstrumentsWithoutThemesTests: XCTestCase {
         );
         CREATE TABLE PortfolioThemeAsset (
             theme_id INTEGER NOT NULL,
-            instrument_id INTEGER NOT NULL
+            instrument_id INTEGER NOT NULL,
+            rwk_set_target_chf REAL
         );
         """
         XCTAssertEqual(sqlite3_exec(manager.db, sql, nil, nil, nil), SQLITE_OK)
@@ -64,4 +65,3 @@ final class FetchInstrumentsWithoutThemesTests: XCTestCase {
         sqlite3_close(manager.db)
     }
 }
-

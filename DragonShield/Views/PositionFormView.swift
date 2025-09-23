@@ -44,6 +44,7 @@ struct PositionFormView: View {
     @State private var institutionName = ""
     @State private var instrumentId: Int? = nil
     @State private var instrumentQuery: String = ""
+    @State private var showInstrumentPicker = false
     @State private var currencyCode = ""
     @State private var latestInstrumentPrice: Double? = nil
     @State private var quantity = ""
@@ -91,6 +92,38 @@ struct PositionFormView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 620)
+        .sheet(isPresented: $showInstrumentPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choose Instrument")
+                    .font(.headline)
+                FloatingSearchPicker(
+                    title: "Choose Instrument",
+                    placeholder: "Search instrument, ticker, or ISIN",
+                    items: instrumentPickerItems,
+                    selectedId: instrumentPickerBinding,
+                    showsClearButton: true,
+                    emptyStateText: "No instruments",
+                    query: $instrumentQuery,
+                    onSelection: { _ in
+                        showInstrumentPicker = false
+                    },
+                    onClear: {
+                        instrumentPickerBinding.wrappedValue = nil
+                    },
+                    onSubmit: { _ in
+                        if instrumentId != nil { showInstrumentPicker = false }
+                    },
+                    selectsFirstOnSubmit: false
+                )
+                .frame(minWidth: 360)
+                HStack {
+                    Spacer()
+                    Button("Close") { showInstrumentPicker = false }
+                }
+            }
+            .padding(16)
+            .frame(width: 520)
+        }
         .onAppear { loadData(); populate() }
         .onChange(of: accountId) { _, id in
             let institution = accountInstitution(for: id, accounts: accounts)
@@ -99,10 +132,18 @@ struct PositionFormView: View {
         }
         .onChange(of: instrumentId) { _, id in
             currencyCode = instrumentCurrency(for: id, instruments: instruments) ?? ""
-            if let iid = id, let lp = dbManager.getLatestPrice(instrumentId: iid) {
-                latestInstrumentPrice = lp.price
+            if let iid = id {
+                if let lp = dbManager.getLatestPrice(instrumentId: iid) {
+                    latestInstrumentPrice = lp.price
+                } else {
+                    latestInstrumentPrice = nil
+                }
+                if let match = instruments.first(where: { $0.id == iid }) {
+                    instrumentQuery = displayString(for: match)
+                }
             } else {
                 latestInstrumentPrice = nil
+                instrumentQuery = ""
             }
         }
     }
@@ -134,18 +175,20 @@ struct PositionFormView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Instrument").font(.headline)
-                MacComboBox(
-                    items: instrumentDisplayItems(),
-                    text: $instrumentQuery,
-                    onSelectIndex: { originalIndex in
-                        let ins = instruments[originalIndex]
-                        instrumentId = ins.id
-                        currencyCode = ins.currency
+                HStack(spacing: 8) {
+                    Text(selectedInstrumentDisplay)
+                        .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Choose Instrument…") {
+                        instrumentQuery = selectedInstrumentDisplay == "No instrument selected" ? "" : selectedInstrumentDisplay
+                        showInstrumentPicker = true
                     }
-                )
-                .frame(minWidth: 360)
-                .accessibilityLabel("Instrument")
+                }
             }
+            .frame(minWidth: 360)
+            .accessibilityLabel("Instrument")
 
             HStack {
                 Text("Currency")
@@ -340,6 +383,47 @@ struct PositionFormView: View {
 }
 
 private extension PositionFormView {
+    var selectedInstrumentDisplay: String {
+        if let iid = instrumentId,
+           let match = instruments.first(where: { $0.id == iid }) {
+            return displayString(for: match)
+        }
+        let trimmed = instrumentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No instrument selected" : trimmed
+    }
+
+    var instrumentPickerItems: [FloatingSearchPicker.Item] {
+        instruments.map { ins in
+            FloatingSearchPicker.Item(
+                id: AnyHashable(ins.id),
+                title: displayString(for: ins),
+                subtitle: nil,
+                searchText: instrumentSearchKey(for: ins)
+            )
+        }
+    }
+
+    var instrumentPickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: {
+                guard let iid = instrumentId else { return nil }
+                return AnyHashable(iid)
+            },
+            set: { newValue in
+                if let value = newValue as? Int,
+                   let match = instruments.first(where: { $0.id == value }) {
+                    instrumentId = value
+                    instrumentQuery = displayString(for: match)
+                } else {
+                    instrumentId = nil
+                    instrumentQuery = ""
+                    currencyCode = ""
+                    latestInstrumentPrice = nil
+                }
+            }
+        )
+    }
+
     func displayString(for ins: InstrumentInfo) -> String {
         var parts: [String] = [ins.name]
         if let t = ins.tickerSymbol, !t.isEmpty { parts.append(t.uppercased()) }
@@ -347,7 +431,16 @@ private extension PositionFormView {
         return parts.joined(separator: " • ")
     }
 
-    func instrumentDisplayItems() -> [String] {
-        instruments.map(displayString(for:))
+    func instrumentSearchKey(for ins: InstrumentInfo) -> String {
+        [
+            ins.name,
+            ins.tickerSymbol?.uppercased() ?? "",
+            ins.isin?.uppercased() ?? "",
+            ins.valorNr?.uppercased() ?? "",
+            ins.currency.uppercased()
+        ]
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
     }
 }

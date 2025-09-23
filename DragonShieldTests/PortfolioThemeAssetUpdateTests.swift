@@ -17,7 +17,7 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         sqlite3_exec(manager.db, "INSERT INTO PortfolioTheme(id, name, archived_at) VALUES (2,'Beta','2023-01-01T00:00:00Z');", nil, nil, nil)
         sqlite3_exec(manager.db, "CREATE TABLE Instruments(instrument_id INTEGER PRIMARY KEY, instrument_name TEXT);", nil, nil, nil)
         sqlite3_exec(manager.db, "INSERT INTO Instruments(instrument_id, instrument_name) VALUES (42,'Inst');", nil, nil, nil)
-        sqlite3_exec(manager.db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, notes TEXT, created_at TEXT, updated_at TEXT, PRIMARY KEY(theme_id, instrument_id));", nil, nil, nil)
+        sqlite3_exec(manager.db, "CREATE TABLE PortfolioThemeAsset(theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, rwk_set_target_chf REAL, notes TEXT, created_at TEXT, updated_at TEXT, PRIMARY KEY(theme_id, instrument_id));", nil, nil, nil)
         manager.ensurePortfolioThemeAssetUpdateTable()
         manager.ensurePortfolioThemeUpdateTable()
     }

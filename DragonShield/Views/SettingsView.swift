@@ -3,6 +3,9 @@
 // MARK: - Version 1.5 (UI Refactor)
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct SettingsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -152,9 +155,19 @@ struct SettingsView: View {
                                     .textFieldStyle(.roundedBorder)
                                     .frame(minWidth: 300)
                                     .onSubmit {
-                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string", description: "Destination folder for iOS snapshot export")
+                                        let trimmed = iosTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        let previous = dbManager.iosSnapshotTargetPath
+                                        iosTargetPath = trimmed
+                                        dbManager.iosSnapshotTargetPath = trimmed
+                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: trimmed, dataType: "string", description: "Destination folder for iOS snapshot export")
+                                        #if os(macOS)
+                                        if trimmed != previous { dbManager.clearIOSSnapshotBookmark() }
+                                        #endif
                                         updateIOSStatus()
                                     }
+                                #if os(macOS)
+                                Button("Select Path…") { selectIOSSnapshotDestination() }
+                                #endif
                                 Spacer()
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -294,6 +307,28 @@ private struct CardSection<Content: View>: View {
 // MARK: - Helpers
 
 extension SettingsView {
+    #if os(macOS)
+    private func selectIOSSnapshotDestination() {
+        let panel = NSOpenPanel()
+        panel.prompt = "Select"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        if !iosTargetPath.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: iosTargetPath, isDirectory: true)
+        } else {
+            let svc = IOSSnapshotExportService(dbManager: dbManager)
+            panel.directoryURL = svc.defaultTargetFolder()
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            _ = dbManager.setIOSSnapshotTargetFolder(url)
+            iosTargetPath = url.path
+            updateIOSStatus()
+        }
+    }
+    #endif
+
     private func testCoinGecko() {
         guard !isTestingCG else { return }
         isTestingCG = true
@@ -376,6 +411,13 @@ extension SettingsView {
         } else {
             iosStatus = "No snapshot found. Will export on next launch if enabled."
         }
+        #if os(macOS)
+        let trimmed = dbManager.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, dbManager.iosSnapshotTargetBookmark == nil {
+            let advisory = "Select Path to authorise folder access"
+            iosStatus = iosStatus.isEmpty ? advisory : iosStatus + " — " + advisory
+        }
+        #endif
     }
 
     private func exportIOSNow() {
