@@ -20,10 +20,6 @@ struct UserDefaultsKeys {
     static let positionsFontSize = "positionsFontSize"
     /// Persist selected segment in Currencies & FX maintenance view.
     static let currenciesFxSegment = "currenciesFxSegment"
-    /// Remember last-used tab in Portfolio Theme Details.
-    static let portfolioThemeDetailLastTab = "portfolioThemeDetailLastTab"
-    /// Toggle to use the new Portfolio Theme Workspace (beta).
-    static let portfolioThemeWorkspaceEnabled = "portfolioThemeWorkspaceEnabled"
     /// Remember last-used tab in the new Portfolio Theme Workspace.
     static let portfolioThemeWorkspaceLastTab = "portfolioThemeWorkspaceLastTab"
     /// Visible columns in Workspace Holdings table (comma-separated list of column ids)
@@ -36,8 +32,6 @@ struct UserDefaultsKeys {
     static let portfolioThemeWorkspaceHoldingsFontSize = "portfolioThemeWorkspaceHoldingsFontSize"
     /// Persist window frame for import value report.
     static let importReportWindowFrame = "importReport.windowFrame"
-    /// Persist column widths for Portfolio Themes list.
-    static let portfolioThemesColumnWidths = "portfolioThemesColumnWidths"
     /// Toggle for showing the incoming deadlines popup on each dashboard visit.
     static let dashboardShowIncomingDeadlinesEveryVisit = "dashboardShowIncomingDeadlinesEveryVisit"
     /// Tracks whether the incoming deadline popup has been shown during the current launch.

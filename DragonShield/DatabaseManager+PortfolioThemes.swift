@@ -429,6 +429,41 @@ extension DatabaseManager {
         }
     }
 
+    func setPortfolioThemeUpdatedAt(id: Int, isoString: String) -> Bool {
+        let sql = "UPDATE PortfolioTheme SET updated_at = ? WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare setPortfolioThemeUpdatedAt failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, isoString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 2, Int32(id))
+        let ok = sqlite3_step(stmt) == SQLITE_DONE
+        if !ok {
+            LoggingService.shared.log("setPortfolioThemeUpdatedAt failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return ok
+    }
+
+    @discardableResult
+    func touchPortfolioThemeUpdatedAt(id: Int) -> Bool {
+        let sql = "UPDATE PortfolioTheme SET updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare touchPortfolioThemeUpdatedAt failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, Int32(id))
+        let ok = sqlite3_step(stmt) == SQLITE_DONE
+        if !ok {
+            LoggingService.shared.log("touchPortfolioThemeUpdatedAt failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return ok
+    }
+
     func archivePortfolioTheme(id: Int) -> Bool {
         guard let archivedId = archivedThemeStatusId() else {
             LoggingService.shared.log("\(PortfolioThemeStatus.archivedCode) status id not found", type: .error, logger: .database)

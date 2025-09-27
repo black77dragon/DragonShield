@@ -129,6 +129,7 @@ extension DatabaseManager {
             return nil
         }
         sqlite3_finalize(stmt)
+        touchPortfolioThemeUpdatedAt(id: themeId)
         return getThemeAsset(themeId: themeId, instrumentId: instrumentId)
     }
 
@@ -237,6 +238,7 @@ extension DatabaseManager {
             return (nil, "Database error: \(err)")
         }
         sqlite3_finalize(stmt)
+        touchPortfolioThemeUpdatedAt(id: themeId)
         return (getThemeAsset(themeId: themeId, instrumentId: instrumentId), nil)
     }
 
@@ -267,6 +269,7 @@ extension DatabaseManager {
             return (false, "Database error: \(err)")
         }
         sqlite3_finalize(stmt)
+        touchPortfolioThemeUpdatedAt(id: themeId)
         return (true, nil)
     }
 

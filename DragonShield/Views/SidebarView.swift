@@ -59,16 +59,6 @@ struct SidebarView: View {
                 NavigationLink(destination: AllocationDashboardView()) {
                     Label("Asset Allocation", systemImage: "chart.pie")
                 }
-
-                NavigationLink(destination: RebalancingView()) {
-                    Label("Rebalancing", systemImage: "arrow.left.arrow.right")
-                        .foregroundColor(.gray)
-                }
-                .disabled(true)
-                NavigationLink(destination: PortfolioThemesListView().environmentObject(dbManager)) {
-                    Label("Portfolio Themes", systemImage: "list.bullet")
-                }
-
                 NavigationLink(destination: NewPortfoliosView().environmentObject(dbManager)) {
                     Label("New Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
@@ -377,6 +367,7 @@ private struct TodoEditorSheet: View {
 private struct KanbanTodoCard: View {
     let todo: KanbanTodo
     let tagLookup: [Int: TagRow]
+    let fontSize: KanbanFontSize
     var onDoubleTap: () -> Void
 
     private static let dateFormatter: DateFormatter = {
@@ -385,6 +376,47 @@ private struct KanbanTodoCard: View {
         return formatter
     }()
 
+    private enum DueState {
+        case overdue, dueToday, upcoming
+    }
+
+    private var dueDateString: String {
+        Self.dateFormatter.string(from: todo.dueDate)
+    }
+
+    private var dueState: DueState {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let due = calendar.startOfDay(for: todo.dueDate)
+        if due < today { return .overdue }
+        if due == today { return .dueToday }
+        return .upcoming
+    }
+
+    private var dueDisplayText: Text {
+        switch dueState {
+        case .overdue:
+            return Text("⚠️ ") + Text(dueDateString)
+        case .dueToday, .upcoming:
+            return Text(dueDateString)
+        }
+    }
+
+    private var dueColor: Color {
+        switch dueState {
+        case .overdue: return .red
+        case .dueToday: return .blue
+        case .upcoming: return .secondary
+        }
+    }
+
+    private var dueWeight: Font.Weight {
+        switch dueState {
+        case .overdue, .dueToday: return .bold
+        case .upcoming: return .regular
+        }
+    }
+
     private var tags: [TagRow] {
         todo.tagIDs.compactMap { tagLookup[$0] }
     }
@@ -392,16 +424,17 @@ private struct KanbanTodoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(todo.description)
-                .font(.body.weight(.semibold))
+                .font(fontSize.primaryFont)
                 .foregroundColor(.primary)
                 .multilineTextAlignment(.leading)
 
             HStack(spacing: 12) {
-                PriorityBadge(priority: todo.priority)
+                PriorityBadge(priority: todo.priority, fontSize: fontSize)
                 Spacer()
-                Text(Self.dateFormatter.string(from: todo.dueDate))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                dueDisplayText
+                    .font(fontSize.dueDateFont(weight: dueWeight))
+                    .foregroundColor(dueColor)
+                    .monospacedDigit()
             }
 
             if !tags.isEmpty {
@@ -428,10 +461,11 @@ private struct KanbanTodoCard: View {
 
     private struct PriorityBadge: View {
         let priority: KanbanPriority
+        let fontSize: KanbanFontSize
 
         var body: some View {
             Label(priority.displayName, systemImage: priority.iconName)
-                .font(.caption2)
+                .font(fontSize.badgeFont)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
@@ -512,6 +546,9 @@ struct TodoKanbanBoardView: View {
     @State private var newTodoPrefill: KanbanTodoQuickAddRequest? = nil
     @State private var editingTodo: KanbanTodo?
     @State private var draggedTodoID: UUID?
+    @State private var selectedFontSize: KanbanFontSize = .medium
+    @State private var isHydratingFontSize = false
+    @State private var hasHydratedFontSize = false
 
     private var tagLookup: [Int: TagRow] {
         Dictionary(uniqueKeysWithValues: availableTags.map { ($0.id, $0) })
@@ -536,6 +573,7 @@ struct TodoKanbanBoardView: View {
         .onAppear {
             viewModel.refreshFromStorage()
             reloadTags()
+            hydrateFontSizeIfNeeded()
             if let pending = KanbanTodoQuickAddRouter.shared.consumePendingRequest() {
                 newTodoPrefill = pending
                 isPresentingNewTodo = true
@@ -564,6 +602,12 @@ struct TodoKanbanBoardView: View {
             newTodoPrefill = request
             isPresentingNewTodo = true
         }
+        .onReceive(dbManager.$todoBoardFontSize) { newValue in
+            handleExternalFontSizeUpdate(newValue)
+        }
+        .onChange(of: selectedFontSize) { _, _ in
+            persistFontSize()
+        }
     }
 
     private var header: some View {
@@ -579,10 +623,25 @@ struct TodoKanbanBoardView: View {
 
             Spacer()
 
-            CounterBadge(title: "Prioritised", count: viewModel.count(for: .prioritised), color: KanbanColumn.prioritised.accentColor)
-            CounterBadge(title: "Doing", count: viewModel.count(for: .doing), color: KanbanColumn.doing.accentColor)
-            CounterBadge(title: "Done", count: viewModel.count(for: .done), color: KanbanColumn.done.accentColor)
+            fontSizePicker
+
+            HStack(spacing: 12) {
+                CounterBadge(title: "Prioritised", count: viewModel.count(for: .prioritised), color: KanbanColumn.prioritised.accentColor)
+                CounterBadge(title: "Doing", count: viewModel.count(for: .doing), color: KanbanColumn.doing.accentColor)
+                CounterBadge(title: "Done", count: viewModel.count(for: .done), color: KanbanColumn.done.accentColor)
+            }
         }
+    }
+
+    private var fontSizePicker: some View {
+        Picker("Font Size", selection: $selectedFontSize) {
+            ForEach(KanbanFontSize.allCases, id: \.self) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 260)
+        .labelsHidden()
     }
 
     private func columnView(for column: KanbanColumn) -> some View {
@@ -608,7 +667,7 @@ struct TodoKanbanBoardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ForEach(items) { todo in
-                    KanbanTodoCard(todo: todo, tagLookup: tagLookup) {
+                    KanbanTodoCard(todo: todo, tagLookup: tagLookup, fontSize: selectedFontSize) {
                         editingTodo = todo
                     }
                     .onDrag {
@@ -638,5 +697,38 @@ struct TodoKanbanBoardView: View {
     private func reloadTags() {
         let repository = TagRepository(dbManager: dbManager)
         availableTags = repository.listActive()
+    }
+
+    private func hydrateFontSizeIfNeeded() {
+        guard !hasHydratedFontSize else { return }
+        hasHydratedFontSize = true
+        isHydratingFontSize = true
+        if let stored = KanbanFontSize(rawValue: dbManager.todoBoardFontSize) {
+            selectedFontSize = stored
+        }
+        DispatchQueue.main.async {
+            isHydratingFontSize = false
+        }
+    }
+
+    private func handleExternalFontSizeUpdate(_ rawValue: String) {
+        guard !isHydratingFontSize,
+              let size = KanbanFontSize(rawValue: rawValue),
+              size != selectedFontSize else { return }
+        isHydratingFontSize = true
+        selectedFontSize = size
+        DispatchQueue.main.async {
+            isHydratingFontSize = false
+        }
+    }
+
+    private func persistFontSize() {
+        guard !isHydratingFontSize else { return }
+        guard dbManager.todoBoardFontSize != selectedFontSize.rawValue else { return }
+        isHydratingFontSize = true
+        dbManager.setTodoBoardFontSize(selectedFontSize.rawValue)
+        DispatchQueue.main.async {
+            isHydratingFontSize = false
+        }
     }
 }

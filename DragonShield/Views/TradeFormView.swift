@@ -99,31 +99,47 @@ struct TradeFormView: View {
             .cornerRadius(8)
             ScrollView {
             Form {
-                Section("Basics") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
-                    Picker("Type", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
-                    VStack(alignment: .leading, spacing: 6) {
+                let labelWidth: CGFloat = 120
+                Section {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("Date")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("Type")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        Picker("", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text("Instrument")
-                            .font(.subheadline)
-                        HStack(spacing: 8) {
-                            Text(selectedInstrumentDisplay)
-                                .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Button("Choose Instrument…") {
-                                instrumentSearch = instrumentDisplayForCurrent() ?? ""
-                                showInstrumentPicker = true
-                            }
+                            .frame(width: labelWidth, alignment: .trailing)
+                        Button("Choose Instrument…") {
+                            instrumentSearch = instrumentDisplayForCurrent() ?? ""
+                            showInstrumentPicker = true
                         }
+                        Text(selectedInstrumentDisplay)
+                            .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                Section("Accounts") {
-                    HStack(alignment: .firstTextBaseline) {
-                        Picker("Custody Account", selection: $custodyAccountId) {
+                Section {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("Custody Account")
+                            .frame(width: labelWidth, alignment: .trailing)
+                        Picker("", selection: $custodyAccountId) {
                             Text("Select Account").tag(Optional<Int>(nil))
                             ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
                         }
+                        .labelsHidden()
+                        .frame(maxWidth: 280, alignment: .leading)
                         Spacer()
                         if let curH = currentHolding {
                             Text(String(format: "Holding: %.4f", curH))
@@ -132,11 +148,15 @@ struct TradeFormView: View {
                         }
                     }
                     if let code = currency {
-                        HStack(alignment: .firstTextBaseline) {
-                            Picker("Cash Account (\(code))", selection: $cashAccountId) {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text("Cash Account (\(code))")
+                                .frame(width: labelWidth, alignment: .trailing)
+                            Picker("", selection: $cashAccountId) {
                                 Text("Select Account").tag(Optional<Int>(nil))
                                 ForEach(cashAccounts, id: \.id) { a in Text(a.accountName).tag(Optional(a.id)) }
                             }
+                            .labelsHidden()
+                            .frame(maxWidth: 280, alignment: .leading)
                             Spacer()
                             if let curC = currentCash {
                                 Text(String(format: "Cash: %.4f %@", curC, (cashCurrency ?? code)))
@@ -146,12 +166,32 @@ struct TradeFormView: View {
                         }
                     }
                 }
-                Section("Amounts") {
+                Section {
                     Grid(horizontalSpacing: 12, verticalSpacing: 10) {
-                        GridRow { Text("Quantity").frame(width: 120, alignment: .trailing); TextField("", text: $quantity).multilineTextAlignment(.trailing).frame(width: 160) }
-                        GridRow { Text("Price").frame(width: 120, alignment: .trailing); TextField("", text: $price).multilineTextAlignment(.trailing).frame(width: 160) }
-                        GridRow { Text("Fees (CHF)").frame(width: 120, alignment: .trailing); TextField("", text: $feesChf).multilineTextAlignment(.trailing).frame(width: 160) }
-                        GridRow { Text("Commission (CHF)").frame(width: 120, alignment: .trailing); TextField("", text: $commissionChf).multilineTextAlignment(.trailing).frame(width: 160) }
+                        GridRow {
+                            Text("Quantity").frame(width: labelWidth, alignment: .trailing)
+                            TextField("", text: $quantity)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 160)
+                        }
+                        GridRow {
+                            Text("Price").frame(width: labelWidth, alignment: .trailing)
+                            TextField("", text: $price)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 160)
+                        }
+                        GridRow {
+                            Text("Fees (CHF)").frame(width: labelWidth, alignment: .trailing)
+                            TextField("", text: $feesChf)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 160)
+                        }
+                        GridRow {
+                            Text("Commission (CHF)").frame(width: labelWidth, alignment: .trailing)
+                            TextField("", text: $commissionChf)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 160)
+                        }
                     }
                 }
                 Section("Preview") {

@@ -55,7 +55,8 @@ extension DatabaseManager {
                 'instruments_table_font', 'instruments_table_column_fractions',
                 'currencies_table_font', 'currencies_table_column_fractions',
                 'accounts_table_font', 'accounts_table_column_fractions',
-                'portfolio_themes_table_font', 'portfolio_themes_table_column_fractions'
+                'portfolio_themes_table_font', 'portfolio_themes_table_column_fractions',
+                'todo_board_font'
             );
         """
         var statement: OpaquePointer?
@@ -156,6 +157,9 @@ extension DatabaseManager {
                         let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                         print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
                         self.portfolioThemesTableColumnFractions = parsed
+                    case "todo_board_font":
+                        print("ℹ️ [config] Loaded todo_board_font=\(value)")
+                        self.todoBoardFontSize = value
                     default:
                         print("ℹ️ Unhandled configuration key loaded: \(key)")
                     }
@@ -398,5 +402,14 @@ extension DatabaseManager {
                                 value: payload,
                                 dataType: "string",
                                 description: "Column width fractions for New Portfolios table")
+    }
+
+    func setTodoBoardFontSize(_ value: String) {
+        guard todoBoardFontSize != value else { return }
+        print("📝 [config] Request to store todo_board_font=\(value)")
+        _ = upsertConfiguration(key: "todo_board_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for To-Do board")
     }
 }

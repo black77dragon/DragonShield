@@ -31,8 +31,6 @@
 		B3D7C7942E68D4B600334317 /* Exceptions for "DragonShield" folder in "DragonShield iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"python_scripts/.venv/**",
-				"python_scripts/**",
 				DatabaseManager.swift,
 				"DatabaseManager+AssetClasses.swift",
 				"DatabaseManager+Configuration.swift",
@@ -53,22 +51,12 @@
 			);
 			target = B3D7C77F2E68C07E00334317 /* DragonShield iOS */;
 		};
-		B3F2A3E42E90D2D0001A845C /* Exceptions for python assets in "DragonShield" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"python_scripts/.venv/**",
-				"python_scripts/**",
-				"python_scripts_venv",
-			);
-			target = B3933B0E2D98475A00DDA4C2 /* DragonShield */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B3933B112D98475A00DDA4C2 /* DragonShield */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B3F2A3E42E90D2D0001A845C /* Exceptions for python assets in "DragonShield" target */,
 				B3D7C7942E68D4B600334317 /* Exceptions for "DragonShield" folder in "DragonShield iOS" target */,
 			);
 			path = DragonShield;

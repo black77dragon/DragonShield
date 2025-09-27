@@ -29,7 +29,7 @@ struct NewPortfoliosView: View {
             case .status: return "Status"
             case .updatedAt: return "Updated"
             case .totalValue: return "Total Value"
-            case .instruments: return "Instruments"
+            case .instruments: return "# of instr"
             case .description: return "Description"
             }
         }
@@ -112,14 +112,11 @@ struct NewPortfoliosView: View {
     ]
 
     fileprivate static let initialColumnFractions: [ThemeColumn: CGFloat] = {
-        let total = defaultColumnWidths.values.reduce(0, +)
-        guard total > 0 else {
-            let fallback = 1.0 / CGFloat(ThemeColumn.allCases.count)
-            return ThemeColumn.allCases.reduce(into: [:]) { $0[$1] = fallback }
-        }
-        return ThemeColumn.allCases.reduce(into: [:]) { result, column in
-            let width = defaultColumnWidths[column] ?? 0
-            result[column] = max(0.0001, width / total)
+        let columns = ThemeColumn.allCases
+        guard !columns.isEmpty else { return [:] }
+        let uniformFraction = max(0.0001, 1.0 / CGFloat(columns.count))
+        return columns.reduce(into: [:]) { result, column in
+            result[column] = uniformFraction
         }
     }()
 
@@ -351,21 +348,12 @@ struct NewPortfoliosView: View {
             let availableWidth = max(proxy.size.width, 0)
             let targetWidth = max(availableWidth, totalMinimumWidth())
 
-            ScrollView(.horizontal, showsIndicators: true) {
+            ScrollView(.horizontal, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    tableHeader
-                    Divider()
-                        .frame(height: 1)
-                        .background(Color.gray.opacity(0.12))
+                    modernTableHeader
                     tableRows
                 }
                 .frame(width: targetWidth, alignment: .leading)
-                .background(
-                    Rectangle()
-                        .fill(.regularMaterial)
-                        .overlay(Rectangle().stroke(Color.gray.opacity(0.12), lineWidth: 1))
-                )
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
             }
             .frame(width: availableWidth, alignment: .leading)
             .onAppear { updateAvailableWidth(targetWidth) }
@@ -376,25 +364,8 @@ struct NewPortfoliosView: View {
         .frame(maxWidth: .infinity, minHeight: 0)
     }
 
-    private var tableHeader: some View {
-        HStack(spacing: 0) {
-            ForEach(activeColumns, id: \.self) { column in
-                headerCell(for: column)
-                    .frame(width: width(for: column), alignment: .leading)
-            }
-        }
-        .padding(.trailing, 12)
-        .padding(.vertical, 2)
-        .background(
-            Rectangle()
-                .fill(headerBackground)
-                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
-        )
-        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
-    }
-
     private var tableRows: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(spacing: 0) {
                 ForEach(sortedThemes, id: \.id) { theme in
                     PortfolioThemeRowView(
@@ -412,7 +383,30 @@ struct NewPortfoliosView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
+        .background(
+            Rectangle()
+                .fill(.regularMaterial)
+                .overlay(Rectangle().stroke(Color.gray.opacity(0.12), lineWidth: 1))
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+    }
+
+    private var modernTableHeader: some View {
+        HStack(spacing: 0) {
+            ForEach(activeColumns, id: \.self) { column in
+                headerCell(for: column)
+                    .frame(width: width(for: column), alignment: alignment(for: column))
+            }
+        }
+        .padding(.trailing, 12)
+        .padding(.vertical, 2)
+        .background(
+            Rectangle()
+                .fill(headerBackground)
+                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
+        )
+        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
 
     private var emptyState: some View {
@@ -473,6 +467,15 @@ struct NewPortfoliosView: View {
         }
     }
 
+    private func alignment(for column: ThemeColumn) -> Alignment {
+        switch column {
+        case .totalValue, .instruments:
+            return .trailing
+        default:
+            return .leading
+        }
+    }
+
     private func headerCell(for column: ThemeColumn) -> some View {
         let leadingTarget = leadingHandleTarget(for: column)
         let isLast = isLastActiveColumn(column)
@@ -480,6 +483,19 @@ struct NewPortfoliosView: View {
         let isActiveSort = sortOption.map { $0 == sortColumn } ?? false
         let filterBinding = filterBinding(for: column)
         let filterOptions = filterValues(for: column)
+        let alignment = alignment(for: column)
+        let leadingOffset = leadingTarget == nil ? 0 : NewPortfoliosView.columnHandleWidth
+        let trailingOffset = isLast ? NewPortfoliosView.columnHandleWidth + 8 : 8
+        let leadingPadding: CGFloat
+        let trailingPadding: CGFloat
+
+        if alignment == .trailing {
+            leadingPadding = leadingOffset
+            trailingPadding = trailingOffset + NewPortfoliosView.columnTextInset
+        } else {
+            leadingPadding = NewPortfoliosView.columnTextInset + leadingOffset
+            trailingPadding = trailingOffset
+        }
 
         return ZStack(alignment: .leading) {
             if let target = leadingTarget {
@@ -540,8 +556,9 @@ struct NewPortfoliosView: View {
                     .menuStyle(BorderlessButtonMenuStyle())
                 }
             }
-            .padding(.leading, NewPortfoliosView.columnTextInset + (leadingTarget == nil ? 0 : NewPortfoliosView.columnHandleWidth))
-            .padding(.trailing, isLast ? NewPortfoliosView.columnHandleWidth + 8 : 8)
+            .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : .leading)
+            .padding(.leading, leadingPadding)
+            .padding(.trailing, trailingPadding)
         }
     }
 
@@ -796,8 +813,10 @@ struct NewPortfoliosView: View {
 
     private func resetVisibleColumns() {
         visibleColumns = NewPortfoliosView.defaultVisibleColumns
-        persistVisibleColumns()
+        columnFractions = NewPortfoliosView.initialColumnFractions
         recalcColumnWidths()
+        persistVisibleColumns()
+        persistColumnFractions()
     }
 
     private func resetTablePreferences() {
@@ -948,19 +967,21 @@ fileprivate struct PortfolioThemeRowView: View {
     let onOpen: () -> Void
 
     var body: some View {
+        let verticalPadding = max(4, rowPadding)
+
         HStack(spacing: 0) {
             ForEach(columns, id: \.self) { column in
                 columnView(for: column)
             }
         }
         .padding(.trailing, 12)
-        .padding(.vertical, max(4, rowPadding))
+        .padding(.vertical, verticalPadding)
         .background(
             Rectangle()
                 .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? Color.blue.opacity(0.25) : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
         .overlay(
@@ -1002,6 +1023,9 @@ fileprivate struct PortfolioThemeRowView: View {
                 Text(theme.name)
                     .font(.system(size: fontConfig.nameSize, weight: .medium))
                     .foregroundColor(.primary)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let archivedAt = theme.archivedAt, !archivedAt.isEmpty {
                     badge(text: "Archived", tint: .orange)
                 }
@@ -1016,6 +1040,9 @@ fileprivate struct PortfolioThemeRowView: View {
             Text(theme.code)
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
                 .foregroundColor(.secondary)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, NewPortfoliosView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.code), alignment: .leading)
@@ -1027,44 +1054,44 @@ fileprivate struct PortfolioThemeRowView: View {
                 Text(status?.name ?? "—")
                     .font(.system(size: fontConfig.secondarySize, weight: .medium))
                     .foregroundColor(statusColor)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, NewPortfoliosView.columnTextInset)
             .padding(.trailing, 8)
             .frame(width: widthFor(.status), alignment: .leading)
         case .updatedAt:
-            Text(DateFormatting.dateOnly(theme.updatedAt))
-                .font(.system(size: fontConfig.secondarySize))
-                .foregroundColor(.secondary)
-                .padding(.leading, NewPortfoliosView.columnTextInset)
-                .padding(.trailing, 8)
-                .frame(width: widthFor(.updatedAt), alignment: .leading)
+            updatedAtText()
         case .totalValue:
-            if let value = theme.totalValueBase {
-                Text(value, format: .currency(code: baseCurrency).precision(.fractionLength(2)))
+            if let value = theme.totalValueBase, let formatted = formattedTotalValue(value) {
+                Text(formatted)
                     .font(.system(size: fontConfig.secondarySize, weight: .semibold, design: .monospaced))
                     .foregroundColor(.primary)
-                    .frame(width: widthFor(.totalValue), alignment: .trailing)
                     .padding(.trailing, 8)
+                    .frame(width: widthFor(.totalValue), alignment: .trailing)
             } else {
                 HStack(spacing: 4) {
                     Text("—")
                         .foregroundColor(.secondary)
                     ProgressView().controlSize(.small)
                 }
-                .frame(width: widthFor(.totalValue), alignment: .trailing)
                 .padding(.trailing, 8)
+                .frame(width: widthFor(.totalValue), alignment: .trailing)
             }
         case .instruments:
             Text("\(theme.instrumentCount)")
                 .font(.system(size: fontConfig.secondarySize, weight: .semibold))
                 .foregroundColor(.primary)
-                .frame(width: widthFor(.instruments), alignment: .trailing)
                 .padding(.trailing, 8)
+                .frame(width: widthFor(.instruments), alignment: .trailing)
         case .description:
             Text(theme.description ?? "—")
                 .font(.system(size: fontConfig.secondarySize))
                 .foregroundColor(.secondary)
-                .lineLimit(1)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .truncationMode(.tail)
                 .padding(.leading, NewPortfoliosView.columnTextInset)
                 .padding(.trailing, 8)
@@ -1081,6 +1108,51 @@ fileprivate struct PortfolioThemeRowView: View {
         }
         return .secondary
     }
+
+    private func updatedAtText() -> some View {
+        let isStale = isUpdatedDateStale(theme.updatedAt)
+        return Text(DateFormatting.dateOnly(theme.updatedAt))
+            .font(.system(size: fontConfig.secondarySize))
+            .fontWeight(isStale ? .bold : .regular)
+            .foregroundColor(isStale ? .red : .secondary)
+            .lineLimit(nil)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.leading, NewPortfoliosView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.updatedAt), alignment: .leading)
+    }
+
+    private func formattedTotalValue(_ value: Double) -> String? {
+        PortfolioThemeRowView.totalValueFormatter.string(from: NSNumber(value: value))
+    }
+
+    private func isUpdatedDateStale(_ isoString: String) -> Bool {
+        guard
+            let date = PortfolioThemeRowView.isoFormatter.date(from: isoString),
+            let threshold = Calendar.current.date(byAdding: .day, value: -14, to: Date())
+        else {
+            return false
+        }
+        return date < threshold
+    }
+
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let totalValueFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "de_CH")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "'"
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter
+    }()
 
     private func badge(text: String, tint: Color) -> some View {
         Text(text)

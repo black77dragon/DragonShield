@@ -106,6 +106,8 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var descriptionText: String = ""
     @State private var institutionId: Int? = nil
     @State private var institutions: [DatabaseManager.InstitutionData] = []
+    @State private var updatedAtDate: Date = Date()
+    @State private var originalUpdatedAtDate: Date? = nil
 
     private enum HoldingsFontSize: String, CaseIterable {
         case xSmall, small, medium, large, xLarge
@@ -137,6 +139,11 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     private static let holdingsFontSizeKey = UserDefaultsKeys.portfolioThemeWorkspaceHoldingsFontSize
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
     @State private var holdingsFontSize: HoldingsFontSize = .medium
 
     init(themeId: Int,
@@ -371,7 +378,16 @@ struct PortfolioThemeWorkspaceView: View {
                         .buttonStyle(.link)
                 }
             }
-            HoldingsTable(themeId: themeId, isArchived: (theme?.archivedAt != nil) || (theme?.softDelete ?? false), search: $holdingsSearch, columns: holdingsColumns, fontConfig: holdingsFontConfig, reloadToken: holdingsReloadToken, themeBudgetChf: currentBudget())
+            HoldingsTable(
+                themeId: themeId,
+                isArchived: (theme?.archivedAt != nil) || (theme?.softDelete ?? false),
+                search: $holdingsSearch,
+                columns: holdingsColumns,
+                fontConfig: holdingsFontConfig,
+                reloadToken: holdingsReloadToken,
+                themeBudgetChf: currentBudget(),
+                onHoldingsChanged: { loadTheme() }
+            )
                 .environmentObject(dbManager)
 
             Button(action: { showHoldingsInfo = true }) {
@@ -694,6 +710,7 @@ struct PortfolioThemeWorkspaceView: View {
             addInstrumentQuery = ""; addInstrumentId = 0; addResearchPct = 0; addUserPct = 0; addNotes = ""
             holdingsReloadToken += 1
             runValuation()
+            loadTheme()
         }
     }
 
@@ -807,6 +824,13 @@ struct PortfolioThemeWorkspaceView: View {
                     .background(Color.white)
                     .cornerRadius(6)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
+                    Spacer()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Updated").frame(width: labelWidth, alignment: .leading)
+                    DatePicker("", selection: $updatedAtDate, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                        .frame(width: 260)
                     Spacer()
                 }
                 HStack(alignment: .top, spacing: 12) {
@@ -1072,6 +1096,15 @@ struct PortfolioThemeWorkspaceView: View {
         institutionId = fetched.institutionId
         statuses = dbManager.fetchPortfolioThemeStatuses()
         institutions = dbManager.fetchInstitutions()
+        if let parsed = Self.isoFormatter.date(from: fetched.updatedAt) {
+            updatedAtDate = parsed
+            originalUpdatedAtDate = parsed
+        }
+    }
+
+    private func shouldPersistCustomUpdatedAt() -> Bool {
+        guard let original = originalUpdatedAtDate else { return true }
+        return abs(updatedAtDate.timeIntervalSince(original)) > 0.5
     }
 
     private func runValuation() {
@@ -1095,6 +1128,10 @@ struct PortfolioThemeWorkspaceView: View {
         current.statusId = statusId
         let desc = descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
         if dbManager.updatePortfolioTheme(id: current.id, name: current.name, description: desc.isEmpty ? nil : desc, institutionId: institutionId, statusId: current.statusId, archivedAt: current.archivedAt) {
+            if shouldPersistCustomUpdatedAt() {
+                let isoString = Self.isoFormatter.string(from: updatedAtDate)
+                _ = dbManager.setPortfolioThemeUpdatedAt(id: current.id, isoString: isoString)
+            }
             loadTheme()
         }
     }
@@ -1220,6 +1257,7 @@ private struct Tag: View {
         let fontConfig: HoldingsTableFontConfig
         var reloadToken: Int = 0
         var themeBudgetChf: Double? = nil
+        var onHoldingsChanged: (() -> Void)? = nil
         @State private var rows: [ValuationRow] = []
         @State private var total: Double = 0
         @State private var saving: Set<Int> = [] // instrumentId currently saving
@@ -2177,6 +2215,7 @@ private struct Tag: View {
                 saving.remove(instrumentId)
                 if result.0 != nil {
                     load() // refresh valuation/deltas after saving
+                    onHoldingsChanged?()
                     showQuickToast("Saved")
                 } else {
                     let msg = result.1 ?? "Save failed"
@@ -2314,7 +2353,11 @@ private struct Tag: View {
     private func removeInstrument(_ instrumentId: Int) {
         guard !isArchived else { return }
         let (ok, err) = dbManager.removeThemeAssetDetailed(themeId: themeId, instrumentId: instrumentId)
-        if ok { load(); showQuickToast("Removed") }
+        if ok {
+            load()
+            onHoldingsChanged?()
+            showQuickToast("Removed")
+        }
         else { showQuickToast(err ?? "Delete failed"); LoggingService.shared.log("[UI] removeThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err ?? "unknown")", logger: .ui) }
     }
 }
