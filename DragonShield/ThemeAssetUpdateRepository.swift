@@ -15,7 +15,7 @@ final class ThemeAssetUpdateRepository {
     func linkAttachment(updateId: Int, attachmentId: Int) -> Bool {
         guard let db = dbManager.db else { return false }
         let sql = """
-        INSERT INTO ThemeAssetUpdateAttachment (theme_asset_update_id, attachment_id, created_at)
+        INSERT INTO InstrumentNoteAttachment (instrument_note_id, attachment_id, created_at)
         VALUES (?, ?, STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
         """
         var stmt: OpaquePointer?
@@ -33,7 +33,7 @@ final class ThemeAssetUpdateRepository {
     @discardableResult
     func unlinkAttachment(updateId: Int, attachmentId: Int) -> Bool {
         guard let db = dbManager.db else { return false }
-        let sql = "DELETE FROM ThemeAssetUpdateAttachment WHERE theme_asset_update_id = ? AND attachment_id = ?"
+        let sql = "DELETE FROM InstrumentNoteAttachment WHERE instrument_note_id = ? AND attachment_id = ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare unlinkAttachment failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -50,9 +50,9 @@ final class ThemeAssetUpdateRepository {
         guard let db = dbManager.db else { return [] }
         let sql = """
         SELECT a.id, a.sha256, a.original_filename, a.mime, a.byte_size, a.ext, a.created_at, a.created_by
-        FROM ThemeAssetUpdateAttachment t
+        FROM InstrumentNoteAttachment t
         JOIN Attachment a ON a.id = t.attachment_id
-        WHERE t.theme_asset_update_id = ?
+        WHERE t.instrument_note_id = ?
         ORDER BY t.id
         """
         var stmt: OpaquePointer?

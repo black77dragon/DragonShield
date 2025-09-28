@@ -588,10 +588,7 @@ extension DatabaseManager {
         // Count direct links to provide actionable guidance
         let assetLinks = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
         let themeUpdates = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeUpdate WHERE theme_id = ? AND soft_delete = 0") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
-        var instrumentUpdates = 0
-        if tableExists("PortfolioThemeAssetUpdate") {
-            instrumentUpdates = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAssetUpdate WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
-        }
+        let instrumentUpdates = singleIntQuery("SELECT COUNT(*) FROM InstrumentNote WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
         if assetLinks > 0 || themeUpdates > 0 || instrumentUpdates > 0 {
             // Build a precise message with only non-zero categories
             var parts: [String] = []

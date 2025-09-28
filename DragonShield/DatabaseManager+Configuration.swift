@@ -62,6 +62,8 @@ extension DatabaseManager {
         var statement: OpaquePointer?
         var loadedVersion = ""
         
+        var pendingAssignments: [(DatabaseManager) -> Void] = []
+
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 guard let keyPtr = sqlite3_column_text(statement, 0),
@@ -77,98 +79,110 @@ extension DatabaseManager {
                     loadedVersion = value
                 }
 
-                DispatchQueue.main.async { // Ensure @Published vars are updated on the main thread
-                    switch key {
-                    case "base_currency":
-                        self.baseCurrency = value
-                    case "as_of_date":
-                        if let date = DateFormatter.iso8601DateOnly.date(from: value) {
-                            self.asOfDate = date
-                        }
-                    case "decimal_precision":
-                        self.decimalPrecision = Int(value) ?? 4
-                    case "default_timezone":
-                        self.defaultTimeZone = value
-                    case "table_row_spacing":
-                        self.tableRowSpacing = Double(value) ?? 1.0
-                    case "table_row_padding":
-                        self.tableRowPadding = Double(value) ?? 12.0
-                    case "include_direct_re":
-                        self.includeDirectRealEstate = value.lowercased() == "true"
-                    case "direct_re_target_chf":
-                        self.directRealEstateTargetCHF = Double(value) ?? 0
-                    case "db_version":
-                        self.dbVersion = value
-                        print("📦 Database version loaded: \(value)")
-                    case "fx_auto_update_enabled":
-                        self.fxAutoUpdateEnabled = value.lowercased() == "true" || value == "1"
-                    case "fx_update_frequency":
-                        let v = value.lowercased()
-                        self.fxUpdateFrequency = (v == "weekly" ? "weekly" : "daily")
-                    case "ios_snapshot_auto_enabled":
-                        self.iosSnapshotAutoEnabled = value.lowercased() == "true" || value == "1"
-                    case "ios_snapshot_frequency":
-                        let v = value.lowercased()
-                        self.iosSnapshotFrequency = (v == "weekly" ? "weekly" : "daily")
-                    case "ios_snapshot_target_path":
-                        self.iosSnapshotTargetPath = value
-                    case "ios_snapshot_target_bookmark":
-                        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmed.isEmpty {
-                            self.iosSnapshotTargetBookmark = nil
-                        } else if let data = Data(base64Encoded: trimmed) {
-                            self.iosSnapshotTargetBookmark = data
-                        } else {
-                            self.iosSnapshotTargetBookmark = nil
-                            print("⚠️ [config] Failed to decode ios_snapshot_target_bookmark")
-                        }
-                    case "institutions_table_font":
-                        print("ℹ️ [config] Loaded institutions_table_font=\(value)")
-                        self.institutionsTableFontSize = value
-                    case "institutions_table_column_fractions":
-                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
-                        print("ℹ️ [config] Loaded institutions_table_column_fractions=\(parsed)")
-                        self.institutionsTableColumnFractions = parsed
-                    case "instruments_table_font":
-                        print("ℹ️ [config] Loaded instruments_table_font=\(value)")
-                        self.instrumentsTableFontSize = value
-                    case "instruments_table_column_fractions":
-                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
-                        print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
-                        self.instrumentsTableColumnFractions = parsed
-                    case "currencies_table_font":
-                        print("ℹ️ [config] Loaded currencies_table_font=\(value)")
-                        self.currenciesTableFontSize = value
-                    case "currencies_table_column_fractions":
-                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
-                        print("ℹ️ [config] Loaded currencies_table_column_fractions=\(parsed)")
-                        self.currenciesTableColumnFractions = parsed
-                    case "accounts_table_font":
-                        print("ℹ️ [config] Loaded accounts_table_font=\(value)")
-                        self.accountsTableFontSize = value
-                    case "portfolio_themes_table_font":
-                        print("ℹ️ [config] Loaded portfolio_themes_table_font=\(value)")
-                        self.portfolioThemesTableFontSize = value
-                    case "accounts_table_column_fractions":
-                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
-                        print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
-                        self.accountsTableColumnFractions = parsed
-                    case "portfolio_themes_table_column_fractions":
-                        let parsed = DatabaseManager.decodeFractionDictionary(from: value)
-                        print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
-                        self.portfolioThemesTableColumnFractions = parsed
-                    case "todo_board_font":
-                        print("ℹ️ [config] Loaded todo_board_font=\(value)")
-                        self.todoBoardFontSize = value
-                    default:
-                        print("ℹ️ Unhandled configuration key loaded: \(key)")
+                switch key {
+                case "base_currency":
+                    pendingAssignments.append { $0.baseCurrency = value }
+                case "as_of_date":
+                    if let date = DateFormatter.iso8601DateOnly.date(from: value) {
+                        pendingAssignments.append { $0.asOfDate = date }
                     }
+                case "decimal_precision":
+                    let precision = Int(value) ?? 4
+                    pendingAssignments.append { $0.decimalPrecision = precision }
+                case "default_timezone":
+                    pendingAssignments.append { $0.defaultTimeZone = value }
+                case "table_row_spacing":
+                    let spacing = Double(value) ?? 1.0
+                    pendingAssignments.append { $0.tableRowSpacing = spacing }
+                case "table_row_padding":
+                    let padding = Double(value) ?? 12.0
+                    pendingAssignments.append { $0.tableRowPadding = padding }
+                case "include_direct_re":
+                    let flag = value.lowercased() == "true"
+                    pendingAssignments.append { $0.includeDirectRealEstate = flag }
+                case "direct_re_target_chf":
+                    let target = Double(value) ?? 0
+                    pendingAssignments.append { $0.directRealEstateTargetCHF = target }
+                case "db_version":
+                    pendingAssignments.append { $0.dbVersion = value }
+                    print("📦 Database version loaded: \(value)")
+                case "fx_auto_update_enabled":
+                    let flag = value.lowercased() == "true" || value == "1"
+                    pendingAssignments.append { $0.fxAutoUpdateEnabled = flag }
+                case "fx_update_frequency":
+                    let v = value.lowercased()
+                    let freq = (v == "weekly" ? "weekly" : "daily")
+                    pendingAssignments.append { $0.fxUpdateFrequency = freq }
+                case "ios_snapshot_auto_enabled":
+                    let flag = value.lowercased() == "true" || value == "1"
+                    pendingAssignments.append { $0.iosSnapshotAutoEnabled = flag }
+                case "ios_snapshot_frequency":
+                    let v = value.lowercased()
+                    let freq = (v == "weekly" ? "weekly" : "daily")
+                    pendingAssignments.append { $0.iosSnapshotFrequency = freq }
+                case "ios_snapshot_target_path":
+                    pendingAssignments.append { $0.iosSnapshotTargetPath = value }
+                case "ios_snapshot_target_bookmark":
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = nil }
+                    } else if let data = Data(base64Encoded: trimmed) {
+                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = data }
+                    } else {
+                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = nil }
+                        print("⚠️ [config] Failed to decode ios_snapshot_target_bookmark")
+                    }
+                case "institutions_table_font":
+                    print("ℹ️ [config] Loaded institutions_table_font=\(value)")
+                    pendingAssignments.append { $0.institutionsTableFontSize = value }
+                case "institutions_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded institutions_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.institutionsTableColumnFractions = parsed }
+                case "instruments_table_font":
+                    print("ℹ️ [config] Loaded instruments_table_font=\(value)")
+                    pendingAssignments.append { $0.instrumentsTableFontSize = value }
+                case "instruments_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.instrumentsTableColumnFractions = parsed }
+                case "currencies_table_font":
+                    print("ℹ️ [config] Loaded currencies_table_font=\(value)")
+                    pendingAssignments.append { $0.currenciesTableFontSize = value }
+                case "currencies_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded currencies_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.currenciesTableColumnFractions = parsed }
+                case "accounts_table_font":
+                    print("ℹ️ [config] Loaded accounts_table_font=\(value)")
+                    pendingAssignments.append { $0.accountsTableFontSize = value }
+                case "portfolio_themes_table_font":
+                    print("ℹ️ [config] Loaded portfolio_themes_table_font=\(value)")
+                    pendingAssignments.append { $0.portfolioThemesTableFontSize = value }
+                case "accounts_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.accountsTableColumnFractions = parsed }
+                case "portfolio_themes_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.portfolioThemesTableColumnFractions = parsed }
+                case "todo_board_font":
+                    print("ℹ️ [config] Loaded todo_board_font=\(value)")
+                    pendingAssignments.append { $0.todoBoardFontSize = value }
+                default:
+                    print("ℹ️ Unhandled configuration key loaded: \(key)")
                 }
             }
         } else {
             print("❌ Failed to prepare loadConfiguration: \(String(cString: sqlite3_errmsg(db)))")
         }
         sqlite3_finalize(statement)
+        if !pendingAssignments.isEmpty {
+            DispatchQueue.main.async { [pendingAssignments] in
+                pendingAssignments.forEach { $0(self) }
+            }
+        }
         print("⚙️ Configuration loaded/reloaded.")
         return loadedVersion
     }

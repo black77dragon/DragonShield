@@ -531,7 +531,7 @@ struct InstrumentEditView: View {
     private var updatesInThemesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                sectionHeader(title: "Updates in Themes", icon: "doc.text", color: .blue)
+                sectionHeader(title: "Instrument Notes/Updates", icon: "doc.text", color: .blue)
                 Spacer()
                 Button("Open Instrument Notes") { openInstrumentNotes() }
                     .buttonStyle(.borderedProminent)
@@ -550,7 +550,11 @@ struct InstrumentEditView: View {
     
     private func openInstrumentNotes() {
         let last = UserDefaults.standard.string(forKey: "instrumentNotesLastTab")
-        notesInitialTab = last == "mentions" ? .mentions : .updates
+        switch last {
+        case "general": notesInitialTab = .general
+        case "mentions": notesInitialTab = .mentions
+        default: notesInitialTab = .updates
+        }
         showNotes = true
         let payload: [String: Any] = ["instrumentId": instrumentId, "action": "instrument_notes_open", "source": "panel"]
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {

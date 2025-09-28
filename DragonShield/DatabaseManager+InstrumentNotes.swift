@@ -2,6 +2,21 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
+    private func singleIntQuery(_ sql: String, bind: ((OpaquePointer) -> Void)? = nil) -> Int? {
+        guard let db else { return nil }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("singleIntQuery prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return nil
+        }
+        bind?(stmt!)
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            return Int(sqlite3_column_int(stmt, 0))
+        }
+        return nil
+    }
+
     private func normalizeNotesText(_ text: String) -> String {
         let lowered = text.lowercased()
         let mapped = lowered.map { $0.isLetter || $0.isNumber ? String($0) : " " }.joined()
@@ -9,47 +24,122 @@ extension DatabaseManager {
         return " " + collapsed + " "
     }
 
-    func listInstrumentUpdatesForInstrument(instrumentId: Int, themeId: Int? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeAssetUpdate] {
-        var items: [PortfolioThemeAssetUpdate] = []
-        let order = pinnedFirst ? "u.pinned DESC, u.created_at DESC" : "u.created_at DESC"
-        let whereClause: String
-        if themeId != nil {
-            whereClause = "u.theme_id = ? AND u.instrument_id = ?"
-        } else {
-            whereClause = "u.instrument_id = ?"
-        }
-        let sql = "SELECT u.id, u.theme_id, u.instrument_id, u.title, u.body_markdown, u.type_id, n.code, n.display_name, u.author, u.pinned, u.positions_asof, u.value_chf, u.actual_percent, u.created_at, u.updated_at FROM PortfolioThemeAssetUpdate u LEFT JOIN NewsType n ON n.id = u.type_id WHERE \(whereClause) ORDER BY \(order)"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            if let tid = themeId {
-                sqlite3_bind_int(stmt, 1, Int32(tid))
-                sqlite3_bind_int(stmt, 2, Int32(instrumentId))
-            } else {
-                sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+    /// Returns instrument notes that are scoped to portfolio themes. When `themeId` is nil the
+    /// result aggregates notes across all themes the instrument participates in.
+    func listInstrumentUpdatesForInstrument(instrumentId: Int, themeId: Int? = nil, pinnedFirst: Bool = true) -> [InstrumentNote] {
+        let order = pinnedFirst ? "n.pinned DESC, n.created_at DESC" : "n.created_at DESC"
+        var clauses: [String] = ["n.instrument_id = ?", "n.theme_id IS NOT NULL"]
+        if let themeId { clauses.append("n.theme_id = ?") }
+        let whereClause = clauses.joined(separator: " AND ")
+        let sql = """
+            SELECT n.id, n.instrument_id, n.theme_id, n.title, n.body_markdown, n.type_id, nt.code, nt.display_name,
+                   n.author, n.pinned, n.positions_asof, n.value_chf, n.actual_percent, n.created_at, n.updated_at
+            FROM InstrumentNote n
+            LEFT JOIN NewsType nt ON nt.id = n.type_id
+            WHERE \(whereClause)
+            ORDER BY \(order)
+        """
+        return fetchInstrumentNotes(sql: sql) { stmt in
+            sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+            if let themeId {
+                sqlite3_bind_int(stmt, 2, Int32(themeId))
             }
+        }
+    }
+
+    /// Returns instrument notes that are not linked to any portfolio theme.
+    func listInstrumentGeneralNotes(instrumentId: Int, pinnedFirst: Bool = true) -> [InstrumentNote] {
+        let order = pinnedFirst ? "n.pinned DESC, n.created_at DESC" : "n.created_at DESC"
+        let sql = """
+            SELECT n.id, n.instrument_id, n.theme_id, n.title, n.body_markdown, n.type_id, nt.code, nt.display_name,
+                   n.author, n.pinned, n.positions_asof, n.value_chf, n.actual_percent, n.created_at, n.updated_at
+            FROM InstrumentNote n
+            LEFT JOIN NewsType nt ON nt.id = n.type_id
+            WHERE n.instrument_id = ? AND n.theme_id IS NULL
+            ORDER BY \(order)
+        """
+        return fetchInstrumentNotes(sql: sql) { stmt in
+            sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+        }
+    }
+
+    private func fetchInstrumentNotes(sql: String, bind: (OpaquePointer) -> Void) -> [InstrumentNote] {
+        guard let db else { return [] }
+        var stmt: OpaquePointer?
+        var notes: [InstrumentNote] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bind(stmt!)
             while sqlite3_step(stmt) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(stmt, 0))
-                let themeId = Int(sqlite3_column_int(stmt, 1))
-                let instrumentId = Int(sqlite3_column_int(stmt, 2))
+                let instrumentId = Int(sqlite3_column_int(stmt, 1))
+                let themeId = sqlite3_column_type(stmt, 2) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 2))
                 let title = String(cString: sqlite3_column_text(stmt, 3))
                 let body = String(cString: sqlite3_column_text(stmt, 4))
                 let typeId = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, 5))
-                let typeStr = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                let typeCode = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "General"
                 let typeName = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
                 let author = String(cString: sqlite3_column_text(stmt, 8))
                 let pinned = sqlite3_column_int(stmt, 9) == 1
                 let positionsAsOf = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
-                let value = sqlite3_column_type(stmt, 11) != SQLITE_NULL ? sqlite3_column_double(stmt, 11) : nil
-                let actual = sqlite3_column_type(stmt, 12) != SQLITE_NULL ? sqlite3_column_double(stmt, 12) : nil
+                let value = sqlite3_column_type(stmt, 11) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 11)
+                let actual = sqlite3_column_type(stmt, 12) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 12)
                 let created = String(cString: sqlite3_column_text(stmt, 13))
                 let updated = String(cString: sqlite3_column_text(stmt, 14))
-                items.append(PortfolioThemeAssetUpdate(id: id, themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeStr, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated))
+                let note = InstrumentNote(id: id, instrumentId: instrumentId, themeId: themeId, title: title, bodyMarkdown: body, typeId: typeId, typeCode: typeCode, typeDisplayName: typeName, author: author, pinned: pinned, positionsAsOf: positionsAsOf, valueChf: value, actualPercent: actual, createdAt: created, updatedAt: updated)
+                notes.append(note)
             }
         } else {
-            LoggingService.shared.log("Failed to prepare listInstrumentUpdatesForInstrument: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            LoggingService.shared.log("fetchInstrumentNotes prepare failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
         sqlite3_finalize(stmt)
-        return items
+        return notes
+    }
+
+    func createInstrumentNote(instrumentId: Int, title: String, bodyMarkdown: String, newsTypeCode: String? = nil, pinned: Bool, author: String, source: String? = nil) -> InstrumentNote? {
+        let typeCode = newsTypeCode ?? PortfolioUpdateType.General.rawValue
+        guard InstrumentNote.isValidTitle(title), InstrumentNote.isValidBody(bodyMarkdown) else { return nil }
+        let sql = """
+            INSERT INTO InstrumentNote (instrument_id, theme_id, title, body_text, body_markdown, type, type_id, author, pinned)
+            VALUES (?, NULL, ?, ?, ?, ?, (SELECT id FROM NewsType WHERE code = ?), ?, ?)
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare createInstrumentNote failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return nil
+        }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+        sqlite3_bind_text(stmt, 2, title, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 3, bodyMarkdown, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 5, typeCode, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 6, typeCode, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 7, author, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(stmt, 8, pinned ? 1 : 0)
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            LoggingService.shared.log("createInstrumentNote insert failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            sqlite3_finalize(stmt)
+            return nil
+        }
+        sqlite3_finalize(stmt)
+        let newId = Int(sqlite3_last_insert_rowid(db))
+        guard let item = getInstrumentUpdate(id: newId) else { return nil }
+        var payload: [String: Any] = [
+            "instrumentId": instrumentId,
+            "noteId": newId,
+            "actor": author,
+            "op": "create",
+            "pinned": pinned ? 1 : 0
+        ]
+        if let source = source { payload["source"] = source }
+        if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
+            LoggingService.shared.log(log, logger: .database)
+        }
+        return item
+    }
+
+    func createInstrumentNote(instrumentId: Int, title: String, bodyMarkdown: String, type: PortfolioUpdateType, pinned: Bool, author: String, source: String? = nil) -> InstrumentNote? {
+        createInstrumentNote(instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: type.rawValue, pinned: pinned, author: author, source: source)
     }
 
     func listThemeMentions(themeId: Int, instrumentCode: String, instrumentName: String) -> [PortfolioThemeUpdate] {
@@ -105,18 +195,9 @@ extension DatabaseManager {
     }
 
     func instrumentNotesSummary(instrumentId: Int, instrumentCode: String, instrumentName: String) -> (updates: Int, mentions: Int) {
-        var updates = 0
-        let sql = "SELECT COUNT(*) FROM PortfolioThemeAssetUpdate WHERE instrument_id = ?"
-        var stmt: OpaquePointer?
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+        let updates = singleIntQuery("SELECT COUNT(*) FROM InstrumentNote WHERE instrument_id = ? AND theme_id IS NOT NULL") { stmt in
             sqlite3_bind_int(stmt, 1, Int32(instrumentId))
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                updates = Int(sqlite3_column_int(stmt, 0))
-            }
-        } else {
-            LoggingService.shared.log("Failed to prepare instrumentNotesSummary updates: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
-        }
-        sqlite3_finalize(stmt)
+        } ?? 0
         let themes = listThemesForInstrumentWithUpdateCounts(instrumentId: instrumentId, instrumentCode: instrumentCode, instrumentName: instrumentName)
         let mentions = themes.reduce(0) { $0 + $1.mentionsCount }
         return (updates, mentions)
