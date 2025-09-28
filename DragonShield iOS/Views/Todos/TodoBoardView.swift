@@ -7,7 +7,7 @@ struct TodoBoardView: View {
     @State private var tagsByID: [Int: TagRow] = [:]
     @State private var visibleColumns: Set<KanbanColumn> = [.doing, .prioritised, .backlog]
 
-    private let columnOrder: [KanbanColumn] = [.doing, .prioritised, .backlog, .done]
+    private let columnOrder: [KanbanColumn] = [.doing, .prioritised, .backlog, .done, .archived]
 
     private var filteredColumns: [KanbanColumn] {
         columnOrder.filter { visibleColumns.contains($0) }
@@ -113,7 +113,7 @@ struct TodoBoardView: View {
                         visibleColumns = Set(columnOrder)
                     }
                     Button("Hide Completed") {
-                        visibleColumns = Set(columnOrder.filter { $0 != .done })
+                        visibleColumns = Set(columnOrder.filter { ![.done, .archived].contains($0) })
                     }
                 }
             } label: {

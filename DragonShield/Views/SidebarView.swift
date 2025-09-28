@@ -60,7 +60,7 @@ struct SidebarView: View {
                     Label("Asset Allocation", systemImage: "chart.pie")
                 }
                 NavigationLink(destination: NewPortfoliosView().environmentObject(dbManager)) {
-                    Label("New Portfolios", systemImage: "tablecells.badge.ellipsis")
+                    Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
 
                 NavigationLink(destination: InstrumentPricesMaintenanceView().environmentObject(dbManager)) {
@@ -629,6 +629,7 @@ struct TodoKanbanBoardView: View {
                 CounterBadge(title: "Prioritised", count: viewModel.count(for: .prioritised), color: KanbanColumn.prioritised.accentColor)
                 CounterBadge(title: "Doing", count: viewModel.count(for: .doing), color: KanbanColumn.doing.accentColor)
                 CounterBadge(title: "Done", count: viewModel.count(for: .done), color: KanbanColumn.done.accentColor)
+                CounterBadge(title: "Archived", count: viewModel.count(for: .archived), color: KanbanColumn.archived.accentColor)
             }
         }
     }
@@ -653,6 +654,21 @@ struct TodoKanbanBoardView: View {
                     .foregroundColor(column.accentColor)
                 Text(column.title)
                     .font(.title3.weight(.semibold))
+                if column == .done {
+                    Button {
+                        viewModel.archiveDoneTodos()
+                    } label: {
+                        Label("Archive Done", systemImage: "archivebox")
+                            .labelStyle(.iconOnly)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(KanbanColumn.archived.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(items.isEmpty)
+                    .opacity(items.isEmpty ? 0.35 : 1.0)
+                    .help("Move all Done items to the Archived column")
+                    .accessibilityLabel("Archive all done items")
+                }
                 Spacer()
                 Text(items.count, format: .number)
                     .font(.footnote)
