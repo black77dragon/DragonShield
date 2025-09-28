@@ -1488,6 +1488,7 @@ struct NotesIconView: View {
         .accessibilityLabel("Open notes for \(instrumentName)")
         .help(tooltip)
         .contextMenu {
+            Button("Open General Notes") { openGeneral() }
             Button("Open Updates") { openUpdates() }
             Button("Open Mentions") { openMentions() }
         }
@@ -1516,7 +1517,16 @@ struct NotesIconView: View {
 
     private func openDefault() {
         let last = UserDefaults.standard.string(forKey: "instrumentNotesLastTab")
-        initialTab = last == "mentions" ? .mentions : .updates
+        switch last {
+        case "general": initialTab = .general
+        case "mentions": initialTab = .mentions
+        default: initialTab = .updates
+        }
+        showModal = true
+    }
+
+    private func openGeneral() {
+        initialTab = .general
         showModal = true
     }
 

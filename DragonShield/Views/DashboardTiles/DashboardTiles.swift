@@ -512,8 +512,13 @@ struct AllNotesTile: DashboardTile {
                 .environmentObject(dbManager)
         }
         .sheet(item: $editingInstrument) { upd in
-            InstrumentUpdateEditorView(themeId: upd.themeId, instrumentId: upd.instrumentId, instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)", themeName: themeNames[upd.themeId] ?? "", existing: upd, onSave: { _ in editingInstrument = nil; load() }, onCancel: { editingInstrument = nil })
-                .environmentObject(dbManager)
+            if let themeId = upd.themeId {
+                InstrumentUpdateEditorView(themeId: themeId, instrumentId: upd.instrumentId, instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)", themeName: themeNames[themeId] ?? "", existing: upd, onSave: { _ in editingInstrument = nil; load() }, onCancel: { editingInstrument = nil })
+                    .environmentObject(dbManager)
+            } else {
+                InstrumentNoteEditorView(instrumentId: upd.instrumentId, instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)", existing: upd, onSave: { _ in editingInstrument = nil; load() }, onCancel: { editingInstrument = nil })
+                    .environmentObject(dbManager)
+            }
         }
     }
 
@@ -529,7 +534,13 @@ struct AllNotesTile: DashboardTile {
             let combined: [Row] = Array(theme.prefix(3)).map { t in
                 Row(id: "t-\(t.id)", title: t.title, subtitle: "Theme: \(themeNameMap[t.themeId] ?? "#\(t.themeId)")", type: t.typeDisplayName ?? t.typeCode, when: DateFormatting.userFriendly(t.createdAt))
             } + Array(instr.prefix(3)).map { u in
-                Row(id: "i-\(u.id)", title: u.title, subtitle: "Instr: \(instrumentNameMap[u.instrumentId] ?? "#\(u.instrumentId)") · Theme: \(themeNameMap[u.themeId] ?? "#\(u.themeId)")", type: u.typeDisplayName ?? u.typeCode, when: DateFormatting.userFriendly(u.createdAt))
+                let themeLabel: String
+                if let tid = u.themeId {
+                    themeLabel = themeNameMap[tid] ?? "#\(tid)"
+                } else {
+                    themeLabel = "General"
+                }
+                return Row(id: "i-\(u.id)", title: u.title, subtitle: "Instr: \(instrumentNameMap[u.instrumentId] ?? "#\(u.instrumentId)") · Theme: \(themeLabel)", type: u.typeDisplayName ?? u.typeCode, when: DateFormatting.userFriendly(u.createdAt))
             }
             DispatchQueue.main.async {
                 self.totalCount = theme.count + instr.count

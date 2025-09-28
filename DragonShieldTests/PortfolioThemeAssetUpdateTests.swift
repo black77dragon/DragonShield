@@ -100,4 +100,14 @@ final class PortfolioThemeAssetUpdateTests: XCTestCase {
         XCTAssertEqual(summary.updates, 1)
         XCTAssertEqual(summary.mentions, 1)
     }
+
+    func testCreateGeneralInstrumentNote() {
+        let general = manager.createInstrumentNote(instrumentId: 42, title: "General", bodyMarkdown: "Body", type: .General, pinned: false, author: "Tester")
+        XCTAssertNotNil(general)
+        XCTAssertNil(general?.themeId)
+        XCTAssertTrue(general?.isInstrumentOnly ?? false)
+        let list = manager.listInstrumentGeneralNotes(instrumentId: 42)
+        XCTAssertEqual(list.count, 1)
+        XCTAssertNil(list.first?.themeId)
+    }
 }

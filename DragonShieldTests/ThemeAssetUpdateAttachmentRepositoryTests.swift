@@ -66,7 +66,7 @@ final class ThemeAssetUpdateAttachmentRepositoryTests: XCTestCase {
 
         XCTAssertTrue(manager.deleteInstrumentUpdate(id: update.id, actor: "tester"))
         var stmt: OpaquePointer?
-        sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM ThemeAssetUpdateAttachment WHERE attachment_id = ?", -1, &stmt, nil)
+        sqlite3_prepare_v2(manager.db, "SELECT COUNT(*) FROM InstrumentNoteAttachment WHERE attachment_id = ?", -1, &stmt, nil)
         sqlite3_bind_int(stmt, 1, Int32(attachmentId))
         _ = sqlite3_step(stmt)
         let count = sqlite3_column_int(stmt, 0)

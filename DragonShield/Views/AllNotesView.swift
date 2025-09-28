@@ -57,16 +57,27 @@ struct AllNotesView: View {
                 .environmentObject(dbManager)
         }
         .sheet(item: $editingInstrument) { upd in
-            InstrumentUpdateEditorView(
-                themeId: upd.themeId,
-                instrumentId: upd.instrumentId,
-                instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)",
-                themeName: themeNames[upd.themeId] ?? "",
-                existing: upd,
-                onSave: { _ in editingInstrument = nil; reload() },
-                onCancel: { editingInstrument = nil; reload() }
-            )
+            if let themeId = upd.themeId {
+                InstrumentUpdateEditorView(
+                    themeId: themeId,
+                    instrumentId: upd.instrumentId,
+                    instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)",
+                    themeName: themeNames[themeId] ?? "",
+                    existing: upd,
+                    onSave: { _ in editingInstrument = nil; reload() },
+                    onCancel: { editingInstrument = nil; reload() }
+                )
                 .environmentObject(dbManager)
+            } else {
+                InstrumentNoteEditorView(
+                    instrumentId: upd.instrumentId,
+                    instrumentName: instrumentNames[upd.instrumentId] ?? "#\(upd.instrumentId)",
+                    existing: upd,
+                    onSave: { _ in editingInstrument = nil; reload() },
+                    onCancel: { editingInstrument = nil; reload() }
+                )
+                .environmentObject(dbManager)
+            }
         }
         .confirmationDialog(
             "Send this theme note to the shadow realm?",
@@ -173,7 +184,15 @@ struct AllNotesView: View {
     }
 
     private func instrumentCard(_ update: PortfolioThemeAssetUpdate) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let themeLabel: String = {
+            if let tid = update.themeId {
+                return themeNames[tid] ?? "#\(tid)"
+            } else {
+                return "General"
+            }
+        }()
+
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
                 Text(update.title).fontWeight(.semibold)
                 Spacer()
@@ -181,7 +200,7 @@ struct AllNotesView: View {
                 Button("Delete", role: .destructive) { confirmDeleteInstrumentId = update.id }
                 .buttonStyle(.link)
             }
-            Text("Instrument: \(instrumentNames[update.instrumentId] ?? "#\(update.instrumentId)") · Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
+            Text("Instrument: \(instrumentNames[update.instrumentId] ?? "#\(update.instrumentId)") · Theme: \(themeLabel) · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                 .font(.caption)
                 .foregroundColor(.secondary)
             Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown)).lineLimit(4)

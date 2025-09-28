@@ -187,6 +187,14 @@ class DatabaseManager: ObservableObject {
         #endif
     }
 
+    func lastSQLErrorMessage() -> String {
+        guard let db else { return "database not open" }
+        if let cString = sqlite3_errmsg(db) {
+            return String(cString: cString)
+        }
+        return "unknown database error"
+    }
+
     /// Open a specific SQLite file in read-only mode (used by the iOS app to open a snapshot).
     /// The manager will point to the provided path until reopened or switched.
     @discardableResult

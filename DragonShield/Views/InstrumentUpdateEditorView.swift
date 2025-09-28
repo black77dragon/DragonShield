@@ -31,6 +31,7 @@ struct InstrumentUpdateEditorView: View {
     @State private var showHelp = false
     @State private var attachments: [Attachment] = []
     @State private var removedAttachmentIds: Set<Int> = []
+    @State private var feedback: SaveFeedback?
 
     init(themeId: Int, instrumentId: Int, instrumentName: String, themeName: String, existing: PortfolioThemeAssetUpdate? = nil, valuation: ValuationSnapshot? = nil, onSave: @escaping (PortfolioThemeAssetUpdate) -> Void, onCancel: @escaping () -> Void) {
         self.themeId = themeId
@@ -115,6 +116,9 @@ struct InstrumentUpdateEditorView: View {
                 selectedTypeId = newsTypes.first?.id
             }
         }
+        .alert(item: $feedback) { info in
+            Alert(title: Text(info.title), message: Text(info.message), dismissButton: .default(Text("OK")))
+        }
     }
     private func deleteExisting() {
         guard let existing = existing else { return }
@@ -184,6 +188,8 @@ struct InstrumentUpdateEditorView: View {
             // Prefer returning the updated row if available; otherwise fetch current
             if let row = updated ?? dbManager.getInstrumentUpdate(id: existing.id) {
                 onSave(row)
+            } else {
+                feedback = SaveFeedback(title: "Save Failed", message: dbManager.lastSQLErrorMessage())
             }
         } else {
             if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
@@ -191,6 +197,8 @@ struct InstrumentUpdateEditorView: View {
                 let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
                 for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
                 onSave(created)
+            } else {
+                feedback = SaveFeedback(title: "Save Failed", message: dbManager.lastSQLErrorMessage())
             }
         }
     }
@@ -215,9 +223,9 @@ struct InstrumentUpdateEditorView: View {
         }
     }
 
-    private func removeAttachment(_ att: Attachment) {
-        let alert = NSAlert()
-        alert.messageText = "Delete file?"
+private func removeAttachment(_ att: Attachment) {
+    let alert = NSAlert()
+    alert.messageText = "Delete file?"
         alert.informativeText = "The attachment will be removed from the update. Also delete the file from storage?"
         alert.addButton(withTitle: "Delete File")
         alert.addButton(withTitle: "Keep File")
@@ -268,6 +276,12 @@ struct InstrumentUpdateEditorView: View {
         }
         .padding(.vertical, 8)
     }
+}
+
+private struct SaveFeedback: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private struct MarkdownHelpView: View {
