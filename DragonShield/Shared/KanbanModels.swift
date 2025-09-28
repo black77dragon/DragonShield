@@ -79,6 +79,7 @@ enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
     case prioritised
     case doing
     case done
+    case archived
 
     var id: String { rawValue }
 
@@ -88,6 +89,7 @@ enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
         case .prioritised: return "Prioritised"
         case .doing: return "Doing"
         case .done: return "Done"
+        case .archived: return "Archived"
         }
     }
 
@@ -97,6 +99,7 @@ enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
         case .prioritised: return Color.orange
         case .doing: return Color.accentColor
         case .done: return Color.green
+        case .archived: return Color.purple
         }
     }
 
@@ -106,6 +109,7 @@ enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
         case .prioritised: return "flag.circle.fill"
         case .doing: return "hammer"
         case .done: return "checkmark.circle"
+        case .archived: return "archivebox"
         }
     }
 
@@ -115,6 +119,7 @@ enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
         case .prioritised: return "Drag tasks here when they are next up."
         case .doing: return "Drop work in progress into this column."
         case .done: return "Completed tasks will collect here."
+        case .archived: return "Archived tasks live here for reference."
         }
     }
 }
@@ -319,6 +324,31 @@ final class KanbanBoardViewModel: ObservableObject {
         if oldColumn != column {
             normalizeSortOrders(for: oldColumn)
         }
+        save()
+    }
+
+    func archiveDoneTodos() {
+        let doneEntries = todos.enumerated().filter { $0.element.column == .done }
+        guard !doneEntries.isEmpty else { return }
+
+        let sortedDone = doneEntries.sorted { lhs, rhs in
+            if lhs.element.sortOrder == rhs.element.sortOrder {
+                return lhs.element.createdAt < rhs.element.createdAt
+            }
+            return lhs.element.sortOrder < rhs.element.sortOrder
+        }
+
+        let startingOrder = (todos.filter { $0.column == .archived }.map(\.sortOrder).max() ?? -1) + 1
+        var nextOrder = startingOrder
+
+        for entry in sortedDone {
+            todos[entry.offset].column = .archived
+            todos[entry.offset].sortOrder = nextOrder
+            nextOrder += 1
+        }
+
+        normalizeSortOrders(for: .done)
+        normalizeSortOrders(for: .archived)
         save()
     }
 
