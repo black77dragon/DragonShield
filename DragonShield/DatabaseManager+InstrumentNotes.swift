@@ -29,7 +29,7 @@ extension DatabaseManager {
     func listInstrumentUpdatesForInstrument(instrumentId: Int, themeId: Int? = nil, pinnedFirst: Bool = true) -> [InstrumentNote] {
         let order = pinnedFirst ? "n.pinned DESC, n.created_at DESC" : "n.created_at DESC"
         var clauses: [String] = ["n.instrument_id = ?", "n.theme_id IS NOT NULL"]
-        if let themeId { clauses.append("n.theme_id = ?") }
+        if themeId != nil { clauses.append("n.theme_id = ?") }
         let whereClause = clauses.joined(separator: " AND ")
         let sql = """
             SELECT n.id, n.instrument_id, n.theme_id, n.title, n.body_markdown, n.type_id, nt.code, nt.display_name,
