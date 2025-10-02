@@ -243,7 +243,7 @@ struct InstrumentNotesView: View {
         VStack(alignment: .leading) {
             HStack {
                 Button("Add Update") {
-                    guard let themeId = selectedThemeId else { return }
+                    guard selectedThemeId != nil else { return }
                     editingThemeUpdate = nil
                     showThemeEditor = true
                 }

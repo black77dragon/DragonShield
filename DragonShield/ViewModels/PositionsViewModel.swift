@@ -84,33 +84,53 @@ class PositionsViewModel: ObservableObject {
       var missingRate = false
 
       for p in positions {
-        // Get latest price from centralized InstrumentPrice
-        var price: Double?
-        if let instrId = p.instrumentId, let lp = db.getLatestPrice(instrumentId: instrId) {
-          price = lp.price
-        }
-        guard let price = price else { continue }
         let key = p.id
 
-        let currency = p.instrumentCurrency.uppercased()
+        // Resolve a unit price, preferring live market data but falling back to the
+        // snapshot's stored price (current or purchase) so newly added positions
+        // still surface a value.
+        var unitPrice: Double?
+        var priceCurrency = p.instrumentCurrency.uppercased()
+
+        if let instrId = p.instrumentId,
+           let latest = db.getLatestPrice(instrumentId: instrId) {
+          unitPrice = latest.price
+          priceCurrency = latest.currency.uppercased()
+        }
+
+        if unitPrice == nil, let snapshotPrice = p.currentPrice {
+          unitPrice = snapshotPrice
+          priceCurrency = p.instrumentCurrency.uppercased()
+        }
+
+        if unitPrice == nil, let purchase = p.purchasePrice {
+          unitPrice = purchase
+          priceCurrency = p.instrumentCurrency.uppercased()
+        }
+
+        guard let price = unitPrice else {
+          // No usable price available – skip value computation for this position.
+          continue
+        }
+
         let valueOrig = p.quantity * price
         orig[key] = valueOrig
 
-        if let sym = symbolCache[currency] {
-          symbolCache[currency] = sym
-        } else if let details = db.fetchCurrencyDetails(code: currency) {
-          symbolCache[currency] = details.symbol
-        } else {
-          symbolCache[currency] = currency
+        if symbolCache[priceCurrency] == nil {
+          if let details = db.fetchCurrencyDetails(code: priceCurrency) {
+            symbolCache[priceCurrency] = details.symbol
+          } else {
+            symbolCache[priceCurrency] = priceCurrency
+          }
         }
 
         var valueCHF = valueOrig
-        if currency != "CHF" {
-          var rate = rateCache[currency]
+        if priceCurrency != "CHF" {
+          var rate = rateCache[priceCurrency]
           if rate == nil {
-            let rates = db.fetchExchangeRates(currencyCode: currency, upTo: nil)
+            let rates = db.fetchExchangeRates(currencyCode: priceCurrency, upTo: nil)
             if let r = rates.first?.rateToChf {
-              rateCache[currency] = r
+              rateCache[priceCurrency] = r
               rate = r
             }
           }
