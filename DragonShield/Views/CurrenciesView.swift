@@ -12,14 +12,7 @@ import SwiftUI
 import AppKit
 #endif
 
-fileprivate struct TableFontConfig {
-    let primarySize: CGFloat
-    let secondarySize: CGFloat
-    let headerSize: CGFloat
-    let badgeSize: CGFloat
-}
-
-private enum CurrencyTableColumn: String, CaseIterable, Codable {
+private enum CurrencyTableColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
     case code, name, symbol, api, status
 
     var title: String {
@@ -45,43 +38,6 @@ private enum CurrencyTableColumn: String, CaseIterable, Codable {
 
 private enum CurrencySortColumn: String, CaseIterable {
     case code, name, symbol, api, status
-}
-
-private enum TableFontSize: String, CaseIterable {
-    case xSmall, small, medium, large, xLarge
-
-    var label: String {
-        switch self {
-        case .xSmall: return "XS"
-        case .small: return "S"
-        case .medium: return "M"
-        case .large: return "L"
-        case .xLarge: return "XL"
-        }
-    }
-
-    var baseSize: CGFloat {
-        let index: Int
-        switch self {
-        case .xSmall: index = 0
-        case .small: index = 1
-        case .medium: index = 2
-        case .large: index = 3
-        case .xLarge: index = 4
-        }
-        return TableFontMetrics.baseSize(for: index)
-    }
-
-    var secondarySize: CGFloat { baseSize - 1 }
-    var badgeSize: CGFloat { max(baseSize - 2, 10) }
-    var headerSize: CGFloat { baseSize - 1 }
-}
-
-private struct ColumnDragContext {
-    let primary: CurrencyTableColumn
-    let neighbor: CurrencyTableColumn
-    let primaryBaseWidth: CGFloat
-    let neighborBaseWidth: CGFloat
 }
 
 fileprivate struct CurrencyRow: Identifiable, Equatable {
@@ -116,15 +72,7 @@ struct CurrenciesView: View {
     @State private var sortColumn: CurrencySortColumn = .code
     @State private var sortAscending: Bool = true
 
-    @State private var columnFractions: [CurrencyTableColumn: CGFloat]
-    @State private var resolvedColumnWidths: [CurrencyTableColumn: CGFloat]
-    @State private var visibleColumns: Set<CurrencyTableColumn>
-    @State private var selectedFontSize: TableFontSize
-    @State private var didRestoreColumnFractions = false
-    @State private var availableTableWidth: CGFloat = 0
-    @State private var dragContext: ColumnDragContext? = nil
-    @State private var hasHydratedPreferences = false
-    @State private var isHydratingPreferences = false
+    @StateObject private var tableModel = ResizableTableViewModel<CurrencyTableColumn>(configuration: CurrenciesView.tableConfiguration)
 
     // Animation states
     @State private var headerOpacity: Double = 0
@@ -152,45 +100,66 @@ struct CurrenciesView: View {
         .status: 110
     ]
 
-    private static let initialColumnFractions: [CurrencyTableColumn: CGFloat] = {
-        let total = defaultColumnWidths.values.reduce(0, +)
-        guard total > 0 else {
-            let share = 1.0 / CGFloat(CurrencyTableColumn.allCases.count)
-            return Dictionary(uniqueKeysWithValues: CurrencyTableColumn.allCases.map { ($0, share) })
-        }
-        return Dictionary(uniqueKeysWithValues: CurrencyTableColumn.allCases.map { column in
-            let width = defaultColumnWidths[column] ?? 0
-            return (column, max(0.0001, width / total))
-        })
-    }()
-
     private static let columnHandleWidth: CGFloat = 10
     private static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
+    private static let tableConfiguration: MaintenanceTableConfiguration<CurrencyTableColumn> = {
+#if os(macOS)
+        MaintenanceTableConfiguration(
+            preferenceKind: .currencies,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: [],
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: size.secondarySize,
+                    header: size.headerSize,
+                    badge: size.badgeSize
+                )
+            },
+            columnResizeCursor: nil
+        )
+#else
+        MaintenanceTableConfiguration(
+            preferenceKind: .currencies,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: [],
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: size.secondarySize,
+                    header: size.headerSize,
+                    badge: size.badgeSize
+                )
+            }
+        )
+#endif
+    }()
 
-    init() {
-        let defaults = CurrenciesView.initialColumnFractions
-        _columnFractions = State(initialValue: defaults)
-        _resolvedColumnWidths = State(initialValue: CurrenciesView.defaultColumnWidths)
-        if let storedVisible = UserDefaults.standard.array(forKey: CurrenciesView.visibleColumnsKey) as? [String] {
-            let restored = Set(storedVisible.compactMap(CurrencyTableColumn.init(rawValue:)))
-            _visibleColumns = State(initialValue: restored.isEmpty ? CurrenciesView.defaultVisibleColumns : restored)
-        } else {
-            _visibleColumns = State(initialValue: CurrenciesView.defaultVisibleColumns)
-        }
-        _selectedFontSize = State(initialValue: .medium)
-    }
-
-    private var activeColumns: [CurrencyTableColumn] {
-        CurrenciesView.columnOrder.filter { visibleColumns.contains($0) }
-    }
-
-    private var fontConfig: TableFontConfig {
-        TableFontConfig(
-            primarySize: selectedFontSize.baseSize,
-            secondarySize: selectedFontSize.secondarySize,
-            headerSize: selectedFontSize.headerSize,
-            badgeSize: selectedFontSize.badgeSize
+    private var activeColumns: [CurrencyTableColumn] { tableModel.activeColumns }
+    private var fontConfig: MaintenanceTableFontConfig { tableModel.fontConfig }
+    private var visibleColumns: Set<CurrencyTableColumn> { tableModel.visibleColumns }
+    private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
+    private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
+        Binding(
+            get: { tableModel.selectedFontSize },
+            set: { tableModel.selectedFontSize = $0 }
         )
     }
 
@@ -280,37 +249,20 @@ struct CurrenciesView: View {
             .padding(24)
         }
         .onAppear {
-            hydratePreferencesIfNeeded()
+            tableModel.connect(to: dbManager)
             loadCurrencies()
             animateEntrance()
-            if !didRestoreColumnFractions {
-                restoreColumnFractions()
-                didRestoreColumnFractions = true
-                recalcColumnWidths()
-            }
+            ensureFiltersWithinVisibleColumns()
+            ensureValidSortColumn()
         }
         .onChange(of: selectedSegment) { _, newValue in
             if newValue == 0 {
                 loadCurrencies()
             }
         }
-        .onChange(of: selectedFontSize) { _, _ in
-            persistFontSize()
-        }
-        .onReceive(dbManager.$currenciesTableFontSize) { newValue in
-            guard !isHydratingPreferences, let size = TableFontSize(rawValue: newValue), size != selectedFontSize else { return }
-            isHydratingPreferences = true
-            selectedFontSize = size
-            DispatchQueue.main.async { isHydratingPreferences = false }
-        }
-        .onReceive(dbManager.$currenciesTableColumnFractions) { newValue in
-            guard !isHydratingPreferences else { return }
-            isHydratingPreferences = true
-            if restoreFromStoredColumnFractions(newValue) {
-                didRestoreColumnFractions = true
-                recalcColumnWidths()
-            }
-            DispatchQueue.main.async { isHydratingPreferences = false }
+        .onChange(of: tableModel.visibleColumns) { _, _ in
+            ensureFiltersWithinVisibleColumns()
+            ensureValidSortColumn()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCurrencies"))) { _ in
             loadCurrencies()
@@ -497,8 +449,8 @@ struct CurrenciesView: View {
     }
 
     private var fontSizePicker: some View {
-        Picker("Font Size", selection: $selectedFontSize) {
-            ForEach(TableFontSize.allCases, id: \.self) { size in
+        Picker("Font Size", selection: fontSizeBinding) {
+            ForEach(MaintenanceTableFontSize.allCases, id: \.self) { size in
                 Text(size.label).tag(size)
             }
         }
@@ -546,187 +498,87 @@ struct CurrenciesView: View {
     }
 
     private var currenciesTable: some View {
-        GeometryReader { proxy in
-            let availableWidth = max(proxy.size.width, 0)
-            let targetWidth = max(availableWidth, totalMinimumWidth())
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    modernTableHeader
-                    currenciesTableRows
-                }
-                .frame(width: targetWidth, alignment: .leading)
+        MaintenanceTableView(
+            model: tableModel,
+            rows: sortedCurrencies,
+            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            showHorizontalIndicators: false,
+            rowContent: { currency, context in
+                ModernCurrencyRowView(
+                    currency: currency,
+                    columns: context.columns,
+                    fontConfig: context.fontConfig,
+                    isSelected: selectedCurrency?.code == currency.code,
+                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    widthFor: { context.widthForColumn($0) },
+                    onTap: {
+                        selectedCurrency = currency
+                    },
+                    onEdit: {
+                        selectedCurrency = currency
+                        showEditCurrencySheet = true
+                    }
+                )
+            },
+            headerContent: { column, fontConfig in
+                currenciesHeaderContent(for: column, fontConfig: fontConfig)
             }
-            .frame(width: availableWidth, alignment: .leading)
-            .onAppear {
-                updateAvailableWidth(targetWidth)
-            }
-            .onChange(of: proxy.size.width) { _, newWidth in
-                updateAvailableWidth(max(newWidth, totalMinimumWidth()))
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 0)
-    }
-
-    private var currenciesTableRows: some View {
-        ScrollView {
-            LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) {
-                ForEach(sortedCurrencies) { currency in
-                    ModernCurrencyRowView(
-                        currency: currency,
-                        columns: activeColumns,
-                        fontConfig: fontConfig,
-                        isSelected: selectedCurrency?.code == currency.code,
-                        rowPadding: CGFloat(dbManager.tableRowPadding),
-                        widthFor: { width(for: $0) },
-                        onTap: {
-                            selectedCurrency = currency
-                        },
-                        onEdit: {
-                            selectedCurrency = currency
-                            showEditCurrencySheet = true
-                        }
-                    )
-                }
-            }
-        }
-        .background(
-            Rectangle()
-                .fill(.regularMaterial)
-                .overlay(Rectangle().stroke(Color.gray.opacity(0.12), lineWidth: 1))
         )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
 
-    private var modernTableHeader: some View {
-        HStack(spacing: 0) {
-            ForEach(activeColumns, id: \.self) { column in
-                headerCell(for: column)
-                    .frame(width: width(for: column), alignment: .leading)
-            }
-        }
-        .padding(.trailing, 12)
-        .padding(.vertical, 2)
-        .background(
-            Rectangle()
-                .fill(CurrenciesView.headerBackground)
-                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
-        )
-        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
-    }
-
-    private func headerCell(for column: CurrencyTableColumn) -> some View {
-        let leadingTarget = leadingHandleTarget(for: column)
-        let isLast = isLastActiveColumn(column)
+    private func currenciesHeaderContent(for column: CurrencyTableColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
         let sortOption = sortOption(for: column)
         let isActiveSort = sortOption.map { $0 == sortColumn } ?? false
         let filterBinding = filterBinding(for: column)
         let filterOptions = filterValues(for: column)
 
-        return ZStack(alignment: .leading) {
-            if let target = leadingTarget {
-                resizeHandle(for: target)
-            }
-            if isLast {
-                resizeHandle(for: column)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-
-            HStack(spacing: 6) {
-                if let sortOption {
-                    Button(action: {
-                        if isActiveSort {
-                            sortAscending.toggle()
-                        } else {
-                            sortColumn = sortOption
-                            sortAscending = true
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Text(column.title)
-                                .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                                .foregroundColor(.black)
-                            Text(sortAscending ? "▲" : "▼")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(isActiveSort ? .accentColor : .clear)
-                                .accessibilityHidden(!isActiveSort)
-                        }
+        return HStack(spacing: 6) {
+            if let sortOption {
+                Button(action: {
+                    if isActiveSort {
+                        sortAscending.toggle()
+                    } else {
+                        sortColumn = sortOption
+                        sortAscending = true
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Text(column.title)
-                        .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                        .foregroundColor(.black)
+                }) {
+                    HStack(spacing: 4) {
+                        Text(column.title)
+                            .font(.system(size: fontConfig.header, weight: .semibold))
+                            .foregroundColor(.black)
+                        Text(sortAscending ? "▲" : "▼")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(isActiveSort ? .accentColor : .clear)
+                            .accessibilityHidden(!isActiveSort)
+                    }
                 }
+                .buttonStyle(.plain)
+            } else {
+                Text(column.title)
+                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .foregroundColor(.black)
+            }
 
-                if let binding = filterBinding, !filterOptions.isEmpty {
-                    Menu {
-                        ForEach(filterOptions, id: \.self) { value in
-                            Button {
-                                if binding.wrappedValue.contains(value) {
-                                    binding.wrappedValue.remove(value)
-                                } else {
-                                    binding.wrappedValue.insert(value)
-                                }
-                            } label: {
-                                Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
+            if let binding = filterBinding, !filterOptions.isEmpty {
+                Menu {
+                    ForEach(filterOptions, id: \.self) { value in
+                        Button {
+                            if binding.wrappedValue.contains(value) {
+                                binding.wrappedValue.remove(value)
+                            } else {
+                                binding.wrappedValue.insert(value)
                             }
+                        } label: {
+                            Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
                         }
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
                     }
-                    .menuStyle(BorderlessButtonMenuStyle())
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
                 }
+                .menuStyle(BorderlessButtonMenuStyle())
             }
-            .padding(.leading, CurrenciesView.columnTextInset + (leadingTarget == nil ? 0 : CurrenciesView.columnHandleWidth))
-            .padding(.trailing, isLast ? CurrenciesView.columnHandleWidth + 8 : 8)
         }
-    }
-
-    private func resizeHandle(for column: CurrencyTableColumn) -> some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(width: CurrenciesView.columnHandleWidth + CurrenciesView.columnHandleHitSlop * 2,
-                   height: 28)
-            .offset(x: -CurrenciesView.columnHandleHitSlop)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-#if os(macOS)
-                        NSCursor.resizeLeftRight.set()
-#endif
-                        guard availableTableWidth > 0 else { return }
-                        if dragContext?.primary != column {
-                            beginDrag(for: column)
-                        }
-                        updateDrag(for: column, translation: value.translation.width)
-                    }
-                    .onEnded { _ in
-                        finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
-                    }
-            )
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 0.5)
-                    .fill(Color.gray.opacity(0.8))
-                    .frame(width: 2, height: 22)
-            }
-            .padding(.vertical, 2)
-            .background(Color.clear)
-#if os(macOS)
-            .onHover { inside in
-                if inside {
-                    NSCursor.resizeLeftRight.set()
-                } else {
-                    NSCursor.arrow.set()
-                }
-            }
-#endif
     }
 
     private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
@@ -901,245 +753,22 @@ struct CurrenciesView: View {
         }
     }
 
-    private func isLastActiveColumn(_ column: CurrencyTableColumn) -> Bool {
-        activeColumns.last == column
-    }
-
-    private func leadingHandleTarget(for column: CurrencyTableColumn) -> CurrencyTableColumn? {
-        let columns = activeColumns
-        guard let index = columns.firstIndex(of: column) else { return nil }
-        return index == 0 ? column : columns[index - 1]
-    }
-
-    private func neighborColumn(for column: CurrencyTableColumn) -> CurrencyTableColumn? {
-        let columns = activeColumns
-        guard let index = columns.firstIndex(of: column) else { return nil }
-        if index < columns.count - 1 {
-            return columns[index + 1]
-        } else if index > 0 {
-            return columns[index - 1]
-        }
-        return nil
-    }
-
-    private func width(for column: CurrencyTableColumn) -> CGFloat {
-        guard visibleColumns.contains(column) else { return 0 }
-        return resolvedColumnWidths[column] ?? CurrenciesView.defaultColumnWidths[column] ?? minimumWidth(for: column)
-    }
-
-    private func minimumWidth(for column: CurrencyTableColumn) -> CGFloat {
-        CurrenciesView.minimumColumnWidths[column] ?? 80
-    }
-
-    private func totalMinimumWidth() -> CGFloat {
-        activeColumns.reduce(0) { $0 + minimumWidth(for: $1) }
-    }
-
-    private func updateAvailableWidth(_ width: CGFloat) {
-        let targetWidth = max(width, totalMinimumWidth())
-        guard targetWidth.isFinite, targetWidth > 0 else { return }
-
-        if !didRestoreColumnFractions {
-            restoreColumnFractions()
-            didRestoreColumnFractions = true
-        }
-
-        if abs(availableTableWidth - targetWidth) < 0.5 { return }
-        availableTableWidth = targetWidth
-        adjustResolvedWidths(for: targetWidth)
-        persistColumnFractions()
-    }
-
-    private func adjustResolvedWidths(for availableWidth: CGFloat) {
-        guard availableWidth > 0 else { return }
-        let fractions = normalizedFractions()
-        var remainingColumns = activeColumns
-        var remainingWidth = availableWidth
-        var remainingFraction = remainingColumns.reduce(0) { $0 + (fractions[$1] ?? 0) }
-        var resolved: [CurrencyTableColumn: CGFloat] = [:]
-
-        while !remainingColumns.isEmpty {
-            var clamped: [CurrencyTableColumn] = []
-            for column in remainingColumns {
-                let fraction = fractions[column] ?? 0
-                guard fraction > 0 else { continue }
-                let proposed = remainingFraction > 0 ? remainingWidth * fraction / remainingFraction : 0
-                let minWidth = minimumWidth(for: column)
-                if proposed < minWidth - 0.5 {
-                    resolved[column] = minWidth
-                    remainingWidth = max(0, remainingWidth - minWidth)
-                    remainingFraction -= fraction
-                    clamped.append(column)
-                }
-            }
-            if clamped.isEmpty { break }
-            remainingColumns.removeAll { clamped.contains($0) }
-            if remainingFraction <= 0 { break }
-        }
-
-        if !remainingColumns.isEmpty {
-            if remainingFraction > 0 {
-                for column in remainingColumns {
-                    let fraction = fractions[column] ?? 0
-                    let share = remainingWidth * fraction / remainingFraction
-                    let minWidth = minimumWidth(for: column)
-                    resolved[column] = max(minWidth, share)
-                }
-            } else {
-                let share = remainingColumns.isEmpty ? 0 : remainingWidth / CGFloat(remainingColumns.count)
-                for column in remainingColumns {
-                    resolved[column] = max(minimumWidth(for: column), share)
-                }
-                }
-        }
-
-        balanceResolvedWidths(&resolved, targetWidth: availableWidth)
-
-        for column in CurrenciesView.columnOrder {
-            if !visibleColumns.contains(column) {
-                resolved[column] = 0
-            } else if resolved[column] == nil {
-                resolved[column] = minimumWidth(for: column)
-            }
-        }
-
-        resolvedColumnWidths = resolved
-
-        var updatedFractions: [CurrencyTableColumn: CGFloat] = [:]
-        let safeWidth = max(availableWidth, 1)
-        for column in CurrenciesView.columnOrder {
-            let widthValue = resolved[column] ?? 0
-            updatedFractions[column] = max(0.0001, widthValue / safeWidth)
-        }
-        columnFractions = normalizedFractions(updatedFractions)
-    }
-
-    private func balanceResolvedWidths(_ resolved: inout [CurrencyTableColumn: CGFloat], targetWidth: CGFloat) {
-        let currentTotal = resolved.values.reduce(0, +)
-        let difference = targetWidth - currentTotal
-        guard abs(difference) > 0.5 else { return }
-
-        if difference > 0 {
-            if let column = activeColumns.first {
-                resolved[column, default: minimumWidth(for: column)] += difference
-            }
-        } else {
-            var remainingDifference = difference
-            var adjustable = activeColumns.filter {
-                let current = resolved[$0] ?? minimumWidth(for: $0)
-                return current - minimumWidth(for: $0) > 0.5
-            }
-
-            while remainingDifference < -0.5, !adjustable.isEmpty {
-                let share = remainingDifference / CGFloat(adjustable.count)
-                var columnsAtMinimum: [CurrencyTableColumn] = []
-                for column in adjustable {
-                    let minWidth = minimumWidth(for: column)
-                    let current = resolved[column] ?? minWidth
-                    let adjusted = max(minWidth, current + share)
-                    resolved[column] = adjusted
-                    remainingDifference -= (adjusted - current)
-                    if adjusted - minWidth < 0.5 {
-                        columnsAtMinimum.append(column)
-                    }
-                    if remainingDifference >= -0.5 { break }
-                }
-                adjustable.removeAll { columnsAtMinimum.contains($0) }
-                if adjustable.isEmpty { break }
-            }
-        }
-    }
-
-    private func normalizedFractions(_ input: [CurrencyTableColumn: CGFloat]? = nil) -> [CurrencyTableColumn: CGFloat] {
-        let source = input ?? columnFractions
-        let active = activeColumns
-        var result: [CurrencyTableColumn: CGFloat] = [:]
-        guard !active.isEmpty else {
-            for column in CurrenciesView.columnOrder { result[column] = 0 }
-            return result
-        }
-        let total = active.reduce(0) { $0 + max(0, source[$1] ?? 0) }
-        if total <= 0 {
-            let share = 1.0 / CGFloat(active.count)
-            for column in CurrenciesView.columnOrder {
-                result[column] = active.contains(column) ? share : 0
-            }
-            return result
-        }
-        for column in CurrenciesView.columnOrder {
-            if active.contains(column) {
-                result[column] = max(0.0001, source[column] ?? 0) / total
-            } else {
-                result[column] = 0
-            }
-        }
-        return result
-    }
-
-    private func beginDrag(for column: CurrencyTableColumn) {
-        guard let neighbor = neighborColumn(for: column) else { return }
-        let primaryWidth = resolvedColumnWidths[column] ?? (CurrenciesView.defaultColumnWidths[column] ?? minimumWidth(for: column))
-        let neighborWidth = resolvedColumnWidths[neighbor] ?? (CurrenciesView.defaultColumnWidths[neighbor] ?? minimumWidth(for: neighbor))
-        dragContext = ColumnDragContext(primary: column, neighbor: neighbor, primaryBaseWidth: primaryWidth, neighborBaseWidth: neighborWidth)
-    }
-
-    private func updateDrag(for column: CurrencyTableColumn, translation: CGFloat) {
-        guard let context = dragContext, context.primary == column else { return }
-        let totalWidth = max(availableTableWidth, 1)
-        let minPrimary = minimumWidth(for: context.primary)
-        let minNeighbor = minimumWidth(for: context.neighbor)
-        let combined = context.primaryBaseWidth + context.neighborBaseWidth
-
-        var newPrimary = context.primaryBaseWidth + translation
-        let maximumPrimary = combined - minNeighbor
-        newPrimary = min(max(newPrimary, minPrimary), maximumPrimary)
-        let newNeighbor = combined - newPrimary
-
-        var updatedFractions = columnFractions
-        updatedFractions[context.primary] = max(0.0001, newPrimary / totalWidth)
-        updatedFractions[context.neighbor] = max(0.0001, newNeighbor / totalWidth)
-        columnFractions = normalizedFractions(updatedFractions)
-        adjustResolvedWidths(for: totalWidth)
-    }
-
-    private func finalizeDrag() {
-        dragContext = nil
-        persistColumnFractions()
-    }
-
     private func toggleColumn(_ column: CurrencyTableColumn) {
-        var newSet = visibleColumns
-        if newSet.contains(column) {
-            guard newSet.count > 1 else { return }
-            newSet.remove(column)
-        } else {
-            newSet.insert(column)
-        }
-        visibleColumns = newSet
-        persistVisibleColumns()
+        tableModel.toggleColumn(column)
+        ensureFiltersWithinVisibleColumns()
         ensureValidSortColumn()
-        recalcColumnWidths()
     }
 
     private func resetVisibleColumns() {
-        visibleColumns = CurrenciesView.defaultVisibleColumns
-        persistVisibleColumns()
+        tableModel.resetVisibleColumns()
+        ensureFiltersWithinVisibleColumns()
         ensureValidSortColumn()
-        recalcColumnWidths()
     }
 
     private func resetTablePreferences() {
-        visibleColumns = CurrenciesView.defaultVisibleColumns
-        selectedFontSize = .medium
-        persistVisibleColumns()
-        persistFontSize()
+        tableModel.resetTablePreferences()
+        ensureFiltersWithinVisibleColumns()
         ensureValidSortColumn()
-        recalcColumnWidths()
-    }
-
-    private func persistVisibleColumns() {
-        let ordered = CurrenciesView.columnOrder.filter { visibleColumns.contains($0) }
-        UserDefaults.standard.set(ordered.map { $0.rawValue }, forKey: CurrenciesView.visibleColumnsKey)
     }
 
     private func ensureValidSortColumn() {
@@ -1162,86 +791,12 @@ struct CurrenciesView: View {
         }
     }
 
-    private func recalcColumnWidths() {
-        let width = max(availableTableWidth, totalMinimumWidth())
-        guard availableTableWidth > 0 else { return }
-        adjustResolvedWidths(for: width)
-        persistColumnFractions()
-    }
-
-    private func hydratePreferencesIfNeeded() {
-        guard !hasHydratedPreferences else { return }
-        hasHydratedPreferences = true
-        isHydratingPreferences = true
-
-        migrateLegacyFontIfNeeded()
-
-        if let stored = TableFontSize(rawValue: dbManager.tableFontSize(for: .currencies)) {
-            selectedFontSize = stored
+    private func ensureFiltersWithinVisibleColumns() {
+        if !visibleColumns.contains(.api) {
+            apiFilters.removeAll()
         }
-
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func migrateLegacyFontIfNeeded() {
-        guard let legacy = dbManager.legacyTableFontSize(for: .currencies) else { return }
-        if dbManager.tableFontSize(for: .currencies) != legacy {
-            dbManager.setTableFontSize(legacy, for: .currencies)
-        }
-        dbManager.clearLegacyTableFontSize(for: .currencies)
-    }
-
-    private func persistFontSize() {
-        guard !isHydratingPreferences else { return }
-        isHydratingPreferences = true
-        dbManager.setTableFontSize(selectedFontSize.rawValue, for: .currencies)
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func persistColumnFractions() {
-        guard !isHydratingPreferences else { return }
-        isHydratingPreferences = true
-        let payload = columnFractions.reduce(into: [String: Double]()) { result, entry in
-            guard entry.value.isFinite else { return }
-            result[entry.key.rawValue] = Double(entry.value)
-        }
-        dbManager.setTableColumnFractions(payload, for: .currencies)
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func restoreColumnFractions() {
-        if restoreFromStoredColumnFractions(dbManager.tableColumnFractions(for: .currencies)) {
-            return
-        }
-
-        if let legacy = dbManager.legacyTableColumnFractions(for: .currencies) {
-            let typed = typedFractions(from: legacy)
-            if typed.isEmpty {
-                dbManager.clearLegacyTableColumnFractions(for: .currencies)
-            } else {
-                columnFractions = normalizedFractions(typed)
-                dbManager.setTableColumnFractions(legacy, for: .currencies)
-                dbManager.clearLegacyTableColumnFractions(for: .currencies)
-            }
-            return
-        }
-
-        columnFractions = normalizedFractions(CurrenciesView.initialColumnFractions)
-    }
-
-    @discardableResult
-    private func restoreFromStoredColumnFractions(_ stored: [String: Double]) -> Bool {
-        let restored = typedFractions(from: stored)
-        guard !restored.isEmpty else { return false }
-        columnFractions = normalizedFractions(restored)
-        return true
-    }
-
-    private func typedFractions(from raw: [String: Double]) -> [CurrencyTableColumn: CGFloat] {
-        raw.reduce(into: [CurrencyTableColumn: CGFloat]()) { result, entry in
-            guard let column = CurrencyTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
-            let fraction = max(0, entry.value)
-            if fraction > 0 { result[column] = CGFloat(fraction) }
+        if !visibleColumns.contains(.status) {
+            statusFilters.removeAll()
         }
     }
 }
@@ -1249,7 +804,7 @@ struct CurrenciesView: View {
 fileprivate struct ModernCurrencyRowView: View {
     let currency: CurrencyRow
     let columns: [CurrencyTableColumn]
-    let fontConfig: TableFontConfig
+    let fontConfig: MaintenanceTableFontConfig
     let isSelected: Bool
     let rowPadding: CGFloat
     let widthFor: (CurrencyTableColumn) -> CGFloat
@@ -1309,7 +864,7 @@ fileprivate struct ModernCurrencyRowView: View {
         switch column {
         case .code:
             Text(currency.code)
-                .font(.system(size: fontConfig.primarySize, weight: .bold, design: .monospaced))
+                .font(.system(size: fontConfig.primary, weight: .bold, design: .monospaced))
                 .foregroundColor(.primary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -1320,14 +875,14 @@ fileprivate struct ModernCurrencyRowView: View {
                 .frame(width: widthFor(.code), alignment: .leading)
         case .name:
             Text(currency.name)
-                .font(.system(size: fontConfig.primarySize, weight: .medium))
+                .font(.system(size: fontConfig.primary, weight: .medium))
                 .foregroundColor(.primary)
                 .padding(.leading, CurrenciesView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.name), alignment: .leading)
         case .symbol:
             Text(currency.symbol)
-                .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                .font(.system(size: fontConfig.secondary, weight: .medium))
                 .foregroundColor(.secondary)
                 .padding(.leading, CurrenciesView.columnTextInset)
                 .padding(.trailing, 8)
@@ -1338,7 +893,7 @@ fileprivate struct ModernCurrencyRowView: View {
                     .fill(currency.apiSupported ? Color.purple : Color.gray.opacity(0.5))
                     .frame(width: 8, height: 8)
                 Text(currency.apiLabel)
-                    .font(.system(size: fontConfig.badgeSize, weight: .semibold))
+                    .font(.system(size: fontConfig.badge, weight: .semibold))
                     .foregroundColor(currency.apiSupported ? .purple : .gray)
             }
             .padding(.leading, CurrenciesView.columnTextInset)
@@ -1350,7 +905,7 @@ fileprivate struct ModernCurrencyRowView: View {
                     .fill(currency.isActive ? Color.green : Color.orange)
                     .frame(width: 8, height: 8)
                 Text(currency.statusLabel)
-                    .font(.system(size: fontConfig.badgeSize, weight: .semibold))
+                    .font(.system(size: fontConfig.badge, weight: .semibold))
                     .foregroundColor(currency.isActive ? .green : .orange)
             }
             .padding(.leading, CurrenciesView.columnTextInset)

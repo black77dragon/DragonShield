@@ -1,33 +1,222 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
+
+private enum TransactionTypeColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
+    case name
+    case code
+    case description
+    case affectsPosition
+    case affectsCash
+    case isIncome
+    case sortOrder
+
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .code: return "Code"
+        case .description: return "Description"
+        case .affectsPosition: return "Position"
+        case .affectsCash: return "Cash"
+        case .isIncome: return "Income"
+        case .sortOrder: return "Order"
+        }
+    }
+
+    var menuTitle: String { title }
+}
+
+private struct TransactionTypeItem: Identifiable, Equatable {
+    let id: Int
+    let code: String
+    let name: String
+    let description: String
+    let affectsPosition: Bool
+    let affectsCash: Bool
+    let isIncome: Bool
+    let sortOrder: Int
+}
 
 // MARK: - Version 1.0
 // MARK: - History: Initial creation - transaction types management with CRUD operations
 
 struct TransactionTypesView: View {
-    @State private var transactionTypes: [(id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)] = []
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var transactionTypes: [TransactionTypeItem] = []
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
-    @State private var selectedType: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)? = nil
+    @State private var selectedType: TransactionTypeItem? = nil
     @State private var showingDeleteAlert = false
-    @State private var typeToDelete: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)? = nil
+    @State private var typeToDelete: TransactionTypeItem? = nil
     @State private var searchText = ""
+
+    @State private var sortColumn: SortColumn = .sortOrder
+    @State private var sortAscending: Bool = true
+    @State private var positionFilters: Set<String> = []
+    @State private var cashFilters: Set<String> = []
+    @State private var incomeFilters: Set<String> = []
+    @StateObject private var tableModel = ResizableTableViewModel<TransactionTypeColumn>(configuration: TransactionTypesView.tableConfiguration)
     
     // Animation states
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
     
+    private static let visibleColumnsKey = "TransactionTypesView.visibleColumns.v1"
+
+
+    private enum SortColumn: String, CaseIterable {
+        case name
+        case code
+        case description
+        case affectsPosition
+        case affectsCash
+        case isIncome
+        case sortOrder
+    }
+
+    private static let tableConfiguration: MaintenanceTableConfiguration<TransactionTypeColumn> = {
+#if os(macOS)
+        MaintenanceTableConfiguration(
+            preferenceKind: .transactionTypes,
+            columnOrder: TransactionTypeColumn.allCases,
+            defaultVisibleColumns: Set(TransactionTypeColumn.allCases),
+            requiredColumns: [.name, .code],
+            defaultColumnWidths: [
+                .name: 220,
+                .code: 120,
+                .description: 320,
+                .affectsPosition: 110,
+                .affectsCash: 100,
+                .isIncome: 110,
+                .sortOrder: 90
+            ],
+            minimumColumnWidths: [
+                .name: 180,
+                .code: 100,
+                .description: 240,
+                .affectsPosition: 90,
+                .affectsCash: 80,
+                .isIncome: 80,
+                .sortOrder: 70
+            ],
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: 10,
+            columnHandleHitSlop: 8,
+            columnTextInset: 12,
+            headerBackground: Color.orange.opacity(0.1),
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            },
+            columnResizeCursor: nil
+        )
+#else
+        MaintenanceTableConfiguration(
+            preferenceKind: .transactionTypes,
+            columnOrder: TransactionTypeColumn.allCases,
+            defaultVisibleColumns: Set(TransactionTypeColumn.allCases),
+            requiredColumns: [.name, .code],
+            defaultColumnWidths: [
+                .name: 220,
+                .code: 120,
+                .description: 320,
+                .affectsPosition: 110,
+                .affectsCash: 100,
+                .isIncome: 110,
+                .sortOrder: 90
+            ],
+            minimumColumnWidths: [
+                .name: 180,
+                .code: 100,
+                .description: 240,
+                .affectsPosition: 90,
+                .affectsCash: 80,
+                .isIncome: 80,
+                .sortOrder: 70
+            ],
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: 10,
+            columnHandleHitSlop: 8,
+            columnTextInset: 12,
+            headerBackground: Color.orange.opacity(0.1),
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            }
+        )
+#endif
+    }()
+
+    private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
+    private var visibleColumns: Set<TransactionTypeColumn> { tableModel.visibleColumns }
+    private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
+        Binding(
+            get: { tableModel.selectedFontSize },
+            set: { tableModel.selectedFontSize = $0 }
+        )
+    }
+
     // Filtered types based on search
-    var filteredTypes: [(id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)] {
-        if searchText.isEmpty {
-            return transactionTypes.sorted { $0.sortOrder < $1.sortOrder }
-        } else {
-            return transactionTypes.filter { type in
-                type.name.localizedCaseInsensitiveContains(searchText) ||
-                type.code.localizedCaseInsensitiveContains(searchText) ||
-                type.description.localizedCaseInsensitiveContains(searchText)
-            }.sorted { $0.sortOrder < $1.sortOrder }
+    private var filteredTypes: [TransactionTypeItem] {
+        var result = transactionTypes
+
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            let query = trimmedQuery.lowercased()
+            result = result.filter { type in
+                type.name.lowercased().contains(query) ||
+                type.code.lowercased().contains(query) ||
+                type.description.lowercased().contains(query)
+            }
         }
+
+        if !positionFilters.isEmpty {
+            result = result.filter { positionFilters.contains(booleanLabel(for: $0.affectsPosition)) }
+        }
+        if !cashFilters.isEmpty {
+            result = result.filter { cashFilters.contains(booleanLabel(for: $0.affectsCash)) }
+        }
+        if !incomeFilters.isEmpty {
+            result = result.filter { incomeFilters.contains(booleanLabel(for: $0.isIncome)) }
+        }
+
+        return result
+    }
+
+    private var sortedTypes: [TransactionTypeItem] {
+        let base = filteredTypes
+        guard base.count > 1 else { return base }
+
+        let sorted = base.sorted { lhs, rhs in
+            switch sortColumn {
+            case .name:
+                return compare(lhs.name, rhs.name)
+            case .code:
+                return compare(lhs.code, rhs.code)
+            case .description:
+                return compare(lhs.description, rhs.description)
+            case .affectsPosition:
+                return compareBool(lhs.affectsPosition, rhs.affectsPosition)
+            case .affectsCash:
+                return compareBool(lhs.affectsCash, rhs.affectsCash)
+            case .isIncome:
+                return compareBool(lhs.isIncome, rhs.isIncome)
+            case .sortOrder:
+                return lhs.sortOrder < rhs.sortOrder
+            }
+        }
+
+        return sortAscending ? sorted : Array(sorted.reversed())
     }
     
     var body: some View {
@@ -55,6 +244,9 @@ struct TransactionTypesView: View {
             }
         }
         .onAppear {
+            tableModel.connect(to: dbManager)
+            tableModel.recalcColumnWidths(shouldPersist: false)
+            ensureFiltersWithinVisibleColumns()
             loadTransactionTypes()
             animateEntrance()
         }
@@ -62,11 +254,11 @@ struct TransactionTypesView: View {
             loadTransactionTypes()
         }
         .sheet(isPresented: $showAddTypeSheet) {
-            AddTransactionTypeView()
+            AddTransactionTypeView().environmentObject(dbManager)
         }
         .sheet(isPresented: $showEditTypeSheet) {
             if let type = selectedType {
-                EditTransactionTypeView(typeId: type.id)
+                EditTransactionTypeView(typeId: type.id).environmentObject(dbManager)
             }
         }
         .alert("Delete Transaction Type", isPresented: $showingDeleteAlert) {
@@ -80,6 +272,9 @@ struct TransactionTypesView: View {
             if let type = typeToDelete {
                 Text("Are you sure you want to delete '\(type.name)'?")
             }
+        }
+        .onChange(of: tableModel.visibleColumns) { _, _ in
+            ensureFiltersWithinVisibleColumns()
         }
     }
     
@@ -173,13 +368,27 @@ struct TransactionTypesView: View {
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
             
             // Results indicator
-            if !searchText.isEmpty {
-                HStack {
+            if !searchText.isEmpty || hasActiveFilters {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Found \(filteredTypes.count) of \(transactionTypes.count) types")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Spacer()
+
+                    if hasActiveFilters {
+                        HStack(spacing: 8) {
+                            ForEach(positionFilters.sorted(), id: \.self) { value in
+                                filterChip(text: "Position: \(value)") { positionFilters.remove(value) }
+                            }
+                            ForEach(cashFilters.sorted(), id: \.self) { value in
+                                filterChip(text: "Cash: \(value)") { cashFilters.remove(value) }
+                            }
+                            ForEach(incomeFilters.sorted(), id: \.self) { value in
+                                filterChip(text: "Income: \(value)") { incomeFilters.remove(value) }
+                            }
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, 24)
@@ -189,6 +398,7 @@ struct TransactionTypesView: View {
     // MARK: - Types Content
     private var typesContent: some View {
         VStack(spacing: 16) {
+            tableControls
             if filteredTypes.isEmpty {
                 emptyStateView
             } else {
@@ -248,86 +458,225 @@ struct TransactionTypesView: View {
     
     // MARK: - Types Table
     private var typesTable: some View {
-        VStack(spacing: 0) {
-            // Table header
-            modernTableHeader
-            
-            // Table content
-            ScrollView {
-                LazyVStack(spacing: 1) {
-                    ForEach(filteredTypes, id: \.id) { type in
-                        ModernTransactionTypeRowView(
-                            type: type,
-                            isSelected: selectedType?.id == type.id,
-                            onTap: {
-                                selectedType = type
-                            },
-                            onEdit: {
-                                selectedType = type
-                                showEditTypeSheet = true
-                            }
-                        )
-                    }
-                }
+        MaintenanceTableView(
+            model: tableModel,
+            rows: sortedTypes,
+            rowSpacing: 1,
+            showHorizontalIndicators: true,
+            rowContent: { type, context in
+                TransactionTypeRowView(
+                    type: type,
+                    columns: context.columns,
+                    fontConfig: context.fontConfig,
+                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    isSelected: selectedType?.id == type.id,
+                    onTap: { selectedType = type },
+                    onEdit: {
+                        selectedType = type
+                        showEditTypeSheet = true
+                    },
+                    widthFor: { context.widthForColumn($0) }
+                )
+            },
+            headerContent: { column, fontConfig in
+                transactionHeaderContent(for: column, fontConfig: fontConfig)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        )
+    }
+
+    private var tableControls: some View {
+        HStack(spacing: 12) {
+            columnsMenu
+            fontSizePicker
+            if hasActiveFilters {
+                Button("Reset Filters", action: clearFilters)
+                    .buttonStyle(.link)
+            }
+            Spacer()
+            if visibleColumns != TransactionTypesView.tableConfiguration.defaultVisibleColumns || selectedFontSize != .medium {
+                Button("Reset View", action: resetTablePreferences)
+                    .buttonStyle(.link)
+            }
+        }
+        .padding(.horizontal, 4)
+        .font(.system(size: 12))
+    }
+
+    private var columnsMenu: some View {
+        Menu {
+            ForEach(TransactionTypeColumn.allCases, id: \.self) { column in
+                let isVisible = visibleColumns.contains(column)
+                Button {
+                    toggleColumn(column)
+                } label: {
+                    Label(column.menuTitle, systemImage: isVisible ? "checkmark" : "")
+                }
+                .disabled(isVisible && (visibleColumns.count == 1 || TransactionTypesView.tableConfiguration.requiredColumns.contains(column)))
+            }
+            Divider()
+            Button("Reset Columns", action: resetVisibleColumns)
+        } label: {
+            Label("Columns", systemImage: "slider.horizontal.3")
         }
     }
-    
-    // MARK: - Modern Table Header
-    private var modernTableHeader: some View {
-        HStack {
-            Text("Name")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 120, alignment: .leading)
-            
-            Text("Code")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 80, alignment: .leading)
-            
-            Text("Description")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text("Position")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 70, alignment: .center)
-            
-            Text("Cash")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 50, alignment: .center)
-            
-            Text("Income")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 60, alignment: .center)
-            
-            Text("Order")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 50, alignment: .center)
+
+    private var fontSizePicker: some View {
+        Picker("Font Size", selection: fontSizeBinding) {
+            ForEach(MaintenanceTableFontSize.allCases, id: \.self) { size in
+                Text(size.label).tag(size)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.1))
-        )
-        .padding(.bottom, 1)
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 240)
+        .labelsHidden()
+    }
+
+    private func toggleColumn(_ column: TransactionTypeColumn) {
+        tableModel.toggleColumn(column)
+        ensureFiltersWithinVisibleColumns()
+    }
+
+    private func resetVisibleColumns() {
+        tableModel.resetVisibleColumns()
+        clearFilters()
+    }
+
+    private func resetTablePreferences() {
+        tableModel.resetTablePreferences()
+        clearFilters()
+    }
+
+    private var hasActiveFilters: Bool {
+        !positionFilters.isEmpty || !cashFilters.isEmpty || !incomeFilters.isEmpty
+    }
+
+    private func filterBinding(for column: TransactionTypeColumn) -> Binding<Set<String>>? {
+        switch column {
+        case .affectsPosition: return $positionFilters
+        case .affectsCash: return $cashFilters
+        case .isIncome: return $incomeFilters
+        default: return nil
+        }
+    }
+
+    private func filterOptions(for column: TransactionTypeColumn) -> [String] {
+        switch column {
+        case .affectsPosition, .affectsCash, .isIncome: return ["Yes", "No"]
+        default: return []
+        }
+    }
+
+    private func booleanLabel(for value: Bool) -> String {
+        value ? "Yes" : "No"
+    }
+
+    private func clearFilters() {
+        positionFilters.removeAll()
+        cashFilters.removeAll()
+        incomeFilters.removeAll()
+    }
+
+    private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.primary)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.gray)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.orange.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
+    private func ensureFiltersWithinVisibleColumns() {
+        if !visibleColumns.contains(.affectsPosition) { positionFilters.removeAll() }
+        if !visibleColumns.contains(.affectsCash) { cashFilters.removeAll() }
+        if !visibleColumns.contains(.isIncome) { incomeFilters.removeAll() }
+    }
+
+    private func sortColumn(from column: TransactionTypeColumn) -> SortColumn {
+        switch column {
+        case .name: return .name
+        case .code: return .code
+        case .description: return .description
+        case .affectsPosition: return .affectsPosition
+        case .affectsCash: return .affectsCash
+        case .isIncome: return .isIncome
+        case .sortOrder: return .sortOrder
+        }
+    }
+
+    private func toggleSort(for column: TransactionTypeColumn) {
+        let target = sortColumn(from: column)
+        if sortColumn == target {
+            sortAscending.toggle()
+        } else {
+            sortColumn = target
+            sortAscending = true
+        }
+    }
+
+    private func compare(_ lhs: String, _ rhs: String) -> Bool {
+        let result = lhs.localizedCaseInsensitiveCompare(rhs)
+        if result == .orderedSame {
+            return lhs < rhs
+        }
+        return result == .orderedAscending
+    }
+
+    private func compareBool(_ lhs: Bool, _ rhs: Bool) -> Bool {
+        if lhs == rhs {
+            return compare(lhs ? "Yes" : "No", rhs ? "Yes" : "No")
+        }
+        return lhs && !rhs
+    }
+
+    private func transactionHeaderContent(for column: TransactionTypeColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
+        let targetSort = sortColumn(from: column)
+        let isActiveSort = sortColumn == targetSort
+        let filterBinding = filterBinding(for: column)
+        let options = filterOptions(for: column)
+
+        return HStack(spacing: 6) {
+            Button(action: { toggleSort(for: column) }) {
+                HStack(spacing: 4) {
+                    Text(column.title)
+                        .font(.system(size: fontConfig.header, weight: .semibold))
+                        .foregroundColor(.black)
+                    Image(systemName: "triangle.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(isActiveSort ? .accentColor : .gray.opacity(0.3))
+                        .rotationEffect(.degrees(isActiveSort && !sortAscending ? 180 : 0))
+                        .opacity(isActiveSort ? 1 : 0)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if let binding = filterBinding, !options.isEmpty {
+                Menu {
+                    ForEach(options, id: \.self) { value in
+                        Button {
+                            if binding.wrappedValue.contains(value) {
+                                binding.wrappedValue.remove(value)
+                            } else {
+                                binding.wrappedValue.insert(value)
+                            }
+                        } label: {
+                            Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
+                }
+                .menuStyle(BorderlessButtonMenuStyle())
+            }
+        }
     }
     
     // MARK: - Modern Action Bar
@@ -463,49 +812,59 @@ struct TransactionTypesView: View {
     
     // MARK: - Functions
     func loadTransactionTypes() {
-        let dbManager = DatabaseManager()
-        transactionTypes = dbManager.fetchTransactionTypes()
+        let currentId = selectedType?.id
+        transactionTypes = dbManager.fetchTransactionTypes().map { type in
+            TransactionTypeItem(
+                id: type.id,
+                code: type.code,
+                name: type.name,
+                description: type.description,
+                affectsPosition: type.affectsPosition,
+                affectsCash: type.affectsCash,
+                isIncome: type.isIncome,
+                sortOrder: type.sortOrder
+            )
+        }
+        if let currentId, let match = transactionTypes.first(where: { $0.id == currentId }) {
+            selectedType = match
+        }
     }
-    
-    func confirmDelete(_ type: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)) {
-        let dbManager = DatabaseManager()
-        
-        // Check if deletion is safe
+
+    private func confirmDelete(_ type: TransactionTypeItem) {
+#if os(macOS)
         let deleteInfo = dbManager.canDeleteTransactionType(id: type.id)
-        
+
         if deleteInfo.transactionCount > 0 {
-            // Show warning dialog for types with transactions
             let alert = NSAlert()
             alert.messageText = "Delete Transaction Type with Data"
             alert.informativeText = "This transaction type '\(type.name)' is used by \(deleteInfo.transactionCount) transaction(s). Deleting it may cause data inconsistencies.\n\nAre you sure you want to proceed?"
             alert.alertStyle = .critical
             alert.addButton(withTitle: "Delete Anyway")
             alert.addButton(withTitle: "Cancel")
-            
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
+
+            if alert.runModal() == .alertFirstButtonReturn {
                 performDelete(type)
             }
         } else {
-            // Safe to delete - no transactions use this type
             let alert = NSAlert()
             alert.messageText = "Delete Transaction Type"
             alert.informativeText = "Are you sure you want to delete '\(type.name)'?"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "Delete")
             alert.addButton(withTitle: "Cancel")
-            
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
+
+            if alert.runModal() == .alertFirstButtonReturn {
                 performDelete(type)
             }
         }
+#else
+        performDelete(type)
+#endif
     }
-    
-    private func performDelete(_ type: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)) {
-        let dbManager = DatabaseManager()
+
+    private func performDelete(_ type: TransactionTypeItem) {
         let success = dbManager.deleteTransactionType(id: type.id)
-        
+
         if success {
             loadTransactionTypes()
             selectedType = nil
@@ -514,60 +873,25 @@ struct TransactionTypesView: View {
     }
 }
 
-// MARK: - Modern Transaction Type Row
-struct ModernTransactionTypeRowView: View {
-    let type: (id: Int, code: String, name: String, description: String, affectsPosition: Bool, affectsCash: Bool, isIncome: Bool, sortOrder: Int)
+// MARK: - Transaction Type Row
+fileprivate struct TransactionTypeRowView: View {
+    let type: TransactionTypeItem
+    let columns: [TransactionTypeColumn]
+    let fontConfig: MaintenanceTableFontConfig
+    let rowPadding: CGFloat
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
-    
+    let widthFor: (TransactionTypeColumn) -> CGFloat
+
     var body: some View {
-        HStack {
-            Text(type.name)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(width: 120, alignment: .leading)
-            
-            Text(type.code)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.gray.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .frame(width: 80, alignment: .leading)
-            
-            Text(type.description)
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            // Position indicator
-            Circle()
-                .fill(type.affectsPosition ? Color.blue : Color.gray.opacity(0.3))
-                .frame(width: 8, height: 8)
-                .frame(width: 70, alignment: .center)
-            
-            // Cash indicator
-            Circle()
-                .fill(type.affectsCash ? Color.green : Color.gray.opacity(0.3))
-                .frame(width: 8, height: 8)
-                .frame(width: 50, alignment: .center)
-            
-            // Income indicator
-            Circle()
-                .fill(type.isIncome ? Color.purple : Color.gray.opacity(0.3))
-                .frame(width: 8, height: 8)
-                .frame(width: 60, alignment: .center)
-            
-            Text("\(type.sortOrder)")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(width: 50, alignment: .center)
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                columnView(for: column)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.trailing, 12)
+        .padding(.vertical, max(rowPadding, 8))
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.orange.opacity(0.1) : Color.clear)
@@ -577,19 +901,12 @@ struct ModernTransactionTypeRowView: View {
                 )
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
-        .onTapGesture(count: 2) {
-            onEdit()
-        }
+        .onTapGesture { onTap() }
+        .onTapGesture(count: 2) { onEdit() }
+#if os(macOS)
         .contextMenu {
-            Button("Edit Type") {
-                onEdit()
-            }
-            Button("Select Type") {
-                onTap()
-            }
+            Button("Edit Type", action: onEdit)
+            Button("Select Type", action: onTap)
             Divider()
             Button("Copy Name") {
                 let pasteboard = NSPasteboard.general
@@ -602,13 +919,69 @@ struct ModernTransactionTypeRowView: View {
                 pasteboard.setString(type.code, forType: .string)
             }
         }
+#endif
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    @ViewBuilder
+    private func columnView(for column: TransactionTypeColumn) -> some View {
+        switch column {
+        case .name:
+            Text(type.name)
+                .font(.system(size: fontConfig.primary, weight: .medium))
+                .foregroundColor(.primary)
+                .padding(.leading, 16)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.name), alignment: .leading)
+        case .code:
+            Text(type.code)
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .frame(width: widthFor(.code), alignment: .leading)
+        case .description:
+            Text(type.description)
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .padding(.horizontal, 8)
+                .frame(width: widthFor(.description), alignment: .leading)
+        case .affectsPosition:
+            indicatorView(isOn: type.affectsPosition, onColor: .blue)
+                .frame(width: widthFor(.affectsPosition), alignment: .center)
+        case .affectsCash:
+            indicatorView(isOn: type.affectsCash, onColor: .green)
+                .frame(width: widthFor(.affectsCash), alignment: .center)
+        case .isIncome:
+            indicatorView(isOn: type.isIncome, onColor: .purple)
+                .frame(width: widthFor(.isIncome), alignment: .center)
+        case .sortOrder:
+            Text("\(type.sortOrder)")
+                .font(.system(size: fontConfig.secondary, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: widthFor(.sortOrder), alignment: .center)
+        }
+    }
+
+    private func indicatorView(isOn: Bool, onColor: Color) -> some View {
+        let size = max(fontConfig.badge, 8)
+        return Circle()
+            .fill(isOn ? onColor : Color.gray.opacity(0.3))
+            .frame(width: size, height: size)
+            .overlay(
+                Circle()
+                    .stroke(isOn ? onColor.opacity(0.4) : Color.gray.opacity(0.2), lineWidth: 1)
+            )
     }
 }
 
 // MARK: - Add Transaction Type View
 struct AddTransactionTypeView: View {
     @Environment(\.presentationMode) private var presentationMode
+    @EnvironmentObject var dbManager: DatabaseManager
     
     @State private var typeName = ""
     @State private var typeCode = ""
@@ -1101,7 +1474,6 @@ struct AddTransactionTypeView: View {
         
         isLoading = true
         
-        let dbManager = DatabaseManager()
         let success = dbManager.addTransactionType(
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: typeName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1131,6 +1503,7 @@ struct AddTransactionTypeView: View {
 // MARK: - Edit Transaction Type View
 struct EditTransactionTypeView: View {
     @Environment(\.presentationMode) private var presentationMode
+    @EnvironmentObject var dbManager: DatabaseManager
     let typeId: Int
     
     @State private var typeName = ""
@@ -1677,7 +2050,6 @@ struct EditTransactionTypeView: View {
     
     // MARK: - Functions
     func loadTypeData() {
-        let dbManager = DatabaseManager()
         if let details = dbManager.fetchTransactionTypeDetails(id: typeId) {
             typeName = details.name
             typeCode = details.code
@@ -1728,7 +2100,6 @@ struct EditTransactionTypeView: View {
         
         isLoading = true
         
-        let dbManager = DatabaseManager()
         let success = dbManager.updateTransactionType(
             id: typeId,
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),

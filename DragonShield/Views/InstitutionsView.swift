@@ -591,13 +591,13 @@ struct AddInstitutionView: View {
                 Picker("Default Currency", selection: $defaultCurrency) {
                     Text("None").tag("")
                     ForEach(availableCurrencies, id: \.code) { curr in
-                        Text("\\(curr.code)").tag(curr.code)
+                        Text("\(curr.code) – \(curr.name)").tag(curr.code)
                     }
                 }
                 Picker("Country", selection: $countryCode) {
                     Text("None").tag("")
                     ForEach(availableCountries, id: \.self) { code in
-                        Text("\\(flagEmoji(code)) \\(code)").tag(code)
+                        Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
                 Text("Notes")
@@ -680,13 +680,13 @@ struct EditInstitutionView: View {
                 Picker("Default Currency", selection: $defaultCurrency) {
                     Text("None").tag("")
                     ForEach(availableCurrencies, id: \.code) { curr in
-                        Text("\\(curr.code)").tag(curr.code)
+                        Text("\(curr.code) – \(curr.name)").tag(curr.code)
                     }
                 }
                 Picker("Country", selection: $countryCode) {
                     Text("None").tag("")
                     ForEach(availableCountries, id: \.self) { code in
-                        Text("\\(flagEmoji(code)) \\(code)").tag(code)
+                        Text("\(flagEmoji(code)) \(code)").tag(code)
                     }
                 }
                 Text("Notes")
