@@ -56,12 +56,20 @@ class DatabaseManager: ObservableObject {
     @Published var institutionsTableColumnFractions: [String: Double] = [:]
     @Published var instrumentsTableFontSize: String = "medium"
     @Published var instrumentsTableColumnFractions: [String: Double] = [:]
+    @Published var assetSubClassesTableFontSize: String = "medium"
+    @Published var assetSubClassesTableColumnFractions: [String: Double] = [:]
+    @Published var assetClassesTableFontSize: String = "medium"
+    @Published var assetClassesTableColumnFractions: [String: Double] = [:]
     @Published var currenciesTableFontSize: String = "medium"
     @Published var currenciesTableColumnFractions: [String: Double] = [:]
     @Published var accountsTableFontSize: String = "medium"
     @Published var accountsTableColumnFractions: [String: Double] = [:]
     @Published var portfolioThemesTableFontSize: String = "medium"
     @Published var portfolioThemesTableColumnFractions: [String: Double] = [:]
+    @Published var transactionTypesTableFontSize: String = "medium"
+    @Published var transactionTypesTableColumnFractions: [String: Double] = [:]
+    @Published var accountTypesTableFontSize: String = "medium"
+    @Published var accountTypesTableColumnFractions: [String: Double] = [:]
     @Published var todoBoardFontSize: String = "medium"
     // Last trade error for UI feedback
     @Published var lastTradeErrorMessage: String? = nil

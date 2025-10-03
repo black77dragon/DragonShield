@@ -14,6 +14,7 @@ import Combine
 
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @StateObject private var todoBoardViewModel = KanbanBoardViewModel()
 
     @AppStorage("sidebar.showOverview") private var showOverview = true
     @AppStorage("sidebar.showManagement") private var showManagement = true
@@ -27,6 +28,16 @@ struct SidebarView: View {
         } else {
             return "paperplane.fill"
         }
+    }
+
+    private var dueTodayOrOverdueCount: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return todoBoardViewModel.allTodos.filter { todo in
+            guard todo.column != .done, todo.column != .archived else { return false }
+            let due = calendar.startOfDay(for: todo.dueDate)
+            return due <= today
+        }.count
     }
 
     var body: some View {
@@ -51,7 +62,12 @@ struct SidebarView: View {
                 .disabled(true)
 
                 NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {
-                    Label("To-Do Board", systemImage: "list.bullet.rectangle.fill")
+                    HStack(spacing: 8) {
+                        Label("To-Do Board", systemImage: "list.bullet.rectangle.fill")
+                        if dueTodayOrOverdueCount > 0 {
+                            TodoDueBadge(count: dueTodayOrOverdueCount)
+                        }
+                    }
                 }
             }
 
@@ -145,6 +161,9 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Dragon Shield")
+        .onAppear {
+            todoBoardViewModel.refreshFromStorage()
+        }
     }
 }
 
@@ -497,6 +516,31 @@ private struct CounterBadge: View {
             Capsule()
                 .fill(color.opacity(0.18))
         )
+    }
+}
+
+private struct TodoDueBadge: View {
+    let count: Int
+
+    private var displayText: String {
+        count > 99 ? "99+" : "\(count)"
+    }
+
+    private var accessibilityCountText: String {
+        count > 99 ? "99 or more" : "\(count)"
+    }
+
+    var body: some View {
+        Text(displayText)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(Color.red)
+            )
+            .accessibilityLabel("\(accessibilityCountText) to-dos due soon")
     }
 }
 

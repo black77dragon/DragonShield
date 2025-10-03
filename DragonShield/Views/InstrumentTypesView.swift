@@ -7,19 +7,58 @@
 // - Initial creation - instrument types management with CRUD operations
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
+
+fileprivate enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
+    case name
+    case assetClass
+    case code
+    case description
+    case sortOrder
+    case status
+
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .assetClass: return "Asset Class"
+        case .code: return "Code"
+        case .description: return "Description"
+        case .sortOrder: return "Order"
+        case .status: return "Status"
+        }
+    }
+
+    var menuTitle: String { title }
+}
+
+fileprivate struct AssetSubClass: Identifiable, Equatable {
+    let id: Int
+    let classId: Int
+    let classDescription: String
+    let code: String
+    let name: String
+    let description: String
+    let sortOrder: Int
+    let isActive: Bool
+}
 
 // MARK: - Version 1.0
 // MARK: - History: Initial creation - instrument types management with CRUD operations
 
 struct AssetSubClassesView: View {
-    @State private var subClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] = []
+    @EnvironmentObject var dbManager: DatabaseManager
+    @State private var subClasses: [AssetSubClass] = []
     @State private var showAddTypeSheet = false
     @State private var showEditTypeSheet = false
-    @State private var selectedSubClass: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? = nil
+    @State private var selectedSubClass: AssetSubClass? = nil
     @State private var showDeleteResultAlert = false
     @State private var deleteResultMessage = ""
     @State private var showDeleteSuccessToast = false
     @State private var searchText = ""
+
+    @StateObject private var tableModel = ResizableTableViewModel<AssetSubClassColumn>(configuration: AssetSubClassesView.tableConfiguration)
     
     // Animation states
     @State private var headerOpacity: Double = 0
@@ -27,7 +66,7 @@ struct AssetSubClassesView: View {
     @State private var buttonsOpacity: Double = 0
     
     // Filtered subclasses based on search
-    var filteredSubClasses: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)] {
+    private var filteredSubClasses: [AssetSubClass] {
         if searchText.isEmpty {
             return subClasses.sorted { $0.sortOrder < $1.sortOrder }
         } else {
@@ -37,6 +76,94 @@ struct AssetSubClassesView: View {
                 type.description.localizedCaseInsensitiveContains(searchText)
             }.sorted { $0.sortOrder < $1.sortOrder }
         }
+    }
+
+    private static let tableConfiguration: MaintenanceTableConfiguration<AssetSubClassColumn> = {
+#if os(macOS)
+        MaintenanceTableConfiguration(
+            preferenceKind: .assetSubClasses,
+            columnOrder: AssetSubClassColumn.allCases,
+            defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
+            requiredColumns: [.name],
+            defaultColumnWidths: [
+                .name: 220,
+                .assetClass: 220,
+                .code: 120,
+                .description: 280,
+                .sortOrder: 80,
+                .status: 120
+            ],
+            minimumColumnWidths: [
+                .name: 180,
+                .assetClass: 160,
+                .code: 100,
+                .description: 220,
+                .sortOrder: 60,
+                .status: 100
+            ],
+            visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
+            columnHandleWidth: 10,
+            columnHandleHitSlop: 8,
+            columnTextInset: 12,
+            headerBackground: Color.gray.opacity(0.1),
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            },
+            columnResizeCursor: nil
+        )
+#else
+        MaintenanceTableConfiguration(
+            preferenceKind: .assetSubClasses,
+            columnOrder: AssetSubClassColumn.allCases,
+            defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
+            requiredColumns: [.name],
+            defaultColumnWidths: [
+                .name: 220,
+                .assetClass: 220,
+                .code: 120,
+                .description: 280,
+                .sortOrder: 80,
+                .status: 120
+            ],
+            minimumColumnWidths: [
+                .name: 180,
+                .assetClass: 160,
+                .code: 100,
+                .description: 220,
+                .sortOrder: 60,
+                .status: 100
+            ],
+            visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
+            columnHandleWidth: 10,
+            columnHandleHitSlop: 8,
+            columnTextInset: 12,
+            headerBackground: Color.gray.opacity(0.1),
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            }
+        )
+#endif
+    }()
+
+    private var fontConfig: MaintenanceTableFontConfig { tableModel.fontConfig }
+    private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
+    private var visibleColumns: Set<AssetSubClassColumn> { tableModel.visibleColumns }
+    private var activeColumns: [AssetSubClassColumn] { tableModel.activeColumns }
+    private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
+        Binding(
+            get: { tableModel.selectedFontSize },
+            set: { tableModel.selectedFontSize = $0 }
+        )
     }
     
     var body: some View {
@@ -64,6 +191,7 @@ struct AssetSubClassesView: View {
             }
         }
         .onAppear {
+            tableModel.connect(to: dbManager)
             loadSubClasses()
             animateEntrance()
         }
@@ -71,11 +199,11 @@ struct AssetSubClassesView: View {
             loadSubClasses()
         }
         .sheet(isPresented: $showAddTypeSheet) {
-            AddAssetSubClassView()
+            AddAssetSubClassView().environmentObject(dbManager)
         }
         .sheet(isPresented: $showEditTypeSheet) {
             if let type = selectedSubClass {
-                EditAssetSubClassView(typeId: type.id)
+                EditAssetSubClassView(typeId: type.id).environmentObject(dbManager)
             }
         }
         .alert("Delete Failed", isPresented: $showDeleteResultAlert) {
@@ -192,6 +320,7 @@ struct AssetSubClassesView: View {
     // MARK: - Types Content
     private var typesContent: some View {
         VStack(spacing: 16) {
+            tableControls
             if filteredSubClasses.isEmpty {
                 emptyStateView
             } else {
@@ -202,7 +331,7 @@ struct AssetSubClassesView: View {
         .padding(.top, 16)
         .offset(y: contentOffset)
     }
-    
+
     // MARK: - Empty State
     private var emptyStateView: some View {
         VStack(spacing: 20) {
@@ -235,7 +364,7 @@ struct AssetSubClassesView: View {
                 
                 if searchText.isEmpty {
                     Button { showAddTypeSheet = true } label: {
-                        Label("Add Instrument Type", systemImage: "plus")
+                        Label("Add Asset Subclass", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
@@ -251,81 +380,38 @@ struct AssetSubClassesView: View {
     
     // MARK: - Types Table
     private var typesTable: some View {
-        VStack(spacing: 0) {
-            // Table header
-            modernTableHeader
-            
-            // Table content
-            ScrollView {
-                LazyVStack(spacing: 1) {
-                    ForEach(filteredSubClasses, id: \.id) { type in
-                        ModernTypeRowView(
-                            type: type,
-                            isSelected: selectedSubClass?.id == type.id,
-                            onTap: {
-                                selectedSubClass = type
-                            },
-                            onEdit: {
-                                selectedSubClass = type
-                                showEditTypeSheet = true
-                            }
-                        )
-                    }
-                }
+        MaintenanceTableView(
+            model: tableModel,
+            rows: filteredSubClasses,
+            rowSpacing: 1,
+            showHorizontalIndicators: true,
+            rowContent: { type, context in
+                AssetSubClassRowView(
+                    type: type,
+                    columns: context.columns,
+                    fontConfig: context.fontConfig,
+                    rowPadding: 8,
+                    isSelected: selectedSubClass?.id == type.id,
+                    onTap: {
+                        selectedSubClass = type
+                    },
+                    onEdit: {
+                        selectedSubClass = type
+                        showEditTypeSheet = true
+                    },
+                    widthFor: { context.widthForColumn($0) }
+                )
+            },
+            headerContent: { column, fontConfig in
+                assetSubClassHeaderContent(for: column, fontConfig: fontConfig)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        }
-    }
-    
-    // MARK: - Modern Table Header
-    private var modernTableHeader: some View {
-        HStack {
-            Text("Name")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Text("Asset Class")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 140, alignment: .leading)
-
-            Text("Code")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 100, alignment: .leading)
-            
-            Text("Description")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 200, alignment: .leading)
-            
-            Text("Order")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 60, alignment: .center)
-            
-            Text("Status")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
-                .frame(width: 80, alignment: .center)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.1))
         )
-        .padding(.bottom, 1)
+    }
+
+    private func assetSubClassHeaderContent(for column: AssetSubClassColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
+        Text(column.title)
+            .font(.system(size: fontConfig.header, weight: .semibold))
+            .foregroundColor(.gray)
     }
     
     // MARK: - Modern Action Bar
@@ -339,7 +425,7 @@ struct AssetSubClassesView: View {
             HStack(spacing: 16) {
                 // Primary action
                 Button { showAddTypeSheet = true } label: {
-                    Label("Add Instrument Type", systemImage: "plus")
+                    Label("Add Asset Subclass", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
@@ -457,15 +543,83 @@ struct AssetSubClassesView: View {
             buttonsOpacity = 1.0
         }
     }
-    
-    // MARK: - Functions
-    func loadSubClasses() {
-        let dbManager = DatabaseManager()
-        subClasses = dbManager.fetchInstrumentTypes()
+
+    private var tableControls: some View {
+        HStack(spacing: 12) {
+            columnsMenu
+            fontSizePicker
+            Spacer()
+            if visibleColumns != AssetSubClassesView.tableConfiguration.defaultVisibleColumns || selectedFontSize != .medium {
+                Button("Reset View", action: resetTablePreferences)
+                    .buttonStyle(.link)
+            }
+        }
+        .padding(.horizontal, 4)
+        .font(.system(size: 12))
     }
 
-    func handleDelete(_ type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)) {
-        let dbManager = DatabaseManager()
+    private var columnsMenu: some View {
+        Menu {
+            ForEach(AssetSubClassColumn.allCases, id: \.self) { column in
+                let isVisible = visibleColumns.contains(column)
+                Button {
+                    toggleColumn(column)
+                } label: {
+                    Label(column.menuTitle, systemImage: isVisible ? "checkmark" : "")
+                }
+                .disabled(isVisible && (visibleColumns.count == 1 || AssetSubClassesView.tableConfiguration.requiredColumns.contains(column)))
+            }
+            Divider()
+            Button("Reset Columns", action: resetVisibleColumns)
+        } label: {
+            Label("Columns", systemImage: "slider.horizontal.3")
+        }
+    }
+
+    private var fontSizePicker: some View {
+        Picker("Font Size", selection: fontSizeBinding) {
+            ForEach(MaintenanceTableFontSize.allCases, id: \.self) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 240)
+        .labelsHidden()
+    }
+
+    private func toggleColumn(_ column: AssetSubClassColumn) {
+        tableModel.toggleColumn(column)
+    }
+
+    private func resetVisibleColumns() {
+        tableModel.resetVisibleColumns()
+    }
+
+    private func resetTablePreferences() {
+        tableModel.resetTablePreferences()
+    }
+    
+    // MARK: - Functions
+    private func loadSubClasses() {
+        let currentId = selectedSubClass?.id
+        subClasses = dbManager.fetchInstrumentTypes().map { item in
+            AssetSubClass(
+                id: item.id,
+                classId: item.classId,
+                classDescription: item.classDescription,
+                code: item.code,
+                name: item.name,
+                description: item.description,
+                sortOrder: item.sortOrder,
+                isActive: item.isActive
+            )
+        }
+        if let currentId, let match = subClasses.first(where: { $0.id == currentId }) {
+            selectedSubClass = match
+        }
+    }
+
+    private func handleDelete(_ type: AssetSubClass) {
         let result = dbManager.deleteInstrumentType(id: type.id)
 
         if result.success {
@@ -486,57 +640,25 @@ struct AssetSubClassesView: View {
     }
 }
 
-// MARK: - Modern Type Row
-struct ModernTypeRowView: View {
-    let type: (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)
+// MARK: - Asset SubClass Row
+fileprivate struct AssetSubClassRowView: View {
+    let type: AssetSubClass
+    let columns: [AssetSubClassColumn]
+    let fontConfig: MaintenanceTableFontConfig
+    let rowPadding: CGFloat
     let isSelected: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
-    
-    var body: some View {
-        HStack {
-            Text(type.name)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    let widthFor: (AssetSubClassColumn) -> CGFloat
 
-            Text(type.classDescription)
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .frame(width: 140, alignment: .leading)
-            
-            Text(type.code)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.gray.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .frame(width: 100, alignment: .leading)
-            
-            Text(type.description)
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .frame(width: 200, alignment: .leading)
-            
-            Text("\(type.sortOrder)")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(width: 60, alignment: .center)
-            
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(type.isActive ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
-                Text(type.isActive ? "Active" : "Inactive")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(type.isActive ? .green : .orange)
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                columnView(for: column)
             }
-            .frame(width: 80, alignment: .center)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.trailing, 12)
+        .padding(.vertical, max(rowPadding, 8))
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.purple.opacity(0.1) : Color.clear)
@@ -546,19 +668,14 @@ struct ModernTypeRowView: View {
                 )
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
+        .onTapGesture { onTap() }
         .onTapGesture(count: 2) {
             onEdit()
         }
+#if os(macOS)
         .contextMenu {
-            Button("Edit SubClass") {
-                onEdit()
-            }
-            Button("Select SubClass") {
-                onTap()
-            }
+            Button("Edit SubClass", action: onEdit)
+            Button("Select SubClass", action: onTap)
             Divider()
             Button("Copy Name") {
                 let pasteboard = NSPasteboard.general
@@ -571,13 +688,65 @@ struct ModernTypeRowView: View {
                 pasteboard.setString(type.code, forType: .string)
             }
         }
+#endif
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+
+    @ViewBuilder
+    private func columnView(for column: AssetSubClassColumn) -> some View {
+        switch column {
+        case .name:
+            Text(type.name)
+                .font(.system(size: fontConfig.primary, weight: .medium))
+                .foregroundColor(.primary)
+                .padding(.leading, 16)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.name), alignment: .leading)
+        case .assetClass:
+            Text(type.classDescription)
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .frame(width: widthFor(.assetClass), alignment: .leading)
+        case .code:
+            Text(type.code)
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .frame(width: widthFor(.code), alignment: .leading)
+        case .description:
+            Text(type.description)
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .padding(.horizontal, 8)
+                .frame(width: widthFor(.description), alignment: .leading)
+        case .sortOrder:
+            Text("\(type.sortOrder)")
+                .font(.system(size: fontConfig.secondary, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: widthFor(.sortOrder), alignment: .center)
+        case .status:
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(type.isActive ? Color.green : Color.orange)
+                    .frame(width: 8, height: 8)
+                Text(type.isActive ? "Active" : "Inactive")
+                    .font(.system(size: fontConfig.secondary, weight: .medium))
+                    .foregroundColor(type.isActive ? .green : .orange)
+            }
+            .frame(width: widthFor(.status), alignment: .center)
+        }
     }
 }
 
 // MARK: - Add Asset SubClass View
 struct AddAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
+    @EnvironmentObject var dbManager: DatabaseManager
 
     @State private var assetClasses: [(id: Int, name: String)] = []
     @State private var selectedClassId: Int = 0
@@ -944,7 +1113,6 @@ struct AddAssetSubClassView: View {
         
         isLoading = true
         
-        let dbManager = DatabaseManager()
         let success = dbManager.addInstrumentType(
             classId: selectedClassId,
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
@@ -969,7 +1137,6 @@ struct AddAssetSubClassView: View {
     }
 
     func loadAssetClasses() {
-        let dbManager = DatabaseManager()
         let classes = dbManager.fetchAssetClasses()
         assetClasses = classes
         if let first = classes.first {
@@ -981,6 +1148,7 @@ struct AddAssetSubClassView: View {
 // MARK: - Edit Asset SubClass View
 struct EditAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
+    @EnvironmentObject var dbManager: DatabaseManager
     let typeId: Int
 
     @State private var assetClasses: [(id: Int, name: String)] = []
@@ -1396,7 +1564,6 @@ struct EditAssetSubClassView: View {
     
     // MARK: - Edit Functions
     func loadTypeData() {
-        let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentTypeDetails(id: typeId) {
             typeName = details.name
             typeCode = details.code
@@ -1445,7 +1612,6 @@ struct EditAssetSubClassView: View {
         
         isLoading = true
         
-        let dbManager = DatabaseManager()
         let success = dbManager.updateInstrumentType(
             id: typeId,
             classId: selectedClassId,
@@ -1482,7 +1648,6 @@ struct EditAssetSubClassView: View {
     }
 
     func loadAssetClasses() {
-        let dbManager = DatabaseManager()
         assetClasses = dbManager.fetchAssetClasses()
         if assetClasses.isEmpty { return }
         if selectedClassId == 0 { selectedClassId = assetClasses.first!.id }

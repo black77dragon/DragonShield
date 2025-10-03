@@ -18,14 +18,7 @@ import AppKit
 import UIKit
 #endif
 
-fileprivate struct TableFontConfig {
-    let nameSize: CGFloat
-    let secondarySize: CGFloat
-    let headerSize: CGFloat
-    let badgeSize: CGFloat
-}
-
-private enum AccountTableColumn: String, CaseIterable, Codable {
+private enum AccountTableColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
     case name
     case number
     case institution
@@ -88,19 +81,11 @@ struct AccountsView: View {
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
 
-    @State private var columnFractions: [AccountTableColumn: CGFloat]
-    @State private var resolvedColumnWidths: [AccountTableColumn: CGFloat]
-    @State private var visibleColumns: Set<AccountTableColumn>
-    @State private var selectedFontSize: TableFontSize
-    @State private var didRestoreColumnFractions = false
-    @State private var availableTableWidth: CGFloat = 0
-    @State private var dragContext: ColumnDragContext? = nil
+    @StateObject private var tableModel = ResizableTableViewModel<AccountTableColumn>(configuration: AccountsView.tableConfiguration)
 
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
-    @State private var hasHydratedPreferences = false
-    @State private var isHydratingPreferences = false
 
     private static let visibleColumnsKey = "AccountsView.visibleColumns.v1"
     private static let columnOrder: [AccountTableColumn] = [
@@ -153,18 +138,6 @@ struct AccountsView: View {
         .notes: 60
     ]
 
-    private static let initialColumnFractions: [AccountTableColumn: CGFloat] = {
-        let total = defaultColumnWidths.values.reduce(0, +)
-        guard total > 0 else {
-            let fallback = 1.0 / CGFloat(AccountTableColumn.allCases.count)
-            return AccountTableColumn.allCases.reduce(into: [:]) { $0[$1] = fallback }
-        }
-        return AccountTableColumn.allCases.reduce(into: [:]) { result, column in
-            let width = defaultColumnWidths[column] ?? 0
-            result[column] = max(0.0001, width / total)
-        }
-    }()
-
 #if os(macOS)
     fileprivate static let columnResizeCursor: NSCursor = {
         let size = NSSize(width: 8, height: 24)
@@ -181,74 +154,69 @@ struct AccountsView: View {
     }()
 #endif
 
-    private struct ColumnDragContext {
-        let primary: AccountTableColumn
-        let neighbor: AccountTableColumn
-        let primaryBaseWidth: CGFloat
-        let neighborBaseWidth: CGFloat
-    }
+    private static let tableConfiguration: MaintenanceTableConfiguration<AccountTableColumn> = {
+#if os(macOS)
+        MaintenanceTableConfiguration(
+            preferenceKind: .accounts,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: requiredColumns,
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            },
+            columnResizeCursor: columnResizeCursor
+        )
+#else
+        MaintenanceTableConfiguration(
+            preferenceKind: .accounts,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: requiredColumns,
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            }
+        )
+#endif
+    }()
 
     enum SortColumn: String, CaseIterable {
         case name, number, institution, bic, type, currency, portfolio, status, earliestUpdate, openingDate, closingDate
     }
 
-    private enum TableFontSize: String, CaseIterable {
-        case xSmall, small, medium, large, xLarge
+    private var fontConfig: MaintenanceTableFontConfig { tableModel.fontConfig }
+    private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
+    private var activeColumns: [AccountTableColumn] { tableModel.activeColumns }
+    private var visibleColumns: Set<AccountTableColumn> { tableModel.visibleColumns }
 
-        var label: String {
-            switch self {
-            case .xSmall: return "XS"
-            case .small: return "S"
-            case .medium: return "M"
-            case .large: return "L"
-            case .xLarge: return "XL"
-            }
-        }
-
-        var baseSize: CGFloat {
-            let index: Int
-            switch self {
-            case .xSmall: index = 0
-            case .small: index = 1
-            case .medium: index = 2
-            case .large: index = 3
-            case .xLarge: index = 4
-            }
-            return TableFontMetrics.baseSize(for: index)
-        }
-
-        var secondarySize: CGFloat { baseSize - 1 }
-        var badgeSize: CGFloat { baseSize - 2 }
-        var headerSize: CGFloat { baseSize - 1 }
-    }
-
-    init() {
-        _columnFractions = State(initialValue: AccountsView.initialColumnFractions)
-        _resolvedColumnWidths = State(initialValue: AccountsView.defaultColumnWidths)
-
-        if let storedVisible = UserDefaults.standard.array(forKey: AccountsView.visibleColumnsKey) as? [String] {
-            let set = Set(storedVisible.compactMap(AccountTableColumn.init(rawValue:)))
-            _visibleColumns = State(initialValue: set.isEmpty ? AccountsView.defaultVisibleColumns : set)
-        } else {
-            _visibleColumns = State(initialValue: AccountsView.defaultVisibleColumns)
-        }
-
-        _selectedFontSize = State(initialValue: .medium)
-    }
-
-    private var fontConfig: TableFontConfig {
-        TableFontConfig(
-            nameSize: selectedFontSize.baseSize,
-            secondarySize: max(11, selectedFontSize.secondarySize),
-            headerSize: selectedFontSize.headerSize,
-            badgeSize: max(10, selectedFontSize.badgeSize)
+    private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
+        Binding(
+            get: { tableModel.selectedFontSize },
+            set: { tableModel.selectedFontSize = $0 }
         )
-    }
-
-    private var activeColumns: [AccountTableColumn] {
-        let set = visibleColumns.intersection(AccountsView.columnOrder)
-        let ordered = AccountsView.columnOrder.filter { set.contains($0) }
-        return ordered.isEmpty ? [.name] : ordered
     }
 
     private var filteredAccounts: [DatabaseManager.AccountData] {
@@ -341,36 +309,13 @@ struct AccountsView: View {
             }
         }
         .onAppear {
-            hydratePreferencesIfNeeded()
+            tableModel.connect(to: dbManager)
             loadData()
             animateEntrance()
-            if !didRestoreColumnFractions {
-                restoreColumnFractions()
-                didRestoreColumnFractions = true
-            }
+            ensureFiltersetsWithinVisibleColumns()
+            ensureValidSortColumn()
         }
-        .onChange(of: selectedFontSize) { _, _ in
-            persistFontSize()
-        }
-        .onReceive(dbManager.$accountsTableFontSize) { newValue in
-            guard !isHydratingPreferences, let size = TableFontSize(rawValue: newValue), size != selectedFontSize else { return }
-            isHydratingPreferences = true
-            print("📥 [accounts] Received font size update from configuration: \(newValue)")
-            selectedFontSize = size
-            DispatchQueue.main.async { isHydratingPreferences = false }
-        }
-        .onReceive(dbManager.$accountsTableColumnFractions) { newValue in
-            guard !isHydratingPreferences else { return }
-            isHydratingPreferences = true
-            print("📥 [accounts] Received column fractions from configuration: \(newValue)")
-            let restored = restoreFromStoredColumnFractions(newValue)
-            if restored {
-                didRestoreColumnFractions = true
-                recalcColumnWidths()
-            }
-            DispatchQueue.main.async { isHydratingPreferences = false }
-        }
-        .onChange(of: visibleColumns) { _, _ in
+        .onChange(of: tableModel.visibleColumns) { _, _ in
             ensureFiltersetsWithinVisibleColumns()
             ensureValidSortColumn()
         }
@@ -668,8 +613,8 @@ struct AccountsView: View {
     }
 
     private var fontSizePicker: some View {
-        Picker("Font Size", selection: $selectedFontSize) {
-            ForEach(TableFontSize.allCases, id: \.self) { size in
+        Picker("Font Size", selection: fontSizeBinding) {
+            ForEach(MaintenanceTableFontSize.allCases, id: \.self) { size in
                 Text(size.label).tag(size)
             }
         }
@@ -719,196 +664,94 @@ struct AccountsView: View {
     }
 
     private var accountsTable: some View {
-        GeometryReader { proxy in
-            let availableWidth = max(proxy.size.width, 0)
-            let targetWidth = max(availableWidth, totalMinimumWidth())
-
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(spacing: 0) {
-                    modernTableHeader
-                    accountsTableRows
-                }
-                .frame(width: targetWidth, alignment: .leading)
+        MaintenanceTableView(
+            model: tableModel,
+            rows: sortedAccounts,
+            rowSpacing: 0,
+            showHorizontalIndicators: true,
+            rowContent: { account, context in
+                ModernAccountRowView(
+                    account: account,
+                    columns: context.columns,
+                    fontConfig: context.fontConfig,
+                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    isSelected: selectedAccount?.id == account.id,
+                    onTap: {
+                        selectedAccount = account
+                    },
+                    onEdit: {
+                        selectedAccount = account
+                        showEditAccountSheet = true
+                    },
+                    widthFor: { context.widthForColumn($0) }
+                )
+            },
+            headerContent: { column, fontConfig in
+                accountsHeaderContent(for: column, fontConfig: fontConfig)
             }
-            .frame(width: availableWidth, alignment: .leading)
-            .onAppear {
-                updateAvailableWidth(targetWidth)
-            }
-            .onChange(of: proxy.size.width) { _, newWidth in
-                updateAvailableWidth(max(newWidth, totalMinimumWidth()))
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 0)
-    }
-
-    private var accountsTableRows: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(sortedAccounts) { account in
-                    ModernAccountRowView(
-                        account: account,
-                        columns: activeColumns,
-                        fontConfig: fontConfig,
-                        rowPadding: CGFloat(dbManager.tableRowPadding),
-                        isSelected: selectedAccount?.id == account.id,
-                        onTap: {
-                            selectedAccount = account
-                        },
-                        onEdit: {
-                            selectedAccount = account
-                            showEditAccountSheet = true
-                        },
-                        widthFor: { width(for: $0) }
-                    )
-                }
-            }
-        }
-        .background(
-            Rectangle()
-                .fill(.regularMaterial)
-                .overlay(Rectangle().stroke(Color.gray.opacity(0.12), lineWidth: 1))
         )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
 
-    private var modernTableHeader: some View {
-        HStack(spacing: 0) {
-            ForEach(activeColumns, id: \.self) { column in
-                headerCell(for: column)
-                    .frame(width: width(for: column), alignment: .leading)
-            }
-        }
-        .padding(.trailing, 12)
-        .padding(.vertical, 2)
-        .background(
-            Rectangle()
-                .fill(AccountsView.headerBackground)
-                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
-        )
-        .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
-    }
-
-    private func headerCell(for column: AccountTableColumn) -> some View {
-        let leadingTarget = leadingHandleTarget(for: column)
-        let isLast = isLastActiveColumn(column)
+    private func accountsHeaderContent(for column: AccountTableColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
         let sortOption = sortOption(for: column)
         let isActiveSort = sortOption.map { $0 == sortColumn } ?? false
         let filterBinding = filterBinding(for: column)
         let filterOptions = filterValues(for: column)
 
-        return ZStack(alignment: .leading) {
-            if let target = leadingTarget {
-                resizeHandle(for: target)
-            }
-            if isLast {
-                resizeHandle(for: column)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-
-            HStack(spacing: 6) {
-                if let sortOption {
-                    Button(action: {
+        return HStack(spacing: 6) {
+            if let sortOption {
+                Button(action: {
+                    if isActiveSort {
+                        sortAscending.toggle()
+                    } else {
+                        sortColumn = sortOption
+                        sortAscending = true
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Text(column.title)
+                            .font(.system(size: fontConfig.header, weight: .semibold))
+                            .foregroundColor(.black)
                         if isActiveSort {
-                            sortAscending.toggle()
-                        } else {
-                            sortColumn = sortOption
-                            sortAscending = true
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Text(column.title)
-                                .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                                .foregroundColor(.black)
-                            if isActiveSort {
-                                Image(systemName: "triangle.fill")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.accentColor)
-                                    .rotationEffect(.degrees(sortAscending ? 0 : 180))
-                            }
+                            Image(systemName: "triangle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.accentColor)
+                                .rotationEffect(.degrees(sortAscending ? 0 : 180))
                         }
                     }
-                    .buttonStyle(.plain)
-                } else if column == .notes {
-                    Image(systemName: "note.text")
-                        .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                        .foregroundColor(.black)
-                        .help("Notes")
-                } else {
-                    Text(column.title)
-                        .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                        .foregroundColor(.black)
                 }
-
-                if let binding = filterBinding, !filterOptions.isEmpty {
-                    Menu {
-                        ForEach(filterOptions, id: \.self) { value in
-                            Button {
-                                if binding.wrappedValue.contains(value) {
-                                    binding.wrappedValue.remove(value)
-                                } else {
-                                    binding.wrappedValue.insert(value)
-                                }
-                            } label: {
-                                Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
-                    }
-                    .menuStyle(BorderlessButtonMenuStyle())
-                }
+                .buttonStyle(.plain)
+            } else if column == .notes {
+                Image(systemName: "note.text")
+                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .foregroundColor(.black)
+                    .help("Notes")
+            } else {
+                Text(column.title)
+                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .foregroundColor(.black)
             }
-            .padding(.leading, AccountsView.columnTextInset + (leadingTarget == nil ? 0 : AccountsView.columnHandleWidth))
-            .padding(.trailing, isLast ? AccountsView.columnHandleWidth + 8 : 8)
+
+            if let binding = filterBinding, !filterOptions.isEmpty {
+                Menu {
+                    ForEach(filterOptions, id: \.self) { value in
+                        Button {
+                            if binding.wrappedValue.contains(value) {
+                                binding.wrappedValue.remove(value)
+                            } else {
+                                binding.wrappedValue.insert(value)
+                            }
+                        } label: {
+                            Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
+                }
+                .menuStyle(BorderlessButtonMenuStyle())
+            }
         }
-    }
-
-    private func resizeHandle(for column: AccountTableColumn) -> some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(
-                width: AccountsView.columnHandleWidth + AccountsView.columnHandleHitSlop * 2,
-                height: 28
-            )
-            .offset(x: -AccountsView.columnHandleHitSlop)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-#if os(macOS)
-                        AccountsView.columnResizeCursor.set()
-#endif
-                        guard availableTableWidth > 0 else { return }
-                        if dragContext?.primary != column {
-                            beginDrag(for: column)
-                        }
-                        updateDrag(for: column, translation: value.translation.width)
-                    }
-                    .onEnded { _ in
-                        finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
-                    }
-            )
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 0.5)
-                    .fill(Color.gray.opacity(0.8))
-                    .frame(width: 2, height: 22)
-            }
-            .padding(.vertical, 2)
-            .background(Color.clear)
-#if os(macOS)
-            .onHover { inside in
-                if inside {
-                    AccountsView.columnResizeCursor.set()
-                } else {
-                    NSCursor.arrow.set()
-                }
-            }
-#endif
     }
 
     private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
@@ -1105,112 +948,22 @@ struct AccountsView: View {
         }
     }
 
-    private func formatFractionDictionary(_ dictionary: [AccountTableColumn: CGFloat]) -> [String: Double] {
-        dictionary.reduce(into: [String: Double]()) { partialResult, entry in
-            partialResult[entry.key.rawValue] = entry.value.isFinite ? Double(entry.value) : 0
-        }
+    private func toggleColumn(_ column: AccountTableColumn) {
+        tableModel.toggleColumn(column)
+        ensureFiltersetsWithinVisibleColumns()
+        ensureValidSortColumn()
     }
 
-    private func typedFractions(from raw: [String: Double]) -> [AccountTableColumn: CGFloat] {
-        raw.reduce(into: [AccountTableColumn: CGFloat]()) { result, entry in
-            guard let column = AccountTableColumn(rawValue: entry.key), entry.value.isFinite else { return }
-            let fraction = max(0, entry.value)
-            if fraction > 0 {
-                result[column] = CGFloat(fraction)
-            }
-        }
+    private func resetVisibleColumns() {
+        tableModel.resetVisibleColumns()
+        ensureFiltersetsWithinVisibleColumns()
+        ensureValidSortColumn()
     }
 
-    private func hydratePreferencesIfNeeded() {
-        guard !hasHydratedPreferences else { return }
-        hasHydratedPreferences = true
-        isHydratingPreferences = true
-
-        migrateLegacyFontIfNeeded()
-
-        let storedFont = dbManager.tableFontSize(for: .accounts)
-        if let storedSize = TableFontSize(rawValue: storedFont) {
-            print("📥 [accounts] Applying stored font size: \(storedSize.rawValue)")
-            selectedFontSize = storedSize
-        }
-
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func migrateLegacyFontIfNeeded() {
-        guard let legacy = dbManager.legacyTableFontSize(for: .accounts) else { return }
-        if dbManager.tableFontSize(for: .accounts) != legacy {
-            print("♻️ [accounts] Migrating legacy font size \(legacy) to configuration table")
-            dbManager.setTableFontSize(legacy, for: .accounts)
-        }
-        dbManager.clearLegacyTableFontSize(for: .accounts)
-    }
-
-    private func persistVisibleColumns() {
-        let ordered = AccountsView.columnOrder.filter { visibleColumns.contains($0) }
-        UserDefaults.standard.set(ordered.map { $0.rawValue }, forKey: AccountsView.visibleColumnsKey)
-    }
-
-    private func persistFontSize() {
-        guard !isHydratingPreferences else {
-            print("ℹ️ [accounts] Skipping persistFontSize during hydration")
-            return
-        }
-        isHydratingPreferences = true
-        print("💾 [accounts] Persisting font size: \(selectedFontSize.rawValue)")
-        dbManager.setTableFontSize(selectedFontSize.rawValue, for: .accounts)
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func persistColumnFractions() {
-        guard !isHydratingPreferences else {
-            print("ℹ️ [accounts] Skipping persistColumnFractions during hydration")
-            return
-        }
-        isHydratingPreferences = true
-        let payload = formatFractionDictionary(columnFractions)
-        print("💾 [accounts] Persisting column fractions: \(payload)")
-        dbManager.setTableColumnFractions(payload, for: .accounts)
-        DispatchQueue.main.async { isHydratingPreferences = false }
-    }
-
-    private func restoreColumnFractions() {
-        if restoreFromStoredColumnFractions(dbManager.tableColumnFractions(for: .accounts)) {
-            recalcColumnWidths()
-            print("📥 [accounts] Applied stored column fractions from configuration table")
-            return
-        }
-
-        if let legacy = dbManager.legacyTableColumnFractions(for: .accounts) {
-            let typed = typedFractions(from: legacy)
-            guard !typed.isEmpty else {
-                dbManager.clearLegacyTableColumnFractions(for: .accounts)
-                columnFractions = defaultFractions()
-                recalcColumnWidths()
-                return
-            }
-            columnFractions = normalizedFractions(typed)
-            recalcColumnWidths()
-            dbManager.setTableColumnFractions(legacy, for: .accounts)
-            dbManager.clearLegacyTableColumnFractions(for: .accounts)
-            print("♻️ [accounts] Migrated legacy column fractions to configuration table")
-            return
-        }
-
-        columnFractions = defaultFractions()
-        recalcColumnWidths()
-        print("ℹ️ [accounts] Using default column fractions")
-    }
-
-    @discardableResult
-    private func restoreFromStoredColumnFractions(_ raw: [String: Double]) -> Bool {
-        let typed = typedFractions(from: raw)
-        guard !typed.isEmpty else {
-            print("⚠️ [accounts] Stored column fractions empty or invalid")
-            return false
-        }
-        columnFractions = normalizedFractions(typed)
-        return true
+    private func resetTablePreferences() {
+        tableModel.resetTablePreferences()
+        ensureFiltersetsWithinVisibleColumns()
+        ensureValidSortColumn()
     }
 
     private func ensureValidSortColumn() {
@@ -1239,215 +992,6 @@ struct AccountsView: View {
         case .closingDate: return .closingDate
         }
     }
-
-    private func toggleColumn(_ column: AccountTableColumn) {
-        var newSet = visibleColumns
-        if newSet.contains(column) {
-            if AccountsView.requiredColumns.contains(column) { return }
-            if newSet.count <= 1 { return }
-            newSet.remove(column)
-        } else {
-            newSet.insert(column)
-        }
-        visibleColumns = newSet
-        ensureFiltersetsWithinVisibleColumns()
-        persistVisibleColumns()
-        ensureValidSortColumn()
-        recalcColumnWidths()
-    }
-
-    private func resetVisibleColumns() {
-        visibleColumns = AccountsView.defaultVisibleColumns
-        ensureFiltersetsWithinVisibleColumns()
-        persistVisibleColumns()
-        ensureValidSortColumn()
-        recalcColumnWidths()
-    }
-
-    private func resetTablePreferences() {
-        visibleColumns = AccountsView.defaultVisibleColumns
-        selectedFontSize = .medium
-        ensureFiltersetsWithinVisibleColumns()
-        persistVisibleColumns()
-        persistFontSize()
-        ensureValidSortColumn()
-        recalcColumnWidths()
-    }
-
-    private func width(for column: AccountTableColumn) -> CGFloat {
-        resolvedColumnWidths[column] ?? AccountsView.defaultColumnWidths[column] ?? AccountsView.minimumColumnWidths[column] ?? 120
-    }
-
-    private func minimumWidth(for column: AccountTableColumn) -> CGFloat {
-        AccountsView.minimumColumnWidths[column] ?? 80
-    }
-
-    private func totalMinimumWidth() -> CGFloat {
-        activeColumns.reduce(0) { $0 + (AccountsView.minimumColumnWidths[$1] ?? 0) }
-    }
-
-    private func defaultFractions() -> [AccountTableColumn: CGFloat] {
-        normalizedFractions(AccountsView.initialColumnFractions)
-    }
-
-    private func normalizedFractions(_ input: [AccountTableColumn: CGFloat]? = nil) -> [AccountTableColumn: CGFloat] {
-        let source = input ?? columnFractions
-        var result: [AccountTableColumn: CGFloat] = [:]
-        var total: CGFloat = 0
-
-        for column in AccountsView.columnOrder {
-            let fraction = max(0, source[column] ?? 0)
-            result[column] = fraction
-            total += fraction
-        }
-
-        if total <= 0 {
-            return defaultFractions()
-        }
-
-        for column in AccountsView.columnOrder {
-            result[column] = max(0.0001, (result[column] ?? 0) / total)
-        }
-        return result
-    }
-
-    private func updateAvailableWidth(_ width: CGFloat) {
-        availableTableWidth = max(width, totalMinimumWidth())
-        adjustResolvedWidths(for: availableTableWidth)
-    }
-
-    private func adjustResolvedWidths(for width: CGFloat) {
-        let fractions = normalizedFractions()
-        var resolved: [AccountTableColumn: CGFloat] = [:]
-
-        for column in AccountsView.columnOrder {
-            let fraction = fractions[column] ?? 0
-            resolved[column] = max(minimumWidth(for: column), fraction * width)
-        }
-
-        balanceResolvedWidths(&resolved, targetWidth: width)
-        resolvedColumnWidths = resolved
-        columnFractions = normalizedFractions(resolved)
-    }
-
-    private func balanceResolvedWidths(_ resolved: inout [AccountTableColumn: CGFloat], targetWidth: CGFloat) {
-        let minWidths = AccountsView.columnOrder.reduce(into: [AccountTableColumn: CGFloat]()) { result, column in
-            result[column] = minimumWidth(for: column)
-        }
-
-        let totalMin = activeColumns.reduce(0) { $0 + (minWidths[$1] ?? 0) }
-        guard targetWidth > totalMin else {
-            for column in AccountsView.columnOrder {
-                resolved[column] = minWidths[column] ?? 0
-            }
-            return
-        }
-
-        let totalWidth = activeColumns.reduce(0) { $0 + (resolved[$1] ?? 0) }
-        if totalWidth == targetWidth { return }
-
-        let difference = targetWidth - totalWidth
-        if difference > 0 {
-            let adjustableColumns = activeColumns
-            guard !adjustableColumns.isEmpty else { return }
-            let delta = difference / CGFloat(adjustableColumns.count)
-            for column in adjustableColumns {
-                resolved[column, default: minimumWidth(for: column)] += delta
-            }
-        } else {
-            var columnsAtMinimum: [AccountTableColumn] = []
-            var remainingColumns = Set(activeColumns)
-            var remainingDifference = difference
-
-            while remainingDifference < 0 && !remainingColumns.isEmpty {
-                let share = remainingDifference / CGFloat(remainingColumns.count)
-                var applied = false
-
-                for column in remainingColumns {
-                    let minWidth = minWidths[column] ?? 0
-                    let current = resolved[column] ?? minWidth
-                    let candidate = current + share
-                    if candidate <= minWidth + 0.1 {
-                        resolved[column] = minWidth
-                        columnsAtMinimum.append(column)
-                    } else {
-                        resolved[column] = candidate
-                        applied = true
-                    }
-                }
-
-                remainingColumns.subtract(columnsAtMinimum)
-                if !applied { break }
-                remainingDifference = targetWidth - activeColumns.reduce(0) { $0 + (resolved[$1] ?? 0) }
-            }
-        }
-    }
-
-    private func beginDrag(for column: AccountTableColumn) {
-        guard let neighbor = neighborColumn(for: column) else { return }
-        let primaryWidth = resolvedColumnWidths[column] ?? (AccountsView.defaultColumnWidths[column] ?? minimumWidth(for: column))
-        let neighborWidth = resolvedColumnWidths[neighbor] ?? (AccountsView.defaultColumnWidths[neighbor] ?? minimumWidth(for: neighbor))
-        dragContext = ColumnDragContext(primary: column, neighbor: neighbor, primaryBaseWidth: primaryWidth, neighborBaseWidth: neighborWidth)
-    }
-
-    private func updateDrag(for column: AccountTableColumn, translation: CGFloat) {
-        guard let context = dragContext, context.primary == column else { return }
-        let minPrimary = minimumWidth(for: context.primary)
-        let minNeighbor = minimumWidth(for: context.neighbor)
-        let combined = context.primaryBaseWidth + context.neighborBaseWidth
-
-        var newPrimary = context.primaryBaseWidth + translation
-        let maximumPrimary = combined - minNeighbor
-        newPrimary = min(max(newPrimary, minPrimary), maximumPrimary)
-        let newNeighbor = combined - newPrimary
-
-        let targetWidth = max(max(availableTableWidth, totalMinimumWidth()), 1)
-        var updatedFractions = columnFractions
-        updatedFractions[context.primary] = max(0.0001, newPrimary / targetWidth)
-        updatedFractions[context.neighbor] = max(0.0001, newNeighbor / targetWidth)
-        columnFractions = normalizedFractions(updatedFractions)
-        adjustResolvedWidths(for: targetWidth)
-    }
-
-    private func finalizeDrag() {
-        dragContext = nil
-        persistColumnFractions()
-    }
-
-    private func isLastActiveColumn(_ column: AccountTableColumn) -> Bool {
-        activeColumns.last == column
-    }
-
-    private func leadingHandleTarget(for column: AccountTableColumn) -> AccountTableColumn? {
-        let columns = activeColumns
-        guard let index = columns.firstIndex(of: column) else { return nil }
-        if index == 0 {
-            return column
-        }
-        return columns[index - 1]
-    }
-
-    private func neighborColumn(for column: AccountTableColumn) -> AccountTableColumn? {
-        let columns = activeColumns
-        guard let index = columns.firstIndex(of: column) else { return nil }
-        if index < columns.count - 1 {
-            return columns[index + 1]
-        } else if index > 0 {
-            return columns[index - 1]
-        }
-        return nil
-    }
-
-    private func recalcColumnWidths() {
-        let width = max(availableTableWidth, totalMinimumWidth())
-        guard availableTableWidth > 0 else {
-            print("ℹ️ [accounts] Skipping recalcColumnWidths — available width not ready")
-            return
-        }
-        adjustResolvedWidths(for: width)
-        persistColumnFractions()
-    }
-
     private func ensureFiltersetsWithinVisibleColumns() {
         if !visibleColumns.contains(.type) {
             typeFilters.removeAll()
@@ -1516,7 +1060,7 @@ struct AccountsView: View {
 fileprivate struct ModernAccountRowView: View {
     let account: DatabaseManager.AccountData
     let columns: [AccountTableColumn]
-    let fontConfig: TableFontConfig
+    let fontConfig: MaintenanceTableFontConfig
     let rowPadding: CGFloat
     let isSelected: Bool
     let onTap: () -> Void
@@ -1579,14 +1123,14 @@ fileprivate struct ModernAccountRowView: View {
         case .name:
             VStack(alignment: .leading, spacing: 2) {
                 Text(account.accountName)
-                    .font(.system(size: fontConfig.nameSize, weight: .medium))
+                    .font(.system(size: fontConfig.primary, weight: .medium))
                     .foregroundColor(.primary)
                 Text("Number: \(account.accountNumber)")
-                    .font(.system(size: max(10, fontConfig.badgeSize), design: .monospaced))
+                    .font(.system(size: max(10, fontConfig.badge), design: .monospaced))
                     .foregroundColor(.secondary)
                 if let bic = account.institutionBic, !bic.isEmpty {
                     Text("BIC: \(bic)")
-                        .font(.system(size: max(10, fontConfig.badgeSize)))
+                        .font(.system(size: max(10, fontConfig.badge)))
                         .foregroundColor(.secondary)
                 }
             }
@@ -1595,35 +1139,35 @@ fileprivate struct ModernAccountRowView: View {
             .frame(width: widthFor(.name), alignment: .leading)
         case .number:
             Text(account.accountNumber)
-                .font(.system(size: fontConfig.secondarySize, design: .monospaced))
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.number), alignment: .leading)
         case .institution:
             Text(account.institutionName)
-                .font(.system(size: fontConfig.secondarySize))
+                .font(.system(size: fontConfig.secondary))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.institution), alignment: .leading)
         case .bic:
             Text(account.institutionBic ?? "--")
-                .font(.system(size: fontConfig.secondarySize, design: .monospaced))
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.bic), alignment: .leading)
         case .type:
             Text(account.accountType)
-                .font(.system(size: fontConfig.secondarySize))
+                .font(.system(size: fontConfig.secondary))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.type), alignment: .leading)
         case .currency:
             Text(account.currencyCode)
-                .font(.system(size: fontConfig.badgeSize, weight: .semibold))
+                .font(.system(size: fontConfig.badge, weight: .semibold))
                 .foregroundColor(.primary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
@@ -1637,7 +1181,7 @@ fileprivate struct ModernAccountRowView: View {
                 Image(systemName: account.includeInPortfolio ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(account.includeInPortfolio ? .green : .gray)
                 Text(account.includeInPortfolio ? "Included" : "Excluded")
-                    .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                    .font(.system(size: fontConfig.secondary, weight: .medium))
                     .foregroundColor(account.includeInPortfolio ? .green : .secondary)
             }
             .padding(.leading, AccountsView.columnTextInset)
@@ -1649,27 +1193,27 @@ fileprivate struct ModernAccountRowView: View {
                     .fill(account.isActive ? Color.green : Color.orange)
                     .frame(width: 8, height: 8)
                 Text(account.isActive ? "Active" : "Inactive")
-                    .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                    .font(.system(size: fontConfig.secondary, weight: .medium))
                     .foregroundColor(account.isActive ? .green : .orange)
             }
             .frame(width: widthFor(.status), alignment: .center)
         case .earliestUpdate:
             Text(displayDate(account.earliestInstrumentLastUpdatedAt))
-                .font(.system(size: fontConfig.secondarySize))
+                .font(.system(size: fontConfig.secondary))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.earliestUpdate), alignment: .leading)
         case .openingDate:
             Text(displayDate(account.openingDate))
-                .font(.system(size: fontConfig.secondarySize))
+                .font(.system(size: fontConfig.secondary))
                 .foregroundColor(.secondary)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.openingDate), alignment: .leading)
         case .closingDate:
             Text(displayDate(account.closingDate))
-                .font(.system(size: fontConfig.secondarySize))
+                .font(.system(size: fontConfig.secondary))
                 .foregroundColor(account.isActive ? .secondary : .orange)
                 .padding(.leading, AccountsView.columnTextInset)
                 .padding(.trailing, 8)

@@ -53,9 +53,13 @@ extension DatabaseManager {
                 'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path', 'ios_snapshot_target_bookmark',
                 'institutions_table_font', 'institutions_table_column_fractions',
                 'instruments_table_font', 'instruments_table_column_fractions',
+                'asset_subclasses_table_font', 'asset_subclasses_table_column_fractions',
+                'asset_classes_table_font', 'asset_classes_table_column_fractions',
                 'currencies_table_font', 'currencies_table_column_fractions',
                 'accounts_table_font', 'accounts_table_column_fractions',
                 'portfolio_themes_table_font', 'portfolio_themes_table_column_fractions',
+                'transaction_types_table_font', 'transaction_types_table_column_fractions',
+                'account_types_table_font', 'account_types_table_column_fractions',
                 'todo_board_font'
             );
         """
@@ -146,6 +150,20 @@ extension DatabaseManager {
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
                     pendingAssignments.append { $0.instrumentsTableColumnFractions = parsed }
+                case "asset_subclasses_table_font":
+                    print("ℹ️ [config] Loaded asset_subclasses_table_font=\(value)")
+                    pendingAssignments.append { $0.assetSubClassesTableFontSize = value }
+                case "asset_subclasses_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded asset_subclasses_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.assetSubClassesTableColumnFractions = parsed }
+                case "asset_classes_table_font":
+                    print("ℹ️ [config] Loaded asset_classes_table_font=\(value)")
+                    pendingAssignments.append { $0.assetClassesTableFontSize = value }
+                case "asset_classes_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded asset_classes_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.assetClassesTableColumnFractions = parsed }
                 case "currencies_table_font":
                     print("ℹ️ [config] Loaded currencies_table_font=\(value)")
                     pendingAssignments.append { $0.currenciesTableFontSize = value }
@@ -167,6 +185,20 @@ extension DatabaseManager {
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
                     pendingAssignments.append { $0.portfolioThemesTableColumnFractions = parsed }
+                case "transaction_types_table_font":
+                    print("ℹ️ [config] Loaded transaction_types_table_font=\(value)")
+                    pendingAssignments.append { $0.transactionTypesTableFontSize = value }
+                case "transaction_types_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded transaction_types_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.transactionTypesTableColumnFractions = parsed }
+                case "account_types_table_font":
+                    print("ℹ️ [config] Loaded account_types_table_font=\(value)")
+                    pendingAssignments.append { $0.accountTypesTableFontSize = value }
+                case "account_types_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded account_types_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.accountTypesTableColumnFractions = parsed }
                 case "todo_board_font":
                     print("ℹ️ [config] Loaded todo_board_font=\(value)")
                     pendingAssignments.append { $0.todoBoardFontSize = value }
@@ -416,6 +448,89 @@ extension DatabaseManager {
                                 value: payload,
                                 dataType: "string",
                                 description: "Column width fractions for New Portfolios table")
+    }
+
+    func setAssetSubClassesTableFontSize(_ value: String) {
+        guard assetSubClassesTableFontSize != value else { return }
+        print("📝 [config] Request to store asset_subclasses_table_font=\(value)")
+        _ = upsertConfiguration(key: "asset_subclasses_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Asset Subclasses table")
+    }
+
+    func setAssetSubClassesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard assetSubClassesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store asset_subclasses_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "asset_subclasses_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Asset Subclasses table")
+    }
+
+    func setAssetClassesTableFontSize(_ value: String) {
+        guard assetClassesTableFontSize != value else { return }
+        print("📝 [config] Request to store asset_classes_table_font=\(value)")
+        _ = upsertConfiguration(key: "asset_classes_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Asset Classes table")
+    }
+
+    func setAssetClassesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard assetClassesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store asset_classes_table_column_fractions=\(cleaned)")
+        assetClassesTableColumnFractions = cleaned
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "asset_classes_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Asset Classes table")
+    }
+
+    func setTransactionTypesTableFontSize(_ value: String) {
+        guard transactionTypesTableFontSize != value else { return }
+        print("📝 [config] Request to store transaction_types_table_font=\(value)")
+        _ = upsertConfiguration(key: "transaction_types_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Transaction Types table")
+    }
+
+    func setTransactionTypesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard transactionTypesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store transaction_types_table_column_fractions=\(cleaned)")
+        transactionTypesTableColumnFractions = cleaned
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "transaction_types_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Transaction Types table")
+    }
+
+    func setAccountTypesTableFontSize(_ value: String) {
+        guard accountTypesTableFontSize != value else { return }
+        print("📝 [config] Request to store account_types_table_font=\(value)")
+        _ = upsertConfiguration(key: "account_types_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Account Types table")
+    }
+
+    func setAccountTypesTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard accountTypesTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store account_types_table_column_fractions=\(cleaned)")
+        accountTypesTableColumnFractions = cleaned
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "account_types_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Account Types table")
     }
 
     func setTodoBoardFontSize(_ value: String) {
