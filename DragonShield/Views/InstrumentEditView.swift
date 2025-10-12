@@ -3,6 +3,8 @@ import SwiftUI
 struct InstrumentEditView: View {
     @Environment(\.presentationMode) private var presentationMode
     let instrumentId: Int
+
+    private typealias PortfolioMembershipRow = DatabaseManager.InstrumentPortfolioMembershipRow
     
     @State private var instrumentName = ""
     @State private var selectedGroupId = 1
@@ -48,6 +50,11 @@ struct InstrumentEditView: View {
     @State private var portfoliosCount: Int = 0
     @State private var deleteReason: String = "No longer tracked"
     @State private var deleteNote: String = ""
+    @State private var showLifecycleInfo = false
+    @State private var portfolioMemberships: [PortfolioMembershipRow] = []
+    @State private var instrumentPositions: [PositionReportData] = []
+    @State private var openThemeId: Int? = nil
+    @State private var editingPosition: PositionReportData? = nil
     
     // MARK: - Validation
     var isValid: Bool {
@@ -98,38 +105,17 @@ struct InstrumentEditView: View {
     }
     
     var body: some View {
-        ZStack {
-            // Premium gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.97, green: 0.98, blue: 1.0),
-                    Color(red: 0.94, green: 0.96, blue: 0.99),
-                    Color(red: 0.91, green: 0.94, blue: 0.98)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // Subtle animated background elements
-            EditParticleBackground()
-            
-            // Main content
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    modernHeader
-                    changeIndicator
-                    progressBar
-                    modernContent
-                    modernFooter
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.clear)
-            }
+        VStack(spacing: 0) {
+            modernHeader
+            changeIndicator
+            progressBar
+            Divider()
+            modernContent
+            modernFooter
         }
-        .frame(width: 700, height: 750)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+        .frame(width: 660, height: 720)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .scaleEffect(formScale)
         .onAppear {
             loadInstrumentGroups()
@@ -154,11 +140,29 @@ struct InstrumentEditView: View {
             InstrumentNotesView(instrumentId: instrumentId, instrumentCode: tickerSymbol.isEmpty ? instrumentName : tickerSymbol.uppercased(), instrumentName: instrumentName, initialTab: notesInitialTab, initialThemeId: nil, onClose: { showNotes = false })
                 .environmentObject(DatabaseManager())
         }
+        .sheet(item: Binding(get: {
+            openThemeId.map { Ident(value: $0) }
+        }, set: { newValue in
+            openThemeId = newValue?.value
+        })) { ident in
+            PortfolioThemeWorkspaceView(
+                themeId: ident.value,
+                origin: "instrument_edit",
+                initialTab: .updates
+            )
+            .environmentObject(DatabaseManager())
+        }
+        .sheet(item: $editingPosition) { position in
+            PositionFormView(position: position) {
+                refreshInstrumentUsage()
+            }
+            .environmentObject(DatabaseManager())
+        }
     }
     
     // MARK: - Modern Header
     private var modernHeader: some View {
-        HStack {
+        HStack(spacing: 12) {
             // Close button with light styling
             Button {
                 if hasChanges {
@@ -168,14 +172,12 @@ struct InstrumentEditView: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    .font(.system(size: 14, weight: .medium))
+                    .padding(6)
+                    .foregroundColor(.secondary)
+                    .background(Color.secondary.opacity(0.15), in: Circle())
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
             
             Spacer()
             
@@ -192,14 +194,8 @@ struct InstrumentEditView: View {
                     )
                 
                 Text("Edit Instrument")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.black, .gray],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
             }
             
             Spacer()
@@ -208,22 +204,22 @@ struct InstrumentEditView: View {
             Button {
                 saveInstrument()
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if isLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
+                            .scaleEffect(0.7)
                     } else {
                         Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                     }
                     
-                    Text(isLoading ? "Saving..." : "Save Changes")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text(isLoading ? "Saving..." : "Save")
+                        .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundColor(.white)
-                .frame(height: 32)
-                .padding(.horizontal, 16)
+                .frame(height: 28)
+                .padding(.horizontal, 12)
                 .background(
                     Group {
                         if isValid && hasChanges && !isLoading {
@@ -234,17 +230,12 @@ struct InstrumentEditView: View {
                     }
                 )
                 .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(.white.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: isValid && hasChanges ? .orange.opacity(0.3) : .clear, radius: 8, x: 0, y: 2)
             }
             .disabled(isLoading || !isValid || !hasChanges)
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .opacity(headerOpacity)
     }
     
@@ -274,13 +265,13 @@ struct InstrumentEditView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: hasChanges)
     }
     
     // MARK: - Modern Progress Bar
     private var progressBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             HStack {
                 Text("Completion")
                     .font(.caption)
@@ -314,32 +305,32 @@ struct InstrumentEditView: View {
             }
             .frame(height: 6)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
     }
     
     // MARK: - Modern Content
     private var modernContent: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 requiredSection
                 optionalSection
                 priceSection
                 lifecycleSection
                 updatesInThemesSection
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 100)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
         }
         .offset(y: sectionsOffset)
     }
     
     // MARK: - Required Section
     private var requiredSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Required Information", icon: "checkmark.shield.fill", color: .orange)
             
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 modernTextField(
                     title: "Instrument Name",
                     text: $instrumentName,
@@ -363,88 +354,77 @@ struct InstrumentEditView: View {
                 }
             }
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .orange.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
     
     // MARK: - Optional Section
     private var optionalSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Optional Information", icon: "info.circle.fill", color: .red)
             
-            VStack(spacing: 16) {
-                modernTextField(
-                    title: "Ticker Symbol",
-                    text: $tickerSymbol,
-                    placeholder: "e.g., AAPL",
-                    icon: "chart.line.uptrend.xyaxis.circle.fill",
-                    isRequired: false,
-                    autoUppercase: true
-                )
-                .onChange(of: tickerSymbol) { oldValue, newValue in detectChanges() }
-                
-                modernTextField(
-                    title: "ISIN Code",
-                    text: $isin,
-                    placeholder: "e.g., US0378331005",
-                    icon: "number.circle.fill",
-                    isRequired: false,
-                    autoUppercase: true,
-                    validation: isValidISIN,
-                    errorMessage: "ISIN must be 12 characters starting with 2 letters"
-                )
-                .onChange(of: isin) { oldValue, newValue in detectChanges() }
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    compactTextField(
+                        title: "Ticker Symbol",
+                        text: $tickerSymbol,
+                        placeholder: "e.g., AAPL",
+                        isRequired: false,
+                        autoUppercase: true
+                    )
+                    .onChange(of: tickerSymbol) { _, _ in detectChanges() }
 
-                modernTextField(
-                    title: "Valor Number",
-                    text: $valorNr,
-                    placeholder: "e.g., 1234567",
-                    icon: "number.circle",
-                    isRequired: false,
-                    autoUppercase: false
-                )
-                .onChange(of: valorNr) { oldValue, newValue in detectChanges() }
-                
-                modernTextField(
-                    title: "Sector",
-                    text: $sector,
-                    placeholder: "e.g., Technology",
-                    icon: "briefcase.circle.fill",
-                    isRequired: false
-                )
-                .onChange(of: sector) { oldValue, newValue in detectChanges() }
+                    compactTextField(
+                        title: "Valor Number",
+                        text: $valorNr,
+                        placeholder: "e.g., 1234567",
+                        isRequired: false,
+                        autoUppercase: false
+                    )
+                    .onChange(of: valorNr) { _, _ in detectChanges() }
+                }
+
+                GridRow {
+                    compactTextField(
+                        title: "ISIN Code",
+                        text: $isin,
+                        placeholder: "e.g., US0378331005",
+                        isRequired: false,
+                        autoUppercase: true,
+                        validation: isValidISIN,
+                        errorMessage: "ISIN must be 12 characters starting with 2 letters"
+                    )
+                    .onChange(of: isin) { _, _ in detectChanges() }
+
+                    compactTextField(
+                        title: "Sector",
+                        text: $sector,
+                        placeholder: "e.g., Technology",
+                        isRequired: false
+                    )
+                    .onChange(of: sector) { _, _ in detectChanges() }
+                }
             }
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.red.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .red.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Price Section
     private var priceSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Instrument Price", icon: "dollarsign.circle.fill", color: .green)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Latest Price").font(.caption).foregroundColor(.secondary)
                         Text(formattedLatestPrice())
-                            .font(.title3)
+                            .font(.system(size: 14, weight: .medium))
                     }
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("As Of").font(.caption).foregroundColor(.secondary)
-                        Text(latestPriceAsOf.map { iso8601Formatter().string(from: $0) } ?? "—")
+                        Text(formattedAsOf(latestPriceAsOf))
+                            .font(.system(size: 14, weight: .medium))
                     }
                     Spacer()
                 }
@@ -476,11 +456,8 @@ struct InstrumentEditView: View {
                 }
             }
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.green.opacity(0.2), lineWidth: 1))
-        .shadow(color: .green.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Price helpers
@@ -500,10 +477,40 @@ struct InstrumentEditView: View {
         return f
     }()
 
+    private static let quantityFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 0
+        return f
+    }()
+
     private func formattedLatestPrice() -> String {
         guard let p = latestPrice else { return "—" }
         let formatted = Self.priceFormatter.string(from: NSNumber(value: p)) ?? String(format: "%.2f", p)
         return currency.isEmpty ? formatted : "\(formatted) \(currency)"
+    }
+
+    private func formattedAsOf(_ date: Date?) -> String {
+        DateFormatting.asOfDisplay(date)
+    }
+
+    private func formattedQuantity(_ quantity: Double, currency: String) -> String {
+        let formatted = Self.quantityFormatter.string(from: NSNumber(value: quantity)) ?? String(format: "%.2f", quantity)
+        return currency.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? formatted : "\(formatted) \(currency)"
+    }
+
+    private func portfolioAllocationDetail(for membership: PortfolioMembershipRow) -> String? {
+        var parts: [String] = []
+        if let research = membership.researchTargetPct {
+            parts.append(String(format: "Research %.1f%%", research))
+        }
+        if let user = membership.userTargetPct {
+            parts.append(String(format: "User %.1f%%", user))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: "  •  ")
     }
 
     private func loadLatestPrice() {
@@ -518,10 +525,11 @@ struct InstrumentEditView: View {
 
     private func saveInstrumentPrice() {
         guard let p = Double(priceInput) else { return }
-        let asOf = iso8601Formatter().string(from: priceAsOf)
-        let ok = DatabaseManager().upsertPrice(instrumentId: instrumentId, price: p, currency: currency, asOf: asOf, source: "manual")
+        let asOfIso = iso8601Formatter().string(from: priceAsOf)
+        let ok = DatabaseManager().upsertPrice(instrumentId: instrumentId, price: p, currency: currency, asOf: asOfIso, source: "manual")
         if ok {
-            priceMessage = "Saved \(p) \(currency) @ \(asOf)"
+            let displayAsOf = DateFormatting.asOfDisplay(priceAsOf)
+            priceMessage = "Saved \(p) \(currency) @ \(displayAsOf)"
             loadLatestPrice()
         } else {
             priceMessage = "Failed to save price"
@@ -529,23 +537,17 @@ struct InstrumentEditView: View {
     }
 
     private var updatesInThemesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 sectionHeader(title: "Instrument Notes/Updates", icon: "doc.text", color: .blue)
                 Spacer()
-                Button("Open Instrument Notes") { openInstrumentNotes() }
-                    .buttonStyle(.borderedProminent)
+                Button("Open Notes") { openInstrumentNotes() }
+                    .buttonStyle(.bordered)
                     .accessibilityLabel("Open Instrument Notes for \(instrumentName)")
             }
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
     
     private func openInstrumentNotes() {
@@ -563,49 +565,17 @@ struct InstrumentEditView: View {
     }
     
     // MARK: - Edit Glassmorphism Background
-    private var editGlassMorphismBackground: some View {
-        ZStack {
-            // Base glass effect
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.85),
-                            .white.opacity(0.65)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            
-            // Subtle gradient overlay
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .orange.opacity(0.05),
-                            .red.opacity(0.03),
-                            .clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        }
-    }
-    
     // MARK: - Modern Footer
     private var modernFooter: some View {
-        Spacer()
+        Spacer(minLength: 0)
     }
     
     // MARK: - Helper Views
     
-    private func sectionHeader(title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
+    private func sectionHeader(title: String, icon: String, color: Color, @ViewBuilder trailing: () -> some View = { EmptyView() }) -> some View {
+        HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 16))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [color, color.opacity(0.7)],
@@ -613,11 +583,10 @@ struct InstrumentEditView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-            
             Text(title)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
-            
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(.primary)
+            trailing()
             Spacer()
         }
     }
@@ -632,66 +601,82 @@ struct InstrumentEditView: View {
         validation: Bool = true,
         errorMessage: String = ""
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-                
+        compactTextField(
+            title: title,
+            text: text,
+            placeholder: placeholder,
+            isRequired: isRequired,
+            autoUppercase: autoUppercase,
+            validation: validation,
+            errorMessage: errorMessage,
+            leadingIcon: icon
+        )
+    }
+
+    private func compactTextField(
+        title: String,
+        text: Binding<String>,
+        placeholder: String,
+        isRequired: Bool,
+        autoUppercase: Bool = false,
+        validation: Bool = true,
+        errorMessage: String = "",
+        leadingIcon: String? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                if let icon = leadingIcon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                }
                 Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
-                
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundColor(.primary)
                 Spacer()
-                
                 if !text.wrappedValue.isEmpty && !validation {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.red)
                 }
             }
-            
             TextField(placeholder, text: text)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .font(.system(size: 13))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 6)
                         .stroke(
                             !text.wrappedValue.isEmpty && !validation ?
-                                .red.opacity(0.6) : Color.gray.opacity(0.3),
+                                Color.red.opacity(0.6) : Color.gray.opacity(0.25),
                             lineWidth: 1
                         )
                 )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                .onChange(of: text.wrappedValue) { oldValue, newValue in
+                .onChange(of: text.wrappedValue) { _, newValue in
                     if autoUppercase {
                         text.wrappedValue = newValue.uppercased()
                     }
                 }
-            
             if !text.wrappedValue.isEmpty && !validation && !errorMessage.isEmpty {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.red.opacity(0.8))
-                    .padding(.horizontal, 4)
             }
         }
     }
         
     private func modernCurrencyField() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "dollarsign.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.system(size: 12))
                     .foregroundColor(.gray)
                 
-                Text("Currency*")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
+                Text("Currency")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
                 
                 Spacer()
                 
@@ -743,23 +728,21 @@ struct InstrumentEditView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.gray)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
             }
             .buttonStyle(PlainButtonStyle())
             
             if !currency.isEmpty && !isValidCurrency {
                 Text("Please select a currency from the dropdown")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.red.opacity(0.8))
-                    .padding(.horizontal, 4)
             }
         }
     }
@@ -803,6 +786,13 @@ struct InstrumentEditView: View {
         availableCurrencies = dbManager.fetchActiveCurrencies()
     }
     
+    private func refreshInstrumentUsage(using dbManager: DatabaseManager = DatabaseManager()) {
+        portfolioMemberships = dbManager.listPortfolioMembershipsForInstrument(id: instrumentId)
+        instrumentPositions = dbManager.listPositionsForInstrument(id: instrumentId)
+        portfoliosCount = portfolioMemberships.count
+        positionsCount = instrumentPositions.count
+    }
+
     func loadInstrumentData() {
         let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentDetails(id: instrumentId) {
@@ -815,8 +805,6 @@ struct InstrumentEditView: View {
             sector = details.sector ?? ""
             isActiveFlag = details.isActive
             isDeletedFlag = details.isDeleted
-            positionsCount = dbManager.countPositionsForInstrument(id: instrumentId)
-            portfoliosCount = dbManager.countPortfolioMembershipsForInstrument(id: instrumentId)
             
             // Store original values for change detection
             originalName = instrumentName
@@ -827,26 +815,150 @@ struct InstrumentEditView: View {
             originalIsin = isin
             originalSector = sector
         }
+        refreshInstrumentUsage(using: dbManager)
+    }
+
+    @ViewBuilder
+    private var portfolioMembershipsView: some View {
+        if portfolioMemberships.isEmpty {
+            Text("Not part of any investment portfolios")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Investment Portfolios")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                ForEach(portfolioMemberships) { membership in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .center, spacing: 6) {
+                            Text(membership.name)
+                                .font(.subheadline)
+                                .foregroundColor(.accentColor)
+                                .underline()
+                                .onTapGesture(count: 2) { openThemeId = membership.id }
+                                .help("Double-click to open \(membership.name)")
+                            if let status = membership.status, !status.isEmpty {
+                                Text(status)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            if membership.isArchived {
+                                Text("Archived")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                            }
+                            if membership.isSoftDeleted {
+                                Text("Hidden")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        if let detail = portfolioAllocationDetail(for: membership) {
+                            Text(detail)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    if membership.id != portfolioMemberships.last?.id {
+                        Divider().opacity(0.15)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var positionsView: some View {
+        if instrumentPositions.isEmpty {
+            Text("No current positions recorded")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Positions")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                ForEach(instrumentPositions) { position in
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(position.accountName)
+                                .font(.subheadline)
+                            Text(position.institutionName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(formattedQuantity(position.quantity, currency: position.instrumentCurrency))
+                                .font(.caption)
+                                .monospacedDigit()
+                            Text(DateFormatter.swissDate.string(from: position.reportDate))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) { editingPosition = position }
+                    .help("Double-click to edit position for \(position.accountName)")
+                    if position.id != instrumentPositions.last?.id {
+                        Divider().opacity(0.15)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Lifecycle Section (Soft Delete / Restore)
     private var lifecycleSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "Status & Lifecycle", icon: "archivebox", color: .purple)
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(title: "Status & Lifecycle", icon: "archivebox", color: .purple) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.gray)
+                    .padding(.leading, 2)
+                    .onHover { showLifecycleInfo = $0 }
+                    .popover(isPresented: $showLifecycleInfo, arrowEdge: .top) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Soft delete will hide this instrument from search and stop price updates. Requirements: no positions and not part of any portfolios.")
+                                .font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.bottom, 4)
+                            if positionsCount > 0 || portfoliosCount > 0 {
+                                Text("Cannot soft delete: remove all positions and portfolio memberships first.")
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                            }
+                            if isDeletedFlag {
+                                Text("This instrument is soft-deleted. It is hidden in selectors and does not receive price updates.")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(16)
+                        .frame(minWidth: 320)
+                        .onHover { showLifecycleInfo = $0 }
+                    }
+            }
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     statusBadge(title: isDeletedFlag ? "Soft-deleted" : (isActiveFlag ? "Tracked" : "Disabled"), color: isDeletedFlag ? .red : (isActiveFlag ? .green : .gray))
                     statusBadge(title: positionsCount > 0 ? "Investment: Active" : "Investment: Inactive", color: positionsCount > 0 ? .blue : .orange)
                 }
-                Text("Portfolio memberships: \(portfoliosCount)  •  Current positions: \(positionsCount)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Portfolio memberships: \(portfoliosCount)  •  Current positions: \(positionsCount)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    portfolioMembershipsView
+                    positionsView
+                }
                 Divider()
                 if !isDeletedFlag {
-                    Text("Soft delete will hide this instrument from search and stop price updates. Requirements: no positions and not part of any portfolios.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         TextField("Reason (optional)", text: $deleteReason)
                             .textFieldStyle(.roundedBorder)
                         TextField("Note (optional)", text: $deleteNote)
@@ -858,12 +970,12 @@ struct InstrumentEditView: View {
                     }
                     if positionsCount > 0 || portfoliosCount > 0 {
                         Text("Cannot soft delete: remove all positions and portfolio memberships first.")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundColor(.red)
                     }
                 } else {
                     Text("This instrument is soft-deleted. It is hidden in selectors and does not receive price updates.")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                     Button { performRestore() } label: {
                         Label("Restore Instrument", systemImage: "arrow.uturn.left")
@@ -872,21 +984,15 @@ struct InstrumentEditView: View {
                 }
             }
         }
-        .padding(24)
-        .background(editGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.purple.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .purple.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func statusBadge(title: String, color: Color) -> some View {
         Text(title)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
             .background(color.opacity(0.12))
             .foregroundColor(color)
             .clipShape(Capsule())
@@ -989,53 +1095,10 @@ struct InstrumentEditView: View {
 
 // MARK: - Supporting Views
 
-struct EditParticleBackground: View {
-    @State private var particles: [EditParticle] = []
-    
-    var body: some View {
-        ZStack {
-            ForEach(particles.indices, id: \.self) { index in
-                Circle()
-                    .fill(Color.orange.opacity(0.04))
-                    .frame(width: particles[index].size, height: particles[index].size)
-                    .position(particles[index].position)
-                    .opacity(particles[index].opacity)
-            }
-        }
-        .onAppear {
-            createParticles()
-            animateParticles()
-        }
+    private struct Ident: Identifiable {
+        let value: Int
+        var id: Int { value }
     }
-    
-    private func createParticles() {
-        particles = (0..<12).map { _ in
-            EditParticle(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0...700),
-                    y: CGFloat.random(in: 0...750)
-                ),
-                size: CGFloat.random(in: 3...10),
-                opacity: Double.random(in: 0.1...0.25)
-            )
-        }
-    }
-    
-    private func animateParticles() {
-        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
-            for index in particles.indices {
-                particles[index].position.y -= 900
-                particles[index].opacity = Double.random(in: 0.05...0.2)
-            }
-        }
-    }
-}
-
-struct EditParticle {
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
-}
 
 // MARK: - History
 // Version 1.1 - Fixed onChange deprecation warnings for macOS 14.0+
