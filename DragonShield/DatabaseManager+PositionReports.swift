@@ -37,7 +37,7 @@ extension DatabaseManager {
                    ins.institution_name, i.instrument_name, i.currency,
                    i.country_code, i.sector, ac.class_name, asc.sub_class_name,
                    pr.quantity, pr.purchase_price, pr.current_price,
-                   pr.instrument_updated_at,
+                   COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                    pr.notes,
                    pr.report_date, pr.uploaded_at
             FROM PositionReports pr
@@ -46,6 +46,7 @@ extension DatabaseManager {
             JOIN Instruments i ON pr.instrument_id = i.instrument_id
             JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
             JOIN AssetClasses ac ON asc.class_id = ac.class_id
+            LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
             ORDER BY pr.position_id;
         """
         var statement: OpaquePointer?
@@ -79,7 +80,7 @@ extension DatabaseManager {
                 var instrumentUpdatedAt: Date?
                 if sqlite3_column_type(statement, 14) != SQLITE_NULL {
                     let str = String(cString: sqlite3_column_text(statement, 14))
-                    instrumentUpdatedAt = DateFormatter.iso8601DateOnly.date(from: str)
+                    instrumentUpdatedAt = ISO8601DateParser.parse(str)
                 }
                 let notes: String? = sqlite3_column_text(statement, 15).map { String(cString: $0) }
                 let reportDateStr = String(cString: sqlite3_column_text(statement, 16))
@@ -398,9 +399,11 @@ extension DatabaseManager {
         let sql = """
             SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
                    i.instrument_name, pr.quantity, pr.purchase_price, pr.current_price,
-                   pr.instrument_updated_at, pr.notes, pr.report_date, pr.import_session_id
+                   COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
+                   pr.notes, pr.report_date, pr.import_session_id
               FROM PositionReports pr
               JOIN Instruments i ON pr.instrument_id = i.instrument_id
+              LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
              WHERE pr.account_id = ?
              ORDER BY (pr.quantity * IFNULL(pr.current_price,0)) DESC;
             """
@@ -425,7 +428,7 @@ extension DatabaseManager {
                 var updated: Date?
                 if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
                     let str = String(cString: sqlite3_column_text(stmt, 8))
-                    updated = DateFormatter.iso8601DateOnly.date(from: str)
+                    updated = ISO8601DateParser.parse(str)
                 }
                 let notes = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
                 let reportStr = String(cString: sqlite3_column_text(stmt, 10))
