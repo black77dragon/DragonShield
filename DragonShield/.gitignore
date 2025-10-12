@@ -1,0 +1,81 @@
+# --- macOS ---
+.DS_Store
+.localized
+.AppleDouble
+.LSOverride
+
+# --- Xcode / Swift ---
+*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+build/
+DerivedData/
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# --- dbmate snapshot (schema dump) ---
+# Ignore generic db/ folders, but keep our migrations under DragonShield/db/migrations
+db/
+db/schema.sql
+!DragonShield/db/
+!DragonShield/db/migrations/
+!DragonShield/db/migrations/**
+
+# --- SQLite / local DB files ---
+# We version the schema and migrations, not live data
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+*.db
+*.db-shm
+*.db-wal
+
+# Explicit old paths (kept for safety; redundant with patterns above)
+dragonshield.sqlite
+DragonShield/dragonshield.sqlite
+dragonshield.sqlite-shm
+dragonshield.sqlite-wal
+
+# --- Env / secrets ---
+.env
+.env.*
+*.local
+
+# --- Python ---
+.venv/
+python_scripts_venv/
+DragonShield/python_scripts/.venv/
+__pycache__/
+*.pyc
+
+# --- User-specific files ---
+*.user
+
+# --- Generated source ---
+DragonShield/Helpers/Version.swift
+
+# --- Logs / backups ---
+import.log
+*.log
+*.old
+*.bak
+*~
+
+# NOTE: Do NOT ignore migrations!
+# Keep: DragonShield/db/migrations/*.sql

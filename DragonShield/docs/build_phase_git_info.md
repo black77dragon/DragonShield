@@ -1,0 +1,76 @@
+ # Embed Git Info in Info.plist (Version, Branch, Commit)
+ 
+ This guide shows how to inject Git metadata into your app’s Info.plist at build time so Settings can display the correct Git tag (Version) and current branch name.
+ 
+ The Settings view reads these keys (if present):
+ - `GIT_TAG` — latest tag (e.g., v2.3.1)
+ - `GIT_BRANCH` — current branch (e.g., main)
+ - `GIT_COMMIT` — short commit hash (e.g., a1b2c3d)
+ 
+ We provide a ready-to-use script at `scripts/embed_git_info.sh`.
+ 
+ ## Steps (Xcode)
+ 
+ 1) In Xcode, select the `DragonShield` app target.
+ 2) Go to the “Build Phases” tab.
+ 3) Click the `+` button in the top-left and choose “New Run Script Phase”.
+ 4) Drag the new script phase above “Compile Sources”.
+5) Set its shell to `/bin/zsh` (or `/bin/bash`).
+6) Paste the following line into the script box:
+ 
+ ```
+ ${SRCROOT}/scripts/embed_git_info.sh
+ ```
+ 
+7) Ensure the script has execute permission:
+ 
+ ```
+ chmod +x scripts/embed_git_info.sh
+ ```
+ 
+8) Inputs/Outputs to avoid build warnings and conflicts:
+
+- Input Files (optional, improves dependency tracking):
+  - $(SRCROOT)/scripts/embed_git_info.sh
+  - $(INFOPLIST_FILE)
+
+- Output Files (use our stamp file — do NOT use Info.plist here):
+  - $(DERIVED_FILE_DIR)/git_info.stamp
+
+Using Info.plist as an output causes “Multiple commands produce ... Info.plist” because Xcode’s ProcessInfoPlist also declares that path. The stamp avoids conflicts.
+
+Alternatively, uncheck “Based on dependency analysis” to force-run every build.
+
+9) Make sure the script runs for Debug builds:
+   - Uncheck “For install builds only” so the phase executes on normal Run/Debug builds as well.
+
+Order: place this Run Script phase towards the end (below “Copy Bundle Resources”), so the built Info.plist exists when the script runs.
+
+That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, GitInfoProvider will prefer these keys and display:
+ 
+ - Version: Git tag (or marketing version) + build number
+ - Branch: current Git branch beneath the version
+ 
+ ## Script behavior
+ 
+ - Falls back gracefully if not in a Git repo or on CI without tags.
+ - Only mutates the built product’s Info.plist (not your source plist).
+ - Adds keys if missing, otherwise updates them.
+ 
+If you use CI, make sure the checkout includes `.git` for tags/branches, or set environment variables to provide the values and tweak the script accordingly.
+
+## Manual usage (outside Xcode)
+
+If you want to test the script locally without Xcode env vars, pass your built app or Info.plist path:
+
+```
+# From repo root, after building in Xcode (Debug scheme)
+./scripts/embed_git_info.sh \
+  "$HOME/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/DragonShield.app"
+
+# Or pass the exact Info.plist file
+./scripts/embed_git_info.sh \
+  "$HOME/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/DragonShield.app/Contents/Info.plist"
+```
+
+The script will log [git-info] lines and update the passed Info.plist accordingly.
