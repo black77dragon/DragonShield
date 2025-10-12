@@ -43,7 +43,6 @@ final class AccountDetailWindowViewModel: ObservableObject {
                 reportDate: pos.reportDate
             )
         }
-        db.refreshEarliestInstrumentTimestamp(accountId: account.id)
         loadData()
         showSaved = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
