@@ -41,3 +41,25 @@ extension DateFormatter {
         return formatter
     }()
 }
+
+enum ISO8601DateParser {
+    private static let fractionalFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let internetFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func parse(_ value: String) -> Date? {
+        if let date = fractionalFormatter.date(from: value) { return date }
+        if let date = internetFormatter.date(from: value) { return date }
+        if let date = DateFormatter.iso8601DateTime.date(from: value) { return date }
+        if let date = DateFormatter.iso8601DateOnly.date(from: value) { return date }
+        return nil
+    }
+}

@@ -38,15 +38,23 @@ extension DatabaseManager {
         var accounts: [AccountData] = []
         // MODIFIED: Join with AccountTypes and Institutions tables
         let query = """
+            WITH account_freshness AS (
+                SELECT pr.account_id AS account_id,
+                       MIN(COALESCE(ipl.as_of, pr.instrument_updated_at)) AS min_as_of
+                  FROM PositionReports pr
+                  LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
+                 GROUP BY pr.account_id
+            )
             SELECT a.account_id, a.account_name,
                    i.institution_name, i.bic,
                    a.account_number, at.type_name AS account_type_name, a.currency_code,
-                   a.opening_date, a.closing_date, a.earliest_instrument_last_updated_at,
+                   a.opening_date, a.closing_date, af.min_as_of,
                    a.include_in_portfolio, a.is_active, a.notes,
                    a.account_type_id, a.institution_id
             FROM Accounts a
             JOIN AccountTypes at ON a.account_type_id = at.account_type_id
             JOIN Institutions i ON a.institution_id = i.institution_id
+            LEFT JOIN account_freshness af ON af.account_id = a.account_id
             ORDER BY a.account_name COLLATE NOCASE;
         """
         
@@ -65,7 +73,7 @@ extension DatabaseManager {
 
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse }
 
                 let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
                 let isActive = sqlite3_column_int(statement, 11) == 1
@@ -127,7 +135,7 @@ extension DatabaseManager {
                 let currencyCode = String(cString: sqlite3_column_text(statement, 6))
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse }
                 let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
                 let isActive = sqlite3_column_int(statement, 11) == 1
                 let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
@@ -474,45 +482,3 @@ extension DatabaseManager {
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(self.db, sql, -1, &stmt, nil) == SQLITE_OK else {
                 let msg = String(cString: sqlite3_errmsg(self.db))
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])))
-                }
-                return
-            }
-            let step = sqlite3_step(stmt)
-            let changed = sqlite3_changes(self.db)
-            sqlite3_finalize(stmt)
-            DispatchQueue.main.async {
-                if step == SQLITE_DONE {
-                    completion(.success(Int(changed)))
-                } else {
-                    let msg = String(cString: sqlite3_errmsg(self.db))
-                    completion(.failure(NSError(domain: "SQLite", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])))
-                }
-            }
-        }
-    }
-
-    func refreshEarliestInstrumentTimestamp(accountId: Int) {
-        let sql = """
-            UPDATE Accounts
-               SET earliest_instrument_last_updated_at = (
-                    SELECT MIN(instrument_updated_at)
-                      FROM PositionReports pr
-                     WHERE pr.account_id = ?
-               )
-             WHERE account_id = ?;
-            """
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            print("❌ Failed to prepare refreshEarliestInstrumentTimestamp: \(String(cString: sqlite3_errmsg(db)))")
-            return
-        }
-        sqlite3_bind_int(stmt, 1, Int32(accountId))
-        sqlite3_bind_int(stmt, 2, Int32(accountId))
-        if sqlite3_step(stmt) != SQLITE_DONE {
-            print("❌ Failed to refresh earliest timestamp: \(String(cString: sqlite3_errmsg(db)))")
-        }
-        sqlite3_finalize(stmt)
-    }
-}
