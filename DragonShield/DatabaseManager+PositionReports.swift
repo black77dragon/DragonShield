@@ -116,6 +116,106 @@ extension DatabaseManager {
         return reports
     }
 
+    func listPositionsForInstrument(id: Int) -> [PositionReportData] {
+        var reports: [PositionReportData] = []
+        let query = """
+            SELECT pr.position_id, pr.instrument_id, pr.import_session_id, a.account_name,
+                   ins.institution_name, i.instrument_name, i.currency,
+                   i.country_code, i.sector, ac.class_name, asc.sub_class_name,
+                   pr.quantity, pr.purchase_price, pr.current_price,
+                   COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
+                   pr.notes,
+                   pr.report_date, pr.uploaded_at
+            FROM PositionReports pr
+            JOIN Accounts a ON pr.account_id = a.account_id
+            JOIN Institutions ins ON pr.institution_id = ins.institution_id
+            JOIN Instruments i ON pr.instrument_id = i.instrument_id
+            JOIN AssetSubClasses asc ON i.sub_class_id = asc.sub_class_id
+            JOIN AssetClasses ac ON asc.class_id = ac.class_id
+            LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
+            WHERE pr.instrument_id = ?
+            ORDER BY pr.position_id;
+        """
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let positionId = Int(sqlite3_column_int(statement, 0))
+                let instrumentId: Int?
+                if sqlite3_column_type(statement, 1) != SQLITE_NULL {
+                    instrumentId = Int(sqlite3_column_int(statement, 1))
+                } else {
+                    instrumentId = nil
+                }
+                let sessionId: Int?
+                if sqlite3_column_type(statement, 2) != SQLITE_NULL {
+                    sessionId = Int(sqlite3_column_int(statement, 2))
+                } else {
+                    sessionId = nil
+                }
+                let accountName = String(cString: sqlite3_column_text(statement, 3))
+                let institutionName = String(cString: sqlite3_column_text(statement, 4))
+                let instrumentName = String(cString: sqlite3_column_text(statement, 5))
+                let instrumentCurrency = String(cString: sqlite3_column_text(statement, 6))
+                let instrumentCountry = sqlite3_column_text(statement, 7).map { String(cString: $0) }
+                let instrumentSector = sqlite3_column_text(statement, 8).map { String(cString: $0) }
+                let assetClass = sqlite3_column_text(statement, 9).map { String(cString: $0) }
+                let assetSubClass = sqlite3_column_text(statement, 10).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(statement, 11)
+                var purchasePrice: Double?
+                if sqlite3_column_type(statement, 12) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 12)
+                } else {
+                    purchasePrice = nil
+                }
+                var currentPrice: Double?
+                if sqlite3_column_type(statement, 13) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 13)
+                } else {
+                    currentPrice = nil
+                }
+                var instrumentUpdatedAt: Date?
+                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(statement, 14))
+                    instrumentUpdatedAt = ISO8601DateParser.parse(str)
+                } else {
+                    instrumentUpdatedAt = nil
+                }
+                let notes = sqlite3_column_text(statement, 15).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 16))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 17))
+                let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
+                let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
+
+                reports.append(PositionReportData(
+                    id: positionId,
+                    instrumentId: instrumentId,
+                    importSessionId: sessionId,
+                    accountName: accountName,
+                    institutionName: institutionName,
+                    instrumentName: instrumentName,
+                    instrumentCurrency: instrumentCurrency,
+                    instrumentCountry: instrumentCountry,
+                    instrumentSector: instrumentSector,
+                    assetClass: assetClass,
+                    assetSubClass: assetSubClass,
+                    quantity: quantity,
+                    purchasePrice: purchasePrice,
+                    currentPrice: currentPrice,
+                    instrumentUpdatedAt: instrumentUpdatedAt,
+                    notes: notes,
+                    reportDate: reportDate,
+                    uploadedAt: uploadedAt
+                ))
+            }
+        } else {
+            let errmsg = String(cString: sqlite3_errmsg(db))
+            print("❌ Failed to prepare listPositionsForInstrument: \(errmsg)")
+        }
+        sqlite3_finalize(statement)
+        return reports
+    }
+
     /// Deletes position reports where the associated account name contains the provided text.
     /// - Parameter substring: The case-insensitive text to match within account names.
     /// - Returns: The number of deleted rows.

@@ -24,6 +24,12 @@ struct AccountDetailWindowView: View {
         return f
     }()
 
+    private static let priceDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "dd MMM yy"
+        return f
+    }()
+
     private struct InstrumentSheetTarget: Identifiable { let id: Int }
     @State private var editingInstrument: InstrumentSheetTarget?
 
@@ -74,9 +80,11 @@ struct AccountDetailWindowView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Update Account Information")
+                .font(.system(size: 22, weight: .bold))
             Text(viewModel.account.accountName)
-                .font(.system(size: 20, weight: .bold))
+                .font(.headline)
                 .foregroundColor(.accentColor)
             Text("Account Number: \(viewModel.account.accountNumber)")
                 .font(.subheadline)
@@ -112,45 +120,76 @@ struct AccountDetailWindowView: View {
                             Text("Latest Price")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            if let lp = dbManager.getLatestPrice(instrumentId: item.instrumentId) {
-                                let formatted = Self.priceFormatter.string(from: NSNumber(value: lp.price)) ?? String(format: "%.2f", lp.price)
-                                Text("\(formatted) \(lp.currency)")
-                                    .frame(width: 140, alignment: .trailing)
-                                Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
-                                    .buttonStyle(.link)
-                                    .font(.caption)
-                                    .frame(width: 140, alignment: .trailing)
-                            } else {
-                                Text("—")
+                            HStack(spacing: 6) {
+                                TextField("", text: priceBinding(for: $item))
+                                    .textFieldStyle(.roundedBorder)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 100, alignment: .trailing)
+                                Text(item.instrumentCurrency)
+                                    .font(.caption2)
                                     .foregroundColor(.secondary)
-                                    .frame(width: 140, alignment: .trailing)
-                                Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
-                                    .buttonStyle(.link)
-                                    .font(.caption)
-                                    .frame(width: 140, alignment: .trailing)
                             }
+                            Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
+                                .buttonStyle(.link)
+                                .font(.caption)
+                                .frame(width: 140, alignment: .leading)
                         }
 
-                        // Instrument price is now centralized; position-level updated date is not editable.
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Price As Of")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            if let lp = dbManager.getLatestPrice(instrumentId: item.instrumentId) {
-                                Text(lp.asOf)
-                                    .frame(width: 120, alignment: .leading)
-                            } else {
-                                Text("—")
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 120, alignment: .leading)
-                            }
+                            priceAsOfStyledText(for: item.latestPriceAsOf)
+                                .frame(width: 120, alignment: .leading)
                         }
-        }
-    }
-
-    // (Sheet attached in body)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+private extension AccountDetailWindowView {
+    func priceBinding(for item: Binding<DatabaseManager.EditablePositionData>) -> Binding<String> {
+        Binding<String>(
+            get: {
+                if let value = item.wrappedValue.latestPrice {
+                    return AccountDetailWindowView.priceFormatter.string(from: NSNumber(value: value)) ?? String(value)
+                }
+                return ""
+            },
+            set: { newValue in
+                let sanitized = newValue.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: ",", with: ".")
+                let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    item.wrappedValue.latestPrice = nil
+                    item.wrappedValue.latestPriceAsOf = nil
+                } else if let value = Double(trimmed) {
+                    item.wrappedValue.latestPrice = value
+                    item.wrappedValue.latestPriceAsOf = Date()
+                }
+            }
+        )
+    }
+
+    func formattedPriceAsOf(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        return AccountDetailWindowView.priceDateFormatter.string(from: date)
+    }
+
+    func priceIsStale(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+        return days > 30
+    }
+
+    @ViewBuilder
+    func priceAsOfStyledText(for date: Date?) -> some View {
+        let formatted = formattedPriceAsOf(date)
+        let stale = priceIsStale(date)
+        Text(formatted)
+            .font(.caption2.weight(stale ? .bold : .regular))
+            .foregroundColor(stale ? .red : .secondary)
     }
 }

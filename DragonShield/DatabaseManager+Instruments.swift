@@ -181,6 +181,87 @@ extension DatabaseManager {
         return count
     }
 
+    struct InstrumentPortfolioMembershipRow: Identifiable {
+        let id: Int
+        let name: String
+        let status: String?
+        let isArchived: Bool
+        let isSoftDeleted: Bool
+        let researchTargetPct: Double?
+        let userTargetPct: Double?
+    }
+
+    func listPortfolioMembershipsForInstrument(id: Int) -> [InstrumentPortfolioMembershipRow] {
+        guard let db else { return [] }
+
+        var rows: [InstrumentPortfolioMembershipRow] = []
+        let hasArchivedAt = tableHasColumn("PortfolioTheme", column: "archived_at")
+        let hasSoftDelete = tableHasColumn("PortfolioTheme", column: "soft_delete")
+        let selectArchived = hasArchivedAt ? "pt.archived_at" : "NULL"
+        let selectSoftDelete = hasSoftDelete ? "pt.soft_delete" : "0"
+        let selectResearch = tableHasColumn("PortfolioThemeAsset", column: "research_target_pct") ? "pta.research_target_pct" : "NULL"
+        let selectUser = tableHasColumn("PortfolioThemeAsset", column: "user_target_pct") ? "pta.user_target_pct" : "NULL"
+
+        let sql = """
+            SELECT pt.id,
+                   pt.name,
+                   pts.name,
+                   \(selectArchived) AS archived_at,
+                   \(selectSoftDelete) AS soft_delete,
+                   \(selectResearch) AS research_target_pct,
+                   \(selectUser) AS user_target_pct
+              FROM PortfolioThemeAsset pta
+              JOIN PortfolioTheme pt ON pt.id = pta.theme_id
+              LEFT JOIN PortfolioThemeStatus pts ON pts.id = pt.status_id
+             WHERE pta.instrument_id = ?
+             ORDER BY LOWER(pt.name)
+        """
+
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(stmt, 1, Int32(id))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let themeId = Int(sqlite3_column_int(stmt, 0))
+                let name = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? "Theme #\(themeId)"
+                let statusName = sqlite3_column_text(stmt, 2).map { String(cString: $0) }
+
+                let archived: Bool
+                if hasArchivedAt {
+                    if sqlite3_column_type(stmt, 3) == SQLITE_NULL {
+                        archived = false
+                    } else if let text = sqlite3_column_text(stmt, 3) {
+                        archived = !String(cString: text).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    } else {
+                        archived = false
+                    }
+                } else {
+                    archived = false
+                }
+
+                let softDeleted = hasSoftDelete ? (sqlite3_column_int(stmt, 4) == 1) : false
+                let researchPct = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 5)
+                let userPct = sqlite3_column_type(stmt, 6) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, 6)
+
+                rows.append(
+                    InstrumentPortfolioMembershipRow(
+                        id: themeId,
+                        name: name,
+                        status: statusName,
+                        isArchived: archived,
+                        isSoftDeleted: softDeleted,
+                        researchTargetPct: researchPct,
+                        userTargetPct: userPct
+                    )
+                )
+            }
+        } else {
+            let err = String(cString: sqlite3_errmsg(db))
+            LoggingService.shared.log("listPortfolioMembershipsForInstrument prepare failed: \(err)", type: .error, logger: .database)
+        }
+        sqlite3_finalize(stmt)
+        return rows
+    }
+
     func softDeleteInstrument(id: Int, reason: String?, note: String?) -> Bool {
         // Guard: prevent soft delete if still referenced
         if countPositionsForInstrument(id: id) > 0 { return false }
