@@ -14,7 +14,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
     @State private var showGreen = false
     @State private var refreshing = false
     @State private var showCheckmark = false
-    @State private var refreshError: String? = nil
+    @State private var refreshError: String?
 
     private static let displayFormatter: DateFormatter = {
         let f = DateFormatter()
