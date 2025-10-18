@@ -166,6 +166,7 @@ struct PortfolioThemeWorkspaceView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                titleBar
                 // Header strip
                 header
                 Divider()
@@ -188,7 +189,7 @@ struct PortfolioThemeWorkspaceView: View {
                         .tabItem { Label(WorkspaceTab.settings.label, systemImage: WorkspaceTab.settings.systemImage) }
                 }
             }
-            .navigationTitle("Theme Workspace: \(name)")
+            .navigationTitle("Portfolio: \(displayName)")
         }
         .frame(minWidth: 1500, idealWidth: 1750, minHeight: 720, idealHeight: 800)
         .onAppear {
@@ -212,73 +213,63 @@ struct PortfolioThemeWorkspaceView: View {
 
     // MARK: - Header
     private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(name.isEmpty ? "—" : name)
-                    .font(.title2).bold()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                HStack(spacing: 12) {
-                    Tag(text: code)
-                    if let s = statuses.first(where: { $0.id == statusId }) {
-                        Tag(text: s.name, color: Color(hex: s.colorHex))
-                    }
-                    if let instId = institutionId, let inst = institutions.first(where: { $0.id == instId }) {
-                        Tag(text: inst.name, color: .secondary)
-                    }
-                    if let t = theme, let archived = t.archivedAt {
-                        Tag(text: "Archived: \(archived)", color: .orange)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+        HStack(alignment: .center, spacing: 16) {
+            headerInfoLine
             Spacer()
-            HStack(spacing: 16) {
-                // Quick stats in header (large, total bold)
-                if selectedTab == .holdings {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Total: \(currencyWholeCHF(includedUserTotalBase))")
-                            .font(.title2).bold()
-                            .accessibilityLabel("Included total value \((includedUserTotalBase ?? 0).formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(0))))")
-                        Text("Total (included + excluded): \(currencyWholeCHF(valuation?.totalValueBase))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .accessibilityHidden(true)
-                    }
-                    // Delta vs Budget (same size)
-                    let budget = currentBudget() ?? 0
-                    let delta = (includedUserTotalBase ?? 0) - budget
-                    let devPct = budget > 0 ? abs(delta) / budget : 0
-                    Text("Δ: \(currencyWholeCHF(delta))")
-                        .font(.title2)
-                        .foregroundColor(devPct > 0.05 ? .red : .primary)
-                        .accessibilityLabel("Delta included minus budget \(delta.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(0))))")
-                    Text("Instruments: \(includedInstrumentCount)")
-                        .font(.title2)
-                        .accessibilityLabel("Included instrument count \(includedInstrumentCount)")
-                } else {
-                    Text("Total: \(currency(valuation?.totalValueBase))")
-                        .font(.title2).bold()
-                        .accessibilityLabel("Total value \((valuation?.totalValueBase ?? 0).formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2))))")
-                    Text("Instruments: \(theme?.instrumentCount ?? 0)")
-                        .font(.title2)
-                        .accessibilityLabel("Instrument count \(theme?.instrumentCount ?? 0)")
-                }
-                Button(role: .none) { runValuation() } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .keyboardShortcut("r", modifiers: .command)
-                Button(role: .cancel) { dismiss() } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.gray)
-                .foregroundColor(.white)
-                .keyboardShortcut("w", modifiers: .command)
-                .help("Close")
-            }
+            headerActions
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+
+    private var titleBar: some View {
+        HStack {
+            Text("Portfolio: \(displayName)")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 4)
+    }
+
+    private var headerInfoLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 20) {
+            Text("Status \(statusDisplay.name)")
+                .foregroundColor(statusDisplay.color)
+            Text("Total (Actual) \(baseCurrencyCode): \(formatWholeAmount(actualTotalBase))")
+            if let delta = deltaToSetTarget {
+                let deltaColor: Color = {
+                    if delta == 0 { return .primary }
+                    return delta > 0 ? .green : .red
+                }()
+                Text("Δ vs Set Target: \(formatSignedWholeAmount(delta)) \(baseCurrencyCode)")
+                    .foregroundColor(deltaColor)
+            } else {
+                Text("Δ vs Set Target: —")
+            }
+            Text("- # Instruments: \(instrumentCountDisplay)")
+        }
+        .font(.system(size: 16, weight: .medium, design: .rounded))
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 12) {
+            Button(role: .none) { runValuation() } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            Button(role: .cancel) { dismiss() } label: {
+                Label("Close", systemImage: "xmark")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.gray)
+            .foregroundColor(.white)
+            .keyboardShortcut("w", modifiers: .command)
+            .help("Close")
+        }
     }
 
     // MARK: - Tabs
@@ -336,7 +327,7 @@ struct PortfolioThemeWorkspaceView: View {
                 Text("Holdings").font(.headline)
                 Spacer()
                 HStack(spacing: 8) {
-                    Text("Target Theme Budget (CHF)")
+                    Text("Portfolio Target Budget (CHF)")
                         .font(.body.weight(.semibold))
                     TextField("0", text: $themeBudgetInput)
                         .frame(width: 120)
@@ -1145,9 +1136,62 @@ struct PortfolioThemeWorkspaceView: View {
         }
         return sum
     }
-    private var includedInstrumentCount: Int {
-        let count = valuation?.rows.filter { $0.userTargetPct > 0 }.count ?? 0
-        return count
+    private var displayName: String { name.isEmpty ? "—" : name }
+
+    private var statusDisplay: (name: String, color: Color) {
+        if let status = statuses.first(where: { $0.id == statusId }) {
+            return (status.name, Color(hex: status.colorHex))
+        }
+        return ("Unknown", .secondary)
+    }
+
+    private var baseCurrencyCode: String {
+        let trimmed = dbManager.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "CHF" : trimmed
+    }
+
+    private var actualTotalBase: Double? {
+        if let included = includedUserTotalBase, included > 0 {
+            return included
+        }
+        return valuation?.totalValueBase
+    }
+
+    private var setTargetTotalBase: Double? {
+        guard let rows = valuation?.rows else { return nil }
+        let sum = rows.reduce(0.0) { $0 + ($1.setTargetChf ?? 0) }
+        let hasValue = rows.contains { $0.setTargetChf != nil }
+        return hasValue ? sum : nil
+    }
+
+    private var deltaToSetTarget: Double? {
+        guard let actual = actualTotalBase, let target = setTargetTotalBase else { return nil }
+        return actual - target
+    }
+
+    private var instrumentCountDisplay: Int {
+        theme?.instrumentCount ?? valuation?.rows.count ?? 0
+    }
+
+    private func formatWholeAmount(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return formatWhole(value)
+    }
+
+    private func formatSignedWholeAmount(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        if value == 0 { return "0" }
+        return (value > 0 ? "+" : "-") + formatWhole(abs(value))
+    }
+
+    private func formatWhole(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "'"
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value)
     }
 
     private func currency(_ value: Double?) -> String {
@@ -1157,14 +1201,14 @@ struct PortfolioThemeWorkspaceView: View {
 
     private func currencyWholeCHF(_ value: Double?) -> String {
         guard let v = value else { return "—" }
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.usesGroupingSeparator = true
-        f.groupingSeparator = "'"
-        f.maximumFractionDigits = 0
-        f.minimumFractionDigits = 0
-        let body = f.string(from: NSNumber(value: v)) ?? String(format: "%.0f", v)
-        return "CHF \(body)"
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "'"
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        let body = formatter.string(from: NSNumber(value: v)) ?? String(format: "%.0f", v)
+        return "\(baseCurrencyCode) \(body)"
     }
 
     private func dateStr(_ date: Date?) -> String {
@@ -1233,19 +1277,6 @@ private extension View {
     }
 }
 
-// MARK: - Simple Tag view
-private struct Tag: View {
-    let text: String
-    var color: Color = .secondary
-    var body: some View {
-        Text(text)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Capsule().stroke(color.opacity(0.8)))
-    }
-}
-
 // MARK: - Holdings Table (read-only summary)
     private struct HoldingsTable: View {
         @EnvironmentObject var dbManager: DatabaseManager
@@ -1289,6 +1320,8 @@ private struct Tag: View {
             if rows.isEmpty {
                 Text("No holdings").foregroundColor(.secondary)
             } else {
+                totalsSummary
+                    .padding(.bottom, 4)
                 // Search strip grouped tightly with table; visually separated
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
@@ -1786,6 +1819,41 @@ private struct Tag: View {
         .contextMenu { Button("Instrument Updates…") { openUpdates = UpdatesTarget(themeId: themeId, instrumentId: r.instrumentId, instrumentName: r.instrumentName) } }
     }
 
+    private var totalsSummary: some View {
+        HStack(spacing: 12) {
+            totalsCard(title: "Calc Target CHF", value: totalCalcTargetChf, accent: Theme.primaryAccent)
+            totalsCard(title: "Set Target (ST) CHF", value: totalSetTargetChf, accent: Color.blue)
+            totalsCard(title: "Actual CHF", value: totalActualChf, accent: Color.accentColor, extras: actualTotalsBreakdown)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+    }
+
+    private func totalsCard(title: String, value: Double, accent: Color, extras: [(String, Double)] = []) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                totalsPair(label: title, value: formatAmountLocal(value, decimals: 0), accent: accent)
+                ForEach(extras.indices, id: \.self) { idx in
+                    let extra = extras[idx]
+                    totalsPair(label: extra.0, value: formatAmountLocal(extra.1, decimals: 0), accent: .primary)
+                }
+            }
+        }
+        .frame(minWidth: 220, alignment: .leading)
+        .analyticsCard()
+    }
+
+    private func totalsPair(label: String, value: String, accent: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("\(label):")
+                .font(.system(size: max(fontConfig.secondarySize, 12), weight: .semibold, design: .rounded))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: max(fontConfig.rowSize + 4, CGFloat(14)), weight: .semibold, design: .monospaced))
+                .foregroundColor(accent)
+        }
+    }
+
     // Local formatter for numeric amounts (no currency code)
     private func formatAmountLocal(_ v: Double, decimals: Int) -> String {
         let f = NumberFormatter()
@@ -1797,8 +1865,13 @@ private struct Tag: View {
         return f.string(from: NSNumber(value: v)) ?? String(format: decimals == 0 ? "%.0f" : "%.2f", v)
     }
     // Local CHF whole-number currency with Swiss grouping (apostrophes)
+    private var currencyCode: String {
+        let code = dbManager.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        return code.isEmpty ? "CHF" : code
+    }
+
     private func currencyWholeCHFLocal(_ v: Double) -> String {
-        "CHF \(formatAmountLocal(v, decimals: 0))"
+        "\(currencyCode) \(formatAmountLocal(v, decimals: 0))"
     }
 
     private func ensureRebalanceTagId() -> Int? {
@@ -2094,6 +2167,28 @@ private struct Tag: View {
             let u = editableUser(r.instrumentId)
             return u == 0 ? acc + r.currentValueBase : acc
         }
+    }
+    private var totalCalcTargetChf: Double {
+        rows.reduce(0.0) { acc, row in
+            acc + targetChf(row.instrumentId)
+        }
+    }
+    private var totalSetTargetChf: Double {
+        rows.reduce(0.0) { acc, row in
+            acc + (editableSetTarget(row.instrumentId) ?? 0)
+        }
+    }
+    private var totalActualChf: Double {
+        rows.reduce(0.0) { acc, row in
+            acc + row.currentValueBase
+        }
+    }
+    private var actualTotalsBreakdown: [(String, Double)] {
+        guard totalActualChf > 0 else { return [] }
+        return [
+            ("Included", includedActualTotal),
+            ("Excluded", excludedActualTotal)
+        ]
     }
     private func normalizedUserPct(_ id: Int) -> Double? {
         let u = editableUser(id)

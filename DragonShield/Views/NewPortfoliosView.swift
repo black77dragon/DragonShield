@@ -228,7 +228,7 @@ struct NewPortfoliosView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("New Portfolios")
+                Text("Portfolios")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
                 Text("Modern table view for managing portfolio themes")
                     .font(.subheadline)
@@ -294,7 +294,7 @@ struct NewPortfoliosView: View {
             }
             .disabled(selectedTheme == nil)
             Button(action: { showingAddSheet = true }) {
-                Label("Add Theme", systemImage: "plus")
+                Label("Add new Portfolio", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
             .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
@@ -425,7 +425,7 @@ struct NewPortfoliosView: View {
                 .multilineTextAlignment(.center)
             if searchText.isEmpty {
                 Button(action: { showingAddSheet = true }) {
-                    Label("Add Theme", systemImage: "plus")
+                    Label("Add new Portfolio", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
@@ -441,7 +441,7 @@ struct NewPortfoliosView: View {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
             HStack(spacing: 16) {
                 Button(action: { showingAddSheet = true }) {
-                    Label("Add Theme", systemImage: "plus")
+                    Label("Add new Portfolio", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
