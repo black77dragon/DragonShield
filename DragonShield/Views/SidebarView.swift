@@ -35,6 +35,7 @@ struct SidebarView: View {
         let today = calendar.startOfDay(for: Date())
         return todoBoardViewModel.allTodos.filter { todo in
             guard todo.column != .done, todo.column != .archived else { return false }
+            guard !todo.isCompleted else { return false }
             let due = calendar.startOfDay(for: todo.dueDate)
             return due <= today
         }.count
@@ -230,7 +231,7 @@ private struct TodoEditorSheet: View {
 
     let mode: Mode
     let availableTags: [TagRow]
-    var onSave: (String, KanbanPriority, Date, KanbanColumn, [Int]) -> Void
+    var onSave: (String, KanbanPriority, Date, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void
     var onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -240,10 +241,17 @@ private struct TodoEditorSheet: View {
     @State private var dueDate: Date
     @State private var column: KanbanColumn
     @State private var selectedTags: Set<Int>
+    @State private var isCompleted: Bool
+    @State private var isRepeating: Bool
+    @State private var repeatFrequency: KanbanRepeatFrequency?
     @State private var confirmingDeletion = false
     @FocusState private var descriptionFocused: Bool
 
-    init(mode: Mode, availableTags: [TagRow], prefill: KanbanTodoQuickAddRequest? = nil, onSave: @escaping (String, KanbanPriority, Date, KanbanColumn, [Int]) -> Void, onDelete: (() -> Void)? = nil) {
+    init(mode: Mode,
+         availableTags: [TagRow],
+         prefill: KanbanTodoQuickAddRequest? = nil,
+         onSave: @escaping (String, KanbanPriority, Date, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void,
+         onDelete: (() -> Void)? = nil) {
         self.mode = mode
         self.availableTags = availableTags
         self.onSave = onSave
@@ -256,12 +264,19 @@ private struct TodoEditorSheet: View {
             _dueDate = State(initialValue: prefill?.dueDate ?? Date())
             _column = State(initialValue: prefill?.column ?? defaultColumn)
             _selectedTags = State(initialValue: Set(prefill?.tagIDs ?? []))
+            let initialRepeatFrequency = prefill?.repeatFrequency
+            _repeatFrequency = State(initialValue: initialRepeatFrequency)
+            _isRepeating = State(initialValue: initialRepeatFrequency != nil)
+            _isCompleted = State(initialValue: prefill?.isCompleted ?? false)
         case .edit(let existing):
             _description = State(initialValue: existing.description)
             _priority = State(initialValue: existing.priority)
             _dueDate = State(initialValue: existing.dueDate)
             _column = State(initialValue: existing.column)
             _selectedTags = State(initialValue: Set(existing.tagIDs))
+            _repeatFrequency = State(initialValue: existing.repeatFrequency)
+            _isRepeating = State(initialValue: existing.isRepeating)
+            _isCompleted = State(initialValue: existing.isCompleted)
         }
     }
 
@@ -277,7 +292,11 @@ private struct TodoEditorSheet: View {
     }
 
     private var canSave: Bool {
-        !trimmedDescription.isEmpty
+        guard !trimmedDescription.isEmpty else { return false }
+        if isRepeating {
+            return repeatFrequency != nil
+        }
+        return true
     }
 
     var body: some View {
@@ -306,6 +325,44 @@ private struct TodoEditorSheet: View {
             }
 
             DatePicker("Date", selection: $dueDate, displayedComponents: .date)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Completed", isOn: $isCompleted)
+                    .toggleStyle(.switch)
+                    .disabled(isRepeating)
+
+                Toggle(isOn: $isRepeating.animation()) {
+                    Label("Repeat", systemImage: KanbanRepeatFrequency.weekly.systemImageName)
+                }
+                .toggleStyle(.switch)
+
+                if isRepeating {
+                    Picker("Frequency", selection: Binding(get: {
+                        repeatFrequency ?? KanbanRepeatFrequency.weekly
+                    }, set: { newValue in
+                        repeatFrequency = newValue
+                    })) {
+                        ForEach(KanbanRepeatFrequency.allCases) { value in
+                            Text(value.displayName).tag(value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text("Repeat-enabled tasks reset themselves after completion.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .onChange(of: isRepeating) { _, newValue in
+                if newValue {
+                    if repeatFrequency == nil {
+                        repeatFrequency = .weekly
+                    }
+                    isCompleted = false
+                } else {
+                    repeatFrequency = nil
+                }
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tags")
@@ -378,7 +435,16 @@ private struct TodoEditorSheet: View {
 
     private func handleSave() {
         guard canSave else { return }
-        onSave(trimmedDescription, priority, dueDate, column, Array(selectedTags).sorted())
+        let tags = Array(selectedTags).sorted()
+        let resolvedRepeat = isRepeating ? repeatFrequency : nil
+        let resolvedCompletion = isRepeating ? false : isCompleted
+        onSave(trimmedDescription,
+               priority,
+               dueDate,
+               column,
+               tags,
+               resolvedCompletion,
+               resolvedRepeat)
         dismiss()
     }
 }
@@ -387,6 +453,7 @@ private struct KanbanTodoCard: View {
     let todo: KanbanTodo
     let tagLookup: [Int: TagRow]
     let fontSize: KanbanFontSize
+    var onToggleCompletion: (Bool) -> Void
     var onDoubleTap: () -> Void
 
     private static let dateFormatter: DateFormatter = {
@@ -441,25 +508,47 @@ private struct KanbanTodoCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(todo.description)
-                .font(fontSize.primaryFont)
-                .foregroundColor(.primary)
-                .multilineTextAlignment(.leading)
-
-            HStack(spacing: 12) {
-                PriorityBadge(priority: todo.priority, fontSize: fontSize)
-                Spacer()
-                dueDisplayText
-                    .font(fontSize.dueDateFont(weight: dueWeight))
-                    .foregroundColor(dueColor)
-                    .monospacedDigit()
+        HStack(alignment: .top, spacing: 12) {
+            Button {
+                onToggleCompletion(!todo.isCompleted)
+            } label: {
+                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(todo.isCompleted ? .green : .secondary)
+                    .padding(4)
             }
+            .buttonStyle(.plain)
+            .help(todo.repeatFrequency != nil ? "Complete and reschedule" : (todo.isCompleted ? "Mark as not completed" : "Mark as completed"))
 
-            if !tags.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
-                    ForEach(tags) { tag in
-                        TagBadge(tag: tag)
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(todo.description)
+                            .font(fontSize.primaryFont)
+                            .foregroundColor(todo.isCompleted ? .secondary : .primary)
+                            .multilineTextAlignment(.leading)
+                            .strikethrough(todo.isCompleted, color: .secondary)
+
+                        if let frequency = todo.repeatFrequency {
+                            RepeatBadge(frequency: frequency, fontSize: fontSize)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        PriorityBadge(priority: todo.priority, fontSize: fontSize)
+                        Spacer()
+                        dueDisplayText
+                            .font(fontSize.dueDateFont(weight: dueWeight))
+                            .foregroundColor(todo.isCompleted ? .secondary : dueColor)
+                            .monospacedDigit()
+                    }
+                }
+
+                if !tags.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
+                        ForEach(tags) { tag in
+                            TagBadge(tag: tag)
+                        }
                     }
                 }
             }
@@ -473,6 +562,7 @@ private struct KanbanTodoCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(todo.priority.color.opacity(0.35), lineWidth: 1)
         )
+        .opacity(todo.isCompleted ? 0.65 : 1)
         .contentShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
         .onTapGesture(count: 2, perform: onDoubleTap)
@@ -492,6 +582,28 @@ private struct KanbanTodoCard: View {
                         .fill(priority.color.opacity(0.18))
                 )
                 .foregroundColor(priority.color)
+        }
+    }
+
+    private struct RepeatBadge: View {
+        let frequency: KanbanRepeatFrequency
+        let fontSize: KanbanFontSize
+
+        var body: some View {
+            HStack(spacing: 4) {
+                Image(systemName: frequency.systemImageName)
+                    .font(.system(size: fontSize.secondaryPointSize, weight: .semibold))
+                Text(frequency.displayName)
+                    .font(fontSize.secondaryFont)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(Color.accentColor.opacity(0.1))
+            )
+            .foregroundColor(Color.accentColor)
+            .help("Repeats \(frequency.displayName)")
         }
     }
 }
@@ -623,17 +735,43 @@ struct TodoKanbanBoardView: View {
                 isPresentingNewTodo = true
             }
         }
+        .alert("Cannot Archive Repeating To-Dos", isPresented: Binding(get: {
+            viewModel.archiveBlockedByRepeatingTodos
+        }, set: { newValue in
+            if !newValue {
+                viewModel.archiveBlockedByRepeatingTodos = false
+            }
+        })) {
+            Button("OK", role: .cancel) {
+                viewModel.archiveBlockedByRepeatingTodos = false
+            }
+        } message: {
+            Text("Remove the repeat setting before archiving these items.")
+        }
         .sheet(isPresented: $isPresentingNewTodo, onDismiss: { newTodoPrefill = nil }) {
             let defaultColumn = newTodoPrefill?.column ?? .backlog
-            TodoEditorSheet(mode: .new(defaultColumn: defaultColumn), availableTags: availableTags, prefill: newTodoPrefill) { description, priority, date, column, tagIDs in
-                viewModel.create(description: description, priority: priority, dueDate: date, column: column, tagIDs: tagIDs)
+            TodoEditorSheet(mode: .new(defaultColumn: defaultColumn), availableTags: availableTags, prefill: newTodoPrefill) { description, priority, date, column, tagIDs, isCompleted, repeatFrequency in
+                viewModel.create(description: description,
+                                 priority: priority,
+                                 dueDate: date,
+                                 column: column,
+                                 tagIDs: tagIDs,
+                                 isCompleted: isCompleted,
+                                 repeatFrequency: repeatFrequency)
                 isPresentingNewTodo = false
                 newTodoPrefill = nil
             }
         }
         .sheet(item: $editingTodo) { todo in
-            TodoEditorSheet(mode: .edit(existing: todo), availableTags: availableTags) { description, priority, date, column, tagIDs in
-                viewModel.update(id: todo.id, description: description, priority: priority, dueDate: date, column: column, tagIDs: tagIDs)
+            TodoEditorSheet(mode: .edit(existing: todo), availableTags: availableTags) { description, priority, date, column, tagIDs, isCompleted, repeatFrequency in
+                viewModel.update(id: todo.id,
+                                 description: description,
+                                 priority: priority,
+                                 dueDate: date,
+                                 column: column,
+                                 tagIDs: tagIDs,
+                                 isCompleted: isCompleted,
+                                 repeatFrequency: repeatFrequency)
                 editingTodo = nil
             } onDelete: {
                 viewModel.delete(id: todo.id)
@@ -691,6 +829,7 @@ struct TodoKanbanBoardView: View {
 
     private func columnView(for column: KanbanColumn) -> some View {
         let items = viewModel.todos(in: column)
+        let containsRepeating = column == .done && items.contains { $0.isRepeating }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: column.iconName)
@@ -708,9 +847,9 @@ struct TodoKanbanBoardView: View {
                             .foregroundColor(KanbanColumn.archived.accentColor)
                     }
                     .buttonStyle(.plain)
-                    .disabled(items.isEmpty)
-                    .opacity(items.isEmpty ? 0.35 : 1.0)
-                    .help("Move all Done items to the Archived column")
+                    .disabled(items.isEmpty || containsRepeating)
+                    .opacity(items.isEmpty || containsRepeating ? 0.35 : 1.0)
+                    .help(containsRepeating ? "Remove repeat settings before archiving." : "Move all Done items to the Archived column")
                     .accessibilityLabel("Archive all done items")
                 }
                 Spacer()
@@ -726,15 +865,32 @@ struct TodoKanbanBoardView: View {
                     .padding(.vertical, 32)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ForEach(items) { todo in
-                    KanbanTodoCard(todo: todo, tagLookup: tagLookup, fontSize: selectedFontSize) {
-                        editingTodo = todo
+                VStack(alignment: .leading, spacing: 8) {
+                    if containsRepeating {
+                        Text("Repeat-enabled tasks cannot be archived. Clear repeating before archiving.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
                     }
-                    .onDrag {
-                        draggedTodoID = todo.id
-                        return NSItemProvider(object: todo.id.uuidString as NSString)
+
+                    ScrollView(.vertical) {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            ForEach(items) { todo in
+                                KanbanTodoCard(todo: todo, tagLookup: tagLookup, fontSize: selectedFontSize, onToggleCompletion: { newValue in
+                                    viewModel.setCompletion(for: todo.id, isCompleted: newValue)
+                                }) {
+                                    editingTodo = todo
+                                }
+                                .onDrag {
+                                    draggedTodoID = todo.id
+                                    return NSItemProvider(object: todo.id.uuidString as NSString)
+                                }
+                                .onDrop(of: [UTType.text], delegate: KanbanCardDropDelegate(target: todo, column: column, viewModel: viewModel, draggedTodoID: $draggedTodoID))
+                            }
+                        }
+                        .padding(.trailing, 2)
                     }
-                    .onDrop(of: [UTType.text], delegate: KanbanCardDropDelegate(target: todo, column: column, viewModel: viewModel, draggedTodoID: $draggedTodoID))
+                    .frame(maxHeight: .infinity)
                 }
             }
 
