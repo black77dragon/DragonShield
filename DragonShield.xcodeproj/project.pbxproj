@@ -18,7 +18,6 @@
 
 /* Begin PBXFileReference section */
 		B307908C2DF4D19A00AF445B /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
-		B34929432E9BDACF00FAF329 /* DragonShield.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = DragonShield.xcodeproj; sourceTree = "<group>"; };
 		B363B37F2D9D921900619C86 /* Asset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Asset.swift; sourceTree = "<group>"; };
 		B37E7DA22D988B1D00100262 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		B3933B0F2D98475A00DDA4C2 /* DragonShield.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DragonShield.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -28,9 +27,38 @@
 		B3F2A4512E91222200123456 /* python_scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = python_scripts; path = DragonShield/python_scripts; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B3D7C7942E68D4B600334317 /* Exceptions for "DragonShield" folder in "DragonShield iOS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DatabaseManager.swift,
+				"DatabaseManager+AssetClasses.swift",
+				"DatabaseManager+Configuration.swift",
+				"DatabaseManager+Dashboard.swift",
+				"DatabaseManager+Institutions.swift",
+				"DatabaseManager+PortfolioTargets.swift",
+				"DatabaseManager+PortfolioThemeAssetUpdates.swift",
+				"DatabaseManager+PortfolioThemes.swift",
+				"DatabaseManager+PortfolioThemeStatus.swift",
+				"DatabaseManager+PositionReports.swift",
+				"helpers/DateFormatter+Extensions.swift",
+				helpers/UserDefaultsKeys.swift,
+				Logger.swift,
+				LoggingService.swift,
+				Models/PortfolioTheme.swift,
+				Models/PortfolioThemeStatus.swift,
+				"OSLogType+Warning.swift",
+			);
+			target = B3D7C77F2E68C07E00334317 /* DragonShield iOS */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B3933B112D98475A00DDA4C2 /* DragonShield */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B3D7C7942E68D4B600334317 /* Exceptions for "DragonShield" folder in "DragonShield iOS" target */,
+			);
 			path = DragonShield;
 			sourceTree = "<group>";
 		};
@@ -63,13 +91,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		B34929442E9BDACF00FAF329 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		B363B37E2D9D91BE00619C86 /* Model */ = {
 			isa = PBXGroup;
 			children = (
@@ -192,12 +213,6 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B3933B102D98475A00DDA4C2 /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = B34929442E9BDACF00FAF329 /* Products */;
-					ProjectRef = B34929432E9BDACF00FAF329 /* DragonShield.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				B3933B0E2D98475A00DDA4C2 /* DragonShield */,
