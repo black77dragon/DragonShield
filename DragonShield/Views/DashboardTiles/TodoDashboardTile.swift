@@ -20,8 +20,8 @@ struct TodoDashboardTile: DashboardTile {
     }()
 
     private var actionableTodos: [KanbanTodo] {
-        let prioritised = viewModel.todos(in: .prioritised)
-        let doing = viewModel.todos(in: .doing)
+        let prioritised = viewModel.todos(in: .prioritised).filter { !$0.isCompleted }
+        let doing = viewModel.todos(in: .doing).filter { !$0.isCompleted }
         return prioritised + doing
     }
 
@@ -157,10 +157,18 @@ struct TodoDashboardTile: DashboardTile {
                     .foregroundColor(todo.priority.color)
                     .font(.system(size: fontSize.secondaryPointSize, weight: .semibold))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(todo.description)
-                        .font(fontSize.primaryFont)
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        Text(todo.description)
+                            .font(fontSize.primaryFont)
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                        if let frequency = todo.repeatFrequency {
+                            Image(systemName: frequency.systemImageName)
+                                .font(.system(size: fontSize.secondaryPointSize, weight: .semibold))
+                                .foregroundColor(.accentColor)
+                                .help("Repeats \(frequency.displayName)")
+                        }
+                    }
                     Text(todo.column.title)
                         .font(fontSize.secondaryFont)
                         .foregroundColor(.secondary)

@@ -57,6 +57,19 @@ struct TodoBoardView: View {
         .onChangeCompat(of: selectedFontSize) { _ in
             persistFontSize()
         }
+        .alert("Cannot Archive Repeating To-Dos", isPresented: Binding(get: {
+            viewModel.archiveBlockedByRepeatingTodos
+        }, set: { newValue in
+            if !newValue {
+                viewModel.archiveBlockedByRepeatingTodos = false
+            }
+        })) {
+            Button("OK", role: .cancel) {
+                viewModel.archiveBlockedByRepeatingTodos = false
+            }
+        } message: {
+            Text("Remove the repeat setting before archiving these items.")
+        }
     }
 
     private var header: some View {
@@ -110,6 +123,7 @@ struct TodoBoardView: View {
 
     private func columnView(for column: KanbanColumn) -> some View {
         let todos = viewModel.todos(in: column)
+        let containsRepeating = column == .done && todos.contains { $0.isRepeating }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: column.iconName)
@@ -127,6 +141,9 @@ struct TodoBoardView: View {
                             .foregroundStyle(KanbanColumn.archived.accentColor)
                     }
                     .buttonStyle(.plain)
+                    .disabled(containsRepeating)
+                    .opacity(containsRepeating ? 0.35 : 1.0)
+                    .accessibilityHint(containsRepeating ? "Remove repeat settings before archiving." : "Move all done items to archive")
                 }
                 Text("\(todos.count)")
                     .font(.footnote)
@@ -140,10 +157,28 @@ struct TodoBoardView: View {
                     .padding(.vertical, 32)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(todos) { todo in
-                        TodoCard(todo: todo, fontSize: selectedFontSize, tags: tags(for: todo))
+                VStack(alignment: .leading, spacing: 8) {
+                    if containsRepeating {
+                        Text("Repeat-enabled tasks cannot be archived. Clear repeating before archiving.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.bottom, 4)
                     }
+
+                    ScrollView(.vertical) {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            ForEach(todos) { todo in
+                                TodoCard(todo: todo,
+                                         fontSize: selectedFontSize,
+                                         tags: tags(for: todo),
+                                         onToggleCompletion: { newValue in
+                                    viewModel.setCompletion(for: todo.id, isCompleted: newValue)
+                                })
+                            }
+                        }
+                        .padding(.trailing, 2)
+                    }
+                    .frame(maxHeight: .infinity)
                 }
             }
 
@@ -274,6 +309,7 @@ private struct TodoCard: View {
     let todo: KanbanTodo
     let fontSize: KanbanFontSize
     let tags: [TagRow]
+    var onToggleCompletion: (Bool) -> Void
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -323,25 +359,48 @@ private struct TodoCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(todo.description)
-                .font(fontSize.primaryFont)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.leading)
-
-            HStack(spacing: 12) {
-                PriorityBadge(priority: todo.priority, fontSize: fontSize)
-                Spacer()
-                dueDisplayText
-                    .font(fontSize.dueDateFont(weight: dueWeight))
-                    .foregroundStyle(dueColor)
-                    .monospacedDigit()
+        HStack(alignment: .top, spacing: 12) {
+            Button {
+                onToggleCompletion(!todo.isCompleted)
+            } label: {
+                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(todo.isCompleted ? .green : .secondary)
+                    .padding(4)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(todo.isCompleted ? "Mark as not completed" : "Mark as completed")
+            .accessibilityHint(todo.repeatFrequency != nil ? "Completing will reschedule the due date." : nil)
 
-            if !tags.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
-                    ForEach(tags) { tag in
-                        TagPill(tag: tag)
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(todo.description)
+                            .font(fontSize.primaryFont)
+                            .foregroundStyle(todo.isCompleted ? Color.secondary : Color.primary)
+                            .multilineTextAlignment(.leading)
+                            .strikethrough(todo.isCompleted, color: .secondary)
+
+                        if let frequency = todo.repeatFrequency {
+                            RepeatBadge(frequency: frequency, fontSize: fontSize)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        PriorityBadge(priority: todo.priority, fontSize: fontSize)
+                        Spacer()
+                        dueDisplayText
+                            .font(fontSize.dueDateFont(weight: dueWeight))
+                            .foregroundStyle(todo.isCompleted ? Color.secondary : dueColor)
+                            .monospacedDigit()
+                    }
+                }
+
+                if !tags.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
+                        ForEach(tags) { tag in
+                            TagPill(tag: tag)
+                        }
                     }
                 }
             }
@@ -355,6 +414,8 @@ private struct TodoCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(todo.priority.color.opacity(0.3), lineWidth: 1)
         )
+        .opacity(todo.isCompleted ? 0.65 : 1)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
     }
 
@@ -372,6 +433,28 @@ private struct TodoCard: View {
                         .fill(priority.color.opacity(0.18))
                 )
                 .foregroundColor(priority.color)
+        }
+    }
+
+    private struct RepeatBadge: View {
+        let frequency: KanbanRepeatFrequency
+        let fontSize: KanbanFontSize
+
+        var body: some View {
+            HStack(spacing: 4) {
+                Image(systemName: frequency.systemImageName)
+                    .font(.system(size: fontSize.secondaryPointSize, weight: .semibold))
+                Text(frequency.displayName)
+                    .font(fontSize.secondaryFont)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(Color.accentColor.opacity(0.1))
+            )
+            .foregroundColor(.accentColor)
+            .accessibilityLabel("Repeats \(frequency.displayName)")
         }
     }
 }

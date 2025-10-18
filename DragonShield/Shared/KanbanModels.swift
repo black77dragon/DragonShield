@@ -74,6 +74,40 @@ enum KanbanPriority: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+enum KanbanRepeatFrequency: String, CaseIterable, Identifiable, Codable {
+    case weekly
+    case monthly
+    case quarterly
+    case annually
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .weekly: return "Weekly"
+        case .monthly: return "Monthly"
+        case .quarterly: return "Quarterly"
+        case .annually: return "Annually"
+        }
+    }
+
+    var systemImageName: String { "arrow.2.circlepath" }
+
+    func nextDueDate(from base: Date, calendar: Calendar = .current) -> Date {
+        let start = calendar.startOfDay(for: base)
+        switch self {
+        case .weekly:
+            return calendar.date(byAdding: .day, value: 7, to: start) ?? start
+        case .monthly:
+            return calendar.date(byAdding: .month, value: 1, to: start) ?? start
+        case .quarterly:
+            return calendar.date(byAdding: .month, value: 3, to: start) ?? start
+        case .annually:
+            return calendar.date(byAdding: .year, value: 1, to: start) ?? start
+        }
+    }
+}
+
 enum KanbanColumn: String, CaseIterable, Identifiable, Codable {
     case backlog
     case prioritised
@@ -133,8 +167,21 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
     var tagIDs: [Int]
     var sortOrder: Double
     var createdAt: Date
+    var isCompleted: Bool
+    var repeatFrequency: KanbanRepeatFrequency?
 
-    init(id: UUID = UUID(), description: String, priority: KanbanPriority, dueDate: Date, column: KanbanColumn, tagIDs: [Int], sortOrder: Double, createdAt: Date = Date()) {
+    var isRepeating: Bool { repeatFrequency != nil }
+
+    init(id: UUID = UUID(),
+         description: String,
+         priority: KanbanPriority,
+         dueDate: Date,
+         column: KanbanColumn,
+         tagIDs: [Int],
+         sortOrder: Double,
+         createdAt: Date = Date(),
+         isCompleted: Bool = false,
+         repeatFrequency: KanbanRepeatFrequency? = nil) {
         self.id = id
         self.description = description
         self.priority = priority
@@ -143,6 +190,8 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         self.tagIDs = tagIDs
         self.sortOrder = sortOrder
         self.createdAt = createdAt
+        self.isCompleted = isCompleted
+        self.repeatFrequency = repeatFrequency
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -154,6 +203,8 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         case tagIDs
         case sortOrder
         case createdAt
+        case isCompleted
+        case repeatFrequency
     }
 
     init(from decoder: Decoder) throws {
@@ -166,6 +217,8 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         tagIDs = try container.decodeIfPresent([Int].self, forKey: .tagIDs) ?? []
         sortOrder = try container.decodeIfPresent(Double.self, forKey: .sortOrder) ?? 0
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+        repeatFrequency = try container.decodeIfPresent(KanbanRepeatFrequency.self, forKey: .repeatFrequency)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -178,6 +231,8 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         try container.encode(tagIDs, forKey: .tagIDs)
         try container.encode(sortOrder, forKey: .sortOrder)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encode(repeatFrequency, forKey: .repeatFrequency)
     }
 }
 
@@ -187,17 +242,23 @@ struct KanbanTodoQuickAddRequest {
     var dueDate: Date
     var column: KanbanColumn
     var tagIDs: [Int]
+    var isCompleted: Bool
+    var repeatFrequency: KanbanRepeatFrequency?
 
     init(description: String,
          priority: KanbanPriority = .medium,
          dueDate: Date = Date(),
          column: KanbanColumn = .backlog,
-         tagIDs: [Int] = []) {
+         tagIDs: [Int] = [],
+         isCompleted: Bool = false,
+         repeatFrequency: KanbanRepeatFrequency? = nil) {
         self.description = description
         self.priority = priority
         self.dueDate = dueDate
         self.column = column
         self.tagIDs = tagIDs
+        self.isCompleted = isCompleted
+        self.repeatFrequency = repeatFrequency
     }
 }
 
@@ -226,6 +287,7 @@ final class KanbanTodoQuickAddRouter {
 @MainActor
 final class KanbanBoardViewModel: ObservableObject {
     @Published private(set) var todos: [KanbanTodo] = []
+    @Published var archiveBlockedByRepeatingTodos = false
 
     private let storage: UserDefaults
     private var cancellables: Set<AnyCancellable> = []
@@ -266,17 +328,42 @@ final class KanbanBoardViewModel: ObservableObject {
         load()
     }
 
-    func create(description: String, priority: KanbanPriority, dueDate: Date, column: KanbanColumn, tagIDs: [Int]) {
+    func create(description: String,
+                priority: KanbanPriority,
+                dueDate: Date,
+                column: KanbanColumn,
+                tagIDs: [Int],
+                isCompleted: Bool,
+                repeatFrequency: KanbanRepeatFrequency?) {
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let nextOrder = (todos.filter { $0.column == column }.map(\.sortOrder).max() ?? -1) + 1
-        let todo = KanbanTodo(description: trimmed, priority: priority, dueDate: dueDate, column: column, tagIDs: tagIDs, sortOrder: nextOrder)
+        var todo = KanbanTodo(description: trimmed,
+                              priority: priority,
+                              dueDate: dueDate,
+                              column: column,
+                              tagIDs: tagIDs,
+                              sortOrder: nextOrder,
+                              isCompleted: isCompleted,
+                              repeatFrequency: repeatFrequency)
+        if isCompleted, repeatFrequency != nil {
+            let nextDue = repeatFrequency?.nextDueDate(from: Date()) ?? dueDate
+            todo.dueDate = nextDue
+            todo.isCompleted = false
+        }
         todos.append(todo)
         normalizeSortOrders(for: column)
         save()
     }
 
-    func update(id: UUID, description: String, priority: KanbanPriority, dueDate: Date, column: KanbanColumn, tagIDs: [Int]) {
+    func update(id: UUID,
+                description: String,
+                priority: KanbanPriority,
+                dueDate: Date,
+                column: KanbanColumn,
+                tagIDs: [Int],
+                isCompleted: Bool,
+                repeatFrequency: KanbanRepeatFrequency?) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -285,6 +372,8 @@ final class KanbanBoardViewModel: ObservableObject {
         todos[index].priority = priority
         todos[index].dueDate = dueDate
         todos[index].tagIDs = tagIDs
+        todos[index].repeatFrequency = repeatFrequency
+        applyCompletionUpdate(at: index, requestedCompletion: isCompleted)
         if oldColumn != column {
             todos[index].column = column
             let nextOrder = (todos.filter { $0.column == column && $0.id != id }.map(\.sortOrder).max() ?? -1) + 1
@@ -329,7 +418,16 @@ final class KanbanBoardViewModel: ObservableObject {
 
     func archiveDoneTodos() {
         let doneEntries = todos.enumerated().filter { $0.element.column == .done }
-        guard !doneEntries.isEmpty else { return }
+        guard !doneEntries.isEmpty else {
+            archiveBlockedByRepeatingTodos = false
+            return
+        }
+
+        let repeating = doneEntries.filter { $0.element.isRepeating }
+        guard repeating.isEmpty else {
+            archiveBlockedByRepeatingTodos = true
+            return
+        }
 
         let sortedDone = doneEntries.sorted { lhs, rhs in
             if lhs.element.sortOrder == rhs.element.sortOrder {
@@ -349,7 +447,24 @@ final class KanbanBoardViewModel: ObservableObject {
 
         normalizeSortOrders(for: .done)
         normalizeSortOrders(for: .archived)
+        archiveBlockedByRepeatingTodos = false
         save()
+    }
+
+    func setCompletion(for id: UUID, isCompleted: Bool, completionDate: Date = Date()) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        applyCompletionUpdate(at: index, requestedCompletion: isCompleted, completionDate: completionDate)
+        save()
+    }
+
+    private func applyCompletionUpdate(at index: Int, requestedCompletion: Bool, completionDate: Date = Date()) {
+        if requestedCompletion, let frequency = todos[index].repeatFrequency {
+            let nextDueDate = frequency.nextDueDate(from: completionDate)
+            todos[index].dueDate = nextDueDate
+            todos[index].isCompleted = false
+        } else {
+            todos[index].isCompleted = requestedCompletion
+        }
     }
 
     func overwrite(with newTodos: [KanbanTodo]) {
@@ -357,6 +472,7 @@ final class KanbanBoardViewModel: ObservableObject {
         for column in KanbanColumn.allCases {
             normalizeSortOrders(for: column)
         }
+        archiveBlockedByRepeatingTodos = false
         save()
     }
 
@@ -377,6 +493,7 @@ final class KanbanBoardViewModel: ObservableObject {
     private func load() {
         guard let data = storage.data(forKey: UserDefaultsKeys.kanbanTodos) else {
             todos = []
+            archiveBlockedByRepeatingTodos = false
             return
         }
         if let decoded = KanbanSnapshotCodec.decode(data: data) {
@@ -387,6 +504,7 @@ final class KanbanBoardViewModel: ObservableObject {
         for column in KanbanColumn.allCases {
             normalizeSortOrders(for: column)
         }
+        archiveBlockedByRepeatingTodos = false
     }
 
     private func save() {
