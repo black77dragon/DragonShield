@@ -57,6 +57,7 @@ extension DatabaseManager {
                 'asset_classes_table_font', 'asset_classes_table_column_fractions',
                 'currencies_table_font', 'currencies_table_column_fractions',
                 'accounts_table_font', 'accounts_table_column_fractions',
+                'positions_table_font', 'positions_table_column_fractions',
                 'portfolio_themes_table_font', 'portfolio_themes_table_column_fractions',
                 'transaction_types_table_font', 'transaction_types_table_column_fractions',
                 'account_types_table_font', 'account_types_table_column_fractions',
@@ -174,6 +175,9 @@ extension DatabaseManager {
                 case "accounts_table_font":
                     print("ℹ️ [config] Loaded accounts_table_font=\(value)")
                     pendingAssignments.append { $0.accountsTableFontSize = value }
+                case "positions_table_font":
+                    print("ℹ️ [config] Loaded positions_table_font=\(value)")
+                    pendingAssignments.append { $0.positionsTableFontSize = value }
                 case "portfolio_themes_table_font":
                     print("ℹ️ [config] Loaded portfolio_themes_table_font=\(value)")
                     pendingAssignments.append { $0.portfolioThemesTableFontSize = value }
@@ -181,6 +185,10 @@ extension DatabaseManager {
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
                     pendingAssignments.append { $0.accountsTableColumnFractions = parsed }
+                case "positions_table_column_fractions":
+                    let parsed = DatabaseManager.decodeFractionDictionary(from: value)
+                    print("ℹ️ [config] Loaded positions_table_column_fractions=\(parsed)")
+                    pendingAssignments.append { $0.positionsTableColumnFractions = parsed }
                 case "portfolio_themes_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
@@ -428,6 +436,26 @@ extension DatabaseManager {
                                 value: payload,
                                 dataType: "string",
                                 description: "Column width fractions for Accounts table")
+    }
+
+    func setPositionsTableFontSize(_ value: String) {
+        guard positionsTableFontSize != value else { return }
+        print("📝 [config] Request to store positions_table_font=\(value)")
+        _ = upsertConfiguration(key: "positions_table_font",
+                                value: value,
+                                dataType: "string",
+                                description: "Preferred font size for Positions table")
+    }
+
+    func setPositionsTableColumnFractions(_ fractions: [String: Double]) {
+        let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
+        guard positionsTableColumnFractions != cleaned else { return }
+        print("📝 [config] Request to store positions_table_column_fractions=\(cleaned)")
+        let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
+        _ = upsertConfiguration(key: "positions_table_column_fractions",
+                                value: payload,
+                                dataType: "string",
+                                description: "Column width fractions for Positions table")
     }
 
     func setPortfolioThemesTableFontSize(_ value: String) {

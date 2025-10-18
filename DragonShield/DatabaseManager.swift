@@ -64,6 +64,8 @@ class DatabaseManager: ObservableObject {
     @Published var currenciesTableColumnFractions: [String: Double] = [:]
     @Published var accountsTableFontSize: String = "medium"
     @Published var accountsTableColumnFractions: [String: Double] = [:]
+    @Published var positionsTableFontSize: String = "medium"
+    @Published var positionsTableColumnFractions: [String: Double] = [:]
     @Published var portfolioThemesTableFontSize: String = "medium"
     @Published var portfolioThemesTableColumnFractions: [String: Double] = [:]
     @Published var transactionTypesTableFontSize: String = "medium"

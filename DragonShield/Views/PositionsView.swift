@@ -1,894 +1,1220 @@
-// DragonShield/Views/PositionsView.swift
-// MARK: - Version 1.2 (2025-06-16)
-// MARK: - History
-// - 1.1 -> 1.2: Updated to use global PositionReportData type.
-// - 1.0 -> 1.1: Display live PositionReports data from database.
-// - Initial creation: Displays positions with upload and report dates.
-
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
-struct PositionsView: View {
-  @EnvironmentObject var dbManager: DatabaseManager
-
-  @State private var positions: [PositionReportData] = []
-  @State private var selectedRows = Set<PositionReportData.ID>()
-  @State private var searchText = ""
-
-  @State private var institutions: [DatabaseManager.InstitutionData] = []
-  @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
-  @State private var selectedInstitutionIds: Set<Int> = []
-  @State private var showingDeleteSheet = false
-  @State private var showDeleteSuccessToast = false
-  @State private var deleteSummaryMessage = ""
-  @State private var showAddSheet = false
-  @State private var showEditSheet = false
-  @State private var positionToEdit: PositionReportData? = nil
-  @State private var positionToDelete: PositionReportData? = nil
-  @State private var showDeleteSingleAlert = false
-  @State private var showDeleteSelectedAlert = false
-  @State private var buttonsOpacity: Double = 0
-
-  @State private var currencyFilters: Set<String> = []
-
-  @State private var headerOpacity: Double = 0
-  @State private var contentOffset: CGFloat = 30
-
-  @State private var sortOrder = [KeyPathComparator(\PositionReportData.accountName)]
-
-  @StateObject private var viewModel = PositionsViewModel()
-
-  enum Column: String, CaseIterable, Identifiable {
-    case notes, account, institution, instrument, currency, quantity
-    case purchase, current, valueOriginal, valueChf, dates, actions
-
-    var id: String { rawValue }
+private enum PositionTableColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
+    case instrument
+    case account
+    case institution
+    case currency
+    case quantity
+    case purchaseValue
+    case currentValue
+    case valueOriginal
+    case valueChf
+    case reportDate
+    case uploadedAt
+    case assetClass
+    case assetSubClass
+    case sector
+    case country
+    case importSession
+    case notes
 
     var title: String {
-      switch self {
-      case .notes: return "Notes"
-      case .account: return "Account"
-      case .institution: return "Institution"
-      case .instrument: return "Instrument"
-      case .currency: return "Currency"
-      case .quantity: return "Qty"
-      case .purchase: return "Purchase"
-      case .current: return "Latest"
-      case .valueOriginal: return "Position Value (Original Currency)"
-      case .valueChf: return "Position Value (CHF)"
-      case .dates: return "Dates"
-      case .actions: return "Actions"
-      }
+        switch self {
+        case .instrument: return "Instrument"
+        case .account: return "Account"
+        case .institution: return "Institution"
+        case .currency: return "Cur"
+        case .quantity: return "Qty"
+        case .purchaseValue: return "Purchase"
+        case .currentValue: return "Latest"
+        case .valueOriginal: return "Val (orig)"
+        case .valueChf: return "Val (CHF)"
+        case .reportDate: return "Report"
+        case .uploadedAt: return "Uploaded"
+        case .assetClass: return "Asset Class"
+        case .assetSubClass: return "Sub-Class"
+        case .sector: return "Sector"
+        case .country: return "Country"
+        case .importSession: return "Import"
+        case .notes: return "Notes"
+        }
     }
-  }
 
-  private static let requiredColumns: Set<Column> = [.account, .instrument]
-
-  @AppStorage(UserDefaultsKeys.positionsVisibleColumns)
-  private var persistedColumnsData: Data = Data()
-
-  @AppStorage(UserDefaultsKeys.positionsFontSize)
-  private var fontSize: Double = 13
-
-  @State private var visibleColumns: Set<Column> = Set(Column.allCases)
-  @State private var showSettingsPopover = false
-
-  init() {
-    if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.positionsVisibleColumns),
-      let strings = try? JSONDecoder().decode([String].self, from: data)
-    {
-      let decoded = Set(strings.compactMap(Column.init(rawValue:)))
-      _visibleColumns = State(initialValue: decoded.union(Self.requiredColumns))
-    } else {
-      _visibleColumns = State(initialValue: Set(Column.allCases))
+    var menuTitle: String {
+        let base = title
+        return base.isEmpty ? rawValue.capitalized : base
     }
-  }
-
-  private static let chfFormatter: NumberFormatter = {
-    let f = NumberFormatter()
-    f.numberStyle = .decimal
-    f.maximumFractionDigits = 0
-    f.groupingSeparator = "'"
-    f.usesGroupingSeparator = true
-    f.roundingMode = .down
-    return f
-  }()
-
-  private static let intMoneyFormatter: NumberFormatter = {
-    let f = NumberFormatter()
-    f.numberStyle = .decimal
-    f.maximumFractionDigits = 0
-    f.minimumFractionDigits = 0
-    f.groupingSeparator = "'"
-    f.usesGroupingSeparator = true
-    f.roundingMode = .down
-    return f
-  }()
-
-  var sortedPositions: [PositionReportData] {
-    filteredPositions.sorted(using: sortOrder)
-  }
-
-  var selectedInstitutionNames: [String] {
-    institutions.filter { selectedInstitutionIds.contains($0.id) }.map { $0.name }
-  }
-
-  var filteredPositions: [PositionReportData] {
-    viewModel.filterPositions(
-      positions,
-      searchText: searchText,
-      selectedInstitutionNames: selectedInstitutionNames,
-      currencyFilters: currencyFilters
-    )
-  }
-
-  // Sum of CHF values for all rows currently displayed by filters/search
-  var selectedPositionsTotalCHF: Double {
-    filteredPositions.reduce(0) { sum, pos in
-      if let valOpt = viewModel.positionValueCHF[pos.id], let val = valOpt { return sum + val }
-      return sum
-    }
-  }
-
-  var body: some View {
-    ZStack {
-      LinearGradient(
-        colors: [
-          Color(red: 0.98, green: 0.99, blue: 1.0),
-          Color(red: 0.95, green: 0.97, blue: 0.99),
-          Color(red: 0.93, green: 0.95, blue: 0.98),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      )
-      .ignoresSafeArea()
-
-      VStack(spacing: 0) {
-        modernHeader
-        addButtonBar
-        searchAndStats
-        positionsContent
-        dangerZone
-      }
-    }
-    .onAppear {
-      loadPositions()
-      loadInstitutions()
-      loadAccountTypes()
-      viewModel.calculateValues(positions: positions, db: dbManager)
-      animateEntrance()
-    }
-    .sheet(isPresented: $showingDeleteSheet) {
-      DeletePositionsSheet(
-        institutions: institutions,
-        accountTypes: accountTypes,
-        selectedInstitutionIds: selectedInstitutionIds,
-        onConfirm: { instIds, typeIds, count in
-          let deleted = dbManager.deletePositionReports(
-            institutionIds: Array(instIds),
-            accountTypeIds: Array(typeIds)
-          )
-          deleteSummaryMessage = "Deleted \(deleted) positions"
-          selectedInstitutionIds.removeAll()
-          loadPositions()
-          showDeleteSuccessToast = true
-          showingDeleteSheet = false
-        },
-        onCancel: { showingDeleteSheet = false }
-      )
-      .environmentObject(dbManager)
-    }
-    .alert("Delete Position", isPresented: $showDeleteSingleAlert) {
-      Button("Cancel", role: .cancel) {}
-      Button("Delete", role: .destructive) {
-        if let p = positionToDelete {
-          _ = dbManager.deletePositionReport(id: p.id)
-          loadPositions()
-          positionToDelete = nil
-        }
-      }
-    } message: {
-      if let p = positionToDelete {
-        Text("This will permanently delete '\(p.instrumentName)' from account '\(p.accountName)'. This action cannot be undone.")
-      }
-    }
-    .sheet(isPresented: $showAddSheet) {
-      PositionFormView(position: nil) {
-        loadPositions()
-      }
-      .environmentObject(dbManager)
-    }
-    .sheet(item: $positionToEdit) { item in
-      PositionFormView(position: item) {
-        loadPositions()
-      }
-      .environmentObject(dbManager)
-    }
-    .toast(isPresented: $viewModel.showErrorToast, message: "Failed to fetch exchange rates.")
-    .toast(isPresented: $showDeleteSuccessToast, message: deleteSummaryMessage)
-    .onChange(of: visibleColumns) {
-      persistVisibleColumns()
-    }
-    .alert("Delete Selected Positions", isPresented: $showDeleteSelectedAlert) {
-      Button("Cancel", role: .cancel) {}
-      Button("Delete", role: .destructive) {
-        let ids = Array(selectedRows)
-        let deleted = dbManager.deletePositionReports(ids: ids)
-        deleteSummaryMessage = "Deleted \(deleted) positions"
-        showDeleteSuccessToast = true
-        selectedRows.removeAll()
-        loadPositions()
-      }
-    } message: {
-      Text("This will permanently delete \(selectedRows.count) selected position(s). This action cannot be undone.")
-    }
-  }
-
-  // MARK: - Modern Header
-  private var modernHeader: some View {
-    HStack {
-      VStack(alignment: .leading, spacing: 4) {
-        HStack(spacing: 12) {
-          Image(systemName: "tablecells")
-            .font(.system(size: 32))
-            .foregroundColor(.blue)
-          Text("Positions")
-            .font(.system(size: 32, weight: .bold, design: .rounded))
-        }
-        Text("Current holdings with report details")
-          .font(.subheadline)
-          .foregroundColor(.gray)
-      }
-      Spacer()
-      HStack(spacing: 16) {
-        modernStatCard(
-          title: "Total", value: "\(positions.count)", icon: "number.circle.fill", color: .blue)
-        ZStack {
-          modernStatCard(
-            title: "Total Asset Value (CHF)",
-            value: Self.chfFormatter.string(from: NSNumber(value: viewModel.totalAssetValueCHF))
-              ?? "0",
-            icon: "sum", color: .blue)
-          if viewModel.calculating {
-            RoundedRectangle(cornerRadius: 8)
-              .fill(Color.black.opacity(0.1))
-            ProgressView()
-          }
-        }
-        modernStatCard(
-          title: "Selected Value (CHF)",
-          value: Self.chfFormatter.string(from: NSNumber(value: selectedPositionsTotalCHF)) ?? "0",
-          icon: "tray.full", color: .blue)
-        Button {
-          viewModel.calculateValues(positions: positions, db: dbManager)
-        } label: {
-          Image(systemName: "arrow.clockwise")
-            .padding(6)
-        }
-        .background(Color.blue.opacity(0.1))
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1))
-        .buttonStyle(ScaleButtonStyle())
-        .disabled(viewModel.calculating)
-
-        Button {
-          showSettingsPopover.toggle()
-        } label: {
-          Image(systemName: "slider.horizontal.3")
-            .padding(6)
-        }
-        .background(Color.blue.opacity(0.1))
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1))
-        .buttonStyle(ScaleButtonStyle())
-        .popover(isPresented: $showSettingsPopover, arrowEdge: .bottom) {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("Columns")
-              .font(.headline)
-            ForEach(Column.allCases) { column in
-              Toggle(
-                column.title,
-                isOn: Binding(
-                  get: { visibleColumns.contains(column) },
-                  set: { newValue in
-                    if newValue {
-                      visibleColumns.insert(column)
-                    } else if !Self.requiredColumns.contains(column) {
-                      visibleColumns.remove(column)
-                    }
-                  }
-                )
-              )
-              .disabled(Self.requiredColumns.contains(column))
-            }
-            Divider()
-            VStack(alignment: .leading) {
-              Text("Font Size: \(Int(fontSize)) pt")
-              Slider(value: $fontSize, in: 7...14, step: 1)
-                .frame(width: 160)
-            }
-          }
-          .padding()
-          .frame(width: 220)
-        }
-      }
-    }
-    .padding(.horizontal, 24)
-    .padding(.vertical, 20)
-    .opacity(headerOpacity)
-    .offset(y: contentOffset)
-  }
-
-  private var addButtonBar: some View {
-    HStack {
-      Button {
-        showAddSheet = true
-      } label: {
-        Label("Add Position", systemImage: "plus")
-      }
-      .buttonStyle(.borderedProminent)
-      .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-      .foregroundColor(.black)
-      Spacer()
-    }
-    .padding(.horizontal, 24)
-    .padding(.bottom, 8)
-    .opacity(buttonsOpacity)
-  }
-
-  private var searchAndStats: some View {
-    VStack(spacing: 12) {
-      HStack {
-        Image(systemName: "magnifyingglass")
-          .foregroundColor(.gray)
-        TextField("Search positions...", text: $searchText)
-          .textFieldStyle(PlainTextFieldStyle())
-        if !searchText.isEmpty {
-          Button {
-            searchText = ""
-          } label: {
-            Image(systemName: "xmark.circle.fill")
-              .foregroundColor(.gray)
-          }
-          .buttonStyle(PlainButtonStyle())
-        }
-      }
-      .padding(.horizontal, 16)
-      .padding(.vertical, 10)
-      .background(
-        RoundedRectangle(cornerRadius: 12)
-          .fill(.regularMaterial)
-          .overlay(
-            RoundedRectangle(cornerRadius: 12)
-              .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-          )
-      )
-      .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-
-      if !searchText.isEmpty || !selectedInstitutionIds.isEmpty || !currencyFilters.isEmpty {
-        HStack {
-          Text("Found \(filteredPositions.count) of \(positions.count) positions")
-            .font(.caption)
-            .foregroundColor(.gray)
-          Spacer()
-        }
-        if !selectedInstitutionIds.isEmpty || !currencyFilters.isEmpty {
-          HStack(spacing: 8) {
-            ForEach(Array(selectedInstitutionIds), id: \.self) { id in
-              if let inst = institutions.first(where: { $0.id == id }) {
-                filterChip(text: inst.name) { selectedInstitutionIds.remove(id) }
-              }
-            }
-            ForEach(Array(currencyFilters), id: \.self) { cur in
-              filterChip(text: cur) { currencyFilters.remove(cur) }
-            }
-          }
-        }
-      }
-    }
-    .padding(.horizontal, 24)
-    .offset(y: contentOffset)
-  }
-
-  private var positionsContent: some View {
-    let data = sortedPositions
-    return Table(data, selection: $selectedRows, sortOrder: $sortOrder) {
-      if visibleColumns.contains(.actions) {
-        TableColumn("Actions") { (position: PositionReportData) in
-          HStack(spacing: 8) {
-            Button(action: { positionToEdit = position }) { Image(systemName: "pencil") }
-              .buttonStyle(.borderless)
-            Button(action: {
-              positionToDelete = position
-              showDeleteSingleAlert = true
-            }) { Image(systemName: "trash") }
-            .buttonStyle(.borderless)
-          }
-          .frame(maxWidth: .infinity)
-        }
-        .width(min: 45, ideal: 45)
-      }
-
-      if visibleColumns.contains(.notes) {
-        TableColumn("") { (position: PositionReportData) in
-          if let notes = position.notes, !notes.isEmpty {
-            Image(systemName: "info.circle.fill")
-              .foregroundColor(.blue)
-              .help("Contains notes")
-              .accessibilityLabel("Contains notes")
-              .frame(width: 20)
-          } else {
-            Color.clear.frame(width: 20)
-          }
-        }
-        .width(min: 24, ideal: 24)
-      }
-
-      Group {
-        if visibleColumns.contains(.account) {
-          TableColumn("Account", sortUsing: KeyPathComparator(\PositionReportData.accountName)) {
-            (position: PositionReportData) in
-            Text(position.accountName)
-              .font(.system(size: fontSize))
-              .foregroundColor(.secondary)
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .onTapGesture(count: 2) { positionToEdit = position }
-          }
-          .width(min: 160, ideal: 180)
-        }
-
-        if visibleColumns.contains(.institution) {
-          TableColumn(
-            "Institution", sortUsing: KeyPathComparator(\PositionReportData.institutionName)
-          ) { (position: PositionReportData) in
-            Text(position.institutionName)
-              .font(.system(size: fontSize))
-              .foregroundColor(.secondary)
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-          .width(min: 160, ideal: 180)
-        }
-
-        if visibleColumns.contains(.instrument) {
-          TableColumn(
-            "Instrument", sortUsing: KeyPathComparator(\PositionReportData.instrumentName)
-          ) { (position: PositionReportData) in
-            Text(position.instrumentName)
-              .font(.system(size: fontSize))
-              .foregroundColor(.primary)
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .onTapGesture(count: 2) { positionToEdit = position }
-          }
-          .width(min: 160, ideal: 200)
-        }
-
-        if visibleColumns.contains(.currency) {
-          TableColumn(
-            "Currency", sortUsing: KeyPathComparator(\PositionReportData.instrumentCurrency)
-          ) { (position: PositionReportData) in
-            Text(position.instrumentCurrency)
-              .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
-              .foregroundColor(colorForCurrency(position.instrumentCurrency))
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(maxWidth: .infinity, alignment: .center)
-              .onTapGesture(count: 2) { positionToEdit = position }
-          }
-          .width(min: 60, ideal: 70)
-        }
-
-        if visibleColumns.contains(.quantity) {
-          TableColumn("Qty", sortUsing: KeyPathComparator(\PositionReportData.quantity)) {
-            (position: PositionReportData) in
-            Text(String(format: "%.2f", position.quantity))
-              .font(.system(size: fontSize, design: .monospaced))
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-              .frame(maxWidth: .infinity, alignment: .trailing)
-          }
-          .width(min: 70, ideal: 80)
-        }
-
-        if visibleColumns.contains(.purchase) {
-          TableColumn("Purchase", sortUsing: KeyPathComparator(\PositionReportData.purchasePrice)) {
-            (position: PositionReportData) in
-            if let p = position.purchasePrice {
-              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: p)) ?? String(Int(p))
-              Text("\(txt) \(position.instrumentCurrency)")
-                .font(.system(size: fontSize, design: .monospaced))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-              Text("-")
-                .font(.system(size: fontSize, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-          }
-          .width(min: 110, ideal: 130)
-        }
-
-        if visibleColumns.contains(.current) {
-          TableColumn("Latest") { (position: PositionReportData) in
-            if let id = position.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: id) {
-              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: lp.price)) ?? String(Int(lp.price))
-              Text("\(txt) \(lp.currency)")
-                .font(.system(size: fontSize, design: .monospaced))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-              Text("-")
-                .font(.system(size: fontSize, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-          }
-          .width(min: 120, ideal: 140)
-        }
-
-        if visibleColumns.contains(.valueOriginal) {
-          TableColumn("Position Value (Original Currency)") { (position: PositionReportData) in
-            if let value = viewModel.positionValueOriginal[position.id] {
-              let txt = Self.intMoneyFormatter.string(from: NSNumber(value: value)) ?? String(Int(value))
-              Text("\(txt) \(position.instrumentCurrency)")
-                .font(.system(size: fontSize, design: .monospaced))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-              Text("-")
-                .font(.system(size: fontSize, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-          }
-          .width(min: 220, ideal: 240)
-        }
-
-        if visibleColumns.contains(.valueChf) {
-          TableColumn("Position Value (CHF)") { (position: PositionReportData) in
-            if let opt = viewModel.positionValueCHF[position.id] {
-              if let value = opt {
-                let txt = Self.chfFormatter.string(from: NSNumber(value: value)) ?? String(Int(value))
-                Text("\(txt) CHF")
-                  .font(.system(size: fontSize, design: .monospaced))
-                  .lineLimit(2)
-                  .fixedSize(horizontal: false, vertical: true)
-                  .frame(maxWidth: .infinity, alignment: .trailing)
-              } else {
-                Text("-")
-                  .font(.system(size: fontSize, design: .monospaced))
-                  .foregroundColor(.secondary)
-                  .lineLimit(2)
-                  .fixedSize(horizontal: false, vertical: true)
-                  .frame(maxWidth: .infinity, alignment: .trailing)
-              }
-            } else {
-              Text("-")
-                .font(.system(size: fontSize, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-          }
-          .width(min: 170, ideal: 190)
-        }
-      }
-
-      Group {
-        if visibleColumns.contains(.dates) {
-          TableColumn("Dates", sortUsing: KeyPathComparator(\PositionReportData.uploadedAt)) {
-            (position: PositionReportData) in
-            VStack {
-              if let iu = position.instrumentUpdatedAt {
-                Text(iu, formatter: DateFormatter.iso8601DateOnly)
-              }
-              Text(position.reportDate, formatter: DateFormatter.iso8601DateOnly)
-              Text(position.uploadedAt, formatter: DateFormatter.iso8601DateTime)
-            }
-            .font(.system(size: fontSize))
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .center)
-          }
-          .width(min: 120, ideal: 140)
-        }
-      }
-    }
-    .tableStyle(.inset(alternatesRowBackgrounds: true))
-    .font(.system(size: fontSize))
-    .padding(24)
-    .background(Theme.surface)
-    .cornerRadius(8)
-  }
-
-  private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View
-  {
-    VStack(spacing: 4) {
-      HStack(spacing: 4) {
-        Image(systemName: icon)
-          .font(.system(size: 12))
-          .foregroundColor(color)
-        Text(title)
-          .font(.system(size: 11, weight: .medium))
-          .foregroundColor(.gray)
-      }
-      Text(value)
-        .font(.system(size: 18, weight: .bold))
-        .foregroundColor(.primary)
-    }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
-    .background(
-      RoundedRectangle(cornerRadius: 8)
-        .fill(.regularMaterial)
-        .overlay(
-          RoundedRectangle(cornerRadius: 8)
-            .stroke(color.opacity(0.2), lineWidth: 1)
-        )
-    )
-    .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
-  }
-
-  private var dangerZone: some View {
-    VStack(spacing: 0) {
-      Rectangle()
-        .fill(Color.gray.opacity(0.2))
-        .frame(height: 1)
-
-      HStack(spacing: 16) {
-        Menu {
-          ForEach(institutions, id: \.id) { inst in
-            Button {
-              if selectedInstitutionIds.contains(inst.id) {
-                selectedInstitutionIds.remove(inst.id)
-              } else {
-                selectedInstitutionIds.insert(inst.id)
-              }
-            } label: {
-              HStack {
-                Text(inst.name)
-                if selectedInstitutionIds.contains(inst.id) {
-                  Image(systemName: "checkmark")
-                }
-              }
-            }
-          }
-        } label: {
-          HStack {
-            Text(
-              selectedInstitutionIds.isEmpty
-                ? "Select Institutions" : "\(selectedInstitutionIds.count) Selected"
-            )
-            .font(.system(size: 14, weight: .medium))
-            Image(systemName: "chevron.down")
-              .font(.system(size: 12, weight: .medium))
-          }
-          .foregroundColor(.blue)
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-          .background(Color.blue.opacity(0.1))
-          .clipShape(Capsule())
-          .overlay(
-            Capsule()
-              .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-          )
-        }
-        .buttonStyle(ScaleButtonStyle())
-
-        Menu {
-          ForEach(Array(Set(positions.map(\.instrumentCurrency))), id: \.self) { cur in
-            Button {
-              if currencyFilters.contains(cur) {
-                currencyFilters.remove(cur)
-              } else {
-                currencyFilters.insert(cur)
-              }
-            } label: {
-              HStack {
-                Text(cur)
-                if currencyFilters.contains(cur) { Image(systemName: "checkmark") }
-              }
-            }
-          }
-        } label: {
-          HStack {
-            Text(currencyFilters.isEmpty ? "Filter Currency" : "\(currencyFilters.count) Selected")
-              .font(.system(size: 14, weight: .medium))
-            Image(systemName: "chevron.down")
-              .font(.system(size: 12, weight: .medium))
-          }
-          .foregroundColor(.blue)
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-          .background(Color.blue.opacity(0.1))
-          .clipShape(Capsule())
-          .overlay(
-            Capsule()
-              .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-          )
-        }
-        .buttonStyle(ScaleButtonStyle())
-
-        Button {
-          showingDeleteSheet = true
-        } label: {
-          HStack(spacing: 6) {
-            Image(systemName: "trash")
-            Text("Delete by Filter…")
-          }
-        }
-        .buttonStyle(DestructiveButtonStyle())
-        .disabled(selectedInstitutionIds.isEmpty)
-
-        Button {
-          showDeleteSelectedAlert = true
-        } label: {
-          HStack(spacing: 6) {
-            Image(systemName: "trash.fill")
-            Text("Delete Selected (\(selectedRows.count))")
-          }
-        }
-        .buttonStyle(DestructiveButtonStyle())
-        .disabled(selectedRows.isEmpty)
-
-        Spacer()
-      }
-      .padding(.horizontal, 24)
-      .padding(.vertical, 16)
-      .background(Theme.surface)
-    }
-    .opacity(buttonsOpacity)
-  }
-
-  private func loadPositions() {
-    positions = dbManager.fetchPositionReports()
-    viewModel.calculateValues(positions: positions, db: dbManager)
-  }
-
-  private func loadInstitutions() {
-    // Include inactive institutions to allow deleting all relevant positions.
-    institutions = dbManager.fetchInstitutions(activeOnly: false)
-  }
-
-  private func loadAccountTypes() {
-    // Include inactive account types so counts/deletions include all.
-    accountTypes = dbManager.fetchAccountTypes(activeOnly: false)
-  }
-
-  private func animateEntrance() {
-    withAnimation(.easeOut(duration: 0.6).delay(0.1)) { headerOpacity = 1.0 }
-    withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) { contentOffset = 0 }
-    withAnimation(.easeOut(duration: 0.4).delay(0.5)) { buttonsOpacity = 1.0 }
-  }
-
-  private func colorForCurrency(_ code: String) -> Color {
-    switch code.uppercased() {
-    case "USD": return .green
-    case "CHF": return .red
-    default: return .primary
-    }
-  }
-
-  private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
-    HStack(spacing: 4) {
-      Text(text)
-        .font(.caption)
-      Button(action: onRemove) { Image(systemName: "xmark.circle.fill") }
-        .buttonStyle(PlainButtonStyle())
-    }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 4)
-    .background(Color.blue.opacity(0.1))
-    .clipShape(Capsule())
-  }
-
-  private func persistVisibleColumns() {
-    let arr = visibleColumns.map { $0.rawValue }
-    if let data = try? JSONEncoder().encode(arr) {
-      persistedColumnsData = data
-    }
-  }
 }
 
-struct DeletePositionsSheet: View {
-  @EnvironmentObject var dbManager: DatabaseManager
+private enum PositionSortColumn: String, CaseIterable {
+    case instrument
+    case account
+    case institution
+    case currency
+    case quantity
+    case purchaseValue
+    case currentValue
+    case valueOriginal
+    case valueChf
+    case reportDate
+    case uploadedAt
+    case assetClass
+    case assetSubClass
+    case sector
+    case country
+    case importSession
+}
 
-  let institutions: [DatabaseManager.InstitutionData]
-  let accountTypes: [DatabaseManager.AccountTypeData]
-  let selectedInstitutionIds: Set<Int>
-  var onConfirm: (Set<Int>, Set<Int>, Int) -> Void
-  var onCancel: () -> Void
+struct PositionsView: View {
+    @EnvironmentObject var dbManager: DatabaseManager
 
-  @State private var instIds: Set<Int>
-  @State private var typeIds: Set<Int>
-  @State private var count: Int = 0
+    @State private var positions: [PositionReportData] = []
+    @State private var selectedPositionId: Int? = nil
+    @State private var searchText: String = ""
+    @State private var currencyFilters: Set<String> = []
+    @State private var institutionFilters: Set<String> = []
+    @State private var assetClassFilters: Set<String> = []
 
-  init(
-    institutions: [DatabaseManager.InstitutionData],
-    accountTypes: [DatabaseManager.AccountTypeData],
-    selectedInstitutionIds: Set<Int>,
-    onConfirm: @escaping (Set<Int>, Set<Int>, Int) -> Void,
-    onCancel: @escaping () -> Void
-  ) {
-    self.institutions = institutions
-    self.accountTypes = accountTypes
-    self.selectedInstitutionIds = selectedInstitutionIds
-    self.onConfirm = onConfirm
-    self.onCancel = onCancel
-    _instIds = State(initialValue: selectedInstitutionIds)
-    _typeIds = State(initialValue: Set(accountTypes.map { $0.id }))
-  }
+    @State private var sortColumn: PositionSortColumn = .instrument
+    @State private var sortAscending: Bool = true
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Delete Positions").font(.headline)
-      if !selectedInstitutionIds.isEmpty {
-        Text("Institutions").font(.subheadline.weight(.semibold))
-        ForEach(institutions.filter { selectedInstitutionIds.contains($0.id) }, id: \.id) { inst in
-          Toggle(
-            inst.name,
-            isOn: Binding(
-              get: { instIds.contains(inst.id) },
-              set: { val in
-                if val { instIds.insert(inst.id) } else { instIds.remove(inst.id) }
-              }
-            ))
-        }
-      }
+    @State private var isRefreshing: Bool = false
+    @State private var headerOpacity: Double = 0
+    @State private var contentOffset: CGFloat = 30
 
-      Divider()
+    @StateObject private var tableModel = ResizableTableViewModel<PositionTableColumn>(configuration: PositionsView.tableConfiguration)
+    @StateObject private var metrics = PositionsViewModel()
+    @State private var quantityDrafts: [Int: String] = [:]
+    @State private var positionToEdit: PositionReportData? = nil
+    @State private var showDeleteConfirmation = false
+    @State private var showAddPositionSheet = false
 
-      Text("Account Types").font(.subheadline.weight(.semibold))
-      ForEach(accountTypes, id: \.id) { type in
-        Toggle(
-          "\(type.code) – \(type.name)",
-          isOn: Binding(
-            get: { typeIds.contains(type.id) },
-            set: { val in
-              if val { typeIds.insert(type.id) } else { typeIds.remove(type.id) }
+    private static let columnOrder: [PositionTableColumn] = [
+        .instrument, .account, .institution, .currency, .quantity,
+        .purchaseValue, .currentValue, .valueOriginal, .valueChf,
+        .reportDate, .uploadedAt, .assetClass, .assetSubClass,
+        .sector, .country, .importSession, .notes
+    ]
+
+    private static let defaultVisibleColumns: Set<PositionTableColumn> = [
+        .instrument, .account, .institution, .currency, .quantity,
+        .valueOriginal, .valueChf, .reportDate
+    ]
+
+    private static let requiredColumns: Set<PositionTableColumn> = [.instrument]
+    private static let visibleColumnsKey = "PositionsView.visibleColumns.v1"
+    private static let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private static let columnHandleWidth: CGFloat = 10
+    private static let columnHandleHitSlop: CGFloat = 8
+    fileprivate static let columnTextInset: CGFloat = 12
+
+    private static let defaultColumnWidths: [PositionTableColumn: CGFloat] = [
+        .instrument: 260,
+        .account: 220,
+        .institution: 220,
+        .currency: 80,
+        .quantity: 120,
+        .purchaseValue: 150,
+        .currentValue: 150,
+        .valueOriginal: 170,
+        .valueChf: 170,
+        .reportDate: 140,
+        .uploadedAt: 160,
+        .assetClass: 180,
+        .assetSubClass: 180,
+        .sector: 160,
+        .country: 120,
+        .importSession: 120,
+        .notes: 90
+    ]
+
+    private static let minimumColumnWidths: [PositionTableColumn: CGFloat] = [
+        .instrument: 200,
+        .account: 180,
+        .institution: 180,
+        .currency: 70,
+        .quantity: 100,
+        .purchaseValue: 130,
+        .currentValue: 130,
+        .valueOriginal: 150,
+        .valueChf: 150,
+        .reportDate: 120,
+        .uploadedAt: 140,
+        .assetClass: 150,
+        .assetSubClass: 150,
+        .sector: 140,
+        .country: 100,
+        .importSession: 110,
+        .notes: 70
+    ]
+
+    #if os(macOS)
+    private static let columnResizeCursor: NSCursor = {
+        let size = NSSize(width: 8, height: 24)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        let barWidth: CGFloat = 2
+        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+        NSColor.systemBlue.setFill()
+        barRect.fill()
+        image.unlockFocus()
+        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+    }()
+    #endif
+
+    private static let tableConfiguration: MaintenanceTableConfiguration<PositionTableColumn> = {
+#if os(macOS)
+        MaintenanceTableConfiguration(
+            preferenceKind: .positions,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: requiredColumns,
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
+            },
+            columnResizeCursor: columnResizeCursor
+        )
+#else
+        MaintenanceTableConfiguration(
+            preferenceKind: .positions,
+            columnOrder: columnOrder,
+            defaultVisibleColumns: defaultVisibleColumns,
+            requiredColumns: requiredColumns,
+            defaultColumnWidths: defaultColumnWidths,
+            minimumColumnWidths: minimumColumnWidths,
+            visibleColumnsDefaultsKey: visibleColumnsKey,
+            columnHandleWidth: columnHandleWidth,
+            columnHandleHitSlop: columnHandleHitSlop,
+            columnTextInset: columnTextInset,
+            headerBackground: headerBackground,
+            fontConfigBuilder: { size in
+                MaintenanceTableFontConfig(
+                    primary: size.baseSize,
+                    secondary: max(11, size.secondarySize),
+                    header: size.headerSize,
+                    badge: max(10, size.badgeSize)
+                )
             }
-          ))
-      }
+        )
+#endif
+    }()
 
-      Divider()
-
-      Text("Matching positions: \(count)")
-        .font(.subheadline)
-        .foregroundColor(.secondary)
-
-      HStack {
-        Spacer()
-        Button("Cancel") { onCancel() }
-        Button("Confirm") { onConfirm(instIds, typeIds, count) }
-          .keyboardShortcut(.defaultAction)
-          .disabled(count == 0)
-      }
+    private var visibleColumns: Set<PositionTableColumn> { tableModel.visibleColumns }
+    private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
+    private var fontConfig: MaintenanceTableFontConfig { tableModel.fontConfig }
+    private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
+        Binding(
+            get: { tableModel.selectedFontSize },
+            set: { tableModel.selectedFontSize = $0 }
+        )
     }
-    .padding(20)
-    .frame(minWidth: 340)
-    .onAppear { updateCount() }
-    .onChange(of: instIds) { updateCount() }
-    .onChange(of: typeIds) { updateCount() }
-  }
 
-  private func updateCount() {
-    count = dbManager.countPositionReports(
-      institutionIds: Array(instIds),
-      accountTypeIds: Array(typeIds)
-    )
-  }
+    private var filteredPositions: [PositionReportData] {
+        var result = metrics.filterPositions(
+            positions,
+            searchText: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+            selectedInstitutionNames: Array(institutionFilters),
+            currencyFilters: currencyFilters
+        )
+        if !assetClassFilters.isEmpty {
+            result = result.filter { position in
+                if let assetClass = position.assetClass, !assetClass.isEmpty {
+                    return assetClassFilters.contains(assetClass)
+                }
+                return false
+            }
+        }
+        return result
+    }
+
+    private var sortedPositions: [PositionReportData] {
+        let base = filteredPositions
+        let sorted = base.sorted { lhs, rhs in
+            switch sortColumn {
+            case .instrument:
+                return compare(lhs.instrumentName, rhs.instrumentName)
+            case .account:
+                return compare(lhs.accountName, rhs.accountName)
+            case .institution:
+                return compare(lhs.institutionName, rhs.institutionName)
+            case .currency:
+                return compare(lhs.instrumentCurrency, rhs.instrumentCurrency)
+            case .quantity:
+                return compare(lhs.quantity, rhs.quantity)
+            case .purchaseValue:
+                return compare(lhs.purchasePrice, rhs.purchasePrice)
+            case .currentValue:
+                return compare(lhs.currentPrice, rhs.currentPrice)
+            case .valueOriginal:
+                return compare(valueOriginal(of: lhs), valueOriginal(of: rhs))
+            case .valueChf:
+                return compare(valueChf(of: lhs), valueChf(of: rhs))
+            case .reportDate:
+                return compare(lhs.reportDate, rhs.reportDate)
+            case .uploadedAt:
+                return compare(lhs.uploadedAt, rhs.uploadedAt)
+            case .assetClass:
+                return compare(lhs.assetClass, rhs.assetClass)
+            case .assetSubClass:
+                return compare(lhs.assetSubClass, rhs.assetSubClass)
+            case .sector:
+                return compare(lhs.instrumentSector, rhs.instrumentSector)
+            case .country:
+                return compare(lhs.instrumentCountry, rhs.instrumentCountry)
+            case .importSession:
+                return compare(lhs.importSessionId, rhs.importSessionId)
+            }
+        }
+        return sortAscending ? sorted : Array(sorted.reversed())
+    }
+
+    private var uniqueCurrencies: [String] {
+        Array(Set(positions.map { $0.instrumentCurrency })).sorted()
+    }
+
+    private var uniqueInstitutions: [String] {
+        Array(Set(positions.map { $0.institutionName })).sorted()
+    }
+
+    private var uniqueAssetClasses: [String] {
+        Array(Set(positions.compactMap { $0.assetClass })).sorted()
+    }
+
+    private var filteredValueCHF: Double {
+        filteredPositions.reduce(0) { partial, position in
+            guard let entry = metrics.positionValueCHF[position.id], let value = entry else { return partial }
+            return partial + value
+        }
+    }
+
+    private var isFiltering: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !currencyFilters.isEmpty ||
+        !institutionFilters.isEmpty ||
+        !assetClassFilters.isEmpty
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.99, blue: 1.0),
+                    Color(red: 0.95, green: 0.97, blue: 0.99),
+                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                header
+                searchAndFilters
+                tableControls
+                if sortedPositions.isEmpty {
+                    emptyState
+                        .offset(y: contentOffset)
+                } else {
+                    positionsTable
+                        .offset(y: contentOffset)
+                }
+                footerActions
+            }
+            .padding(24)
+        }
+        .onAppear {
+            tableModel.connect(to: dbManager)
+            loadPositions()
+            animateEntrance()
+        }
+        .sheet(item: $positionToEdit) { item in
+            PositionFormView(position: item) {
+                loadPositions()
+            }
+            .environmentObject(dbManager)
+        }
+        .sheet(isPresented: $showAddPositionSheet) {
+            PositionFormView(position: nil) {
+                loadPositions()
+            }
+            .environmentObject(dbManager)
+        }
+        .alert("Delete Position", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                confirmDeleteSelected()
+            }
+        } message: {
+            if let selectedId = selectedPositionId,
+               let position = positions.first(where: { $0.id == selectedId }) {
+                Text("Are you sure you want to delete '\(position.instrumentName)' from account '\(position.accountName)'?")
+            } else {
+                Text("Select a position before deleting.")
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 12) {
+                    Image(systemName: "tablecells")
+                        .font(.system(size: 32))
+                        .foregroundColor(.blue)
+                    Text("Positions")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                }
+                Text("Holdings table with filters, resizing, and persistence")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 8) {
+                statBlock(title: "Positions", value: "\(positions.count)")
+                statBlock(
+                    title: "Filtered Value (CHF)",
+                    value: Self.chfFormatter.string(from: NSNumber(value: filteredValueCHF)) ?? "–"
+                )
+            }
+        }
+        .opacity(headerOpacity)
+    }
+
+    private var searchAndFilters: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search positions…", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.regularMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+
+            HStack(spacing: 12) {
+                filterMenu(
+                    title: currencyFilters.isEmpty ? "Currency" : "Currency (\(currencyFilters.count))",
+                    icon: "coloncurrencysign.circle",
+                    options: uniqueCurrencies,
+                    selection: $currencyFilters
+                )
+                filterMenu(
+                    title: institutionFilters.isEmpty ? "Institution" : "Institution (\(institutionFilters.count))",
+                    icon: "building.2",
+                    options: uniqueInstitutions,
+                    selection: $institutionFilters
+                )
+                filterMenu(
+                    title: assetClassFilters.isEmpty ? "Asset Class" : "Asset Class (\(assetClassFilters.count))",
+                    icon: "square.stack.3d.up",
+                    options: uniqueAssetClasses,
+                    selection: $assetClassFilters
+                )
+                if isFiltering {
+                    Button("Clear Filters") {
+                        currencyFilters.removeAll()
+                        institutionFilters.removeAll()
+                        assetClassFilters.removeAll()
+                    }
+                    .buttonStyle(.link)
+                }
+                Spacer()
+            }
+
+            if isFiltering {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Showing \(filteredPositions.count) of \(positions.count) positions")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    filterChips
+                }
+            }
+        }
+    }
+
+    private var tableControls: some View {
+        HStack(spacing: 12) {
+            columnsMenu
+            fontSizePicker
+            Spacer()
+            if visibleColumns != Self.defaultVisibleColumns || selectedFontSize != .medium {
+                Button("Reset View") {
+                    tableModel.resetTablePreferences()
+                }
+                .buttonStyle(.link)
+            }
+        }
+        .font(.system(size: 12))
+    }
+
+    private var columnsMenu: some View {
+        Menu {
+            ForEach(Self.columnOrder, id: \.self) { column in
+                let isVisible = visibleColumns.contains(column)
+                Button {
+                    tableModel.toggleColumn(column)
+                } label: {
+                    Label(column.menuTitle, systemImage: isVisible ? "checkmark" : "")
+                }
+                .disabled(isVisible && (visibleColumns.count == 1 || Self.requiredColumns.contains(column)))
+            }
+            Divider()
+            Button("Reset Columns") {
+                tableModel.resetVisibleColumns()
+            }
+        } label: {
+            Label("Columns", systemImage: "slider.horizontal.3")
+        }
+    }
+
+    private var fontSizePicker: some View {
+        Picker("Font Size", selection: fontSizeBinding) {
+            ForEach(MaintenanceTableFontSize.allCases, id: \.self) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 260)
+        .labelsHidden()
+    }
+
+    private var positionsTable: some View {
+        MaintenanceTableView(
+            model: tableModel,
+            rows: sortedPositions,
+            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            showHorizontalIndicators: true,
+            rowContent: { position, context in
+                PositionsRowView(
+                    position: position,
+                    columns: context.columns,
+                    fontConfig: context.fontConfig,
+                    widthFor: { context.widthForColumn($0) },
+                    isSelected: selectedPositionId == position.id,
+                    onSelect: { selectedPositionId = position.id },
+                    onDoubleTap: { openEditor(for: position) },
+                    quantityBinding: quantityBinding(for: position),
+                    onQuantityCommit: { commitQuantityEdit(for: position) },
+                    originalValue: valueOriginal(of: position),
+                    chfValue: valueChf(of: position),
+                    currencySymbol: metrics.currencySymbols[position.instrumentCurrency.uppercased()] ?? position.instrumentCurrency,
+                    chfFormatter: Self.chfFormatter,
+                    currencyFormatter: Self.currencyFormatter
+                )
+            },
+            headerContent: { column, fontConfig in
+                positionsHeader(for: column, fontConfig: fontConfig)
+            }
+        )
+    }
+
+    private func positionsHeader(for column: PositionTableColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
+        let sortOption = sortOption(for: column)
+        let isActiveSort = sortOption == sortColumn
+        return HStack(spacing: 6) {
+            if let sortOption {
+                Button {
+                    if isActiveSort {
+                        sortAscending.toggle()
+                    } else {
+                        sortColumn = sortOption
+                        sortAscending = true
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(column.title)
+                            .font(.system(size: fontConfig.header, weight: .semibold))
+                            .foregroundColor(.black)
+                        if isActiveSort {
+                            Image(systemName: "triangle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.accentColor)
+                                .rotationEffect(.degrees(sortAscending ? 0 : 180))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(column.title)
+                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .foregroundColor(.black)
+            }
+        }
+    }
+
+    private func sortOption(for column: PositionTableColumn) -> PositionSortColumn? {
+        switch column {
+        case .instrument: return .instrument
+        case .account: return .account
+        case .institution: return .institution
+        case .currency: return .currency
+        case .quantity: return .quantity
+        case .purchaseValue: return .purchaseValue
+        case .currentValue: return .currentValue
+        case .valueOriginal: return .valueOriginal
+        case .valueChf: return .valueChf
+        case .reportDate: return .reportDate
+        case .uploadedAt: return .uploadedAt
+        case .assetClass: return .assetClass
+        case .assetSubClass: return .assetSubClass
+        case .sector: return .sector
+        case .country: return .country
+        case .importSession: return .importSession
+        case .notes: return nil
+        }
+    }
+
+    private var filterChips: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(currencyFilters), id: \.self) { value in
+                filterChip(label: value) { currencyFilters.remove(value) }
+            }
+            ForEach(Array(institutionFilters), id: \.self) { value in
+                filterChip(label: value) { institutionFilters.remove(value) }
+            }
+            ForEach(Array(assetClassFilters), id: \.self) { value in
+                filterChip(label: value) { assetClassFilters.remove(value) }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "tray")
+                .font(.system(size: 64))
+                .foregroundColor(.gray.opacity(0.4))
+            Text(isFiltering ? "No positions match your filters" : "No positions available")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray)
+            if isFiltering {
+                Button("Clear Filters") {
+                    searchText = ""
+                    currencyFilters.removeAll()
+                    institutionFilters.removeAll()
+                    assetClassFilters.removeAll()
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 32)
+    }
+
+    private var footerActions: some View {
+        HStack(spacing: 12) {
+            if isRefreshing {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .scaleEffect(0.8)
+            }
+            Button(action: refresh) {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRefreshing)
+
+            Button {
+                showAddPositionSheet = true
+            } label: {
+                Label("New Position", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button {
+                editSelectedPosition()
+            } label: {
+                Label("Edit Selected", systemImage: "square.and.pencil")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedPositionId == nil)
+
+            Button {
+                showDeleteConfirmation = true
+            } label: {
+                Label("Delete Selected", systemImage: "trash")
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .disabled(selectedPositionId == nil)
+
+            Spacer()
+
+            if let selected = selectedPositionId,
+               let position = positions.first(where: { $0.id == selected }) {
+                Text("Selected: \(position.instrumentName) — \(position.accountName)")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+
+    private func loadPositions() {
+        positions = dbManager.fetchPositionReports()
+        resetQuantityDrafts()
+        metrics.calculateValues(positions: positions, db: dbManager)
+    }
+
+    private func refresh() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        let fresh = dbManager.fetchPositionReports()
+        positions = fresh
+        resetQuantityDrafts()
+        metrics.calculateValues(positions: fresh, db: dbManager)
+        isRefreshing = false
+    }
+
+    private func resetQuantityDrafts() {
+        quantityDrafts = positions.reduce(into: [Int: String]()) { dict, position in
+            dict[position.id] = canonicalQuantityString(for: position.quantity)
+        }
+    }
+
+    private func quantityBinding(for position: PositionReportData) -> Binding<String> {
+        let id = position.id
+        return Binding(
+            get: {
+                quantityDrafts[id] ?? canonicalQuantityString(for: currentQuantity(for: id) ?? position.quantity)
+            },
+            set: { newValue in
+                quantityDrafts[id] = newValue
+            }
+        )
+    }
+
+    private func commitQuantityEdit(for position: PositionReportData) {
+        let id = position.id
+        guard var draft = quantityDrafts[id] else { return }
+        draft = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if draft.isEmpty {
+            revertQuantityDraft(for: id)
+            return
+        }
+        guard let parsed = parseQuantity(draft) else {
+            revertQuantityDraft(for: id)
+            return
+        }
+        applyQuantity(parsed, to: id)
+    }
+
+    private func applyQuantity(_ value: Double, to id: Int) {
+        guard let index = positions.firstIndex(where: { $0.id == id }) else { return }
+        let current = positions[index].quantity
+        if abs(current - value) < 0.00001 {
+            quantityDrafts[id] = canonicalQuantityString(for: current)
+            return
+        }
+        if dbManager.updatePositionQuantity(id: id, quantity: value) {
+            positions[index].quantity = value
+            quantityDrafts[id] = canonicalQuantityString(for: value)
+            metrics.calculateValues(positions: positions, db: dbManager)
+        } else {
+            revertQuantityDraft(for: id)
+        }
+    }
+
+    private func revertQuantityDraft(for id: Int) {
+        if let value = currentQuantity(for: id) {
+            quantityDrafts[id] = canonicalQuantityString(for: value)
+        } else {
+            quantityDrafts[id] = nil
+        }
+    }
+
+    private func currentQuantity(for id: Int) -> Double? {
+        positions.first(where: { $0.id == id })?.quantity
+    }
+
+    private func parseQuantity(_ text: String) -> Double? {
+        let sanitized = text
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: " ", with: "")
+        if sanitized.isEmpty { return nil }
+        if let direct = Double(sanitized.replacingOccurrences(of: ",", with: ".")) {
+            return direct
+        }
+        return Self.quantityFormatter.number(from: sanitized)?.doubleValue
+    }
+
+    private func canonicalQuantityString(for value: Double) -> String {
+        Self.quantityFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.4f", value)
+    }
+
+    private func editSelectedPosition() {
+        guard let selectedId = selectedPositionId,
+              let position = positions.first(where: { $0.id == selectedId }) else { return }
+        positionToEdit = position
+    }
+
+    private func openEditor(for position: PositionReportData) {
+        selectedPositionId = position.id
+        positionToEdit = position
+    }
+
+    private func confirmDeleteSelected() {
+        guard let selectedId = selectedPositionId else { return }
+        showDeleteConfirmation = false
+        let succeeded = dbManager.deletePositionReport(id: selectedId)
+        if succeeded {
+            positions.removeAll { $0.id == selectedId }
+            quantityDrafts[selectedId] = nil
+            selectedPositionId = nil
+            resetQuantityDrafts()
+            metrics.calculateValues(positions: positions, db: dbManager)
+        }
+    }
+
+    private func animateEntrance() {
+        withAnimation(.easeOut(duration: 0.6)) { headerOpacity = 1 }
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.15)) { contentOffset = 0 }
+    }
+
+    private func valueOriginal(of position: PositionReportData) -> Double? {
+        metrics.positionValueOriginal[position.id]
+    }
+
+    private func valueChf(of position: PositionReportData) -> Double? {
+        guard let entry = metrics.positionValueCHF[position.id], let value = entry else { return nil }
+        return value
+    }
+
+    private func compare(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+    }
+
+    private func compare(_ lhs: String?, _ rhs: String?) -> Bool {
+        switch (lhs?.isEmpty == false ? lhs : nil, rhs?.isEmpty == false ? rhs : nil) {
+        case let (l?, r?):
+            let comparison = l.localizedCaseInsensitiveCompare(r)
+            if comparison == .orderedSame {
+                return l < r
+            }
+            return comparison == .orderedAscending
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        default:
+            return false
+        }
+    }
+
+    private func compare(_ lhs: Double, _ rhs: Double) -> Bool {
+        lhs < rhs
+    }
+
+    private func compare(_ lhs: Double?, _ rhs: Double?) -> Bool {
+        switch (lhs, rhs) {
+        case let (l?, r?): return l < r
+        case (_?, nil): return true
+        case (nil, _?): return false
+        default: return false
+        }
+    }
+
+    private func compare(_ lhs: Int?, _ rhs: Int?) -> Bool {
+        switch (lhs, rhs) {
+        case let (l?, r?): return l < r
+        case (_?, nil): return true
+        case (nil, _?): return false
+        default: return false
+        }
+    }
+
+    private func compare(_ lhs: Date, _ rhs: Date) -> Bool {
+        lhs < rhs
+    }
+
+    private func compare(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case let (l?, r?): return l < r
+        case (_?, nil): return true
+        case (nil, _?): return false
+        default: return false
+        }
+    }
+
+    private func statBlock(title: String, value: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(title.uppercased())
+                .font(.caption2)
+                .foregroundColor(.gray)
+            Text(value)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+        }
+    }
+
+    private func filterMenu(title: String, icon: String, options: [String], selection: Binding<Set<String>>) -> some View {
+        Menu {
+            if options.isEmpty {
+                Text("No values available")
+            } else {
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        if selection.wrappedValue.contains(option) {
+                            selection.wrappedValue.remove(option)
+                        } else {
+                            selection.wrappedValue.insert(option)
+                        }
+                    } label: {
+                        HStack {
+                            Text(option)
+                            if selection.wrappedValue.contains(option) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(title, systemImage: icon)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.blue.opacity(0.08))
+                .clipShape(Capsule())
+        }
+    }
+
+    private func filterChip(label: String, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.caption)
+            Button(action: action) {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.blue.opacity(0.12))
+        .clipShape(Capsule())
+    }
+
+    private static let quantityFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 4
+        formatter.minimumFractionDigits = 0
+        formatter.usesGroupingSeparator = false
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+
+    private static let currencyFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 0
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "'"
+        return formatter
+    }()
+
+    fileprivate static let chfFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "'"
+        return formatter
+    }()
+}
+
+private struct PositionsRowView: View {
+    let position: PositionReportData
+    let columns: [PositionTableColumn]
+    let fontConfig: MaintenanceTableFontConfig
+    let widthFor: (PositionTableColumn) -> CGFloat
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onDoubleTap: () -> Void
+    let quantityBinding: Binding<String>
+    let onQuantityCommit: () -> Void
+    let originalValue: Double?
+    let chfValue: Double?
+    let currencySymbol: String
+    let chfFormatter: NumberFormatter
+    let currencyFormatter: NumberFormatter
+
+    @State private var showNotes = false
+    @FocusState private var quantityFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(columns, id: \.self) { column in
+                columnView(column)
+            }
+        }
+        .padding(.trailing, 12)
+        .padding(.vertical, max(4, fontConfig.badge - 6))
+        .background(
+            Rectangle()
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                .overlay(
+                    Rectangle()
+                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                )
+        )
+        .overlay(
+            Rectangle()
+                .fill(Color.black.opacity(0.05))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: onDoubleTap)
+        .onTapGesture(perform: onSelect)
+    }
+
+    @ViewBuilder
+    private func columnView(_ column: PositionTableColumn) -> some View {
+        switch column {
+        case .instrument:
+            VStack(alignment: .leading, spacing: 2) {
+                Text(position.instrumentName)
+                    .font(.system(size: fontConfig.primary, weight: .medium))
+                    .foregroundColor(.primary)
+                if let sector = position.instrumentSector, !sector.isEmpty {
+                    Text(sector)
+                        .font(.system(size: fontConfig.secondary))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.leading, PositionsView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.instrument), alignment: .leading)
+        case .account:
+            VStack(alignment: .leading, spacing: 2) {
+                Text(position.accountName)
+                    .font(.system(size: fontConfig.secondary))
+                    .foregroundColor(.primary)
+                Text(position.institutionName)
+                    .font(.system(size: fontConfig.badge))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.leading, PositionsView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.account), alignment: .leading)
+        case .institution:
+            Text(position.institutionName)
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.institution), alignment: .leading)
+        case .currency:
+            Text(position.instrumentCurrency.uppercased())
+                .font(.system(size: fontConfig.badge, weight: .semibold))
+                .foregroundColor(.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.blue.opacity(0.12))
+                .clipShape(Capsule())
+                .padding(.leading, PositionsView.columnTextInset)
+                .frame(width: widthFor(.currency), alignment: .leading)
+        case .quantity:
+            TextField("", text: quantityBinding)
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .multilineTextAlignment(.trailing)
+                .textFieldStyle(.roundedBorder)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.quantity), alignment: .trailing)
+                .focused($quantityFocused)
+                .onSubmit(onQuantityCommit)
+                .onChange(of: quantityFocused) { focused in
+                    if !focused {
+                        onQuantityCommit()
+                    }
+                }
+        case .purchaseValue:
+            Text(monetaryText(position.purchasePrice))
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(position.purchasePrice == nil ? .secondary : .primary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.purchaseValue), alignment: .trailing)
+        case .currentValue:
+            Text(monetaryText(position.currentPrice))
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(position.currentPrice == nil ? .secondary : .primary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.currentValue), alignment: .trailing)
+        case .valueOriginal:
+            Text(formattedOriginalValue)
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(originalValue == nil ? .secondary : .primary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.valueOriginal), alignment: .trailing)
+        case .valueChf:
+            Text(formattedChfValue)
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(chfValue == nil ? .secondary : .primary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.valueChf), alignment: .trailing)
+        case .reportDate:
+            Text(dateText(position.reportDate))
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.reportDate), alignment: .leading)
+        case .uploadedAt:
+            Text(dateTimeText(position.uploadedAt))
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.uploadedAt), alignment: .leading)
+        case .assetClass:
+            Text(position.assetClass ?? "–")
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.assetClass), alignment: .leading)
+        case .assetSubClass:
+            Text(position.assetSubClass ?? "–")
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.assetSubClass), alignment: .leading)
+        case .sector:
+            Text(position.instrumentSector ?? "–")
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.sector), alignment: .leading)
+        case .country:
+            Text(position.instrumentCountry ?? "–")
+                .font(.system(size: fontConfig.secondary))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.country), alignment: .leading)
+        case .importSession:
+            Text(position.importSessionId.map { "#\($0)" } ?? "—")
+                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.leading, PositionsView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.importSession), alignment: .trailing)
+        case .notes:
+            notesColumn
+                .frame(width: widthFor(.notes), alignment: .center)
+        }
+    }
+
+    private func monetaryText(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        let formatted = currencyFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
+        return "\(formatted) \(position.instrumentCurrency.uppercased())"
+    }
+
+    private var formattedOriginalValue: String {
+        guard let originalValue else { return "—" }
+        let formatted = currencyFormatter.string(from: NSNumber(value: originalValue)) ?? String(format: "%.2f", originalValue)
+        return "\(formatted) \(currencySymbol)"
+    }
+
+    private var formattedChfValue: String {
+        guard let chfValue else { return "—" }
+        return chfFormatter.string(from: NSNumber(value: chfValue)) ?? String(format: "%.0f", chfValue)
+    }
+
+    private var notesColumn: some View {
+        Group {
+            if let notes = position.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+                Button {
+                    showNotes = true
+                } label: {
+                    Image(systemName: "note.text")
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showNotes) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notes")
+                            .font(.headline)
+                        Text(notes)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding()
+                    .frame(width: 260)
+                }
+            } else {
+                Image(systemName: "note.text")
+                    .foregroundColor(.gray.opacity(0.3))
+            }
+        }
+    }
+
+    private func dateText(_ date: Date) -> String {
+        DateFormatter.userFacingFormatter.string(from: date)
+    }
+
+    private func dateTimeText(_ date: Date) -> String {
+        DateFormatter.userFacingDateTimeFormatter.string(from: date)
+    }
+}
+
+private extension DateFormatter {
+    static let userFacingFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    static let userFacingDateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }
