@@ -74,6 +74,9 @@ struct AccountsView: View {
     @State private var showEditAccountSheet = false
     @State private var showingDeleteAlert = false
     @State private var accountToDelete: DatabaseManager.AccountData? = nil
+    @State private var isRefreshing = false
+    @State private var showRefreshAlert = false
+    @State private var refreshMessage: String = ""
 
     @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true

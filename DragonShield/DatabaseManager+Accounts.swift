@@ -73,7 +73,7 @@ extension DatabaseManager {
 
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse }
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse($0) }
 
                 let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
                 let isActive = sqlite3_column_int(statement, 11) == 1
@@ -135,7 +135,7 @@ extension DatabaseManager {
                 let currencyCode = String(cString: sqlite3_column_text(statement, 6))
                 let openingDate: Date? = sqlite3_column_text(statement, 7).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
                 let closingDate: Date? = sqlite3_column_text(statement, 8).map { String(cString: $0) }.flatMap { DateFormatter.iso8601DateOnly.date(from: $0) }
-                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse }
+                let earliestDate: Date? = sqlite3_column_text(statement, 9).map { String(cString: $0) }.flatMap { ISO8601DateParser.parse($0) }
                 let includeInPortfolio = sqlite3_column_int(statement, 10) == 1
                 let isActive = sqlite3_column_int(statement, 11) == 1
                 let notes: String? = sqlite3_column_text(statement, 12).map { String(cString: $0) }
@@ -470,7 +470,15 @@ extension DatabaseManager {
     /// - Parameter completion: Called on the main thread with the number of
     ///   rows updated or an error.
     func refreshEarliestInstrumentTimestamps(completion: @escaping (Result<Int, Error>) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else {
+                DispatchQueue.main.async {
+                    let error = NSError(domain: "DatabaseManager", code: 0, userInfo: [NSLocalizedDescriptionKey: "Database connection unavailable"])
+                    completion(.failure(error))
+                }
+                return
+            }
+
             let sql = """
                 UPDATE Accounts
                    SET earliest_instrument_last_updated_at = (
@@ -482,3 +490,27 @@ extension DatabaseManager {
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(self.db, sql, -1, &stmt, nil) == SQLITE_OK else {
                 let msg = String(cString: sqlite3_errmsg(self.db))
+                DispatchQueue.main.async {
+                    let error = NSError(domain: "DatabaseManager", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            defer { sqlite3_finalize(stmt) }
+
+            let stepResult = sqlite3_step(stmt)
+            let updatedRows = Int(sqlite3_changes(self.db))
+
+            DispatchQueue.main.async {
+                if stepResult == SQLITE_DONE {
+                    completion(.success(updatedRows))
+                } else {
+                    let msg = String(cString: sqlite3_errmsg(self.db))
+                    let error = NSError(domain: "DatabaseManager", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+}

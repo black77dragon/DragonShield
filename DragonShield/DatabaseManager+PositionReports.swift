@@ -485,6 +485,7 @@ extension DatabaseManager {
         var institutionId: Int
         var instrumentId: Int
         var instrumentName: String
+        var instrumentCurrency: String
         var quantity: Double
         var purchasePrice: Double?
         var currentPrice: Double?
@@ -498,7 +499,8 @@ extension DatabaseManager {
         var rows: [EditablePositionData] = []
         let sql = """
             SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
-                   i.instrument_name, pr.quantity, pr.purchase_price, pr.current_price,
+                   i.instrument_name, i.currency,
+                   pr.quantity, pr.purchase_price, pr.current_price,
                    COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                    pr.notes, pr.report_date, pr.import_session_id
               FROM PositionReports pr
@@ -516,26 +518,27 @@ extension DatabaseManager {
                 let instId = Int(sqlite3_column_int(stmt, 2))
                 let instrId = Int(sqlite3_column_int(stmt, 3))
                 let name = String(cString: sqlite3_column_text(stmt, 4))
-                let qty = sqlite3_column_double(stmt, 5)
+                let instrumentCurrency = String(cString: sqlite3_column_text(stmt, 5))
+                let qty = sqlite3_column_double(stmt, 6)
                 var pPrice: Double?
-                if sqlite3_column_type(stmt, 6) != SQLITE_NULL {
-                    pPrice = sqlite3_column_double(stmt, 6)
+                if sqlite3_column_type(stmt, 7) != SQLITE_NULL {
+                    pPrice = sqlite3_column_double(stmt, 7)
                 }
                 var cPrice: Double?
-                if sqlite3_column_type(stmt, 7) != SQLITE_NULL {
-                    cPrice = sqlite3_column_double(stmt, 7)
+                if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
+                    cPrice = sqlite3_column_double(stmt, 8)
                 }
                 var updated: Date?
-                if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(stmt, 8))
+                if sqlite3_column_type(stmt, 9) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(stmt, 9))
                     updated = ISO8601DateParser.parse(str)
                 }
-                let notes = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
-                let reportStr = String(cString: sqlite3_column_text(stmt, 10))
+                let notes = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let reportStr = String(cString: sqlite3_column_text(stmt, 11))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportStr) ?? Date()
                 let sess: Int?
-                if sqlite3_column_type(stmt, 11) != SQLITE_NULL {
-                    sess = Int(sqlite3_column_int(stmt, 11))
+                if sqlite3_column_type(stmt, 12) != SQLITE_NULL {
+                    sess = Int(sqlite3_column_int(stmt, 12))
                 } else { sess = nil }
                 rows.append(EditablePositionData(
                     id: id,
@@ -543,6 +546,7 @@ extension DatabaseManager {
                     institutionId: instId,
                     instrumentId: instrId,
                     instrumentName: name,
+                    instrumentCurrency: instrumentCurrency,
                     quantity: qty,
                     purchasePrice: pPrice,
                     currentPrice: cPrice,

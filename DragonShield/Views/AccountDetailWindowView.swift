@@ -103,7 +103,7 @@ struct AccountDetailWindowView: View {
     private var positionsTable: some View {
         ScrollView {
             Grid(horizontalSpacing: 16, verticalSpacing: 16) {
-                ForEach($viewModel.positions) { $item in
+                ForEach(Array(viewModel.positions.enumerated()), id: \.element.id) { index, item in
                     GridRow {
                         Text(item.instrumentName)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,7 +112,7 @@ struct AccountDetailWindowView: View {
                             Text("Quantity")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            TextField("", value: $item.quantity, formatter: Self.numberFormatter)
+                            TextField("", value: $viewModel.positions[index].quantity, formatter: Self.numberFormatter)
                                 .frame(width: 80)
                         }
 
@@ -121,7 +121,7 @@ struct AccountDetailWindowView: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                             HStack(spacing: 6) {
-                                TextField("", text: priceBinding(for: $item))
+                                TextField("", text: priceBinding(for: index))
                                     .textFieldStyle(.roundedBorder)
                                     .multilineTextAlignment(.trailing)
                                     .frame(width: 100, alignment: .trailing)
@@ -139,7 +139,7 @@ struct AccountDetailWindowView: View {
                             Text("Price As Of")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            priceAsOfStyledText(for: item.latestPriceAsOf)
+                            priceAsOfStyledText(for: item.instrumentUpdatedAt)
                                 .frame(width: 120, alignment: .leading)
                         }
                     }
@@ -151,23 +151,25 @@ struct AccountDetailWindowView: View {
 }
 
 private extension AccountDetailWindowView {
-    func priceBinding(for item: Binding<DatabaseManager.EditablePositionData>) -> Binding<String> {
+    func priceBinding(for index: Int) -> Binding<String> {
         Binding<String>(
             get: {
-                if let value = item.wrappedValue.latestPrice {
+                guard viewModel.positions.indices.contains(index) else { return "" }
+                if let value = viewModel.positions[index].currentPrice {
                     return AccountDetailWindowView.priceFormatter.string(from: NSNumber(value: value)) ?? String(value)
                 }
                 return ""
             },
             set: { newValue in
+                guard viewModel.positions.indices.contains(index) else { return }
                 let sanitized = newValue.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: ",", with: ".")
                 let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
-                    item.wrappedValue.latestPrice = nil
-                    item.wrappedValue.latestPriceAsOf = nil
+                    viewModel.positions[index].currentPrice = nil
+                    viewModel.positions[index].instrumentUpdatedAt = nil
                 } else if let value = Double(trimmed) {
-                    item.wrappedValue.latestPrice = value
-                    item.wrappedValue.latestPriceAsOf = Date()
+                    viewModel.positions[index].currentPrice = value
+                    viewModel.positions[index].instrumentUpdatedAt = Date()
                 }
             }
         )
