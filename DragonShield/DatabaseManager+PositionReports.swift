@@ -453,6 +453,28 @@ extension DatabaseManager {
         return result
     }
 
+    /// Updates only the quantity for a single position and refreshes the uploaded timestamp.
+    /// - Parameters:
+    ///   - id: The primary key of the position.
+    ///   - quantity: The new quantity value to persist.
+    /// - Returns: True when the update succeeds.
+    func updatePositionQuantity(id: Int, quantity: Double) -> Bool {
+        let sql = "UPDATE PositionReports SET quantity = ?, uploaded_at = CURRENT_TIMESTAMP WHERE position_id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            print("❌ Failed to prepare quantity update: \(String(cString: sqlite3_errmsg(db)))")
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_double(stmt, 1, quantity)
+        sqlite3_bind_int(stmt, 2, Int32(id))
+        let result = sqlite3_step(stmt) == SQLITE_DONE
+        if !result {
+            print("❌ Quantity update failed for position \(id): \(String(cString: sqlite3_errmsg(db)))")
+        }
+        return result
+    }
+
     /// Deletes multiple position reports by their primary keys.
     /// - Parameter ids: The `position_id` values to delete.
     /// - Returns: The number of rows deleted.

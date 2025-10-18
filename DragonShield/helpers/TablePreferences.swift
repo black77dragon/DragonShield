@@ -7,6 +7,7 @@ enum TablePreferenceKind {
     case assetClasses
     case currencies
     case accounts
+    case positions
     case portfolioThemes
     case transactionTypes
     case accountTypes
@@ -19,6 +20,7 @@ enum TablePreferenceKind {
         case .assetClasses: return "asset-classes"
         case .currencies: return "currencies"
         case .accounts: return "accounts"
+        case .positions: return "positions"
         case .portfolioThemes: return "portfolio-themes"
         case .transactionTypes: return "transaction-types"
         case .accountTypes: return "account-types"
@@ -33,6 +35,7 @@ enum TablePreferenceKind {
         case .assetClasses: return \DatabaseManager.assetClassesTableColumnFractions
         case .currencies: return \DatabaseManager.currenciesTableColumnFractions
         case .accounts: return \DatabaseManager.accountsTableColumnFractions
+        case .positions: return \DatabaseManager.positionsTableColumnFractions
         case .portfolioThemes: return \DatabaseManager.portfolioThemesTableColumnFractions
         case .transactionTypes: return \DatabaseManager.transactionTypesTableColumnFractions
         case .accountTypes: return \DatabaseManager.accountTypesTableColumnFractions
@@ -47,6 +50,7 @@ enum TablePreferenceKind {
         case .assetClasses: return \DatabaseManager.assetClassesTableFontSize
         case .currencies: return \DatabaseManager.currenciesTableFontSize
         case .accounts: return \DatabaseManager.accountsTableFontSize
+        case .positions: return \DatabaseManager.positionsTableFontSize
         case .portfolioThemes: return \DatabaseManager.portfolioThemesTableFontSize
         case .transactionTypes: return \DatabaseManager.transactionTypesTableFontSize
         case .accountTypes: return \DatabaseManager.accountTypesTableFontSize
@@ -61,6 +65,7 @@ enum TablePreferenceKind {
         case .assetClasses: return "AssetClassesView.columnFractions.v1"
         case .currencies: return "CurrenciesView.columnFractions.v1"
         case .accounts: return "AccountsView.columnFractions.v1"
+        case .positions: return "PositionsView.columnFractions.v1"
         case .portfolioThemes: return "NewPortfoliosView.columnFractions.v1"
         case .transactionTypes: return "TransactionTypesView.columnFractions.v1"
         case .accountTypes: return "AccountTypesView.columnFractions.v1"
@@ -75,6 +80,7 @@ enum TablePreferenceKind {
         case .assetClasses: return "AssetClassesView.tableFontSize.v1"
         case .currencies: return "CurrenciesView.tableFontSize.v1"
         case .accounts: return "AccountsView.tableFontSize.v1"
+        case .positions: return "PositionsView.tableFontSize.v1"
         case .portfolioThemes: return "NewPortfoliosView.tableFontSize.v1"
         case .transactionTypes: return "TransactionTypesView.tableFontSize.v1"
         case .accountTypes: return "AccountTypesView.tableFontSize.v1"
@@ -95,6 +101,7 @@ extension DatabaseManager {
         case .assetClasses: setAssetClassesTableColumnFractions(fractions)
         case .currencies: setCurrenciesTableColumnFractions(fractions)
         case .accounts: setAccountsTableColumnFractions(fractions)
+        case .positions: setPositionsTableColumnFractions(fractions)
         case .portfolioThemes: setPortfolioThemesTableColumnFractions(fractions)
         case .transactionTypes: setTransactionTypesTableColumnFractions(fractions)
         case .accountTypes: setAccountTypesTableColumnFractions(fractions)
@@ -113,6 +120,7 @@ extension DatabaseManager {
         case .assetClasses: setAssetClassesTableFontSize(value)
         case .currencies: setCurrenciesTableFontSize(value)
         case .accounts: setAccountsTableFontSize(value)
+        case .positions: setPositionsTableFontSize(value)
         case .portfolioThemes: setPortfolioThemesTableFontSize(value)
         case .transactionTypes: setTransactionTypesTableFontSize(value)
         case .accountTypes: setAccountTypesTableFontSize(value)
