@@ -62,10 +62,6 @@ private enum AccountTableColumn: String, CaseIterable, Codable, MaintenanceTable
 struct AccountsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
-    @State private var isRefreshing = false
-    @State private var showRefreshAlert = false
-    @State private var refreshMessage: String = ""
-
     @State private var accounts: [DatabaseManager.AccountData] = []
     @State private var selectedAccount: DatabaseManager.AccountData? = nil
 

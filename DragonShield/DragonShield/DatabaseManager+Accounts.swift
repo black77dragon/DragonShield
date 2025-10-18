@@ -470,14 +470,10 @@ extension DatabaseManager {
     /// - Parameter completion: Called on the main thread with the number of
     ///   rows updated or an error.
     func refreshEarliestInstrumentTimestamps(completion: @escaping (Result<Int, Error>) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self, let database = self.db else {
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let db = self.db else {
                 DispatchQueue.main.async {
-                    let error = NSError(
-                        domain: "DatabaseManager.refreshEarliestInstrumentTimestamps",
-                        code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Database connection is not available."]
-                    )
+                    let error = NSError(domain: "DatabaseManager", code: 0, userInfo: [NSLocalizedDescriptionKey: "Database connection unavailable"])
                     completion(.failure(error))
                 }
                 return
@@ -491,20 +487,12 @@ extension DatabaseManager {
                          WHERE pr.account_id = Accounts.account_id
                    );
                 """
+
             var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(database, sql, -1, &stmt, nil) == SQLITE_OK else {
-                let message = String(cString: sqlite3_errmsg(database))
-                LoggingService.shared.log(
-                    "refreshEarliestInstrumentTimestamps prepare failed: \(message)",
-                    type: .error,
-                    logger: .database
-                )
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                let msg = String(cString: sqlite3_errmsg(db))
                 DispatchQueue.main.async {
-                    let error = NSError(
-                        domain: "DatabaseManager.refreshEarliestInstrumentTimestamps",
-                        code: Int(sqlite3_errcode(database)),
-                        userInfo: [NSLocalizedDescriptionKey: message]
-                    )
+                    let error = NSError(domain: "DatabaseManager", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
                     completion(.failure(error))
                 }
                 return
@@ -513,29 +501,14 @@ extension DatabaseManager {
             defer { sqlite3_finalize(stmt) }
 
             let stepResult = sqlite3_step(stmt)
-            if stepResult == SQLITE_DONE {
-                let updates = Int(sqlite3_changes(database))
-                LoggingService.shared.log(
-                    "refreshEarliestInstrumentTimestamps updated rows: \(updates)",
-                    type: .info,
-                    logger: .database
-                )
-                DispatchQueue.main.async {
-                    completion(.success(updates))
-                }
-            } else {
-                let message = String(cString: sqlite3_errmsg(database))
-                LoggingService.shared.log(
-                    "refreshEarliestInstrumentTimestamps failed (rc=\(stepResult)): \(message)",
-                    type: .error,
-                    logger: .database
-                )
-                DispatchQueue.main.async {
-                    let error = NSError(
-                        domain: "DatabaseManager.refreshEarliestInstrumentTimestamps",
-                        code: Int(sqlite3_errcode(database)),
-                        userInfo: [NSLocalizedDescriptionKey: message]
-                    )
+            let updatedRows = Int(sqlite3_changes(db))
+
+            DispatchQueue.main.async {
+                if stepResult == SQLITE_DONE {
+                    completion(.success(updatedRows))
+                } else {
+                    let msg = String(cString: sqlite3_errmsg(db))
+                    let error = NSError(domain: "DatabaseManager", code: 2, userInfo: [NSLocalizedDescriptionKey: msg])
                     completion(.failure(error))
                 }
             }
