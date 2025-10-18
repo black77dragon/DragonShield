@@ -842,8 +842,8 @@ extension DatabaseManager {
         return snapshots
     }
 
-    // Upcoming: date alerts with a future or today trigger date
-    func listUpcomingDateAlerts(limit: Int = 200) -> [(alertId: Int, alertName: String, severity: String, upcomingDate: String)] {
+    // Upcoming: date alerts with a future or today trigger date (optionally includes overdue)
+    func listUpcomingDateAlerts(limit: Int = 200, includeOverdue: Bool = false) -> [(alertId: Int, alertName: String, severity: String, upcomingDate: String)] {
         let alerts = listAlerts(includeDisabled: false)
         var dateTriggers = Set(listAlertTriggerTypes(includeInactive: false).filter { $0.requiresDate }.map { $0.code })
         if dateTriggers.isEmpty {
@@ -862,6 +862,8 @@ extension DatabaseManager {
             if let e = a.scheduleEnd, let end = df.date(from: e), d > end { continue }
             if d >= today {
                 if d == today, hasTriggeredEventToday(alertId: a.id, day: today) { continue }
+                out.append((a.id, a.name, a.severity.rawValue, dateStr))
+            } else if includeOverdue {
                 out.append((a.id, a.name, a.severity.rawValue, dateStr))
             }
         }

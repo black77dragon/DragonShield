@@ -42,30 +42,32 @@ struct UpcomingAlertsTile: DashboardTile {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
                         ForEach(Array(items.enumerated()), id: \.1.alertId) { _, row in
-                            let urgent = isWithinWeek(row.upcomingDate)
-                            let dueSoon = !urgent && isDueSoon(row.upcomingDate)
+                            let overdue = isOverdue(row.upcomingDate)
+                            let urgent = !overdue && isWithinWeek(row.upcomingDate)
+                            let dueSoon = !(overdue || urgent) && isDueSoon(row.upcomingDate)
+                            let highlight = overdue || urgent
                             HStack {
                                 Text(row.alertName)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .foregroundColor(urgent ? .white : (dueSoon ? .red : .primary))
+                                    .foregroundColor(highlight ? .white : (dueSoon ? .red : .primary))
                                 Spacer()
                                 HStack(spacing: 8) {
                                     Text(format(dateStr: row.upcomingDate))
-                                        .foregroundColor(urgent ? .white : (dueSoon ? .red : .secondary))
+                                        .foregroundColor(highlight ? .white : (dueSoon ? .red : .secondary))
                                     if let daysText = daysUntilText(for: row.upcomingDate) {
                                         Text(daysText)
-                                            .fontWeight(urgent ? .bold : .regular)
-                                            .foregroundColor(urgent ? .white : .blue)
+                                            .fontWeight((highlight || dueSoon) ? .bold : .regular)
+                                            .foregroundColor(highlight ? .white : .blue)
                                     }
                                 }
                             }
-                            .fontWeight((urgent || dueSoon) ? .bold : .regular)
+                            .fontWeight((highlight || dueSoon) ? .bold : .regular)
                             .frame(height: DashboardTileLayout.rowHeight)
-                            .padding(.horizontal, urgent ? 6 : 0)
-                            .padding(.vertical, urgent ? 2 : 0)
+                            .padding(.horizontal, highlight ? 6 : 0)
+                            .padding(.vertical, highlight ? 2 : 0)
                             .background(
-                                Group { if urgent { RoundedRectangle(cornerRadius: 6).fill(Color.red) } else { Color.clear } }
+                                Group { if highlight { RoundedRectangle(cornerRadius: 6).fill(Color.red) } else { Color.clear } }
                             )
                         }
                     }
@@ -92,13 +94,17 @@ struct UpcomingAlertsTile: DashboardTile {
         guard let dueDate = Self.inDf.date(from: dateStr) else { return nil }
         let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
         let diff = Calendar.current.dateComponents([.day], from: today, to: dueDate).day ?? 0
-        if diff <= 0 { return "Today" }
+        if diff < 0 {
+            let overdueDays = abs(diff)
+            return overdueDays == 1 ? "Overdue by 1 day" : "Overdue by \(overdueDays) days"
+        }
+        if diff == 0 { return "Today" }
         if diff == 1 { return "1 day" }
         return "\(diff) days"
     }
 
     private func load() {
-        var rows = dbManager.listUpcomingDateAlerts(limit: 200)
+        var rows = dbManager.listUpcomingDateAlerts(limit: 200, includeOverdue: true)
         rows.sort { $0.upcomingDate < $1.upcomingDate }
         items = rows
     }
@@ -108,13 +114,19 @@ struct UpcomingAlertsTile: DashboardTile {
         // Compare date-only in UTC
         let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
         guard let twoWeeks = Calendar.current.date(byAdding: .day, value: 14, to: today) else { return false }
-        return d < twoWeeks
+        return d >= today && d < twoWeeks
     }
 
     private func isWithinWeek(_ dateStr: String) -> Bool {
         guard let d = Self.inDf.date(from: dateStr) else { return false }
         let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
         guard let oneWeek = Calendar.current.date(byAdding: .day, value: 7, to: today) else { return false }
-        return d < oneWeek
+        return d >= today && d < oneWeek
+    }
+
+    private func isOverdue(_ dateStr: String) -> Bool {
+        guard let d = Self.inDf.date(from: dateStr) else { return false }
+        let today = Self.inDf.date(from: Self.inDf.string(from: Date())) ?? Date()
+        return d < today
     }
 }
