@@ -54,7 +54,11 @@ final class KanbanTodoTests: XCTestCase {
         }
 
         let expectedDue = KanbanRepeatFrequency.weekly.nextDueDate(from: completionDate)
-        XCTAssertEqual(updated.dueDate.timeIntervalSince1970,
+        guard let dueDate = updated.dueDate else {
+            XCTFail("Expected repeating todo to reschedule with new due date")
+            return
+        }
+        XCTAssertEqual(dueDate.timeIntervalSince1970,
                        expectedDue.timeIntervalSince1970,
                        accuracy: 1.0,
                        "Expected due date plus seven days")

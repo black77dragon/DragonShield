@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -n "${APP_SANDBOX_CONTAINER_ID:-}" ]]; then
+  echo "[git-info] Detected App Sandbox context; skipping Git metadata embed."
+  exit 0
+fi
+
 # This script embeds Git metadata (tag/branch/commit) into the built Info.plist.
 # Xcode Run Script Phase: add `${SRCROOT}/scripts/embed_git_info.sh` above Compile Sources.
 
@@ -40,6 +45,11 @@ if [[ ! -f "$PLIST" ]]; then
   exit 0
 fi
 
+if [[ ! -w "$PLIST" ]]; then
+  echo "[git-info] Info.plist at $PLIST is not writable; skipping embed."
+  exit 0
+fi
+
 # Try to read from Git. Fallback to empty if not available.
 git_tag=""
 git_branch=""
@@ -69,12 +79,13 @@ else
 fi
 
 set_key() {
-  local key="$1"; shift
-  local value="$1"; shift
+  local key="$1"
+  local value="$2"
+  local escaped=${value//"/\\"}
   if "$PLISTBUDDY" -c "Print :$key" "$PLIST" >/dev/null 2>&1; then
-    "$PLISTBUDDY" -c "Set :$key $value" "$PLIST" || true
+    "$PLISTBUDDY" -c "Set :$key \"$escaped\"" "$PLIST" || true
   else
-    "$PLISTBUDDY" -c "Add :$key string $value" "$PLIST" || true
+    "$PLISTBUDDY" -c "Add :$key string \"$escaped\"" "$PLIST" || true
   fi
 }
 
@@ -88,9 +99,56 @@ if [[ -n "$git_commit" ]]; then
   set_key GIT_COMMIT "$git_commit"
 fi
 
+# Embed semantic version/build metadata and the latest change summary if available.
+version_source="${DS_VERSION_FILE:-${SRCROOT:-$PWD}/VERSION}"
+ds_version="${DS_VERSION:-}"
+if [[ -z "$ds_version" && -r "$version_source" ]]; then
+  ds_version=$(<"$version_source")
+fi
+ds_version=$(printf '%s' "$ds_version" | tr -d '\r' | tr -d '\n')
+ds_version=$(printf '%s' "$ds_version" | awk '{$1=$1; print}')
+if [[ -n "$ds_version" ]]; then
+  set_key CFBundleShortVersionString "$ds_version"
+fi
+
+build_number="${DS_BUILD_NUMBER:-}"
+if [[ -z "$build_number" && "$git_ok" == true ]]; then
+  build_number=$(git -C "$workdir" rev-list --count HEAD 2>/dev/null || echo "")
+fi
+build_number=$(printf '%s' "$build_number" | tr -d '\r' | tr -d '\n')
+build_number=$(printf '%s' "$build_number" | awk '{$1=$1; print}')
+if [[ -n "$build_number" ]]; then
+  set_key CFBundleVersion "$build_number"
+fi
+
+last_change_source="${DS_LAST_CHANGE_FILE:-${SRCROOT:-$PWD}/VERSION_LAST_CHANGE}"
+last_change="${DS_LAST_CHANGE:-}"
+if [[ -z "$last_change" && -r "$last_change_source" ]]; then
+  last_change=$(<"$last_change_source")
+elif [[ -z "$last_change" && "$git_ok" == true ]]; then
+  last_change=$(git -C "$workdir" log -1 --pretty=%s 2>/dev/null || echo "")
+fi
+last_change=$(printf '%s' "$last_change" | tr -d '\r' | tr -d '\n')
+last_change=$(printf '%s' "$last_change" | awk '{$1=$1; print}')
+if [[ -n "$last_change" ]]; then
+  set_key DS_LAST_CHANGE "$last_change"
+fi
+
 echo "[git-info] Embedded Git info → tag='$git_tag' branch='$git_branch' commit='$git_commit'"
+if [[ -n "$ds_version" ]]; then
+  echo "[git-info] Embedded semantic version '$ds_version'"
+fi
+if [[ -n "$build_number" ]]; then
+  echo "[git-info] Embedded build number '$build_number'"
+fi
+if [[ -n "$last_change" ]]; then
+  echo "[git-info] Embedded last change '$last_change'"
+fi
 
 echo "[git-info] Verifying keys in built Info.plist:"
+"$PLISTBUDDY" -c "Print :CFBundleShortVersionString" "$PLIST" 2>/dev/null || echo "(no CFBundleShortVersionString)"
+"$PLISTBUDDY" -c "Print :CFBundleVersion" "$PLIST" 2>/dev/null || echo "(no CFBundleVersion)"
+"$PLISTBUDDY" -c "Print :DS_LAST_CHANGE" "$PLIST" 2>/dev/null || echo "(no DS_LAST_CHANGE)"
 "$PLISTBUDDY" -c "Print :GIT_TAG" "$PLIST" 2>/dev/null || echo "(no GIT_TAG)"
 "$PLISTBUDDY" -c "Print :GIT_BRANCH" "$PLIST" 2>/dev/null || echo "(no GIT_BRANCH)"
 "$PLISTBUDDY" -c "Print :GIT_COMMIT" "$PLIST" 2>/dev/null || echo "(no GIT_COMMIT)"

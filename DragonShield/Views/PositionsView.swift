@@ -1061,7 +1061,7 @@ private struct PositionsRowView: View {
                 .frame(width: widthFor(.quantity), alignment: .trailing)
                 .focused($quantityFocused)
                 .onSubmit(onQuantityCommit)
-                .onChange(of: quantityFocused) { focused in
+                .onChange(of: quantityFocused) { _, focused in
                     if !focused {
                         onQuantityCommit()
                     }

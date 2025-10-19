@@ -47,17 +47,33 @@ Alternatively, uncheck “Based on dependency analysis” to force-run every bui
 Order: place this Run Script phase towards the end (below “Copy Bundle Resources”), so the built Info.plist exists when the script runs.
 
 That’s it. On each build, the script reads Git details and writes them into the built Info.plist. In Settings, GitInfoProvider will prefer these keys and display:
- 
- - Version: Git tag (or marketing version) + build number
- - Branch: current Git branch beneath the version
- 
- ## Script behavior
+
+- Version: Git tag (or marketing version) + build number
+- Branch: current Git branch beneath the version
+
+## Script behavior
  
  - Falls back gracefully if not in a Git repo or on CI without tags.
  - Only mutates the built product’s Info.plist (not your source plist).
  - Adds keys if missing, otherwise updates them.
  
 If you use CI, make sure the checkout includes `.git` for tags/branches, or set environment variables to provide the values and tweak the script accordingly.
+
+## Version metadata produced by CI
+
+Our GitHub Actions workflow `.github/workflows/version-bump.yml` runs on every push to `main` (typically via PR merges). It:
+
+- bumps the minor component of the repo-root `VERSION` file and resets the patch number to zero;
+- captures the latest commit subject into `VERSION_LAST_CHANGE` (truncated to ~140 characters);
+- commits those files back to `main` and tags the commit (`v{MAJOR.MINOR.PATCH}`).
+
+At build time `scripts/embed_git_info.sh` supplements the Git metadata by reading these files (or the corresponding `DS_VERSION` / `DS_LAST_CHANGE` environment overrides) and sets the following Info.plist keys:
+
+- `CFBundleShortVersionString` ← semantic version from `VERSION`
+- `CFBundleVersion` ← Git commit count (or `DS_BUILD_NUMBER` override)
+- `DS_LAST_CHANGE` ← short summary from `VERSION_LAST_CHANGE`
+
+`GitInfoProvider.displayVersion` combines all of this into the string shown under **Settings → App Basics**.
 
 ## Manual usage (outside Xcode)
 

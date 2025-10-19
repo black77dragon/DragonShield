@@ -111,17 +111,19 @@ struct TodoDashboardTile: DashboardTile {
         let fontSize: KanbanFontSize
 
         private enum DueState {
-            case overdue, dueToday, upcoming
+            case overdue, dueToday, upcoming, none
         }
 
-        private var dueDateText: String {
-            TodoDashboardTile.dateFormatter.string(from: todo.dueDate)
+        private var dueDateText: String? {
+            guard let dueDate = todo.dueDate else { return nil }
+            return TodoDashboardTile.dateFormatter.string(from: dueDate)
         }
 
         private var dueState: DueState {
+            guard let dueDate = todo.dueDate else { return .none }
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: Date())
-            let due = calendar.startOfDay(for: todo.dueDate)
+            let due = calendar.startOfDay(for: dueDate)
             if due < today { return .overdue }
             if due == today { return .dueToday }
             return .upcoming
@@ -130,9 +132,14 @@ struct TodoDashboardTile: DashboardTile {
         private var dueDisplayText: Text {
             switch dueState {
             case .overdue:
-                return Text("⚠️ ") + Text(dueDateText)
+                return Text("⚠️ ") + Text(dueDateText ?? "")
             case .dueToday, .upcoming:
-                return Text(dueDateText)
+                if let text = dueDateText {
+                    return Text(text)
+                }
+                fallthrough
+            case .none:
+                return Text("No date")
             }
         }
 
@@ -140,14 +147,14 @@ struct TodoDashboardTile: DashboardTile {
             switch dueState {
             case .overdue: return .red
             case .dueToday: return .blue
-            case .upcoming: return .secondary
+            case .upcoming, .none: return .secondary
             }
         }
 
         private var dueWeight: Font.Weight {
             switch dueState {
             case .overdue, .dueToday: return .bold
-            case .upcoming: return .regular
+            case .upcoming, .none: return .regular
             }
         }
 

@@ -36,7 +36,8 @@ struct SidebarView: View {
         return todoBoardViewModel.allTodos.filter { todo in
             guard todo.column != .done, todo.column != .archived else { return false }
             guard !todo.isCompleted else { return false }
-            let due = calendar.startOfDay(for: todo.dueDate)
+            guard let dueDate = todo.dueDate else { return false }
+            let due = calendar.startOfDay(for: dueDate)
             return due <= today
         }.count
     }
@@ -231,14 +232,14 @@ private struct TodoEditorSheet: View {
 
     let mode: Mode
     let availableTags: [TagRow]
-    var onSave: (String, KanbanPriority, Date, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void
+    var onSave: (String, KanbanPriority, Date?, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void
     var onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var description: String
     @State private var priority: KanbanPriority
-    @State private var dueDate: Date
+    @State private var dueDate: Date?
     @State private var column: KanbanColumn
     @State private var selectedTags: Set<Int>
     @State private var isCompleted: Bool
@@ -250,7 +251,7 @@ private struct TodoEditorSheet: View {
     init(mode: Mode,
          availableTags: [TagRow],
          prefill: KanbanTodoQuickAddRequest? = nil,
-         onSave: @escaping (String, KanbanPriority, Date, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void,
+         onSave: @escaping (String, KanbanPriority, Date?, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void,
          onDelete: (() -> Void)? = nil) {
         self.mode = mode
         self.availableTags = availableTags
@@ -261,7 +262,7 @@ private struct TodoEditorSheet: View {
         case .new(let defaultColumn):
             _description = State(initialValue: prefill?.description ?? "")
             _priority = State(initialValue: prefill?.priority ?? .medium)
-            _dueDate = State(initialValue: prefill?.dueDate ?? Date())
+            _dueDate = State(initialValue: prefill?.dueDate)
             _column = State(initialValue: prefill?.column ?? defaultColumn)
             _selectedTags = State(initialValue: Set(prefill?.tagIDs ?? []))
             let initialRepeatFrequency = prefill?.repeatFrequency
@@ -299,6 +300,26 @@ private struct TodoEditorSheet: View {
         return true
     }
 
+    private var dueDateBinding: Binding<Date> {
+        Binding(
+            get: { dueDate ?? Calendar.current.startOfDay(for: Date()) },
+            set: { newValue in dueDate = newValue }
+        )
+    }
+
+    private var dueDateToggleBinding: Binding<Bool> {
+        Binding(
+            get: { dueDate != nil },
+            set: { newValue in
+                if newValue {
+                    dueDate = dueDate ?? Calendar.current.startOfDay(for: Date())
+                } else {
+                    dueDate = nil
+                }
+            }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
@@ -324,7 +345,12 @@ private struct TodoEditorSheet: View {
                 .pickerStyle(.menu)
             }
 
-            DatePicker("Date", selection: $dueDate, displayedComponents: .date)
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Set Due Date", isOn: dueDateToggleBinding)
+                if dueDate != nil {
+                    DatePicker("Due Date", selection: dueDateBinding, displayedComponents: .date)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 Toggle("Completed", isOn: $isCompleted)
@@ -463,17 +489,19 @@ private struct KanbanTodoCard: View {
     }()
 
     private enum DueState {
-        case overdue, dueToday, upcoming
+        case overdue, dueToday, upcoming, none
     }
 
-    private var dueDateString: String {
-        Self.dateFormatter.string(from: todo.dueDate)
+    private var dueDateString: String? {
+        guard let dueDate = todo.dueDate else { return nil }
+        return Self.dateFormatter.string(from: dueDate)
     }
 
     private var dueState: DueState {
+        guard let dueDate = todo.dueDate else { return .none }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let due = calendar.startOfDay(for: todo.dueDate)
+        let due = calendar.startOfDay(for: dueDate)
         if due < today { return .overdue }
         if due == today { return .dueToday }
         return .upcoming
@@ -482,9 +510,14 @@ private struct KanbanTodoCard: View {
     private var dueDisplayText: Text {
         switch dueState {
         case .overdue:
-            return Text("⚠️ ") + Text(dueDateString)
+            return Text("⚠️ ") + Text(dueDateString ?? "")
         case .dueToday, .upcoming:
-            return Text(dueDateString)
+            if let value = dueDateString {
+                return Text(value)
+            }
+            fallthrough
+        case .none:
+            return Text("No date")
         }
     }
 
@@ -492,15 +525,28 @@ private struct KanbanTodoCard: View {
         switch dueState {
         case .overdue: return .red
         case .dueToday: return .blue
-        case .upcoming: return .secondary
+        case .upcoming, .none: return .secondary
         }
     }
 
     private var dueWeight: Font.Weight {
         switch dueState {
         case .overdue, .dueToday: return .bold
-        case .upcoming: return .regular
+        case .upcoming, .none: return .regular
         }
+    }
+
+    private var urgencyBackgroundColor: Color? {
+        guard [.backlog, .prioritised, .doing].contains(todo.column) else { return nil }
+        switch dueState {
+        case .overdue: return Color.red.opacity(0.16)
+        case .dueToday: return Color.blue.opacity(0.14)
+        default: return nil
+        }
+    }
+
+    private var cardBackgroundColor: Color {
+        urgencyBackgroundColor ?? Color(nsColor: .textBackgroundColor)
     }
 
     private var tags: [TagRow] {
@@ -553,14 +599,14 @@ private struct KanbanTodoCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(6)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(nsColor: .textBackgroundColor))
+                .fill(cardBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(todo.priority.color.opacity(0.35), lineWidth: 1)
+                .stroke(Color.black, lineWidth: 1)
         )
         .opacity(todo.isCompleted ? 0.65 : 1)
         .contentShape(RoundedRectangle(cornerRadius: 14))
@@ -703,6 +749,7 @@ struct TodoKanbanBoardView: View {
     @State private var editingTodo: KanbanTodo?
     @State private var draggedTodoID: UUID?
     @State private var selectedFontSize: KanbanFontSize = .medium
+    @State private var showArchivedCompleted = true
     @State private var isHydratingFontSize = false
     @State private var hasHydratedFontSize = false
 
@@ -829,6 +876,8 @@ struct TodoKanbanBoardView: View {
 
     private func columnView(for column: KanbanColumn) -> some View {
         let items = viewModel.todos(in: column)
+        let visibleItems = column == .archived && !showArchivedCompleted ? items.filter { !$0.isCompleted } : items
+        let hasHiddenCompletedArchivedItems = column == .archived && !showArchivedCompleted && visibleItems.isEmpty && items.contains { $0.isCompleted }
         let containsRepeating = column == .done && items.contains { $0.isRepeating }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
@@ -851,19 +900,38 @@ struct TodoKanbanBoardView: View {
                     .opacity(items.isEmpty || containsRepeating ? 0.35 : 1.0)
                     .help(containsRepeating ? "Remove repeat settings before archiving." : "Move all Done items to the Archived column")
                     .accessibilityLabel("Archive all done items")
+                } else if column == .archived {
+                    Button {
+                        showArchivedCompleted.toggle()
+                    } label: {
+                        Label(showArchivedCompleted ? "Hide Completed" : "Show Completed",
+                              systemImage: showArchivedCompleted ? "eye.slash" : "eye")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                    .help(showArchivedCompleted ? "Hide completed to-dos" : "Show completed to-dos")
                 }
                 Spacer()
-                Text(items.count, format: .number)
+                Text(visibleItems.count, format: .number)
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
 
-            if items.isEmpty {
-                Text(column.emptyPlaceholder)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 32)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if visibleItems.isEmpty {
+                if hasHiddenCompletedArchivedItems {
+                    Text("Completed to-dos are hidden. Use the toggle above to reveal them.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 32)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(column.emptyPlaceholder)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 32)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     if containsRepeating {
@@ -875,7 +943,7 @@ struct TodoKanbanBoardView: View {
 
                     ScrollView(.vertical) {
                         LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(items) { todo in
+                            ForEach(visibleItems) { todo in
                                 KanbanTodoCard(todo: todo, tagLookup: tagLookup, fontSize: selectedFontSize, onToggleCompletion: { newValue in
                                     viewModel.setCompletion(for: todo.id, isCompleted: newValue)
                                 }) {
@@ -901,7 +969,7 @@ struct TodoKanbanBoardView: View {
         .frame(minHeight: 360, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color(.sRGB, white: 0.96, opacity: 1))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
