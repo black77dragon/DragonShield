@@ -39,7 +39,27 @@ if [[ ! -f "$LAST_CHANGE_FILE" ]]; then
   touch "$LAST_CHANGE_FILE"
 fi
 
-LATEST_DESC=${LAST_CHANGE_OVERRIDE:-$(git log -1 --pretty=%s 2>/dev/null || echo "")}
+LATEST_DESC=${LAST_CHANGE_OVERRIDE:-}
+if [[ -z "$LATEST_DESC" ]]; then
+  commit_subject=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+  commit_body=$(git log -1 --pretty=%b 2>/dev/null || echo "")
+  commit_body=${commit_body//$'\r'/\n}
+  commit_body_trimmed=$(printf '%s\n' "$commit_body" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed -n '/./{p;q;}')
+
+  if [[ "$commit_subject" =~ ^Merge\ pull\ request\ \#([0-9]+)\ from\ ([^[:space:]]+)\/([^[:space:]]+) ]]; then
+    pr_number="${BASH_REMATCH[1]}"
+    pr_head_owner="${BASH_REMATCH[2]}"
+    pr_head_branch="${BASH_REMATCH[3]}"
+    if [[ -n "$commit_body_trimmed" ]]; then
+      LATEST_DESC="$commit_body_trimmed (PR #$pr_number from $pr_head_branch)"
+    else
+      LATEST_DESC="PR #$pr_number from $pr_head_branch"
+    fi
+  else
+    LATEST_DESC="$commit_subject"
+  fi
+fi
+
 LATEST_DESC=${LATEST_DESC//$'\r'/ }
 LATEST_DESC=${LATEST_DESC//$'\n'/ }
 LATEST_DESC=$(printf '%s\n' "$LATEST_DESC" | awk '{$1=$1; print}')

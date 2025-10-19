@@ -247,15 +247,18 @@
 			files = (
 			);
 			inputFileListPaths = (
-				"$(SRCROOT)/scripts/embed_git_info.sh",
-				"$(INFOPLIST_FILE)",
 			);
 			inputPaths = (
+				"$(SRCROOT)/scripts/embed_git_info.sh",
+				"$(SRCROOT)/VERSION",
+				"$(SRCROOT)/VERSION_LAST_CHANGE",
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			outputFileListPaths = (
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/git_info.stamp",
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;

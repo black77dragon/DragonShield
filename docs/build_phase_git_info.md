@@ -34,10 +34,11 @@
   - $(SRCROOT)/scripts/embed_git_info.sh
   - $(INFOPLIST_FILE)
 
-- Output Files (use our stamp file — do NOT use Info.plist here):
+- Output Files (declare both so the sandbox allows writes):
   - $(DERIVED_FILE_DIR)/git_info.stamp
+  - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
 
-Using Info.plist as an output causes “Multiple commands produce ... Info.plist” because Xcode’s ProcessInfoPlist also declares that path. The stamp avoids conflicts.
+The extra output entry is required so Xcode’s sandbox lets the script edit the built Info.plist. Xcode 15+ no longer raises the “Multiple commands produce … Info.plist” warning for this combination.
 
 Alternatively, uncheck “Based on dependency analysis” to force-run every build.
 
@@ -70,8 +71,10 @@ Our GitHub Actions workflow `.github/workflows/version-bump.yml` runs on every p
 At build time `scripts/embed_git_info.sh` supplements the Git metadata by reading these files (or the corresponding `DS_VERSION` / `DS_LAST_CHANGE` environment overrides) and sets the following Info.plist keys:
 
 - `CFBundleShortVersionString` ← semantic version from `VERSION`
+- `DS_VERSION` ← duplicate of the semantic version for easy lookup
 - `CFBundleVersion` ← Git commit count (or `DS_BUILD_NUMBER` override)
-- `DS_LAST_CHANGE` ← short summary from `VERSION_LAST_CHANGE`
+- `DS_BUILD_NUMBER` ← duplicate of the build value
+- `DS_LAST_CHANGE` ← short summary from `VERSION_LAST_CHANGE` (for merged PRs we capture the PR title plus the source branch)
 
 `GitInfoProvider.displayVersion` combines all of this into the string shown under **Settings → App Basics**.
 
