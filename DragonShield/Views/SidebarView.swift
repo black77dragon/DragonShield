@@ -160,6 +160,47 @@ struct SidebarView: View {
                     Label("Settings", systemImage: "gear")
                 }
             }
+
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("About")
+                        .font(.headline)
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("VERSION")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(AppVersionProvider.version)
+                                .font(.callout)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("VERSION_LAST_CHANGE")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(lastChange)
+                                    .font(.callout)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        if let branch = GitInfoProvider.branch, !branch.isEmpty {
+                            Text("Branch: \(branch)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 16))
         }
         .listStyle(.sidebar)
         .navigationTitle("Dragon Shield")
