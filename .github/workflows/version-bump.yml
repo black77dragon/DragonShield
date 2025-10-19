@@ -1,0 +1,51 @@
+name: Auto bump version on main merges
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump version and summarize change
+        run: scripts/ci/bump_version.sh
+
+      - name: Configure git user
+        run: |
+          git config user.name "DragonShield CI"
+          git config user.email "dragonshield-ci@users.noreply.github.com"
+
+      - name: Commit version metadata
+        id: commit
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add VERSION VERSION_LAST_CHANGE
+          git commit -m "ci: bump version to ${NEW_VERSION}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push changes
+        if: steps.commit.outputs.changed == 'true'
+        run: git push origin HEAD:main
+
+      - name: Create tag
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${NEW_VERSION} already exists; skipping"
+            exit 0
+          fi
+          git tag -a "v${NEW_VERSION}" -m "Release ${NEW_VERSION}: ${LAST_CHANGE}"
+          git push origin "v${NEW_VERSION}"
