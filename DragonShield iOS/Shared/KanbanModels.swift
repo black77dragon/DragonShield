@@ -162,7 +162,7 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
     let id: UUID
     var description: String
     var priority: KanbanPriority
-    var dueDate: Date
+    var dueDate: Date?
     var column: KanbanColumn
     var tagIDs: [Int]
     var sortOrder: Double
@@ -175,7 +175,7 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
     init(id: UUID = UUID(),
          description: String,
          priority: KanbanPriority,
-         dueDate: Date,
+         dueDate: Date? = nil,
          column: KanbanColumn,
          tagIDs: [Int],
          sortOrder: Double,
@@ -212,7 +212,7 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         id = try container.decode(UUID.self, forKey: .id)
         description = try container.decode(String.self, forKey: .description)
         priority = try container.decode(KanbanPriority.self, forKey: .priority)
-        dueDate = try container.decode(Date.self, forKey: .dueDate)
+        dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
         column = try container.decode(KanbanColumn.self, forKey: .column)
         tagIDs = try container.decodeIfPresent([Int].self, forKey: .tagIDs) ?? []
         sortOrder = try container.decodeIfPresent(Double.self, forKey: .sortOrder) ?? 0
@@ -226,7 +226,7 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(description, forKey: .description)
         try container.encode(priority, forKey: .priority)
-        try container.encode(dueDate, forKey: .dueDate)
+        try container.encodeIfPresent(dueDate, forKey: .dueDate)
         try container.encode(column, forKey: .column)
         try container.encode(tagIDs, forKey: .tagIDs)
         try container.encode(sortOrder, forKey: .sortOrder)
@@ -282,7 +282,7 @@ final class KanbanBoardViewModel: ObservableObject {
 
     func create(description: String,
                 priority: KanbanPriority,
-                dueDate: Date,
+                dueDate: Date?,
                 column: KanbanColumn,
                 tagIDs: [Int],
                 isCompleted: Bool,
@@ -298,8 +298,8 @@ final class KanbanBoardViewModel: ObservableObject {
                               sortOrder: nextOrder,
                               isCompleted: isCompleted,
                               repeatFrequency: repeatFrequency)
-        if isCompleted, repeatFrequency != nil {
-            let nextDue = repeatFrequency?.nextDueDate(from: Date()) ?? dueDate
+        if isCompleted, let frequency = repeatFrequency {
+            let nextDue = frequency.nextDueDate(from: Date())
             todo.dueDate = nextDue
             todo.isCompleted = false
         }
@@ -311,7 +311,7 @@ final class KanbanBoardViewModel: ObservableObject {
     func update(id: UUID,
                 description: String,
                 priority: KanbanPriority,
-                dueDate: Date,
+                dueDate: Date?,
                 column: KanbanColumn,
                 tagIDs: [Int],
                 isCompleted: Bool,

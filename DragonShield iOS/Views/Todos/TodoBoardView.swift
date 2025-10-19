@@ -318,17 +318,19 @@ private struct TodoCard: View {
     }()
 
     private enum DueState {
-        case overdue, dueToday, upcoming
+        case overdue, dueToday, upcoming, none
     }
 
-    private var dueDateString: String {
-        Self.dateFormatter.string(from: todo.dueDate)
+    private var dueDateString: String? {
+        guard let dueDate = todo.dueDate else { return nil }
+        return Self.dateFormatter.string(from: dueDate)
     }
 
     private var dueState: DueState {
+        guard let dueDate = todo.dueDate else { return .none }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let due = calendar.startOfDay(for: todo.dueDate)
+        let due = calendar.startOfDay(for: dueDate)
         if due < today { return .overdue }
         if due == today { return .dueToday }
         return .upcoming
@@ -337,9 +339,14 @@ private struct TodoCard: View {
     private var dueDisplayText: Text {
         switch dueState {
         case .overdue:
-            return Text("⚠️ ") + Text(dueDateString)
+            return Text("⚠️ ") + Text(dueDateString ?? "")
         case .dueToday, .upcoming:
-            return Text(dueDateString)
+            if let value = dueDateString {
+                return Text(value)
+            }
+            fallthrough
+        case .none:
+            return Text("No date")
         }
     }
 
@@ -347,15 +354,28 @@ private struct TodoCard: View {
         switch dueState {
         case .overdue: return .red
         case .dueToday: return .blue
-        case .upcoming: return .secondary
+        case .upcoming, .none: return .secondary
         }
     }
 
     private var dueWeight: Font.Weight {
         switch dueState {
         case .overdue, .dueToday: return .bold
-        case .upcoming: return .regular
+        case .upcoming, .none: return .regular
         }
+    }
+
+    private var urgencyBackgroundColor: Color? {
+        guard [.backlog, .prioritised, .doing].contains(todo.column) else { return nil }
+        switch dueState {
+        case .overdue: return Color.red.opacity(0.16)
+        case .dueToday: return Color.blue.opacity(0.14)
+        default: return nil
+        }
+    }
+
+    private var cardBackgroundColor: Color {
+        urgencyBackgroundColor ?? Color(uiColor: .systemBackground)
     }
 
     var body: some View {
@@ -408,7 +428,7 @@ private struct TodoCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(uiColor: .systemBackground))
+                .fill(cardBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)

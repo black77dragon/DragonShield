@@ -5,6 +5,14 @@ enum GitInfoProvider {
         return Bundle.main.object(forInfoDictionaryKey: key) as? String
     }
 
+    private static var canRunGitCommands: Bool {
+        #if os(macOS)
+        return ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] == nil
+        #else
+        return false
+        #endif
+    }
+
     /// Best-effort branch name. Prefers Info.plist key `GIT_BRANCH` if present, otherwise tries Git in DEBUG.
     static var branch: String? {
         if let b = info("GIT_BRANCH"), !b.isEmpty { return b }
@@ -32,15 +40,32 @@ enum GitInfoProvider {
         return nil
     }
 
+    /// Last change summary captured during CI.
+    static var lastChangeSummary: String? {
+        if let summary = info("DS_LAST_CHANGE"), !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return summary
+        }
+        #if DEBUG
+        if let out = runGit(["log", "-1", "--pretty=%s"]) { return out }
+        #endif
+        return nil
+    }
+
     /// Returns a "Version" string that prefers git tag when available, otherwise CFBundleShortVersionString.
     static var displayVersion: String {
         let plistVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         let ver = tag ?? plistVersion ?? "N/A"
+        var pieces: [String] = []
         if let b = build, !b.isEmpty {
-            return "Version \(ver) (Build \(b))"
+            pieces.append("Version \(ver) (Build \(b))")
+        } else {
+            pieces.append("Version \(ver)")
         }
-        return "Version \(ver)"
+        if let summary = lastChangeSummary, !summary.isEmpty {
+            pieces.append("Last change: \(summary)")
+        }
+        return pieces.joined(separator: " • ")
     }
 
     #if DEBUG
@@ -51,13 +76,15 @@ enum GitInfoProvider {
         let tagKey = Bundle.main.object(forInfoDictionaryKey: "GIT_TAG") as? String ?? "(nil)"
         let branchKey = Bundle.main.object(forInfoDictionaryKey: "GIT_BRANCH") as? String ?? "(nil)"
         let commitKey = Bundle.main.object(forInfoDictionaryKey: "GIT_COMMIT") as? String ?? "(nil)"
+        let lastChangeKey = Bundle.main.object(forInfoDictionaryKey: "DS_LAST_CHANGE") as? String ?? "(nil)"
         print("[GitInfoProvider] bundle=\(bundlePath) plistVersion=\(plistVersion) build=\(build)")
-        print("[GitInfoProvider] Info.plist keys → GIT_TAG=\(tagKey) GIT_BRANCH=\(branchKey) GIT_COMMIT=\(commitKey)")
-        print("[GitInfoProvider] Derived → tag=\(tag ?? "(nil)") branch=\(branch ?? "(nil)") commit=\(commitShort ?? "(nil)") displayVersion=\(displayVersion)")
+        print("[GitInfoProvider] Info.plist keys → GIT_TAG=\(tagKey) GIT_BRANCH=\(branchKey) GIT_COMMIT=\(commitKey) DS_LAST_CHANGE=\(lastChangeKey)")
+        print("[GitInfoProvider] Derived → tag=\(tag ?? "(nil)") branch=\(branch ?? "(nil)") commit=\(commitShort ?? "(nil)") lastChange=\(lastChangeSummary ?? "(nil)") displayVersion=\(displayVersion)")
     }
     #endif
 
     private static func runGit(_ args: [String]) -> String? {
+        guard canRunGitCommands else { return nil }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         proc.arguments = ["git"] + args
