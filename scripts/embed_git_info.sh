@@ -45,9 +45,20 @@ if [[ ! -f "$PLIST" ]]; then
   exit 0
 fi
 
+restore_mode=false
+original_mode=""
 if [[ ! -w "$PLIST" ]]; then
-  echo "[git-info] Info.plist at $PLIST is not writable; skipping embed."
-  exit 0
+  original_mode=$(stat -f '%OLp' "$PLIST" 2>/dev/null || echo "")
+  if chmod u+w "$PLIST" 2>/dev/null; then
+    restore_mode=true
+  else
+    echo "[git-info] Info.plist at $PLIST is not writable and chmod failed; skipping embed."
+    exit 0
+  fi
+fi
+
+if [[ "$restore_mode" == true ]]; then
+  trap '[[ -n "$original_mode" ]] && chmod "$original_mode" "$PLIST" 2>/dev/null || true' EXIT
 fi
 
 # Try to read from Git. Fallback to empty if not available.
@@ -109,6 +120,7 @@ ds_version=$(printf '%s' "$ds_version" | tr -d '\r' | tr -d '\n')
 ds_version=$(printf '%s' "$ds_version" | awk '{$1=$1; print}')
 if [[ -n "$ds_version" ]]; then
   set_key CFBundleShortVersionString "$ds_version"
+  set_key DS_VERSION "$ds_version"
 fi
 
 build_number="${DS_BUILD_NUMBER:-}"
@@ -119,6 +131,7 @@ build_number=$(printf '%s' "$build_number" | tr -d '\r' | tr -d '\n')
 build_number=$(printf '%s' "$build_number" | awk '{$1=$1; print}')
 if [[ -n "$build_number" ]]; then
   set_key CFBundleVersion "$build_number"
+  set_key DS_BUILD_NUMBER "$build_number"
 fi
 
 last_change_source="${DS_LAST_CHANGE_FILE:-${SRCROOT:-$PWD}/VERSION_LAST_CHANGE}"

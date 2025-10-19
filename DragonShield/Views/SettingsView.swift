@@ -190,12 +190,29 @@ struct SettingsView: View {
                     #endif
 
                     CardSection(title: "About") {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        HStack(alignment: .top, spacing: 12) {
                             Text("App Version").frame(width: 160, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(GitInfoProvider.displayVersion).foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 6) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("VERSION")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text(AppVersionProvider.version)
+                                        .font(.callout)
+                                }
+                                if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("VERSION_LAST_CHANGE")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Text(lastChange)
+                                            .font(.callout)
+                                    }
+                                }
                                 if let branch = GitInfoProvider.branch, !branch.isEmpty {
-                                    Text("Branch: \(branch)").font(.caption).foregroundColor(.secondary)
+                                    Text("Branch: \(branch)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
                             }
                             Spacer()
