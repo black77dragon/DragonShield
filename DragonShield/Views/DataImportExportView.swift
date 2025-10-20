@@ -9,6 +9,13 @@ struct DataImportExportView: View {
         var id: Int { rawValue }
     }
 
+    private static let logDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.yyyy HH:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
     @State private var showImporterFor: StatementType?
@@ -190,7 +197,7 @@ struct DataImportExportView: View {
                 DispatchQueue.main.async { self.appendLog(message) }
             }) { result in
                 DispatchQueue.main.async {
-                    let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+                    let stamp = Self.logDateFormatter.string(from: Date())
                     switch result {
                     case .success(let summary):
                         let errors = summary.totalRows - summary.parsedRows

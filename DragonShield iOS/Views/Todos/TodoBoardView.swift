@@ -122,7 +122,7 @@ struct TodoBoardView: View {
     }
 
     private func columnView(for column: KanbanColumn) -> some View {
-        let todos = viewModel.todos(in: column)
+        let todos = sortedTodos(for: column)
         let containsRepeating = column == .done && todos.contains { $0.isRepeating }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
@@ -199,6 +199,30 @@ struct TodoBoardView: View {
 
     private func tags(for todo: KanbanTodo) -> [TagRow] {
         todo.tagIDs.compactMap { tagsByID[$0] }
+    }
+
+    private func sortedTodos(for column: KanbanColumn) -> [KanbanTodo] {
+        viewModel.todos(in: column)
+            .sorted { lhs, rhs in
+                switch (lhs.dueDate, rhs.dueDate) {
+                case let (lhsDate?, rhsDate?):
+                    if lhsDate != rhsDate { return lhsDate < rhsDate }
+                case (.some, nil):
+                    return true
+                case (nil, .some):
+                    return false
+                case (nil, nil):
+                    break
+                }
+
+                if lhs.sortOrder != rhs.sortOrder {
+                    return lhs.sortOrder < rhs.sortOrder
+                }
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt < rhs.createdAt
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
     }
 
     private func refresh() async {
@@ -390,7 +414,7 @@ private struct TodoCard: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(todo.isCompleted ? "Mark as not completed" : "Mark as completed")
-            .accessibilityHint(todo.repeatFrequency != nil ? "Completing will reschedule the due date." : nil)
+            .accessibilityHint(todo.repeatFrequency != nil ? "Completing will reschedule the due date." : "")
 
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {

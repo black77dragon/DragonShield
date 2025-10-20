@@ -17,7 +17,7 @@ struct SearchView: View {
     var body: some View {
         content
             .navigationTitle("Search")
-            .searchable(text: $searchText, placement: .navigationBarDrawer, prompt: "Instruments, themes, notes...")
+            .searchable(text: $searchText, placement: .navigationBarDrawer, prompt: "Instruments, portfolios, notes...")
             .onChange(of: searchText) { newValue in
                 scheduleSearch(for: newValue)
             }
@@ -80,13 +80,13 @@ struct SearchView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Search across your snapshot")
                     .font(.headline)
-                Text("Find instruments, portfolio themes, and research notes without leaving this tab.")
+                Text("Find instruments, portfolios, and research notes without leaving this tab.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Divider()
                 Label("Instrument names, tickers, or ISINs", systemImage: "magnifyingglass")
-                Label("Portfolio themes by name or code", systemImage: "square.grid.2x2")
-                Label("Theme & instrument updates (notes)", systemImage: "doc.text.magnifyingglass")
+                Label("Portfolios by name or code", systemImage: "square.grid.2x2")
+                Label("Portfolio & instrument updates (notes)", systemImage: "doc.text.magnifyingglass")
             }
             .padding(.vertical, 4)
         }
@@ -151,7 +151,7 @@ struct SearchView: View {
                             }
                         }
                     } header: {
-                        Label("Themes", systemImage: "square.grid.2x2")
+                        Label("Portfolios", systemImage: "square.grid.2x2")
                     } footer: {
                         if results.themes.count >= themeLimit {
                             Text("Showing first \(themeLimit) matches. Try adding more keywords.")
@@ -168,7 +168,7 @@ struct SearchView: View {
                             }
                         }
                     } header: {
-                        Label("Theme Updates", systemImage: "doc.text")
+                        Label("Portfolio Updates", systemImage: "doc.text")
                     } footer: {
                         if results.themeUpdates.count >= themeUpdateLimit {
                             Text("Showing first \(themeUpdateLimit) notes. Filter by specific keywords to drill down.")
@@ -188,7 +188,7 @@ struct SearchView: View {
                         Label("Instrument Updates", systemImage: "doc.plaintext")
                     } footer: {
                         if results.instrumentUpdates.count >= instrumentUpdateLimit {
-                            Text("Showing first \(instrumentUpdateLimit) notes. Add instrument or theme keywords to narrow it down.")
+                            Text("Showing first \(instrumentUpdateLimit) notes. Add instrument or portfolio keywords to narrow it down.")
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
@@ -455,10 +455,10 @@ struct ThemeUpdateDetailView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Theme")) {
+            Section(header: Text("Portfolio")) {
                 HStack { Text("Name"); Spacer(); Text(hit.themeName).foregroundColor(.secondary) }
                 HStack { Text("Code"); Spacer(); Text(hit.themeCode).foregroundColor(.secondary) }
-                NavigationLink("Open theme overview") {
+                NavigationLink("Open portfolio overview") {
                     ThemeDetailIOSView(themeId: hit.themeId)
                 }
             }
@@ -547,10 +547,10 @@ struct InstrumentUpdateDetailView: View {
                     InstrumentDetailView(instrumentId: hit.instrumentId)
                 }
             }
-            Section(header: Text("Theme")) {
+            Section(header: Text("Portfolio")) {
                 HStack { Text("Name"); Spacer(); Text(hit.themeName).foregroundColor(.secondary) }
                 HStack { Text("Code"); Spacer(); Text(hit.themeCode).foregroundColor(.secondary) }
-                NavigationLink("Open theme overview") {
+                NavigationLink("Open portfolio overview") {
                     ThemeDetailIOSView(themeId: hit.themeId)
                 }
             }

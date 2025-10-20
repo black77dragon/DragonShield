@@ -21,6 +21,12 @@ struct IOSSettingsView: View {
     @AppStorage("ios.fontSizePreference") private var fontSizePreferenceRaw: String = FontSizePreference.standard.rawValue
 
     private var fontSizePreference: FontSizePreference { FontSizePreference(rawValue: fontSizePreferenceRaw) ?? .standard }
+    private static let aboutDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.yyyy HH:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
 
     var body: some View {
         VStack(spacing: 8) {
@@ -86,8 +92,12 @@ struct IOSSettingsView: View {
                 }
                 Section(header: Text("About")) {
                     Text("DB Version: \(dbManager.dbVersion)")
-                    if let created = dbManager.dbCreated { Text("Created: \(created.description)") }
-                    if let modified = dbManager.dbModified { Text("Modified: \(modified.description)") }
+                    if let created = dbManager.dbCreated {
+                        Text("Created: \(Self.aboutDateFormatter.string(from: created))")
+                    }
+                    if let modified = dbManager.dbModified {
+                        Text("Modified: \(Self.aboutDateFormatter.string(from: modified))")
+                    }
                     if !lastImportedPath.isEmpty {
                         Text("Snapshot: \(lastImportedPath) (") + Text("\(lastImportedSize)").monospacedDigit() + Text(" bytes)")
                     }

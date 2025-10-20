@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InstrumentEditView: View {
     @Environment(\.presentationMode) private var presentationMode
+    @EnvironmentObject private var dbManager: DatabaseManager
     let instrumentId: Int
 
     private typealias PortfolioMembershipRow = DatabaseManager.InstrumentPortfolioMembershipRow
@@ -137,8 +138,15 @@ struct InstrumentEditView: View {
             Text(alertMessage)
         }
         .sheet(isPresented: $showNotes) {
-            InstrumentNotesView(instrumentId: instrumentId, instrumentCode: tickerSymbol.isEmpty ? instrumentName : tickerSymbol.uppercased(), instrumentName: instrumentName, initialTab: notesInitialTab, initialThemeId: nil, onClose: { showNotes = false })
-                .environmentObject(DatabaseManager())
+            InstrumentNotesView(
+                instrumentId: instrumentId,
+                instrumentCode: tickerSymbol.isEmpty ? instrumentName : tickerSymbol.uppercased(),
+                instrumentName: instrumentName,
+                initialTab: notesInitialTab,
+                initialThemeId: nil,
+                onClose: { showNotes = false }
+            )
+            .environmentObject(dbManager)
         }
         .sheet(item: Binding(get: {
             openThemeId.map { Ident(value: $0) }
@@ -150,13 +158,13 @@ struct InstrumentEditView: View {
                 origin: "instrument_edit",
                 initialTab: .updates
             )
-            .environmentObject(DatabaseManager())
+            .environmentObject(dbManager)
         }
         .sheet(item: $editingPosition) { position in
             PositionFormView(position: position) {
                 refreshInstrumentUsage()
             }
-            .environmentObject(DatabaseManager())
+            .environmentObject(dbManager)
         }
     }
     
@@ -514,7 +522,7 @@ struct InstrumentEditView: View {
     }
 
     private func loadLatestPrice() {
-        if let lp = DatabaseManager().getLatestPrice(instrumentId: instrumentId) {
+        if let lp = dbManager.getLatestPrice(instrumentId: instrumentId) {
             latestPrice = lp.price
             if let d = iso8601Formatter().date(from: lp.asOf) { latestPriceAsOf = d }
         } else {
@@ -526,7 +534,7 @@ struct InstrumentEditView: View {
     private func saveInstrumentPrice() {
         guard let p = Double(priceInput) else { return }
         let asOfIso = iso8601Formatter().string(from: priceAsOf)
-        let ok = DatabaseManager().upsertPrice(instrumentId: instrumentId, price: p, currency: currency, asOf: asOfIso, source: "manual")
+        let ok = dbManager.upsertPrice(instrumentId: instrumentId, price: p, currency: currency, asOf: asOfIso, source: "manual")
         if ok {
             let displayAsOf = DateFormatting.asOfDisplay(priceAsOf)
             priceMessage = "Saved \(p) \(currency) @ \(displayAsOf)"
@@ -776,17 +784,15 @@ struct InstrumentEditView: View {
     
     // MARK: - Functions
     func loadInstrumentGroups() {
-        let dbManager = DatabaseManager()
         let groups = AssetSubClassPickerModel.sort(dbManager.fetchAssetTypes())
         instrumentGroups = groups
     }
-    
+
     func loadAvailableCurrencies() {
-        let dbManager = DatabaseManager()
         availableCurrencies = dbManager.fetchActiveCurrencies()
     }
-    
-    private func refreshInstrumentUsage(using dbManager: DatabaseManager = DatabaseManager()) {
+
+    private func refreshInstrumentUsage() {
         portfolioMemberships = dbManager.listPortfolioMembershipsForInstrument(id: instrumentId)
         instrumentPositions = dbManager.listPositionsForInstrument(id: instrumentId)
         portfoliosCount = portfolioMemberships.count
@@ -794,7 +800,6 @@ struct InstrumentEditView: View {
     }
 
     func loadInstrumentData() {
-        let dbManager = DatabaseManager()
         if let details = dbManager.fetchInstrumentDetails(id: instrumentId) {
             instrumentName = details.name
             selectedGroupId = details.subClassId
@@ -815,7 +820,7 @@ struct InstrumentEditView: View {
             originalIsin = isin
             originalSector = sector
         }
-        refreshInstrumentUsage(using: dbManager)
+        refreshInstrumentUsage()
     }
 
     @ViewBuilder
@@ -999,8 +1004,9 @@ struct InstrumentEditView: View {
     }
 
     private func performSoftDelete() {
-        let db = DatabaseManager()
-        if db.softDeleteInstrument(id: instrumentId, reason: deleteReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteReason, note: deleteNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteNote) {
+        if dbManager.softDeleteInstrument(id: instrumentId,
+                                          reason: deleteReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteReason,
+                                          note: deleteNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteNote) {
             alertMessage = "✅ Instrument soft-deleted. It will be hidden in search and stop price updates."
             showingAlert = true
             isDeletedFlag = true
@@ -1012,8 +1018,7 @@ struct InstrumentEditView: View {
     }
 
     private func performRestore() {
-        let db = DatabaseManager()
-        if db.restoreInstrument(id: instrumentId) {
+        if dbManager.restoreInstrument(id: instrumentId) {
             alertMessage = "✅ Instrument restored. It is visible again and eligible for price updates."
             showingAlert = true
             isDeletedFlag = false
@@ -1054,7 +1059,6 @@ struct InstrumentEditView: View {
         
         isLoading = true
         
-        let dbManager = DatabaseManager()
         let success = dbManager.updateInstrument(
             id: instrumentId,
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
