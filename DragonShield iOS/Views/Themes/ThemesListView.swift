@@ -13,7 +13,7 @@ struct ThemesListView: View {
             }
             if themes.isEmpty {
                 Section {
-                    Text(dbManager.tableExistsIOS("PortfolioTheme") ? "No themes found" : "This snapshot has no PortfolioTheme table. Import a full snapshot in Settings.")
+                    Text(dbManager.tableExistsIOS("PortfolioTheme") ? "No portfolios found" : "This snapshot has no PortfolioTheme table. Import a full snapshot in Settings.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -38,7 +38,7 @@ struct ThemesListView: View {
                 }
             }
         }
-        .navigationTitle("Themes")
+        .navigationTitle("Portfolios")
         .searchable(text: $search, placement: .navigationBarDrawer)
         // iOS 16-compatible onChange signature
         .onChange(of: search) { _ in reload() }
@@ -64,9 +64,23 @@ struct ThemeSummaryView: View {
         Form {
             Section(header: Text("Overview")) {
                 HStack { Text("Name"); Spacer(); Text(theme.name).foregroundColor(.secondary) }
-                HStack { Text("Code"); Spacer(); Text(theme.code).foregroundColor(.secondary) }
                 if let d = theme.description, !d.isEmpty { Text(d).font(.footnote) }
                 HStack { Text("Instruments"); Spacer(); Text("\(theme.instrumentCount)").foregroundColor(.secondary) }
+                HStack {
+                    labelWithUnit("Portfolio Target Budget")
+                    Spacer()
+                    Text(kChf(theme.theoreticalBudgetChf)).foregroundColor(.secondary)
+                }
+                HStack {
+                    labelWithUnit("Set Target")
+                    Spacer()
+                    Text(kChf(totalSetTargetChf)).foregroundColor(.secondary)
+                }
+                HStack {
+                    labelWithUnit("Actual Value")
+                    Spacer()
+                    Text(kChf(totalActualChf)).foregroundColor(.secondary).privacyBlur()
+                }
             }
             Section(header: Text("Holdings")) {
                 if holdings.isEmpty {
@@ -75,8 +89,8 @@ struct ThemeSummaryView: View {
                     HStack {
                         Text("Instrument").font(.caption).foregroundColor(.secondary)
                         Spacer()
-                        Text("Qty").font(.caption).foregroundColor(.secondary).frame(width: 90, alignment: .trailing)
-                        Text(dbManager.baseCurrency).font(.caption).foregroundColor(.secondary).frame(width: 120, alignment: .trailing)
+                        Text("Targ (kCHF)").font(.caption).foregroundColor(.secondary).frame(width: 110, alignment: .trailing)
+                        Text("Act (kCHF)").font(.caption).foregroundColor(.secondary).frame(width: 110, alignment: .trailing)
                     }
                     ForEach(sortedHoldings) { r in
                         HStack(alignment: .firstTextBaseline) {
@@ -85,8 +99,8 @@ struct ThemeSummaryView: View {
                                 Text(r.instrumentCurrency).font(.caption).foregroundColor(.secondary)
                             }
                             Spacer()
-                            Text(qty(r.quantity)).frame(width: 90, alignment: .trailing).foregroundColor(.secondary)
-                            Text(chf(r.valueChf)).frame(width: 120, alignment: .trailing).foregroundColor(r.valueChf == nil ? .orange : .secondary).privacyBlur()
+                            Text(kChf(r.setTargetChf)).frame(width: 110, alignment: .trailing).foregroundColor(.secondary)
+                            Text(kChf(r.valueChf)).frame(width: 110, alignment: .trailing).foregroundColor(r.valueChf == nil ? .orange : .secondary).privacyBlur()
                         }
                     }
                 }
@@ -109,17 +123,27 @@ struct ThemeSummaryView: View {
         }
     }
 
-    private func qty(_ v: Double) -> String {
-        let nf = NumberFormatter(); nf.numberStyle = .decimal; nf.groupingSeparator = "'"; nf.usesGroupingSeparator = true
-        nf.maximumFractionDigits = 4; nf.minimumFractionDigits = 0
-        return nf.string(from: NSNumber(value: v)) ?? String(format: "%.4f", v)
+    private var totalSetTargetChf: Double? {
+        let values = holdings.compactMap(\.setTargetChf)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +)
     }
 
-    private func chf(_ v: Double?) -> String {
-        guard let val = v else { return "—" }
-        if abs(val) >= 1_000 { return ValueFormatting.large(val) }
-        let nf = NumberFormatter(); nf.numberStyle = .currency; nf.currencyCode = dbManager.baseCurrency
-        nf.maximumFractionDigits = 2; nf.minimumFractionDigits = 2
-        return nf.string(from: NSNumber(value: val)) ?? String(format: "%.2f", val)
+    private var totalActualChf: Double? {
+        let values = holdings.compactMap(\.valueChf)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +)
+    }
+
+    private func kChf(_ v: Double?) -> String {
+        guard let value = v else { return "—" }
+        return ValueFormatting.thousands(value)
+    }
+
+    private func labelWithUnit(_ text: String) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+            Text("(kCHF)").font(.caption).foregroundColor(.secondary)
+        }
     }
 }
