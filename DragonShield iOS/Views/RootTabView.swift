@@ -12,7 +12,7 @@ struct RootTabView: View {
             NavigationStack { TodoBoardView() }
                 .tabItem { Label("To-Dos", systemImage: "checklist") }
             NavigationStack { ThemesListView() }
-                .tabItem { Label("Themes", systemImage: "square.grid.2x2") }
+                .tabItem { Label("Portfolios", systemImage: "square.grid.2x2") }
             NavigationStack { InstrumentsListView() }
                 .tabItem { Label("Instruments", systemImage: "list.bullet") }
             NavigationStack { SearchView() }

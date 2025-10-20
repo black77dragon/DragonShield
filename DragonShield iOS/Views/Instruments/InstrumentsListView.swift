@@ -126,9 +126,9 @@ struct InstrumentDetailView: View {
                     }
                 }
             }
-            Section(header: Text("Portfolio Themes")) {
+            Section(header: Text("Portfolios")) {
                 if memberships.isEmpty {
-                    Text("Not a member of any theme").foregroundColor(.secondary)
+                    Text("Not a member of any portfolio").foregroundColor(.secondary)
                 } else {
                     ForEach(memberships, id: \.themeId) { it in
                         NavigationLink(destination: ThemeDetailIOSView(themeId: it.themeId)) {

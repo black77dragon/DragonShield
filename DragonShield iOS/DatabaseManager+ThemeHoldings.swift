@@ -8,6 +8,7 @@ extension DatabaseManager {
         let instrumentName: String
         let instrumentCurrency: String
         let quantity: Double
+        let setTargetChf: Double?
         let latestPrice: Double?
         let priceCurrency: String?
         let priceAsOf: String?
@@ -26,7 +27,8 @@ extension DatabaseManager {
             SELECT i.instrument_id,
                    i.instrument_name,
                    i.currency,
-                   COALESCE(SUM(pr.quantity), 0) AS qty
+                   COALESCE(SUM(pr.quantity), 0) AS qty,
+                   MAX(a.rwk_set_target_chf) AS target_chf
               FROM PortfolioThemeAsset a
               JOIN Instruments i ON a.instrument_id = i.instrument_id
               LEFT JOIN PositionReports pr ON pr.instrument_id = a.instrument_id
@@ -44,6 +46,12 @@ extension DatabaseManager {
             let name = String(cString: sqlite3_column_text(stmt, 1))
             let currency = String(cString: sqlite3_column_text(stmt, 2))
             let qty = sqlite3_column_double(stmt, 3)
+            let targetChf: Double?
+            if sqlite3_column_type(stmt, 4) == SQLITE_NULL {
+                targetChf = nil
+            } else {
+                targetChf = sqlite3_column_double(stmt, 4)
+            }
             var lp: Double? = nil
             var priceCur: String? = nil
             var asOf: String? = nil
@@ -59,7 +67,15 @@ extension DatabaseManager {
                 if curr == "CHF" { chf = native }
                 else if let r = latestRateToChf(currencyCode: curr)?.rate { chf = native * r }
             }
-            rows.append(ThemeHoldingRow(instrumentId: id, instrumentName: name, instrumentCurrency: currency, quantity: qty, latestPrice: lp, priceCurrency: priceCur, priceAsOf: asOf, valueChf: chf))
+            rows.append(ThemeHoldingRow(instrumentId: id,
+                                       instrumentName: name,
+                                       instrumentCurrency: currency,
+                                       quantity: qty,
+                                       setTargetChf: targetChf,
+                                       latestPrice: lp,
+                                       priceCurrency: priceCur,
+                                       priceAsOf: asOf,
+                                       valueChf: chf))
         }
         return rows
     }
