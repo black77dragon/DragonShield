@@ -7,10 +7,39 @@ struct TodoBoardView: View {
     @State private var tagsByID: [Int: TagRow] = [:]
     @State private var visibleColumns: Set<KanbanColumn> = Set(KanbanColumn.allCases)
     @State private var selectedFontSize: KanbanFontSize = .medium
+    @State private var sortMode: KanbanSortMode = .dueDate
     @State private var hasHydratedFontSize = false
     @State private var isHydratingFontSize = false
+    @State private var hasHydratedVisibleColumns = false
 
     private let columnOrder = KanbanColumn.allCases
+    private let visibleColumnsDefaultsKey = "TodoBoard.visibleColumns.v1"
+
+    private var stats: [BoardStat] {
+        let total = viewModel.allTodos.count
+        let inProgress = viewModel.count(for: .doing)
+        let completed = viewModel.count(for: .done)
+        let overdue = overdueTodos.count
+        let completionRate = total == 0 ? 0 : Double(completed) / Double(total)
+        return [
+            BoardStat(id: "total", title: "Total Tasks", value: "\(total)", icon: "list.bullet", accent: Color(hex: "5B6CE3")),
+            BoardStat(id: "in-progress", title: "In Progress", value: "\(inProgress)", icon: "hammer", accent: KanbanColumn.doing.palette.accent),
+            BoardStat(id: "completed", title: "Completed", value: "\(completed)", icon: "checkmark.circle", accent: KanbanColumn.done.palette.accent),
+            BoardStat(id: "overdue", title: "Overdue", value: "\(overdue)", icon: "clock.badge.exclamationmark", accent: Color(hex: "F16063")),
+            BoardStat(id: "completion", title: "Completion", value: completionRate.formattedPercentage, icon: "chart.bar", accent: Color(hex: "7C5CFF"), progress: completionRate)
+        ]
+    }
+
+    private var overdueTodos: [KanbanTodo] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return viewModel.allTodos.filter { todo in
+            guard !todo.isCompleted,
+                  let due = todo.dueDate else { return false }
+            let dueDay = calendar.startOfDay(for: due)
+            return dueDay < today
+        }
+    }
 
     private var filteredColumns: [KanbanColumn] {
         columnOrder.filter { visibleColumns.contains($0) }
@@ -47,15 +76,21 @@ struct TodoBoardView: View {
             .padding(.vertical, 24)
             .padding(.horizontal, 20)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Color(hex: "F5F6FB"))
         .navigationTitle("To-Do Board")
         .toolbar { toolbarContent }
         .refreshable { await refresh() }
         .task { await refresh() }
-        .onAppear { hydrateFontSizeIfNeeded() }
+        .onAppear {
+            hydrateFontSizeIfNeeded()
+            hydrateVisibleColumnsIfNeeded()
+        }
         .onReceive(dbManager.$todoBoardFontSize) { handleExternalFontSizeUpdate($0) }
         .onChangeCompat(of: selectedFontSize) { _ in
             persistFontSize()
+        }
+        .onChangeCompat(of: visibleColumns) { _ in
+            persistVisibleColumns()
         }
         .alert("Cannot Archive Repeating To-Dos", isPresented: Binding(get: {
             viewModel.archiveBlockedByRepeatingTodos
@@ -73,42 +108,144 @@ struct TodoBoardView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Stay on top of your To-Dos")
-                        .font(.title2.weight(.semibold))
-                    Text("Track progress across backlog, priorities, and work in flight.")
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("get things done")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                    Text("Track priorities, make progress, and celebrate wins.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                fontSizePicker
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    CounterBadge(title: "Backlog", count: viewModel.count(for: .backlog), color: KanbanColumn.backlog.accentColor)
-                    CounterBadge(title: "Prioritised", count: viewModel.count(for: .prioritised), color: KanbanColumn.prioritised.accentColor)
-                    CounterBadge(title: "Doing", count: viewModel.count(for: .doing), color: KanbanColumn.doing.accentColor)
-                    CounterBadge(title: "Done", count: viewModel.count(for: .done), color: KanbanColumn.done.accentColor)
-                    CounterBadge(title: "Archived", count: viewModel.count(for: .archived), color: KanbanColumn.archived.accentColor)
+                HStack(spacing: 16) {
+                    ForEach(stats) { stat in
+                        BoardStatCard(stat: stat)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            configurationRow
+        }
+    }
+
+    private var fontSizeControl: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Font Size")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Picker("Font Size", selection: $selectedFontSize) {
+                ForEach(KanbanFontSize.allCases, id: \.self) { size in
+                    Text(size.label).tag(size)
                 }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "E5E7FF"), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+        .frame(width: 200, alignment: .leading)
     }
 
-    private var fontSizePicker: some View {
-        Picker("Font Size", selection: $selectedFontSize) {
-            ForEach(KanbanFontSize.allCases, id: \.self) { size in
-                Text(size.label).tag(size)
+    private var configurationRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 16) {
+                fontSizeControl
+                columnSelectionMenu
+                sortModeControl
             }
+            .padding(.vertical, 4)
         }
-        .pickerStyle(.segmented)
-        .frame(maxWidth: 220)
-        .labelsHidden()
     }
 
+    private var columnSelectionMenu: some View {
+        Menu {
+            Section("Columns") {
+                ForEach(columnOrder) { column in
+                    let isActive = visibleColumns.contains(column)
+                    Button {
+                        if isActive {
+                            guard visibleColumns.count > 1 else { return }
+                            visibleColumns.remove(column)
+                        } else {
+                            visibleColumns.insert(column)
+                        }
+                    } label: {
+                        Label(column.displayTitle, systemImage: isActive ? "checkmark.circle.fill" : "circle")
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+            }
+
+            Section {
+                Button("Show All Columns") {
+                    visibleColumns = Set(columnOrder)
+                }
+                Button("Hide Done & Archived") {
+                    visibleColumns = Set(columnOrder.filter { ![.done, .archived].contains($0) })
+                }
+            }
+        } label: {
+            Label("Column Selection", systemImage: "slider.horizontal.3")
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color(hex: "DEE0EA"), lineWidth: 0.8)
+                )
+                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+                .foregroundStyle(Color(hex: "474C63"))
+        }
+    }
+
+    private var sortModeControl: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Sort Tasks")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Picker("Sort Tasks", selection: $sortMode) {
+                ForEach(KanbanSortMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "DEE0EA"), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+        .frame(width: 220, alignment: .leading)
+    }
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Nothing scheduled yet")
@@ -124,77 +261,108 @@ struct TodoBoardView: View {
     private func columnView(for column: KanbanColumn) -> some View {
         let todos = sortedTodos(for: column)
         let containsRepeating = column == .done && todos.contains { $0.isRepeating }
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: column.iconName)
-                    .font(.headline)
-                    .foregroundColor(column.accentColor)
-                Text(column.title)
-                    .font(.headline)
+        let palette = column.palette
+
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(palette.accent.opacity(0.18))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: column.iconName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(palette.accent)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(column.displayTitle)
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(palette.accent)
+                        Text(column.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Spacer()
+
                 if column == .done && !todos.isEmpty {
                     Button {
                         viewModel.archiveDoneTodos()
                     } label: {
-                        Label("Archive Done", systemImage: "archivebox")
+                        Label("Archive", systemImage: "archivebox")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(KanbanColumn.archived.accentColor)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(KanbanColumn.archived.palette.accent.opacity(0.12))
+                            )
+                            .foregroundStyle(KanbanColumn.archived.palette.accent)
                     }
                     .buttonStyle(.plain)
                     .disabled(containsRepeating)
-                    .opacity(containsRepeating ? 0.35 : 1.0)
+                    .opacity(containsRepeating ? 0.4 : 1.0)
                     .accessibilityHint(containsRepeating ? "Remove repeat settings before archiving." : "Move all done items to archive")
                 }
+
                 Text("\(todos.count)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.footnote.weight(.semibold))
+                    .padding(10)
+                    .background(
+                        Circle()
+                            .fill(palette.accent.opacity(0.12))
+                    )
+                    .foregroundStyle(palette.accent)
             }
 
             if todos.isEmpty {
-                Text(column.emptyPlaceholder)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 32)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("No tasks yet")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                    Text(column.emptyPlaceholder)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 12)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    if containsRepeating {
-                        Text("Repeat-enabled tasks cannot be archived. Clear repeating before archiving.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(.bottom, 4)
-                    }
+                if containsRepeating {
+                    Text("Repeat-enabled tasks cannot be archived. Clear repeating before archiving.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
+                }
 
-                    ScrollView(.vertical) {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(todos) { todo in
-                                TodoCard(todo: todo,
-                                         fontSize: selectedFontSize,
-                                         tags: tags(for: todo),
-                                         onToggleCompletion: { newValue in
-                                    viewModel.setCompletion(for: todo.id, isCompleted: newValue)
-                                })
-                            }
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(todos) { todo in
+                            TodoCard(todo: todo,
+                                     fontSize: selectedFontSize,
+                                     tags: tags(for: todo),
+                                     palette: palette,
+                                     onToggleCompletion: { newValue in
+                                viewModel.setCompletion(for: todo.id, isCompleted: newValue)
+                            })
                         }
-                        .padding(.trailing, 2)
                     }
-                    .frame(maxHeight: .infinity)
+                    .padding(.trailing, 2)
+                    .padding(.bottom, 4)
                 }
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(16)
-        .frame(width: 280, alignment: .topLeading)
-        .frame(minHeight: 360, alignment: .topLeading)
+        .padding(20)
+        .frame(width: 300, alignment: .topLeading)
+        .frame(minHeight: 420, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: .secondarySystemBackground))
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.white)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(column.accentColor.opacity(0.25), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(palette.accent.opacity(0.15), lineWidth: 1)
         )
+        .shadow(color: palette.shadowColor, radius: 18, x: 0, y: 10)
     }
 
     private func tags(for todo: KanbanTodo) -> [TagRow] {
@@ -202,27 +370,8 @@ struct TodoBoardView: View {
     }
 
     private func sortedTodos(for column: KanbanColumn) -> [KanbanTodo] {
-        viewModel.todos(in: column)
-            .sorted { lhs, rhs in
-                switch (lhs.dueDate, rhs.dueDate) {
-                case let (lhsDate?, rhsDate?):
-                    if lhsDate != rhsDate { return lhsDate < rhsDate }
-                case (.some, nil):
-                    return true
-                case (nil, .some):
-                    return false
-                case (nil, nil):
-                    break
-                }
-
-                if lhs.sortOrder != rhs.sortOrder {
-                    return lhs.sortOrder < rhs.sortOrder
-                }
-                if lhs.createdAt != rhs.createdAt {
-                    return lhs.createdAt < rhs.createdAt
-                }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
+        let todos = viewModel.todos(in: column)
+        return sortMode.sort(todos: todos)
     }
 
     private func refresh() async {
@@ -271,12 +420,13 @@ struct TodoBoardView: View {
                                 if isPresented {
                                     visibleColumns.insert(column)
                                 } else {
+                                    guard visibleColumns.count > 1 else { return }
                                     visibleColumns.remove(column)
                                 }
                             }
                         )
                         Toggle(isOn: binding) {
-                            Label(column.title, systemImage: column.iconName)
+                            Label(column.displayTitle, systemImage: column.iconName)
                         }
                     }
                 }
@@ -327,12 +477,176 @@ struct TodoBoardView: View {
             isHydratingFontSize = false
         }
     }
+
+    private var defaultVisibleColumns: Set<KanbanColumn> { Set(columnOrder) }
+
+    private func hydrateVisibleColumnsIfNeeded() {
+        guard !hasHydratedVisibleColumns else { return }
+        hasHydratedVisibleColumns = true
+        let stored = UserDefaults.standard.array(forKey: visibleColumnsDefaultsKey) as? [String]
+        let decoded = stored?.compactMap(KanbanColumn.init(rawValue:)) ?? []
+        visibleColumns = decoded.isEmpty ? defaultVisibleColumns : Set(decoded)
+    }
+
+    private func persistVisibleColumns() {
+        guard hasHydratedVisibleColumns else { return }
+        let ordered = columnOrder.filter { visibleColumns.contains($0) }
+        let payload = (ordered.isEmpty ? columnOrder : ordered).map { $0.rawValue }
+        UserDefaults.standard.set(payload, forKey: visibleColumnsDefaultsKey)
+    }
+}
+
+private extension Double {
+    var formattedPercentage: String {
+        guard isFinite else { return "0%" }
+        let clamped = max(0, min(self, 1))
+        return String(format: "%.0f%%", clamped * 100)
+    }
+}
+
+private struct BoardStat: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+    let icon: String
+    let accent: Color
+    var progress: Double?
+}
+
+private struct BoardStatCard: View {
+    let stat: BoardStat
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(stat.accent.opacity(0.12))
+                    .frame(width: 30, height: 30)
+                Image(systemName: stat.icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(stat.accent)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(stat.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(stat.value)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundStyle(stat.accent)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(width: 180, height: 60, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "E6E8F5"), lineWidth: 0.6)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+    }
+}
+
+private struct KanbanColumnPalette {
+    let accent: Color
+    let backgroundTop: Color
+    let backgroundBottom: Color
+    let cardBackground: Color
+    let cardBorder: Color
+    let filterActiveBackground: Color
+
+    var gradient: LinearGradient {
+        LinearGradient(colors: [backgroundTop, backgroundBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    var shadowColor: Color {
+        accent.opacity(0.12)
+    }
+}
+
+private extension KanbanColumn {
+    var palette: KanbanColumnPalette {
+        switch self {
+        case .backlog:
+            return KanbanColumnPalette(
+                accent: Color(hex: "F29933"),
+                backgroundTop: Color(hex: "FFF8E9"),
+                backgroundBottom: Color(hex: "FFEFD1"),
+                cardBackground: Color(hex: "FFFBF1"),
+                cardBorder: Color(hex: "FFE2B2"),
+                filterActiveBackground: Color(hex: "FFF3DF")
+            )
+        case .prioritised:
+            return KanbanColumnPalette(
+                accent: Color(hex: "F45B7A"),
+                backgroundTop: Color(hex: "FFEFF4"),
+                backgroundBottom: Color(hex: "FFDDE5"),
+                cardBackground: Color(hex: "FFF7F9"),
+                cardBorder: Color(hex: "FFC5D5"),
+                filterActiveBackground: Color(hex: "FFE7ED")
+            )
+        case .doing:
+            return KanbanColumnPalette(
+                accent: Color(hex: "7A6BFF"),
+                backgroundTop: Color(hex: "F2F1FF"),
+                backgroundBottom: Color(hex: "E3E1FF"),
+                cardBackground: Color(hex: "F9F8FF"),
+                cardBorder: Color(hex: "CCC8FF"),
+                filterActiveBackground: Color(hex: "ECEBFF")
+            )
+        case .done:
+            return KanbanColumnPalette(
+                accent: Color(hex: "42C195"),
+                backgroundTop: Color(hex: "EEFBF5"),
+                backgroundBottom: Color(hex: "DBF3E7"),
+                cardBackground: Color(hex: "F6FDF9"),
+                cardBorder: Color(hex: "B5E8D4"),
+                filterActiveBackground: Color(hex: "E8F7F0")
+            )
+        case .archived:
+            return KanbanColumnPalette(
+                accent: Color(hex: "8F95A5"),
+                backgroundTop: Color(hex: "F4F5F8"),
+                backgroundBottom: Color(hex: "E7E8EF"),
+                cardBackground: Color(hex: "F8F9FC"),
+                cardBorder: Color(hex: "D5D6E0"),
+                filterActiveBackground: Color(hex: "F0F1F5")
+            )
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .prioritised: return "To Do"
+        case .doing: return "In Progress"
+        default: return title
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .backlog: return "Ideas & discovery"
+        case .prioritised: return "Ready to take on"
+        case .doing: return "Actively moving"
+        case .done: return "Wrapped up work"
+        case .archived: return "Saved for reference"
+        }
+    }
 }
 
 private struct TodoCard: View {
     let todo: KanbanTodo
     let fontSize: KanbanFontSize
     let tags: [TagRow]
+    let palette: KanbanColumnPalette
     var onToggleCompletion: (Bool) -> Void
 
     private static let dateFormatter: DateFormatter = {
@@ -392,75 +706,93 @@ private struct TodoCard: View {
     private var urgencyBackgroundColor: Color? {
         guard [.backlog, .prioritised, .doing].contains(todo.column) else { return nil }
         switch dueState {
-        case .overdue: return Color.red.opacity(0.16)
-        case .dueToday: return Color.blue.opacity(0.14)
+        case .overdue: return Color(hex: "FFE6E8")
+        case .dueToday: return Color(hex: "E8EEFF")
         default: return nil
         }
     }
 
     private var cardBackgroundColor: Color {
-        urgencyBackgroundColor ?? Color(uiColor: .systemBackground)
+        urgencyBackgroundColor ?? palette.cardBackground
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Button {
-                onToggleCompletion(!todo.isCompleted)
-            } label: {
-                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(todo.isCompleted ? .green : .secondary)
-                    .padding(4)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(todo.isCompleted ? "Mark as not completed" : "Mark as completed")
-            .accessibilityHint(todo.repeatFrequency != nil ? "Completing will reschedule the due date." : "")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(todo.description)
+                        .font(fontSize.primaryFont)
+                        .foregroundStyle(todo.isCompleted ? Color.secondary : Color.primary)
+                        .multilineTextAlignment(.leading)
+                        .strikethrough(todo.isCompleted, color: .secondary)
 
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(todo.description)
-                            .font(fontSize.primaryFont)
-                            .foregroundStyle(todo.isCompleted ? Color.secondary : Color.primary)
-                            .multilineTextAlignment(.leading)
-                            .strikethrough(todo.isCompleted, color: .secondary)
-
-                        if let frequency = todo.repeatFrequency {
-                            RepeatBadge(frequency: frequency, fontSize: fontSize)
-                        }
-                    }
-
-                    HStack(spacing: 12) {
-                        PriorityBadge(priority: todo.priority, fontSize: fontSize)
-                        Spacer()
-                        dueDisplayText
-                            .font(fontSize.dueDateFont(weight: dueWeight))
-                            .foregroundStyle(todo.isCompleted ? Color.secondary : dueColor)
-                            .monospacedDigit()
+                    if let frequency = todo.repeatFrequency {
+                        RepeatBadge(frequency: frequency, fontSize: fontSize)
                     }
                 }
 
-                if !tags.isEmpty {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
-                        ForEach(tags) { tag in
-                            TagPill(tag: tag)
-                        }
+                Spacer()
+
+                Button {
+                    onToggleCompletion(!todo.isCompleted)
+                } label: {
+                    Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(todo.isCompleted ? palette.accent : Color.secondary)
+                        .padding(6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(todo.isCompleted ? "Mark as not completed" : "Mark as completed")
+                .accessibilityHint(todo.repeatFrequency != nil ? "Completing will reschedule the due date." : "")
+            }
+
+            HStack(spacing: 16) {
+                PriorityBadge(priority: todo.priority, fontSize: fontSize)
+
+                Rectangle()
+                    .fill(Color(hex: "D8D9E3"))
+                    .frame(width: 1, height: 18)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: fontSize.secondaryPointSize - 1, weight: .medium))
+                        .foregroundStyle(dueColor)
+                    dueDisplayText
+                        .font(fontSize.dueDateFont(weight: dueWeight))
+                        .foregroundStyle(todo.isCompleted ? Color.secondary : dueColor)
+                        .monospacedDigit()
+                }
+
+                Spacer()
+            }
+
+            if !tags.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], alignment: .leading, spacing: 6) {
+                    ForEach(tags) { tag in
+                        TagPill(tag: tag)
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 18)
                 .fill(cardBackgroundColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(todo.priority.color.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(palette.cardBorder, lineWidth: 1)
         )
-        .opacity(todo.isCompleted ? 0.65 : 1)
-        .contentShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
+        .overlay(alignment: .topLeading) {
+            Capsule()
+                .fill(palette.accent)
+                .frame(width: 56, height: 4)
+                .offset(x: 20, y: 2)
+        }
+        .opacity(todo.isCompleted ? 0.6 : 1)
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 
     private struct PriorityBadge: View {
@@ -468,15 +800,20 @@ private struct TodoCard: View {
         let fontSize: KanbanFontSize
 
         var body: some View {
-            Label(priority.displayName, systemImage: priority.iconName)
-                .font(fontSize.badgeFont)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(priority.color.opacity(0.18))
-                )
-                .foregroundColor(priority.color)
+            HStack(spacing: 6) {
+                Image(systemName: priority.iconName)
+                    .font(.system(size: fontSize.secondaryPointSize, weight: .semibold))
+                Text(priority.displayName.uppercased())
+                    .font(fontSize.badgeFont)
+                    .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(priority.color.opacity(0.16))
+            )
+            .foregroundColor(priority.color)
         }
     }
 
@@ -518,34 +855,14 @@ private struct TagPill: View {
 
     var body: some View {
         Text("#\(tag.displayName)")
-            .font(.caption)
+            .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(backgroundColor, in: Capsule())
+            .background(
+                Capsule()
+                    .fill(backgroundColor)
+            )
             .foregroundStyle(textColor)
-    }
-}
-
-private struct CounterBadge: View {
-    let title: String
-    let count: Int
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text("\(count)")
-                .font(.headline)
-                .foregroundColor(color)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(color.opacity(0.18))
-        )
     }
 }
 

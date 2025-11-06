@@ -72,6 +72,14 @@ enum KanbanPriority: String, CaseIterable, Identifiable, Codable {
         case .high: return "arrow.up.circle"
         }
     }
+
+    var sortRank: Int {
+        switch self {
+        case .high: return 0
+        case .medium: return 1
+        case .low: return 2
+        }
+    }
 }
 
 enum KanbanRepeatFrequency: String, CaseIterable, Identifiable, Codable {
@@ -264,6 +272,7 @@ struct KanbanTodoQuickAddRequest {
 
 extension Notification.Name {
     static let kanbanTodoQuickAddRequested = Notification.Name("KanbanTodoQuickAddRequested")
+    static let kanbanTodoEditRequested = Notification.Name("KanbanTodoEditRequested")
 }
 
 @MainActor
@@ -281,6 +290,25 @@ final class KanbanTodoQuickAddRouter {
     func consumePendingRequest() -> KanbanTodoQuickAddRequest? {
         defer { pendingRequest = nil }
         return pendingRequest
+    }
+}
+
+@MainActor
+final class KanbanTodoEditRouter {
+    static let shared = KanbanTodoEditRouter()
+
+    private var pendingEditID: UUID?
+
+    private init() {}
+
+    func requestEdit(for todoID: UUID) {
+        pendingEditID = todoID
+        NotificationCenter.default.post(name: .kanbanTodoEditRequested, object: todoID)
+    }
+
+    func consumePendingEdit() -> UUID? {
+        defer { pendingEditID = nil }
+        return pendingEditID
     }
 }
 

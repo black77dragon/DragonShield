@@ -22,7 +22,45 @@ struct TodoDashboardTile: DashboardTile {
     private var actionableTodos: [KanbanTodo] {
         let prioritised = viewModel.todos(in: .prioritised).filter { !$0.isCompleted }
         let doing = viewModel.todos(in: .doing).filter { !$0.isCompleted }
-        return prioritised + doing
+        let combined = prioritised + doing
+        return combined.sorted(by: TodoDashboardTile.dueDateComparator)
+    }
+
+    private static let columnOrder: [KanbanColumn: Int] = [.prioritised: 0, .doing: 1]
+
+    private static func dueDateComparator(_ lhs: KanbanTodo, _ rhs: KanbanTodo) -> Bool {
+        switch (lhs.dueDate, rhs.dueDate) {
+        case let (l?, r?) where l != r:
+            return l < r
+        case (nil, nil):
+            break
+        case (nil, _):
+            return false
+        case (_, nil):
+            return true
+        default:
+            break
+        }
+
+        if lhs.priority.sortRank != rhs.priority.sortRank {
+            return lhs.priority.sortRank < rhs.priority.sortRank
+        }
+
+        let lhsColumnRank = columnOrder[lhs.column] ?? Int.max
+        let rhsColumnRank = columnOrder[rhs.column] ?? Int.max
+        if lhsColumnRank != rhsColumnRank {
+            return lhsColumnRank < rhsColumnRank
+        }
+
+        if lhs.sortOrder != rhs.sortOrder {
+            return lhs.sortOrder < rhs.sortOrder
+        }
+
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     var body: some View {
@@ -41,6 +79,7 @@ struct TodoDashboardTile: DashboardTile {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(todos) { todo in
                         Button {
+                            KanbanTodoEditRouter.shared.requestEdit(for: todo.id)
                             openWindow(id: "todoBoard")
                         } label: {
                             TodoRow(todo: todo, fontSize: selectedFontSize)

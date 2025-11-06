@@ -76,6 +76,7 @@ class DatabaseManager: ObservableObject {
     // Last trade error for UI feedback
     @Published var lastTradeErrorMessage: String? = nil
 
+
     // ==============================================================================
     // == CORRECTED INIT METHOD                                                    ==
     // ==============================================================================
