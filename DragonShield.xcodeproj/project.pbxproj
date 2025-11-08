@@ -187,8 +187,8 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1700;
-				LastUpgradeCheck = 1700;
+				LastSwiftUpdateCheck = 1730;
+				LastUpgradeCheck = 1730;
 				TargetAttributes = {
 					B3933B0E2D98475A00DDA4C2 = {
 						CreatedOnToolsVersion = 16.2;
@@ -574,7 +574,7 @@
 			repositoryURL = "https://github.com/stephencelis/SQLite.swift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.15.3;
+				minimumVersion = 0.15.4;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

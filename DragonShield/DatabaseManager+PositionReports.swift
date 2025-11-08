@@ -18,7 +18,9 @@ struct PositionReportData: Identifiable {
         var instrumentCountry: String?
         var instrumentSector: String?
         var assetClass: String?
+        var assetClassCode: String? = nil
         var assetSubClass: String?
+        var assetSubClassCode: String? = nil
         var quantity: Double
         var purchasePrice: Double?
         var currentPrice: Double?
@@ -35,7 +37,7 @@ extension DatabaseManager {
         let query = """
             SELECT pr.position_id, pr.instrument_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
-                   i.country_code, i.sector, ac.class_name, asc.sub_class_name,
+                   i.country_code, i.sector, ac.class_name, ac.class_code, asc.sub_class_name, asc.sub_class_code,
                    pr.quantity, pr.purchase_price, pr.current_price,
                    COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                    pr.notes,
@@ -67,24 +69,26 @@ extension DatabaseManager {
                 let instrumentCountry = sqlite3_column_text(statement, 7).map { String(cString: $0) }
                 let instrumentSector = sqlite3_column_text(statement, 8).map { String(cString: $0) }
                 let assetClass = sqlite3_column_text(statement, 9).map { String(cString: $0) }
-                let assetSubClass = sqlite3_column_text(statement, 10).map { String(cString: $0) }
-                let quantity = sqlite3_column_double(statement, 11)
+                let assetClassCode = sqlite3_column_text(statement, 10).map { String(cString: $0) }
+                let assetSubClass = sqlite3_column_text(statement, 11).map { String(cString: $0) }
+                let assetSubClassCode = sqlite3_column_text(statement, 12).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(statement, 13)
                 var purchasePrice: Double?
-                if sqlite3_column_type(statement, 12) != SQLITE_NULL {
-                    purchasePrice = sqlite3_column_double(statement, 12)
+                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 14)
                 }
                 var currentPrice: Double?
-                if sqlite3_column_type(statement, 13) != SQLITE_NULL {
-                    currentPrice = sqlite3_column_double(statement, 13)
+                if sqlite3_column_type(statement, 15) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 15)
                 }
                 var instrumentUpdatedAt: Date?
-                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(statement, 14))
+                if sqlite3_column_type(statement, 16) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(statement, 16))
                     instrumentUpdatedAt = ISO8601DateParser.parse(str)
                 }
-                let notes: String? = sqlite3_column_text(statement, 15).map { String(cString: $0) }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 16))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 17))
+                let notes: String? = sqlite3_column_text(statement, 17).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 18))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 19))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
                 reports.append(PositionReportData(
@@ -98,7 +102,9 @@ extension DatabaseManager {
                     instrumentCountry: instrumentCountry,
                     instrumentSector: instrumentSector,
                     assetClass: assetClass,
+                    assetClassCode: assetClassCode,
                     assetSubClass: assetSubClass,
+                    assetSubClassCode: assetSubClassCode,
                     quantity: quantity,
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,
@@ -121,7 +127,7 @@ extension DatabaseManager {
         let query = """
             SELECT pr.position_id, pr.instrument_id, pr.import_session_id, a.account_name,
                    ins.institution_name, i.instrument_name, i.currency,
-                   i.country_code, i.sector, ac.class_name, asc.sub_class_name,
+                   i.country_code, i.sector, ac.class_name, ac.class_code, asc.sub_class_name, asc.sub_class_code,
                    pr.quantity, pr.purchase_price, pr.current_price,
                    COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                    pr.notes,
@@ -160,30 +166,32 @@ extension DatabaseManager {
                 let instrumentCountry = sqlite3_column_text(statement, 7).map { String(cString: $0) }
                 let instrumentSector = sqlite3_column_text(statement, 8).map { String(cString: $0) }
                 let assetClass = sqlite3_column_text(statement, 9).map { String(cString: $0) }
-                let assetSubClass = sqlite3_column_text(statement, 10).map { String(cString: $0) }
-                let quantity = sqlite3_column_double(statement, 11)
+                let assetClassCode = sqlite3_column_text(statement, 10).map { String(cString: $0) }
+                let assetSubClass = sqlite3_column_text(statement, 11).map { String(cString: $0) }
+                let assetSubClassCode = sqlite3_column_text(statement, 12).map { String(cString: $0) }
+                let quantity = sqlite3_column_double(statement, 13)
                 var purchasePrice: Double?
-                if sqlite3_column_type(statement, 12) != SQLITE_NULL {
-                    purchasePrice = sqlite3_column_double(statement, 12)
+                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
+                    purchasePrice = sqlite3_column_double(statement, 14)
                 } else {
                     purchasePrice = nil
                 }
                 var currentPrice: Double?
-                if sqlite3_column_type(statement, 13) != SQLITE_NULL {
-                    currentPrice = sqlite3_column_double(statement, 13)
+                if sqlite3_column_type(statement, 15) != SQLITE_NULL {
+                    currentPrice = sqlite3_column_double(statement, 15)
                 } else {
                     currentPrice = nil
                 }
                 var instrumentUpdatedAt: Date?
-                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(statement, 14))
+                if sqlite3_column_type(statement, 16) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(statement, 16))
                     instrumentUpdatedAt = ISO8601DateParser.parse(str)
                 } else {
                     instrumentUpdatedAt = nil
                 }
-                let notes = sqlite3_column_text(statement, 15).map { String(cString: $0) }
-                let reportDateStr = String(cString: sqlite3_column_text(statement, 16))
-                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 17))
+                let notes = sqlite3_column_text(statement, 17).map { String(cString: $0) }
+                let reportDateStr = String(cString: sqlite3_column_text(statement, 18))
+                let uploadedAtStr = String(cString: sqlite3_column_text(statement, 19))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportDateStr) ?? Date()
                 let uploadedAt = DateFormatter.iso8601DateTime.date(from: uploadedAtStr) ?? Date()
 
@@ -198,7 +206,9 @@ extension DatabaseManager {
                     instrumentCountry: instrumentCountry,
                     instrumentSector: instrumentSector,
                     assetClass: assetClass,
+                    assetClassCode: assetClassCode,
                     assetSubClass: assetSubClass,
+                    assetSubClassCode: assetSubClassCode,
                     quantity: quantity,
                     purchasePrice: purchasePrice,
                     currentPrice: currentPrice,

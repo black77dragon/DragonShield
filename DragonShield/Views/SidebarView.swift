@@ -22,13 +22,7 @@ struct SidebarView: View {
     @AppStorage("sidebar.showStaticData") private var showStaticData = true
     @AppStorage("sidebar.showSystem") private var showSystem = true
 
-    private var applicationStartupIconName: String {
-        if #available(macOS 13.0, iOS 16.0, *) {
-            return "rocket.fill"
-        } else {
-            return "paperplane.fill"
-        }
-    }
+    private let applicationStartupIconName = "rocket.fill"
 
     private var dueTodayOrOverdueCount: Int {
         let calendar = Calendar.current
@@ -57,11 +51,9 @@ struct SidebarView: View {
                     Label("Positions", systemImage: "tablecells")
                 }
 
-                NavigationLink(destination: PerformanceView()) {
-                    Label("Performance", systemImage: "chart.bar.fill")
-                        .foregroundColor(.gray)
+                NavigationLink(destination: AssetManagementReportView()) {
+                    Label("Asset Management Report", systemImage: "chart.bar.fill")
                 }
-                .disabled(true)
 
                 NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {
                     HStack(spacing: 8) {
@@ -81,8 +73,8 @@ struct SidebarView: View {
                     Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
 
-                NavigationLink(destination: InstrumentPricesMaintenanceView().environmentObject(dbManager)) {
-                    Label("Prices", systemImage: "dollarsign.circle")
+                NavigationLink(destination: PriceMaintenanceView().environmentObject(dbManager)) {
+                    Label("Price Maintenance", systemImage: "dollarsign.circle")
                 }
 
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
