@@ -1,4 +1,4 @@
-# Instrument Prices Maintenance Window — Proposal
+# Price Maintenance Window — Proposal
 
 ## Goals
 
@@ -8,7 +8,7 @@
 
 ## Core UI
 
-- Location: new view `InstrumentPricesMaintenanceView` (menu/Sidebar: “Prices”).
+- Location: new view `PriceMaintenanceView` (menu/Sidebar: “Price Maintenance”).
 - Main area: table/grid with the following columns:
   - Instrument: name (+ ticker/ISIN/valor in smaller secondary text).
   - Currency: instrument currency.
@@ -101,8 +101,7 @@
 ## Next Steps
 
 1. Implement data fetch in `DatabaseManager+InstrumentPrice` (new method to list instruments with latest price and metadata with filters).
-2. Scaffold `InstrumentPricesMaintenanceView` table with real rows and editing state.
+2. Scaffold `PriceMaintenanceView` table with real rows and editing state.
 3. Add toolbar filters and batch actions.
 4. Wire up saves and conflict checks.
 5. Add navigation entry (Sidebar: Prices).
-
