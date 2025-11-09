@@ -51,20 +51,20 @@ enum AssetClassCode: String {
 
 extension Theme {
     static let assetClassColors: [AssetClassCode: Color] = [
-        .liquidity: .blue,
-        .equity: .green,
-        .fixedIncome: .orange,
-        .realAssets: .purple,
-        .alternatives: .red,
-        .derivatives: .teal,
-        .other: .gray
+        .liquidity: Color(red: 0.63, green: 0.75, blue: 0.90),
+        .equity: Color(red: 0.61, green: 0.77, blue: 0.69),
+        .fixedIncome: Color(red: 0.86, green: 0.73, blue: 0.57),
+        .realAssets: Color(red: 0.74, green: 0.69, blue: 0.85),
+        .alternatives: Color(red: 0.86, green: 0.67, blue: 0.65),
+        .derivatives: Color(red: 0.67, green: 0.82, blue: 0.86),
+        .other: Color(red: 0.78, green: 0.80, blue: 0.83)
     ]
 
     static let currencyColors: [String: Color] = [
-        "CHF": .blue,
-        "USD": .green,
-        "EUR": .purple,
-        "BTC": .orange
+        "CHF": Color(red: 0.55, green: 0.66, blue: 0.83),
+        "USD": Color(red: 0.57, green: 0.75, blue: 0.66),
+        "EUR": Color(red: 0.67, green: 0.61, blue: 0.84),
+        "BTC": Color(red: 0.90, green: 0.74, blue: 0.57)
     ]
 }
 
