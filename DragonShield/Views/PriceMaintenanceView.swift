@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 private struct PriceMaintenanceTableRow: Identifiable {
     typealias SourceRow = DatabaseManager.InstrumentLatestPriceRow
@@ -92,6 +95,10 @@ struct PriceMaintenanceView: View {
         let rows = tableRows
         guard !sortOrder.isEmpty else { return rows }
         return rows.sorted(using: sortOrder)
+    }
+
+    private func tableHeader(_ titleKey: LocalizedStringKey) -> Text {
+        Text(titleKey).font(.system(size: 13, weight: .semibold))
     }
 
     var body: some View {
@@ -203,16 +210,16 @@ struct PriceMaintenanceView: View {
     private var tableArea: some View {
         #if os(macOS)
         Table(sortedTableRows, sortOrder: $sortOrder) {
-            TableColumn("Instrument", value: \PriceMaintenanceTableRow.instrumentSortKey) { row in
+            TableColumn(tableHeader("Instrument"), value: \PriceMaintenanceTableRow.instrumentSortKey) { row in
                 instrumentCell(row.source)
             }
 
-            TableColumn("Currency", value: \PriceMaintenanceTableRow.currencySortKey) { row in
+            TableColumn(tableHeader("Currency"), value: \PriceMaintenanceTableRow.currencySortKey) { row in
                 Text(row.source.currency)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            TableColumn("Latest Price", value: \PriceMaintenanceTableRow.latestPriceSortKey) { row in
+            TableColumn(tableHeader("Latest Price"), value: \PriceMaintenanceTableRow.latestPriceSortKey) { row in
                 Text(viewModel.formatted(row.source.latestPrice))
                     .monospacedDigit()
                     .padding(.vertical, 2)
@@ -223,12 +230,12 @@ struct PriceMaintenanceView: View {
             }
 
             Group {
-                TableColumn("As Of", value: \PriceMaintenanceTableRow.asOfSortKey) { row in
+                TableColumn(tableHeader("As Of"), value: \PriceMaintenanceTableRow.asOfSortKey) { row in
                     Text(viewModel.formatAsOf(row.source.asOf, timeZoneId: dbManager.defaultTimeZone))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Price Source", value: \PriceMaintenanceTableRow.priceSourceSortKey) { row in
+                TableColumn(tableHeader("Price Source"), value: \PriceMaintenanceTableRow.priceSourceSortKey) { row in
                     HStack(spacing: 4) {
                         Text(row.source.source ?? "")
                         if (viewModel.autoEnabled[row.source.id] ?? false),
@@ -241,7 +248,7 @@ struct PriceMaintenanceView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Auto", value: \PriceMaintenanceTableRow.autoSortKey) { row in
+                TableColumn(tableHeader("Auto"), value: \PriceMaintenanceTableRow.autoSortKey) { row in
                     Toggle("", isOn: viewModel.bindingForAuto(row: row.source) {
                         viewModel.persistSourceIfComplete(row.source)
                     })
@@ -249,7 +256,7 @@ struct PriceMaintenanceView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
 
-                TableColumn("Auto Provider", value: \PriceMaintenanceTableRow.autoProviderSortKey) { row in
+                TableColumn(tableHeader("Auto Provider"), value: \PriceMaintenanceTableRow.autoProviderSortKey) { row in
                     Picker("", selection: viewModel.bindingForProvider(row: row.source) {
                         viewModel.persistSourceIfComplete(row.source)
                     }) {
@@ -260,7 +267,7 @@ struct PriceMaintenanceView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("External ID", value: \PriceMaintenanceTableRow.externalIdSortKey) { row in
+                TableColumn(tableHeader("External ID"), value: \PriceMaintenanceTableRow.externalIdSortKey) { row in
                     TextField("", text: viewModel.bindingForExternalId(row: row.source) {
                         viewModel.persistSourceIfComplete(row.source)
                     })
@@ -270,26 +277,26 @@ struct PriceMaintenanceView: View {
             }
 
             Group {
-                TableColumn("New Price", value: \PriceMaintenanceTableRow.newPriceSortKey) { row in
+                TableColumn(tableHeader("New Price"), value: \PriceMaintenanceTableRow.newPriceSortKey) { row in
                     TextField("", text: viewModel.bindingForEditedPrice(row.source.id))
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
-                TableColumn("New As Of", value: \PriceMaintenanceTableRow.newAsOfSortKey) { row in
+                TableColumn(tableHeader("New As Of"), value: \PriceMaintenanceTableRow.newAsOfSortKey) { row in
                     DatePicker("", selection: viewModel.bindingForEditedDate(row.source.id), displayedComponents: .date)
                         .labelsHidden()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Manual Source", value: \PriceMaintenanceTableRow.manualSourceSortKey) { row in
+                TableColumn(tableHeader("Manual Source"), value: \PriceMaintenanceTableRow.manualSourceSortKey) { row in
                     TextField("manual source", text: viewModel.bindingForEditedSource(row.source.id))
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                TableColumn("Actions", value: \PriceMaintenanceTableRow.actionsSortKey) { row in
+                TableColumn(tableHeader("Actions"), value: \PriceMaintenanceTableRow.actionsSortKey) { row in
                     HStack(spacing: 8) {
                         Button("Save") { viewModel.saveRow(row.source) }
                             .disabled(!viewModel.hasEdits(row.source.id))
@@ -301,6 +308,7 @@ struct PriceMaintenanceView: View {
                 }
             }
         }
+        .background(PriceMaintenanceTableHeaderStyler())
         .frame(minHeight: 420)
         #else
         Text("Price Maintenance is available on macOS only.")
@@ -371,3 +379,79 @@ struct PriceMaintenanceView: View {
             .accessibilityLabel("Missing price")
     }
 }
+
+#if os(macOS)
+private struct PriceMaintenanceTableHeaderStyler: NSViewRepresentable {
+    private let headerColor = NSColor(calibratedRed: 233 / 255, green: 241 / 255, blue: 1.0, alpha: 1.0)
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let tableView = findTableView(from: nsView) else { return }
+            applyStyle(to: tableView)
+        }
+    }
+
+    private func applyStyle(to tableView: NSTableView) {
+        guard let headerView = tableView.headerView else { return }
+
+        if let styledHeader = headerView as? PriceMaintenanceHeaderView {
+            if styledHeader.fillColor != headerColor {
+                styledHeader.fillColor = headerColor
+            }
+        } else {
+            let replacement = PriceMaintenanceHeaderView(frame: headerView.frame)
+            replacement.fillColor = headerColor
+            replacement.tableView = tableView
+            replacement.autoresizingMask = headerView.autoresizingMask
+            tableView.headerView = replacement
+        }
+
+        tableView.headerView?.needsDisplay = true
+    }
+
+    private func findTableView(from view: NSView) -> NSTableView? {
+        var visited = Set<ObjectIdentifier>()
+        return findTableView(from: view, visited: &visited)
+    }
+
+    private func findTableView(from view: NSView, visited: inout Set<ObjectIdentifier>) -> NSTableView? {
+        let identifier = ObjectIdentifier(view)
+        guard !visited.contains(identifier) else { return nil }
+        visited.insert(identifier)
+
+        if let table = view as? NSTableView {
+            return table
+        }
+
+        for subview in view.subviews {
+            if let table = findTableView(from: subview, visited: &visited) {
+                return table
+            }
+        }
+
+        if let superview = view.superview {
+            return findTableView(from: superview, visited: &visited)
+        }
+
+        return nil
+    }
+}
+
+private final class PriceMaintenanceHeaderView: NSTableHeaderView {
+    var fillColor: NSColor = NSColor.controlBackgroundColor {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        fillColor.setFill()
+        dirtyRect.fill()
+        super.draw(dirtyRect)
+    }
+}
+#endif

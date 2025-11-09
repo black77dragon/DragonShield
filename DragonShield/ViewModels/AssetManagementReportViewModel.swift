@@ -10,6 +10,14 @@ struct AssetManagementReportSummary {
         let baseAmount: Double
     }
 
+    struct CryptoHolding: Identifiable {
+        let id: Int
+        let instrumentName: String
+        let currency: String
+        let totalQuantity: Double
+        let baseValue: Double
+    }
+
     struct NearCashHolding: Identifiable {
         let id: Int
         let name: String
@@ -33,6 +41,7 @@ struct AssetManagementReportSummary {
 
     struct AssetClassBreakdown: Identifiable {
         let id: String
+        let code: String?
         let name: String
         let baseValue: Double
         let percentage: Double
@@ -46,15 +55,33 @@ struct AssetManagementReportSummary {
         let percentage: Double
     }
 
+    struct CustodyInstitutionSummary: Identifiable {
+        struct AccountBreakdown: Identifiable {
+            let id: String
+            let name: String
+            let totalBaseValue: Double
+            let positions: [AssetClassPosition]
+        }
+
+        let id: String
+        let displayName: String
+        let totalBaseValue: Double
+        let accounts: [AccountBreakdown]
+    }
+
     var reportDate: Date
     var baseCurrency: String
     var totalCashBase: Double
     var totalNearCashBase: Double
     var totalPortfolioBase: Double
+    var totalCryptoBase: Double
+    var totalTrackedCustodyBase: Double
     var cashBreakdown: [CashBreakdown]
     var nearCashHoldings: [NearCashHolding]
+    var cryptoHoldings: [CryptoHolding]
     var currencyAllocations: [CurrencyAllocation]
     var assetClassBreakdown: [AssetClassBreakdown]
+    var custodySummaries: [CustodyInstitutionSummary]
 
     static func empty(baseCurrency: String = "CHF", reportDate: Date = Date()) -> AssetManagementReportSummary {
         AssetManagementReportSummary(
@@ -63,19 +90,68 @@ struct AssetManagementReportSummary {
             totalCashBase: 0,
             totalNearCashBase: 0,
             totalPortfolioBase: 0,
+            totalCryptoBase: 0,
+            totalTrackedCustodyBase: 0,
             cashBreakdown: [],
             nearCashHoldings: [],
+            cryptoHoldings: [],
             currencyAllocations: [],
-            assetClassBreakdown: []
+            assetClassBreakdown: [],
+            custodySummaries: []
         )
     }
 
     var hasData: Bool {
-        !cashBreakdown.isEmpty || !nearCashHoldings.isEmpty || !currencyAllocations.isEmpty || !assetClassBreakdown.isEmpty
+        !cashBreakdown.isEmpty ||
+        !nearCashHoldings.isEmpty ||
+        !cryptoHoldings.isEmpty ||
+        !currencyAllocations.isEmpty ||
+        !assetClassBreakdown.isEmpty ||
+        custodySummaries.contains { !$0.accounts.isEmpty }
     }
 }
 
 final class AssetManagementReportViewModel: ObservableObject {
+    private enum CustodyInstitution: String, CaseIterable {
+        case zkb = "ZKB"
+        case ubs = "UBS"
+
+        var displayName: String {
+            switch self {
+            case .zkb: return "Zürcher Kantonalbank"
+            case .ubs: return "UBS (Credit-Suisse)"
+            }
+        }
+
+        static func match(from institutionName: String) -> CustodyInstitution? {
+            let normalized = institutionName
+                .folding(options: .diacriticInsensitive, locale: .current)
+                .replacingOccurrences(of: "-", with: " ")
+                .replacingOccurrences(of: "’", with: "'")
+                .lowercased()
+            if normalized.contains("zkb") || normalized.contains("kantonalbank") {
+                return .zkb
+            }
+            if normalized.contains("ubs") || (normalized.contains("credit") && normalized.contains("suisse")) {
+                return .ubs
+            }
+            return nil
+        }
+    }
+
+    private struct CustodyAccountAggregate {
+        let id: String
+        var name: String
+        var totalBaseValue: Double
+        var positions: [AssetManagementReportSummary.AssetClassPosition]
+    }
+
+    private struct CustodyInstitutionAggregate {
+        let institution: CustodyInstitution
+        var totalBaseValue: Double
+        var accounts: [String: CustodyAccountAggregate]
+    }
+
     private let nearCashSubClassCodes: Set<String> = ["GOV_BOND", "CORP_BOND", "MM_INST", "BOND_ETF", "BOND_FUND", "STRUCTURED"]
     @Published private(set) var summary: AssetManagementReportSummary = .empty()
     @Published private(set) var isLoading = false
@@ -118,6 +194,15 @@ final class AssetManagementReportViewModel: ObservableObject {
         }
         var assetClassTotals: [String: AssetClassAggregate] = [:]
         let today = Date()
+        struct CryptoAggregate {
+            let id: Int
+            var instrumentName: String
+            var currency: String
+            var totalQuantity: Double
+            var baseValue: Double
+        }
+        var cryptoAggregates: [Int: CryptoAggregate] = [:]
+        var custodyAggregates: [CustodyInstitution: CustodyInstitutionAggregate] = [:]
 
         for account in accounts where isCashAccount(account, cashTypeIds: cashTypeIds, accountTypeCodes: accountTypeCodes) {
             let localAmount = dbManager.currentCashBalance(accountId: account.id, upTo: today)
@@ -148,6 +233,23 @@ final class AssetManagementReportViewModel: ObservableObject {
             let baseValue = conversion.value
             currencyTotals[currency, default: 0] += baseValue
 
+            if isCryptoPosition(position) {
+                let key = position.instrumentId ?? (-1 * (100_000 + max(position.id, 0)))
+                var aggregate = cryptoAggregates[key] ?? CryptoAggregate(
+                    id: key,
+                    instrumentName: position.instrumentName,
+                    currency: currency,
+                    totalQuantity: 0,
+                    baseValue: 0
+                )
+                aggregate.instrumentName = position.instrumentName
+                aggregate.currency = currency
+                aggregate.totalQuantity += position.quantity
+                aggregate.baseValue += baseValue
+                cryptoAggregates[key] = aggregate
+                summary.totalCryptoBase += baseValue
+            }
+
             if abs(baseValue) > 0.01 {
                 let classCode = position.assetClassCode?.uppercased()
                 let className = classCode.flatMap { classCodeToName[$0] } ?? position.assetClass?.trimmedNonEmpty ?? "Unclassified"
@@ -166,6 +268,27 @@ final class AssetManagementReportViewModel: ObservableObject {
                 aggregate.value += baseValue
                 aggregate.positions.append(entryPosition)
                 assetClassTotals[key] = aggregate
+
+                if let institution = CustodyInstitution.match(from: position.institutionName) {
+                    var institutionAggregate = custodyAggregates[institution] ?? CustodyInstitutionAggregate(
+                        institution: institution,
+                        totalBaseValue: 0,
+                        accounts: [:]
+                    )
+                    let accountKey = normalizedAccountIdentifier(position.accountName)
+                    var accountAggregate = institutionAggregate.accounts[accountKey] ?? CustodyAccountAggregate(
+                        id: accountKey,
+                        name: position.accountName,
+                        totalBaseValue: 0,
+                        positions: []
+                    )
+                    accountAggregate.totalBaseValue += baseValue
+                    accountAggregate.positions.append(entryPosition)
+                    institutionAggregate.accounts[accountKey] = accountAggregate
+                    institutionAggregate.totalBaseValue += baseValue
+                    custodyAggregates[institution] = institutionAggregate
+                    summary.totalTrackedCustodyBase += baseValue
+                }
             }
 
             if isCashPosition(subClass: position.assetSubClass, code: position.assetSubClassCode) {
@@ -197,6 +320,17 @@ final class AssetManagementReportViewModel: ObservableObject {
                 summary.totalNearCashBase += baseValue
             }
         }
+        summary.cryptoHoldings = cryptoAggregates.values
+            .map {
+                AssetManagementReportSummary.CryptoHolding(
+                    id: $0.id,
+                    instrumentName: $0.instrumentName,
+                    currency: $0.currency,
+                    totalQuantity: $0.totalQuantity,
+                    baseValue: $0.baseValue
+                )
+            }
+            .sorted { $0.baseValue > $1.baseValue }
         summary.cashBreakdown = cashRows.sorted { $0.baseAmount > $1.baseAmount }
         summary.nearCashHoldings = nearCashRows.sorted { $0.baseValue > $1.baseValue }
 
@@ -227,10 +361,31 @@ final class AssetManagementReportViewModel: ObservableObject {
             guard let aggregate = assetClassTotals[key] else { return nil }
             return AssetManagementReportSummary.AssetClassBreakdown(
                 id: aggregate.code ?? aggregate.name,
+                code: aggregate.code,
                 name: aggregate.name,
                 baseValue: aggregate.value,
                 percentage: totalPortfolioBase > 0 ? (aggregate.value / totalPortfolioBase) * 100 : 0,
                 positions: aggregate.positions.sorted { $0.baseValue > $1.baseValue }
+            )
+        }
+
+        summary.custodySummaries = CustodyInstitution.allCases.map { institution in
+            let aggregate = custodyAggregates[institution]
+            let accounts = aggregate?.accounts.values
+                .sorted { $0.totalBaseValue > $1.totalBaseValue }
+                .map {
+                    AssetManagementReportSummary.CustodyInstitutionSummary.AccountBreakdown(
+                        id: "\(institution.rawValue)_\($0.id)",
+                        name: $0.name,
+                        totalBaseValue: $0.totalBaseValue,
+                        positions: $0.positions.sorted { $0.baseValue > $1.baseValue }
+                    )
+                } ?? []
+            return AssetManagementReportSummary.CustodyInstitutionSummary(
+                id: institution.rawValue,
+                displayName: institution.displayName,
+                totalBaseValue: aggregate?.totalBaseValue ?? 0,
+                accounts: accounts
             )
         }
 
@@ -274,6 +429,29 @@ final class AssetManagementReportViewModel: ObservableObject {
         return nearCashSubClassCodes.contains(code)
     }
 
+    private func isCryptoPosition(_ position: PositionReportData) -> Bool {
+        if let classCode = position.assetClassCode?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+           classCode.contains("CRYP") {
+            return true
+        }
+        if let subClassCode = position.assetSubClassCode?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+           subClassCode.contains("CRYP") {
+            return true
+        }
+        if let className = position.assetClass?.lowercased(), className.contains("crypto") {
+            return true
+        }
+        if let subClassName = position.assetSubClass?.lowercased(), subClassName.contains("crypto") {
+            return true
+        }
+        return false
+    }
+
+    private func normalizedAccountIdentifier(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
     private func localValue(for report: PositionReportData) -> Double {
         if let price = report.currentPrice ?? report.purchasePrice {
             return report.quantity * price
@@ -311,6 +489,8 @@ extension AssetManagementReportSummary {
             totalCashBase: 200_000,
             totalNearCashBase: 120_000,
             totalPortfolioBase: 520_000,
+            totalCryptoBase: 85_000,
+            totalTrackedCustodyBase: 320_000,
             cashBreakdown: [
                 .init(id: 1, accountName: "ZKB Private Account", institutionName: "Zürcher Kantonalbank", currency: "CHF", localAmount: 200_000, baseAmount: 200_000),
                 .init(id: 2, accountName: "Credit Suisse USD", institutionName: "Credit Suisse", currency: "USD", localAmount: 70_000, baseAmount: 61_000)
@@ -318,6 +498,10 @@ extension AssetManagementReportSummary {
             nearCashHoldings: [
                 .init(id: 101, name: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", category: "Bonds", currency: "CHF", localValue: 80_000, baseValue: 80_000),
                 .init(id: 102, name: "iShares Ultra Short Bond ETF", accountName: "IBKR Custody", category: "Money Market", currency: "USD", localValue: 45_000, baseValue: 39_000)
+            ],
+            cryptoHoldings: [
+                .init(id: 900, instrumentName: "Bitcoin", currency: "BTC", totalQuantity: 1.8, baseValue: 60_000),
+                .init(id: 901, instrumentName: "Ethereum", currency: "ETH", totalQuantity: 12, baseValue: 25_000)
             ],
             currencyAllocations: [
                 .init(id: "CHF", currency: "CHF", baseValue: 320_000, percentage: 61.5),
@@ -327,6 +511,7 @@ extension AssetManagementReportSummary {
             assetClassBreakdown: [
                 .init(
                     id: "Equities",
+                    code: "EQ",
                     name: "Equities",
                     baseValue: 280_000,
                     percentage: 53.8,
@@ -337,6 +522,7 @@ extension AssetManagementReportSummary {
                 ),
                 .init(
                     id: "Bonds",
+                    code: "FI",
                     name: "Bonds",
                     baseValue: 140_000,
                     percentage: 26.9,
@@ -347,12 +533,49 @@ extension AssetManagementReportSummary {
                 ),
                 .init(
                     id: "Alternatives",
+                    code: "ALT",
                     name: "Alternatives",
                     baseValue: 100_000,
                     percentage: 19.2,
                     positions: [
                         .init(id: 9201, instrumentName: "Bitcoin ETP", accountName: "IBKR Custody", assetSubClass: "Crypto", currency: "USD", quantity: 5, localValue: 50_000, baseValue: 44_000),
                         .init(id: 9202, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 56_000)
+                    ]
+                )
+            ],
+            custodySummaries: [
+                .init(
+                    id: "ZKB",
+                    displayName: "Zürcher Kantonalbank",
+                    totalBaseValue: 180_000,
+                    accounts: [
+                        .init(
+                            id: "ZKB_main",
+                            name: "ZKB Custody Account",
+                            totalBaseValue: 180_000,
+                            positions: [
+                                .init(id: 9301, instrumentName: "Nestlé", accountName: "ZKB Custody", assetSubClass: "CH Equity", currency: "CHF", quantity: 180, localValue: 22_000, baseValue: 22_000),
+                                .init(id: 9302, instrumentName: "Swiss Gov 2028", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 100_000, localValue: 100_000, baseValue: 100_000),
+                                .init(id: 9303, instrumentName: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 80_000, localValue: 80_000, baseValue: 58_000)
+                            ]
+                        )
+                    ]
+                ),
+                .init(
+                    id: "UBS",
+                    displayName: "UBS (Credit-Suisse)",
+                    totalBaseValue: 140_000,
+                    accounts: [
+                        .init(
+                            id: "UBS_main",
+                            name: "Credit-Suisse Custody Account 📈",
+                            totalBaseValue: 140_000,
+                            positions: [
+                                .init(id: 9401, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 56_000),
+                                .init(id: 9402, instrumentName: "iShares Bond ETF", accountName: "Credit Suisse Custody", assetSubClass: "BOND_ETF", currency: "USD", quantity: 1_500, localValue: 38_000, baseValue: 32_000),
+                                .init(id: 9403, instrumentName: "Synergy Global Market Neutral Fund", accountName: "Credit Suisse Custody", assetSubClass: "Alternatives", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 52_000)
+                            ]
+                        )
                     ]
                 )
             ]
