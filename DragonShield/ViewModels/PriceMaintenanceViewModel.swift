@@ -20,6 +20,14 @@ final class PriceMaintenanceViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published private(set) var currencyFilters: Set<String> = []
     @Published private(set) var availableCurrencies: [String] = []
+    @Published private(set) var priceSourceFilters: Set<String> = []
+    @Published private(set) var availablePriceSources: [String] = []
+    @Published private(set) var providerFilters: Set<String> = []
+    @Published private(set) var availableProviders: [String] = []
+    @Published private(set) var autoFilters: Set<String> = []
+    @Published private(set) var availableAutoStates: [String] = []
+    @Published private(set) var manualSourceFilters: Set<String> = []
+    @Published private(set) var availableManualSources: [String] = []
     @Published var showMissingOnly = false
     @Published var staleDays: Int = 0
     @Published private(set) var rows: [DatabaseManager.InstrumentLatestPriceRow] = []
@@ -60,8 +68,20 @@ final class PriceMaintenanceViewModel: ObservableObject {
         !editedPrice.isEmpty || !editedAsOf.isEmpty || !editedSource.isEmpty
     }
 
-    var currencyMenuLabel: String {
-        currencyFilters.isEmpty ? "Currencies" : "\(currencyFilters.count) Currencies"
+    var normalizedPriceSourceFilters: Set<String> {
+        Set(priceSourceFilters.map(Self.normalizeSource))
+    }
+
+    var normalizedProviderFilters: Set<String> {
+        Set(providerFilters.map(Self.normalizeSource))
+    }
+
+    var normalizedAutoFilters: Set<String> {
+        Set(autoFilters.map(Self.normalizeSource))
+    }
+
+    var normalizedManualSourceFilters: Set<String> {
+        Set(manualSourceFilters.map(Self.normalizeSource))
     }
 
     func attach(dbManager: DatabaseManager) {
@@ -86,10 +106,74 @@ final class PriceMaintenanceViewModel: ObservableObject {
         }
     }
 
+    func clearCurrencyFilters() {
+        currencyFilters.removeAll()
+    }
+
+    func togglePriceSourceFilter(_ source: String) {
+        let normalized = Self.normalizeSource(source)
+        guard !normalized.isEmpty else { return }
+        if let existing = priceSourceFilters.first(where: { Self.normalizeSource($0) == normalized }) {
+            priceSourceFilters.remove(existing)
+        } else {
+            priceSourceFilters.insert(source.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    func clearPriceSourceFilters() {
+        priceSourceFilters.removeAll()
+    }
+
+    func toggleProviderFilter(_ provider: String) {
+        let normalized = Self.normalizeSource(provider)
+        guard !normalized.isEmpty else { return }
+        if let existing = providerFilters.first(where: { Self.normalizeSource($0) == normalized }) {
+            providerFilters.remove(existing)
+        } else {
+            providerFilters.insert(provider.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    func clearProviderFilters() {
+        providerFilters.removeAll()
+    }
+
+    func toggleAutoFilter(_ state: String) {
+        let normalized = Self.normalizeSource(state)
+        guard !normalized.isEmpty else { return }
+        if let existing = autoFilters.first(where: { Self.normalizeSource($0) == normalized }) {
+            autoFilters.remove(existing)
+        } else {
+            autoFilters.insert(state.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    func clearAutoFilters() {
+        autoFilters.removeAll()
+    }
+
+    func toggleManualSourceFilter(_ source: String) {
+        let normalized = Self.normalizeSource(source)
+        guard !normalized.isEmpty else { return }
+        if let existing = manualSourceFilters.first(where: { Self.normalizeSource($0) == normalized }) {
+            manualSourceFilters.remove(existing)
+        } else {
+            manualSourceFilters.insert(source.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    func clearManualSourceFilters() {
+        manualSourceFilters.removeAll()
+    }
+
     func resetFilters() {
         searchDebounce?.cancel()
         searchText = ""
         currencyFilters.removeAll()
+        priceSourceFilters.removeAll()
+        providerFilters.removeAll()
+        autoFilters.removeAll()
+        manualSourceFilters.removeAll()
         showMissingOnly = false
         staleDays = 0
         reload()
@@ -100,6 +184,10 @@ final class PriceMaintenanceViewModel: ObservableObject {
         loading = true
         let search = searchText
         let filters = currencyFilters
+        let sourceFilters = normalizedPriceSourceFilters
+        let providerFilters = normalizedProviderFilters
+        let autoFilters = normalizedAutoFilters
+        let manualFilters = normalizedManualSourceFilters
         let showMissing = showMissingOnly
         let stale = staleDays
         let manualSources = editedSource
@@ -132,10 +220,85 @@ final class PriceMaintenanceViewModel: ObservableObject {
                     return false
                 }
             }()
-            let currenciesList = Array(Set(filtered.map { $0.currency.uppercased() })).sorted()
+            let priceSourcesList: [String] = {
+                let normalizedPairs = filtered.compactMap { row -> (String, String)? in
+                    guard let src = row.source?.trimmingCharacters(in: .whitespacesAndNewlines), !src.isEmpty else {
+                        return nil
+                    }
+                    return (Self.normalizeSource(src), src)
+                }
+                var unique: [String: String] = [:]
+                for pair in normalizedPairs {
+                    if unique[pair.0] == nil {
+                        unique[pair.0] = pair.1
+                    }
+                }
+                return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            }()
+            let providersList: [String] = {
+                let normalizedPairs = filtered.compactMap { row -> (String, String)? in
+                    guard let prov = sourceState[row.id]?.prov.trimmingCharacters(in: .whitespacesAndNewlines), !prov.isEmpty else {
+                        return nil
+                    }
+                    return (Self.normalizeSource(prov), prov)
+                }
+                var unique: [String: String] = [:]
+                for pair in normalizedPairs {
+                    if unique[pair.0] == nil {
+                        unique[pair.0] = pair.1
+                    }
+                }
+                return unique.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            }()
+            let autoStatesList: [String] = {
+                let states = filtered.map { row in
+                    self.autoStateLabel(enabled: sourceState[row.id]?.enabled ?? false)
+                }
+                return Array(Set(states)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            }()
+            let manualSourcesList: [String] = {
+                let values = filtered.compactMap { row -> String? in
+                    let value = (manualSources[row.id] ?? "manual").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return value.isEmpty ? nil : value
+                }
+                return Array(Set(values)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            }()
+            let filteredBySource: [DatabaseManager.InstrumentLatestPriceRow] = {
+                guard !sourceFilters.isEmpty else { return filtered }
+                return filtered.filter { row in
+                    guard let src = row.source else { return false }
+                    return sourceFilters.contains(Self.normalizeSource(src))
+                }
+            }()
+            let filteredByProvider: [DatabaseManager.InstrumentLatestPriceRow] = {
+                guard !providerFilters.isEmpty else { return filteredBySource }
+                return filteredBySource.filter { row in
+                    guard let prov = sourceState[row.id]?.prov else { return false }
+                    return providerFilters.contains(Self.normalizeSource(prov))
+                }
+            }()
+            let filteredByAuto: [DatabaseManager.InstrumentLatestPriceRow] = {
+                guard !autoFilters.isEmpty else { return filteredByProvider }
+                return filteredByProvider.filter { row in
+                    let label = self.autoStateLabel(enabled: sourceState[row.id]?.enabled ?? false)
+                    return autoFilters.contains(Self.normalizeSource(label))
+                }
+            }()
+            let filteredByManual: [DatabaseManager.InstrumentLatestPriceRow] = {
+                guard !manualFilters.isEmpty else { return filteredByAuto }
+                return filteredByAuto.filter { row in
+                    let value = (manualSources[row.id] ?? "manual").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return manualFilters.contains(Self.normalizeSource(value))
+                }
+            }()
+            let currenciesList = Array(Set(filteredByManual.map { $0.currency.uppercased() })).sorted()
             DispatchQueue.main.async {
                 self.availableCurrencies = currenciesList
-                self.rows = filtered
+                self.availablePriceSources = priceSourcesList
+                self.availableProviders = providersList
+                self.availableAutoStates = autoStatesList
+                self.availableManualSources = manualSourcesList
+                self.rows = filteredByManual
                 self.loading = false
                 self.primeSourceCaches(with: sourceState)
             }
@@ -291,6 +454,14 @@ final class PriceMaintenanceViewModel: ObservableObject {
 
     func staleLabel(_ days: Int) -> String {
         days == 0 ? "0" : "\(days)d"
+    }
+
+    static func normalizeSource(_ source: String) -> String {
+        source.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func autoStateLabel(enabled: Bool) -> String {
+        enabled ? "Enabled" : "Disabled"
     }
 
     func hasEdits(_ id: Int) -> Bool {

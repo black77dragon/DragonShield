@@ -147,9 +147,17 @@ struct PriceMaintenanceView: View {
             Button("Save Edited", action: { viewModel.saveEdited() })
                 .keyboardShortcut("s", modifiers: [.command])
                 .disabled(!viewModel.hasPendingEdits)
-            Button("Fetch Latest (Enabled)") {
+            Button {
                 viewModel.fetchLatestEnabled()
-            }.disabled(viewModel.rows.isEmpty)
+            } label: {
+                VStack(spacing: 2) {
+                    Text("Fetch Latest Prices")
+                    Text("for selected Instruments")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .disabled(viewModel.rows.isEmpty)
             Button("View Logs") { viewModel.activeSheet = .logs }
             Button("Symbol Formats") { viewModel.activeSheet = .symbolHelp }
         }
@@ -167,24 +175,6 @@ struct PriceMaintenanceView: View {
             Text("name, ticker, ISIN, valor, source, provider, external id, manual source")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            Menu {
-                ForEach(viewModel.availableCurrencies, id: \.self) { cur in
-                    Button {
-                        viewModel.toggleCurrencyFilter(cur)
-                        viewModel.reload()
-                    } label: {
-                        HStack {
-                            Text(cur)
-                            if viewModel.currencyFilters.contains(cur) {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Label(viewModel.currencyMenuLabel, systemImage: "line.3.horizontal.decrease.circle")
-            }
-            .disabled(viewModel.availableCurrencies.isEmpty)
             Toggle("Missing only", isOn: $viewModel.showMissingOnly)
                 .onChange(of: viewModel.showMissingOnly) { _, _ in viewModel.reload() }
             HStack(spacing: 8) {
@@ -214,7 +204,7 @@ struct PriceMaintenanceView: View {
                 instrumentCell(row.source)
             }
 
-            TableColumn(tableHeader("Currency"), value: \PriceMaintenanceTableRow.currencySortKey) { row in
+            TableColumn(tableHeader("Curr"), value: \PriceMaintenanceTableRow.currencySortKey) { row in
                 Text(row.source.currency)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -308,7 +298,60 @@ struct PriceMaintenanceView: View {
                 }
             }
         }
-        .background(PriceMaintenanceTableHeaderStyler())
+        .background(
+            PriceMaintenanceTableHeaderStyler(
+                priceSources: viewModel.availablePriceSources,
+                selectedPriceSources: viewModel.normalizedPriceSourceFilters,
+                currencies: viewModel.availableCurrencies,
+                selectedCurrencies: Set(viewModel.currencyFilters.map(PriceMaintenanceViewModel.normalizeSource)),
+                providers: viewModel.availableProviders,
+                selectedProviders: viewModel.normalizedProviderFilters,
+                autoStates: viewModel.availableAutoStates,
+                selectedAutoStates: viewModel.normalizedAutoFilters,
+                manualSources: viewModel.availableManualSources,
+                selectedManualSources: viewModel.normalizedManualSourceFilters,
+                onTogglePriceSource: { source in
+                    viewModel.togglePriceSourceFilter(source)
+                    viewModel.reload()
+                },
+                onClearPriceSources: {
+                    viewModel.clearPriceSourceFilters()
+                    viewModel.reload()
+                },
+                onToggleCurrency: { currency in
+                    viewModel.toggleCurrencyFilter(currency)
+                    viewModel.reload()
+                },
+                onClearCurrencies: {
+                    viewModel.clearCurrencyFilters()
+                    viewModel.reload()
+                },
+                onToggleProvider: { provider in
+                    viewModel.toggleProviderFilter(provider)
+                    viewModel.reload()
+                },
+                onClearProviders: {
+                    viewModel.clearProviderFilters()
+                    viewModel.reload()
+                },
+                onToggleAuto: { state in
+                    viewModel.toggleAutoFilter(state)
+                    viewModel.reload()
+                },
+                onClearAuto: {
+                    viewModel.clearAutoFilters()
+                    viewModel.reload()
+                },
+                onToggleManualSource: { source in
+                    viewModel.toggleManualSourceFilter(source)
+                    viewModel.reload()
+                },
+                onClearManualSources: {
+                    viewModel.clearManualSourceFilters()
+                    viewModel.reload()
+                }
+            )
+        )
         .frame(minHeight: 420)
         #else
         Text("Price Maintenance is available on macOS only.")
@@ -383,6 +426,38 @@ struct PriceMaintenanceView: View {
 #if os(macOS)
 private struct PriceMaintenanceTableHeaderStyler: NSViewRepresentable {
     private let headerColor = NSColor(calibratedRed: 233 / 255, green: 241 / 255, blue: 1.0, alpha: 1.0)
+    let priceSources: [String]
+    let selectedPriceSources: Set<String>
+    let currencies: [String]
+    let selectedCurrencies: Set<String>
+    let providers: [String]
+    let selectedProviders: Set<String>
+    let autoStates: [String]
+    let selectedAutoStates: Set<String>
+    let manualSources: [String]
+    let selectedManualSources: Set<String>
+    let onTogglePriceSource: (String) -> Void
+    let onClearPriceSources: () -> Void
+    let onToggleCurrency: (String) -> Void
+    let onClearCurrencies: () -> Void
+    let onToggleProvider: (String) -> Void
+    let onClearProviders: () -> Void
+    let onToggleAuto: (String) -> Void
+    let onClearAuto: () -> Void
+    let onToggleManualSource: (String) -> Void
+    let onClearManualSources: () -> Void
+
+    final class Coordinator {
+        var priceSourceHost: NSHostingView<HeaderFilterButton>?
+        var currencyHost: NSHostingView<HeaderFilterButton>?
+        var providerHost: NSHostingView<HeaderFilterButton>?
+        var autoHost: NSHostingView<HeaderFilterButton>?
+        var manualHost: NSHostingView<HeaderFilterButton>?
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeNSView(context: Context) -> NSView {
         NSView()
@@ -392,7 +467,160 @@ private struct PriceMaintenanceTableHeaderStyler: NSViewRepresentable {
         DispatchQueue.main.async {
             guard let tableView = findTableView(from: nsView) else { return }
             applyStyle(to: tableView)
+            installPriceSourceFilter(in: tableView, context: context)
+            installCurrencyFilter(in: tableView, context: context)
+            installProviderFilter(in: tableView, context: context)
+            installAutoFilter(in: tableView, context: context)
+            installManualSourceFilter(in: tableView, context: context)
         }
+    }
+
+    private func installPriceSourceFilter(in tableView: NSTableView, context: Context) {
+        guard let headerView = tableView.headerView else { return }
+        context.coordinator.priceSourceHost = installFilter(
+            columnTitle: "Price Source",
+            availableItems: priceSources,
+            selectedItems: selectedPriceSources,
+            headerView: headerView,
+            tableView: tableView,
+            existingHost: context.coordinator.priceSourceHost,
+            tooltip: "Filter Price Source",
+            clearTitle: "Clear Price Source Filter",
+            emptyMessage: "No price sources available",
+            toggle: onTogglePriceSource,
+            clear: onClearPriceSources
+        )
+    }
+
+    private func installCurrencyFilter(in tableView: NSTableView, context: Context) {
+        guard let headerView = tableView.headerView else { return }
+        context.coordinator.currencyHost = installFilter(
+            columnTitle: "Curr",
+            availableItems: currencies,
+            selectedItems: selectedCurrencies,
+            headerView: headerView,
+            tableView: tableView,
+            existingHost: context.coordinator.currencyHost,
+            tooltip: "Filter Currency",
+            clearTitle: "Clear Currency Filter",
+            emptyMessage: "No currencies available",
+            toggle: onToggleCurrency,
+            clear: onClearCurrencies
+        )
+    }
+
+    private func installProviderFilter(in tableView: NSTableView, context: Context) {
+        guard let headerView = tableView.headerView else { return }
+        context.coordinator.providerHost = installFilter(
+            columnTitle: "Auto Provider",
+            availableItems: providers,
+            selectedItems: selectedProviders,
+            headerView: headerView,
+            tableView: tableView,
+            existingHost: context.coordinator.providerHost,
+            tooltip: "Filter Auto Provider",
+            clearTitle: "Clear Auto Provider Filter",
+            emptyMessage: "No providers available",
+            toggle: onToggleProvider,
+            clear: onClearProviders
+        )
+    }
+
+    private func installAutoFilter(in tableView: NSTableView, context: Context) {
+        guard let headerView = tableView.headerView else { return }
+        context.coordinator.autoHost = installFilter(
+            columnTitle: "Auto",
+            availableItems: autoStates,
+            selectedItems: selectedAutoStates,
+            headerView: headerView,
+            tableView: tableView,
+            existingHost: context.coordinator.autoHost,
+            tooltip: "Filter Auto",
+            clearTitle: "Clear Auto Filter",
+            emptyMessage: "No auto states",
+            toggle: onToggleAuto,
+            clear: onClearAuto
+        )
+    }
+
+    private func installManualSourceFilter(in tableView: NSTableView, context: Context) {
+        guard let headerView = tableView.headerView else { return }
+        context.coordinator.manualHost = installFilter(
+            columnTitle: "Manual Source",
+            availableItems: manualSources,
+            selectedItems: selectedManualSources,
+            headerView: headerView,
+            tableView: tableView,
+            existingHost: context.coordinator.manualHost,
+            tooltip: "Filter Manual Source",
+            clearTitle: "Clear Manual Source Filter",
+            emptyMessage: "No manual sources",
+            toggle: onToggleManualSource,
+            clear: onClearManualSources
+        )
+    }
+
+    private func installFilter(
+        columnTitle: String,
+        availableItems: [String],
+        selectedItems: Set<String>,
+        headerView: NSTableHeaderView,
+        tableView: NSTableView,
+        existingHost: NSHostingView<HeaderFilterButton>?,
+        tooltip: String,
+        clearTitle: String,
+        emptyMessage: String,
+        toggle: @escaping (String) -> Void,
+        clear: @escaping () -> Void
+    ) -> NSHostingView<HeaderFilterButton>? {
+        guard let columnIndex = tableView.tableColumns.firstIndex(where: { $0.title == columnTitle }) else { return existingHost }
+
+        let headerRect = headerView.headerRect(ofColumn: columnIndex)
+        let buttonWidth: CGFloat = 34
+        let resolvedWidth = max(min(buttonWidth, headerRect.width - 8), 24)
+        let buttonFrame = NSRect(
+            x: headerRect.maxX - resolvedWidth - 6,
+            y: headerRect.minY + 2,
+            width: resolvedWidth,
+            height: max(headerRect.height - 4, 20)
+        )
+
+        let host: NSHostingView<HeaderFilterButton> = {
+            if let existing = existingHost {
+                existing.autoresizingMask = [.minXMargin]
+                return existing
+            }
+            let view = NSHostingView(rootView: HeaderFilterButton(
+                availableItems: availableItems,
+                selectedNormalizedItems: selectedItems,
+                toggleItem: toggle,
+                clearItems: clear,
+                emptyMessage: emptyMessage,
+                clearTitle: clearTitle,
+                helpText: tooltip
+            ))
+            view.autoresizingMask = [.minXMargin]
+            return view
+        }()
+
+        host.rootView = HeaderFilterButton(
+            availableItems: availableItems,
+            selectedNormalizedItems: selectedItems,
+            toggleItem: toggle,
+            clearItems: clear,
+            emptyMessage: emptyMessage,
+            clearTitle: clearTitle,
+            helpText: tooltip
+        )
+
+        if host.superview !== headerView {
+            host.removeFromSuperview()
+            headerView.addSubview(host)
+        }
+
+        host.frame = buttonFrame
+        host.toolTip = tooltip
+        return host
     }
 
     private func applyStyle(to tableView: NSTableView) {
@@ -438,6 +666,63 @@ private struct PriceMaintenanceTableHeaderStyler: NSViewRepresentable {
         }
 
         return nil
+    }
+}
+
+private struct HeaderFilterButton: View {
+    let availableItems: [String]
+    let selectedNormalizedItems: Set<String>
+    let toggleItem: (String) -> Void
+    let clearItems: () -> Void
+    let emptyMessage: String
+    let clearTitle: String
+    let helpText: String
+
+    var body: some View {
+        Menu {
+            if availableItems.isEmpty {
+                if selectedNormalizedItems.isEmpty {
+                    Text(emptyMessage).foregroundColor(.secondary)
+                } else {
+                    Button(clearTitle, action: clearItems)
+                }
+            } else {
+                ForEach(availableItems, id: \.self) { item in
+                    let normalized = PriceMaintenanceViewModel.normalizeSource(item)
+                    Button {
+                        toggleItem(item)
+                    } label: {
+                        HStack {
+                            Text(item)
+                            if selectedNormalizedItems.contains(normalized) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+                if !selectedNormalizedItems.isEmpty {
+                    Divider()
+                    Button(clearTitle, action: clearItems)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: selectedNormalizedItems.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                if !selectedNormalizedItems.isEmpty {
+                    Text("\(selectedNormalizedItems.count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(selectedNormalizedItems.isEmpty ? Color.clear : Color.accentColor.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+        .disabled(availableItems.isEmpty && selectedNormalizedItems.isEmpty)
+        .help(helpText)
     }
 }
 
