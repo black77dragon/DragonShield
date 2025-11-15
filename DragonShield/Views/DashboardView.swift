@@ -1,6 +1,8 @@
 import SwiftUI
 
 private let layoutKey = "dashboardTileLayout"
+private let layoutVersionKey = UserDefaultsKeys.dashboardLayoutVersion
+private let currentLayoutVersion = 1
 
 struct DashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -43,7 +45,16 @@ struct DashboardView: View {
                                     draggedID = id
                                     return NSItemProvider(object: id as NSString)
                                 }
-                                .onDrop(of: [.text], delegate: TileDropDelegate(item: id, tiles: $tileIDs, dragged: $draggedID))
+                                .onDrop(
+                                    of: [.text],
+                                    delegate: TileDropDelegate(
+                                        item: id,
+                                        tiles: $tileIDs,
+                                        dragged: $draggedID
+                                    ) {
+                                        saveLayout()
+                                    }
+                                )
                                 .accessibilityLabel(TileRegistry.info(for: id).name)
                         }
                     }
@@ -104,9 +115,6 @@ struct DashboardView: View {
                 .onDisappear { saveLayout() }
         }
         .onAppear(perform: loadLayout)
-        .onChange(of: tileIDs) { _, _ in
-            saveLayout()
-        }
         .sheet(isPresented: $showUpcomingWeekPopup) {
             StartupAlertsPopupView(items: upcomingWeek)
         }
@@ -219,21 +227,63 @@ struct DashboardView: View {
     }
 
     private func loadLayout() {
-        if let saved = UserDefaults.standard.array(forKey: layoutKey) as? [String], !saved.isEmpty {
-            tileIDs = saved.filter { id in TileRegistry.all.contains { $0.id == id } }
-            if !tileIDs.contains(CryptoTop5Tile.tileID) {
-                tileIDs.insert(CryptoTop5Tile.tileID, at: 0)
+        let defaults = UserDefaults.standard
+        let previousVersion = defaults.integer(forKey: layoutVersionKey)
+
+        if let saved = defaults.array(forKey: layoutKey) as? [String] {
+            var layout = normalizedLayout(from: saved)
+            let migrated = migrateLayout(from: layout, previousVersion: previousVersion)
+            if migrated != layout {
+                layout = migrated
+                defaults.set(layout, forKey: layoutKey)
             }
-            if !tileIDs.contains(InstitutionsAUMTile.tileID) {
-                tileIDs.append(InstitutionsAUMTile.tileID)
-            }
+            tileIDs = layout
         } else {
-            tileIDs = TileRegistry.all.map { $0.id }
+            var layout = defaultLayout()
+            layout = migrateLayout(from: layout, previousVersion: previousVersion)
+            tileIDs = layout
+            defaults.set(layout, forKey: layoutKey)
         }
+
+        defaults.set(currentLayoutVersion, forKey: layoutVersionKey)
+    }
+
+    private func normalizedLayout(from saved: [String]) -> [String] {
+        let validIDs = Set(TileRegistry.all.map { $0.id })
+        var seen = Set<String>()
+        var ordered: [String] = []
+
+        for id in saved where validIDs.contains(id) {
+            if seen.insert(id).inserted {
+                ordered.append(id)
+            }
+        }
+
+        return ordered
+    }
+
+    private func defaultLayout() -> [String] {
+        TileRegistry.all.map { $0.id }
+    }
+
+    private func migrateLayout(from layout: [String], previousVersion: Int) -> [String] {
+        guard previousVersion < currentLayoutVersion else { return layout }
+        var updated = layout
+
+        if !updated.contains(CryptoTop5Tile.tileID) {
+            updated.insert(CryptoTop5Tile.tileID, at: 0)
+        }
+        if !updated.contains(InstitutionsAUMTile.tileID) {
+            updated.append(InstitutionsAUMTile.tileID)
+        }
+
+        return updated
     }
 
     private func saveLayout() {
-        UserDefaults.standard.set(tileIDs, forKey: layoutKey)
+        let defaults = UserDefaults.standard
+        defaults.set(tileIDs, forKey: layoutKey)
+        defaults.set(currentLayoutVersion, forKey: layoutVersionKey)
     }
 
     private func updateColumns(width: CGFloat) {
@@ -260,6 +310,7 @@ struct TileDropDelegate: DropDelegate {
     let item: String
     @Binding var tiles: [String]
     @Binding var dragged: String?
+    let onDrop: () -> Void
 
     func dropEntered(info: DropInfo) {
         guard let dragged = dragged, dragged != item,
@@ -276,6 +327,7 @@ struct TileDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         dragged = nil
+        onDrop()
         return true
     }
 }

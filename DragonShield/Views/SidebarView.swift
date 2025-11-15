@@ -22,7 +22,7 @@ struct SidebarView: View {
     @AppStorage("sidebar.showStaticData") private var showStaticData = true
     @AppStorage("sidebar.showSystem") private var showSystem = true
 
-    private let applicationStartupIconName = "rocket.fill"
+    private let applicationStartupIconName = "paperplane.circle.fill"
 
     private var dueTodayOrOverdueCount: Int {
         let calendar = Calendar.current
@@ -278,7 +278,7 @@ private extension KanbanColumn {
                 accent: Color(hex: "F29933"),
                 backgroundTop: Color(hex: "FFF8E9"),
                 backgroundBottom: Color(hex: "FFEFD1"),
-                cardBackground: Color(hex: "FFFBF1"),
+                cardBackground: .white,
                 cardBorder: Color(hex: "FFE2B2"),
                 filterActiveBackground: Color(hex: "FFF3DF")
             )
@@ -287,7 +287,7 @@ private extension KanbanColumn {
                 accent: Color(hex: "F45B7A"),
                 backgroundTop: Color(hex: "FFEFF4"),
                 backgroundBottom: Color(hex: "FFDDE5"),
-                cardBackground: Color(hex: "FFF7F9"),
+                cardBackground: .white,
                 cardBorder: Color(hex: "FFC5D5"),
                 filterActiveBackground: Color(hex: "FFE7ED")
             )
@@ -296,7 +296,7 @@ private extension KanbanColumn {
                 accent: Color(hex: "7A6BFF"),
                 backgroundTop: Color(hex: "F2F1FF"),
                 backgroundBottom: Color(hex: "E3E1FF"),
-                cardBackground: Color(hex: "F9F8FF"),
+                cardBackground: .white,
                 cardBorder: Color(hex: "CCC8FF"),
                 filterActiveBackground: Color(hex: "ECEBFF")
             )
@@ -305,7 +305,7 @@ private extension KanbanColumn {
                 accent: Color(hex: "42C195"),
                 backgroundTop: Color(hex: "EEFBF5"),
                 backgroundBottom: Color(hex: "DBF3E7"),
-                cardBackground: Color(hex: "F6FDF9"),
+                cardBackground: .white,
                 cardBorder: Color(hex: "B5E8D4"),
                 filterActiveBackground: Color(hex: "E8F7F0")
             )
@@ -314,7 +314,7 @@ private extension KanbanColumn {
                 accent: Color(hex: "8F95A5"),
                 backgroundTop: Color(hex: "F4F5F8"),
                 backgroundBottom: Color(hex: "E7E8EF"),
-                cardBackground: Color(hex: "F8F9FC"),
+                cardBackground: .white,
                 cardBorder: Color(hex: "D5D6E0"),
                 filterActiveBackground: Color(hex: "F0F1F5")
             )
@@ -715,17 +715,21 @@ private struct KanbanTodoCard: View {
         }
     }
 
-    private var urgencyBackgroundColor: Color? {
-        guard [.backlog, .prioritised, .doing].contains(todo.column) else { return nil }
+    private var dueStateBackgroundColor: Color? {
         switch dueState {
-        case .overdue: return Color(hex: "FFE6E8")
-        case .dueToday: return Color(hex: "E8EEFF")
+        case .overdue: return Color(hex: "FFE2E2")
+        case .dueToday: return Color(hex: "E5F1FF")
         default: return nil
         }
     }
 
+    private var completedColumnBackgroundColor: Color? {
+        guard [.done, .archived].contains(todo.column) else { return nil }
+        return Color(hex: "E9EAEF")
+    }
+
     private var cardBackgroundColor: Color {
-        urgencyBackgroundColor ?? palette.cardBackground
+        completedColumnBackgroundColor ?? dueStateBackgroundColor ?? palette.cardBackground
     }
 
     private var tags: [TagRow] {
@@ -768,6 +772,8 @@ private struct KanbanTodoCard: View {
                     .fill(Color(hex: "D8D9E3"))
                     .frame(width: 1, height: 18)
 
+                Spacer()
+
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
                         .font(.system(size: fontSize.secondaryPointSize - 1, weight: .medium))
@@ -777,8 +783,6 @@ private struct KanbanTodoCard: View {
                         .foregroundStyle(todo.isCompleted ? Color.secondary : dueColor)
                         .monospacedDigit()
                 }
-
-                Spacer()
             }
 
             if !tags.isEmpty {
@@ -789,19 +793,19 @@ private struct KanbanTodoCard: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 18)
                 .fill(cardBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(palette.cardBorder, lineWidth: 1)
+                .stroke(palette.cardBorder, lineWidth: 0.7)
         )
         .overlay(alignment: .topLeading) {
             Capsule()
-                .fill(palette.accent)
+                .fill(todo.priority.color)
                 .frame(width: 56, height: 4)
                 .offset(x: 20, y: 2)
         }
@@ -930,9 +934,11 @@ struct TodoKanbanBoardView: View {
     @State private var selectedFontSize: KanbanFontSize = .medium
     @State private var sortMode: KanbanSortMode = .dueDate
     @State private var showArchivedCompleted = true
+    @State private var columnBackgroundShade: Double = 10
     @State private var isHydratingFontSize = false
     @State private var hasHydratedFontSize = false
     @State private var hasHydratedVisibleColumns = false
+    @State private var hasHydratedColumnBackgroundShade = false
     @State private var visibleColumns: Set<KanbanColumn> = Set(KanbanColumn.allCases)
 
     private var tagLookup: [Int: TagRow] {
@@ -945,6 +951,16 @@ struct TodoKanbanBoardView: View {
 
     private var hasSelection: Bool {
         !visibleColumns.isEmpty
+    }
+
+    private var columnBackgroundColor: Color {
+        let normalized = max(0, min(columnBackgroundShade, 100)) / 100
+        let whiteValue = 1 - normalized
+        return Color(.sRGB, white: whiteValue, opacity: 1)
+    }
+
+    private var columnBorderColor: Color {
+        columnBackgroundColor.opacity(0.6)
     }
 
     private var overdueTodos: [KanbanTodo] {
@@ -1003,6 +1019,7 @@ struct TodoKanbanBoardView: View {
             reloadTags()
             hydrateFontSizeIfNeeded()
             hydrateVisibleColumnsIfNeeded()
+            hydrateColumnBackgroundShadeIfNeeded()
             if let pending = KanbanTodoQuickAddRouter.shared.consumePendingRequest() {
                 newTodoPrefill = pending
                 isPresentingNewTodo = true
@@ -1068,6 +1085,9 @@ struct TodoKanbanBoardView: View {
         }
         .onChange(of: visibleColumns) { _, _ in
             persistVisibleColumns()
+        }
+        .onChange(of: columnBackgroundShade) { _, _ in
+            persistColumnBackgroundShade()
         }
         .onReceive(NotificationCenter.default.publisher(for: .kanbanTodoEditRequested)) { output in
             guard let todoID = output.object as? UUID else { return }
@@ -1151,9 +1171,38 @@ struct TodoKanbanBoardView: View {
         .frame(width: 200, alignment: .leading)
     }
 
+    private var backgroundShadeControl: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Column Background")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(max(0, min(columnBackgroundShade, 100))))%")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(value: $columnBackgroundShade, in: 0...100, step: 1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "E5E7FF"), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+        .frame(width: 220, alignment: .leading)
+    }
+
     private var configurationRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 16) {
+                backgroundShadeControl
                 fontSizeControl
                 columnSelectionMenu
                 sortModeControl
@@ -1248,23 +1297,13 @@ struct TodoKanbanBoardView: View {
 
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 12) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(palette.accent.opacity(0.18))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: column.iconName)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(palette.accent)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(column.displayTitle)
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.accent)
-                        Text(column.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(column.displayTitle)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.black)
+                    Text(column.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -1279,9 +1318,9 @@ struct TodoKanbanBoardView: View {
                             .padding(.vertical, 6)
                             .background(
                                 Capsule()
-                                    .fill(KanbanColumn.archived.palette.accent.opacity(0.12))
+                                    .fill(Color(hex: "E0E2EB"))
                             )
-                            .foregroundStyle(KanbanColumn.archived.palette.accent)
+                            .foregroundStyle(Color.black)
                     }
                     .buttonStyle(.plain)
                     .disabled(containsRepeating)
@@ -1298,22 +1337,26 @@ struct TodoKanbanBoardView: View {
                             .padding(.vertical, 6)
                             .background(
                                 Capsule()
-                                    .fill(Color.white.opacity(0.85))
+                                    .fill(Color(hex: "E0E2EB"))
                             )
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(hex: "4A4F63"))
+                    .foregroundStyle(Color.black)
                     .help(showArchivedCompleted ? "Hide completed to-dos" : "Show completed to-dos")
                 }
 
                 Text("\(sortedItems.count)")
-                    .font(.footnote.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .padding(10)
                     .background(
                         Circle()
-                            .fill(palette.accent.opacity(0.12))
+                            .fill(Color.white)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color(hex: "D9DCE8"), lineWidth: 1)
+                            )
                     )
-                    .foregroundStyle(palette.accent)
+                    .foregroundStyle(Color.black)
             }
 
             if sortedItems.isEmpty {
@@ -1325,7 +1368,7 @@ struct TodoKanbanBoardView: View {
                     } else {
                         Text("No tasks yet")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(palette.accent)
+                            .foregroundStyle(Color.black)
                         Text(column.emptyPlaceholder)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -1372,13 +1415,13 @@ struct TodoKanbanBoardView: View {
         .frame(minHeight: 420, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.white)
+                .fill(columnBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(palette.accent.opacity(0.15), lineWidth: 1)
+                .stroke(columnBorderColor, lineWidth: 1)
         )
-        .shadow(color: palette.shadowColor, radius: 18, x: 0, y: 10)
+        .shadow(color: Color.black.opacity(0.04), radius: 18, x: 0, y: 10)
         .onDrop(of: [UTType.text], delegate: KanbanColumnDropDelegate(column: column, viewModel: viewModel, draggedTodoID: $draggedTodoID))
     }
 
@@ -1420,6 +1463,22 @@ struct TodoKanbanBoardView: View {
         }
     }
 
+    private func hydrateColumnBackgroundShadeIfNeeded() {
+        guard !hasHydratedColumnBackgroundShade else { return }
+        hasHydratedColumnBackgroundShade = true
+        if UserDefaults.standard.object(forKey: columnBackgroundShadeDefaultsKey) != nil {
+            columnBackgroundShade = UserDefaults.standard.double(forKey: columnBackgroundShadeDefaultsKey)
+        } else {
+            columnBackgroundShade = 10
+        }
+    }
+
+    private func persistColumnBackgroundShade() {
+        guard hasHydratedColumnBackgroundShade else { return }
+        UserDefaults.standard.set(columnBackgroundShade, forKey: columnBackgroundShadeDefaultsKey)
+    }
+
+    private let columnBackgroundShadeDefaultsKey = "TodoBoard.columnBackgroundShade.v1"
     private let visibleColumnsDefaultsKey = "TodoBoard.visibleColumns.v1"
     private var defaultVisibleColumns: Set<KanbanColumn> { Set(KanbanColumn.allCases) }
 
