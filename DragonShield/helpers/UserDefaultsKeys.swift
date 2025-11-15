@@ -38,4 +38,6 @@ struct UserDefaultsKeys {
     static let pricesMaintenanceColWidths = "pricesMaintenanceColWidths"
     /// Persist Kanban board to-do items (JSON encoded).
     static let kanbanTodos = "kanbanTodos"
+    /// Tracks migrations applied to the Dashboard tile layout.
+    static let dashboardLayoutVersion = "dashboardLayoutVersion"
 }
