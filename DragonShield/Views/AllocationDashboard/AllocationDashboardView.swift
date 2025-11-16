@@ -1,8 +1,8 @@
-import SwiftUI
 import Charts
 import Foundation
+import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 struct AllocationDashboardView: View {
@@ -27,7 +27,7 @@ struct AllocationDashboardView: View {
 
                         VStack(spacing: 32) {
                             DeviationChartsCard(bubbles: viewModel.bubbles,
-                                               highlighted: $viewModel.highlightedId)
+                                                highlighted: $viewModel.highlightedId)
                             RebalanceListCard(actions: viewModel.actions)
                         }
                         .frame(minWidth: 300)
@@ -51,7 +51,6 @@ struct AllocationDashboardView: View {
             viewModel.load(using: dbManager)
         }
     }
-
 }
 
 // MARK: - Components
@@ -135,9 +134,9 @@ struct OverviewTile: View {
 
     private var valueColor: Color {
         switch style {
-        case .alert:    return .red
-        case .warning:  return .orange
-        case .neutral:  return .primary
+        case .alert: return .red
+        case .warning: return .orange
+        case .neutral: return .primary
         }
     }
 
@@ -335,7 +334,8 @@ struct AllocationTreeCard: View {
                       _ deltaWidth: CGFloat,
                       _ statusWidth: CGFloat,
                       _ barWidth: CGFloat,
-                      _ compact: Bool) -> some View {
+                      _ compact: Bool) -> some View
+    {
         ForEach(sortedAssets) { parent in
             VStack(spacing: 0) {
                 AssetRow(node: parent,
@@ -399,11 +399,13 @@ struct AllocationTreeCard: View {
     private static let modeKey = "AllocationDisplayMode"
     private static func loadMode() -> DisplayMode {
         if let raw = UserDefaults.standard.string(forKey: modeKey),
-           let mode = DisplayMode(rawValue: raw) {
+           let mode = DisplayMode(rawValue: raw)
+        {
             return mode
         }
         return .percent
     }
+
     private func saveMode() {
         UserDefaults.standard.set(displayMode.rawValue, forKey: Self.modeKey)
     }
@@ -559,7 +561,7 @@ struct AssetRow: View {
 
     private var showBullet: Bool {
         (mode == .percent && node.targetKind == .percent) ||
-        (mode == .chf && node.targetKind == .amount)
+            (mode == .chf && node.targetKind == .amount)
     }
 
     private var actual: Double {
@@ -647,7 +649,6 @@ struct AssetRow: View {
                     .font(.system(.caption, design: .monospaced))
                     .frame(width: barWidth, alignment: .leading)
             }
-
         }
         .padding(.vertical, node.children != nil ? 6 : 4)
         .background(node.children != nil ? Color.systemGray6 : .clear)
@@ -678,8 +679,8 @@ struct AssetRow: View {
         let absV = abs(value)
         if absV >= 1_000_000 {
             return String(format: "%.1f\u{202f}M", value / 1_000_000)
-        } else if absV >= 1_000 {
-            return String(format: "%.0f\u{202f}k", value / 1_000)
+        } else if absV >= 1000 {
+            return String(format: "%.0f\u{202f}k", value / 1000)
         }
         if absV == 0 { return "0" }
         return String(format: "%.0f", value)
@@ -749,10 +750,9 @@ struct AssetRow: View {
         let empty = max(0, 10 - filled)
         return "[" + String(repeating: "■", count: filled) + String(repeating: "□", count: empty) + "]"
     }
-
 }
 
-fileprivate func barColor(_ diffPercent: Double) -> Color {
+private func barColor(_ diffPercent: Double) -> Color {
     let mag = abs(diffPercent)
     if mag <= 10 { return .numberGreen }
     if mag <= 20 { return .numberAmber }
@@ -812,8 +812,8 @@ struct DeviationChartsCard: View {
                 .symbolSize(by: .value("Allocation %", bubble.allocation))
                 .foregroundStyle(bubble.color)
             }
-            .chartXScale(domain: -25...25)
-            .chartYScale(domain: 0...40)
+            .chartXScale(domain: -25 ... 25)
+            .chartYScale(domain: 0 ... 40)
             .frame(height: 240)
         }
     }
@@ -899,7 +899,7 @@ struct ValidationDetailsSheet: View {
                 .font(.caption.bold())
                 .foregroundColor(f.severity == "error" ? .red : .orange)
                 .padding(4)
-                .background((f.severity == "error" ? Color.red.opacity(0.1) : Color.orange.opacity(0.1)))
+                .background(f.severity == "error" ? Color.red.opacity(0.1) : Color.orange.opacity(0.1))
                 .cornerRadius(4)
             VStack(alignment: .leading) {
                 Text("\(f.code): \(f.message)")
@@ -912,9 +912,9 @@ struct ValidationDetailsSheet: View {
     private func copyToClipboard() {
         let text = filtered.map { "[\($0.severity.uppercased())] \($0.code): \($0.message)" }.joined(separator: "\n")
         #if os(macOS)
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(text, forType: .string)
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(text, forType: .string)
         #endif
     }
 }

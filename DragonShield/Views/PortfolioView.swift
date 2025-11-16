@@ -1,10 +1,10 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
-fileprivate struct TableFontConfig {
+private struct TableFontConfig {
     let nameSize: CGFloat
     let secondarySize: CGFloat
     let headerSize: CGFloat
@@ -28,6 +28,7 @@ private enum InstrumentTableColumn: String, CaseIterable, Codable {
 }
 
 // MARK: - Main Portfolio View
+
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
     @EnvironmentObject var dbManager: DatabaseManager
@@ -55,7 +56,7 @@ struct PortfolioView: View {
     private static let legacyColumnFractionsKey = "PortfolioView.instrumentColumnFractions.v2"
     private static let visibleColumnsKey = "PortfolioView.visibleColumns.v1"
     private static let legacyFontSizeKey = "PortfolioView.tableFontSize.v1"
-    private let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
 
     init() {
         let defaults = PortfolioView.initialColumnFractions
@@ -113,17 +114,17 @@ struct PortfolioView: View {
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
-    
+
     // Filtered assets based on search and column filters
     var filteredAssets: [DragonAsset] {
         var result = assetManager.assets
         if !searchText.isEmpty {
             result = result.filter { asset in
                 asset.name.localizedCaseInsensitiveContains(searchText) ||
-                asset.type.localizedCaseInsensitiveContains(searchText) ||
-                asset.currency.localizedCaseInsensitiveContains(searchText) ||
-                asset.tickerSymbol?.localizedCaseInsensitiveContains(searchText) == true ||
-                asset.isin?.localizedCaseInsensitiveContains(searchText) == true
+                    asset.type.localizedCaseInsensitiveContains(searchText) ||
+                    asset.currency.localizedCaseInsensitiveContains(searchText) ||
+                    asset.tickerSymbol?.localizedCaseInsensitiveContains(searchText) == true ||
+                    asset.isin?.localizedCaseInsensitiveContains(searchText) == true
             }
         }
         if !typeFilters.isEmpty {
@@ -191,7 +192,7 @@ struct PortfolioView: View {
         .symbol: 120,
         .valor: 110,
         .isin: 160,
-        .notes: 40
+        .notes: 40,
     ]
 
     private static let minimumColumnWidths: [InstrumentTableColumn: CGFloat] = [
@@ -201,7 +202,7 @@ struct PortfolioView: View {
         .symbol: 90,
         .valor: 90,
         .isin: 140,
-        .notes: 40
+        .notes: 40,
     ]
 
     private static let initialColumnFractions: [InstrumentTableColumn: CGFloat] = {
@@ -216,21 +217,21 @@ struct PortfolioView: View {
         }
     }()
 
-#if os(macOS)
-    private static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
-#endif
+    #if os(macOS)
+        private static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
+    #endif
 
     fileprivate static let columnHandleWidth: CGFloat = 10
     fileprivate static let columnTextInset: CGFloat = 12
@@ -341,7 +342,9 @@ struct PortfolioView: View {
         let active = activeColumns
         var result: [InstrumentTableColumn: CGFloat] = [:]
         guard !active.isEmpty else {
-            for column in PortfolioView.columnOrder { result[column] = 0 }
+            for column in PortfolioView.columnOrder {
+                result[column] = 0
+            }
             return result
         }
         let total = active.reduce(0) { $0 + max(0, source[$1] ?? 0) }
@@ -430,9 +433,9 @@ struct PortfolioView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-#if os(macOS)
-                        PortfolioView.columnResizeCursor.set()
-#endif
+                        #if os(macOS)
+                            PortfolioView.columnResizeCursor.set()
+                        #endif
                         guard availableTableWidth > 0 else { return }
                         if dragContext?.primary != column {
                             beginDrag(for: column)
@@ -441,9 +444,9 @@ struct PortfolioView: View {
                     }
                     .onEnded { _ in
                         finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
+                        #if os(macOS)
+                            NSCursor.arrow.set()
+                        #endif
                     }
             )
             .overlay(alignment: .leading) {
@@ -453,7 +456,7 @@ struct PortfolioView: View {
             }
             .padding(.vertical, 2)
             .background(Color.clear)
-#if os(macOS)
+        #if os(macOS)
             .onHover { inside in
                 if inside {
                     PortfolioView.columnResizeCursor.set()
@@ -461,7 +464,7 @@ struct PortfolioView: View {
                     NSCursor.arrow.set()
                 }
             }
-#endif
+        #endif
     }
 
     private func updateAvailableWidth(_ width: CGFloat) {
@@ -690,7 +693,7 @@ struct PortfolioView: View {
         }
         return nil
     }
-    
+
     var body: some View {
         ZStack {
             // Premium gradient background
@@ -698,16 +701,16 @@ struct PortfolioView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
+
             // Subtle animated background elements
             InstrumentParticleBackground()
-            
+
             VStack(spacing: 0) {
                 modernHeader
                 searchAndStats
@@ -771,7 +774,7 @@ struct PortfolioView: View {
         }
 
         .alert("Delete Instrument", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 if let asset = assetToDelete {
                     confirmDelete(asset)
@@ -783,8 +786,9 @@ struct PortfolioView: View {
             }
         }
     }
-    
+
     // MARK: - Modern Header
+
     private var modernHeader: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -792,7 +796,7 @@ struct PortfolioView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
                         .font(.system(size: 32))
                         .foregroundColor(.blue)
-                    
+
                     Text("Instruments")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(
@@ -803,14 +807,14 @@ struct PortfolioView: View {
                             )
                         )
                 }
-                
+
                 Text("Manage your financial instruments")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
-            
+
             Spacer()
-            
+
             // Quick stats
             HStack(spacing: 16) {
                 modernStatCard(
@@ -819,14 +823,14 @@ struct PortfolioView: View {
                     icon: "number.circle.fill",
                     color: .blue
                 )
-                
+
                 modernStatCard(
                     title: "Types",
                     value: "\(Set(assetManager.assets.map(\.type)).count)",
                     icon: "folder.circle.fill",
                     color: .purple
                 )
-                
+
                 modernStatCard(
                     title: "Currencies",
                     value: "\(Set(assetManager.assets.map(\.currency)).count)",
@@ -839,18 +843,19 @@ struct PortfolioView: View {
         .padding(.vertical, 20)
         .opacity(headerOpacity)
     }
-    
+
     // MARK: - Search and Stats
+
     private var searchAndStats: some View {
         VStack(spacing: 12) {
             // Search bar
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
-                
+
                 TextField("Search instruments...", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
-                
+
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -872,7 +877,7 @@ struct PortfolioView: View {
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-            
+
             // Results indicator
             if !searchText.isEmpty || !typeFilters.isEmpty || !currencyFilters.isEmpty {
                 HStack {
@@ -895,8 +900,9 @@ struct PortfolioView: View {
         }
         .padding(.horizontal, 24)
     }
-    
+
     // MARK: - Instruments Content
+
     private var instrumentsContent: some View {
         VStack(spacing: 12) {
             tableControls
@@ -952,12 +958,13 @@ struct PortfolioView: View {
         .frame(maxWidth: 260)
         .labelsHidden()
     }
-    
+
     // MARK: - Empty State
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Spacer()
-            
+
             VStack(spacing: 16) {
                 Image(systemName: searchText.isEmpty ? "briefcase" : "magnifyingglass")
                     .font(.system(size: 64))
@@ -968,21 +975,21 @@ struct PortfolioView: View {
                             endPoint: .bottom
                         )
                     )
-                
+
                 VStack(spacing: 8) {
                     Text(searchText.isEmpty ? "No instruments yet" : "No matching instruments")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(.gray)
-                    
+
                     Text(searchText.isEmpty ?
-                         "Start building your portfolio by adding your first instrument" :
-                         "Try adjusting your search terms")
+                        "Start building your portfolio by adding your first instrument" :
+                        "Try adjusting your search terms")
                         .font(.body)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                 }
-                
+
                 if searchText.isEmpty {
                     Button { showAddInstrumentSheet = true } label: {
                         Label("Add Instrument", systemImage: "plus")
@@ -993,13 +1000,14 @@ struct PortfolioView: View {
                     .padding(.top, 8)
                 }
             }
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
+
     // MARK: - Instruments Table
+
     private var instrumentsTable: some View {
         GeometryReader { proxy in
             let availableWidth = max(proxy.size.width, 0)
@@ -1052,8 +1060,9 @@ struct PortfolioView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
-    
+
     // MARK: - Modern Table Header
+
     private var modernTableHeader: some View {
         HStack(spacing: 0) {
             ForEach(activeColumns, id: \.self) { column in
@@ -1161,15 +1170,16 @@ struct PortfolioView: View {
         .background(Color.blue.opacity(0.1))
         .clipShape(Capsule())
     }
-    
+
     // MARK: - Modern Action Bar
+
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             // Divider line
             Rectangle()
                 .fill(Color.gray.opacity(0.2))
                 .frame(height: 1)
-            
+
             HStack(spacing: 16) {
                 // Primary action
                 Button { showAddInstrumentSheet = true } label: {
@@ -1209,7 +1219,7 @@ struct PortfolioView: View {
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    
+
                     Button {
                         if let asset = selectedAsset {
                             assetToDelete = asset
@@ -1233,9 +1243,9 @@ struct PortfolioView: View {
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
-                
+
                 Spacer()
-                
+
                 // Selection indicator
                 if let asset = selectedAsset {
                     HStack(spacing: 8) {
@@ -1257,8 +1267,9 @@ struct PortfolioView: View {
         }
         .opacity(buttonsOpacity)
     }
-    
+
     // MARK: - Helper Views
+
     private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
@@ -1269,7 +1280,7 @@ struct PortfolioView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.gray)
             }
-            
+
             Text(value)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primary)
@@ -1286,23 +1297,25 @@ struct PortfolioView: View {
         )
         .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
     }
-    
+
     // MARK: - Animations
+
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
             headerOpacity = 1.0
         }
-        
+
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) {
             contentOffset = 0
         }
-        
+
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
             buttonsOpacity = 1.0
         }
     }
-    
+
     // MARK: - Functions
+
     func confirmDelete(_ asset: DragonAsset) {
         let dbManager = DatabaseManager()
         let success = dbManager.deleteInstrument(id: asset.id)
@@ -1316,7 +1329,8 @@ struct PortfolioView: View {
 }
 
 // MARK: - Modern Asset Row
-fileprivate struct ModernAssetRowView: View {
+
+private struct ModernAssetRowView: View {
     let asset: DragonAsset
     fileprivate let columns: [InstrumentTableColumn]
     fileprivate let fontConfig: TableFontConfig
@@ -1372,20 +1386,20 @@ fileprivate struct ModernAssetRowView: View {
             Button("Edit Instrument", action: onEdit)
             Button("Select Instrument", action: onTap)
             Divider()
-#if os(macOS)
-            Button("Copy Name") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(asset.name, forType: .string)
-            }
-            if let isin = asset.isin {
-                Button("Copy ISIN") {
+            #if os(macOS)
+                Button("Copy Name") {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
-                    pasteboard.setString(isin, forType: .string)
+                    pasteboard.setString(asset.name, forType: .string)
                 }
-            }
-#endif
+                if let isin = asset.isin {
+                    Button("Copy ISIN") {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(isin, forType: .string)
+                    }
+                }
+            #endif
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
@@ -1498,7 +1512,7 @@ struct NotesIconView: View {
                 NotesIconView.invalidateCache(instrumentId: instrumentId)
                 loadCounts()
             })
-                .environmentObject(DatabaseManager())
+            .environmentObject(DatabaseManager())
         }
         .onAppear { loadCounts() }
     }
@@ -1563,9 +1577,10 @@ struct NotesIconView: View {
 }
 
 // MARK: - Background Particles
+
 struct InstrumentParticleBackground: View {
     @State private var particles: [InstrumentParticle] = []
-    
+
     var body: some View {
         ZStack {
             ForEach(particles.indices, id: \.self) { index in
@@ -1581,25 +1596,25 @@ struct InstrumentParticleBackground: View {
             animateParticles()
         }
     }
-    
+
     private func createParticles() {
-        particles = (0..<20).map { _ in
+        particles = (0 ..< 20).map { _ in
             InstrumentParticle(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...1200),
-                    y: CGFloat.random(in: 0...800)
+                    x: CGFloat.random(in: 0 ... 1200),
+                    y: CGFloat.random(in: 0 ... 800)
                 ),
-                size: CGFloat.random(in: 2...8),
-                opacity: Double.random(in: 0.1...0.2)
+                size: CGFloat.random(in: 2 ... 8),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
-    
+
     private func animateParticles() {
         withAnimation(.linear(duration: 35).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }
@@ -1614,6 +1629,7 @@ struct InstrumentParticle {
 // Note: ScaleButtonStyle is defined in AddInstrumentView.swift
 
 // MARK: - Preview
+
 struct PortfolioView_Previews: PreviewProvider {
     static var previews: some View {
         PortfolioView()

@@ -37,12 +37,13 @@ extension DatabaseManager {
 
     @discardableResult
     func recordSystemJobRun(jobKey: SystemJobKey,
-                             status: SystemJobStatus,
-                             message: String?,
-                             metadata: [String: Any]? = nil,
-                             startedAt: Date = Date(),
-                             finishedAt: Date? = nil,
-                             durationMs: Int? = nil) -> Bool {
+                            status: SystemJobStatus,
+                            message: String?,
+                            metadata: [String: Any]? = nil,
+                            startedAt: Date = Date(),
+                            finishedAt: Date? = nil,
+                            durationMs: Int? = nil) -> Bool
+    {
         let sql = """
             INSERT INTO SystemJobRuns (job_key, status, message, metadata_json, started_at, finished_at, duration_ms)
             VALUES (?, ?, ?, ?, ?, ?, ?);
@@ -61,7 +62,8 @@ extension DatabaseManager {
         let metadataJSON = metadata.flatMap { metadataDict -> String? in
             guard JSONSerialization.isValidJSONObject(metadataDict) else { return nil }
             if let data = try? JSONSerialization.data(withJSONObject: metadataDict, options: []),
-               let s = String(data: data, encoding: .utf8) {
+               let s = String(data: data, encoding: .utf8)
+            {
                 return s
             }
             return nil
@@ -116,18 +118,19 @@ extension DatabaseManager {
             let finishedAt = DateFormatter.iso8601DateTime.date(from: finishedStr) ?? startedAt
             var metadata: [String: Any]? = nil
             if let metaStr = metadataStr, let data = metaStr.data(using: .utf8),
-               let obj = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+               let obj = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            {
                 metadata = obj
             }
 
             return SystemJobRun(id: id,
-                                 jobKey: jobKeyStr,
-                                 status: status,
-                                 message: message,
-                                 metadata: metadata,
-                                 startedAt: startedAt,
-                                 finishedAt: finishedAt,
-                                 durationMs: durationMs)
+                                jobKey: jobKeyStr,
+                                status: status,
+                                message: message,
+                                metadata: metadata,
+                                startedAt: startedAt,
+                                finishedAt: finishedAt,
+                                durationMs: durationMs)
         }
         return nil
     }

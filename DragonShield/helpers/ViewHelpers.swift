@@ -1,6 +1,9 @@
 // DragonShield/Views/Helpers/ViewHelpers.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - Initial creation: Centralized common UI helper ScaleButtonStyle.
 
 import SwiftUI
@@ -14,5 +17,3 @@ struct ScaleButtonStyle: ButtonStyle {
 }
 
 // You can add other common ButtonStyles, ViewModifiers, etc., here in the future.
-
-

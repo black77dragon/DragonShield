@@ -15,21 +15,21 @@ struct DragonAsset: Identifiable {
 class AssetManager: ObservableObject {
     @Published var assets: [DragonAsset] = []
     private let dbManager = DatabaseManager()
-    
+
     init() {
         loadAssets()
     }
-    
+
     func loadAssets() {
         // Include all instruments (active + soft-deleted) for the Instruments screen
         let instrumentData = dbManager.fetchAssets(includeDeleted: true, includeInactive: true)
         let assetTypeData = dbManager.fetchAssetTypes()
-        
+
         print("🔍 AssetManager loading: \(instrumentData.count) instruments, \(assetTypeData.count) types")
-        
+
         // Create lookup with fallback
         let assetTypeLookup = Dictionary(uniqueKeysWithValues: assetTypeData.map { ($0.id, $0.name) })
-        
+
         let loadedAssets = instrumentData.map { instrument in
             let typeName = assetTypeLookup[instrument.subClassId] ?? "Unknown"
             return DragonAsset(
@@ -44,17 +44,17 @@ class AssetManager: ObservableObject {
                 isActive: instrument.isActive
             )
         }
-        
+
         DispatchQueue.main.async {
             self.assets = loadedAssets
             print("✅ AssetManager loaded \(self.assets.count) assets")
         }
     }
-    
+
     func addAsset(_ asset: DragonAsset) {
         assets.append(asset)
     }
-    
+
     func deleteAsset(_ asset: DragonAsset) {
         assets.removeAll { $0.id == asset.id }
     }

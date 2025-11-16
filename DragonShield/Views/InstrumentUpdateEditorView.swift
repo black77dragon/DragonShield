@@ -1,12 +1,15 @@
 // DragonShield/Views/InstrumentUpdateEditorView.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0: Initial instrument update editor for Step 7A.
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle for Phase 7B.
 
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-import AppKit
 
 struct InstrumentUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -120,6 +123,7 @@ struct InstrumentUpdateEditorView: View {
             Alert(title: Text(info.title), message: Text(info.message), dismissButton: .default(Text("OK")))
         }
     }
+
     private func deleteExisting() {
         guard let existing = existing else { return }
         let alert = NSAlert()
@@ -182,8 +186,12 @@ struct InstrumentUpdateEditorView: View {
             let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
             let added = currentIds.subtracting(initialIds)
             let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
-            for id in added { _ = repo.linkAttachment(updateId: existing.id, attachmentId: id) }
-            for id in removed { _ = repo.unlinkAttachment(updateId: existing.id, attachmentId: id) }
+            for id in added {
+                _ = repo.linkAttachment(updateId: existing.id, attachmentId: id)
+            }
+            for id in removed {
+                _ = repo.unlinkAttachment(updateId: existing.id, attachmentId: id)
+            }
 
             // Prefer returning the updated row if available; otherwise fetch current
             if let row = updated ?? dbManager.getInstrumentUpdate(id: existing.id) {
@@ -193,9 +201,12 @@ struct InstrumentUpdateEditorView: View {
             }
         } else {
             if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb) {
+               let created = dbManager.createInstrumentUpdate(themeId: themeId, instrumentId: instrumentId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), breadcrumb: breadcrumb)
+            {
                 let repo = ThemeAssetUpdateRepository(dbManager: dbManager)
-                for att in attachments { _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id) }
+                for att in attachments {
+                    _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
+                }
                 onSave(created)
             } else {
                 feedback = SaveFeedback(title: "Save Failed", message: dbManager.lastSQLErrorMessage())
@@ -223,9 +234,9 @@ struct InstrumentUpdateEditorView: View {
         }
     }
 
-private func removeAttachment(_ att: Attachment) {
-    let alert = NSAlert()
-    alert.messageText = "Delete file?"
+    private func removeAttachment(_ att: Attachment) {
+        let alert = NSAlert()
+        alert.messageText = "Delete file?"
         alert.informativeText = "The attachment will be removed from the update. Also delete the file from storage?"
         alert.addButton(withTitle: "Delete File")
         alert.addButton(withTitle: "Keep File")
@@ -256,7 +267,8 @@ private func removeAttachment(_ att: Attachment) {
                         for provider in providers {
                             if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
                                let data = item as? Data,
-                               let url = URL(dataRepresentation: data, relativeTo: nil) {
+                               let url = URL(dataRepresentation: data, relativeTo: nil)
+                            {
                                 urls.append(url)
                             }
                         }

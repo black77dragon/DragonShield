@@ -1,6 +1,9 @@
 // DragonShield/Views/TransactionHistoryView.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Integrated live data fetching from DatabaseManager. Removed sample data.
 // - Initial creation: Basic structure for transaction history display.
 
@@ -43,12 +46,12 @@ struct TransactionHistoryView: View {
         } else {
             return transactions.filter { transaction in
                 transaction.accountName.localizedCaseInsensitiveContains(searchText) ||
-                (transaction.instrumentName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-                transaction.typeName.localizedCaseInsensitiveContains(searchText) ||
-                (transaction.description?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-                transaction.currency.localizedCaseInsensitiveContains(searchText) ||
-                (transaction.portfolioName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-                String(format: "%.2f", transaction.netAmount).localizedCaseInsensitiveContains(searchText)
+                    (transaction.instrumentName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                    transaction.typeName.localizedCaseInsensitiveContains(searchText) ||
+                    (transaction.description?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                    transaction.currency.localizedCaseInsensitiveContains(searchText) ||
+                    (transaction.portfolioName?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                    String(format: "%.2f", transaction.netAmount).localizedCaseInsensitiveContains(searchText)
             }.sorted { $0.date > $1.date }
         }
     }
@@ -59,7 +62,7 @@ struct TransactionHistoryView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -91,7 +94,7 @@ struct TransactionHistoryView: View {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 32))
                         .foregroundColor(Color.teal)
-                    
+
                     Text("Transaction History")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(
@@ -102,14 +105,14 @@ struct TransactionHistoryView: View {
                             )
                         )
                 }
-                
+
                 Text("Review your past financial activities")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
-            
+
             Spacer()
-            
+
             HStack(spacing: 16) {
                 modernStatCard(
                     title: "Total",
@@ -123,16 +126,16 @@ struct TransactionHistoryView: View {
         .padding(.vertical, 20)
         .opacity(headerOpacity)
     }
-    
+
     private var searchAndStats: some View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
-                
+
                 TextField("Search (description, instrument, type, amount...)", text: $searchText) // Updated placeholder
                     .textFieldStyle(PlainTextFieldStyle())
-                
+
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -154,7 +157,7 @@ struct TransactionHistoryView: View {
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-            
+
             if !filteredTransactions.isEmpty && !searchText.isEmpty { // Show count only if results exist for search
                 HStack {
                     Text("Found \(filteredTransactions.count) transaction(s)")
@@ -167,15 +170,14 @@ struct TransactionHistoryView: View {
         .padding(.horizontal, 24)
         .offset(y: contentOffset)
     }
-    
+
     private var transactionsContent: some View {
         VStack(spacing: 16) {
             if transactions.isEmpty && searchText.isEmpty { // Show "No transactions recorded" only if DB is empty and no search
                 emptyStateView
             } else if filteredTransactions.isEmpty && !searchText.isEmpty { // Show "No matching transactions" for active search
-                 emptyStateView
-            }
-            else {
+                emptyStateView
+            } else {
                 transactionsTable
             }
         }
@@ -183,7 +185,7 @@ struct TransactionHistoryView: View {
         .padding(.top, 16)
         .offset(y: contentOffset)
     }
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -197,7 +199,7 @@ struct TransactionHistoryView: View {
                             endPoint: .bottom
                         )
                     )
-                
+
                 VStack(spacing: 8) {
                     Text(searchText.isEmpty && transactions.isEmpty ? "No transactions recorded" : "No matching transactions")
                         .font(.title2).fontWeight(.semibold).foregroundColor(.gray)
@@ -208,7 +210,7 @@ struct TransactionHistoryView: View {
             Spacer()
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
+
     private var transactionsTable: some View {
         VStack(spacing: 0) {
             modernTableHeader
@@ -232,7 +234,7 @@ struct TransactionHistoryView: View {
             .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         }
     }
-    
+
     private var modernTableHeader: some View {
         HStack {
             Text("Date").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 100, alignment: .leading)
@@ -247,7 +249,7 @@ struct TransactionHistoryView: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.gray.opacity(0.1)))
         .padding(.bottom, 1)
     }
-    
+
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
@@ -259,9 +261,9 @@ struct TransactionHistoryView: View {
                 .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
                 .foregroundColor(.black)
                 .disabled(true)
-                
+
                 Spacer()
-                
+
                 if let transaction = selectedTransaction {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundColor(.teal)
@@ -300,8 +302,8 @@ struct TransactionHistoryView: View {
     }
 
     func loadTransactionHistory() {
-         transactions = dbManager.fetchTransactionHistoryItems()
-         // Sample data call is now removed.
+        transactions = dbManager.fetchTransactionHistoryItems()
+        // Sample data call is now removed.
     }
 }
 
@@ -331,7 +333,7 @@ struct ModernTransactionRowView: View {
                 .background(transactionTypeColor(transaction.typeName).opacity(0.1))
                 .clipShape(Capsule())
                 .frame(width: 120, alignment: .leading)
-            
+
             VStack(alignment: .leading, spacing: 1) { // Reduced spacing
                 Text(transaction.instrumentName ?? transaction.description ?? "N/A")
                     .font(.system(size: 14, weight: .medium)).foregroundColor(.primary) // Slightly smaller
@@ -341,7 +343,7 @@ struct ModernTransactionRowView: View {
                         .font(.system(size: 12)).foregroundColor(.gray) // Smaller caption
                         .lineLimit(1)
                 } else if transaction.instrumentName == nil && transaction.description != nil {
-                     Text(transaction.description!)
+                    Text(transaction.description!)
                         .font(.system(size: 14, weight: .medium)).foregroundColor(.primary)
                         .lineLimit(1)
                 }
@@ -357,7 +359,7 @@ struct ModernTransactionRowView: View {
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(transaction.netAmount >= 0 ? .green : .red)
                 .frame(width: 100, alignment: .trailing) // Adjusted width
-            
+
             Text(transaction.currency)
                 .font(.system(size: 12, weight: .semibold)).foregroundColor(.gray) // Slightly smaller
                 .frame(width: 40, alignment: .leading) // Adjusted width
@@ -370,7 +372,7 @@ struct ModernTransactionRowView: View {
         .onTapGesture(count: 2) { onEdit() }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
-    
+
     private func transactionTypeColor(_ typeName: String) -> Color {
         switch typeName.uppercased() {
         case "PURCHASE", "BUY", "TRANSFER OUT": return .red
@@ -386,7 +388,7 @@ struct ModernTransactionRowView: View {
 
 struct TransactionHistoryParticleBackground: View {
     @State private var particles: [TransactionHistoryParticle] = []
-    
+
     var body: some View {
         ZStack {
             ForEach(particles.indices, id: \.self) { index in
@@ -402,25 +404,25 @@ struct TransactionHistoryParticleBackground: View {
             animateParticles()
         }
     }
-    
+
     private func createParticles() {
-        particles = (0..<15).map { _ in
+        particles = (0 ..< 15).map { _ in
             TransactionHistoryParticle(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...1200),
-                    y: CGFloat.random(in: 0...800)
+                    x: CGFloat.random(in: 0 ... 1200),
+                    y: CGFloat.random(in: 0 ... 800)
                 ),
-                size: CGFloat.random(in: 2...8),
-                opacity: Double.random(in: 0.1...0.2)
+                size: CGFloat.random(in: 2 ... 8),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
-    
+
     private func animateParticles() {
         withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }

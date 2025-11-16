@@ -1,6 +1,6 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 private enum AssetClassColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
@@ -59,72 +59,72 @@ struct AssetClassesView: View {
     }
 
     private static let tableConfiguration: MaintenanceTableConfiguration<AssetClassColumn> = {
-#if os(macOS)
-        MaintenanceTableConfiguration(
-            preferenceKind: .assetClasses,
-            columnOrder: AssetClassColumn.allCases,
-            defaultVisibleColumns: Set(AssetClassColumn.allCases),
-            requiredColumns: [.name, .code],
-            defaultColumnWidths: [
-                .code: 140,
-                .name: 260,
-                .description: 420,
-                .sortOrder: 120
-            ],
-            minimumColumnWidths: [
-                .code: 110,
-                .name: 220,
-                .description: 300,
-                .sortOrder: 90
-            ],
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.blue.opacity(0.08),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            },
-            columnResizeCursor: nil
-        )
-#else
-        MaintenanceTableConfiguration(
-            preferenceKind: .assetClasses,
-            columnOrder: AssetClassColumn.allCases,
-            defaultVisibleColumns: Set(AssetClassColumn.allCases),
-            requiredColumns: [.name, .code],
-            defaultColumnWidths: [
-                .code: 140,
-                .name: 260,
-                .description: 420,
-                .sortOrder: 120
-            ],
-            minimumColumnWidths: [
-                .code: 110,
-                .name: 220,
-                .description: 300,
-                .sortOrder: 90
-            ],
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.blue.opacity(0.08),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            }
-        )
-#endif
+        #if os(macOS)
+            MaintenanceTableConfiguration(
+                preferenceKind: .assetClasses,
+                columnOrder: AssetClassColumn.allCases,
+                defaultVisibleColumns: Set(AssetClassColumn.allCases),
+                requiredColumns: [.name, .code],
+                defaultColumnWidths: [
+                    .code: 140,
+                    .name: 260,
+                    .description: 420,
+                    .sortOrder: 120,
+                ],
+                minimumColumnWidths: [
+                    .code: 110,
+                    .name: 220,
+                    .description: 300,
+                    .sortOrder: 90,
+                ],
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.blue.opacity(0.08),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                },
+                columnResizeCursor: nil
+            )
+        #else
+            MaintenanceTableConfiguration(
+                preferenceKind: .assetClasses,
+                columnOrder: AssetClassColumn.allCases,
+                defaultVisibleColumns: Set(AssetClassColumn.allCases),
+                requiredColumns: [.name, .code],
+                defaultColumnWidths: [
+                    .code: 140,
+                    .name: 260,
+                    .description: 420,
+                    .sortOrder: 120,
+                ],
+                minimumColumnWidths: [
+                    .code: 110,
+                    .name: 220,
+                    .description: 300,
+                    .sortOrder: 90,
+                ],
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.blue.opacity(0.08),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                }
+            )
+        #endif
     }()
 
     private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
@@ -143,8 +143,8 @@ struct AssetClassesView: View {
             let query = trimmedQuery.lowercased()
             result = result.filter { item in
                 item.name.lowercased().contains(query) ||
-                item.code.lowercased().contains(query) ||
-                item.description.lowercased().contains(query)
+                    item.code.lowercased().contains(query) ||
+                    item.description.lowercased().contains(query)
             }
         }
         return result
@@ -176,7 +176,7 @@ struct AssetClassesView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -664,20 +664,20 @@ private struct AssetClassRowView: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .onTapGesture(count: 2) { onEdit() }
-#if os(macOS)
-        .contextMenu {
-            Button("Edit", action: onEdit)
-            Button("Select", action: onTap)
-            Divider()
-            Button("Copy Name") {
-                NSPasteboard.general.setString(assetClass.name, forType: .string)
+        #if os(macOS)
+            .contextMenu {
+                Button("Edit", action: onEdit)
+                Button("Select", action: onTap)
+                Divider()
+                Button("Copy Name") {
+                    NSPasteboard.general.setString(assetClass.name, forType: .string)
+                }
+                Button("Copy Code") {
+                    NSPasteboard.general.setString(assetClass.code, forType: .string)
+                }
             }
-            Button("Copy Code") {
-                NSPasteboard.general.setString(assetClass.code, forType: .string)
-            }
-        }
-#endif
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        #endif
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 
     @ViewBuilder
@@ -715,6 +715,7 @@ private struct AssetClassRowView: View {
 }
 
 // MARK: - Add Asset Class View
+
 struct AddAssetClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
@@ -733,8 +734,8 @@ struct AddAssetClassView: View {
 
     private var isValid: Bool {
         !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        Int(sortOrder) != nil
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            Int(sortOrder) != nil
     }
 
     var body: some View {
@@ -743,7 +744,7 @@ struct AddAssetClassView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -926,6 +927,7 @@ struct AddAssetClassView: View {
 }
 
 // MARK: - Edit Asset Class View
+
 struct EditAssetClassView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dbManager: DatabaseManager
@@ -950,8 +952,8 @@ struct EditAssetClassView: View {
 
     private var isValid: Bool {
         !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        Int(sortOrder) != nil
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            Int(sortOrder) != nil
     }
 
     var body: some View {
@@ -960,7 +962,7 @@ struct EditAssetClassView: View {
                 colors: [
                     Color(red: 0.97, green: 0.98, blue: 1.0),
                     Color(red: 0.94, green: 0.96, blue: 0.99),
-                    Color(red: 0.91, green: 0.94, blue: 0.98)
+                    Color(red: 0.91, green: 0.94, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -1220,11 +1222,11 @@ private struct AssetClassesParticleBackground: View {
     }
 
     private func createParticles() {
-        particles = (0..<18).map { _ in
+        particles = (0 ..< 18).map { _ in
             AssetClassParticle(
-                position: CGPoint(x: CGFloat.random(in: 0...1200), y: CGFloat.random(in: 0...800)),
-                size: CGFloat.random(in: 2...9),
-                opacity: Double.random(in: 0.1...0.2)
+                position: CGPoint(x: CGFloat.random(in: 0 ... 1200), y: CGFloat.random(in: 0 ... 800)),
+                size: CGFloat.random(in: 2 ... 9),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
@@ -1233,7 +1235,7 @@ private struct AssetClassesParticleBackground: View {
         withAnimation(.linear(duration: 35).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }

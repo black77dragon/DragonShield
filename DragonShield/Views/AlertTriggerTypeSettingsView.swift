@@ -17,6 +17,7 @@ struct AlertTriggerTypeSettingsView: View {
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         return !code.isEmpty && !name.isEmpty && !rows.contains { $0.code.caseInsensitiveCompare(code) == .orderedSame }
     }
+
     @State private var info: String?
 
     var body: some View {
@@ -93,9 +94,9 @@ struct AlertTriggerTypeSettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .navigationTitle("Alert Trigger Types")
         .onAppear { load() }
-#if os(iOS)
-        .environment(\.editMode, .constant(.active))
-#endif
+        #if os(iOS)
+            .environment(\.editMode, .constant(.active))
+        #endif
     }
 
     private func binding(for row: AlertTriggerTypeRow) -> (code: Binding<String>, name: Binding<String>, desc: Binding<String>, active: Binding<Bool>, requiresDate: Binding<Bool>) {
@@ -149,7 +150,7 @@ struct AlertTriggerTypeSettingsView: View {
         let code = newCode.trimmingCharacters(in: .whitespacesAndNewlines)
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         let desc = newDesc.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty && !name.isEmpty else { return }
+        guard !code.isEmpty, !name.isEmpty else { return }
         if rows.contains(where: { $0.code.caseInsensitiveCompare(code) == .orderedSame }) {
             error = "Code already exists"; return
         }

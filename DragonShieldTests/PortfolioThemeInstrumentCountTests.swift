@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class PortfolioThemeInstrumentCountTests: XCTestCase {
     private func setup(_ manager: DatabaseManager) {

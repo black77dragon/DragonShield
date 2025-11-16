@@ -31,29 +31,30 @@ extension DatabaseManager {
     }
 
     // MARK: - Alerts CRUD
+
     func listAlerts(includeDisabled: Bool = true) -> [AlertRow] {
         var rows: [AlertRow] = []
         guard let db else { return rows }
         let sql = includeDisabled ?
-        """
-        SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
-               trigger_type_code,
-               params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
-               cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
-               created_at, updated_at
-          FROM Alert
-         ORDER BY updated_at DESC, id DESC
-        """ :
-        """
-        SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
-               trigger_type_code,
-               params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
-               cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
-               created_at, updated_at
-          FROM Alert
-         WHERE enabled = 1
-         ORDER BY updated_at DESC, id DESC
-        """
+            """
+            SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
+                   trigger_type_code,
+                   params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
+                   cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
+                   created_at, updated_at
+              FROM Alert
+             ORDER BY updated_at DESC, id DESC
+            """ :
+            """
+            SELECT id, name, enabled, severity, scope_type, scope_id, subject_type, subject_reference,
+                   trigger_type_code,
+                   params_json, near_value, near_unit, hysteresis_value, hysteresis_unit,
+                   cooldown_seconds, mute_until, schedule_start, schedule_end, notes,
+                   created_at, updated_at
+              FROM Alert
+             WHERE enabled = 1
+             ORDER BY updated_at DESC, id DESC
+            """
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             defer { sqlite3_finalize(stmt) }
@@ -226,6 +227,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Alert Tags
+
     func listTagsForAlert(alertId: Int) -> [TagRow] {
         guard let db else { return [] }
         let sql = """
@@ -271,12 +273,14 @@ extension DatabaseManager {
     }
 
     // MARK: - Helpers
+
     private func isValidJSON(_ s: String) -> Bool {
         guard let data = s.data(using: .utf8) else { return false }
         return (try? JSONSerialization.jsonObject(with: data)) != nil
     }
 
     // MARK: - Evaluation (Phase 1: date alerts)
+
     /// Evaluate a single alert now. Returns (createdEvent, message).
     @discardableResult
     func evaluateAlertNow(alertId: Int) -> (Bool, String) {
@@ -299,7 +303,8 @@ extension DatabaseManager {
             guard let data = alert.paramsJson.data(using: .utf8),
                   let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                   let dateStr = obj["date"] as? String,
-                  let triggerDate = DateFormatter.iso8601DateOnly.date(from: dateStr) else {
+                  let triggerDate = DateFormatter.iso8601DateOnly.date(from: dateStr)
+            else {
                 return false
             }
             let today = DateFormatter.iso8601DateOnly.date(from: DateFormatter.iso8601DateOnly.string(from: Date())) ?? Date()
@@ -331,7 +336,8 @@ extension DatabaseManager {
         // Parse params_json expecting { "date": "YYYY-MM-DD" }
         guard let data = alert.paramsJson.data(using: .utf8),
               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let dateStr = obj["date"] as? String, !dateStr.isEmpty else {
+              let dateStr = obj["date"] as? String, !dateStr.isEmpty
+        else {
             return (false, "Missing date in params_json")
         }
         // Validate date format strictly yyyy-MM-dd
@@ -343,9 +349,9 @@ extension DatabaseManager {
 
         // Respect schedule_start / schedule_end (date-only if provided)
         if let s = alert.scheduleStart, let start = df.date(from: s), Date() < start { return (false, "Not within schedule window (starts \(s))") }
-        if let e = alert.scheduleEnd, let end = df.date(from: e), Date() > end.addingTimeInterval(86_400 - 1) { return (false, "Not within schedule window (ended \(e))") }
+        if let e = alert.scheduleEnd, let end = df.date(from: e), Date() > end.addingTimeInterval(86400 - 1) { return (false, "Not within schedule window (ended \(e))") }
         // Mute until
-        if let m = alert.muteUntil, let mut = df.date(from: m), Date() < mut.addingTimeInterval(86_400) {
+        if let m = alert.muteUntil, let mut = df.date(from: m), Date() < mut.addingTimeInterval(86400) {
             return (false, "Muted until \(m)")
         }
 
@@ -370,7 +376,8 @@ extension DatabaseManager {
     private func evaluateCalendarEventAlertNow(alert: AlertRow) -> (Bool, String) {
         guard let data = alert.paramsJson.data(using: .utf8),
               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let eventCode = obj["event_code"] as? String, !eventCode.isEmpty else {
+              let eventCode = obj["event_code"] as? String, !eventCode.isEmpty
+        else {
             return (false, "Missing event_code in params_json")
         }
         guard let event = getEventCalendar(code: eventCode) else {
@@ -393,11 +400,11 @@ extension DatabaseManager {
             return (false, "Date parse error")
         }
         let secondsDiff = eventDate.timeIntervalSince(today)
-        let diffDays = Int(floor(secondsDiff / 86_400.0))
+        let diffDays = Int(floor(secondsDiff / 86400.0))
         if diffDays < 0 {
             return (false, "Event already occurred on \(event.eventDate)")
         }
-        if diffDays > 0 && !warnDays.contains(diffDays) {
+        if diffDays > 0, !warnDays.contains(diffDays) {
             return (false, "Event is in \(diffDays) day(s); no warn_days match")
         }
         if hasTriggeredEventToday(alertId: alert.id, day: today) {
@@ -409,7 +416,7 @@ extension DatabaseManager {
             "title": event.title,
             "category": event.category,
             "event_date": event.eventDate,
-            "status": event.status
+            "status": event.status,
         ]
         if let tz = event.timezone { measured["timezone"] = tz }
         if let t = event.eventTime { measured["event_time"] = t }
@@ -465,7 +472,7 @@ extension DatabaseManager {
             "instrument_currency": metrics.priceCurrency,
             "currency_mode": metrics.currencyMode,
             "comparison_currency": metrics.comparisonCurrency,
-            "threshold": metrics.rawThreshold
+            "threshold": metrics.rawThreshold,
         ]
 
         if metrics.currencyMode == "base" {
@@ -563,11 +570,12 @@ extension DatabaseManager {
                                  fxInstrument: fxInstrument,
                                  fxBase: fxBase)
     }
+
     private func hasTriggeredEventToday(alertId: Int, day: Date) -> Bool {
         guard let db else { return false }
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
         let dayStart = df.string(from: day) + "T00:00:00Z"
-        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86400)) + "T00:00:00Z"
         let sql = "SELECT 1 FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ? LIMIT 1"
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
@@ -580,11 +588,12 @@ extension DatabaseManager {
     }
 
     // MARK: - UI helpers
+
     func hasTriggeredEventOnDay(alertId: Int, day: Date) -> Bool {
         guard let db else { return false }
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
         let dayStart = df.string(from: day) + "T00:00:00Z"
-        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86400)) + "T00:00:00Z"
         let sql = "SELECT 1 FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ? LIMIT 1"
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
@@ -601,7 +610,7 @@ extension DatabaseManager {
         guard let db else { return 0 }
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0); df.dateFormat = "yyyy-MM-dd"
         let dayStart = df.string(from: day) + "T00:00:00Z"
-        let nextStart = df.string(from: day.addingTimeInterval(86_400)) + "T00:00:00Z"
+        let nextStart = df.string(from: day.addingTimeInterval(86400)) + "T00:00:00Z"
         let sql = "DELETE FROM AlertEvent WHERE alert_id = ? AND status = 'triggered' AND occurred_at >= ? AND occurred_at < ?"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return 0 }
@@ -724,11 +733,11 @@ extension DatabaseManager {
             if now < effectiveStart { return "Not within schedule window (starts \(startStr))" }
         }
         if let endStr = alert.scheduleEnd, let (endDate, isDateOnly) = parseScheduleDate(endStr) {
-            let effectiveEnd = isDateOnly ? endDate.addingTimeInterval(86_400 - 1) : endDate
+            let effectiveEnd = isDateOnly ? endDate.addingTimeInterval(86400 - 1) : endDate
             if now > effectiveEnd { return "Not within schedule window (ended \(endStr))" }
         }
         if let muteStr = alert.muteUntil, let (muteDate, isDateOnly) = parseScheduleDate(muteStr) {
-            let effectiveMute = isDateOnly ? muteDate.addingTimeInterval(86_400) : muteDate
+            let effectiveMute = isDateOnly ? muteDate.addingTimeInterval(86400) : muteDate
             if now < effectiveMute { return "Muted until \(muteStr)" }
         }
         return nil
@@ -781,6 +790,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Events listing
+
     func listAlertEvents(limit: Int = 200) -> [AlertEventSummary] {
         guard let db else { return [] }
         let sql = """
@@ -822,7 +832,7 @@ extension DatabaseManager {
         var snapshots: [HoldingAbsSnapshot] = []
         let timestamp = Date()
         for alert in alerts where alert.triggerTypeCode == "holding_abs" {
-            if !includeDisabled && !alert.enabled { continue }
+            if !includeDisabled, !alert.enabled { continue }
             guard let metrics = holdingAbsMetrics(for: alert) else { continue }
             let difference = metrics.comparisonValue - metrics.thresholdComparison
             let percent = metrics.thresholdComparison != 0 ? difference / metrics.thresholdComparison : nil

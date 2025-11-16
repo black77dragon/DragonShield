@@ -104,7 +104,7 @@ extension DatabaseManager {
         let hasTypeColumn = tableHasColumn("PortfolioThemeAssetUpdate", column: "type")
         let hasBodyMarkdown = tableHasColumn("PortfolioThemeAssetUpdate", column: "body_markdown")
         let copySQL: String
-        if hasTypeColumn && hasBodyMarkdown {
+        if hasTypeColumn, hasBodyMarkdown {
             copySQL = "INSERT INTO InstrumentNote (id, instrument_id, theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at) SELECT id, instrument_id, theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at FROM PortfolioThemeAssetUpdate"
         } else if hasBodyMarkdown {
             copySQL = "INSERT INTO InstrumentNote (id, instrument_id, theme_id, title, body_text, body_markdown, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at) SELECT id, instrument_id, NULL, title, body_text, body_markdown, author, pinned, positions_asof, value_chf, actual_percent, created_at, updated_at FROM PortfolioThemeAssetUpdate"
@@ -239,7 +239,7 @@ extension DatabaseManager {
             "actor": author,
             "op": "create",
             "pinned": pinned ? 1 : 0,
-            "created_at": item.createdAt
+            "created_at": item.createdAt,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -304,7 +304,7 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         guard let item = getInstrumentUpdate(id: id) else { return nil }
         var op = "update"
-        if let pinned = pinned, title == nil && bodyMarkdown == nil && newsTypeCode == nil {
+        if let pinned = pinned, title == nil, bodyMarkdown == nil, newsTypeCode == nil {
             op = pinned ? "pin" : "unpin"
         }
         var payload: [String: Any] = [
@@ -314,7 +314,7 @@ extension DatabaseManager {
             "actor": actor,
             "op": op,
             "pinned": item.pinned ? 1 : 0,
-            "updated_at": item.updatedAt
+            "updated_at": item.updatedAt,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -344,7 +344,7 @@ extension DatabaseManager {
             "actor": actor,
             "op": "delete",
             "pinned": item.pinned ? 1 : 0,
-            "updated_at": item.updatedAt
+            "updated_at": item.updatedAt,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {

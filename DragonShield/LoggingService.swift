@@ -1,6 +1,9 @@
 // DragonShield/LoggingService.swift
+
 // MARK: - Version 1.0.3.0
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial logging service writing messages to a log file.
 // - 1.0.0.0 -> 1.0.1.0: Also forward messages to OSLog with categories.
 // - 1.0.1.0 -> 1.0.2.0: Support logging with explicit OSLogType levels.
@@ -18,8 +21,8 @@ final class LoggingService {
 
     private init() {
         let dir = FileManager.default.temporaryDirectory
-        self.fileURL = dir.appendingPathComponent("import.log")
-        self.formatter = ISO8601DateFormatter()
+        fileURL = dir.appendingPathComponent("import.log")
+        formatter = ISO8601DateFormatter()
     }
 
     func clearLog() {

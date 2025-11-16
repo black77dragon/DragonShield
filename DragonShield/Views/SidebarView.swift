@@ -1,16 +1,19 @@
 // DragonShield/Views/SidebarView.swift
+
 // MARK: - Version 1.9
+
 // MARK: - History
+
 // - 1.4 -> 1.5: Added "Edit Account Types" navigation link.
 // - 1.5 -> 1.6: Added "Positions" navigation link.
 // - 1.6 -> 1.7: Added "Edit Institutions" navigation link.
 // - 1.7 -> 1.8: Added Data Import/Export view to replace the old document loader.
 // - (Previous history)
 
-import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 import Combine
+import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -73,8 +76,8 @@ struct SidebarView: View {
                     Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
 
-                NavigationLink(destination: PriceMaintenanceView().environmentObject(dbManager)) {
-                    Label("Price Maintenance", systemImage: "dollarsign.circle")
+                NavigationLink(destination: PriceUpdatesView().environmentObject(dbManager)) {
+                    Label("Price Updates", systemImage: "dollarsign.circle")
                 }
 
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
@@ -146,7 +149,6 @@ struct SidebarView: View {
                 NavigationLink(destination: DatabaseManagementView()) {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
                 }
-
 
                 NavigationLink(destination: SettingsView()) {
                     Label("Settings", systemImage: "gear")
@@ -347,6 +349,7 @@ private extension Double {
         return String(format: "%.0f%%", clamped * 100)
     }
 }
+
 struct SidebarView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationSplitView {
@@ -430,14 +433,15 @@ private struct TodoEditorSheet: View {
          availableTags: [TagRow],
          prefill: KanbanTodoQuickAddRequest? = nil,
          onSave: @escaping (String, KanbanPriority, Date?, KanbanColumn, [Int], Bool, KanbanRepeatFrequency?) -> Void,
-         onDelete: (() -> Void)? = nil) {
+         onDelete: (() -> Void)? = nil)
+    {
         self.mode = mode
         self.availableTags = availableTags
         self.onSave = onSave
         self.onDelete = onDelete
 
         switch mode {
-        case .new(let defaultColumn):
+        case let .new(defaultColumn):
             _description = State(initialValue: prefill?.description ?? "")
             _priority = State(initialValue: prefill?.priority ?? .medium)
             _dueDate = State(initialValue: prefill?.dueDate)
@@ -447,7 +451,7 @@ private struct TodoEditorSheet: View {
             _repeatFrequency = State(initialValue: initialRepeatFrequency)
             _isRepeating = State(initialValue: initialRepeatFrequency != nil)
             _isCompleted = State(initialValue: prefill?.isCompleted ?? false)
-        case .edit(let existing):
+        case let .edit(existing):
             _description = State(initialValue: existing.description)
             _priority = State(initialValue: existing.priority)
             _dueDate = State(initialValue: existing.dueDate)
@@ -890,11 +894,11 @@ private struct KanbanColumnDropDelegate: DropDelegate {
     let viewModel: KanbanBoardViewModel
     @Binding var draggedTodoID: UUID?
 
-    func dropUpdated(info: DropInfo) -> DropProposal? {
+    func dropUpdated(info _: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
     }
 
-    func performDrop(info: DropInfo) -> Bool {
+    func performDrop(info _: DropInfo) -> Bool {
         guard let dragged = draggedTodoID else { return false }
         viewModel.move(id: dragged, to: column, before: nil)
         draggedTodoID = nil
@@ -908,16 +912,16 @@ private struct KanbanCardDropDelegate: DropDelegate {
     let viewModel: KanbanBoardViewModel
     @Binding var draggedTodoID: UUID?
 
-    func dropEntered(info: DropInfo) {
+    func dropEntered(info _: DropInfo) {
         guard let dragged = draggedTodoID, dragged != target.id else { return }
         viewModel.move(id: dragged, to: column, before: target.id)
     }
 
-    func dropUpdated(info: DropInfo) -> DropProposal? {
+    func dropUpdated(info _: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
     }
 
-    func performDrop(info: DropInfo) -> Bool {
+    func performDrop(info _: DropInfo) -> Bool {
         draggedTodoID = nil
         return true
     }
@@ -984,7 +988,7 @@ struct TodoKanbanBoardView: View {
             BoardStat(id: "in-progress", title: "In Progress", value: "\(inProgress)", icon: "hammer", accent: KanbanColumn.doing.palette.accent),
             BoardStat(id: "completed", title: "Completed", value: "\(completed)", icon: "checkmark.circle", accent: KanbanColumn.done.palette.accent),
             BoardStat(id: "overdue", title: "Overdue", value: "\(overdue)", icon: "clock.badge.exclamationmark", accent: Color(hex: "F16063")),
-            BoardStat(id: "completion", title: "Completion", value: completionRate.formattedPercentage, icon: "chart.bar", accent: Color(hex: "7C5CFF"), progress: completionRate)
+            BoardStat(id: "completion", title: "Completion", value: completionRate.formattedPercentage, icon: "chart.bar", accent: Color(hex: "7C5CFF"), progress: completionRate),
         ]
     }
 
@@ -1183,7 +1187,7 @@ struct TodoKanbanBoardView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Slider(value: $columnBackgroundShade, in: 0...100, step: 1)
+            Slider(value: $columnBackgroundShade, in: 0 ... 100, step: 1)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -1396,11 +1400,11 @@ struct TodoKanbanBoardView: View {
                                            onDoubleTap: {
                                                editingTodo = todo
                                            })
-                            .onDrag {
-                                draggedTodoID = todo.id
-                                return NSItemProvider(object: todo.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [UTType.text], delegate: KanbanCardDropDelegate(target: todo, column: column, viewModel: viewModel, draggedTodoID: $draggedTodoID))
+                                           .onDrag {
+                                               draggedTodoID = todo.id
+                                               return NSItemProvider(object: todo.id.uuidString as NSString)
+                                           }
+                                           .onDrop(of: [UTType.text], delegate: KanbanCardDropDelegate(target: todo, column: column, viewModel: viewModel, draggedTodoID: $draggedTodoID))
                         }
                     }
                     .padding(.trailing, 2)

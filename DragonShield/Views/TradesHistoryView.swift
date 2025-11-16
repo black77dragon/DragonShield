@@ -1,13 +1,15 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 // MARK: - Version 2.0
+
 // MARK: - History
+
 // - 1.x -> 2.0: Adopted modern table UX with column controls, filters, and inline actions.
 
-fileprivate struct TableFontConfig {
+private struct TableFontConfig {
     let primarySize: CGFloat
     let secondarySize: CGFloat
     let headerSize: CGFloat
@@ -129,31 +131,31 @@ struct TradesHistoryView: View {
             case .small: return "S"
             case .medium: return "M"
             case .large: return "L"
-        case .xLarge: return "XL"
+            case .xLarge: return "XL"
+            }
         }
-    }
 
-    var baseSize: CGFloat {
-        let index: Int
-        switch self {
-        case .xSmall: index = 0
-        case .small: index = 1
-        case .medium: index = 2
-        case .large: index = 3
-        case .xLarge: index = 4
+        var baseSize: CGFloat {
+            let index: Int
+            switch self {
+            case .xSmall: index = 0
+            case .small: index = 1
+            case .medium: index = 2
+            case .large: index = 3
+            case .xLarge: index = 4
+            }
+            return TableFontMetrics.baseSize(for: index)
         }
-        return TableFontMetrics.baseSize(for: index)
-    }
 
-    var secondarySize: CGFloat { baseSize - 1 }
-    var badgeSize: CGFloat { baseSize - 2 }
-    var headerSize: CGFloat { baseSize - 1 }
+        var secondarySize: CGFloat { baseSize - 1 }
+        var badgeSize: CGFloat { baseSize - 2 }
+        var headerSize: CGFloat { baseSize - 1 }
     }
 
     private static let visibleColumnsKey = "TradesHistoryView.visibleColumns.v1"
     private static let columnFractionsKey = "TradesHistoryView.columnFractions.v1"
     private static let fontSizeKey = "TradesHistoryView.tableFontSize.v1"
-    private static let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private static let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
 
     fileprivate static let columnHandleWidth: CGFloat = 10
     fileprivate static let columnHandleHitSlop: CGFloat = 8
@@ -162,12 +164,12 @@ struct TradesHistoryView: View {
     private static let columnOrder: [TransactionTableColumn] = [
         .tradeId, .date, .type, .instrument, .quantity, .instrumentDelta,
         .price, .tradeValue, .cashDelta, .currency, .custodyAccount,
-        .cashAccount, .fees, .commission
+        .cashAccount, .fees, .commission,
     ]
 
     private static let defaultVisibleColumns: Set<TransactionTableColumn> = [
         .date, .type, .instrument, .quantity, .price, .tradeValue,
-        .cashDelta, .currency, .custodyAccount, .cashAccount
+        .cashDelta, .currency, .custodyAccount, .cashAccount,
     ]
 
     private static let requiredColumns: Set<TransactionTableColumn> = [.date, .instrument]
@@ -186,7 +188,7 @@ struct TradesHistoryView: View {
         .custodyAccount: 200,
         .cashAccount: 200,
         .fees: 120,
-        .commission: 120
+        .commission: 120,
     ]
 
     private static let minimumColumnWidths: [TransactionTableColumn: CGFloat] = [
@@ -203,7 +205,7 @@ struct TradesHistoryView: View {
         .custodyAccount: 160,
         .cashAccount: 160,
         .fees: 100,
-        .commission: 100
+        .commission: 100,
     ]
 
     private static let initialColumnFractions: [TransactionTableColumn: CGFloat] = {
@@ -220,21 +222,21 @@ struct TradesHistoryView: View {
         }
     }()
 
-#if os(macOS)
-    fileprivate static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
-#endif
+    #if os(macOS)
+        fileprivate static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
+    #endif
 
     init() {
         let defaults = TradesHistoryView.initialColumnFractions
@@ -249,7 +251,8 @@ struct TradesHistoryView: View {
         }
 
         if let storedFont = UserDefaults.standard.string(forKey: TradesHistoryView.fontSizeKey),
-           let font = TableFontSize(rawValue: storedFont) {
+           let font = TableFontSize(rawValue: storedFont)
+        {
             _selectedFontSize = State(initialValue: font)
         } else {
             _selectedFontSize = State(initialValue: .medium)
@@ -262,7 +265,7 @@ struct TradesHistoryView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -841,9 +844,9 @@ struct TradesHistoryView: View {
             let cashName = normalized(trade.cashAccountName)
             let custodyName = normalized(trade.custodyAccountName)
 
-            if !typeFilters.isEmpty && !typeFilters.contains(typeLabel) { return false }
-            if !cashAccountFilters.isEmpty && !cashAccountFilters.contains(cashName) { return false }
-            if !custodyAccountFilters.isEmpty && !custodyAccountFilters.contains(custodyName) { return false }
+            if !typeFilters.isEmpty, !typeFilters.contains(typeLabel) { return false }
+            if !cashAccountFilters.isEmpty, !cashAccountFilters.contains(cashName) { return false }
+            if !custodyAccountFilters.isEmpty, !custodyAccountFilters.contains(custodyName) { return false }
 
             guard hasQuery else { return true }
 
@@ -856,7 +859,7 @@ struct TradesHistoryView: View {
                 "#\(trade.tradeId)".lowercased(),
                 formatNumber(trade.quantity, decimals: 4).lowercased(),
                 formatNumber(trade.price, decimals: 4).lowercased(),
-                formatNumber(trade.cashDelta, decimals: 2).lowercased()
+                formatNumber(trade.cashDelta, decimals: 2).lowercased(),
             ]
 
             return haystacks.contains { $0.contains(query) }
@@ -874,8 +877,8 @@ struct TradesHistoryView: View {
 
     private var needsResetButton: Bool {
         visibleColumns != TradesHistoryView.defaultVisibleColumns ||
-        selectedFontSize != .medium ||
-        hasCustomColumnFractions
+            selectedFontSize != .medium ||
+            hasCustomColumnFractions
     }
 
     private var hasCustomColumnFractions: Bool {
@@ -1075,12 +1078,12 @@ struct TradesHistoryView: View {
         let total = active.reduce(0) { $0 + max(0, source[$1] ?? 0) }
         if total <= 0 {
             let share = 1.0 / CGFloat(active.count)
-            TradesHistoryView.columnOrder.forEach { column in
+            for column in TradesHistoryView.columnOrder {
                 result[column] = active.contains(column) ? share : 0
             }
             return result
         }
-        TradesHistoryView.columnOrder.forEach { column in
+        for column in TradesHistoryView.columnOrder {
             if active.contains(column) {
                 result[column] = max(0.0001, source[column] ?? 0) / total
             } else {
@@ -1160,9 +1163,9 @@ struct TradesHistoryView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-#if os(macOS)
-                        TradesHistoryView.columnResizeCursor.set()
-#endif
+                        #if os(macOS)
+                            TradesHistoryView.columnResizeCursor.set()
+                        #endif
                         guard availableTableWidth > 0 else { return }
                         if dragContext?.primary != column {
                             beginDrag(for: column)
@@ -1171,9 +1174,9 @@ struct TradesHistoryView: View {
                     }
                     .onEnded { _ in
                         finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
+                        #if os(macOS)
+                            NSCursor.arrow.set()
+                        #endif
                     }
             )
             .overlay(alignment: .leading) {
@@ -1182,7 +1185,7 @@ struct TradesHistoryView: View {
                     .frame(width: 2, height: 22)
             }
             .padding(.vertical, 2)
-#if os(macOS)
+        #if os(macOS)
             .onHover { inside in
                 if inside {
                     TradesHistoryView.columnResizeCursor.set()
@@ -1190,7 +1193,7 @@ struct TradesHistoryView: View {
                     NSCursor.arrow.set()
                 }
             }
-#endif
+        #endif
     }
 
     private func beginDrag(for column: TransactionTableColumn) {
@@ -1458,7 +1461,7 @@ struct TradesHistoryView: View {
     }
 }
 
-fileprivate struct ModernTradeRowView: View {
+private struct ModernTradeRowView: View {
     let trade: DatabaseManager.TradeWithLegs
     let columns: [TransactionTableColumn]
     let fontConfig: TableFontConfig

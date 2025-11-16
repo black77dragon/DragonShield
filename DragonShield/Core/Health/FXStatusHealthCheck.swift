@@ -16,8 +16,8 @@ struct FXStatusHealthCheck: HealthCheck {
 
         guard let last = dbManager.fetchLastFxRateUpdate() else {
             let msg = enabled
-            ? "No FX update recorded yet. Next due: today (\(freq))."
-            : "No FX update recorded and auto-update disabled."
+                ? "No FX update recorded yet. Next due: today (\(freq))."
+                : "No FX update recorded and auto-update disabled."
             return .warning(message: msg)
         }
 
@@ -31,7 +31,8 @@ struct FXStatusHealthCheck: HealthCheck {
         var failedCount: Int? = nil
         var skippedCount: Int? = nil
         if last.status == "PARTIAL", let s = last.errorMessage, let data = s.data(using: .utf8),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        {
             if let arr = obj["failed"] as? [Any] { failedCount = arr.count }
             if let arr = obj["skipped"] as? [Any] { skippedCount = arr.count }
         }

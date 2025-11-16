@@ -1,11 +1,14 @@
 // DragonShield/Views/ThemeUpdateEditorView.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-import AppKit
 
 struct ThemeUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -119,6 +122,7 @@ struct ThemeUpdateEditorView: View {
             }
         }
     }
+
     private func deleteExisting() {
         guard let existing = existing else { return }
         let alert = NSAlert()
@@ -165,14 +169,19 @@ struct ThemeUpdateEditorView: View {
     private func save() {
         if let existing = existing {
             if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
+               let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource)
+            {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 let currentIds = Set(attachments.map { $0.id })
                 let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
                 let added = currentIds.subtracting(initialIds)
                 let removed = initialIds.subtracting(currentIds).union(removedAttachmentIds)
-                for id in added { _ = repo.linkAttachment(updateId: updated.id, attachmentId: id) }
-                for id in removed { _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id) }
+                for id in added {
+                    _ = repo.linkAttachment(updateId: updated.id, attachmentId: id)
+                }
+                for id in removed {
+                    _ = repo.unlinkAttachment(updateId: updated.id, attachmentId: id)
+                }
                 let lrepo = ThemeUpdateLinkRepository(dbManager: dbManager)
                 let currentLinkIds = Set(links.map { $0.id })
                 let initialLinkIds = Set(lrepo.listLinks(updateId: existing.id).map { $0.id })
@@ -194,7 +203,8 @@ struct ThemeUpdateEditorView: View {
             }
         } else {
             if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
+               let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource)
+            {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 for att in attachments {
                     _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
@@ -262,7 +272,8 @@ struct ThemeUpdateEditorView: View {
                         for provider in providers {
                             if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
                                let data = item as? Data,
-                               let url = URL(dataRepresentation: data, relativeTo: nil) {
+                               let url = URL(dataRepresentation: data, relativeTo: nil)
+                            {
                                 urls.append(url)
                             }
                         }
@@ -286,7 +297,7 @@ struct ThemeUpdateEditorView: View {
     private func addLink() {
         let service = LinkService(dbManager: dbManager)
         switch service.validateAndNormalize(newLinkURL) {
-        case .success(let norm):
+        case let .success(norm):
             if links.contains(where: { $0.normalizedURL == norm.normalized }) {
                 linkError = "This link is already attached."
                 return
@@ -297,7 +308,7 @@ struct ThemeUpdateEditorView: View {
                 newLinkURL = ""
                 linkError = nil
             }
-        case .failure(let err):
+        case let .failure(err):
             switch err {
             case .unsupportedScheme: linkError = "Only http/https URLs are supported"
             case .invalidURL: linkError = "Invalid URL"

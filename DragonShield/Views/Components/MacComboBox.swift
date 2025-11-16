@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct MacComboBox: NSViewRepresentable {
     var items: [String]
@@ -62,7 +62,7 @@ struct MacComboBox: NSViewRepresentable {
         }
 
         func setItems(_ items: [String]) {
-            self.allItems = items
+            allItems = items
             filter(with: parent.text)
         }
 
@@ -70,7 +70,7 @@ struct MacComboBox: NSViewRepresentable {
             let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if q.isEmpty {
                 filtered = allItems
-                indexMap = Array(0..<allItems.count)
+                indexMap = Array(0 ..< allItems.count)
             } else {
                 var f: [String] = []
                 var map: [Int] = []
@@ -94,13 +94,15 @@ struct MacComboBox: NSViewRepresentable {
         }
 
         // MARK: - NSComboBoxDataSource
-        func numberOfItems(in comboBox: NSComboBox) -> Int { filtered.count }
-        func comboBox(_ comboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
-            guard index >= 0 && index < filtered.count else { return nil }
+
+        func numberOfItems(in _: NSComboBox) -> Int { filtered.count }
+        func comboBox(_: NSComboBox, objectValueForItemAt index: Int) -> Any? {
+            guard index >= 0, index < filtered.count else { return nil }
             return filtered[index]
         }
 
         // MARK: - Delegate
+
         func controlTextDidChange(_ obj: Notification) {
             guard let tf = obj.object as? NSTextField else { return }
             let value = tf.stringValue
@@ -110,24 +112,24 @@ struct MacComboBox: NSViewRepresentable {
             openPopupSoon()
         }
 
-        func controlTextDidBeginEditing(_ obj: Notification) {
+        func controlTextDidBeginEditing(_: Notification) {
             openPopupSoon()
         }
 
         func comboBoxSelectionDidChange(_ notification: Notification) {
             guard let cb = notification.object as? NSComboBox else { return }
             let idx = cb.indexOfSelectedItem
-            guard idx >= 0 && idx < indexMap.count else { return }
+            guard idx >= 0, idx < indexMap.count else { return }
             let original = indexMap[idx]
             parent.text = filtered[idx]
             parent.onSelectIndex(original)
         }
 
-        func comboBoxWillPopUp(_ notification: Notification) {
+        func comboBoxWillPopUp(_: Notification) {
             popupVisible = true
         }
 
-        func comboBoxWillDismiss(_ notification: Notification) {
+        func comboBoxWillDismiss(_: Notification) {
             popupVisible = false
         }
 

@@ -1,6 +1,6 @@
+import Combine
 import Foundation
 import SwiftUI
-import Combine
 
 let KanbanSnapshotConfigurationKey = "ios_snapshot_todos_json"
 
@@ -189,7 +189,8 @@ struct KanbanTodo: Identifiable, Codable, Equatable {
          sortOrder: Double,
          createdAt: Date = Date(),
          isCompleted: Bool = false,
-         repeatFrequency: KanbanRepeatFrequency? = nil) {
+         repeatFrequency: KanbanRepeatFrequency? = nil)
+    {
         self.id = id
         self.description = description
         self.priority = priority
@@ -255,7 +256,7 @@ final class KanbanBoardViewModel: ObservableObject {
     static let didUpdateNotification = Notification.Name("KanbanBoardViewModelDidUpdate")
 
     init(userDefaults: UserDefaults = .standard) {
-        self.storage = userDefaults
+        storage = userDefaults
         NotificationCenter.default.publisher(for: Self.didUpdateNotification)
             .sink { [weak self] note in
                 guard let self else { return }
@@ -294,7 +295,8 @@ final class KanbanBoardViewModel: ObservableObject {
                 column: KanbanColumn,
                 tagIDs: [Int],
                 isCompleted: Bool,
-                repeatFrequency: KanbanRepeatFrequency?) {
+                repeatFrequency: KanbanRepeatFrequency?)
+    {
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let nextOrder = (todos.filter { $0.column == column }.map(\.sortOrder).max() ?? -1) + 1
@@ -323,7 +325,8 @@ final class KanbanBoardViewModel: ObservableObject {
                 column: KanbanColumn,
                 tagIDs: [Int],
                 isCompleted: Bool,
-                repeatFrequency: KanbanRepeatFrequency?) {
+                repeatFrequency: KanbanRepeatFrequency?)
+    {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

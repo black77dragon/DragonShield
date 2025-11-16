@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class PortfolioThemeTests: XCTestCase {
     func testCodeValidation() {

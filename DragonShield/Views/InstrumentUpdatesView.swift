@@ -1,6 +1,9 @@
 // DragonShield/Views/InstrumentUpdatesView.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0: Initial instrument updates list for Step 7A.
 // - 1.0 -> 1.1: Support Markdown rendering, pinning, and ordering toggle for Phase 7B.
 
@@ -123,11 +126,11 @@ struct InstrumentUpdatesView: View {
                         }
                     }
                 }
-                    .disabled(selectedUpdate == nil)
+                .disabled(selectedUpdate == nil)
                 Button("Delete") {
                     showDeleteConfirm = true
                 }
-                    .disabled(selectedUpdate == nil)
+                .disabled(selectedUpdate == nil)
                 Spacer()
             }
             .padding(16)
@@ -142,14 +145,14 @@ struct InstrumentUpdatesView: View {
                 showEditor = false
                 load()
             }, onCancel: { showEditor = false })
-            .environmentObject(dbManager)
+                .environmentObject(dbManager)
         }
         .sheet(item: $editingUpdate) { upd in
             InstrumentUpdateEditorView(themeId: themeId, instrumentId: instrumentId, instrumentName: instrumentName, themeName: themeName, existing: upd, valuation: valuation, onSave: { _ in
                 editingUpdate = nil
                 load()
             }, onCancel: { editingUpdate = nil })
-            .environmentObject(dbManager)
+                .environmentObject(dbManager)
         }
         .onDisappear { onClose() }
     }

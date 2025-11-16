@@ -1,5 +1,5 @@
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     private func tableExists(_ name: String) -> Bool {
@@ -51,6 +51,7 @@ extension DatabaseManager {
         }
         return nil
     }
+
     func ensureAttachmentTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS Attachment (

@@ -327,8 +327,8 @@ struct InstrumentDashboardWindowView: View {
         let reports = dbManager.fetchPositionReports()
         let filtered = reports.filter { $0.instrumentId == instrumentId }
         guard !filtered.isEmpty else {
-            self.accountHoldings = []
-            self.totalValueCHF = 0
+            accountHoldings = []
+            totalValueCHF = 0
             return
         }
         // Determine price and currency
@@ -356,8 +356,8 @@ struct InstrumentDashboardWindowView: View {
             byAccount[key] = (prev.qty + qty, prev.valueCHF + value, p.accountName)
         }
         let rows = byAccount.values.map { AccountHolding(accountName: $0.acc, institutionName: "", quantity: $0.qty, valueCHF: $0.valueCHF) }
-        self.accountHoldings = rows.sorted { $0.valueCHF > $1.valueCHF }
-        self.totalValueCHF = rows.reduce(0) { $0 + $1.valueCHF }
+        accountHoldings = rows.sorted { $0.valueCHF > $1.valueCHF }
+        totalValueCHF = rows.reduce(0) { $0 + $1.valueCHF }
     }
 
     private func computeActualChfPerTheme() {

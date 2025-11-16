@@ -1,6 +1,6 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-import AppKit
 
 struct DataImportExportView: View {
     enum StatementType: Int, Identifiable {
@@ -131,7 +131,7 @@ struct DataImportExportView: View {
                 .foregroundColor(Theme.primaryAccent)
             Text("Upload bank or custody statements (CSV, XLSX, PDF)")
                 .font(.system(size: 14))
-                .foregroundColor(Color(red: 74/255, green: 74/255, blue: 74/255))
+                .foregroundColor(Color(red: 74 / 255, green: 74 / 255, blue: 74 / 255))
         }
     }
 
@@ -233,12 +233,12 @@ struct DataImportExportView: View {
                 DispatchQueue.main.async {
                     let stamp = Self.logDateFormatter.string(from: Date())
                     switch result {
-                    case .success(let summary):
+                    case let .success(summary):
                         let errors = summary.totalRows - summary.parsedRows
                         self.statusMessage = "Status: \u{2705} \(typeName(type)) import succeeded: \(summary.parsedRows) records parsed, \(errors) errors"
                         self.appendLog("[\(stamp)] \(url.lastPathComponent) → Success: \(summary.parsedRows) records, \(errors) errors")
                         self.loadCryptoAssets(force: true)
-                    case .failure(let error):
+                    case let .failure(error):
                         self.statusMessage = "Status: \u{274C} \(typeName(type)) import failed: \(error.localizedDescription)"
                         self.appendLog("[\(stamp)] \(url.lastPathComponent) → Failed: \(error.localizedDescription)")
                     }
@@ -269,13 +269,13 @@ struct DataImportExportView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Statement Loading Log")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Color(red: 51/255, green: 51/255, blue: 51/255))
+                .foregroundColor(Color(red: 51 / 255, green: 51 / 255, blue: 51 / 255))
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(Array(logMessages.enumerated()), id: \.offset) { _, entry in
                         Text(entry)
                             .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(Color(red: 34/255, green: 34/255, blue: 34/255))
+                            .foregroundColor(Color(red: 34 / 255, green: 34 / 255, blue: 34 / 255))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -405,7 +405,7 @@ struct DataImportExportView: View {
 
     private func loadCryptoAssets(force: Bool = false) {
         if cryptoLoading { return }
-        if !cryptoHoldings.isEmpty && !force { return }
+        if !cryptoHoldings.isEmpty, !force { return }
         cryptoLoading = true
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -415,7 +415,7 @@ struct DataImportExportView: View {
 
             for position in positions {
                 let isCrypto = (position.assetSubClass ?? "").localizedCaseInsensitiveContains("crypto") ||
-                               (position.assetClass ?? "").localizedCaseInsensitiveContains("crypto")
+                    (position.assetClass ?? "").localizedCaseInsensitiveContains("crypto")
                 guard isCrypto, let instrumentId = position.instrumentId else { continue }
                 guard let priceInfo = dbManager.getLatestPrice(instrumentId: instrumentId) else { continue }
 

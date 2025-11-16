@@ -1,6 +1,6 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 private enum PositionTableColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
@@ -97,17 +97,17 @@ struct PositionsView: View {
         .instrument, .account, .institution, .currency, .quantity,
         .purchaseValue, .currentValue, .valueOriginal, .valueChf,
         .reportDate, .uploadedAt, .assetClass, .assetSubClass,
-        .sector, .country, .importSession, .notes
+        .sector, .country, .importSession, .notes,
     ]
 
     private static let defaultVisibleColumns: Set<PositionTableColumn> = [
         .instrument, .account, .institution, .currency, .quantity,
-        .valueOriginal, .valueChf, .reportDate
+        .valueOriginal, .valueChf, .reportDate,
     ]
 
     private static let requiredColumns: Set<PositionTableColumn> = [.instrument]
     private static let visibleColumnsKey = "PositionsView.visibleColumns.v1"
-    private static let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private static let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
     private static let columnHandleWidth: CGFloat = 10
     private static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
@@ -129,7 +129,7 @@ struct PositionsView: View {
         .sector: 160,
         .country: 120,
         .importSession: 120,
-        .notes: 90
+        .notes: 90,
     ]
 
     private static let minimumColumnWidths: [PositionTableColumn: CGFloat] = [
@@ -149,72 +149,72 @@ struct PositionsView: View {
         .sector: 140,
         .country: 100,
         .importSession: 110,
-        .notes: 70
+        .notes: 70,
     ]
 
     #if os(macOS)
-    private static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
+        private static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
     #endif
 
     private static let tableConfiguration: MaintenanceTableConfiguration<PositionTableColumn> = {
-#if os(macOS)
-        MaintenanceTableConfiguration(
-            preferenceKind: .positions,
-            columnOrder: columnOrder,
-            defaultVisibleColumns: defaultVisibleColumns,
-            requiredColumns: requiredColumns,
-            defaultColumnWidths: defaultColumnWidths,
-            minimumColumnWidths: minimumColumnWidths,
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: columnHandleWidth,
-            columnHandleHitSlop: columnHandleHitSlop,
-            columnTextInset: columnTextInset,
-            headerBackground: headerBackground,
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            },
-            columnResizeCursor: columnResizeCursor
-        )
-#else
-        MaintenanceTableConfiguration(
-            preferenceKind: .positions,
-            columnOrder: columnOrder,
-            defaultVisibleColumns: defaultVisibleColumns,
-            requiredColumns: requiredColumns,
-            defaultColumnWidths: defaultColumnWidths,
-            minimumColumnWidths: minimumColumnWidths,
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: columnHandleWidth,
-            columnHandleHitSlop: columnHandleHitSlop,
-            columnTextInset: columnTextInset,
-            headerBackground: headerBackground,
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            }
-        )
-#endif
+        #if os(macOS)
+            MaintenanceTableConfiguration(
+                preferenceKind: .positions,
+                columnOrder: columnOrder,
+                defaultVisibleColumns: defaultVisibleColumns,
+                requiredColumns: requiredColumns,
+                defaultColumnWidths: defaultColumnWidths,
+                minimumColumnWidths: minimumColumnWidths,
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: columnHandleWidth,
+                columnHandleHitSlop: columnHandleHitSlop,
+                columnTextInset: columnTextInset,
+                headerBackground: headerBackground,
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                },
+                columnResizeCursor: columnResizeCursor
+            )
+        #else
+            MaintenanceTableConfiguration(
+                preferenceKind: .positions,
+                columnOrder: columnOrder,
+                defaultVisibleColumns: defaultVisibleColumns,
+                requiredColumns: requiredColumns,
+                defaultColumnWidths: defaultColumnWidths,
+                minimumColumnWidths: minimumColumnWidths,
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: columnHandleWidth,
+                columnHandleHitSlop: columnHandleHitSlop,
+                columnTextInset: columnTextInset,
+                headerBackground: headerBackground,
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                }
+            )
+        #endif
     }()
 
     private var visibleColumns: Set<PositionTableColumn> { tableModel.visibleColumns }
@@ -307,9 +307,9 @@ struct PositionsView: View {
 
     private var isFiltering: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-        !currencyFilters.isEmpty ||
-        !institutionFilters.isEmpty ||
-        !assetClassFilters.isEmpty
+            !currencyFilters.isEmpty ||
+            !institutionFilters.isEmpty ||
+            !assetClassFilters.isEmpty
     }
 
     var body: some View {
@@ -318,7 +318,7 @@ struct PositionsView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -358,13 +358,14 @@ struct PositionsView: View {
             .environmentObject(dbManager)
         }
         .alert("Delete Position", isPresented: $showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 confirmDeleteSelected()
             }
         } message: {
             if let selectedId = selectedPositionId,
-               let position = positions.first(where: { $0.id == selectedId }) {
+               let position = positions.first(where: { $0.id == selectedId })
+            {
                 Text("Are you sure you want to delete '\(position.instrumentName)' from account '\(position.accountName)'?")
             } else {
                 Text("Select a position before deleting.")
@@ -677,7 +678,8 @@ struct PositionsView: View {
             Spacer()
 
             if let selected = selectedPositionId,
-               let position = positions.first(where: { $0.id == selected }) {
+               let position = positions.first(where: { $0.id == selected })
+            {
                 Text("Selected: \(position.instrumentName) — \(position.accountName)")
                     .font(.footnote)
                     .foregroundColor(.gray)

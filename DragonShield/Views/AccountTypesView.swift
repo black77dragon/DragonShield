@@ -1,6 +1,6 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 private enum AccountTypeColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
@@ -61,72 +61,72 @@ struct AccountTypesView: View {
     }
 
     private static let tableConfiguration: MaintenanceTableConfiguration<AccountTypeColumn> = {
-#if os(macOS)
-        MaintenanceTableConfiguration(
-            preferenceKind: .accountTypes,
-            columnOrder: AccountTypeColumn.allCases,
-            defaultVisibleColumns: Set(AccountTypeColumn.allCases),
-            requiredColumns: [.name, .code],
-            defaultColumnWidths: [
-                .name: 240,
-                .code: 140,
-                .description: 360,
-                .isActive: 120
-            ],
-            minimumColumnWidths: [
-                .name: 200,
-                .code: 110,
-                .description: 260,
-                .isActive: 90
-            ],
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.indigo.opacity(0.08),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            },
-            columnResizeCursor: nil
-        )
-#else
-        MaintenanceTableConfiguration(
-            preferenceKind: .accountTypes,
-            columnOrder: AccountTypeColumn.allCases,
-            defaultVisibleColumns: Set(AccountTypeColumn.allCases),
-            requiredColumns: [.name, .code],
-            defaultColumnWidths: [
-                .name: 240,
-                .code: 140,
-                .description: 360,
-                .isActive: 120
-            ],
-            minimumColumnWidths: [
-                .name: 200,
-                .code: 110,
-                .description: 260,
-                .isActive: 90
-            ],
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.indigo.opacity(0.08),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            }
-        )
-#endif
+        #if os(macOS)
+            MaintenanceTableConfiguration(
+                preferenceKind: .accountTypes,
+                columnOrder: AccountTypeColumn.allCases,
+                defaultVisibleColumns: Set(AccountTypeColumn.allCases),
+                requiredColumns: [.name, .code],
+                defaultColumnWidths: [
+                    .name: 240,
+                    .code: 140,
+                    .description: 360,
+                    .isActive: 120,
+                ],
+                minimumColumnWidths: [
+                    .name: 200,
+                    .code: 110,
+                    .description: 260,
+                    .isActive: 90,
+                ],
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.indigo.opacity(0.08),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                },
+                columnResizeCursor: nil
+            )
+        #else
+            MaintenanceTableConfiguration(
+                preferenceKind: .accountTypes,
+                columnOrder: AccountTypeColumn.allCases,
+                defaultVisibleColumns: Set(AccountTypeColumn.allCases),
+                requiredColumns: [.name, .code],
+                defaultColumnWidths: [
+                    .name: 240,
+                    .code: 140,
+                    .description: 360,
+                    .isActive: 120,
+                ],
+                minimumColumnWidths: [
+                    .name: 200,
+                    .code: 110,
+                    .description: 260,
+                    .isActive: 90,
+                ],
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.indigo.opacity(0.08),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                }
+            )
+        #endif
     }()
 
     private var selectedFontSize: MaintenanceTableFontSize { tableModel.selectedFontSize }
@@ -150,8 +150,8 @@ struct AccountTypesView: View {
             let query = trimmedQuery.lowercased()
             result = result.filter { type in
                 type.name.lowercased().contains(query) ||
-                type.code.lowercased().contains(query) ||
-                type.description.lowercased().contains(query)
+                    type.code.lowercased().contains(query) ||
+                    type.description.lowercased().contains(query)
             }
         }
 
@@ -188,7 +188,7 @@ struct AccountTypesView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -692,16 +692,16 @@ struct AccountTypesView: View {
     private func confirmDelete(_ type: AccountTypeItem) {
         let result = dbManager.canDeleteAccountType(id: type.id)
         guard result.canDelete else {
-#if os(macOS)
-            let alert = NSAlert()
-            alert.messageText = "Cannot Delete Account Type"
-            alert.informativeText = result.message
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-#else
-            print("⚠️ Cannot delete account type: \(result.message)")
-#endif
+            #if os(macOS)
+                let alert = NSAlert()
+                alert.messageText = "Cannot Delete Account Type"
+                alert.informativeText = result.message
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            #else
+                print("⚠️ Cannot delete account type: \(result.message)")
+            #endif
             typeToDelete = nil
             return
         }
@@ -761,20 +761,20 @@ private struct AccountTypeRowView: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .onTapGesture(count: 2) { onEdit() }
-#if os(macOS)
-        .contextMenu {
-            Button("Edit Type", action: onEdit)
-            Button("Select Type", action: onTap)
-            Divider()
-            Button("Copy Name") {
-                NSPasteboard.general.setString(type.name, forType: .string)
+        #if os(macOS)
+            .contextMenu {
+                Button("Edit Type", action: onEdit)
+                Button("Select Type", action: onTap)
+                Divider()
+                Button("Copy Name") {
+                    NSPasteboard.general.setString(type.name, forType: .string)
+                }
+                Button("Copy Code") {
+                    NSPasteboard.general.setString(type.code, forType: .string)
+                }
             }
-            Button("Copy Code") {
-                NSPasteboard.general.setString(type.code, forType: .string)
-            }
-        }
-#endif
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        #endif
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 
     @ViewBuilder
@@ -872,11 +872,11 @@ private struct AccountTypesParticleBackground: View {
     }
 
     private func createParticles() {
-        particles = (0..<15).map { _ in
+        particles = (0 ..< 15).map { _ in
             AccountTypeParticle(
-                position: CGPoint(x: CGFloat.random(in: 0...1200), y: CGFloat.random(in: 0...800)),
-                size: CGFloat.random(in: 2...8),
-                opacity: Double.random(in: 0.1...0.2)
+                position: CGPoint(x: CGFloat.random(in: 0 ... 1200), y: CGFloat.random(in: 0 ... 800)),
+                size: CGFloat.random(in: 2 ... 8),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
@@ -885,7 +885,7 @@ private struct AccountTypesParticleBackground: View {
         withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }

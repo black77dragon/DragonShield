@@ -1,5 +1,5 @@
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     func ensureLinkTable() {

@@ -30,7 +30,7 @@ struct AddPortfolioThemeView: View {
                 Section {
                     TextField("Name*", text: $name)
                     TextField("Code*", text: $code)
-                    
+
                     Picker("Status", selection: $statusId) {
                         ForEach(statuses) { status in
                             Text(status.name).tag(status.id)
@@ -68,10 +68,10 @@ struct AddPortfolioThemeView: View {
     }
 
     private func loadInitialData() {
-        self.statuses = dbManager.fetchPortfolioThemeStatuses()
+        statuses = dbManager.fetchPortfolioThemeStatuses()
         // Default to the first status if available
-        if let firstStatus = self.statuses.first {
-            self.statusId = firstStatus.id
+        if let firstStatus = statuses.first {
+            statusId = firstStatus.id
         }
     }
 
@@ -80,11 +80,11 @@ struct AddPortfolioThemeView: View {
 
         // The create method returns an optional PortfolioTheme, so we check for nil
         let newTheme = dbManager.createPortfolioTheme(
-            name: self.name,
-            code: self.code,
+            name: name,
+            code: code,
             description: nil,
             institutionId: nil,
-            statusId: self.statusId
+            statusId: statusId
         )
 
         if newTheme != nil {

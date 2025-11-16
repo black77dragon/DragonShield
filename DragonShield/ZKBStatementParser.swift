@@ -17,27 +17,27 @@ struct ZKBStatementParser {
         let lines = content.split(whereSeparator: { $0.isNewline })
         guard let header = lines.first else {
             return (PositionImportSummary(totalRows: 0,
-                                           parsedRows: 0,
-                                           cashAccounts: 0,
-                                           securityRecords: 0,
-                                           unmatchedInstruments: 0,
-                                           percentValuationRecords: 0), [])
+                                          parsedRows: 0,
+                                          cashAccounts: 0,
+                                          securityRecords: 0,
+                                          unmatchedInstruments: 0,
+                                          percentValuationRecords: 0), [])
         }
         let headers = header.replacing("\u{FEFF}", with: "").split(separator: ";").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
         var headerMap: [String: Int] = [:]
         var secondMarktkursIndex: Int?
         for (idx, name) in headers.enumerated() {
-            if headerMap[name] == nil { headerMap[name] = idx } else if name == "Marktkurs" && secondMarktkursIndex == nil {
+            if headerMap[name] == nil { headerMap[name] = idx } else if name == "Marktkurs", secondMarktkursIndex == nil {
                 secondMarktkursIndex = idx
             }
         }
         let marktkursUnitIdx = secondMarktkursIndex ?? ((headerMap["Marktkurs"] ?? 0) + 1)
         var summary = PositionImportSummary(totalRows: lines.count - 1,
-                                             parsedRows: 0,
-                                             cashAccounts: 0,
-                                             securityRecords: 0,
-                                             unmatchedInstruments: 0,
-                                             percentValuationRecords: 0)
+                                            parsedRows: 0,
+                                            cashAccounts: 0,
+                                            securityRecords: 0,
+                                            unmatchedInstruments: 0,
+                                            percentValuationRecords: 0)
         var records: [ParsedPositionRecord] = []
         for line in lines.dropFirst() {
             let cells = line.split(separator: ";", omittingEmptySubsequences: false).map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
@@ -92,7 +92,7 @@ struct ZKBStatementParser {
         let map: [String: Int] = [
             "Liquide Mittel": 1,
             "Obligationen und Ähnliches": 8,
-            "Aktien und Ähnliches": 3
+            "Aktien und Ähnliches": 3,
         ]
         return map[category]
     }
@@ -112,7 +112,7 @@ struct ZKBStatementParser {
         let monthStr = String(filename[Range(match.range(at: 1), in: filename)!])
         let day = Int(filename[Range(match.range(at: 2), in: filename)!]) ?? 1
         let year = Int(filename[Range(match.range(at: 3), in: filename)!]) ?? 1970
-        let months = ["Jan":1,"Feb":2,"Mar":3,"Apr":4,"May":5,"Jun":6,"Jul":7,"Aug":8,"Sep":9,"Oct":10,"Nov":11,"Dec":12]
+        let months = ["Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12]
         guard let month = months[String(monthStr.prefix(3)).capitalized] else { return nil }
         var comps = DateComponents()
         comps.year = year

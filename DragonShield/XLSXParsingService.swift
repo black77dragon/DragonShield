@@ -1,6 +1,9 @@
 // DragonShield/XLSXParsingService.swift
+
 // MARK: - Version 1.0.4.0
+
 // MARK: - History
+
 // - 1.0.0.2 -> 1.0.1.0: Initial XLSX parsing implementation replacing CSV logic.
 // - 1.0.1.0 -> 1.0.1.1: Remove ZIPFoundation dependency and extract files via `unzip` command.
 // - 1.0.1.1 -> 1.0.1.2: Provide descriptive parsing errors.
@@ -16,7 +19,7 @@ enum XLSXParsingError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .extractionFailed(let path):
+        case let .extractionFailed(path):
             return "Failed to extract entry '\(path)' from XLSX archive."
         }
     }
@@ -73,11 +76,12 @@ struct XLSXParsingService {
 private final class SharedStringsParser: NSObject, XMLParserDelegate {
     var strings: [String] = []
     private var current = ""
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+    func parser(_: XMLParser, didStartElement elementName: String, namespaceURI _: String?, qualifiedName _: String?, attributes _: [String: String] = [:]) {
         if elementName == "t" { current = "" }
     }
-    func parser(_ parser: XMLParser, foundCharacters string: String) { current += string }
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+
+    func parser(_: XMLParser, foundCharacters string: String) { current += string }
+    func parser(_: XMLParser, didEndElement elementName: String, namespaceURI _: String?, qualifiedName _: String?) {
         if elementName == "t" { strings.append(current) }
     }
 }
@@ -99,7 +103,7 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
         self.headerRow = headerRow
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+    func parser(_: XMLParser, didStartElement elementName: String, namespaceURI _: String?, qualifiedName _: String?, attributes attributeDict: [String: String] = [:]) {
         switch elementName {
         case "row":
             rowIndex += 1
@@ -113,11 +117,11 @@ private final class WorksheetParser: NSObject, XMLParserDelegate {
         }
     }
 
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
+    func parser(_: XMLParser, foundCharacters string: String) {
         if capturing { value += string }
     }
 
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+    func parser(_: XMLParser, didEndElement elementName: String, namespaceURI _: String?, qualifiedName _: String?) {
         switch elementName {
         case "v":
             capturing = false
@@ -168,7 +172,7 @@ private final class SingleCellParser: NSObject, XMLParserDelegate {
         self.sharedStrings = sharedStrings
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+    func parser(_: XMLParser, didStartElement elementName: String, namespaceURI _: String?, qualifiedName _: String?, attributes attributeDict: [String: String] = [:]) {
         switch elementName {
         case "c":
             currentCell = attributeDict["r"]
@@ -179,12 +183,12 @@ private final class SingleCellParser: NSObject, XMLParserDelegate {
         }
     }
 
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
+    func parser(_: XMLParser, foundCharacters string: String) {
         if capturing { buffer += string }
     }
 
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        if elementName == "v" && capturing {
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI _: String?, qualifiedName _: String?) {
+        if elementName == "v", capturing {
             capturing = false
             var val = buffer
             if cellType == "s", let idx = Int(val), idx < sharedStrings.count {

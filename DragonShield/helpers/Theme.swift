@@ -1,13 +1,13 @@
 import SwiftUI
 
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 enum Theme {
-    static let primaryAccent = Color(red: 26/255, green: 115/255, blue: 232/255)
+    static let primaryAccent = Color(red: 26 / 255, green: 115 / 255, blue: 232 / 255)
 
     /// Neutral surface used by dashboard tiles and cards. Adapts to the active color scheme.
     static var surface: Color { tileBackground }
@@ -15,27 +15,27 @@ enum Theme {
     static var textPrimary: Color { .primary }
 
     static var tileBackground: Color {
-#if os(macOS)
-        Color(nsColor: .controlBackgroundColor)
-#else
-        Color(uiColor: .secondarySystemBackground)
-#endif
+        #if os(macOS)
+            Color(nsColor: .controlBackgroundColor)
+        #else
+            Color(uiColor: .secondarySystemBackground)
+        #endif
     }
 
     static var tileBorder: Color {
-#if os(macOS)
-        Color(nsColor: .separatorColor).opacity(0.35)
-#else
-        Color(uiColor: .separator).opacity(0.35)
-#endif
+        #if os(macOS)
+            Color(nsColor: .separatorColor).opacity(0.35)
+        #else
+            Color(uiColor: .separator).opacity(0.35)
+        #endif
     }
 
     static var tileShadow: Color {
-#if os(macOS)
-        Color.black.opacity(0.25)
-#else
-        Color.black.opacity(0.2)
-#endif
+        #if os(macOS)
+            Color.black.opacity(0.25)
+        #else
+            Color.black.opacity(0.2)
+        #endif
     }
 }
 
@@ -57,14 +57,14 @@ extension Theme {
         .realAssets: Color(red: 0.74, green: 0.69, blue: 0.85),
         .alternatives: Color(red: 0.86, green: 0.67, blue: 0.65),
         .derivatives: Color(red: 0.67, green: 0.82, blue: 0.86),
-        .other: Color(red: 0.78, green: 0.80, blue: 0.83)
+        .other: Color(red: 0.78, green: 0.80, blue: 0.83),
     ]
 
     static let currencyColors: [String: Color] = [
         "CHF": Color(red: 0.55, green: 0.66, blue: 0.83),
         "USD": Color(red: 0.57, green: 0.75, blue: 0.66),
         "EUR": Color(red: 0.67, green: 0.61, blue: 0.84),
-        "BTC": Color(red: 0.90, green: 0.74, blue: 0.57)
+        "BTC": Color(red: 0.90, green: 0.74, blue: 0.57),
     ]
 }
 

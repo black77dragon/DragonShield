@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class AttachmentServiceTests: XCTestCase {
     var manager: DatabaseManager!
@@ -33,8 +33,8 @@ final class AttachmentServiceTests: XCTestCase {
         let file = tempDir.appendingPathComponent("note.txt")
         try "hello".data(using: .utf8)?.write(to: file)
         switch service.validate(fileURL: file) {
-        case .failure(let err): XCTFail("validate failed: \(err)")
-        case .success(let valid):
+        case let .failure(err): XCTFail("validate failed: \(err)")
+        case let .success(valid):
             XCTAssertEqual(valid.byteSize, 5)
         }
         let att = service.ingest(fileURL: file, actor: "tester")
@@ -62,7 +62,7 @@ final class AttachmentServiceTests: XCTestCase {
 
     func testQuickLookPdf() throws {
         let file = tempDir.appendingPathComponent("doc.pdf")
-        let pdfBytes: [UInt8] = [0x25,0x50,0x44,0x46,0x2D,0x31,0x2E,0x34,0x0A,0x25,0x45,0x4F,0x46]
+        let pdfBytes: [UInt8] = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25, 0x45, 0x4F, 0x46]
         try Data(pdfBytes).write(to: file)
         let att = service.ingest(fileURL: file, actor: "tester")
         XCTAssertNotNil(att)
@@ -137,4 +137,3 @@ final class AttachmentServiceTests: XCTestCase {
         XCTAssertEqual(c2, 1)
     }
 }
-

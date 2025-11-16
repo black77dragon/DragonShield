@@ -1,5 +1,5 @@
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     struct FxRateUpdateLog: Identifiable {
@@ -16,12 +16,13 @@ extension DatabaseManager {
 
     @discardableResult
     func recordFxRateUpdate(updateDate: Date,
-                             apiProvider: String,
-                             currenciesUpdated: [String],
-                             status: String,
-                             errorMessage: String?,
-                             ratesCount: Int,
-                             executionTimeMs: Int?) -> Bool {
+                            apiProvider: String,
+                            currenciesUpdated: [String],
+                            status: String,
+                            errorMessage: String?,
+                            ratesCount: Int,
+                            executionTimeMs: Int?) -> Bool
+    {
         let sql = """
             INSERT INTO FxRateUpdates (update_date, api_provider, currencies_updated, status, error_message, rates_count, execution_time_ms)
             VALUES (?, ?, ?, ?, ?, ?, ?);

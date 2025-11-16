@@ -1,11 +1,14 @@
 // DragonShield/Utils/UserDefaultsKeys.swift
+
 // MARK: - Version 1.0 (2025-05-31)
+
 // MARK: - History
+
 // - Initial creation: Defines keys for UserDefaults.
 
 import Foundation
 
-struct UserDefaultsKeys {
+enum UserDefaultsKeys {
     static let enableParsingCheckpoints = "enableParsingCheckpoints"
     static let automaticBackupsEnabled = "automaticBackupsEnabled"
     static let automaticBackupTime = "automaticBackupTime"
@@ -34,8 +37,10 @@ struct UserDefaultsKeys {
     static let dashboardShowIncomingDeadlinesEveryVisit = "dashboardShowIncomingDeadlinesEveryVisit"
     /// Tracks whether the incoming deadline popup has been shown during the current launch.
     static let dashboardIncomingPopupShownThisLaunch = "dashboardIncomingPopupShownThisLaunch"
-    /// Column widths for Instrument Prices Maintenance table (csv: col:width,...)
-    static let pricesMaintenanceColWidths = "pricesMaintenanceColWidths"
+    /// Column widths for Price Updates table (csv: col:width,...)
+    static let priceUpdatesColWidths = "priceUpdatesColWidths"
+    /// Column widths for the simplified Price Maintenance table.
+    static let pricesMaintenanceSimplifiedColWidths = "pricesMaintenanceSimplifiedColWidths"
     /// Persist Kanban board to-do items (JSON encoded).
     static let kanbanTodos = "kanbanTodos"
     /// Tracks migrations applied to the Dashboard tile layout.

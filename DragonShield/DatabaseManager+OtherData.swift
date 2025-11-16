@@ -1,12 +1,15 @@
 // DragonShield/DatabaseManager+OtherData.swift
+
 // MARK: - Version 1.2 (2025-06-15)
+
 // MARK: - History
+
 // - 1.1 -> 1.2: Position reports now fetched via DatabaseManager+PositionReports.
 // - 1.0 -> 1.1: Added PositionData struct and sample data in fetchPositions().
 // - Initial creation: Refactored from DatabaseManager.swift (placeholder methods).
 
-import SQLite3 // Though not strictly needed for current placeholders, good for consistency
 import Foundation
+import SQLite3 // Though not strictly needed for current placeholders, good for consistency
 
 // Data structure representing a position entry
 struct PositionData: Identifiable {
@@ -21,7 +24,6 @@ struct PositionData: Identifiable {
 }
 
 extension DatabaseManager {
-
     // Placeholder, to be implemented
     func fetchPositions() -> [PositionData] {
         print("ℹ️ fetchPositions() called - returning sample data.")
@@ -29,15 +31,14 @@ extension DatabaseManager {
         return [
             PositionData(id: 1, portfolioName: "Main", accountName: "Sample Account", instrumentName: "Apple Inc.", quantity: 10, valueChf: 2500.0, uploadedAt: formatter.date(from: "2025-06-01T10:00:00Z")!, reportDate: formatter.date(from: "2025-05-31T00:00:00Z")!),
             PositionData(id: 2, portfolioName: "Main", accountName: "Sample Account", instrumentName: "iShares MSCI World ETF", quantity: 20, valueChf: 1500.0, uploadedAt: formatter.date(from: "2025-06-01T10:00:00Z")!, reportDate: formatter.date(from: "2025-05-31T00:00:00Z")!),
-            PositionData(id: 3, portfolioName: "Crypto", accountName: "Ledger", instrumentName: "Bitcoin", quantity: 0.5, valueChf: 14000.0, uploadedAt: formatter.date(from: "2025-06-02T11:00:00Z")!, reportDate: formatter.date(from: "2025-06-01T00:00:00Z")!)
+            PositionData(id: 3, portfolioName: "Crypto", accountName: "Ledger", instrumentName: "Bitcoin", quantity: 0.5, valueChf: 14000.0, uploadedAt: formatter.date(from: "2025-06-02T11:00:00Z")!, reportDate: formatter.date(from: "2025-06-01T00:00:00Z")!),
         ]
     }
-    
+
     // Placeholder, to be implemented
     func fetchLatestExchangeRates() -> [(currency: String, rate: Double, date: String)] {
         print("⚠️ fetchLatestExchangeRates() - Not yet implemented")
         // If this method used the DateFormatter.iso8601Date, the extension would live here or be accessible.
         return []
     }
-    
 }

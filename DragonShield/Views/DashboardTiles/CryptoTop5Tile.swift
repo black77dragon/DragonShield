@@ -105,7 +105,7 @@ struct CryptoTop5Tile: DashboardTile {
             Capsule()
                 .fill(
                     LinearGradient(
-                        gradient: Gradient(colors: [Color(red: 59/255, green: 130/255, blue: 246/255), Color(red: 6/255, green: 182/255, blue: 212/255)]),
+                        gradient: Gradient(colors: [Color(red: 59 / 255, green: 130 / 255, blue: 246 / 255), Color(red: 6 / 255, green: 182 / 255, blue: 212 / 255)]),
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -126,7 +126,7 @@ struct CryptoTop5Tile: DashboardTile {
                 guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
                 let price = lp.price
                 guard (p.assetSubClass ?? "").lowercased().contains("crypto") ||
-                      (p.assetClass ?? "").lowercased().contains("crypto") else { continue }
+                    (p.assetClass ?? "").lowercased().contains("crypto") else { continue }
                 var value = p.quantity * price
                 let currency = p.instrumentCurrency.uppercased()
                 if currency != "CHF" {

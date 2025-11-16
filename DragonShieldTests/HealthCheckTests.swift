@@ -1,5 +1,5 @@
-import XCTest
 @testable import DragonShield
+import XCTest
 
 final class HealthCheckTests: XCTestCase {
     struct OkCheck: HealthCheck {
@@ -95,4 +95,3 @@ final class HealthCheckTests: XCTestCase {
         if case .ok = result { } else { XCTFail("expected ok") }
     }
 }
-

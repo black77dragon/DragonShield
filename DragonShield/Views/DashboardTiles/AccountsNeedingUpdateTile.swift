@@ -87,7 +87,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
             get: { refreshError != nil },
             set: { if !$0 { refreshError = nil } }
         )) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: {
             Text(refreshError ?? "")
         }
@@ -196,7 +196,7 @@ struct AccountsNeedingUpdateTile: DashboardTile {
                     showCheckmark = false
                 }
                 viewModel.loadStaleAccounts(db: dbManager)
-            case .failure(let err):
+            case let .failure(err):
                 refreshError = err.localizedDescription
             }
         }

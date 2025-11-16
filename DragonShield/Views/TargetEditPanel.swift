@@ -1,6 +1,6 @@
-import SwiftUI
-import OSLog
 import Foundation
+import OSLog
+import SwiftUI
 
 extension Notification.Name {
     static let targetsUpdated = Notification.Name("targetsUpdated")
@@ -66,6 +66,7 @@ struct TargetEditPanel: View {
     private var sumChildAmount: Double {
         rows.map(\.amount).reduce(0, +)
     }
+
     var body: some View {
         VStack(spacing: 0) {
             headerSection
@@ -393,12 +394,16 @@ struct TargetEditPanel: View {
         guard !unlocked.isEmpty else { return }
         let share = remaining / Double(unlocked.count)
         if kind == .percent {
-            for idx in unlocked { rows[idx].percent += share }
+            for idx in unlocked {
+                rows[idx].percent += share
+            }
             if let last = unlocked.last {
                 rows[last].percent += remaining - share * Double(unlocked.count)
             }
         } else {
-            for idx in unlocked { rows[idx].amount += share }
+            for idx in unlocked {
+                rows[idx].amount += share
+            }
             if let last = unlocked.last {
                 rows[last].amount += remaining - share * Double(unlocked.count)
             }
@@ -453,7 +458,6 @@ struct TargetEditPanel: View {
         }
     }
 
-
     private func colorForStatus(_ status: String) -> Color {
         switch status.lowercased() {
         case "warning": return .warning
@@ -469,7 +473,7 @@ struct TargetEditPanel: View {
 
     private func refreshFindings() {
         reasons = db.fetchClassValidationFindings(classId: classId)
-        if ["warning", "error"].contains(validationStatus.lowercased()) && reasons.isEmpty {
+        if ["warning", "error"].contains(validationStatus.lowercased()), reasons.isEmpty {
             log("WHY PANEL", "No findings returned for class id=\(classId) despite status=\(validationStatus)", type: .error)
         }
     }

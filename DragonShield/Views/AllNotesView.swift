@@ -54,7 +54,7 @@ struct AllNotesView: View {
                 onSave: { _ in editingTheme = nil; reload() },
                 onCancel: { editingTheme = nil; reload() }
             )
-                .environmentObject(dbManager)
+            .environmentObject(dbManager)
         }
         .sheet(item: $editingInstrument) { upd in
             if let themeId = upd.themeId {
@@ -172,7 +172,7 @@ struct AllNotesView: View {
                 Spacer()
                 Button("Edit") { editingTheme = update }.buttonStyle(.link)
                 Button("Delete", role: .destructive) { confirmDeleteThemeId = update.id }
-                .buttonStyle(.link)
+                    .buttonStyle(.link)
             }
             Text("Theme: \(themeNames[update.themeId] ?? "#\(update.themeId)") · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                 .font(.caption)
@@ -198,7 +198,7 @@ struct AllNotesView: View {
                 Spacer()
                 Button("Edit") { editingInstrument = update }.buttonStyle(.link)
                 Button("Delete", role: .destructive) { confirmDeleteInstrumentId = update.id }
-                .buttonStyle(.link)
+                    .buttonStyle(.link)
             }
             Text("Instrument: \(instrumentNames[update.instrumentId] ?? "#\(update.instrumentId)") · Theme: \(themeLabel) · \(DateFormatting.userFriendly(update.createdAt)) · \(update.author) · [\(update.typeDisplayName ?? update.typeCode)]")
                 .font(.caption)

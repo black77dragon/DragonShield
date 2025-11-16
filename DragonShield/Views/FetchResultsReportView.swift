@@ -120,18 +120,18 @@ struct FetchResultsReportView: View {
 }
 
 #if DEBUG
-struct FetchResultsReportView_Previews: PreviewProvider {
-    static var previews: some View {
-        let sample: [PriceUpdateService.ResultItem] = [
-            .init(instrumentId: 1, status: "ok", message: "Updated"),
-            .init(instrumentId: 2, status: "error", message: "Invalid id")
-        ]
-        FetchResultsReportView(
-            results: sample,
-            nameById: [1: "Bitcoin", 2: "DeepBook"],
-            providerById: [1: "coingecko", 2: "coingecko"],
-            timeZoneId: TimeZone.current.identifier
-        )
+    struct FetchResultsReportView_Previews: PreviewProvider {
+        static var previews: some View {
+            let sample: [PriceUpdateService.ResultItem] = [
+                .init(instrumentId: 1, status: "ok", message: "Updated"),
+                .init(instrumentId: 2, status: "error", message: "Invalid id"),
+            ]
+            FetchResultsReportView(
+                results: sample,
+                nameById: [1: "Bitcoin", 2: "DeepBook"],
+                providerById: [1: "coingecko", 2: "coingecko"],
+                timeZoneId: TimeZone.current.identifier
+            )
+        }
     }
-}
 #endif

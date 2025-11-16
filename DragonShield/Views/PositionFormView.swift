@@ -155,50 +155,50 @@ struct PositionFormView: View {
                     .textFieldStyle(.roundedBorder)
                     .accessibilityLabel("Import Session")
 
-            Picker("Account", selection: $accountId) {
-                Text("Select Account").tag(Optional<Int>(nil))
-                ForEach(accounts, id: \.id) {
-                    Text($0.name).tag(Optional($0.id))
-                }
-            }
-            .accessibilityLabel("Account")
-
-            HStack {
-                Text("Institution")
-                    .font(.headline)
-                Spacer()
-                Text(institutionName)
-                    .frame(width: 200, alignment: .trailing)
-                    .foregroundColor(.secondary)
-            }
-            .accessibilityLabel("Institution")
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Instrument").font(.headline)
-                HStack(spacing: 8) {
-                    Text(selectedInstrumentDisplay)
-                        .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("Choose Instrument…") {
-                        instrumentQuery = selectedInstrumentDisplay == "No instrument selected" ? "" : selectedInstrumentDisplay
-                        showInstrumentPicker = true
+                Picker("Account", selection: $accountId) {
+                    Text("Select Account").tag(Int?(nil))
+                    ForEach(accounts, id: \.id) {
+                        Text($0.name).tag(Optional($0.id))
                     }
                 }
-            }
-            .frame(minWidth: 360)
-            .accessibilityLabel("Instrument")
+                .accessibilityLabel("Account")
 
-            HStack {
-                Text("Currency")
-                    .font(.headline)
-                Spacer()
-                Text(currencyCode)
-                    .frame(width: 120, alignment: .trailing)
-                    .foregroundColor(.secondary)
-            }
-            .accessibilityLabel("Currency")
+                HStack {
+                    Text("Institution")
+                        .font(.headline)
+                    Spacer()
+                    Text(institutionName)
+                        .frame(width: 200, alignment: .trailing)
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityLabel("Institution")
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Instrument").font(.headline)
+                    HStack(spacing: 8) {
+                        Text(selectedInstrumentDisplay)
+                            .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Choose Instrument…") {
+                            instrumentQuery = selectedInstrumentDisplay == "No instrument selected" ? "" : selectedInstrumentDisplay
+                            showInstrumentPicker = true
+                        }
+                    }
+                }
+                .frame(minWidth: 360)
+                .accessibilityLabel("Instrument")
+
+                HStack {
+                    Text("Currency")
+                        .font(.headline)
+                    Spacer()
+                    Text(currencyCode)
+                        .frame(width: 120, alignment: .trailing)
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityLabel("Currency")
             }
 
             Section("Prices") {
@@ -290,9 +290,9 @@ struct PositionFormView: View {
 
     private var isValid: Bool {
         accountId != nil &&
-        institutionId != nil &&
-        instrumentId != nil &&
-        Double(quantity) != nil
+            institutionId != nil &&
+            instrumentId != nil &&
+            Double(quantity) != nil
     }
 
     private func loadData() {
@@ -385,7 +385,8 @@ struct PositionFormView: View {
 private extension PositionFormView {
     var selectedInstrumentDisplay: String {
         if let iid = instrumentId,
-           let match = instruments.first(where: { $0.id == iid }) {
+           let match = instruments.first(where: { $0.id == iid })
+        {
             return displayString(for: match)
         }
         let trimmed = instrumentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -411,7 +412,8 @@ private extension PositionFormView {
             },
             set: { newValue in
                 if let value = newValue as? Int,
-                   let match = instruments.first(where: { $0.id == value }) {
+                   let match = instruments.first(where: { $0.id == value })
+                {
                     instrumentId = value
                     instrumentQuery = displayString(for: match)
                 } else {
@@ -437,7 +439,7 @@ private extension PositionFormView {
             ins.tickerSymbol?.uppercased() ?? "",
             ins.isin?.uppercased() ?? "",
             ins.valorNr?.uppercased() ?? "",
-            ins.currency.uppercased()
+            ins.currency.uppercased(),
         ]
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }

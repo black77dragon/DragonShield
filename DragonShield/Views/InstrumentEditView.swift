@@ -6,7 +6,7 @@ struct InstrumentEditView: View {
     let instrumentId: Int
 
     private typealias PortfolioMembershipRow = DatabaseManager.InstrumentPortfolioMembershipRow
-    
+
     @State private var instrumentName = ""
     @State private var selectedGroupId = 1
     @State private var currency = "CHF"
@@ -19,13 +19,13 @@ struct InstrumentEditView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    
+
     // Animation states
     @State private var formScale: CGFloat = 0.9
     @State private var headerOpacity: Double = 0
     @State private var sectionsOffset: CGFloat = 50
     @State private var hasChanges = false
-    
+
     // Store original values to detect changes
     @State private var originalName = ""
     @State private var originalGroupId = 1
@@ -41,9 +41,9 @@ struct InstrumentEditView: View {
     @State private var latestPrice: Double? = nil
     @State private var latestPriceAsOf: Date? = nil
     @State private var priceInput: String = ""
-    @State private var priceAsOf: Date = Date()
+    @State private var priceAsOf: Date = .init()
     @State private var priceMessage: String? = nil
-    
+
     // Soft delete / lifecycle
     @State private var isActiveFlag: Bool = true
     @State private var isDeletedFlag: Bool = false
@@ -56,44 +56,47 @@ struct InstrumentEditView: View {
     @State private var instrumentPositions: [PositionReportData] = []
     @State private var openThemeId: Int? = nil
     @State private var editingPosition: PositionReportData? = nil
-    
+
     // MARK: - Validation
+
     var isValid: Bool {
         let nameValid = !instrumentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let currencyValid = !currency.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let currencyFormatValid = isValidCurrency
         let isinFormatValid = isValidISIN
-        
+
         return nameValid && currencyValid && currencyFormatValid && isinFormatValid
     }
-    
+
     private var isValidCurrency: Bool {
         // Since we're using dropdown only, currency is always valid if it's from the database
         return availableCurrencies.contains { $0.code == currency } || currency.isEmpty
     }
-    
+
     private var isValidISIN: Bool {
         let trimmed = isin.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return true }
         return trimmed.count == 12 && trimmed.prefix(2).allSatisfy { $0.isLetter }
     }
-    
+
     // MARK: - Change Detection
+
     private func detectChanges() {
         hasChanges = instrumentName != originalName ||
-                    selectedGroupId != originalGroupId ||
-                    currency != originalCurrency ||
-                    tickerSymbol != originalTickerSymbol ||
-                    isin != originalIsin ||
-                    valorNr != originalValorNr ||
-                    sector != originalSector
+            selectedGroupId != originalGroupId ||
+            currency != originalCurrency ||
+            tickerSymbol != originalTickerSymbol ||
+            isin != originalIsin ||
+            valorNr != originalValorNr ||
+            sector != originalSector
     }
-    
+
     // MARK: - Computed Properties
+
     private var completionPercentage: Double {
         var completed = 0.0
         let total = 7.0
-        
+
         if !instrumentName.isEmpty { completed += 1 }
         if selectedGroupId > 0 { completed += 1 }
         if !currency.isEmpty { completed += 1 }
@@ -101,10 +104,10 @@ struct InstrumentEditView: View {
         if !isin.isEmpty { completed += 1 }
         if !valorNr.isEmpty { completed += 1 }
         if !sector.isEmpty { completed += 1 }
-        
+
         return completed / total
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             modernHeader
@@ -167,8 +170,9 @@ struct InstrumentEditView: View {
             .environmentObject(dbManager)
         }
     }
-    
+
     // MARK: - Modern Header
+
     private var modernHeader: some View {
         HStack(spacing: 12) {
             // Close button with light styling
@@ -186,9 +190,9 @@ struct InstrumentEditView: View {
                     .background(Color.secondary.opacity(0.15), in: Circle())
             }
             .buttonStyle(.plain)
-            
+
             Spacer()
-            
+
             // Modern title with icon
             HStack(spacing: 12) {
                 Image(systemName: "pencil.circle.fill")
@@ -200,14 +204,14 @@ struct InstrumentEditView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                
+
                 Text("Edit Instrument")
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundColor(.primary)
             }
-            
+
             Spacer()
-            
+
             // Save button with premium styling
             Button {
                 saveInstrument()
@@ -221,7 +225,7 @@ struct InstrumentEditView: View {
                         Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark")
                             .font(.system(size: 12, weight: .bold))
                     }
-                    
+
                     Text(isLoading ? "Saving..." : "Save")
                         .font(.system(size: 13, weight: .semibold))
                 }
@@ -246,8 +250,9 @@ struct InstrumentEditView: View {
         .padding(.vertical, 10)
         .opacity(headerOpacity)
     }
-    
+
     // MARK: - Change Indicator
+
     private var changeIndicator: some View {
         HStack {
             if hasChanges {
@@ -255,7 +260,7 @@ struct InstrumentEditView: View {
                     Image(systemName: "circle.fill")
                         .font(.system(size: 8))
                         .foregroundColor(.orange)
-                    
+
                     Text("Unsaved changes")
                         .font(.caption)
                         .foregroundColor(.orange)
@@ -270,34 +275,35 @@ struct InstrumentEditView: View {
                 )
                 .transition(.opacity.combined(with: .scale))
             }
-            
+
             Spacer()
         }
         .padding(.horizontal, 16)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: hasChanges)
     }
-    
+
     // MARK: - Modern Progress Bar
+
     private var progressBar: some View {
         VStack(spacing: 6) {
             HStack {
                 Text("Completion")
                     .font(.caption)
                     .foregroundColor(.gray)
-                
+
                 Spacer()
-                
+
                 Text("\(Int(completionPercentage * 100))%")
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.orange)
             }
-            
+
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.gray.opacity(0.15))
                         .frame(height: 6)
-                    
+
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
                             LinearGradient(
@@ -316,8 +322,9 @@ struct InstrumentEditView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
-    
+
     // MARK: - Modern Content
+
     private var modernContent: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -332,12 +339,13 @@ struct InstrumentEditView: View {
         }
         .offset(y: sectionsOffset)
     }
-    
+
     // MARK: - Required Section
+
     private var requiredSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Required Information", icon: "checkmark.shield.fill", color: .orange)
-            
+
             VStack(spacing: 12) {
                 modernTextField(
                     title: "Instrument Name",
@@ -346,8 +354,8 @@ struct InstrumentEditView: View {
                     icon: "building.2.crop.circle.fill",
                     isRequired: true
                 )
-                .onChange(of: instrumentName) { oldValue, newValue in detectChanges() }
-                
+                .onChange(of: instrumentName) { _, _ in detectChanges() }
+
                 // Asset SubClass and Currency side by side
                 HStack(spacing: 16) {
                     AssetSubClassPickerView(
@@ -355,8 +363,8 @@ struct InstrumentEditView: View {
                         selectedGroupId: $selectedGroupId,
                         onSelect: { detectChanges() }
                     )
-                        .frame(maxWidth: .infinity)
-                    
+                    .frame(maxWidth: .infinity)
+
                     modernCurrencyField()
                         .frame(maxWidth: .infinity)
                 }
@@ -365,12 +373,13 @@ struct InstrumentEditView: View {
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
-    
+
     // MARK: - Optional Section
+
     private var optionalSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Optional Information", icon: "info.circle.fill", color: .red)
-            
+
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
                     compactTextField(
@@ -419,6 +428,7 @@ struct InstrumentEditView: View {
     }
 
     // MARK: - Price Section
+
     private var priceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Instrument Price", icon: "dollarsign.circle.fill", color: .green)
@@ -469,6 +479,7 @@ struct InstrumentEditView: View {
     }
 
     // MARK: - Price helpers
+
     private func iso8601Formatter() -> ISO8601DateFormatter {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -557,7 +568,7 @@ struct InstrumentEditView: View {
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
-    
+
     private func openInstrumentNotes() {
         let last = UserDefaults.standard.string(forKey: "instrumentNotesLastTab")
         switch last {
@@ -571,15 +582,17 @@ struct InstrumentEditView: View {
             LoggingService.shared.log(log, logger: .ui)
         }
     }
-    
+
     // MARK: - Edit Glassmorphism Background
+
     // MARK: - Modern Footer
+
     private var modernFooter: some View {
         Spacer(minLength: 0)
     }
-    
+
     // MARK: - Helper Views
-    
+
     private func sectionHeader(title: String, icon: String, color: Color, @ViewBuilder trailing: () -> some View = { EmptyView() }) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
@@ -598,7 +611,7 @@ struct InstrumentEditView: View {
             Spacer()
         }
     }
-    
+
     private func modernTextField(
         title: String,
         text: Binding<String>,
@@ -674,27 +687,27 @@ struct InstrumentEditView: View {
             }
         }
     }
-        
+
     private func modernCurrencyField() -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "dollarsign.circle.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.gray)
-                
+
                 Text("Currency")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary)
-                
+
                 Spacer()
-                
+
                 if !currency.isEmpty && !isValidCurrency {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 12))
                         .foregroundColor(.red)
                 }
             }
-            
+
             Menu {
                 ForEach(availableCurrencies, id: \.code) { curr in
                     Button(action: {
@@ -729,9 +742,9 @@ struct InstrumentEditView: View {
                             .foregroundColor(.black)
                             .font(.system(size: 16))
                     }
-                    
+
                     Spacer()
-                    
+
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.gray)
@@ -746,7 +759,7 @@ struct InstrumentEditView: View {
                 )
             }
             .buttonStyle(PlainButtonStyle())
-            
+
             if !currency.isEmpty && !isValidCurrency {
                 Text("Please select a currency from the dropdown")
                     .font(.caption2)
@@ -754,35 +767,37 @@ struct InstrumentEditView: View {
             }
         }
     }
-    
+
     // MARK: - Animations
+
     private func animateEntrance() {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
             formScale = 1.0
         }
-        
+
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
             headerOpacity = 1.0
         }
-        
+
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
             sectionsOffset = 0
         }
     }
-    
+
     private func animateExit() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             formScale = 0.9
             headerOpacity = 0
             sectionsOffset = 50
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             presentationMode.wrappedValue.dismiss()
         }
     }
-    
+
     // MARK: - Functions
+
     func loadInstrumentGroups() {
         let groups = AssetSubClassPickerModel.sort(dbManager.fetchAssetTypes())
         instrumentGroups = groups
@@ -810,7 +825,7 @@ struct InstrumentEditView: View {
             sector = details.sector ?? ""
             isActiveFlag = details.isActive
             isDeletedFlag = details.isDeleted
-            
+
             // Store original values for change detection
             originalName = instrumentName
             originalGroupId = selectedGroupId
@@ -919,6 +934,7 @@ struct InstrumentEditView: View {
     }
 
     // MARK: - Lifecycle Section (Soft Delete / Restore)
+
     private var lifecycleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "Status & Lifecycle", icon: "archivebox", color: .purple) {
@@ -1006,7 +1022,8 @@ struct InstrumentEditView: View {
     private func performSoftDelete() {
         if dbManager.softDeleteInstrument(id: instrumentId,
                                           reason: deleteReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteReason,
-                                          note: deleteNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteNote) {
+                                          note: deleteNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : deleteNote)
+        {
             alertMessage = "✅ Instrument soft-deleted. It will be hidden in search and stop price updates."
             showingAlert = true
             isDeletedFlag = true
@@ -1028,7 +1045,7 @@ struct InstrumentEditView: View {
             showingAlert = true
         }
     }
-    
+
     private func showUnsavedChangesAlert() {
         let alert = NSAlert()
         alert.messageText = "Unsaved Changes"
@@ -1037,9 +1054,9 @@ struct InstrumentEditView: View {
         alert.addButton(withTitle: "Save & Close")
         alert.addButton(withTitle: "Discard Changes")
         alert.addButton(withTitle: "Cancel")
-        
+
         let response = alert.runModal()
-        
+
         switch response {
         case .alertFirstButtonReturn: // Save & Close
             saveInstrument()
@@ -1049,16 +1066,16 @@ struct InstrumentEditView: View {
             break
         }
     }
-    
+
     func saveInstrument() {
         guard isValid else {
             alertMessage = "Please fill in all required fields correctly"
             showingAlert = true
             return
         }
-        
+
         isLoading = true
-        
+
         let success = dbManager.updateInstrument(
             id: instrumentId,
             name: instrumentName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1069,10 +1086,10 @@ struct InstrumentEditView: View {
             isin: isin.isEmpty ? nil : isin.uppercased(),
             sector: sector.isEmpty ? nil : sector
         )
-        
+
         DispatchQueue.main.async {
             self.isLoading = false
-            
+
             if success {
                 // Update original values to reflect saved state
                 self.originalName = self.instrumentName
@@ -1082,9 +1099,9 @@ struct InstrumentEditView: View {
                 self.originalIsin = self.isin
                 self.originalSector = self.sector
                 self.detectChanges()
-                
+
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshPortfolio"), object: nil)
-                
+
                 // Auto-dismiss after successful save without showing alert
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.animateExit()
@@ -1099,12 +1116,13 @@ struct InstrumentEditView: View {
 
 // MARK: - Supporting Views
 
-    private struct Ident: Identifiable {
-        let value: Int
-        var id: Int { value }
-    }
+private struct Ident: Identifiable {
+    let value: Int
+    var id: Int { value }
+}
 
 // MARK: - History
+
 // Version 1.1 - Fixed onChange deprecation warnings for macOS 14.0+
 // - Updated all .onChange(of:) { _ in } to .onChange(of:) { oldValue, newValue in }
 // - Updated .onChange(of:) { newValue in } to .onChange(of:) { oldValue, newValue in }

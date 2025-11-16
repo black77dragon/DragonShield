@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class InstrumentUsageRepositoryTests: XCTestCase {
     var manager: DatabaseManager!

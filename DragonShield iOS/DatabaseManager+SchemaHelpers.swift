@@ -19,4 +19,3 @@ extension DatabaseManager {
         return has
     }
 }
-

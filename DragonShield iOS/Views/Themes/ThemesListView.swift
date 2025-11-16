@@ -28,7 +28,7 @@ struct ThemesListView: View {
                         HStack(spacing: 12) {
                             Text(t.code).font(.caption).foregroundColor(.secondary)
                             if t.instrumentCount > 0 { Text("\(t.instrumentCount) instruments").font(.caption).foregroundColor(.secondary) }
-                            if let b = t.theoreticalBudgetChf, b >= 1_000 {
+                            if let b = t.theoreticalBudgetChf, b >= 1000 {
                                 Text("Budget: \(ValueFormatting.large(b))")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -49,7 +49,7 @@ struct ThemesListView: View {
     private func reload() {
         loading = true
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        let result = self.dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: query.isEmpty ? nil : query)
+        let result = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: false, search: query.isEmpty ? nil : query)
         themes = result
         loading = false
     }

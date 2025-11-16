@@ -47,6 +47,48 @@ extension DatabaseManager {
         return records
     }
 
+    /// Returns the latest price source per instrument id using the same ordering as `getPriceSource`.
+    func getPriceSources(instrumentIds: [Int]) -> [Int: InstrumentPriceSource] {
+        guard !instrumentIds.isEmpty else { return [:] }
+        let placeholders = instrumentIds.map { _ in "?" }.joined(separator: ",")
+        let sql = """
+            SELECT id, instrument_id, provider_code, external_id, enabled, priority, last_status, last_checked_at
+              FROM InstrumentPriceSource
+             WHERE instrument_id IN (\(placeholders))
+             ORDER BY instrument_id ASC, enabled DESC, priority ASC, updated_at DESC
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [:] }
+        defer { sqlite3_finalize(stmt) }
+        for (idx, id) in instrumentIds.enumerated() {
+            sqlite3_bind_int(stmt, Int32(idx + 1), Int32(id))
+        }
+        var map: [Int: InstrumentPriceSource] = [:]
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let instId = Int(sqlite3_column_int(stmt, 1))
+            // Only keep the first row per instrument due to ordering.
+            if map[instId] != nil { continue }
+            let id = Int(sqlite3_column_int(stmt, 0))
+            let provider = String(cString: sqlite3_column_text(stmt, 2))
+            let extId = String(cString: sqlite3_column_text(stmt, 3))
+            let enabled = sqlite3_column_int(stmt, 4) != 0
+            let priority = Int(sqlite3_column_int(stmt, 5))
+            let lastStatus = sqlite3_column_text(stmt, 6).map { String(cString: $0) }
+            let lastChecked = sqlite3_column_text(stmt, 7).map { String(cString: $0) }
+            map[instId] = InstrumentPriceSource(
+                id: id,
+                instrumentId: instId,
+                providerCode: provider,
+                externalId: extId,
+                enabled: enabled,
+                priority: priority,
+                lastStatus: lastStatus,
+                lastCheckedAt: lastChecked
+            )
+        }
+        return map
+    }
+
     func getPriceSource(instrumentId: Int) -> InstrumentPriceSource? {
         let sql = """
             SELECT id, instrument_id, provider_code, external_id, enabled, priority, last_status, last_checked_at

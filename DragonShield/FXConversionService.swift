@@ -31,4 +31,3 @@ final class FXConversionService {
         return (amount * rate.rateToChf, rate.rateToChf, rate.rateDate)
     }
 }
-

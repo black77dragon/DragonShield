@@ -10,6 +10,7 @@ extension DatabaseManager {
         var asOf: String
         var createdAt: String?
     }
+
     struct InstrumentLatestPriceRow: Identifiable {
         var id: Int
         var name: String
@@ -49,7 +50,9 @@ extension DatabaseManager {
         if let cur = currencies, !cur.isEmpty {
             let place = Array(repeating: "?", count: cur.count).joined(separator: ", ")
             clauses.append("UPPER(i.currency) IN (\(place))")
-            for c in cur { binds.append(c.uppercased()) }
+            for c in cur {
+                binds.append(c.uppercased())
+            }
         }
         if missingOnly {
             clauses.append("ipl.instrument_id IS NULL")
@@ -127,6 +130,7 @@ extension DatabaseManager {
         }
         return rows
     }
+
     func getLatestPrice(instrumentId: Int) -> (price: Double, currency: String, asOf: String)? {
         let sql = "SELECT price, currency, as_of FROM InstrumentPriceLatest WHERE instrument_id = ?"
         var stmt: OpaquePointer?

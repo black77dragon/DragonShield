@@ -54,9 +54,8 @@ public final class MockPriceProvider: PriceProvider {
 
     public init() {}
 
-    public func fetchLatest(externalId: String, expectedCurrency: String?) async throws -> PriceQuote {
+    public func fetchLatest(externalId _: String, expectedCurrency: String?) async throws -> PriceQuote {
         // Returns a static price for development/testing.
         return PriceQuote(price: 123.45, currency: expectedCurrency ?? "CHF", asOf: Date(), source: code)
     }
 }
-

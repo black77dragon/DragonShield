@@ -1,14 +1,14 @@
+import CryptoKit
 import Foundation
 import SQLite3
-import CryptoKit
 
 extension DatabaseManager {
     /// Creates a new import session and returns its id.
     func startImportSession(sessionName: String, fileName: String, filePath: String, fileType: String, fileSize: Int, fileHash: String, institutionId: Int?) -> Int? {
         let sql = """
-            INSERT INTO ImportSessions (session_name, file_name, file_path, file_type, file_size, file_hash, institution_id, import_status, started_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'PROCESSING', datetime('now'));
-            """
+        INSERT INTO ImportSessions (session_name, file_name, file_path, file_type, file_size, file_hash, institution_id, import_status, started_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'PROCESSING', datetime('now'));
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare startImportSession: \(String(cString: sqlite3_errmsg(db)))")
@@ -71,10 +71,10 @@ extension DatabaseManager {
 
     func completeImportSession(id: Int, totalRows: Int, successRows: Int, failedRows: Int, duplicateRows: Int, notes: String?) {
         let sql = """
-            UPDATE ImportSessions
-               SET import_status='COMPLETED', total_rows=?, successful_rows=?, failed_rows=?, duplicate_rows=?, processing_notes=?, completed_at=datetime('now')
-             WHERE import_session_id=?;
-            """
+        UPDATE ImportSessions
+           SET import_status='COMPLETED', total_rows=?, successful_rows=?, failed_rows=?, duplicate_rows=?, processing_notes=?, completed_at=datetime('now')
+         WHERE import_session_id=?;
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare completeImportSession: \(String(cString: sqlite3_errmsg(db)))")
@@ -153,13 +153,13 @@ extension DatabaseManager {
                 let started = startedStr.flatMap { DateFormatter.iso8601DateTime.date(from: $0) }
                 let completed = completedStr.flatMap { DateFormatter.iso8601DateTime.date(from: $0) }
                 sessions.append(ImportSessionData(id: id, sessionName: sessionName, fileName: fileName,
-                                                 fileType: fileType, fileSize: fileSize, fileHash: fileHash,
-                                                 institutionId: institutionId, importStatus: status,
-                                                 totalRows: totalRows, successfulRows: success,
-                                                 failedRows: failed, duplicateRows: dup,
-                                                 errorLog: errorLog, processingNotes: notes,
-                                                 createdAt: created, startedAt: started,
-                                                 completedAt: completed))
+                                                  fileType: fileType, fileSize: fileSize, fileHash: fileHash,
+                                                  institutionId: institutionId, importStatus: status,
+                                                  totalRows: totalRows, successfulRows: success,
+                                                  failedRows: failed, duplicateRows: dup,
+                                                  errorLog: errorLog, processingNotes: notes,
+                                                  createdAt: created, startedAt: started,
+                                                  completedAt: completed))
             }
         } else {
             print("❌ Failed to prepare fetchImportSessions: \(String(cString: sqlite3_errmsg(db)))")

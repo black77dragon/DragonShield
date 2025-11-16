@@ -4,14 +4,14 @@ class ExchangeRatesViewModel: ObservableObject {
     @Published var rates: [DatabaseManager.ExchangeRate] = []
     @Published var currencies: [DatabaseManager.CurrencyData] = []
     @Published var selectedCurrency: String? = nil
-    @Published var asOfDate: Date = Date()
+    @Published var asOfDate: Date = .init()
     @Published var log: [String] = []
 
     private var db: DatabaseManager
 
     init(db: DatabaseManager) {
         self.db = db
-        self.asOfDate = db.asOfDate
+        asOfDate = db.asOfDate
         loadCurrencies()
         loadRates()
     }

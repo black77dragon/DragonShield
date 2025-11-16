@@ -2,8 +2,8 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
-
     // MARK: - Ensure schema
+
     func ensureTradeSchema() {
         guard let db else { return }
         let tradeSQL = """
@@ -52,6 +52,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Helpers
+
     /// Rounds to 4 decimals (half up behavior via formatting then parsing)
     private func round4(_ v: Double) -> Double {
         let f = NumberFormatter(); f.maximumFractionDigits = 4; f.minimumFractionDigits = 0; f.numberStyle = .decimal
@@ -103,6 +104,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Create trade (buy/sell)
+
     struct NewTradeInput {
         var typeCode: String // BUY or SELL
         var date: Date
@@ -167,20 +169,20 @@ extension DatabaseManager {
 
     @discardableResult
     func createTrade(_ input: NewTradeInput) -> Int? {
-        self.lastTradeErrorMessage = nil
+        lastTradeErrorMessage = nil
         guard let db else { return nil }
         // Currency from instrument and cash account
         guard let instr = fetchInstrumentDetails(id: input.instrumentId) else {
             let msg = "Instrument not found (id=\(input.instrumentId))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return nil
         }
         let instrCurrency = instr.currency.uppercased()
         guard let cashAcc = fetchAccountDetails(id: input.cashAccountId) else {
             let msg = "Cash account not found (id=\(input.cashAccountId))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return nil
         }
         let cashCurrency = cashAcc.currencyCode.uppercased()
@@ -188,7 +190,7 @@ extension DatabaseManager {
         guard cashCurrency == instrCurrency else {
             let msg = "Cash account currency (\(cashCurrency)) must match instrument currency (\(instrCurrency))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return nil
         }
         // FX for CHF fees: convert CHF -> cash account currency (which equals transaction currency)
@@ -197,10 +199,10 @@ extension DatabaseManager {
         guard let rateToChf = fxToChf, rateToChf > 0 else {
             let msg = "Missing FX for CHF→\(cashCurrency) on/before \(DateFormatter.iso8601DateOnly.string(from: input.date))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return nil
         }
-        let fxChfToTxn: Double = 1.0 / rateToChf
+        let fxChfToTxn = 1.0 / rateToChf
         // Round values
         let qty = round4(input.quantity)
         let price = round4(input.priceTxn)
@@ -224,7 +226,7 @@ extension DatabaseManager {
         guard sqlite3_prepare_v2(db, insertTrade, -1, &stmt, nil) == SQLITE_OK else {
             let msg = "Failed to prepare Trade insert: \(String(cString: sqlite3_errmsg(db)))"
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
         }
         let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -241,7 +243,7 @@ extension DatabaseManager {
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             let msg = "Trade insert failed: \(String(cString: sqlite3_errmsg(db)))"
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             sqlite3_finalize(stmt); sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
         }
         sqlite3_finalize(stmt)
@@ -271,20 +273,20 @@ extension DatabaseManager {
             let accName = fetchAccountDetails(id: input.cashAccountId)?.accountName ?? "#\(input.cashAccountId)"
             let msg = "No CASH instrument found for cash account '\(accName)'. Expected Instruments row with sub_class_code='CASH' and currency matching the account (\(cashCurrency)). Available CASH currencies in Instruments: [\(avail)]."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
         }
         guard insertLeg(type: "CASH", accountId: input.cashAccountId, instrumentId: cashInstrId, delta: cashDelta) else {
             let msg = "Insert cash leg failed: \(String(cString: sqlite3_errmsg(db)))"
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
         }
         // Instrument leg
         guard insertLeg(type: "INSTRUMENT", accountId: input.custodyAccountId, instrumentId: input.instrumentId, delta: instrDelta) else {
             let msg = "Insert instrument leg failed: \(String(cString: sqlite3_errmsg(db)))"
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return nil
         }
 
@@ -293,29 +295,30 @@ extension DatabaseManager {
     }
 
     // MARK: - Update trade (edit)
+
     func updateTrade(tradeId: Int, _ input: NewTradeInput) -> Bool {
-        self.lastTradeErrorMessage = nil
+        lastTradeErrorMessage = nil
         guard let db else { return false }
 
         // Validate instrument and accounts
         guard let instr = fetchInstrumentDetails(id: input.instrumentId) else {
             let msg = "Instrument not found (id=\(input.instrumentId))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return false
         }
         let instrCurrency = instr.currency.uppercased()
         guard let cashAcc = fetchAccountDetails(id: input.cashAccountId) else {
             let msg = "Cash account not found (id=\(input.cashAccountId))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return false
         }
         let cashCurrency = cashAcc.currencyCode.uppercased()
         guard cashCurrency == instrCurrency else {
             let msg = "Cash account currency (\(cashCurrency)) must match instrument currency (\(instrCurrency))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return false
         }
         // FX CHF->txn
@@ -323,10 +326,10 @@ extension DatabaseManager {
         guard let rateToChf = fxToChf, rateToChf > 0 else {
             let msg = "Missing FX for CHF→\(cashCurrency) on/before \(DateFormatter.iso8601DateOnly.string(from: input.date))."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return false
         }
-        let fxChfToTxn: Double = 1.0 / rateToChf
+        let fxChfToTxn = 1.0 / rateToChf
 
         // Compute amounts
         let qty = round4(input.quantity)
@@ -345,7 +348,7 @@ extension DatabaseManager {
             let accName = fetchAccountDetails(id: input.cashAccountId)?.accountName ?? "#\(input.cashAccountId)"
             let msg = "No CASH instrument found for cash account '\(accName)'. Available CASH currencies in Instruments: [\(avail)]."
             LoggingService.shared.log(msg, type: .error)
-            self.lastTradeErrorMessage = msg
+            lastTradeErrorMessage = msg
             return false
         }
 
@@ -358,7 +361,7 @@ extension DatabaseManager {
         let T = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         guard sqlite3_prepare_v2(db, updateSQL, -1, &u, nil) == SQLITE_OK else {
             let msg = "Prepare Trade update failed: \(String(cString: sqlite3_errmsg(db)))"
-            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            LoggingService.shared.log(msg, type: .error); lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
         }
         sqlite3_bind_text(u, 1, input.typeCode.uppercased(), -1, T)
@@ -374,7 +377,7 @@ extension DatabaseManager {
         sqlite3_bind_int(u, 11, Int32(tradeId))
         guard sqlite3_step(u) == SQLITE_DONE else {
             let msg = "Trade update failed: \(String(cString: sqlite3_errmsg(db)))"
-            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            LoggingService.shared.log(msg, type: .error); lastTradeErrorMessage = msg
             sqlite3_finalize(u); sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
         }
         sqlite3_finalize(u)
@@ -382,7 +385,7 @@ extension DatabaseManager {
         // Delete old legs
         if sqlite3_exec(db, "DELETE FROM TradeLeg WHERE trade_id = \(tradeId);", nil, nil, nil) != SQLITE_OK {
             let msg = "Delete legs failed: \(String(cString: sqlite3_errmsg(db)))"
-            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            LoggingService.shared.log(msg, type: .error); lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
         }
 
@@ -402,12 +405,12 @@ extension DatabaseManager {
 
         guard insertLeg(type: "CASH", accountId: input.cashAccountId, instrumentId: cashInstrId, delta: cashDelta) else {
             let msg = "Insert cash leg (update) failed: \(String(cString: sqlite3_errmsg(db)))"
-            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            LoggingService.shared.log(msg, type: .error); lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
         }
         guard insertLeg(type: "INSTRUMENT", accountId: input.custodyAccountId, instrumentId: input.instrumentId, delta: instrDelta) else {
             let msg = "Insert instrument leg (update) failed: \(String(cString: sqlite3_errmsg(db)))"
-            LoggingService.shared.log(msg, type: .error); self.lastTradeErrorMessage = msg
+            LoggingService.shared.log(msg, type: .error); lastTradeErrorMessage = msg
             sqlite3_exec(db, "ROLLBACK;", nil, nil, nil); return false
         }
 
@@ -416,6 +419,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Delete / Rewind
+
     func deleteTrade(tradeId: Int) -> Bool {
         guard let db else { return false }
         sqlite3_exec(db, "BEGIN IMMEDIATE;", nil, nil, nil)
@@ -466,6 +470,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Query for History
+
     struct TradeWithLegs: Identifiable {
         var id: Int { tradeId }
         let tradeId: Int
@@ -525,6 +530,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Derived balances for preview/holdings
+
     /// Sum of cash leg deltas for a bank account up to (and including) a date.
     func currentCashBalance(accountId: Int, upTo date: Date) -> Double {
         guard let db else { return 0 }

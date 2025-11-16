@@ -3,10 +3,10 @@
 
 import SwiftUI
 #if canImport(Charts)
-import Charts
+    import Charts
 #endif
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 private struct HoldingsTableFontConfig {
@@ -27,7 +27,7 @@ private struct HoldingsColumnsInfoView: View {
         ("Δ Calc CHF", "CHF gap between actual holdings and the calculated target."),
         ("ST Delta CHF", "CHF gap between actual holdings and the manual set target."),
         ("Actual CHF", "Current market value of the holdings in CHF."),
-        ("Notes", "Free-form notes per instrument.")
+        ("Notes", "Free-form notes per instrument."),
     ]
 
     var body: some View {
@@ -72,6 +72,7 @@ struct PortfolioThemeWorkspaceView: View {
             case .settings: return "Settings"
             }
         }
+
         var systemImage: String {
             switch self {
             case .overview: return "rectangle.grid.2x2"
@@ -106,7 +107,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var descriptionText: String = ""
     @State private var institutionId: Int? = nil
     @State private var institutions: [DatabaseManager.InstitutionData] = []
-    @State private var updatedAtDate: Date = Date()
+    @State private var updatedAtDate: Date = .init()
     @State private var originalUpdatedAtDate: Date? = nil
 
     private enum HoldingsFontSize: String, CaseIterable {
@@ -144,13 +145,15 @@ struct PortfolioThemeWorkspaceView: View {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+
     @State private var holdingsFontSize: HoldingsFontSize = .medium
 
     init(themeId: Int,
          origin: String,
          initialTab: WorkspaceTab? = nil,
          initialUpdatesSearch: String? = nil,
-         initialUpdatesSearchHint: String? = nil) {
+         initialUpdatesSearchHint: String? = nil)
+    {
         self.themeId = themeId
         self.origin = origin
         self.initialTab = initialTab
@@ -158,7 +161,8 @@ struct PortfolioThemeWorkspaceView: View {
         self.initialUpdatesSearchHint = initialUpdatesSearchHint
 
         if let stored = UserDefaults.standard.string(forKey: Self.holdingsFontSizeKey),
-           let size = HoldingsFontSize(rawValue: stored) {
+           let size = HoldingsFontSize(rawValue: stored)
+        {
             _holdingsFontSize = State(initialValue: size)
         }
     }
@@ -205,13 +209,14 @@ struct PortfolioThemeWorkspaceView: View {
             runValuation()
             loadInstrumentCurrencies()
         }
-            .onChange(of: selectedTab) { _, newValue in
-                lastTabRaw = newValue.rawValue
-                if newValue == .overview || newValue == .analytics || newValue == .holdings { runValuation() }
-            }
+        .onChange(of: selectedTab) { _, newValue in
+            lastTabRaw = newValue.rawValue
+            if newValue == .overview || newValue == .analytics || newValue == .holdings { runValuation() }
+        }
     }
 
     // MARK: - Header
+
     private var header: some View {
         HStack(alignment: .center, spacing: 16) {
             headerInfoLine
@@ -273,17 +278,18 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Tabs
+
     private var overviewTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if loadingValuation { ProgressView().controlSize(.small) }
                 kpiRow
                 #if canImport(Charts)
-                HStack(alignment: .top, spacing: 16) {
-                    actualAllocationDonut
-                    deltasBar
-                }
-                .redacted(reason: loadingValuation ? .placeholder : [])
+                    HStack(alignment: .top, spacing: 16) {
+                        actualAllocationDonut
+                        deltasBar
+                    }
+                    .redacted(reason: loadingValuation ? .placeholder : [])
                 #endif
             }
             .padding(20)
@@ -379,7 +385,7 @@ struct PortfolioThemeWorkspaceView: View {
                 themeBudgetChf: currentBudget(),
                 onHoldingsChanged: { loadTheme() }
             )
-                .environmentObject(dbManager)
+            .environmentObject(dbManager)
 
             Button(action: { showHoldingsInfo = true }) {
                 Label("ℹ️ more information", systemImage: "info.circle")
@@ -431,6 +437,7 @@ struct PortfolioThemeWorkspaceView: View {
         if let t = theme { return t.theoreticalBudgetChf }
         return dbManager.getPortfolioTheme(id: themeId)?.theoreticalBudgetChf
     }
+
     private func saveThemeBudget() {
         let trimmed = themeBudgetInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = trimmed.replacingOccurrences(of: "'", with: "")
@@ -472,6 +479,7 @@ struct PortfolioThemeWorkspaceView: View {
         let raw = holdingsColumns.map { $0.rawValue }.sorted().joined(separator: ",")
         UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns)
     }
+
     private func restoreHoldingsColumns() {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColumns), !raw.isEmpty else { return }
         let set = Set(raw.split(separator: ",").compactMap { HoldingsTable.Column(rawValue: String($0)) })
@@ -488,6 +496,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Column Widths Editor (sheet in parent scope)
+
     private func ColumnWidthsEditor(onSave: @escaping () -> Void) -> some View {
         ColumnWidthsEditorSheet(onSave: onSave)
     }
@@ -506,7 +515,7 @@ struct PortfolioThemeWorkspaceView: View {
                         Slider(value: Binding(
                             get: { widths[col] ?? defaultWidth(for: col) },
                             set: { widths[col] = $0 }
-                        ), in: 40...600)
+                        ), in: 40 ... 600)
                         Text("\(Int(widths[col] ?? defaultWidth(for: col))) pt").frame(width: 80, alignment: .trailing)
                     }
                 }
@@ -536,6 +545,7 @@ struct PortfolioThemeWorkspaceView: View {
             }
             if !map.isEmpty { widths = map }
         }
+
         private func persist() {
             let raw = HoldingsTable.Column.allCases.compactMap { col -> String? in
                 if let w = widths[col] { return "\(col.rawValue):\(Int(w))" }
@@ -546,6 +556,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Add Instrument Sheet
+
     private var addInstrumentSheet: some View {
         let labelWidth: CGFloat = 120
         return VStack(alignment: .leading, spacing: 0) {
@@ -634,7 +645,8 @@ struct PortfolioThemeWorkspaceView: View {
 
     private var addInstrumentSelectedDisplay: String {
         if addInstrumentId > 0,
-           let match = dbManager.fetchAssets().first(where: { $0.id == addInstrumentId }) {
+           let match = dbManager.fetchAssets().first(where: { $0.id == addInstrumentId })
+        {
             return displayString(for: match)
         }
         let trimmed = addInstrumentQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -657,7 +669,8 @@ struct PortfolioThemeWorkspaceView: View {
             get: { addInstrumentId > 0 ? AnyHashable(addInstrumentId) : nil },
             set: { newValue in
                 if let value = newValue as? Int,
-                   let match = dbManager.fetchAssets().first(where: { $0.id == value }) {
+                   let match = dbManager.fetchAssets().first(where: { $0.id == value })
+                {
                     addInstrumentId = value
                     addInstrumentQuery = displayString(for: match)
                 } else {
@@ -686,12 +699,13 @@ struct PortfolioThemeWorkspaceView: View {
             ins.tickerSymbol?.uppercased() ?? "",
             ins.isin?.uppercased() ?? "",
             ins.valorNr?.uppercased() ?? "",
-            ins.currency.uppercased()
+            ins.currency.uppercased(),
         ]
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
         .joined(separator: " ")
     }
+
     private var addValid: Bool { addInstrumentId > 0 && addResearchPct >= 0 && addResearchPct <= 100 && addUserPct >= 0 && addUserPct <= 100 }
     private func addInstrument() {
         let userPct = addUserPct == addResearchPct ? nil : addUserPct
@@ -729,32 +743,31 @@ struct PortfolioThemeWorkspaceView: View {
                     }
                 }
                 #if canImport(Charts)
-                let cols = [GridItem(.flexible(minimum: 280), spacing: 16), GridItem(.flexible(minimum: 280), spacing: 16)]
-                if loadingValuation {
-                    ProgressView().controlSize(.small)
-                }
-                LazyVGrid(columns: cols, alignment: .leading, spacing: 16) {
-                    Group { actualAllocationDonut }
-                        .analyticsCard()
-                    Group { contributionBars }
-                        .analyticsCard()
-                    Group { currencyExposureDonut }
-                        .analyticsCard()
-                    Group { sectorExposureBars }
-                        .analyticsCard()
-                    Group { moversByDeltaBars }
-                        .analyticsCard()
-                }
-                .redacted(reason: loadingValuation ? .placeholder : [])
+                    let cols = [GridItem(.flexible(minimum: 280), spacing: 16), GridItem(.flexible(minimum: 280), spacing: 16)]
+                    if loadingValuation {
+                        ProgressView().controlSize(.small)
+                    }
+                    LazyVGrid(columns: cols, alignment: .leading, spacing: 16) {
+                        Group { actualAllocationDonut }
+                            .analyticsCard()
+                        Group { contributionBars }
+                            .analyticsCard()
+                        Group { currencyExposureDonut }
+                            .analyticsCard()
+                        Group { sectorExposureBars }
+                            .analyticsCard()
+                        Group { moversByDeltaBars }
+                            .analyticsCard()
+                    }
+                    .redacted(reason: loadingValuation ? .placeholder : [])
                 #endif
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-    private enum AnalyticsRange: String, CaseIterable, Identifiable { case oneM, threeM, ytd, oneY, all; var id: String { rawValue }; var label: String { switch self { case .oneM: return "1M"; case .threeM: return "3M"; case .ytd: return "YTD"; case .oneY: return "1Y"; case .all: return "All" } } }
 
-    
+    private enum AnalyticsRange: String, CaseIterable, Identifiable { case oneM, threeM, ytd, oneY, all; var id: String { rawValue }; var label: String { switch self { case .oneM: return "1M"; case .threeM: return "3M"; case .ytd: return "YTD"; case .oneY: return "1Y"; case .all: return "All" } } }
 
     private var updatesTab: some View {
         PortfolioThemeUpdatesView(themeId: themeId, initialSearchText: initialUpdatesSearch, searchHint: initialUpdatesSearchHint)
@@ -796,7 +809,7 @@ struct PortfolioThemeWorkspaceView: View {
                     .background(Color.white)
                     .cornerRadius(6)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
-                    if let t = theme, (t.archivedAt != nil || t.softDelete) {
+                    if let t = theme, t.archivedAt != nil || t.softDelete {
                         Text("Theme content cannot be changed (%, delete instruments etc). Restore first")
                             .foregroundColor(.red)
                             .font(.caption)
@@ -849,8 +862,8 @@ struct PortfolioThemeWorkspaceView: View {
                             if dbManager.setThemeSoftDelete(id: themeId, softDelete: newVal) {
                                 theme = dbManager.getPortfolioTheme(id: themeId)
                             }
-                        })
-                    )
+                        }
+                    ))
                     .labelsHidden()
                     .toggleStyle(.switch)
                     Spacer()
@@ -887,11 +900,11 @@ struct PortfolioThemeWorkspaceView: View {
         .padding(.horizontal, 12)
         .confirmationDialog("Archive this theme?", isPresented: $confirmArchive, titleVisibility: .visible) {
             Button("Archive", role: .destructive) { performArchive() }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
         } message: { Text("You can unarchive later. Edits will be locked.") }
         .confirmationDialog("Soft delete this theme?", isPresented: $confirmSoftDelete, titleVisibility: .visible) {
             Button("Soft Delete", role: .destructive) { performSoftDelete() }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
         } message: { Text("This hides the theme from lists. Restore via recycle bin only.") }
     }
 
@@ -903,6 +916,7 @@ struct PortfolioThemeWorkspaceView: View {
             theme = dbManager.getPortfolioTheme(id: themeId)
         }
     }
+
     private func performUnarchive() {
         let defaultStatus = statuses.first { $0.isDefault }?.id ?? statusId
         if dbManager.unarchivePortfolioTheme(id: themeId, statusId: defaultStatus) {
@@ -910,6 +924,7 @@ struct PortfolioThemeWorkspaceView: View {
             statusId = defaultStatus
         }
     }
+
     private func performSoftDelete() {
         if dbManager.softDeletePortfolioTheme(id: themeId) {
             dismiss()
@@ -917,6 +932,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Overview widgets
+
     private var kpiRow: some View {
         HStack(spacing: 12) {
             KPI(title: "Total Value (\(dbManager.baseCurrency))", value: currency(valuation?.totalValueBase))
@@ -930,153 +946,155 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     #if canImport(Charts)
-    private var actualAllocationDonut: some View {
-        let rows = (valuation?.rows ?? []).filter { $0.status == .ok && $0.actualPct > 0 }
-        let data = rows.map { (name: $0.instrumentName, value: $0.actualPct) }
-        let names = data.map { $0.name }
-        let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
-        let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Allocation by Actual %").font(.title3).bold()
-            HStack(alignment: .top, spacing: 16) {
-                Chart(data, id: \.name) { row in
-                    SectorMark(angle: .value("Actual %", row.value), innerRadius: .ratio(0.55), angularInset: 1.5)
-                        .foregroundStyle(by: .value("Instrument", row.name))
-                }
-                .chartForegroundStyleScale(domain: names, range: colors)
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartLegend(.hidden)
-                .frame(height: 320)
-                .accessibilityLabel("Allocation by Actual percent, donut chart")
-                VStack(alignment: .leading, spacing: 6) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(names.enumerated()), id: \.0) { idx, name in
-                                HStack(spacing: 8) {
-                                    Circle().fill(colors[idx]).frame(width: 10, height: 10)
-                                    Text(shortName(name, max: 18)).font(.caption).lineLimit(1).help(name)
+        private var actualAllocationDonut: some View {
+            let rows = (valuation?.rows ?? []).filter { $0.status == .ok && $0.actualPct > 0 }
+            let data = rows.map { (name: $0.instrumentName, value: $0.actualPct) }
+            let names = data.map { $0.name }
+            let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
+            let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Allocation by Actual %").font(.title3).bold()
+                HStack(alignment: .top, spacing: 16) {
+                    Chart(data, id: \.name) { row in
+                        SectorMark(angle: .value("Actual %", row.value), innerRadius: .ratio(0.55), angularInset: 1.5)
+                            .foregroundStyle(by: .value("Instrument", row.name))
+                    }
+                    .chartForegroundStyleScale(domain: names, range: colors)
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .chartLegend(.hidden)
+                    .frame(height: 320)
+                    .accessibilityLabel("Allocation by Actual percent, donut chart")
+                    VStack(alignment: .leading, spacing: 6) {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(Array(names.enumerated()), id: \.0) { idx, name in
+                                    HStack(spacing: 8) {
+                                        Circle().fill(colors[idx]).frame(width: 10, height: 10)
+                                        Text(shortName(name, max: 18)).font(.caption).lineLimit(1).help(name)
+                                    }
                                 }
                             }
                         }
                     }
+                    .frame(width: 220)
                 }
-                .frame(width: 220)
             }
         }
-    }
 
-    private var deltasBar: some View {
-        let items = (valuation?.rows ?? []).map { (name: $0.instrumentName, delta: ($0.deltaUserPct ?? 0)) }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Delta (Actual − User %)").font(.title3).bold()
-            Chart(items, id: \.name) { it in
-                BarMark(x: .value("Delta", it.delta), y: .value("Instrument", it.name))
-                    .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
-            }
-            .chartXAxisLabel("%", alignment: .trailing)
-            .frame(minWidth: 360, maxWidth: .infinity, minHeight: 320)
-            .accessibilityLabel("Delta percentage bar chart")
-        }
-    }
-
-    private var contributionBars: some View {
-        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
-        let top = rows.sorted { $0.currentValueBase > $1.currentValueBase }.prefix(12)
-        struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
-        let items = top.map { Item(name: $0.instrumentName, value: $0.currentValueBase) }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Top Contribution (\(dbManager.baseCurrency))").font(.title3).bold()
-            Chart(items) { it in
-                BarMark(x: .value("Value", it.value), y: .value("Instrument", it.name))
-                    .foregroundStyle(Theme.primaryAccent)
-            }
-            .chartXAxisLabel(dbManager.baseCurrency, alignment: .trailing)
-            .frame(minHeight: 280)
-            .accessibilityLabel("Top contribution bar chart")
-        }
-    }
-
-    private var currencyExposureDonut: some View {
-        // Aggregate by instrument currency
-        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
-        var buckets: [String: Double] = [:]
-        for r in rows {
-            let cur = instrumentCurrencies[r.instrumentId] ?? "—"
-            buckets[cur, default: 0] += r.currentValueBase
-        }
-        let data = buckets.map { (currency: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
-        let names = data.map { $0.currency }
-        let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
-        let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Currency Exposure").font(.title3).bold()
-            HStack(alignment: .top, spacing: 16) {
-                Chart(data, id: \.currency) { row in
-                    SectorMark(angle: .value("Value", row.value), innerRadius: .ratio(0.55), angularInset: 1.5)
-                        .foregroundStyle(by: .value("Currency", row.currency))
+        private var deltasBar: some View {
+            let items = (valuation?.rows ?? []).map { (name: $0.instrumentName, delta: $0.deltaUserPct ?? 0) }
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Delta (Actual − User %)").font(.title3).bold()
+                Chart(items, id: \.name) { it in
+                    BarMark(x: .value("Delta", it.delta), y: .value("Instrument", it.name))
+                        .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
                 }
-                .chartForegroundStyleScale(domain: names, range: colors)
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartLegend(.hidden)
-                .frame(height: 280)
-                .accessibilityLabel("Currency exposure donut chart")
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(names.enumerated()), id: \.0) { idx, name in
-                        HStack(spacing: 8) {
-                            Circle().fill(colors[idx]).frame(width: 10, height: 10)
-                            Text(name).font(.caption)
+                .chartXAxisLabel("%", alignment: .trailing)
+                .frame(minWidth: 360, maxWidth: .infinity, minHeight: 320)
+                .accessibilityLabel("Delta percentage bar chart")
+            }
+        }
+
+        private var contributionBars: some View {
+            let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+            let top = rows.sorted { $0.currentValueBase > $1.currentValueBase }.prefix(12)
+            struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
+            let items = top.map { Item(name: $0.instrumentName, value: $0.currentValueBase) }
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Top Contribution (\(dbManager.baseCurrency))").font(.title3).bold()
+                Chart(items) { it in
+                    BarMark(x: .value("Value", it.value), y: .value("Instrument", it.name))
+                        .foregroundStyle(Theme.primaryAccent)
+                }
+                .chartXAxisLabel(dbManager.baseCurrency, alignment: .trailing)
+                .frame(minHeight: 280)
+                .accessibilityLabel("Top contribution bar chart")
+            }
+        }
+
+        private var currencyExposureDonut: some View {
+            // Aggregate by instrument currency
+            let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+            var buckets: [String: Double] = [:]
+            for r in rows {
+                let cur = instrumentCurrencies[r.instrumentId] ?? "—"
+                buckets[cur, default: 0] += r.currentValueBase
+            }
+            let data = buckets.map { (currency: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
+            let names = data.map { $0.currency }
+            let palette: [Color] = [.blue, .green, .orange, .pink, .purple, .teal, .red, .mint, .indigo, .brown, .cyan, .yellow]
+            let colors: [Color] = names.enumerated().map { palette[$0.offset % palette.count] }
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Currency Exposure").font(.title3).bold()
+                HStack(alignment: .top, spacing: 16) {
+                    Chart(data, id: \.currency) { row in
+                        SectorMark(angle: .value("Value", row.value), innerRadius: .ratio(0.55), angularInset: 1.5)
+                            .foregroundStyle(by: .value("Currency", row.currency))
+                    }
+                    .chartForegroundStyleScale(domain: names, range: colors)
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .chartLegend(.hidden)
+                    .frame(height: 280)
+                    .accessibilityLabel("Currency exposure donut chart")
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(names.enumerated()), id: \.0) { idx, name in
+                            HStack(spacing: 8) {
+                                Circle().fill(colors[idx]).frame(width: 10, height: 10)
+                                Text(name).font(.caption)
+                            }
                         }
                     }
+                    .frame(width: 160)
                 }
-                .frame(width: 160)
             }
         }
-    }
-    private var moversByDeltaBars: some View {
-        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
-        // top 10 by absolute delta to user target
-        struct Item: Identifiable { let id = UUID(); let name: String; let delta: Double }
-        let items = rows.compactMap { r -> Item? in
-            guard let d = r.deltaUserPct else { return nil }
-            return Item(name: r.instrumentName, delta: d)
-        }
-        .sorted { abs($0.delta) > abs($1.delta) }
-        .prefix(10)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Top Movers (Δ Actual − User %)").font(.title3).bold()
-            Chart(items) { it in
-                BarMark(x: .value("Δ", it.delta), y: .value("Instrument", it.name))
-                    .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
-            }
-            .frame(minHeight: 280)
-            .accessibilityLabel("Top movers by delta bar chart")
-        }
-    }
 
-    private var sectorExposureBars: some View {
-        // Aggregate by sector (fallback "Unknown")
-        let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
-        var buckets: [String: Double] = [:]
-        for r in rows {
-            let sec = (instrumentSectors[r.instrumentId] ?? "Unknown").trimmingCharacters(in: .whitespacesAndNewlines)
-            buckets[sec.isEmpty ? "Unknown" : sec, default: 0] += r.currentValueBase
-        }
-        struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
-        let items = buckets.map { Item(name: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Sector Exposure (\(dbManager.baseCurrency))").font(.title3).bold()
-            Chart(items) { it in
-                BarMark(x: .value("Value", it.value), y: .value("Sector", it.name))
+        private var moversByDeltaBars: some View {
+            let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+            // top 10 by absolute delta to user target
+            struct Item: Identifiable { let id = UUID(); let name: String; let delta: Double }
+            let items = rows.compactMap { r -> Item? in
+                guard let d = r.deltaUserPct else { return nil }
+                return Item(name: r.instrumentName, delta: d)
             }
-            .frame(minHeight: 280)
-            .accessibilityLabel("Sector exposure bar chart")
+            .sorted { abs($0.delta) > abs($1.delta) }
+            .prefix(10)
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Top Movers (Δ Actual − User %)").font(.title3).bold()
+                Chart(items) { it in
+                    BarMark(x: .value("Δ", it.delta), y: .value("Instrument", it.name))
+                        .foregroundStyle(it.delta >= 0 ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+                }
+                .frame(minHeight: 280)
+                .accessibilityLabel("Top movers by delta bar chart")
+            }
         }
-    }
+
+        private var sectorExposureBars: some View {
+            // Aggregate by sector (fallback "Unknown")
+            let rows = (valuation?.rows ?? []).filter { $0.status == .ok }
+            var buckets: [String: Double] = [:]
+            for r in rows {
+                let sec = (instrumentSectors[r.instrumentId] ?? "Unknown").trimmingCharacters(in: .whitespacesAndNewlines)
+                buckets[sec.isEmpty ? "Unknown" : sec, default: 0] += r.currentValueBase
+            }
+            struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
+            let items = buckets.map { Item(name: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
+            return VStack(alignment: .leading, spacing: 8) {
+                Text("Sector Exposure (\(dbManager.baseCurrency))").font(.title3).bold()
+                Chart(items) { it in
+                    BarMark(x: .value("Value", it.value), y: .value("Sector", it.name))
+                }
+                .frame(minHeight: 280)
+                .accessibilityLabel("Sector exposure bar chart")
+            }
+        }
     #endif
 
     // MARK: - Data
+
     private func loadTheme() {
         guard let fetched = dbManager.getPortfolioTheme(id: themeId) else { return }
         theme = fetched
@@ -1128,6 +1146,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     // MARK: - Utils
+
     // Included totals/counts for Holdings tab (based on User % > 0)
     private var includedUserTotalBase: Double? {
         guard let rows = valuation?.rows else { return nil }
@@ -1136,6 +1155,7 @@ struct PortfolioThemeWorkspaceView: View {
         }
         return sum
     }
+
     private var displayName: String { name.isEmpty ? "—" : name }
 
     private var statusDisplay: (name: String, color: Color) {
@@ -1245,6 +1265,7 @@ struct PortfolioThemeWorkspaceView: View {
 }
 
 // MARK: - Simple KPI view
+
 private struct KPI: View {
     let title: String
     let value: String
@@ -1264,8 +1285,7 @@ private struct KPI: View {
 // Lightweight card styling for analytics tiles
 private extension View {
     func analyticsCard() -> some View {
-        self
-            .padding(12)
+        padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.gray.opacity(0.06))
@@ -1278,42 +1298,43 @@ private extension View {
 }
 
 // MARK: - Holdings Table (read-only summary)
-    private struct HoldingsTable: View {
-        @EnvironmentObject var dbManager: DatabaseManager
-        @Environment(\.openWindow) private var openWindow
-        let themeId: Int
-        let isArchived: Bool
-        @Binding var search: String
-        var columns: Set<Column>
-        let fontConfig: HoldingsTableFontConfig
-        var reloadToken: Int = 0
-        var themeBudgetChf: Double? = nil
-        var onHoldingsChanged: (() -> Void)? = nil
-        @State private var rows: [ValuationRow] = []
-        @State private var total: Double = 0
-        @State private var saving: Set<Int> = [] // instrumentId currently saving
-        @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
-        @State private var invalidKeys: Set<String> = [] // "<instrumentId>:<field>" markers for subtle validation
-        @State private var tableWidth: CGFloat = 0
-        @State private var sortField: Column = .instrument
-        @State private var sortAscending: Bool = true
-        @State private var colWidths: [Column: CGFloat] = [:]
-        @State private var updateCounts: [Int: Int] = [:]
-        @State private var openUpdates: UpdatesTarget?
-        @State private var confirmRemoveId: Int? = nil
-        @State private var showToast: Bool = false
-        @State private var toastMessage: String = ""
-        // Debounce note saves per instrument to avoid saving on every keystroke
-        @State private var noteSaveDebounce: [Int: DispatchWorkItem] = [:]
 
-        @State private var rebalanceTagId: Int? = nil
-        @State private var hasLoadedRebalanceTag = false
+private struct HoldingsTable: View {
+    @EnvironmentObject var dbManager: DatabaseManager
+    @Environment(\.openWindow) private var openWindow
+    let themeId: Int
+    let isArchived: Bool
+    @Binding var search: String
+    var columns: Set<Column>
+    let fontConfig: HoldingsTableFontConfig
+    var reloadToken: Int = 0
+    var themeBudgetChf: Double? = nil
+    var onHoldingsChanged: (() -> Void)? = nil
+    @State private var rows: [ValuationRow] = []
+    @State private var total: Double = 0
+    @State private var saving: Set<Int> = [] // instrumentId currently saving
+    @State private var edits: [Int: Edit] = [:] // instrumentId -> current editable fields
+    @State private var invalidKeys: Set<String> = [] // "<instrumentId>:<field>" markers for subtle validation
+    @State private var tableWidth: CGFloat = 0
+    @State private var sortField: Column = .instrument
+    @State private var sortAscending: Bool = true
+    @State private var colWidths: [Column: CGFloat] = [:]
+    @State private var updateCounts: [Int: Int] = [:]
+    @State private var openUpdates: UpdatesTarget?
+    @State private var confirmRemoveId: Int? = nil
+    @State private var showToast: Bool = false
+    @State private var toastMessage: String = ""
+    // Debounce note saves per instrument to avoid saving on every keystroke
+    @State private var noteSaveDebounce: [Int: DispatchWorkItem] = [:]
 
-        @FocusState private var focusSearch: Bool
-        @FocusState private var focusedSetTargetField: Int?
+    @State private var rebalanceTagId: Int? = nil
+    @State private var hasLoadedRebalanceTag = false
 
-        private let autoTargetColor = Color(red: 1.0, green: 0.98, blue: 0.82)
-        private let manualTargetColor = Color(red: 0.86, green: 0.93, blue: 0.98)
+    @FocusState private var focusSearch: Bool
+    @FocusState private var focusedSetTargetField: Int?
+
+    private let autoTargetColor = Color(red: 1.0, green: 0.98, blue: 0.82)
+    private let manualTargetColor = Color(red: 0.86, green: 0.93, blue: 0.98)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1555,11 +1576,12 @@ private extension View {
         .foregroundColor(.secondary)
     }
 
-    private func resizable(_ col: Column) -> Bool { true }
-    private func resizeSpacer(for col: Column) -> some View {
+    private func resizable(_: Column) -> Bool { true }
+    private func resizeSpacer(for _: Column) -> some View {
         // Invisible spacer to match resize handle width in header, keeping column alignment
         Rectangle().fill(Color.clear).frame(width: 6, height: 18)
     }
+
     @State private var draftColWidths: [Column: CGFloat] = [:]
 
     private func resizeHandle(for col: Column) -> some View {
@@ -1640,12 +1662,12 @@ private extension View {
 
     private func measureText(_ s: String, monospaced: Bool) -> CGFloat {
         #if os(macOS)
-        let font: NSFont = monospaced ? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular) : NSFont.systemFont(ofSize: 13)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font]
-        let w = (s as NSString).size(withAttributes: attrs).width
-        return ceil(w)
+            let font: NSFont = monospaced ? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular) : NSFont.systemFont(ofSize: 13)
+            let attrs: [NSAttributedString.Key: Any] = [.font: font]
+            let w = (s as NSString).size(withAttributes: attrs).width
+            return ceil(w)
         #else
-        return CGFloat(s.count) * 7
+            return CGFloat(s.count) * 7
         #endif
     }
 
@@ -1786,7 +1808,8 @@ private extension View {
             if resizable(.notes) { resizeSpacer(for: .notes) }
             if let delta = setTargetDelta(r.instrumentId, actual: r.currentValueBase),
                abs(delta) >= 5000,
-               editableUser(r.instrumentId) > 0 {
+               editableUser(r.instrumentId) > 0
+            {
                 Button {
                     triggerRebalance(for: r, delta: delta)
                 } label: {
@@ -1864,6 +1887,7 @@ private extension View {
         f.minimumFractionDigits = decimals
         return f.string(from: NSNumber(value: v)) ?? String(format: decimals == 0 ? "%.0f" : "%.2f", v)
     }
+
     // Local CHF whole-number currency with Swiss grouping (apostrophes)
     private var currencyCode: String {
         let code = dbManager.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2008,6 +2032,7 @@ private extension View {
         guard let x = v else { return "—" }
         return String(format: "%.2f", x)
     }
+
     private var sortedRows: [ValuationRow] {
         var arr = filteredRows
         switch sortField {
@@ -2113,12 +2138,14 @@ private extension View {
         }
         return arr
     }
+
     private func tieBreak(_ l: ValuationRow, _ r: ValuationRow) -> Bool {
         if l.instrumentName != r.instrumentName {
             return l.instrumentName < r.instrumentName
         }
         return l.instrumentId < r.instrumentId
     }
+
     private func editableResearch(_ id: Int) -> Double { edits[id]?.research ?? rows.first(where: { $0.instrumentId == id })?.researchTargetPct ?? 0 }
     private func editableUser(_ id: Int) -> Double { edits[id]?.user ?? rows.first(where: { $0.instrumentId == id })?.userTargetPct ?? 0 }
     private func editableNotes(_ id: Int) -> String { edits[id]?.notes ?? rows.first(where: { $0.instrumentId == id })?.notes ?? "" }
@@ -2138,6 +2165,7 @@ private extension View {
         .buttonStyle(.plain)
         .help("Sort by \(title)")
     }
+
     private var filteredRows: [ValuationRow] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return rows }
@@ -2150,46 +2178,54 @@ private extension View {
     }
 
     // MARK: - Normalization & Targets
+
     private var sumIncludedUser: Double {
         rows.reduce(0.0) { acc, r in
             let u = editableUser(r.instrumentId)
             return u > 0 ? acc + u : acc
         }
     }
+
     private var includedActualTotal: Double {
         rows.reduce(0.0) { acc, r in
             let u = editableUser(r.instrumentId)
             return u > 0 ? acc + r.currentValueBase : acc
         }
     }
+
     private var excludedActualTotal: Double {
         rows.reduce(0.0) { acc, r in
             let u = editableUser(r.instrumentId)
             return u == 0 ? acc + r.currentValueBase : acc
         }
     }
+
     private var totalCalcTargetChf: Double {
         rows.reduce(0.0) { acc, row in
             acc + targetChf(row.instrumentId)
         }
     }
+
     private var totalSetTargetChf: Double {
         rows.reduce(0.0) { acc, row in
             acc + (editableSetTarget(row.instrumentId) ?? 0)
         }
     }
+
     private var totalActualChf: Double {
         rows.reduce(0.0) { acc, row in
             acc + row.currentValueBase
         }
     }
+
     private var actualTotalsBreakdown: [(String, Double)] {
         guard totalActualChf > 0 else { return [] }
         return [
             ("Included", includedActualTotal),
-            ("Excluded", excludedActualTotal)
+            ("Excluded", excludedActualTotal),
         ]
     }
+
     private func normalizedUserPct(_ id: Int) -> Double? {
         let u = editableUser(id)
         guard u > 0 else { return 0 }
@@ -2221,6 +2257,7 @@ private extension View {
     }
 
     // MARK: - Editing helpers
+
     private enum Field { case research, user, setTarget }
     private func key(for instrumentId: Int, field: Field) -> String {
         let suffix: String
@@ -2231,6 +2268,7 @@ private extension View {
         }
         return "\(instrumentId):\(suffix)"
     }
+
     private func bindingDouble(for instrumentId: Int, field: Field) -> Binding<Double> {
         Binding<Double>(
             get: {
@@ -2247,6 +2285,7 @@ private extension View {
             }
         )
     }
+
     private func bindingSetTarget(for instrumentId: Int) -> Binding<String> {
         Binding<String>(
             get: { edits[instrumentId]?.setTargetDraft ?? "" },
@@ -2271,6 +2310,7 @@ private extension View {
             }
         )
     }
+
     private func bindingNotes(for instrumentId: Int) -> Binding<String> {
         Binding<String>(
             get: { edits[instrumentId]?.notes ?? "" },
@@ -2333,6 +2373,7 @@ private extension View {
         let dir = sortAscending ? "asc" : "desc"
         UserDefaults.standard.set("\(sortField.rawValue)|\(dir)", forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsSort)
     }
+
     private func restoreSort() {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsSort) else { return }
         let parts = raw.split(separator: "|")
@@ -2360,6 +2401,7 @@ private extension View {
             self.init(research: research, user: user, setTargetChf: nil, setTargetDraft: "", notes: notes)
         }
     }
+
     private struct UpdatesTarget: Identifiable { let themeId: Int; let instrumentId: Int; let instrumentName: String; var id: Int { instrumentId } }
 
     // Totals computed from current editable values
@@ -2368,6 +2410,7 @@ private extension View {
         let sum = ids.reduce(0.0) { $0 + editableResearch($1) }
         return (sum * 100).rounded() / 100
     }
+
     private var userTotal: Double {
         let ids = rows.map { $0.instrumentId }
         let sum = ids.reduce(0.0) { $0 + editableUser($1) }
@@ -2394,10 +2437,12 @@ private extension View {
             case .notes: return "Notes"
             }
         }
+
         static let defaultVisible: [Column] = [.instrument, .research, .user, .userNorm, .targetChf, .setTargetChf, .actual, .delta, .deltaChf, .setDeltaChf, .actualChf, .notes]
     }
 
     // MARK: - Column widths persistence
+
     private func restoreWidths() {
         guard let raw = UserDefaults.standard.string(forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths) else { return }
         var map: [Column: CGFloat] = [:]
@@ -2409,6 +2454,7 @@ private extension View {
         }
         if !map.isEmpty { colWidths = map }
     }
+
     private func persistWidths() {
         let raw = Column.allCases.compactMap { col -> String? in
             if let w = colWidths[col] { return "\(col.rawValue):\(Int(w))" }
@@ -2416,6 +2462,7 @@ private extension View {
         }.joined(separator: ",")
         UserDefaults.standard.set(raw, forKey: UserDefaultsKeys.portfolioThemeWorkspaceHoldingsColWidths)
     }
+
     // Editor as a helper view
     @ViewBuilder
     private func ColumnWidthsEditor(onSave: @escaping () -> Void) -> some View {
@@ -2427,7 +2474,7 @@ private extension View {
                     Slider(value: Binding(
                         get: { Double(width(for: col)) },
                         set: { colWidths[col] = CGFloat($0) }
-                    ), in: 40...600)
+                    ), in: 40 ... 600)
                     Text("\(Int(width(for: col))) pt").frame(width: 80, alignment: .trailing)
                 }
             }
@@ -2452,7 +2499,6 @@ private extension View {
             load()
             onHoldingsChanged?()
             showQuickToast("Removed")
-        }
-        else { showQuickToast(err ?? "Delete failed"); LoggingService.shared.log("[UI] removeThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err ?? "unknown")", logger: .ui) }
+        } else { showQuickToast(err ?? "Delete failed"); LoggingService.shared.log("[UI] removeThemeAsset failed themeId=\(themeId) instrumentId=\(instrumentId): \(err ?? "unknown")", logger: .ui) }
     }
 }

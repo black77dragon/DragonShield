@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImportSessionHistoryView: View {
@@ -29,13 +29,14 @@ struct ImportSessionHistoryView: View {
                             session: session,
                             totalValue: totalValues[session.id] ?? 0,
                             isSelected: selected?.id == session.id,
-                            rowPadding: CGFloat(dbManager.tableRowPadding)) {
-                                selected = session
-                            }
-                            .onTapGesture(count: 2) {
-                                selected = session
-                                detailItem = session
-                            }
+                            rowPadding: CGFloat(dbManager.tableRowPadding)
+                        ) {
+                            selected = session
+                        }
+                        .onTapGesture(count: 2) {
+                            selected = session
+                            detailItem = session
+                        }
                     }
                 }
             }

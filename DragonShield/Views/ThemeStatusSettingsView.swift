@@ -1,6 +1,9 @@
 // DragonShield/Views/ThemeStatusSettingsView.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - Initial creation: Manage PortfolioThemeStatus entries.
 // - 1.1: Add preset color picker with custom hex option and contrast-aware chips.
 // - 1.2: Replace pop-up editor with professional sheet layout and inline validation.
@@ -37,7 +40,7 @@ struct ThemeStatusSettingsView: View {
                             switch dbManager.deletePortfolioThemeStatus(id: status.id) {
                             case .success:
                                 load()
-                            case .failure(let err):
+                            case let .failure(err):
                                 errorMessage = err.localizedDescription
                                 showErrorAlert = true
                             }
@@ -65,21 +68,21 @@ struct ThemeStatusSettingsView: View {
                     switch dbManager.insertPortfolioThemeStatus(code: updated.code, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault) {
                     case .success:
                         return nil
-                    case .failure(let err):
+                    case let .failure(err):
                         return err
                     }
                 } else {
                     switch dbManager.updatePortfolioThemeStatus(id: updated.id, name: updated.name, colorHex: updated.colorHex, isDefault: updated.isDefault) {
                     case .success:
                         return nil
-                    case .failure(let err):
+                    case let .failure(err):
                         return err
                     }
                 }
             }
         }
         .alert("Database Error", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
         }
@@ -262,7 +265,7 @@ struct ThemeStatusEditView: View {
             }
         }
         .alert("Save Failed", isPresented: $showSheetError) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {}
         } message: {
             Text(sheetError)
         }

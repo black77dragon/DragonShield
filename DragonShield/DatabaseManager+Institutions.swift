@@ -1,17 +1,19 @@
 // DragonShield/DatabaseManager+Institutions.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Added Hashable conformance to InstitutionData for use in Lists
 //                and Picker tags.
 // - 1.1 -> 1.2: deleteInstitution now performs a hard delete instead of
 //                deactivating the entry.
 // - Initial creation: Provides CRUD operations for Institutions table.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     struct InstitutionData: Identifiable, Equatable, Hashable {
         let id: Int
         var name: String
@@ -211,4 +213,3 @@ extension DatabaseManager {
         return ids
     }
 }
-

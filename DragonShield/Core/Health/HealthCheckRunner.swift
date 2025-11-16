@@ -3,7 +3,7 @@ import Foundation
 /// Executes startup `HealthCheck`s and publishes their reports.
 @MainActor
 public final class HealthCheckRunner: ObservableObject {
-    @Published private(set) public var reports: [HealthCheckReport] = []
+    @Published public private(set) var reports: [HealthCheckReport] = []
     private let checks: [HealthCheck]
 
     public init(
@@ -43,13 +43,12 @@ public final class HealthCheckRunner: ObservableObject {
 
     private func logOutcome(name: String, result: HealthCheckResult) {
         switch result {
-        case .ok(let message):
+        case let .ok(message):
             LoggingService.shared.log("[\(name)] \(message)")
-        case .warning(let message):
+        case let .warning(message):
             LoggingService.shared.log("[\(name)] warning: \(message)")
-        case .error(let message):
+        case let .error(message):
             LoggingService.shared.log("[\(name)] error: \(message)", type: .error)
         }
     }
 }
-

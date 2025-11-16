@@ -51,6 +51,7 @@ extension DatabaseManager {
         }
         return rows
     }
+
     func getInstrumentName(id: Int) -> String? {
         let sql = "SELECT instrument_name FROM Instruments WHERE instrument_id = ? LIMIT 1"
         var stmt: OpaquePointer?
@@ -104,6 +105,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Soft Delete / Restore
+
     func countPositionsForInstrument(id: Int) -> Int {
         let sql = "SELECT COUNT(*) FROM PositionReports WHERE instrument_id = ?"
         var stmt: OpaquePointer?
@@ -249,6 +251,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Lookups
+
     func findInstrumentId(valorNr: String) -> Int? {
         let sql = "SELECT instrument_id FROM Instruments WHERE valor_nr = ? LIMIT 1"
         var stmt: OpaquePointer?

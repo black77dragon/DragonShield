@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class ThemeStatusDatabaseTests: XCTestCase {
     var manager: DatabaseManager!
@@ -40,7 +40,7 @@ final class ThemeStatusDatabaseTests: XCTestCase {
     func testInsertInvalidCodeReturnsError() {
         let result = manager.insertPortfolioThemeStatus(code: "bad", name: "Test", colorHex: "#FFFFFF", isDefault: false)
         switch result {
-        case .failure(let err):
+        case let .failure(err):
             XCTAssertEqual(err, .invalidCode)
         default:
             XCTFail("Expected invalid code error")
@@ -51,7 +51,7 @@ final class ThemeStatusDatabaseTests: XCTestCase {
         _ = manager.insertPortfolioThemeStatus(code: "AA", name: "One", colorHex: "#FFFFFF", isDefault: false)
         let result = manager.insertPortfolioThemeStatus(code: "BB", name: "One", colorHex: "#000000", isDefault: false)
         switch result {
-        case .failure(let err):
+        case let .failure(err):
             XCTAssertEqual(err, .duplicateName)
         default:
             XCTFail("Expected duplicate name error")
@@ -64,8 +64,8 @@ final class ThemeStatusDatabaseTests: XCTestCase {
         sqlite3_exec(manager.db, "INSERT INTO PortfolioTheme(id,status_id) VALUES (1,\(statusId));", nil, nil, nil)
         let result = manager.deletePortfolioThemeStatus(id: statusId)
         switch result {
-        case .failure(let err):
-            if case .inUse(let count) = err {
+        case let .failure(err):
+            if case let .inUse(count) = err {
                 XCTAssertEqual(count, 1)
             } else {
                 XCTFail("Expected inUse error")
@@ -80,7 +80,7 @@ final class ThemeStatusDatabaseTests: XCTestCase {
         let statusId = Int(sqlite3_last_insert_rowid(manager.db))
         let result = manager.deletePortfolioThemeStatus(id: statusId)
         switch result {
-        case .failure(let err):
+        case let .failure(err):
             XCTAssertEqual(err, .isDefault)
         default:
             XCTFail("Expected default error")
@@ -91,7 +91,7 @@ final class ThemeStatusDatabaseTests: XCTestCase {
         _ = manager.insertPortfolioThemeStatus(code: "AA", name: "One", colorHex: "#FFFFFF", isDefault: false)
         let statusId = Int(sqlite3_last_insert_rowid(manager.db))
         let result = manager.deletePortfolioThemeStatus(id: statusId)
-        if case .failure(let err) = result {
+        if case let .failure(err) = result {
             XCTFail("Expected success got \(err)")
         }
     }

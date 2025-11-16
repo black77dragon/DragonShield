@@ -69,7 +69,8 @@ struct DragonShieldApp: App {
         }
         WindowGroup(id: "accountDetail", for: Int.self) { $accountId in
             if let id = accountId,
-               let account = databaseManager.fetchAccountDetails(id: id) {
+               let account = databaseManager.fetchAccountDetails(id: id)
+            {
                 AccountDetailWindowView(account: account)
                     .environmentObject(databaseManager)
                     .environmentObject(ichimokuSettingsService)

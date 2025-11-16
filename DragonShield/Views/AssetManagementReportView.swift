@@ -1,12 +1,12 @@
 import SwiftUI
 #if canImport(Charts)
-import Charts
+    import Charts
 #endif
 import UniformTypeIdentifiers
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 private enum ReportLayout {
@@ -48,7 +48,7 @@ struct AssetManagementReportView: View {
     private var custodySummaryCards: [CustodySummaryCard] {
         let defaults: [(id: String, title: String)] = [
             (id: "ZKB", title: "Zürcher Kantonalbank"),
-            (id: "UBS", title: "UBS (Credit-Suisse)")
+            (id: "UBS", title: "UBS (Credit-Suisse)"),
         ]
         let totals = Dictionary(uniqueKeysWithValues: summary.custodySummaries.map { ($0.id, $0.totalBaseValue) })
         return defaults.map { definition in
@@ -113,15 +113,16 @@ struct AssetManagementReportView: View {
     private func renderPDFData<Content: View>(from view: Content) -> Data? {
         let renderer = ImageRenderer(content: view)
         #if os(macOS)
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         #else
-        renderer.scale = UIScreen.main.scale
+            renderer.scale = UIScreen.main.scale
         #endif
         guard let cgImage = renderer.cgImage else { return nil }
         let data = NSMutableData()
         var mediaBox = CGRect(origin: .zero, size: CGSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+        else {
             return nil
         }
         context.beginPDFPage(nil)
@@ -140,15 +141,15 @@ struct AssetManagementReportView: View {
         guard !isGeneratingPDF else { return }
 
         #if os(macOS)
-        guard #available(macOS 13.0, *) else {
-            presentExportError("Printing requires macOS 13 or newer.")
-            return
-        }
+            guard #available(macOS 13.0, *) else {
+                presentExportError("Printing requires macOS 13 or newer.")
+                return
+            }
         #else
-        guard #available(iOS 16.0, macCatalyst 16.0, *) else {
-            presentExportError("Printing requires iOS/macCatalyst 16 or newer.")
-            return
-        }
+            guard #available(iOS 16.0, macCatalyst 16.0, *) else {
+                presentExportError("Printing requires iOS/macCatalyst 16 or newer.")
+                return
+            }
         #endif
 
         isGeneratingPDF = true
@@ -169,7 +170,7 @@ struct AssetManagementReportView: View {
         switch result {
         case .success:
             exportErrorMessage = nil
-        case .failure(let error):
+        case let .failure(error):
             presentExportError("Failed to save the PDF: \(error.localizedDescription)")
         }
         pdfExportDocument = .empty
@@ -322,7 +323,7 @@ struct AssetManagementReportView: View {
                 columns: ["Account", "Local", summary.baseCurrency],
                 boldColumnIndices: [2]
             )
-                .padding(.bottom, 2)
+            .padding(.bottom, 2)
             ForEach(summary.cashBreakdown) { row in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -575,10 +576,10 @@ struct AssetManagementReportView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .contentShape(Rectangle())
-                                    .simultaneousGesture(
-                                        TapGesture(count: 2)
-                                            .onEnded { selectedAssetClass = item }
-                                    )
+                                .simultaneousGesture(
+                                    TapGesture(count: 2)
+                                        .onEnded { selectedAssetClass = item }
+                                )
                             }
                         }
                     }
@@ -1058,7 +1059,6 @@ struct AssetManagementReportView: View {
         static let primaryHeight: CGFloat = 34
     }
 
-
     private struct CurrencyAllocationBarView: View {
         let allocations: [AssetManagementReportSummary.CurrencyAllocation]
         let colorProvider: (String) -> Color
@@ -1162,10 +1162,10 @@ private struct ReportPDFDocument: FileDocument {
             throw CocoaError(.fileReadCorruptFile)
         }
         self.data = data
-        self.suggestedFilename = "Asset-Management-Report"
+        suggestedFilename = "Asset-Management-Report"
     }
 
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+    func fileWrapper(configuration _: WriteConfiguration) throws -> FileWrapper {
         let wrapper = FileWrapper(regularFileWithContents: data)
         wrapper.preferredFilename = suggestedFilename
         return wrapper
@@ -1558,13 +1558,13 @@ private extension AssetManagementReportSummary.AssetClassBreakdown {
 }
 
 #if DEBUG
-struct AssetManagementReportView_Previews: PreviewProvider {
-    static var previews: some View {
-        let vm = AssetManagementReportViewModel()
-        vm.applyPreviewData(.preview)
-        return AssetManagementReportView(viewModel: vm)
-            .environmentObject(DatabaseManager())
-            .frame(width: 900)
+    struct AssetManagementReportView_Previews: PreviewProvider {
+        static var previews: some View {
+            let vm = AssetManagementReportViewModel()
+            vm.applyPreviewData(.preview)
+            return AssetManagementReportView(viewModel: vm)
+                .environmentObject(DatabaseManager())
+                .frame(width: 900)
+        }
     }
-}
 #endif

@@ -1,5 +1,5 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 
 enum AllocationInputMode: String {
     case percent
@@ -53,15 +53,19 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     // MARK: - Totals
+
     var targetPctTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.targetPct).reduce(0, +)
     }
+
     var targetChfTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.targetChf).reduce(0, +)
     }
+
     var actualPctTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualPct).reduce(0, +)
     }
+
     var actualChfTotal: Double {
         assets.filter { !$0.id.hasPrefix("sub-") }.map(\.actualChf).reduce(0, +)
     }
@@ -87,17 +91,17 @@ final class AllocationTargetsTableViewModel: ObservableObject {
             if lhsActive != rhsActive { return lhsActive && !rhsActive }
             let lhsVal: Double
             let rhsVal: Double
-           switch sortColumn {
-           case .targetPct:
-               lhsVal = lhs.targetPct
-               rhsVal = rhs.targetPct
-           case .actualPct:
-               lhsVal = lhs.actualPct
-               rhsVal = rhs.actualPct
+            switch sortColumn {
+            case .targetPct:
+                lhsVal = lhs.targetPct
+                rhsVal = rhs.targetPct
+            case .actualPct:
+                lhsVal = lhs.actualPct
+                rhsVal = rhs.actualPct
             case .deltaPct:
                 lhsVal = lhs.deviationPct
                 rhsVal = rhs.deviationPct
-           }
+            }
             if lhsVal == rhsVal { return lhs.name < rhs.name }
             return sortAscending ? lhsVal < rhsVal : lhsVal > rhsVal
         }
@@ -108,13 +112,15 @@ final class AllocationTargetsTableViewModel: ObservableObject {
 
     func isActive(_ asset: AllocationAsset) -> Bool {
         if !(isZeroPct(asset.targetPct) && isZeroChf(asset.targetChf) &&
-             isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf)) {
+            isZeroPct(asset.actualPct) && isZeroChf(asset.actualChf))
+        {
             return true
         }
         if let children = asset.children {
             for child in children {
                 if !(isZeroPct(child.targetPct) && isZeroChf(child.targetChf) &&
-                      isZeroPct(child.actualPct) && isZeroChf(child.actualChf)) {
+                    isZeroPct(child.actualPct) && isZeroChf(child.actualChf))
+                {
                     return true
                 }
             }
@@ -131,11 +137,13 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     private static func key(for id: String) -> String { "allocMode-\(id)" }
     static func loadMode(id: String) -> AllocationInputMode {
         if let raw = UserDefaults.standard.string(forKey: key(for: id)),
-           let mode = AllocationInputMode(rawValue: raw) {
+           let mode = AllocationInputMode(rawValue: raw)
+        {
             return mode
         }
         return .percent
     }
+
     func saveMode(_ mode: AllocationInputMode, for id: String) {
         UserDefaults.standard.set(mode.rawValue, forKey: Self.key(for: id))
         if let path = indexPath(for: id) {
@@ -161,7 +169,7 @@ final class AllocationTargetsTableViewModel: ObservableObject {
     }
 
     func load(using dbManager: DatabaseManager) {
-        self.db = dbManager
+        db = dbManager
         let classes = dbManager.fetchAssetClassesDetailed()
         var classIdMap: [String: Int] = [:]
         var subIdMap: [String: Int] = [:]
@@ -404,7 +412,6 @@ struct AllocationTargetsTableView: View {
         viewModel.assets.filter { !viewModel.isActive($0) }
     }
 
-
     private var portfolioIssues: [String] {
         var issues: [String] = []
         if !viewModel.totalsValid {
@@ -435,13 +442,13 @@ struct AllocationTargetsTableView: View {
                 OutlineGroup(activeAssets, children: \.children) { asset in
                     tableRow(for: asset)
                 }
-                    if !inactiveAssets.isEmpty {
-                        Divider()
-                        inactiveHeader
-                        OutlineGroup(inactiveAssets, children: \.children) { asset in
-                            tableRow(for: asset)
-                        }
+                if !inactiveAssets.isEmpty {
+                    Divider()
+                    inactiveHeader
+                    OutlineGroup(inactiveAssets, children: \.children) { asset in
+                        tableRow(for: asset)
                     }
+                }
             }
 
             ScrollView {
@@ -580,9 +587,9 @@ struct AllocationTargetsTableView: View {
     private var totalCellPct: some View {
         HStack(spacing: 2) {
             Text("\(formatPercent(viewModel.targetPctTotal))%")
-                .fontWeight((99...101).contains(viewModel.targetPctTotal) ? .regular : .bold)
-                .foregroundColor((99...101).contains(viewModel.targetPctTotal) ? .primary : .red)
-            if !(99...101).contains(viewModel.targetPctTotal) {
+                .fontWeight((99 ... 101).contains(viewModel.targetPctTotal) ? .regular : .bold)
+                .foregroundColor((99 ... 101).contains(viewModel.targetPctTotal) ? .primary : .red)
+            if !(99 ... 101).contains(viewModel.targetPctTotal) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.red)
                     .help("Target % total must be between 99% and 101%")
@@ -598,15 +605,15 @@ struct AllocationTargetsTableView: View {
                     let base = viewModel.sortAscending ? "arrowtriangle.up" : "arrowtriangle.down"
                     return viewModel.sortColumn == column ? base + ".fill" : base
                 }())
-                .resizable()
-                .frame(width: 12, height: 12)
-                .foregroundColor(viewModel.sortColumn == column ? .accentColor : .gray)
+                    .resizable()
+                    .frame(width: 12, height: 12)
+                    .foregroundColor(viewModel.sortColumn == column ? .accentColor : .gray)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 2)
         }
         .buttonStyle(.plain)
-        .background(viewModel.sortColumn == column ? Color(red: 230/255, green: 247/255, blue: 255/255) : Color.clear)
+        .background(viewModel.sortColumn == column ? Color(red: 230 / 255, green: 247 / 255, blue: 255 / 255) : Color.clear)
     }
 
     private func deltaColor(_ value: Double) -> Color {
@@ -684,7 +691,7 @@ struct AllocationTargetsTableView: View {
             Divider()
             HStack(alignment: .top, spacing: 0) {
                 Picker("", selection: viewModel.modeBinding(for: asset)) {
-                    Text("%" ).tag(AllocationInputMode.percent)
+                    Text("%").tag(AllocationInputMode.percent)
                     Text("CHF").tag(AllocationInputMode.chf)
                 }
                 .pickerStyle(.segmented)

@@ -33,8 +33,8 @@ final class UnusedInstrumentsTileViewModel: ObservableObject {
 
     func process(all: [UnusedInstrument]) {
         let limited = Self.sortedLimited(all)
-        self.items = limited
-        self.totalCount = all.count
+        items = limited
+        totalCount = all.count
     }
 
     static func sortedLimited(_ list: [UnusedInstrument]) -> [UnusedInstrument] {

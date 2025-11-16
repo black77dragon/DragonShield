@@ -1,6 +1,6 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 struct NewPortfoliosView: View {
@@ -98,7 +98,7 @@ struct NewPortfoliosView: View {
         .updatedAt: 140,
         .totalValue: 160,
         .instruments: 120,
-        .description: 280
+        .description: 280,
     ]
 
     fileprivate static let minimumColumnWidths: [ThemeColumn: CGFloat] = [
@@ -108,7 +108,7 @@ struct NewPortfoliosView: View {
         .updatedAt: 120,
         .totalValue: 140,
         .instruments: 100,
-        .description: 200
+        .description: 200,
     ]
 
     fileprivate static let initialColumnFractions: [ThemeColumn: CGFloat] = {
@@ -123,7 +123,7 @@ struct NewPortfoliosView: View {
     fileprivate static let columnHandleWidth: CGFloat = 10
     fileprivate static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
-    private let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
 
     @State private var themes: [PortfolioTheme] = []
     @State private var statuses: [PortfolioThemeStatus] = []
@@ -172,7 +172,7 @@ struct NewPortfoliosView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -571,9 +571,9 @@ struct NewPortfoliosView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-#if os(macOS)
-                        NewPortfoliosView.columnResizeCursor.set()
-#endif
+                        #if os(macOS)
+                            NewPortfoliosView.columnResizeCursor.set()
+                        #endif
                         guard availableTableWidth > 0 else { return }
                         if dragContext?.primary != column {
                             beginDrag(for: column)
@@ -582,9 +582,9 @@ struct NewPortfoliosView: View {
                     }
                     .onEnded { _ in
                         finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
+                        #if os(macOS)
+                            NSCursor.arrow.set()
+                        #endif
                     }
             )
             .overlay(alignment: .leading) {
@@ -594,7 +594,7 @@ struct NewPortfoliosView: View {
             }
             .padding(.vertical, 2)
             .background(Color.clear)
-#if os(macOS)
+        #if os(macOS)
             .onHover { inside in
                 if inside {
                     NewPortfoliosView.columnResizeCursor.set()
@@ -602,24 +602,24 @@ struct NewPortfoliosView: View {
                     NSCursor.arrow.set()
                 }
             }
-#endif
+        #endif
     }
 
-#if os(macOS)
-    private static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
-#endif
+    #if os(macOS)
+        private static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
+    #endif
 
     private var activeColumns: [ThemeColumn] {
         let set = visibleColumns.intersection(NewPortfoliosView.columnOrder)
@@ -641,7 +641,7 @@ struct NewPortfoliosView: View {
             if !showArchivedThemes {
                 if theme.archivedAt != nil || status(for: theme.statusId)?.code == PortfolioThemeStatus.archivedCode { return false }
             }
-            if !showSoftDeletedThemes && theme.softDelete { return false }
+            if !showSoftDeletedThemes, theme.softDelete { return false }
             if !statusFilters.isEmpty {
                 let name = statusName(for: theme.statusId)
                 if !statusFilters.contains(name) { return false }
@@ -677,7 +677,7 @@ struct NewPortfoliosView: View {
             case .totalValue:
                 let lv = lhs.totalValueBase ?? Double.nan
                 let rv = rhs.totalValueBase ?? Double.nan
-                if lv.isNaN && rv.isNaN { return false }
+                if lv.isNaN, rv.isNaN { return false }
                 if lv.isNaN { return !sortAscending }
                 if rv.isNaN { return sortAscending }
                 return sortAscending ? lv < rv : lv > rv
@@ -893,7 +893,7 @@ struct NewPortfoliosView: View {
         loadValuations()
     }
 
-    private func applySort() { }
+    private func applySort() {}
 
     private func loadValuations() {
         valuationTask?.cancel()
@@ -916,9 +916,9 @@ struct NewPortfoliosView: View {
 
     private func openSelected() {
         guard let theme = selectedTheme else {
-#if os(macOS)
-            NSSound.beep()
-#endif
+            #if os(macOS)
+                NSSound.beep()
+            #endif
             return
         }
         open(theme)
@@ -954,7 +954,7 @@ struct NewPortfoliosView: View {
     }
 }
 
-fileprivate struct PortfolioThemeRowView: View {
+private struct PortfolioThemeRowView: View {
     let theme: PortfolioTheme
     let status: PortfolioThemeStatus?
     let columns: [NewPortfoliosView.ThemeColumn]
@@ -999,19 +999,19 @@ fileprivate struct PortfolioThemeRowView: View {
         .contextMenu {
             Button("Open Theme", action: onOpen)
             Button("Select Theme", action: onSelect)
-#if os(macOS)
-            Divider()
-            Button("Copy Name") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(theme.name, forType: .string)
-            }
-            Button("Copy Code") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(theme.code, forType: .string)
-            }
-#endif
+            #if os(macOS)
+                Divider()
+                Button("Copy Name") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(theme.name, forType: .string)
+                }
+                Button("Copy Code") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(theme.code, forType: .string)
+                }
+            #endif
         }
     }
 
@@ -1166,9 +1166,9 @@ fileprivate struct PortfolioThemeRowView: View {
 }
 
 #if DEBUG
-#Preview {
-    NewPortfoliosView()
-        .environmentObject(DatabaseManager())
-        .frame(minWidth: 1200, minHeight: 720)
-}
+    #Preview {
+        NewPortfoliosView()
+            .environmentObject(DatabaseManager())
+            .frame(minWidth: 1200, minHeight: 720)
+    }
 #endif

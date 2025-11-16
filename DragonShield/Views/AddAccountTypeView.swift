@@ -1,6 +1,9 @@
 // DragonShield/Views/AddAccountTypeView.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Corrected particle background struct name and fixed scope issue.
 // - Initial creation: View for adding new account types.
 
@@ -14,39 +17,38 @@ struct AddViewParticle: Identifiable { // Renamed to avoid conflict and be more 
     var opacity: Double
 }
 
-
 struct AddAccountTypeView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
-    
+
     @State private var typeName: String = ""
     @State private var typeCode: String = ""
     @State private var typeDescription: String = ""
     @State private var isActive: Bool = true
-    
+
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    
+
     // Animation states
     @State private var formScale: CGFloat = 0.9
     @State private var headerOpacity: Double = 0
     @State private var sectionsOffset: CGFloat = 50
-    
+
     var isValid: Bool {
         !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-    
+
     var body: some View {
         ZStack {
             LinearGradient(
                 colors: [Color(red: 0.98, green: 0.99, blue: 1.0), Color(red: 0.95, green: 0.97, blue: 0.99)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ).ignoresSafeArea()
-            
+
             AddAccountTypeParticleBackground()
-            
+
             VStack(spacing: 0) {
                 addModernHeader
                 addModernContent
@@ -69,7 +71,7 @@ struct AddAccountTypeView: View {
             Text(alertMessage)
         }
     }
-    
+
     private var addModernHeader: some View {
         HStack {
             Button { animateAddExit() } label: {
@@ -98,7 +100,7 @@ struct AddAccountTypeView: View {
         }
         .padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
-    
+
     private var addModernContent: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -108,15 +110,15 @@ struct AddAccountTypeView: View {
         }
         .offset(y: sectionsOffset)
     }
-    
+
     private var addFormSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             sectionHeader(title: "Type Details", icon: "doc.text.image.fill", color: .indigo)
-            
+
             VStack(spacing: 16) {
                 modernTextField(title: "Type Name*", text: $typeName, placeholder: "e.g., Account", icon: "textformat.abc", isRequired: true)
                 modernTextField(title: "Type Code*", text: $typeCode, placeholder: "e.g., CUSTODY (all caps, no spaces)", icon: "number.square", isRequired: true, autoUppercase: true)
-                
+
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: "text.alignleft").foregroundColor(.gray)
@@ -131,14 +133,14 @@ struct AddAccountTypeView: View {
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                         .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                 }
-                
+
                 Toggle("Active", isOn: $isActive)
                     .modifier(ModernToggleStyle(tint: .indigo))
             }
         }
         .modifier(ModernFormSection(color: .indigo))
     }
-    
+
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 20))
@@ -147,14 +149,14 @@ struct AddAccountTypeView: View {
             Spacer()
         }
     }
-    
+
     private func modernTextField(title: String, text: Binding<String>, placeholder: String, icon: String, isRequired: Bool, autoUppercase: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: icon).font(.system(size: 14)).foregroundColor(.gray)
                 Text(title).font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7))
                 Spacer()
-                 if isRequired && text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && showingAlert && !isValid {
+                if isRequired && text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && showingAlert && !isValid {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12)).foregroundColor(.red)
                 }
             }
@@ -176,27 +178,27 @@ struct AddAccountTypeView: View {
             }
         }
     }
-    
+
     private func animateAddEntrance() {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) { formScale = 1.0 }
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) { sectionsOffset = 0 }
     }
-    
+
     private func animateAddExit() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50; }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { presentationMode.wrappedValue.dismiss() }
     }
-    
+
     func saveAccountType() {
         let finalCode = typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let finalName = typeName.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalDescription = typeDescription.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if finalName.isEmpty || finalCode.isEmpty {
-             alertMessage = "Type Name and Type Code are required."
-             showingAlert = true
-             return
+            alertMessage = "Type Name and Type Code are required."
+            showingAlert = true
+            return
         }
         if finalCode.contains(" ") {
             alertMessage = "Type Code cannot contain spaces."
@@ -211,7 +213,7 @@ struct AddAccountTypeView: View {
             description: finalDescription.isEmpty ? nil : finalDescription,
             isActive: isActive
         )
-        
+
         DispatchQueue.main.async {
             self.isLoading = false
             if success {
@@ -226,9 +228,10 @@ struct AddAccountTypeView: View {
 }
 
 // MARK: - Particle Background for Add View
+
 struct AddAccountTypeParticleBackground: View {
     @State private var particles: [AddViewParticle] = [] // MODIFIED: Use the locally defined AddViewParticle
-    
+
     var body: some View {
         ZStack {
             ForEach(particles) { particle in // Loop directly over identifiable particles
@@ -240,22 +243,22 @@ struct AddAccountTypeParticleBackground: View {
         }
         .onAppear { createParticles(); animateParticles() }
     }
-    
+
     private func createParticles() {
-        particles = (0..<12).map { _ in
+        particles = (0 ..< 12).map { _ in
             AddViewParticle( // MODIFIED
-                position: CGPoint(x: CGFloat.random(in: 0...600), y: CGFloat.random(in: 0...550)),
-                size: CGFloat.random(in: 3...9),
-                opacity: Double.random(in: 0.1...0.2)
+                position: CGPoint(x: CGFloat.random(in: 0 ... 600), y: CGFloat.random(in: 0 ... 550)),
+                size: CGFloat.random(in: 3 ... 9),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
-    
+
     private func animateParticles() {
         withAnimation(.linear(duration: 25).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 700
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }

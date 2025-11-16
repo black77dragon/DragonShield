@@ -14,7 +14,6 @@ struct DashboardView: View {
         static let maxWidth: CGFloat = 400
     }
 
-
     @State private var tileIDs: [String] = []
     @State private var showingPicker = false
     @State private var draggedID: String?
@@ -312,7 +311,7 @@ struct TileDropDelegate: DropDelegate {
     @Binding var dragged: String?
     let onDrop: () -> Void
 
-    func dropEntered(info: DropInfo) {
+    func dropEntered(info _: DropInfo) {
         guard let dragged = dragged, dragged != item,
               let from = tiles.firstIndex(of: dragged),
               let to = tiles.firstIndex(of: item) else { return }
@@ -321,11 +320,11 @@ struct TileDropDelegate: DropDelegate {
         }
     }
 
-    func dropUpdated(info: DropInfo) -> DropProposal? {
+    func dropUpdated(info _: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
     }
 
-    func performDrop(info: DropInfo) -> Bool {
+    func performDrop(info _: DropInfo) -> Bool {
         dragged = nil
         onDrop()
         return true
@@ -333,14 +332,17 @@ struct TileDropDelegate: DropDelegate {
 }
 
 // MARK: - Startup Alerts Popup
+
 private struct StartupAlertsPopupView: View {
     let items: [(id: Int, name: String, date: String)]
     private static let inDf: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT: 0); f.dateFormat = "yyyy-MM-dd"; return f
     }()
+
     private static let outDf: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "de_CH"); f.dateFormat = "dd.MM.yy"; return f
     }()
+
     private func format(_ s: String) -> String {
         if let d = Self.inDf.date(from: s) {
             return Self.outDf.string(from: d)

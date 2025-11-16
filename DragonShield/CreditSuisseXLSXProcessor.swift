@@ -1,6 +1,9 @@
 // DragonShield/CreditSuisseXLSXProcessor.swift
+
 // MARK: - Version 1.0.7.0
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial implementation applying credit_suisse_parser logic in Swift.
 // - 1.0.0.0 -> 1.0.1.0: Log progress and read report date from cell A1.
 // - 1.0.1.0 -> 1.0.1.1: Fix conditional binding when reading cell value.
@@ -26,7 +29,6 @@ struct CreditSuisseXLSXProcessor {
     }
 
     func process(url: URL, progress: ((String) -> Void)? = nil) throws -> [MyBankRecord] {
-
         let openMsg = "Starting import: \(url.lastPathComponent)"
         logging.log(openMsg, type: .info, logger: log)
         progress?(openMsg)
@@ -80,10 +82,10 @@ struct CreditSuisseXLSXProcessor {
             logging.log(msg, type: .debug, logger: log)
             progress?(msg)
             let record = MyBankRecord(transactionDate: statementDate,
-                                     description: desc,
-                                     amount: amount,
-                                     currency: currency,
-                                     bankAccount: account)
+                                      description: desc,
+                                      amount: amount,
+                                      currency: currency,
+                                      bankAccount: account)
             records.append(record)
             parsedCount += 1
             let recordMsg = "Record \(idx + 1) parsed: date \(dateString), desc '\(desc)', amount \(amount) \(currency), account \(account)"
@@ -104,7 +106,8 @@ struct CreditSuisseXLSXProcessor {
         guard let raw = cell?.trimmingCharacters(in: spaces), !raw.isEmpty else { return nil }
         let pattern = "Portfolio-Nr.?\\s*(.+)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-           let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)) {
+           let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw))
+        {
             return String(raw[Range(match.range(at: 1), in: raw)!]).trimmingCharacters(in: spaces)
         }
         return raw
@@ -120,7 +123,7 @@ struct CreditSuisseXLSXProcessor {
             .replacingOccurrences(of: "%", with: "")
             .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: ",", with: ".")
-        if cleaned.hasPrefix("(") && cleaned.hasSuffix(")") {
+        if cleaned.hasPrefix("("), cleaned.hasSuffix(")") {
             cleaned.removeFirst(); cleaned.removeLast()
             cleaned = "-" + cleaned
         }
@@ -132,7 +135,8 @@ struct CreditSuisseXLSXProcessor {
         // Match strings like "Mar 26 2025" in filenames
         let pattern = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ .-]+(\\d{1,2})[ .-]+(\\d{4})"
         if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-           let match = regex.firstMatch(in: filename, range: NSRange(filename.startIndex..., in: filename)) {
+           let match = regex.firstMatch(in: filename, range: NSRange(filename.startIndex..., in: filename))
+        {
             let monthStr = String(filename[Range(match.range(at: 1), in: filename)!])
             let day = Int(filename[Range(match.range(at: 2), in: filename)!]) ?? 1
             let year = Int(filename[Range(match.range(at: 3), in: filename)!]) ?? 1970

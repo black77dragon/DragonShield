@@ -1,6 +1,9 @@
 // DragonShield/Utils/DateFormatter+Extensions.swift
+
 // MARK: - Version 1.1 (2025-06-15)
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Added iso8601DateTime formatter for full timestamp parsing.
 // - Initial creation: ISO8601 DateFormatter for consistent date handling.
 

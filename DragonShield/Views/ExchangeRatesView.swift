@@ -123,14 +123,14 @@ struct ExchangeRatesView: View {
     }
 
     private func editSheet(rate: DatabaseManager.ExchangeRate) -> some View {
-        RateFormView(rate: rate, currencyOptions: vm.currencies.map { $0.code }) { currency, date, rateValue, source, provider, latest in
+        RateFormView(rate: rate, currencyOptions: vm.currencies.map { $0.code }) { _, date, rateValue, source, provider, latest in
             vm.updateRate(id: rate.id, date: date, rate: rateValue, source: source, apiProvider: provider, latest: latest)
         }
     }
 }
 
 private struct RateFormView: View {
-    var rate: DatabaseManager.ExchangeRate? = nil
+    var rate: DatabaseManager.ExchangeRate?
     var currencyOptions: [String]
     var onSave: (String, Date, Double, String, String?, Bool) -> Void
 
@@ -177,7 +177,7 @@ private struct RateFormView: View {
                     onSave(currency, date, rateValue, source, provider.isEmpty ? nil : provider, latest)
                     dismiss()
                 }
-                    .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding()
@@ -193,8 +193,8 @@ struct ExchangeRatesView_Previews: PreviewProvider {
 }
 
 // MARK: - FX Update helpers (View private extension)
-extension ExchangeRatesView {
 
+extension ExchangeRatesView {
     private func updateFxNow() async {
         if updating { return }
         await MainActor.run { self.updating = true }

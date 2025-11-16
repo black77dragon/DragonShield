@@ -1,6 +1,9 @@
 // DragonShield/Models/PortfolioThemeStatus.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - Initial creation: Represents status codes for portfolio themes.
 
 import Foundation

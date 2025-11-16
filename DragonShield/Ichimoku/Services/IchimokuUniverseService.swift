@@ -35,7 +35,8 @@ final class IchimokuUniverseService {
                                                            name: item.name,
                                                            indexSource: source,
                                                            isActive: true,
-                                                           notes: nil) {
+                                                           notes: nil)
+            {
                 inserted += 1
                 logger.log("[Ichimoku] Seeded ticker \(ticker.symbol) (\(source.displayName))", type: .debug, logger: .database)
             }

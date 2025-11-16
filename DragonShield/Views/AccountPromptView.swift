@@ -50,11 +50,11 @@ struct AccountPromptView: View {
                         textField(title: "Account Name", text: $accountName, icon: "tag")
                         textField(title: "Account Number", text: $accountNumber, icon: "number")
                         pickerField(title: "Institution", selection: $institutionId,
-                                   options: institutions.map { ($0.id, $0.name) }, icon: "building")
+                                    options: institutions.map { ($0.id, $0.name) }, icon: "building")
                         pickerField(title: "Account Type", selection: $accountTypeId,
-                                   options: accountTypes.map { ($0.id, $0.name) }, icon: "briefcase")
+                                    options: accountTypes.map { ($0.id, $0.name) }, icon: "briefcase")
                         pickerField(title: "Currency", selection: $currencyCode,
-                                   options: currencies.map { ($0.code, $0.code) }, icon: "dollarsign.circle")
+                                    options: currencies.map { ($0.code, $0.code) }, icon: "dollarsign.circle")
                     }
                     .modifier(CompactFormSection(color: .blue))
                 }

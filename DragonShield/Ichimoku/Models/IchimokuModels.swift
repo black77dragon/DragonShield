@@ -65,7 +65,7 @@ struct IchimokuCandidateStoreRow {
 }
 
 struct IchimokuCandidateRow: Identifiable, Hashable {
-    let id: UUID = UUID()
+    let id: UUID = .init()
     let scanDate: Date
     let ticker: IchimokuTicker
     let rank: Int

@@ -39,11 +39,11 @@ struct AllocationHeatMapTile: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
                         Text(String(format: "%.1f%% / %.1f%%",
-                                      layout.item.currentPercent,
-                                      layout.item.targetPercent))
+                                    layout.item.currentPercent,
+                                    layout.item.targetPercent))
                             .font(.caption2)
                         Text(String(format: "%+.1f%%",
-                                      layout.item.currentPercent - layout.item.targetPercent))
+                                    layout.item.currentPercent - layout.item.targetPercent))
                             .font(.caption2)
                     }
                     .padding(4)
@@ -67,7 +67,7 @@ struct AllocationHeatMapTile: View {
                     Text(String(format: "Current: %.1f%%", item.currentPercent))
                     Text(String(format: "Target: %.1f%%", item.targetPercent))
                     Text(String(format: "Deviation: %+.1f%%",
-                                 item.currentPercent - item.targetPercent))
+                                item.currentPercent - item.targetPercent))
                     if let date = item.lastRebalance {
                         Text("Last Rebalance: \(date, style: .date)")
                     }
@@ -85,10 +85,10 @@ struct AllocationHeatMapTile: View {
             ZStack {
                 ForEach(layouts) { layout in
                     HeatMapCell(layout: layout,
-                               hovered: $hovered,
-                               showDetail: $showDetail,
-                               portfolioValue: portfolioValue,
-                               color: color(for: layout.item))
+                                hovered: $hovered,
+                                showDetail: $showDetail,
+                                portfolioValue: portfolioValue,
+                                color: color(for: layout.item))
                 }
             }
         }
@@ -104,9 +104,9 @@ struct AllocationHeatMapTile: View {
         switch delta {
         case ..<2:
             return .success
-        case 2..<5:
+        case 2 ..< 5:
             return .warning
-        case 5..<10:
+        case 5 ..< 10:
             return .orange
         default:
             return .error
@@ -144,7 +144,7 @@ struct AllocationHeatMapTile_Previews: PreviewProvider {
         AllocationHeatMapTile(items: [
             AssetAllocationVarianceItem(id: "Equity", assetClassName: "Equities", currentPercent: 55, targetPercent: 60, currentValue: 35500, lastRebalance: Date()),
             AssetAllocationVarianceItem(id: "ETF", assetClassName: "ETFs", currentPercent: 20, targetPercent: 25, currentValue: 11000, lastRebalance: Date()),
-            AssetAllocationVarianceItem(id: "Crypto", assetClassName: "Crypto", currentPercent: 15, targetPercent: 10, currentValue: 9500, lastRebalance: Date())
+            AssetAllocationVarianceItem(id: "Crypto", assetClassName: "Crypto", currentPercent: 15, targetPercent: 10, currentValue: 9500, lastRebalance: Date()),
         ], portfolioValue: 56000)
     }
 }

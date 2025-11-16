@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class ThemeUpdateLinkRepositoryTests: XCTestCase {
     var manager: DatabaseManager!
@@ -36,7 +36,7 @@ final class ThemeUpdateLinkRepositoryTests: XCTestCase {
         guard let update = manager.createThemeUpdate(themeId: 1, title: "t", bodyMarkdown: "b", type: .General, pinned: false, author: "tester", positionsAsOf: nil, totalValueChf: nil) else {
             XCTFail("update missing"); return
         }
-        let norm = service.validateAndNormalize("https://example.com").getOrElse { _ in XCTFail(); return }
+        let norm = service.validateAndNormalize("https://example.com").getOrElse { _ in XCTFail() }
         guard let link = service.ensureLink(normalized: norm.normalized, raw: norm.raw, actor: "tester") else {
             XCTFail("link missing"); return
         }
@@ -54,7 +54,7 @@ final class ThemeUpdateLinkRepositoryTests: XCTestCase {
         guard let update = manager.createThemeUpdate(themeId: 1, title: "t", bodyMarkdown: "b", type: .General, pinned: false, author: "tester", positionsAsOf: nil, totalValueChf: nil) else {
             XCTFail("update missing"); return
         }
-        let norm = service.validateAndNormalize("https://example.com").getOrElse { _ in XCTFail(); return }
+        let norm = service.validateAndNormalize("https://example.com").getOrElse { _ in XCTFail() }
         let link = service.ensureLink(normalized: norm.normalized, raw: norm.raw, actor: "tester")!
         XCTAssertTrue(repo.link(updateId: update.id, linkId: link.id))
         let counts = manager.getLinkCounts(for: [update.id])
@@ -65,8 +65,8 @@ final class ThemeUpdateLinkRepositoryTests: XCTestCase {
 private extension Result {
     func getOrElse(_ failure: (Failure) -> Void) -> Success {
         switch self {
-        case .success(let s): return s
-        case .failure(let f):
+        case let .success(s): return s
+        case let .failure(f):
             failure(f)
             fatalError()
         }

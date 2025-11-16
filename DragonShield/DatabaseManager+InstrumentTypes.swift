@@ -1,13 +1,15 @@
 // DragonShield/DatabaseManager+InstrumentTypes.swift
+
 // MARK: - Version 1.0 (2025-05-30)
+
 // MARK: - History
+
 // - Initial creation: Refactored from DatabaseManager.swift.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     func fetchAssetClasses() -> [(id: Int, name: String)] {
         var classes: [(id: Int, name: String)] = []
         let query = "SELECT class_id, class_name FROM AssetClasses ORDER BY sort_order, class_name"
@@ -30,7 +32,7 @@ extension DatabaseManager {
     func fetchAssetTypes() -> [(id: Int, name: String)] { // This is used by AddInstrumentView
         var groups: [(id: Int, name: String)] = []
         let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses ORDER BY sort_order, sub_class_id"
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -57,7 +59,7 @@ extension DatabaseManager {
             JOIN AssetClasses ac ON asc.class_id = ac.class_id
             ORDER BY asc.sort_order, asc.sub_class_name
         """
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -78,7 +80,7 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return types
     }
-    
+
     func fetchInstrumentTypeDetails(id: Int) -> (id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, sortOrder: Int, isActive: Bool)? {
         let query = """
             SELECT asc.sub_class_id, asc.class_id, ac.class_description,
@@ -88,11 +90,11 @@ extension DatabaseManager {
             JOIN AssetClasses ac ON asc.class_id = ac.class_id
             WHERE asc.sub_class_id = ?
         """
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(id))
-            
+
             if sqlite3_step(statement) == SQLITE_ROW {
                 let typeId = Int(sqlite3_column_int(statement, 0))
                 let classId = Int(sqlite3_column_int(statement, 1))
@@ -114,21 +116,21 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return nil
     }
-    
-    func addInstrumentType(classId: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool) -> Bool {
+
+    func addInstrumentType(classId: Int, code: String, name: String, description: String, sortOrder: Int, isActive _: Bool) -> Bool {
         let query = """
             INSERT INTO AssetSubClasses (class_id, sub_class_code, sub_class_name, sub_class_description, sort_order)
             VALUES (?, ?, ?, ?, ?)
         """
-        
+
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare addInstrumentType: \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        
+
         sqlite3_bind_int(statement, 1, Int32(classId))
         _ = code.withCString { sqlite3_bind_text(statement, 2, $0, -1, SQLITE_TRANSIENT) }
         _ = name.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
@@ -138,10 +140,10 @@ extension DatabaseManager {
             sqlite3_bind_null(statement, 4)
         }
         sqlite3_bind_int(statement, 5, Int32(sortOrder))
-        
+
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
+
         if result {
             print("✅ Inserted instrument type '\(name)' with ID: \(sqlite3_last_insert_rowid(db))")
         } else {
@@ -149,20 +151,20 @@ extension DatabaseManager {
         }
         return result
     }
-    
-    func updateInstrumentType(id: Int, classId: Int, code: String, name: String, description: String, sortOrder: Int, isActive: Bool) -> Bool {
+
+    func updateInstrumentType(id: Int, classId: Int, code: String, name: String, description: String, sortOrder: Int, isActive _: Bool) -> Bool {
         let query = """
             UPDATE AssetSubClasses
             SET class_id = ?, sub_class_code = ?, sub_class_name = ?, sub_class_description = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
             WHERE sub_class_id = ?
         """
-        
+
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare updateInstrumentType (ID: \(id)): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
         sqlite3_bind_int(statement, 1, Int32(classId))
@@ -175,7 +177,7 @@ extension DatabaseManager {
         }
         sqlite3_bind_int(statement, 5, Int32(sortOrder))
         sqlite3_bind_int(statement, 6, Int32(id))
-        
+
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
 
@@ -186,7 +188,7 @@ extension DatabaseManager {
         }
         return result
     }
-    
+
     /// Removes all position reports and instruments for the given subclass.
     /// - Parameter subClassId: The subclass whose data should be purged.
     func purgeInstrumentTypeData(subClassId: Int) {

@@ -17,6 +17,7 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return exists
     }
+
     func ensurePortfolioThemeAssetTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS PortfolioThemeAsset (
@@ -86,7 +87,8 @@ extension DatabaseManager {
 
     func createThemeAsset(themeId: Int, instrumentId: Int, researchPct: Double, userPct: Double? = nil, setTargetChf: Double? = nil, notes: String? = nil) -> PortfolioThemeAsset? {
         guard PortfolioThemeAsset.isValidPercentage(researchPct),
-              PortfolioThemeAsset.isValidPercentage(userPct ?? researchPct) else {
+              PortfolioThemeAsset.isValidPercentage(userPct ?? researchPct)
+        else {
             LoggingService.shared.log("Invalid percentage bounds", type: .info, logger: .database)
             return nil
         }

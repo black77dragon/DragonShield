@@ -23,13 +23,14 @@ final class IchimokuPipelineService {
     private let logger = LoggingService.shared
 
     init(dbManager: DatabaseManager,
-         settingsService: IchimokuSettingsService) {
+         settingsService: IchimokuSettingsService)
+    {
         self.dbManager = dbManager
         self.settingsService = settingsService
-        self.universeService = IchimokuUniverseService(dbManager: dbManager)
-        self.dataFetcher = IchimokuHistoricalDataFetcher(dbManager: dbManager)
-        self.indicatorCalculator = IchimokuIndicatorCalculator(regressionWindow: settingsService.state.regressionWindow)
-        self.signalEngine = IchimokuSignalEngine(dbManager: dbManager)
+        universeService = IchimokuUniverseService(dbManager: dbManager)
+        dataFetcher = IchimokuHistoricalDataFetcher(dbManager: dbManager)
+        indicatorCalculator = IchimokuIndicatorCalculator(regressionWindow: settingsService.state.regressionWindow)
+        signalEngine = IchimokuSignalEngine(dbManager: dbManager)
     }
 
     func runDailyScan() async throws -> IchimokuPipelineSummary {
@@ -124,10 +125,11 @@ final class IchimokuPipelineService {
                                                                  alertDate: scanDate,
                                                                  closePrice: latestBar.close,
                                                                  kijunValue: kijun,
-                                                                 reason: reason) {
+                                                                 reason: reason)
+                {
                     _ = dbManager.ichimokuUpdatePositionStatus(positionId: position.id,
-                                                                status: .closed,
-                                                                closedDate: scanDate)
+                                                               status: .closed,
+                                                               closedDate: scanDate)
                     generatedAlerts.append(alert)
                 }
             } else {

@@ -1,7 +1,7 @@
-import XCTest
-import SwiftUI
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import SwiftUI
+import XCTest
 
 final class InstrumentUpdatesViewTests: XCTestCase {
     func testEditorViewInitializes() {
