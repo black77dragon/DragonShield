@@ -19,7 +19,7 @@ struct InstrumentDashboardTile: DashboardTile {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(Self.tileName)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.headline)
                 Spacer()
             }
             VStack(alignment: .leading, spacing: 8) {

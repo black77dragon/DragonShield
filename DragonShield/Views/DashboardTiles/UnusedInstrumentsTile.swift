@@ -61,6 +61,16 @@ struct UnusedInstrumentsTile: DashboardTile {
     @State private var showReport = false
     @State private var editingInstrumentId: Int? = nil
 
+    private func listHeight(for count: Int, hasMore: Bool) -> CGFloat {
+        let rows = count + (hasMore ? 1 : 0)
+        let spacing = DashboardTileLayout.rowSpacing
+        guard rows > 0 else { return DashboardTileLayout.rowHeight + spacing * 2 }
+        let rowsHeight = CGFloat(rows) * DashboardTileLayout.rowHeight
+        let spacingHeight = CGFloat(max(0, rows - 1)) * spacing
+        // include top/bottom padding from the VStack
+        return rowsHeight + spacingHeight + spacing * 2
+    }
+
     // Extract row to ease the type-checker
     private func rowView(_ item: UnusedInstrument) -> some View {
         Text(item.name)
@@ -122,7 +132,7 @@ struct UnusedInstrumentsTile: DashboardTile {
                     }
                     .padding(.vertical, DashboardTileLayout.rowSpacing)
                 }
-                .frame(maxHeight: viewModel.items.count > 12 ? 220 : .infinity)
+                .frame(height: listHeight(for: viewModel.items.count, hasMore: viewModel.hasMore))
                 .scrollIndicators(.visible)
                 .textSelection(.disabled)
             }

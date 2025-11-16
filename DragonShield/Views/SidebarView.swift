@@ -43,7 +43,7 @@ struct SidebarView: View {
         List {
             DisclosureGroup("Overview", isExpanded: $showOverview) {
                 NavigationLink(destination: DashboardView()) {
-                    Label("Dashboard", systemImage: "chart.pie.fill")
+                    Label("Dashboard", systemImage: "square.grid.3x3.fill")
                 }
 
                 NavigationLink(destination: IchimokuDragonView()) {
