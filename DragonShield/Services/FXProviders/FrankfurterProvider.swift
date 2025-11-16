@@ -16,7 +16,7 @@ final class FrankfurterProvider: FXRateProvider {
     // Async-safe cache for supported currency codes
     private actor SupportCache {
         static let shared = SupportCache()
-        private var codes: Set<String>? = nil
+        private var codes: Set<String>?
         func get() -> Set<String>? { codes }
         func set(_ new: Set<String>) { codes = new }
     }
@@ -26,7 +26,7 @@ final class FrankfurterProvider: FXRateProvider {
         guard let url = URL(string: "https://api.frankfurter.app/currencies") else { throw FXProviderError.invalidURL }
         print("[FX][frankfurter.app] GET \(url.absoluteString)")
         let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw FXProviderError.badResponse }
+        guard let http = resp as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else { throw FXProviderError.badResponse }
         let obj = try JSONSerialization.jsonObject(with: data, options: [])
         guard let dict = obj as? [String: Any] else { throw FXProviderError.decodingFailed }
         let codes = Set(dict.keys.map { $0.uppercased() })
@@ -35,7 +35,7 @@ final class FrankfurterProvider: FXRateProvider {
         return codes
     }
 
-    func fetchLatest(base: String, symbols: [String]) async throws -> FXRatesResponse {
+    func fetchLatest(base _: String, symbols: [String]) async throws -> FXRatesResponse {
         // frankfurter supports only base EUR, so we request from=EUR and include CHF plus requested symbols.
         let supported = try await ensureSupportedSet()
         var targets = Set(symbols.map { $0.uppercased() }.filter { supported.contains($0) })
@@ -45,13 +45,13 @@ final class FrankfurterProvider: FXRateProvider {
         guard var comps = URLComponents(string: "https://api.frankfurter.app/latest") else { throw FXProviderError.invalidURL }
         comps.queryItems = [
             URLQueryItem(name: "from", value: "EUR"),
-            URLQueryItem(name: "to", value: toParam)
+            URLQueryItem(name: "to", value: toParam),
         ]
         guard let url = comps.url else { throw FXProviderError.invalidURL }
         print("[FX][frankfurter.app] GET \(url.absoluteString)")
 
         let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = resp as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
             print("[FX][frankfurter.app] HTTP status=\((resp as? HTTPURLResponse)?.statusCode ?? -1)")
             throw FXProviderError.badResponse
         }

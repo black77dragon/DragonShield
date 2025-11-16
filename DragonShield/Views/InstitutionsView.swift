@@ -1,6 +1,9 @@
 // DragonShield/Views/InstitutionsView.swift
+
 // MARK: - Version 1.5
+
 // MARK: - History
+
 // - 1.4 -> 1.5: Adopted instrument-style table UX (column picker, font sizing, per-column sorting, filters, and persistent column widths).
 // - 1.3 -> 1.4: Delete action now removes the institution from the database
 //                permanently and clears the current selection.
@@ -12,18 +15,16 @@
 //                to conform to Hashable.
 // - Initial creation: Manage Institutions table using same design as other maintenance views.
 
-import SwiftUI
 import Foundation
+import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
-
 
 private let isoRegionIdentifiers: [String] = Locale.Region.isoRegions.map(\.identifier)
 private let isoRegionIdentifierSet: Set<String> = Set(isoRegionIdentifiers)
 
-
-fileprivate struct TableFontConfig {
+private struct TableFontConfig {
     let nameSize: CGFloat
     let secondarySize: CGFloat
     let headerSize: CGFloat
@@ -93,7 +94,7 @@ struct InstitutionsView: View {
     private static let visibleColumnsKey = "InstitutionsView.visibleColumns.v1"
     private static let legacyFontSizeKey = "InstitutionsView.tableFontSize.v1"
     private static let legacyColumnFractionsKey = "InstitutionsView.columnFractions.v1"
-    private let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
 
     enum SortColumn: String, CaseIterable {
         case name, bic, type, currency, country, website, contact, status
@@ -142,7 +143,7 @@ struct InstitutionsView: View {
         .website: 220,
         .contact: 220,
         .notes: 60,
-        .status: 140
+        .status: 140,
     ]
 
     private static let minimumColumnWidths: [InstitutionTableColumn: CGFloat] = [
@@ -154,7 +155,7 @@ struct InstitutionsView: View {
         .website: 160,
         .contact: 160,
         .notes: 48,
-        .status: 110
+        .status: 110,
     ]
 
     private static let initialColumnFractions: [InstitutionTableColumn: CGFloat] = {
@@ -173,21 +174,21 @@ struct InstitutionsView: View {
     fileprivate static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
 
-#if os(macOS)
-    fileprivate static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
-#endif
+    #if os(macOS)
+        fileprivate static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
+    #endif
 
     private struct ColumnDragContext {
         let primary: InstitutionTableColumn
@@ -239,7 +240,7 @@ struct InstitutionsView: View {
                     inst.countryCode ?? "",
                     inst.website ?? "",
                     inst.contactInfo ?? "",
-                    inst.notes ?? ""
+                    inst.notes ?? "",
                 ].map { $0.lowercased() }
                 return haystack.contains { !$0.isEmpty && $0.contains(query) }
             }
@@ -306,14 +307,13 @@ struct InstitutionsView: View {
         return isFiltering ? "\(current) / \(total)" : "\(current)"
     }
 
-
     var body: some View {
         ZStack {
             LinearGradient(
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -629,7 +629,8 @@ struct AddInstitutionView: View {
             defaultCurrency: defaultCurrency.isEmpty ? nil : defaultCurrency,
             countryCode: countryCode.isEmpty ? nil : countryCode,
             notes: notes.isEmpty ? nil : notes,
-            isActive: isActive)
+            isActive: isActive
+        )
         if let id = newId {
             NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
             onAdd?(id)
@@ -735,7 +736,8 @@ struct EditInstitutionView: View {
             defaultCurrency: defaultCurrency.isEmpty ? nil : defaultCurrency,
             countryCode: countryCode.isEmpty ? nil : countryCode,
             notes: notes.isEmpty ? nil : notes,
-            isActive: isActive)
+            isActive: isActive
+        )
         if success {
             NotificationCenter.default.post(name: NSNotification.Name("RefreshInstitutions"), object: nil)
             alertMessage = "✅ Updated"
@@ -1108,9 +1110,9 @@ private extension InstitutionsView {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-#if os(macOS)
-                        InstitutionsView.columnResizeCursor.set()
-#endif
+                        #if os(macOS)
+                            InstitutionsView.columnResizeCursor.set()
+                        #endif
                         guard availableTableWidth > 0 else { return }
                         if dragContext?.primary != column {
                             beginDrag(for: column)
@@ -1119,9 +1121,9 @@ private extension InstitutionsView {
                     }
                     .onEnded { _ in
                         finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
+                        #if os(macOS)
+                            NSCursor.arrow.set()
+                        #endif
                     }
             )
             .overlay(alignment: .leading) {
@@ -1131,7 +1133,7 @@ private extension InstitutionsView {
             }
             .padding(.vertical, 2)
             .background(Color.clear)
-#if os(macOS)
+        #if os(macOS)
             .onHover { inside in
                 if inside {
                     InstitutionsView.columnResizeCursor.set()
@@ -1139,7 +1141,7 @@ private extension InstitutionsView {
                     NSCursor.arrow.set()
                 }
             }
-#endif
+        #endif
     }
 
     func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
@@ -1449,7 +1451,9 @@ private extension InstitutionsView {
         let active = activeColumns
         var result: [InstitutionTableColumn: CGFloat] = [:]
         guard !active.isEmpty else {
-            for column in InstitutionsView.columnOrder { result[column] = 0 }
+            for column in InstitutionsView.columnOrder {
+                result[column] = 0
+            }
             return result
         }
         let total = active.reduce(0) { $0 + max(0, source[$1] ?? 0) }
@@ -1695,7 +1699,7 @@ private extension InstitutionsView {
     }
 }
 
-fileprivate struct ModernInstitutionRowView: View {
+private struct ModernInstitutionRowView: View {
     let institution: DatabaseManager.InstitutionData
     let columns: [InstitutionTableColumn]
     let fontConfig: TableFontConfig
@@ -1739,20 +1743,20 @@ fileprivate struct ModernInstitutionRowView: View {
             Button("Edit Institution", action: onEdit)
             Button("Select Institution", action: onTap)
             Divider()
-#if os(macOS)
-            Button("Copy Name") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(institution.name, forType: .string)
-            }
-            if let bic = institution.bic {
-                Button("Copy BIC") {
+            #if os(macOS)
+                Button("Copy Name") {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
-                    pasteboard.setString(bic, forType: .string)
+                    pasteboard.setString(institution.name, forType: .string)
                 }
-            }
-#endif
+                if let bic = institution.bic {
+                    Button("Copy BIC") {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(bic, forType: .string)
+                    }
+                }
+            #endif
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
@@ -1909,7 +1913,7 @@ fileprivate struct ModernInstitutionRowView: View {
         if let url = URL(string: website), let host = url.host {
             return host
         }
-        if let url = URL(string: "https://\\(website)") , let host = url.host {
+        if let url = URL(string: "https://\\(website)"), let host = url.host {
             return host
         }
         return website
@@ -1930,7 +1934,7 @@ fileprivate struct ModernInstitutionRowView: View {
             }
             .buttonStyle(PlainButtonStyle())
             .alert("Note", isPresented: $showNote) {
-                Button("Close", role: .cancel) { }
+                Button("Close", role: .cancel) {}
             } message: {
                 Text(note)
             }
@@ -1950,7 +1954,7 @@ private func normalizedRegionCode(from raw: String) -> String? {
     let uppercase = trimmed.uppercased()
     let uppercaseComponents = uppercase.components(separatedBy: separators).filter { !$0.isEmpty }
     let tokens = ([uppercase] + uppercaseComponents)
-        .map { $0.filter { ("A"..."Z").contains($0) } }
+        .map { $0.filter { ("A" ... "Z").contains($0) } }
         .filter { !$0.isEmpty }
 
     for candidate in tokens where candidate.count == 2 {
@@ -1989,7 +1993,7 @@ private func flagEmoji(_ code: String) -> String {
     guard upper.count == 2 else { return "" }
     var scalars = String.UnicodeScalarView()
     for scalar in upper.unicodeScalars {
-        guard (65...90).contains(scalar.value), let flagScalar = UnicodeScalar(127397 + scalar.value) else { return "" }
+        guard (65 ... 90).contains(scalar.value), let flagScalar = UnicodeScalar(127_397 + scalar.value) else { return "" }
         scalars.append(flagScalar)
     }
     return String(scalars)
@@ -1999,7 +2003,7 @@ private func extractFlag(from raw: String) -> String? {
     var buffer = String.UnicodeScalarView()
     for scalar in raw.unicodeScalars {
         let value = scalar.value
-        if (127462...127487).contains(value) {
+        if (127_462 ... 127_487).contains(value) {
             buffer.append(scalar)
             if buffer.count == 2 {
                 return String(buffer)
@@ -2012,11 +2016,11 @@ private func extractFlag(from raw: String) -> String? {
 }
 
 private func regionCode(fromFlag flag: String) -> String? {
-    let scalars = flag.unicodeScalars.filter { (127462...127487).contains($0.value) }
+    let scalars = flag.unicodeScalars.filter { (127_462 ... 127_487).contains($0.value) }
     guard scalars.count == 2 else { return nil }
     var code = ""
     for scalar in scalars {
-        let value = scalar.value - 127397
+        let value = scalar.value - 127_397
         guard let letter = UnicodeScalar(value) else { return nil }
         code.append(Character(letter))
     }
@@ -2045,7 +2049,7 @@ private func matchRegionCode(forName candidate: String) -> String? {
     let key = normalizedCountryLookupKey(candidate)
     guard !key.isEmpty else { return nil }
 
-    struct LookupCache {
+    enum LookupCache {
         static let english = build(locale: Locale(identifier: "en_US"))
         static let current = build(locale: Locale.current)
 
@@ -2108,11 +2112,11 @@ struct InstitutionsParticleBackground: View {
     }
 
     private func createParticles() {
-        particles = (0..<15).map { _ in
+        particles = (0 ..< 15).map { _ in
             InstitutionParticle(
-                position: CGPoint(x: CGFloat.random(in: 0...1200), y: CGFloat.random(in: 0...800)),
-                size: CGFloat.random(in: 2...8),
-                opacity: Double.random(in: 0.1...0.2)
+                position: CGPoint(x: CGFloat.random(in: 0 ... 1200), y: CGFloat.random(in: 0 ... 800)),
+                size: CGFloat.random(in: 2 ... 8),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
@@ -2120,8 +2124,8 @@ struct InstitutionsParticleBackground: View {
     private func animateParticles() {
         withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
             for index in particles.indices {
-                particles[index].position.x += CGFloat.random(in: -40...40)
-                particles[index].position.y += CGFloat.random(in: -40...40)
+                particles[index].position.x += CGFloat.random(in: -40 ... 40)
+                particles[index].position.y += CGFloat.random(in: -40 ... 40)
             }
         }
     }

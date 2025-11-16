@@ -1,6 +1,9 @@
 // DragonShield/XLSXProcessor.swift
+
 // MARK: - Version 1.0.1.1
+
 // MARK: - History
+
 // - 1.0.0.2 -> 1.0.1.0: Adapted processor for XLSX files.
 // - 1.0.1.0 -> 1.0.1.1: Include row information when validation fails.
 
@@ -13,11 +16,11 @@ enum XLSXProcessorError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidFileExtension(let expected, let actual):
+        case let .invalidFileExtension(expected, actual):
             return "Error: The uploaded file is in an incorrect format.\nExpected: \(expected)\nReceived: \(actual)"
         case .unsupportedArchive:
             return "Could not read XLSX archive"
-        case .validationFailed(let row, let message):
+        case let .validationFailed(row, message):
             return "Row \(row): \(message)"
         }
     }

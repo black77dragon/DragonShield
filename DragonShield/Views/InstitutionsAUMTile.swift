@@ -29,7 +29,7 @@ struct InstitutionsAUMTile: DashboardTile {
         VStack(alignment: .leading, spacing: 12) {
             Text("Institutions AUM")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Color(red: 28/255, green: 28/255, blue: 30/255))
+                .foregroundColor(Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255))
             if loading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)

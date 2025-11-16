@@ -1,6 +1,9 @@
 // DragonShield/Logger.swift
+
 // MARK: - Version 1.0.0.0
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Provide OSLog categories for the app.
 
 import Foundation

@@ -89,6 +89,7 @@ struct PriceHistoryView: View {
     }
 
     // MARK: - Date formatting matching Prices view
+
     private func iso8601Formatter() -> ISO8601DateFormatter {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -119,7 +120,7 @@ struct PriceHistoryView: View {
             return out.string(from: d)
         }
         // Fallback: best-effort transform if matches yyyy-MM-dd
-        if s.count == 10, s[ s.index(s.startIndex, offsetBy: 4) ] == "-" {
+        if s.count == 10, s[s.index(s.startIndex, offsetBy: 4)] == "-" {
             let parts = s.split(separator: "-")
             if parts.count == 3 {
                 let yyyy = parts[0]; let mm = parts[1]; let dd = parts[2]
@@ -132,10 +133,10 @@ struct PriceHistoryView: View {
 }
 
 #if DEBUG
-struct PriceHistoryView_Previews: PreviewProvider {
-    static var previews: some View {
-        PriceHistoryView(instrumentId: 1)
-            .environmentObject(DatabaseManager())
+    struct PriceHistoryView_Previews: PreviewProvider {
+        static var previews: some View {
+            PriceHistoryView(instrumentId: 1)
+                .environmentObject(DatabaseManager())
+        }
     }
-}
 #endif

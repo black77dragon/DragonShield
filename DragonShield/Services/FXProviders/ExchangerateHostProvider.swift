@@ -18,13 +18,13 @@ final class ExchangerateHostProvider: FXRateProvider {
         guard var comps = URLComponents(string: "https://api.exchangerate.host/latest") else { throw FXProviderError.invalidURL }
         comps.queryItems = [
             URLQueryItem(name: "base", value: baseUpper),
-            URLQueryItem(name: "symbols", value: symString)
+            URLQueryItem(name: "symbols", value: symString),
         ]
         guard let url = comps.url else { throw FXProviderError.invalidURL }
 
         print("[FX][exchangerate.host] GET \(url.absoluteString)")
         let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = resp as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
             print("[FX][exchangerate.host] HTTP status=\((resp as? HTTPURLResponse)?.statusCode ?? -1)")
             throw FXProviderError.badResponse
         }

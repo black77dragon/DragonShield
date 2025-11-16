@@ -5,7 +5,8 @@ private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.sel
 
 extension DatabaseManager {
     func ichimokuFetchTickers(activeOnly: Bool = false,
-                              sources: [IchimokuIndexSource]? = nil) -> [IchimokuTicker] {
+                              sources: [IchimokuIndexSource]? = nil) -> [IchimokuTicker]
+    {
         var tickers: [IchimokuTicker] = []
         var sql = "SELECT ticker_id, symbol, COALESCE(name,''), index_source, is_active, notes FROM ichimoku_tickers"
         var conditions: [String] = []
@@ -112,7 +113,8 @@ extension DatabaseManager {
                               name: String?,
                               indexSource: IchimokuIndexSource,
                               isActive: Bool = true,
-                              notes: String? = nil) -> IchimokuTicker? {
+                              notes: String? = nil) -> IchimokuTicker?
+    {
         let sql = """
             INSERT INTO ichimoku_tickers (symbol, name, index_source, is_active, notes)
             VALUES (?, ?, ?, ?, ?)

@@ -68,7 +68,8 @@ extension DatabaseManager {
     @discardableResult
     func ichimokuCreatePosition(tickerId: Int,
                                 opened: Date,
-                                confirmed: Bool) -> IchimokuPositionRow? {
+                                confirmed: Bool) -> IchimokuPositionRow?
+    {
         if let existing = ichimokuFindActivePosition(tickerId: tickerId) { return existing }
         let sql = """
             INSERT INTO ichimoku_positions (ticker_id, date_opened, status, confirmed_by_user)
@@ -93,7 +94,8 @@ extension DatabaseManager {
 
     func ichimokuUpdatePositionStatus(positionId: Int,
                                       status: IchimokuPositionStatus,
-                                      closedDate: Date? = nil) -> Bool {
+                                      closedDate: Date? = nil) -> Bool
+    {
         var sql = "UPDATE ichimoku_positions SET status = ?, updated_at = CURRENT_TIMESTAMP"
         if closedDate != nil {
             sql.append(", last_evaluated = ?")
@@ -122,7 +124,8 @@ extension DatabaseManager {
     func ichimokuUpdatePositionEvaluation(positionId: Int,
                                           evaluatedOn: Date,
                                           close: Double?,
-                                          kijun: Double?) -> Bool {
+                                          kijun: Double?) -> Bool
+    {
         let sql = """
             UPDATE ichimoku_positions
                SET last_evaluated = ?,
@@ -156,7 +159,6 @@ extension DatabaseManager {
         return ok
     }
 
-
     func ichimokuSetPositionConfirmation(positionId: Int, confirmed: Bool) -> Bool {
         let sql = "UPDATE ichimoku_positions SET confirmed_by_user = ?, updated_at = CURRENT_TIMESTAMP WHERE position_id = ?"
         var statement: OpaquePointer?
@@ -178,7 +180,8 @@ extension DatabaseManager {
                                  alertDate: Date,
                                  closePrice: Double,
                                  kijunValue: Double?,
-                                 reason: String) -> IchimokuSellAlertRow? {
+                                 reason: String) -> IchimokuSellAlertRow?
+    {
         let sql = """
             INSERT INTO ichimoku_sell_alerts (ticker_id, alert_date, close_price, kijun_value, reason)
             VALUES (?, ?, ?, ?, ?);
@@ -252,7 +255,8 @@ extension DatabaseManager {
     }
 
     func ichimokuFetchSellAlerts(limit: Int? = nil,
-                                 unresolvedOnly: Bool = false) -> [IchimokuSellAlertRow] {
+                                 unresolvedOnly: Bool = false) -> [IchimokuSellAlertRow]
+    {
         var sql = """
             SELECT a.alert_id, a.alert_date, a.close_price, a.kijun_value, a.reason, a.resolved_at,
                    t.ticker_id, t.symbol, COALESCE(t.name,''), t.index_source, t.is_active, t.notes

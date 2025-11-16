@@ -1,10 +1,13 @@
 // DragonShield/Views/RiskScorecardView.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - 1.0: Risk-adjusted performance dashboard with interactive tiles.
 
-import SwiftUI
 import Charts
+import SwiftUI
 
 struct RiskScorecardView: View {
     @State private var metrics: RiskMetrics? = nil
@@ -50,7 +53,7 @@ struct RiskMetricTile: View {
 
     var body: some View {
         VStack {
-            Gauge(value: value, in: -1...2) {
+            Gauge(value: value, in: -1 ... 2) {
                 Text(title)
             }
             .gaugeStyle(.accessoryCircularCapacity)

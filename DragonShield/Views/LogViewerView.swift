@@ -113,7 +113,8 @@ struct LogViewerView: View {
                let priceRange = Range(m.range(at: 2), in: text),
                let currRange = Range(m.range(at: 3), in: text),
                let asOfRange = Range(m.range(at: 4), in: text),
-               let sourceRange = Range(m.range(at: 5), in: text) {
+               let sourceRange = Range(m.range(at: 5), in: text)
+            {
                 let id = Int(text[idRange]) ?? 0
                 let price = Double(text[priceRange]) ?? 0
                 let curr = String(text[currRange])
@@ -128,9 +129,9 @@ struct LogViewerView: View {
 }
 
 #if DEBUG
-struct LogViewerView_Previews: PreviewProvider {
-    static var previews: some View {
-        LogViewerView()
+    struct LogViewerView_Previews: PreviewProvider {
+        static var previews: some View {
+            LogViewerView()
+        }
     }
-}
 #endif

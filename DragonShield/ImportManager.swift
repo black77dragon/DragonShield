@@ -1,7 +1,11 @@
 // DragonShield/ImportManager.swift
 
 // MARK: - Version 2.0.3.0
+
 // MARK: - History
+
+import AppKit
+
 // - 1.11 -> 2.0.0.0: Rewritten to use native Swift XLSX processing instead of Python parser.
 // - 2.0.0.0 -> 2.0.0.1: Replace deprecated allowedFileTypes API.
 // - 2.0.0.1 -> 2.0.0.2: Begin security-scoped access when reading selected file.
@@ -16,7 +20,6 @@
 // - 2.0.2.5 -> 2.0.2.6: Log import details to file and forward progress.
 // - 2.0.2.6 -> 2.0.3.0: Route log messages through OSLog categories.
 import Foundation
-import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -27,12 +30,9 @@ class ImportManager {
     private let positionParser = CreditSuissePositionParser()
     private let zkbParser = ZKBStatementParser()
     private let dbManager = DatabaseManager()
-    private lazy var repository: BankRecordRepository = {
-        BankRecordRepository(dbManager: dbManager)
-    }()
-    private lazy var positionRepository: PositionReportRepository = {
-        PositionReportRepository(dbManager: dbManager)
-    }()
+    private lazy var repository: BankRecordRepository = .init(dbManager: dbManager)
+
+    private lazy var positionRepository: PositionReportRepository = .init(dbManager: dbManager)
 
     private var checkpointsEnabled: Bool {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.enableParsingCheckpoints)
@@ -43,7 +43,7 @@ class ImportManager {
         "CH8104835039842402001": ("CASHEUR", "EUR"),
         "CH5404835039842402002": ("CASHGBP", "GBP"),
         "CH1104835039842402000": ("CASHUSD", "USD"),
-        "CH2704835039842402003": ("CASHUSD", "USD")
+        "CH2704835039842402003": ("CASHUSD", "USD"),
     ]
 
     /// Maps currency codes to the ticker symbol of the corresponding cash instrument.
@@ -53,7 +53,7 @@ class ImportManager {
         "EUR": "CASHEUR",
         "GBP": "CASHGBP",
         "USD": "CASHUSD",
-        "SGD": "CASHSGD"
+        "SGD": "CASHSGD",
     ]
 
     private static func sanitizeValor(_ valor: String) -> String {
@@ -101,7 +101,6 @@ class ImportManager {
         case zkb
     }
 
-
     private func promptForInstrument(record: ParsedPositionRecord) -> InstrumentPromptResult {
         var result: InstrumentPromptResult = .ignore
         let view = InstrumentPromptView(
@@ -118,7 +117,8 @@ class ImportManager {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
             styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: false)
+            backing: .buffered, defer: false
+        )
         window.title = "Add Instrument"
         window.isReleasedWhenClosed = false
         window.center()
@@ -129,7 +129,8 @@ class ImportManager {
 
     private func promptForAccount(number: String,
                                   currency: String,
-                                  accountTypeCode: String = "CUSTODY") -> AccountPromptResult {
+                                  accountTypeCode: String = "CUSTODY") -> AccountPromptResult
+    {
         var result: AccountPromptResult = .cancel
         let instId = dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
         let typeId = dbManager.findAccountTypeId(code: accountTypeCode) ?? 1
@@ -138,7 +139,8 @@ class ImportManager {
                                      accountNumber: number,
                                      institutionId: instId,
                                      accountTypeId: typeId,
-                                     currencyCode: currency) { action in
+                                     currencyCode: currency)
+        { action in
             result = action
             NSApp.stopModal()
         }
@@ -203,14 +205,15 @@ class ImportManager {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
             styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: false)
+            backing: .buffered, defer: false
+        )
         window.title = "Review Position"
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: view)
         NSApp.runModal(for: window)
         // capture updated record if Save was chosen
-        if case .save(let updated) = result {
+        if case let .save(updated) = result {
             mutable = updated
             result = .save(mutable)
         }
@@ -221,7 +224,8 @@ class ImportManager {
         let view = ImportSummaryView(fileName: fileName,
                                      accountNumber: account,
                                      valueDate: valueDate,
-                                     validRows: validRows) {
+                                     validRows: validRows)
+        {
             NSApp.stopModal()
         }
         // Enlarged window to prevent clipping of details
@@ -311,7 +315,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing file: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -333,7 +337,7 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        })
+        }
     }
 
     /// Parses a Credit-Suisse statement and saves position reports.
@@ -344,7 +348,7 @@ class ImportManager {
             progress?(message)
         }
         LoggingService.shared.log("Importing positions: \(url.lastPathComponent)", type: .info, logger: .parser)
-        DispatchQueue.global(qos: .userInitiated).async(execute: {
+        DispatchQueue.global(qos: .userInitiated).async {
             let accessGranted = url.startAccessingSecurityScopedResource()
             defer { if accessGranted { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -366,11 +370,11 @@ class ImportManager {
                 let attrs = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
                 let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
                 let hash = url.sha256() ?? ""
-               let valueDate = rows.first?.reportDate ?? Date()
-               let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Zürcher Kantonalbank ZKB"
-               let institutionIdDefault = type == .creditSuisse ? (self.dbManager.findInstitutionId(name: institutionName) ?? 1) : self.zkbInstitutionId()
-               let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
-               let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
+                let valueDate = rows.first?.reportDate ?? Date()
+                let institutionName = type == .creditSuisse ? "Credit-Suisse" : "Zürcher Kantonalbank ZKB"
+                let institutionIdDefault = type == .creditSuisse ? (self.dbManager.findInstitutionId(name: institutionName) ?? 1) : self.zkbInstitutionId()
+                let baseSessionName = "\(institutionName) Positions \(DateFormatter.swissDate.string(from: valueDate))"
+                let sessionName = self.dbManager.nextImportSessionName(base: baseSessionName)
                 let fileType = url.pathExtension.uppercased()
 
                 let custodyNumber = rows.first?.accountNumber ?? ""
@@ -383,64 +387,64 @@ class ImportManager {
                 while accountId == nil {
                     if self.checkpointsEnabled {
                         var accAction: AccountPromptResult = .cancel
-                    DispatchQueue.main.sync {
-                        accAction = self.promptForAccount(number: custodyNumber,
-                                                         currency: rows.first?.currency ?? "CHF",
-                                                         accountTypeCode: "CUSTODY")
-                    }
-                    switch accAction {
-                    case let .save(name, instId, number, typeId, curr):
-                        _ = self.dbManager.addAccount(accountName: name,
-                                                       institutionId: instId,
-                                                       accountNumber: number,
-                                                       accountTypeId: typeId,
-                                                       currencyCode: curr,
-                                                       openingDate: nil,
-                                                       closingDate: nil,
-                                                       includeInPortfolio: true,
-                                                       isActive: true,
-                                                       notes: nil)
-                        accountId = self.dbManager.findAccountId(accountNumber: number)
-                        LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        if accountId == nil {
-                        accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: institutionName)
-                            LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                        DispatchQueue.main.sync {
+                            accAction = self.promptForAccount(number: custodyNumber,
+                                                              currency: rows.first?.currency ?? "CHF",
+                                                              accountTypeCode: "CUSTODY")
                         }
-                        if accountId != nil {
-                            LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
-                        }
-                    case .cancel:
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
-                        LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        if accountId == nil {
-                        accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
-                            LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
-                        }
-                        if accountId == nil {
-                            if self.checkpointsEnabled {
-                                DispatchQueue.main.sync {
-                                    self.showStatusWindow(title: "Account Required",
-                                                          message: "Account \(custodyNumber) is required to save positions.")
+                        switch accAction {
+                        case let .save(name, instId, number, typeId, curr):
+                            _ = self.dbManager.addAccount(accountName: name,
+                                                          institutionId: instId,
+                                                          accountNumber: number,
+                                                          accountTypeId: typeId,
+                                                          currencyCode: curr,
+                                                          openingDate: nil,
+                                                          closingDate: nil,
+                                                          includeInPortfolio: true,
+                                                          isActive: true,
+                                                          notes: nil)
+                            accountId = self.dbManager.findAccountId(accountNumber: number)
+                            LoggingService.shared.log("Post-create lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                            if accountId == nil {
+                                accountId = self.dbManager.findAccountId(accountNumber: number, nameContains: institutionName)
+                                LoggingService.shared.log("Post-create lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                            }
+                            if accountId != nil {
+                                LoggingService.shared.log("Created account \(name)", type: .info, logger: .database)
+                            }
+                        case .cancel:
+                            accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
+                            LoggingService.shared.log("Retry lookup -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                            if accountId == nil {
+                                accountId = self.dbManager.findAccountId(accountNumber: custodyNumber, nameContains: institutionName)
+                                LoggingService.shared.log("Retry lookup with name filter -> \(accountId?.description ?? "nil")", type: .debug, logger: .database)
+                            }
+                            if accountId == nil {
+                                if self.checkpointsEnabled {
+                                    DispatchQueue.main.sync {
+                                        self.showStatusWindow(title: "Account Required",
+                                                              message: "Account \(custodyNumber) is required to save positions.")
+                                    }
                                 }
                             }
+                        case .abort:
+                            throw ImportError.aborted
                         }
-                    case .abort:
-                        throw ImportError.aborted
-                    }
                     } else {
                         let instId = institutionIdDefault
                         let typeId = self.dbManager.findAccountTypeId(code: "CUSTODY") ?? 1
                         let defaultName = type == .creditSuisse ? "Credit-Suisse Account" : "ZKB Account"
                         _ = self.dbManager.addAccount(accountName: defaultName,
-                                                       institutionId: instId,
-                                                       accountNumber: custodyNumber,
-                                                       accountTypeId: typeId,
-                                                       currencyCode: rows.first?.currency ?? "CHF",
-                                                       openingDate: nil,
-                                                       closingDate: nil,
-                                                       includeInPortfolio: true,
-                                                       isActive: true,
-                                                       notes: nil)
+                                                      institutionId: instId,
+                                                      accountNumber: custodyNumber,
+                                                      accountTypeId: typeId,
+                                                      currencyCode: rows.first?.currency ?? "CHF",
+                                                      openingDate: nil,
+                                                      closingDate: nil,
+                                                      includeInPortfolio: true,
+                                                      isActive: true,
+                                                      notes: nil)
                         accountId = self.dbManager.findAccountId(accountNumber: custodyNumber)
                     }
                 }
@@ -473,14 +477,15 @@ class ImportManager {
                             let sanitized = Self.sanitizeValor(val)
                             if let mapping = Self.cashValorMap[sanitized],
                                row.instrumentName.lowercased().contains("konto") ||
-                               row.instrumentName.lowercased().contains("call account") {
-                                LoggingService.shared.log("Processing cash account row \(idx+1) valor \(sanitized)", type: .debug, logger: .parser)
+                               row.instrumentName.lowercased().contains("call account")
+                            {
+                                LoggingService.shared.log("Processing cash account row \(idx + 1) valor \(sanitized)", type: .debug, logger: .parser)
                                 guard let aId = self.dbManager.findAccountId(valor: val) else {
-                                    LoggingService.shared.log("Row \(idx+1) skipped - account for valor \(sanitized) not found", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx + 1) skipped - account for valor \(sanitized) not found", type: .error, logger: .parser)
                                     continue
                                 }
                                 guard let instrId = self.dbManager.findInstrumentId(ticker: mapping.ticker) else {
-                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(mapping.ticker) missing", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx + 1) skipped - instrument \(mapping.ticker) missing", type: .error, logger: .parser)
                                     continue
                                 }
                                 if self.dbManager.addPositionReport(
@@ -495,17 +500,17 @@ class ImportManager {
                                     notes: nil,
                                     reportDate: row.reportDate
                                 ) != nil {
-                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
+                                    LoggingService.shared.log("Cash Account \(mapping.ticker) recorded for row \(idx + 1)", type: .info, logger: .parser)
                                     success += 1
                                 } else {
-                                    LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(mapping.ticker)", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx + 1) failed to insert cash account \(mapping.ticker)", type: .error, logger: .parser)
                                 }
                                 continue
                             } else {
-                                LoggingService.shared.log("Row \(idx+1) valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
+                                LoggingService.shared.log("Row \(idx + 1) valor \(sanitized) not recognized as cash account", type: .debug, logger: .parser)
                             }
                         } else {
-                            LoggingService.shared.log("Row \(idx+1) cash account missing valor", type: .error, logger: .parser)
+                            LoggingService.shared.log("Row \(idx + 1) cash account missing valor", type: .error, logger: .parser)
                         }
                         let accNumber = row.tickerSymbol ?? ""
                         var accId = self.dbManager.findAccountId(accountNumber: accNumber)
@@ -523,15 +528,15 @@ class ImportManager {
                                 let instId = self.dbManager.findInstitutionId(name: "Credit-Suisse") ?? 1
                                 let typeId = self.dbManager.findAccountTypeId(code: "CASH") ?? 5
                                 _ = self.dbManager.addAccount(accountName: row.accountName,
-                                                           institutionId: instId,
-                                                           accountNumber: accNumber,
-                                                           accountTypeId: typeId,
-                                                           currencyCode: row.currency,
-                                                           openingDate: nil,
-                                                           closingDate: nil,
-                                                           includeInPortfolio: true,
-                                                           isActive: true,
-                                                           notes: nil)
+                                                              institutionId: instId,
+                                                              accountNumber: accNumber,
+                                                              accountTypeId: typeId,
+                                                              currencyCode: row.currency,
+                                                              openingDate: nil,
+                                                              closingDate: nil,
+                                                              includeInPortfolio: true,
+                                                              isActive: true,
+                                                              notes: nil)
                                 accId = self.dbManager.findAccountId(accountNumber: accNumber)
                             }
                         }
@@ -551,19 +556,19 @@ class ImportManager {
                                         notes: nil,
                                         reportDate: row.reportDate
                                     ) != nil {
-                                        LoggingService.shared.log("Cash Account \(ticker) recorded for row \(idx+1)", type: .info, logger: .parser)
+                                        LoggingService.shared.log("Cash Account \(ticker) recorded for row \(idx + 1)", type: .info, logger: .parser)
                                         success += 1
                                     } else {
-                                        LoggingService.shared.log("Row \(idx+1) failed to insert cash account \(ticker)", type: .error, logger: .parser)
+                                        LoggingService.shared.log("Row \(idx + 1) failed to insert cash account \(ticker)", type: .error, logger: .parser)
                                     }
                                 } else {
-                                    LoggingService.shared.log("Row \(idx+1) skipped - instrument \(ticker) missing", type: .error, logger: .parser)
+                                    LoggingService.shared.log("Row \(idx + 1) skipped - instrument \(ticker) missing", type: .error, logger: .parser)
                                 }
                             } else {
-                                LoggingService.shared.log("Row \(idx+1) currency \(curr) has no cash instrument mapping", type: .error, logger: .parser)
+                                LoggingService.shared.log("Row \(idx + 1) currency \(curr) has no cash instrument mapping", type: .error, logger: .parser)
                             }
                         } else {
-                            LoggingService.shared.log("Row \(idx+1) skipped - account not found for number \(accNumber)", type: .error, logger: .parser)
+                            LoggingService.shared.log("Row \(idx + 1) skipped - account not found for number \(accNumber)", type: .error, logger: .parser)
                         }
                         continue
                     }
@@ -627,11 +632,11 @@ class ImportManager {
                     let total = self.dbManager.totalReportValueForSession(sid)
                     let note = String(format: "total_value_chf=%.2f", total)
                     self.dbManager.completeImportSession(id: sid,
-                                                       totalRows: summary.totalRows,
-                                                       successRows: success,
-                                                       failedRows: failure,
-                                                       duplicateRows: 0,
-                                                       notes: note)
+                                                         totalRows: summary.totalRows,
+                                                         successRows: success,
+                                                         failedRows: failure,
+                                                         duplicateRows: 0,
+                                                         notes: note)
                     let items = self.dbManager.positionValuesForSession(sid)
                     self.dbManager.saveValueReport(items, forSession: sid)
                     let reportItems = self.dbManager.fetchValueReport(forSession: sid)
@@ -649,9 +654,8 @@ class ImportManager {
                     completion(.failure(error))
                 }
             }
-        })
+        }
     }
-
 
     /// Presents an open panel and processes the selected XLSX file.
     func openAndParseDocument() {
@@ -666,9 +670,9 @@ class ImportManager {
                 print("\u{1F4C4} \(message)")
             }) { result in
                 switch result {
-                case .success(let output):
+                case let .success(output):
                     print("\n📥 Import result:\n\(output)")
-                case .failure(let error):
+                case let .failure(error):
                     print("❌ Import failed: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         let alert = NSAlert()

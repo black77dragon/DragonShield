@@ -28,7 +28,7 @@ final class RiskBucketsViewModel: ObservableObject {
     private var positions: [PositionReportData] = []
 
     func load(using dbManager: DatabaseManager) {
-        self.db = dbManager
+        db = dbManager
         positions = dbManager.fetchPositionReports()
         computeBuckets()
     }

@@ -1,6 +1,9 @@
 // DragonShield/InstrumentReportService.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - 1.0: Execute Python script to generate a full Instruments XLSX report.
 
 import Foundation

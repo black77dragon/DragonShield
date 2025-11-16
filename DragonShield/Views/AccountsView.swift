@@ -1,6 +1,9 @@
 // DragonShield/Views/AccountsView.swift
+
 // MARK: - Version 1.7
+
 // MARK: - History
+
 // - 1.6 -> 1.7: Adopted Institutions/Instruments table UX with resizable columns, filters, and persisted preferences.
 // - 1.4 -> 1.5: Accounts now reference Institutions. Added picker fields.
 // - 1.5 -> 1.6: Added institution picker to Edit view to resolve compile error.
@@ -10,12 +13,12 @@
 // - 1.1 -> 1.2: Updated Add/Edit views to include institutionBic, optional openingDate, and optional closingDate.
 // - 1.0 -> 1.1: Fixed EditAccountView initializer access level and incorrect String.trim() calls. Corrected onChange usage in text fields.
 
-import SwiftUI
 import Foundation
+import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #elseif canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 private enum AccountTableColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
@@ -89,23 +92,23 @@ struct AccountsView: View {
 
     private static let visibleColumnsKey = "AccountsView.visibleColumns.v1"
     private static let columnOrder: [AccountTableColumn] = [
-        .name, .number, .institution, .bic, .type, .currency, .portfolio, .status, .earliestUpdate, .openingDate, .closingDate, .notes
+        .name, .number, .institution, .bic, .type, .currency, .portfolio, .status, .earliestUpdate, .openingDate, .closingDate, .notes,
     ]
     private static let defaultVisibleColumns: Set<AccountTableColumn> = [
-        .name, .institution, .type, .currency, .portfolio, .status, .earliestUpdate
+        .name, .institution, .type, .currency, .portfolio, .status, .earliestUpdate,
     ]
     private static let requiredColumns: Set<AccountTableColumn> = [.name]
-    private static let headerBackground = Color(red: 230.0/255.0, green: 242.0/255.0, blue: 1.0)
+    private static let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
     fileprivate static let columnHandleWidth: CGFloat = 10
     fileprivate static let columnHandleHitSlop: CGFloat = 8
     fileprivate static let columnTextInset: CGFloat = 12
 
     private var secondaryActionTint: Color {
-#if os(macOS)
-        Color(nsColor: .systemGray)
-#else
-        Color(UIColor.systemGray4)
-#endif
+        #if os(macOS)
+            Color(nsColor: .systemGray)
+        #else
+            Color(UIColor.systemGray4)
+        #endif
     }
 
     private static let defaultColumnWidths: [AccountTableColumn: CGFloat] = [
@@ -120,7 +123,7 @@ struct AccountsView: View {
         .earliestUpdate: 170,
         .openingDate: 150,
         .closingDate: 150,
-        .notes: 80
+        .notes: 80,
     ]
 
     private static let minimumColumnWidths: [AccountTableColumn: CGFloat] = [
@@ -135,72 +138,72 @@ struct AccountsView: View {
         .earliestUpdate: 140,
         .openingDate: 120,
         .closingDate: 120,
-        .notes: 60
+        .notes: 60,
     ]
 
-#if os(macOS)
-    fileprivate static let columnResizeCursor: NSCursor = {
-        let size = NSSize(width: 8, height: 24)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: size).fill()
-        let barWidth: CGFloat = 2
-        let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
-        NSColor.systemBlue.setFill()
-        barRect.fill()
-        image.unlockFocus()
-        return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
-    }()
-#endif
+    #if os(macOS)
+        fileprivate static let columnResizeCursor: NSCursor = {
+            let size = NSSize(width: 8, height: 24)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            NSColor.clear.setFill()
+            NSRect(origin: .zero, size: size).fill()
+            let barWidth: CGFloat = 2
+            let barRect = NSRect(x: (size.width - barWidth) / 2, y: 0, width: barWidth, height: size.height)
+            NSColor.systemBlue.setFill()
+            barRect.fill()
+            image.unlockFocus()
+            return NSCursor(image: image, hotSpot: NSPoint(x: size.width / 2, y: size.height / 2))
+        }()
+    #endif
 
     private static let tableConfiguration: MaintenanceTableConfiguration<AccountTableColumn> = {
-#if os(macOS)
-        MaintenanceTableConfiguration(
-            preferenceKind: .accounts,
-            columnOrder: columnOrder,
-            defaultVisibleColumns: defaultVisibleColumns,
-            requiredColumns: requiredColumns,
-            defaultColumnWidths: defaultColumnWidths,
-            minimumColumnWidths: minimumColumnWidths,
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: columnHandleWidth,
-            columnHandleHitSlop: columnHandleHitSlop,
-            columnTextInset: columnTextInset,
-            headerBackground: headerBackground,
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            },
-            columnResizeCursor: columnResizeCursor
-        )
-#else
-        MaintenanceTableConfiguration(
-            preferenceKind: .accounts,
-            columnOrder: columnOrder,
-            defaultVisibleColumns: defaultVisibleColumns,
-            requiredColumns: requiredColumns,
-            defaultColumnWidths: defaultColumnWidths,
-            minimumColumnWidths: minimumColumnWidths,
-            visibleColumnsDefaultsKey: visibleColumnsKey,
-            columnHandleWidth: columnHandleWidth,
-            columnHandleHitSlop: columnHandleHitSlop,
-            columnTextInset: columnTextInset,
-            headerBackground: headerBackground,
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            }
-        )
-#endif
+        #if os(macOS)
+            MaintenanceTableConfiguration(
+                preferenceKind: .accounts,
+                columnOrder: columnOrder,
+                defaultVisibleColumns: defaultVisibleColumns,
+                requiredColumns: requiredColumns,
+                defaultColumnWidths: defaultColumnWidths,
+                minimumColumnWidths: minimumColumnWidths,
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: columnHandleWidth,
+                columnHandleHitSlop: columnHandleHitSlop,
+                columnTextInset: columnTextInset,
+                headerBackground: headerBackground,
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                },
+                columnResizeCursor: columnResizeCursor
+            )
+        #else
+            MaintenanceTableConfiguration(
+                preferenceKind: .accounts,
+                columnOrder: columnOrder,
+                defaultVisibleColumns: defaultVisibleColumns,
+                requiredColumns: requiredColumns,
+                defaultColumnWidths: defaultColumnWidths,
+                minimumColumnWidths: minimumColumnWidths,
+                visibleColumnsDefaultsKey: visibleColumnsKey,
+                columnHandleWidth: columnHandleWidth,
+                columnHandleHitSlop: columnHandleHitSlop,
+                columnTextInset: columnTextInset,
+                headerBackground: headerBackground,
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                }
+            )
+        #endif
     }()
 
     enum SortColumn: String, CaseIterable {
@@ -232,7 +235,7 @@ struct AccountsView: View {
                     account.institutionBic ?? "",
                     account.accountType,
                     account.currencyCode,
-                    account.notes ?? ""
+                    account.notes ?? "",
                 ].map { $0.lowercased() }
                 return haystack.contains { !$0.isEmpty && $0.contains(query) }
             }
@@ -294,7 +297,7 @@ struct AccountsView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -341,7 +344,7 @@ struct AccountsView: View {
                     confirmDelete(account)
                 }
             }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
         } message: {
             if let account = accountToDelete {
                 Text("Choose whether to disable or permanently delete '\(account.accountName)' (\(account.accountNumber)). Accounts can only be modified if no instruments are linked.")
@@ -790,7 +793,7 @@ struct AccountsView: View {
                     dbManager.refreshEarliestInstrumentTimestamps { result in
                         isRefreshing = false
                         switch result {
-                        case .success(let count):
+                        case let .success(count):
                             refreshMessage = "✅ Updated earliest timestamps for \(count) accounts."
                         case .failure:
                             refreshMessage = "❌ Failed to refresh timestamps."
@@ -992,6 +995,7 @@ struct AccountsView: View {
         case .closingDate: return .closingDate
         }
     }
+
     private func ensureFiltersetsWithinVisibleColumns() {
         if !visibleColumns.contains(.type) {
             typeFilters.removeAll()
@@ -1057,7 +1061,7 @@ struct AccountsView: View {
     }
 }
 
-fileprivate struct ModernAccountRowView: View {
+private struct ModernAccountRowView: View {
     let account: DatabaseManager.AccountData
     let columns: [AccountTableColumn]
     let fontConfig: MaintenanceTableFontConfig
@@ -1100,19 +1104,19 @@ fileprivate struct ModernAccountRowView: View {
         .contextMenu {
             Button("Edit Account", action: onEdit)
             Button("Select Account", action: onTap)
-#if os(macOS)
-            Divider()
-            Button("Copy Account Number") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(account.accountNumber, forType: .string)
-            }
-            Button("Copy Institution") {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(account.institutionName, forType: .string)
-            }
-#endif
+            #if os(macOS)
+                Divider()
+                Button("Copy Account Number") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(account.accountNumber, forType: .string)
+                }
+                Button("Copy Institution") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(account.institutionName, forType: .string)
+                }
+            #endif
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
@@ -1259,8 +1263,8 @@ fileprivate struct ModernAccountRowView: View {
     }
 }
 
-extension DateFormatter {
-    fileprivate static let userFacingFormatter: DateFormatter = {
+private extension DateFormatter {
+    static let userFacingFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
@@ -1272,7 +1276,7 @@ extension DateFormatter {
 struct AddAccountView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
-    
+
     @State private var accountName: String = ""
     @State private var selectedInstitutionId: Int? = nil
     @State private var availableInstitutions: [DatabaseManager.InstitutionData] = []
@@ -1280,12 +1284,12 @@ struct AddAccountView: View {
     // MODIFIED: Use selectedAccountTypeId and availableAccountTypes
     @State private var selectedAccountTypeId: Int? = nil
     @State private var availableAccountTypes: [DatabaseManager.AccountTypeData] = []
-    
+
     @State private var currencyCode: String = ""
     @State private var setOpeningDate: Bool = false
-    @State private var openingDateInput: Date = Date()
+    @State private var openingDateInput: Date = .init()
     @State private var setClosingDate: Bool = false
-    @State private var closingDateInput: Date = Date()
+    @State private var closingDateInput: Date = .init()
     @State private var earliestInstrumentDate: Date? = nil
     @State private var includeInPortfolio: Bool = true
     @State private var isActive: Bool = true
@@ -1300,40 +1304,41 @@ struct AddAccountView: View {
 
     var isValid: Bool {
         !accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedInstitutionId != nil &&
-        !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedAccountTypeId != nil &&
-        !currencyCode.isEmpty &&
-        (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
+            selectedInstitutionId != nil &&
+            !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            selectedAccountTypeId != nil &&
+            !currencyCode.isEmpty &&
+            (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
     }
 
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.98, green: 0.99, blue: 1.0), Color(red: 0.95, green: 0.97, blue: 0.99)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
-            VStack(spacing: 0) { addModernHeader; addModernContent; }
+            VStack(spacing: 0) { addModernHeader; addModernContent }
         }.frame(width: 650, height: 820).clipShape(RoundedRectangle(cornerRadius: 20)).shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-        .scaleEffect(formScale).onAppear { loadInitialData(); animateAddEntrance(); }
-        .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.contains("✅") { animateAddExit() } else { showingAlert = false } } } message: { Text(alertMessage) }
+            .scaleEffect(formScale).onAppear { loadInitialData(); animateAddEntrance() }
+            .alert("Result", isPresented: $showingAlert) { Button("OK") { if alertMessage.contains("✅") { animateAddExit() } else { showingAlert = false } } } message: { Text(alertMessage) }
     }
 
     private var addModernHeader: some View {
         HStack {
             Button { animateAddExit() } label: { Image(systemName: "xmark").modifier(ModernSubtleButton()) }; Spacer()
             HStack(spacing: 12) { Image(systemName: "plus.circle.fill").font(.system(size: 24)).foregroundColor(.blue); Text("Add Account").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(LinearGradient(colors: [.black, .gray], startPoint: .top, endPoint: .bottom)) }; Spacer()
-            Button { saveAccount() } label: { HStack(spacing: 8) { if isLoading { ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.8) } else { Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)) }; Text(isLoading ? "Saving..." : "Save") .font(.system(size: 14, weight: .semibold)) }.modifier(ModernPrimaryButton(color: .blue, isDisabled: isLoading || !isValid)) }
+            Button { saveAccount() } label: { HStack(spacing: 8) { if isLoading { ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.8) } else { Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)) }; Text(isLoading ? "Saving..." : "Save").font(.system(size: 14, weight: .semibold)) }.modifier(ModernPrimaryButton(color: .blue, isDisabled: isLoading || !isValid)) }
         }.padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
-    
+
     private func animateAddEntrance() {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) { formScale = 1.0 }
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) { sectionsOffset = 0 }
     }
+
     private func animateAddExit() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50; }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { presentationMode.wrappedValue.dismiss() }
     }
-    
+
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 20))
@@ -1359,7 +1364,7 @@ struct AddAccountView: View {
     }
 
     // MODIFIED: Replaced accountType TextField with a Picker
-private var accountTypePickerField: some View {
+    private var accountTypePickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "briefcase.fill").foregroundColor(.gray)
@@ -1379,7 +1384,6 @@ private var accountTypePickerField: some View {
             }
         }
     }
-
 
     // Picker for selecting the associated institution - used in Add/Edit forms
     private var institutionPickerField: some View {
@@ -1418,7 +1422,6 @@ private var accountTypePickerField: some View {
         }
     }
 
-    
     private var addModernContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -1434,17 +1437,17 @@ private var accountTypePickerField: some View {
                     currencyPickerField
                     Toggle(isOn: $setOpeningDate.animation()) { Text("Set Opening Date") }.modifier(ModernToggleStyle(tint: .green))
                     if setOpeningDate {
-                        DatePicker(selection: $openingDateInput, displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.plus").foregroundColor(.gray); Text("Opening Date") .font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
-                        .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
+                        DatePicker(selection: $openingDateInput, displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.plus").foregroundColor(.gray); Text("Opening Date").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
+                            .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                            .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                     }
                     Toggle(isOn: $setClosingDate.animation()) { Text("Set Closing Date") }.modifier(ModernToggleStyle(tint: .orange))
                     if setClosingDate {
-                        DatePicker(selection: $closingDateInput, in: (setOpeningDate ? openingDateInput... : Date.distantPast...), displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.minus").foregroundColor(.gray); Text("Closing Date") .font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
-                        .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
+                        DatePicker(selection: $closingDateInput, in: setOpeningDate ? openingDateInput... : Date.distantPast..., displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.minus").foregroundColor(.gray); Text("Closing Date").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
+                            .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                            .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                         if setOpeningDate && closingDateInput < openingDateInput && setClosingDate { Text("Closing date must be on or after opening date.").font(.caption).foregroundColor(.red).padding(.leading, 16) }
                     }
                     HStack {
@@ -1480,29 +1483,32 @@ private var accountTypePickerField: some View {
             }.padding(.horizontal, 24).padding(.bottom, 100)
         }.offset(y: sectionsOffset)
     }
+
     private var currencyPickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack { Image(systemName: "dollarsign.circle.fill").foregroundColor(.gray); Text("Default Currency*").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) }
             Picker("Default Currency*", selection: $currencyCode) { Text("Select Currency...").tag(""); ForEach(availableCurrencies, id: \.code) { curr in Text("\(curr.name) (\(curr.code))").tag(curr.code) } }
-            .pickerStyle(MenuPickerStyle()).padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(currencyCode.isEmpty && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1))
+                .pickerStyle(MenuPickerStyle()).padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(currencyCode.isEmpty && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1))
             if currencyCode.isEmpty && !isValid && showingAlert { Text("Currency is required.").font(.caption).foregroundColor(.red.opacity(0.8)).padding(.horizontal, 4) }
         }
     }
+
     private func loadInitialData() {
         availableCurrencies = dbManager.fetchActiveCurrencies()
         availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true)
         availableInstitutions = dbManager.fetchInstitutions(activeOnly: true)
-        if let chfCurrency = availableCurrencies.first(where: {$0.code == "CHF"}) { currencyCode = chfCurrency.code } else if let firstCurrency = availableCurrencies.first { currencyCode = firstCurrency.code }
+        if let chfCurrency = availableCurrencies.first(where: { $0.code == "CHF" }) { currencyCode = chfCurrency.code } else if let firstCurrency = availableCurrencies.first { currencyCode = firstCurrency.code }
         if let firstInst = availableInstitutions.first { selectedInstitutionId = firstInst.id }
         // Optionally set a default account type if desired, e.g., the first one
         // if !availableAccountTypes.isEmpty { selectedAccountTypeId = availableAccountTypes[0].id }
-        setOpeningDate = false; openingDateInput = Date(); setClosingDate = false; closingDateInput = Date();
+        setOpeningDate = false; openingDateInput = Date(); setClosingDate = false; closingDateInput = Date()
         earliestInstrumentDate = nil
     }
+
     private func saveAccount() {
         guard isValid, let typeId = selectedAccountTypeId, let instId = selectedInstitutionId else {
-            var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate && setOpeningDate && closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil { errorMsg += "\nAccount Type is required."}
+            var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate, setOpeningDate, closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil { errorMsg += "\nAccount Type is required." }
             alertMessage = errorMsg; showingAlert = true; return
         }
         isLoading = true
@@ -1520,8 +1526,8 @@ private var accountTypePickerField: some View {
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         isLoading = false
-        if success { alertMessage = "✅ Account '\(accountName)' added successfully!"; NotificationCenter.default.post(name: NSNotification.Name("RefreshAccounts"), object: nil);
-        } else { alertMessage = "❌ Failed to add account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to add account: Account Number must be unique."} }
+        if success { alertMessage = "✅ Account '\(accountName)' added successfully!"; NotificationCenter.default.post(name: NSNotification.Name("RefreshAccounts"), object: nil)
+        } else { alertMessage = "❌ Failed to add account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to add account: Account Number must be unique." } }
         showingAlert = true
     }
 }
@@ -1531,7 +1537,7 @@ struct EditAccountView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
     let accountId: Int
-    
+
     @State private var accountName: String = ""
     @State private var selectedInstitutionId: Int? = nil
     @State private var availableInstitutions: [DatabaseManager.InstitutionData] = []
@@ -1539,53 +1545,54 @@ struct EditAccountView: View {
     // MODIFIED: Use selectedAccountTypeId and availableAccountTypes
     @State private var selectedAccountTypeId: Int? = nil
     @State private var availableAccountTypes: [DatabaseManager.AccountTypeData] = []
-    
-    @State private var currencyCode: String = "";
-    @State private var setOpeningDate: Bool = false; @State private var openingDateInput: Date = Date(); @State private var setClosingDate: Bool = false; @State private var closingDateInput: Date = Date();
+
+    @State private var currencyCode: String = ""
+    @State private var setOpeningDate: Bool = false; @State private var openingDateInput: Date = .init(); @State private var setClosingDate: Bool = false; @State private var closingDateInput: Date = .init()
     @State private var earliestInstrumentDate: Date? = nil
-    @State private var includeInPortfolio: Bool = true; @State private var isActive: Bool = true; @State private var notes: String = "";
-    @State private var originalData: DatabaseManager.AccountData? = nil; @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = [];
-    @State private var originalSetOpeningDate: Bool = false; @State private var originalOpeningDateInput: Date = Date(); @State private var originalSetClosingDate: Bool = false; @State private var originalClosingDateInput: Date = Date();
-    @State private var showingAlert = false; @State private var alertMessage = ""; @State private var isLoading = false; @State private var hasChanges = false;
-    @State private var formScale: CGFloat = 0.9; @State private var headerOpacity: Double = 0; @State private var sectionsOffset: CGFloat = 50;
+    @State private var includeInPortfolio: Bool = true; @State private var isActive: Bool = true; @State private var notes: String = ""
+    @State private var originalData: DatabaseManager.AccountData? = nil; @State private var availableCurrencies: [(code: String, name: String, symbol: String)] = []
+    @State private var originalSetOpeningDate: Bool = false; @State private var originalOpeningDateInput: Date = .init(); @State private var originalSetClosingDate: Bool = false; @State private var originalClosingDateInput: Date = .init()
+    @State private var showingAlert = false; @State private var alertMessage = ""; @State private var isLoading = false; @State private var hasChanges = false
+    @State private var formScale: CGFloat = 0.9; @State private var headerOpacity: Double = 0; @State private var sectionsOffset: CGFloat = 50
 
     init(accountId: Int) { self.accountId = accountId }
     var isValid: Bool {
         !accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedInstitutionId != nil &&
-        !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        selectedAccountTypeId != nil &&
-        !currencyCode.isEmpty &&
-        (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
+            selectedInstitutionId != nil &&
+            !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            selectedAccountTypeId != nil &&
+            !currencyCode.isEmpty &&
+            (setClosingDate ? (setOpeningDate ? closingDateInput >= openingDateInput : true) : true)
     }
+
     private func detectChanges() {
         guard let original = originalData, let originalAccTypeId = original.accountTypeId as Int? else { hasChanges = true; return } // Ensure originalData and ID are valid
-        let co: Date? = setOpeningDate ? openingDateInput : nil; let oo: Date? = originalSetOpeningDate ? originalOpeningDateInput : nil;
-        let cc: Date? = setClosingDate ? closingDateInput : nil; let oc: Date? = originalSetClosingDate ? originalClosingDateInput : nil;
+        let co: Date? = setOpeningDate ? openingDateInput : nil; let oo: Date? = originalSetOpeningDate ? originalOpeningDateInput : nil
+        let cc: Date? = setClosingDate ? closingDateInput : nil; let oc: Date? = originalSetClosingDate ? originalClosingDateInput : nil
         hasChanges = accountName != original.accountName ||
-                         selectedInstitutionId != original.institutionId ||
-                         accountNumber != original.accountNumber ||
-                         selectedAccountTypeId != originalAccTypeId || // MODIFIED
-                         currencyCode != original.currencyCode ||
-                         co != oo ||
-                         cc != oc ||
-                         includeInPortfolio != original.includeInPortfolio ||
-                         isActive != original.isActive ||
-                         notes != (original.notes ?? "")
+            selectedInstitutionId != original.institutionId ||
+            accountNumber != original.accountNumber ||
+            selectedAccountTypeId != originalAccTypeId || // MODIFIED
+            currencyCode != original.currencyCode ||
+            co != oo ||
+            cc != oc ||
+            includeInPortfolio != original.includeInPortfolio ||
+            isActive != original.isActive ||
+            notes != (original.notes ?? "")
     }
 
     var body: some View {
-       ZStack {
+        ZStack {
             LinearGradient(colors: [Color(red: 0.97, green: 0.98, blue: 1.0), Color(red: 0.94, green: 0.96, blue: 0.99)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
-            VStack(spacing: 0) { editModernHeader; changeIndicator; editModernContent; }
+            VStack(spacing: 0) { editModernHeader; changeIndicator; editModernContent }
         }.frame(width: 650, height: 820).clipShape(RoundedRectangle(cornerRadius: 20)).shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-        .scaleEffect(formScale).onAppear { loadAccountData(); animateEditEntrance(); }
-        .alert("Result", isPresented: $showingAlert) { Button("OK") { showingAlert = false } } message: { Text(alertMessage) }
-        .onChange(of: accountName) { _,_ in detectChanges() }.onChange(of: selectedInstitutionId) { _,_ in detectChanges() }.onChange(of: accountNumber) { _,_ in detectChanges() }
-        .onChange(of: selectedAccountTypeId) { _,_ in detectChanges() } // MODIFIED
-        .onChange(of: currencyCode) { _,_ in detectChanges() }
-        .onChange(of: setOpeningDate) { _,_ in detectChanges() }.onChange(of: openingDateInput) { _,_ in detectChanges() }.onChange(of: setClosingDate) { _,_ in detectChanges() }.onChange(of: closingDateInput) { _,_ in detectChanges() }
-        .onChange(of: includeInPortfolio) { _,_ in detectChanges() }.onChange(of: isActive) { _,_ in detectChanges() }.onChange(of: notes) { _,_ in detectChanges() }
+            .scaleEffect(formScale).onAppear { loadAccountData(); animateEditEntrance() }
+            .alert("Result", isPresented: $showingAlert) { Button("OK") { showingAlert = false } } message: { Text(alertMessage) }
+            .onChange(of: accountName) { _, _ in detectChanges() }.onChange(of: selectedInstitutionId) { _, _ in detectChanges() }.onChange(of: accountNumber) { _, _ in detectChanges() }
+            .onChange(of: selectedAccountTypeId) { _, _ in detectChanges() } // MODIFIED
+            .onChange(of: currencyCode) { _, _ in detectChanges() }
+            .onChange(of: setOpeningDate) { _, _ in detectChanges() }.onChange(of: openingDateInput) { _, _ in detectChanges() }.onChange(of: setClosingDate) { _, _ in detectChanges() }.onChange(of: closingDateInput) { _, _ in detectChanges() }
+            .onChange(of: includeInPortfolio) { _, _ in detectChanges() }.onChange(of: isActive) { _, _ in detectChanges() }.onChange(of: notes) { _, _ in detectChanges() }
     }
 
     private var editModernHeader: some View {
@@ -1595,6 +1602,7 @@ struct EditAccountView: View {
             Button { saveAccountChanges() } label: { HStack(spacing: 8) { if isLoading { ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.8) } else { Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark").font(.system(size: 14, weight: .bold)) }; Text(isLoading ? "Saving..." : "Save Changes").font(.system(size: 14, weight: .semibold)) }.modifier(ModernPrimaryButton(color: .orange, isDisabled: isLoading || !isValid || !hasChanges)) }
         }.padding(.horizontal, 24).padding(.vertical, 20).opacity(headerOpacity)
     }
+
     private var changeIndicator: some View {
         HStack { if hasChanges { HStack(spacing: 8) { Image(systemName: "circle.fill").font(.system(size: 8)).foregroundColor(.orange); Text("Unsaved changes").font(.caption).foregroundColor(.orange) }.padding(.horizontal, 12).padding(.vertical, 4).background(Color.orange.opacity(0.1)).clipShape(Capsule()).overlay(Capsule().stroke(Color.orange.opacity(0.3), lineWidth: 1)).transition(.opacity.combined(with: .scale)) }; Spacer() }.padding(.horizontal, 24).animation(.spring(response: 0.5, dampingFraction: 0.8), value: hasChanges)
     }
@@ -1604,8 +1612,9 @@ struct EditAccountView: View {
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) { headerOpacity = 1.0 }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) { sectionsOffset = 0 }
     }
+
     private func animateEditExit() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50; }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { formScale = 0.9; headerOpacity = 0; sectionsOffset = 50 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { presentationMode.wrappedValue.dismiss() }
     }
 
@@ -1617,7 +1626,7 @@ struct EditAccountView: View {
             Spacer()
         }
     }
-    
+
     private func editModernTextField(title: String, text: Binding<String>, placeholder: String, icon: String, isRequired: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -1632,7 +1641,7 @@ struct EditAccountView: View {
             }
         }
     }
-    
+
     // MODIFIED: Replaced accountType TextField with a Picker
     private var accountTypePickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1707,17 +1716,17 @@ struct EditAccountView: View {
                     currencyPickerField
                     Toggle(isOn: $setOpeningDate.animation()) { Text("Set Opening Date") }.modifier(ModernToggleStyle(tint: .green))
                     if setOpeningDate {
-                        DatePicker(selection: $openingDateInput, displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.plus").foregroundColor(.gray); Text("Opening Date") .font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
-                        .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
+                        DatePicker(selection: $openingDateInput, displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.plus").foregroundColor(.gray); Text("Opening Date").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
+                            .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                            .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                     }
                     Toggle(isOn: $setClosingDate.animation()) { Text("Set Closing Date") }.modifier(ModernToggleStyle(tint: .orange))
                     if setClosingDate {
-                        DatePicker(selection: $closingDateInput, in: (setOpeningDate ? openingDateInput... : Date.distantPast...), displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.minus").foregroundColor(.gray); Text("Closing Date") .font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
-                        .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
+                        DatePicker(selection: $closingDateInput, in: setOpeningDate ? openingDateInput... : Date.distantPast..., displayedComponents: .date) { HStack { Image(systemName: "calendar.badge.minus").foregroundColor(.gray); Text("Closing Date").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) } }
+                            .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                            .transition(.asymmetric(insertion: .scale(scale: 0.95, anchor: .top).combined(with: .opacity), removal: .opacity))
                         if setOpeningDate && closingDateInput < openingDateInput && setClosingDate { Text("Closing date must be on or after opening date.").font(.caption).foregroundColor(.red).padding(.leading, 16) }
                     }
                     HStack {
@@ -1753,48 +1762,52 @@ struct EditAccountView: View {
             }.padding(.horizontal, 24).padding(.bottom, 100)
         }.offset(y: sectionsOffset)
     }
+
     private var currencyPickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack { Image(systemName: "dollarsign.circle.fill").foregroundColor(.gray); Text("Default Currency*").font(.system(size: 14, weight: .medium)).foregroundColor(.black.opacity(0.7)) }
             Picker("Default Currency*", selection: $currencyCode) { Text("Select Currency...").tag(""); ForEach(availableCurrencies, id: \.code) { curr in Text("\(curr.name) (\(curr.code))").tag(curr.code) } }
-            .pickerStyle(MenuPickerStyle()).padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(currencyCode.isEmpty && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1))
+                .pickerStyle(MenuPickerStyle()).padding(.horizontal, 16).padding(.vertical, 12).background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(currencyCode.isEmpty && !isValid && showingAlert ? Color.red.opacity(0.6) : Color.gray.opacity(0.3), lineWidth: 1))
             if currencyCode.isEmpty && !isValid && showingAlert { Text("Currency is required.").font(.caption).foregroundColor(.red.opacity(0.8)).padding(.horizontal, 4) }
         }
     }
+
     func loadAccountData() {
         availableCurrencies = dbManager.fetchActiveCurrencies()
         availableAccountTypes = dbManager.fetchAccountTypes(activeOnly: true)
         availableInstitutions = dbManager.fetchInstitutions(activeOnly: true)
-        
+
         if let details = dbManager.fetchAccountDetails(id: accountId) {
             accountName = details.accountName
             selectedInstitutionId = details.institutionId
             accountNumber = details.accountNumber
-            selectedAccountTypeId = details.accountTypeId; // Set selected ID for Picker
-            currencyCode = details.currencyCode;
+            selectedAccountTypeId = details.accountTypeId // Set selected ID for Picker
+            currencyCode = details.currencyCode
             if let oDate = details.openingDate { openingDateInput = oDate; setOpeningDate = true } else { setOpeningDate = false; openingDateInput = Date() }
             if let cDate = details.closingDate { closingDateInput = cDate; setClosingDate = true } else { setClosingDate = false; closingDateInput = Date() }
             earliestInstrumentDate = details.earliestInstrumentLastUpdatedAt
-            includeInPortfolio = details.includeInPortfolio; isActive = details.isActive; notes = details.notes ?? "";
-            originalData = details; originalSetOpeningDate = setOpeningDate; originalOpeningDateInput = openingDateInput; originalSetClosingDate = setClosingDate; originalClosingDateInput = closingDateInput;
+            includeInPortfolio = details.includeInPortfolio; isActive = details.isActive; notes = details.notes ?? ""
+            originalData = details; originalSetOpeningDate = setOpeningDate; originalOpeningDateInput = openingDateInput; originalSetClosingDate = setClosingDate; originalClosingDateInput = closingDateInput
             detectChanges() // Initial check after loading
         } else { alertMessage = "❌ Error: Could not load account details."; showingAlert = true }
     }
+
     private func showUnsavedChangesAlert() {
         let alert = NSAlert(); alert.messageText = "Unsaved Changes"; alert.informativeText = "You have unsaved changes. Are you sure you want to close?"; alert.addButton(withTitle: "Save & Close"); alert.addButton(withTitle: "Discard & Close"); alert.addButton(withTitle: "Cancel"); alert.alertStyle = .warning
         let response = alert.runModal(); if response == .alertFirstButtonReturn { saveAccountChanges() } else if response == .alertSecondButtonReturn { animateEditExit() }
     }
+
     func saveAccountChanges() {
         guard isValid, let typeId = selectedAccountTypeId, let _ = selectedInstitutionId else {
-            var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate && setOpeningDate && closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil {errorMsg += "\nAccount Type is required."}
+            var errorMsg = "Please fill all mandatory fields (*)."; if setClosingDate, setOpeningDate, closingDateInput < openingDateInput { errorMsg += "\nClosing date cannot be before opening date." }; if selectedAccountTypeId == nil { errorMsg += "\nAccount Type is required." }
             alertMessage = errorMsg; showingAlert = true; return
         }
         guard hasChanges else { animateEditExit(); return } // Only save if there are changes
         isLoading = true
         let finalOpeningDate: Date? = setOpeningDate ? openingDateInput : nil
         let finalClosingDate: Date? = setClosingDate ? closingDateInput : nil
-        
+
         let success = dbManager.updateAccount(
             id: accountId,
             accountName: accountName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1820,6 +1833,6 @@ struct EditAccountView: View {
             detectChanges() // Re-evaluate hasChanges, should be false now
             NotificationCenter.default.post(name: NSNotification.Name("RefreshAccounts"), object: nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { animateEditExit() }
-        } else { alertMessage = "❌ Failed to update account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to update account: Account Number must be unique."}; showingAlert = true }
+        } else { alertMessage = "❌ Failed to update account. Please try again."; if alertMessage.contains("UNIQUE constraint failed: Accounts.account_number") { alertMessage = "❌ Failed to update account: Account Number must be unique." }; showingAlert = true }
     }
 }

@@ -14,7 +14,7 @@ final class YahooFinanceProvider: PriceProvider {
         comps.queryItems = [
             URLQueryItem(name: "symbols", value: symbol),
             URLQueryItem(name: "region", value: "CH"),
-            URLQueryItem(name: "lang", value: "en-US")
+            URLQueryItem(name: "lang", value: "en-US"),
         ]
         guard let url = comps.url else { throw PriceProviderError.invalidResponse }
 
@@ -53,7 +53,8 @@ final class YahooFinanceProvider: PriceProvider {
         // Parse primary quote
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let qr = root["quoteResponse"] as? [String: Any],
-              let arr = qr["result"] as? [Any] else {
+              let arr = qr["result"] as? [Any]
+        else {
             log.log("[Yahoo] No quoteResponse for symbol=\(symbol)", type: .error, logger: .network)
             throw PriceProviderError.invalidResponse
         }
@@ -79,7 +80,7 @@ final class YahooFinanceProvider: PriceProvider {
                 URLQueryItem(name: "range", value: "5d"),
                 URLQueryItem(name: "interval", value: "1d"),
                 URLQueryItem(name: "region", value: "CH"),
-                URLQueryItem(name: "lang", value: "en-US")
+                URLQueryItem(name: "lang", value: "en-US"),
             ]
             if let curl = c.url {
                 var creq = URLRequest(url: curl)
@@ -95,7 +96,8 @@ final class YahooFinanceProvider: PriceProvider {
                        let chart = chartRoot["chart"] as? [String: Any],
                        let resArr = chart["result"] as? [Any],
                        let res0 = resArr.first as? [String: Any],
-                       let meta = res0["meta"] as? [String: Any] {
+                       let meta = res0["meta"] as? [String: Any]
+                    {
                         if price == nil {
                             if let n = meta["regularMarketPrice"] as? NSNumber { price = n.doubleValue }
                             else if let d = meta["regularMarketPrice"] as? Double { price = d }
@@ -114,7 +116,7 @@ final class YahooFinanceProvider: PriceProvider {
             log.log("[Yahoo] Unable to obtain price for symbol=\(symbol)", type: .error, logger: .network)
             throw PriceProviderError.notFound
         }
-        let asOf = Date(timeIntervalSince1970: (tsSec ?? Date().timeIntervalSince1970))
+        let asOf = Date(timeIntervalSince1970: tsSec ?? Date().timeIntervalSince1970)
         // Normalize special Yahoo quirk: GBp/GBX (pence) -> GBP with 1/100 scaling
         let norm = normalizeCurrencyAndScale(rawCurrency ?? currStr)
         let adjustedPrice = finalPrice * norm.scale
@@ -131,7 +133,7 @@ final class YahooFinanceProvider: PriceProvider {
             URLQueryItem(name: "range", value: "5d"),
             URLQueryItem(name: "interval", value: "1d"),
             URLQueryItem(name: "region", value: "CH"),
-            URLQueryItem(name: "lang", value: "en-US")
+            URLQueryItem(name: "lang", value: "en-US"),
         ]
         guard let curl = c.url else { throw PriceProviderError.invalidResponse }
         var creq = URLRequest(url: curl)
@@ -148,7 +150,8 @@ final class YahooFinanceProvider: PriceProvider {
               let chart = chartRoot["chart"] as? [String: Any],
               let resArr = chart["result"] as? [Any],
               let res0 = resArr.first as? [String: Any],
-              let meta = res0["meta"] as? [String: Any] else {
+              let meta = res0["meta"] as? [String: Any]
+        else {
             throw PriceProviderError.invalidResponse
         }
         var price: Double?

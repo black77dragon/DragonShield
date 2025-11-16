@@ -15,7 +15,8 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 1, Int32(tickerId))
         guard sqlite3_step(statement) == SQLITE_ROW,
               let datePtr = sqlite3_column_text(statement, 0),
-              let date = DateFormatter.iso8601DateOnly.date(from: String(cString: datePtr)) else {
+              let date = DateFormatter.iso8601DateOnly.date(from: String(cString: datePtr))
+        else {
             return nil
         }
         return date

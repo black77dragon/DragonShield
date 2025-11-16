@@ -142,11 +142,11 @@ struct InstrumentPromptView: View {
 
     private func loadData() {
         let db = DatabaseManager()
-        self.subClasses = db.fetchAssetTypes()
+        subClasses = db.fetchAssetTypes()
         if !subClasses.contains(where: { $0.id == subClassId }) {
             if let first = subClasses.first { subClassId = first.id }
         }
-        self.currencies = db.fetchActiveCurrencies()
+        currencies = db.fetchActiveCurrencies()
         if !currencies.contains(where: { $0.code == currency }) {
             if let firstCurr = currencies.first { currency = firstCurr.code }
         }

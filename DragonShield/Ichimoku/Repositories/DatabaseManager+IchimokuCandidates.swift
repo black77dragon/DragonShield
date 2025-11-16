@@ -5,7 +5,8 @@ private let SQLITE_TRANSIENT_CANDIDATE = unsafeBitCast(-1, to: sqlite3_destructo
 
 extension DatabaseManager {
     func ichimokuReplaceDailyCandidates(scanDate: Date,
-                                        rows: [IchimokuCandidateStoreRow]) {
+                                        rows: [IchimokuCandidateStoreRow])
+    {
         let dateString = DateFormatter.iso8601DateOnly.string(from: scanDate)
         var deleteStmt: OpaquePointer?
         let deleteSQL = "DELETE FROM ichimoku_daily_candidates WHERE scan_date = ?"
@@ -149,7 +150,8 @@ extension DatabaseManager {
         var dates: [Date] = []
         while sqlite3_step(statement) == SQLITE_ROW {
             if let ptr = sqlite3_column_text(statement, 0),
-               let date = DateFormatter.iso8601DateOnly.date(from: String(cString: ptr)) {
+               let date = DateFormatter.iso8601DateOnly.date(from: String(cString: ptr))
+            {
                 dates.append(date)
             }
         }

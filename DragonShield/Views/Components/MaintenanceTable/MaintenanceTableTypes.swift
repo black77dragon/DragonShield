@@ -52,67 +52,67 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
     let columnTextInset: CGFloat
     let headerBackground: Color
     let fontConfigBuilder: (MaintenanceTableFontSize) -> MaintenanceTableFontConfig
-#if os(macOS)
-    let columnResizeCursor: NSCursor?
-#endif
+    #if os(macOS)
+        let columnResizeCursor: NSCursor?
+    #endif
 
-#if os(macOS)
-    init(
-        preferenceKind: TablePreferenceKind,
-        columnOrder: [Column],
-        defaultVisibleColumns: Set<Column>,
-        requiredColumns: Set<Column>,
-        defaultColumnWidths: [Column: CGFloat],
-        minimumColumnWidths: [Column: CGFloat],
-        visibleColumnsDefaultsKey: String,
-        columnHandleWidth: CGFloat = 10,
-        columnHandleHitSlop: CGFloat = 8,
-        columnTextInset: CGFloat = 12,
-        headerBackground: Color,
-        fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig,
-        columnResizeCursor: NSCursor? = nil
-    ) {
-        self.preferenceKind = preferenceKind
-        self.columnOrder = columnOrder
-        self.defaultVisibleColumns = defaultVisibleColumns
-        self.requiredColumns = requiredColumns
-        self.defaultColumnWidths = defaultColumnWidths
-        self.minimumColumnWidths = minimumColumnWidths
-        self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
-        self.columnHandleWidth = columnHandleWidth
-        self.columnHandleHitSlop = columnHandleHitSlop
-        self.columnTextInset = columnTextInset
-        self.headerBackground = headerBackground
-        self.fontConfigBuilder = fontConfigBuilder
-        self.columnResizeCursor = columnResizeCursor
-    }
-#else
-    init(
-        preferenceKind: TablePreferenceKind,
-        columnOrder: [Column],
-        defaultVisibleColumns: Set<Column>,
-        requiredColumns: Set<Column>,
-        defaultColumnWidths: [Column: CGFloat],
-        minimumColumnWidths: [Column: CGFloat],
-        visibleColumnsDefaultsKey: String,
-        columnHandleWidth: CGFloat = 10,
-        columnHandleHitSlop: CGFloat = 8,
-        columnTextInset: CGFloat = 12,
-        headerBackground: Color,
-        fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig
-    ) {
-        self.preferenceKind = preferenceKind
-        self.columnOrder = columnOrder
-        self.defaultVisibleColumns = defaultVisibleColumns
-        self.requiredColumns = requiredColumns
-        self.defaultColumnWidths = defaultColumnWidths
-        self.minimumColumnWidths = minimumColumnWidths
-        self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
-        self.columnHandleWidth = columnHandleWidth
-        self.columnHandleHitSlop = columnHandleHitSlop
-        self.columnTextInset = columnTextInset
-        self.headerBackground = headerBackground
-        self.fontConfigBuilder = fontConfigBuilder
-    }
-#endif
+    #if os(macOS)
+        init(
+            preferenceKind: TablePreferenceKind,
+            columnOrder: [Column],
+            defaultVisibleColumns: Set<Column>,
+            requiredColumns: Set<Column>,
+            defaultColumnWidths: [Column: CGFloat],
+            minimumColumnWidths: [Column: CGFloat],
+            visibleColumnsDefaultsKey: String,
+            columnHandleWidth: CGFloat = 10,
+            columnHandleHitSlop: CGFloat = 8,
+            columnTextInset: CGFloat = 12,
+            headerBackground: Color,
+            fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig,
+            columnResizeCursor: NSCursor? = nil
+        ) {
+            self.preferenceKind = preferenceKind
+            self.columnOrder = columnOrder
+            self.defaultVisibleColumns = defaultVisibleColumns
+            self.requiredColumns = requiredColumns
+            self.defaultColumnWidths = defaultColumnWidths
+            self.minimumColumnWidths = minimumColumnWidths
+            self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
+            self.columnHandleWidth = columnHandleWidth
+            self.columnHandleHitSlop = columnHandleHitSlop
+            self.columnTextInset = columnTextInset
+            self.headerBackground = headerBackground
+            self.fontConfigBuilder = fontConfigBuilder
+            self.columnResizeCursor = columnResizeCursor
+        }
+    #else
+        init(
+            preferenceKind: TablePreferenceKind,
+            columnOrder: [Column],
+            defaultVisibleColumns: Set<Column>,
+            requiredColumns: Set<Column>,
+            defaultColumnWidths: [Column: CGFloat],
+            minimumColumnWidths: [Column: CGFloat],
+            visibleColumnsDefaultsKey: String,
+            columnHandleWidth: CGFloat = 10,
+            columnHandleHitSlop: CGFloat = 8,
+            columnTextInset: CGFloat = 12,
+            headerBackground: Color,
+            fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig
+        ) {
+            self.preferenceKind = preferenceKind
+            self.columnOrder = columnOrder
+            self.defaultVisibleColumns = defaultVisibleColumns
+            self.requiredColumns = requiredColumns
+            self.defaultColumnWidths = defaultColumnWidths
+            self.minimumColumnWidths = minimumColumnWidths
+            self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
+            self.columnHandleWidth = columnHandleWidth
+            self.columnHandleHitSlop = columnHandleHitSlop
+            self.columnTextInset = columnTextInset
+            self.headerBackground = headerBackground
+            self.fontConfigBuilder = fontConfigBuilder
+        }
+    #endif
 }

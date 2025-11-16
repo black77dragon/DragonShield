@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 
 @MainActor
 final class IchimokuDragonViewModel: ObservableObject {
@@ -22,12 +22,13 @@ final class IchimokuDragonViewModel: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
 
     init(dbManager: DatabaseManager,
-         settingsService: IchimokuSettingsService) {
+         settingsService: IchimokuSettingsService)
+    {
         self.dbManager = dbManager
         self.settingsService = settingsService
-        self.pipelineService = IchimokuPipelineService(dbManager: dbManager,
-                                                       settingsService: settingsService)
-        self.reportService = IchimokuReportService(dbManager: dbManager)
+        pipelineService = IchimokuPipelineService(dbManager: dbManager,
+                                                  settingsService: settingsService)
+        reportService = IchimokuReportService(dbManager: dbManager)
     }
 
     func loadInitialData() {
@@ -42,7 +43,6 @@ final class IchimokuDragonViewModel: ObservableObject {
             refreshCandidates(for: date)
         }
     }
-
 
     func refreshCandidateDates(limit: Int = 30) {
         let dates = dbManager.ichimokuFetchRecentCandidateDates(limit: limit)

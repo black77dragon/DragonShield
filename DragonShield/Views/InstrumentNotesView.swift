@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct InstrumentNotesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -7,7 +7,7 @@ struct InstrumentNotesView: View {
     let instrumentCode: String
     let instrumentName: String
     var initialTab: Tab = .updates
-    var initialThemeId: Int? = nil
+    var initialThemeId: Int?
     var onClose: () -> Void
 
     enum Tab {
@@ -247,10 +247,10 @@ struct InstrumentNotesView: View {
                     editingThemeUpdate = nil
                     showThemeEditor = true
                 }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                    .foregroundColor(.black)
-                    .disabled(selectedThemeId == nil)
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
+                .foregroundColor(.black)
+                .disabled(selectedThemeId == nil)
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)

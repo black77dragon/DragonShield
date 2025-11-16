@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -148,8 +148,8 @@ struct PortfolioThemeUpdatesView: View {
                                 deleteCandidateId = update.id
                                 showDeleteConfirm = true
                             }
-                                .buttonStyle(.link)
-                                .disabled(isArchived)
+                            .buttonStyle(.link)
+                            .disabled(isArchived)
                             Button(expandedId == update.id ? "Collapse" : "Expand") { toggleExpand(update) }
                                 .buttonStyle(.link)
                         }
@@ -169,7 +169,7 @@ struct PortfolioThemeUpdatesView: View {
                     } else {
                         Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
                             .lineLimit(3)
-                        if let ex = extra, (!ex.links.isEmpty || !ex.attachments.isEmpty) {
+                        if let ex = extra, !ex.links.isEmpty || !ex.attachments.isEmpty {
                             chipsGrid(ex.links.map { chip(for: $0) } + ex.attachments.map { chip(for: $0) })
                         }
                     }

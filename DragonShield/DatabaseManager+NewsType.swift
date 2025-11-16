@@ -6,8 +6,8 @@ extension DatabaseManager {
         var rows: [NewsTypeRow] = []
         guard let db else { return rows }
         let sql = includeInactive ?
-        "SELECT id, code, display_name, sort_order, active FROM NewsType ORDER BY sort_order, id" :
-        "SELECT id, code, display_name, sort_order, active FROM NewsType WHERE active = 1 ORDER BY sort_order, id"
+            "SELECT id, code, display_name, sort_order, active FROM NewsType ORDER BY sort_order, id" :
+            "SELECT id, code, display_name, sort_order, active FROM NewsType WHERE active = 1 ORDER BY sort_order, id"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             defer { sqlite3_finalize(stmt) }

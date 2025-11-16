@@ -22,4 +22,3 @@ extension View {
         modifier(DashboardTileBackgroundModifier(cornerRadius: cornerRadius))
     }
 }
-

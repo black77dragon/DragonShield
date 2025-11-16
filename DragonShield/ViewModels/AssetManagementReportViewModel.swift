@@ -103,11 +103,11 @@ struct AssetManagementReportSummary {
 
     var hasData: Bool {
         !cashBreakdown.isEmpty ||
-        !nearCashHoldings.isEmpty ||
-        !cryptoHoldings.isEmpty ||
-        !currencyAllocations.isEmpty ||
-        !assetClassBreakdown.isEmpty ||
-        custodySummaries.contains { !$0.accounts.isEmpty }
+            !nearCashHoldings.isEmpty ||
+            !cryptoHoldings.isEmpty ||
+            !currencyAllocations.isEmpty ||
+            !assetClassBreakdown.isEmpty ||
+            custodySummaries.contains { !$0.accounts.isEmpty }
     }
 }
 
@@ -431,11 +431,13 @@ final class AssetManagementReportViewModel: ObservableObject {
 
     private func isCryptoPosition(_ position: PositionReportData) -> Bool {
         if let classCode = position.assetClassCode?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
-           classCode.contains("CRYP") {
+           classCode.contains("CRYP")
+        {
             return true
         }
         if let subClassCode = position.assetSubClassCode?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
-           subClassCode.contains("CRYP") {
+           subClassCode.contains("CRYP")
+        {
             return true
         }
         if let className = position.assetClass?.lowercased(), className.contains("crypto") {
@@ -481,113 +483,113 @@ private extension String {
 }
 
 #if DEBUG
-extension AssetManagementReportSummary {
-    static var preview: AssetManagementReportSummary {
-        AssetManagementReportSummary(
-            reportDate: Date(),
-            baseCurrency: "CHF",
-            totalCashBase: 200_000,
-            totalNearCashBase: 120_000,
-            totalPortfolioBase: 520_000,
-            totalCryptoBase: 85_000,
-            totalTrackedCustodyBase: 320_000,
-            cashBreakdown: [
-                .init(id: 1, accountName: "ZKB Private Account", institutionName: "Zürcher Kantonalbank", currency: "CHF", localAmount: 200_000, baseAmount: 200_000),
-                .init(id: 2, accountName: "Credit Suisse USD", institutionName: "Credit Suisse", currency: "USD", localAmount: 70_000, baseAmount: 61_000)
-            ],
-            nearCashHoldings: [
-                .init(id: 101, name: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", category: "Bonds", currency: "CHF", localValue: 80_000, baseValue: 80_000),
-                .init(id: 102, name: "iShares Ultra Short Bond ETF", accountName: "IBKR Custody", category: "Money Market", currency: "USD", localValue: 45_000, baseValue: 39_000)
-            ],
-            cryptoHoldings: [
-                .init(id: 900, instrumentName: "Bitcoin", currency: "BTC", totalQuantity: 1.8, baseValue: 60_000),
-                .init(id: 901, instrumentName: "Ethereum", currency: "ETH", totalQuantity: 12, baseValue: 25_000)
-            ],
-            currencyAllocations: [
-                .init(id: "CHF", currency: "CHF", baseValue: 320_000, percentage: 61.5),
-                .init(id: "USD", currency: "USD", baseValue: 160_000, percentage: 30.7),
-                .init(id: "EUR", currency: "EUR", baseValue: 40_000, percentage: 7.8)
-            ],
-            assetClassBreakdown: [
-                .init(
-                    id: "Equities",
-                    code: "EQ",
-                    name: "Equities",
-                    baseValue: 280_000,
-                    percentage: 53.8,
-                    positions: [
-                        .init(id: 9001, instrumentName: "Apple Inc.", accountName: "IBKR Custody", assetSubClass: "US Equity", currency: "USD", quantity: 120, localValue: 24_000, baseValue: 20_900),
-                        .init(id: 9002, instrumentName: "Nestlé", accountName: "ZKB Custody", assetSubClass: "CH Equity", currency: "CHF", quantity: 180, localValue: 22_000, baseValue: 22_000)
-                    ]
-                ),
-                .init(
-                    id: "Bonds",
-                    code: "FI",
-                    name: "Bonds",
-                    baseValue: 140_000,
-                    percentage: 26.9,
-                    positions: [
-                        .init(id: 9101, instrumentName: "Swiss Gov 2028", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 100_000, localValue: 100_000, baseValue: 100_000),
-                        .init(id: 9102, instrumentName: "iShares Bond ETF", accountName: "IBKR Custody", assetSubClass: "BOND_ETF", currency: "USD", quantity: 1_500, localValue: 38_000, baseValue: 32_000)
-                    ]
-                ),
-                .init(
-                    id: "Alternatives",
-                    code: "ALT",
-                    name: "Alternatives",
-                    baseValue: 100_000,
-                    percentage: 19.2,
-                    positions: [
-                        .init(id: 9201, instrumentName: "Bitcoin ETP", accountName: "IBKR Custody", assetSubClass: "Crypto", currency: "USD", quantity: 5, localValue: 50_000, baseValue: 44_000),
-                        .init(id: 9202, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 56_000)
-                    ]
-                )
-            ],
-            custodySummaries: [
-                .init(
-                    id: "ZKB",
-                    displayName: "Zürcher Kantonalbank",
-                    totalBaseValue: 180_000,
-                    accounts: [
-                        .init(
-                            id: "ZKB_main",
-                            name: "ZKB Custody Account",
-                            totalBaseValue: 180_000,
-                            positions: [
-                                .init(id: 9301, instrumentName: "Nestlé", accountName: "ZKB Custody", assetSubClass: "CH Equity", currency: "CHF", quantity: 180, localValue: 22_000, baseValue: 22_000),
-                                .init(id: 9302, instrumentName: "Swiss Gov 2028", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 100_000, localValue: 100_000, baseValue: 100_000),
-                                .init(id: 9303, instrumentName: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 80_000, localValue: 80_000, baseValue: 58_000)
-                            ]
-                        )
-                    ]
-                ),
-                .init(
-                    id: "UBS",
-                    displayName: "UBS (Credit-Suisse)",
-                    totalBaseValue: 140_000,
-                    accounts: [
-                        .init(
-                            id: "UBS_main",
-                            name: "Credit-Suisse Custody Account 📈",
-                            totalBaseValue: 140_000,
-                            positions: [
-                                .init(id: 9401, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 56_000),
-                                .init(id: 9402, instrumentName: "iShares Bond ETF", accountName: "Credit Suisse Custody", assetSubClass: "BOND_ETF", currency: "USD", quantity: 1_500, localValue: 38_000, baseValue: 32_000),
-                                .init(id: 9403, instrumentName: "Synergy Global Market Neutral Fund", accountName: "Credit Suisse Custody", assetSubClass: "Alternatives", currency: "USD", quantity: 1, localValue: 60_000, baseValue: 52_000)
-                            ]
-                        )
-                    ]
-                )
-            ]
-        )
+    extension AssetManagementReportSummary {
+        static var preview: AssetManagementReportSummary {
+            AssetManagementReportSummary(
+                reportDate: Date(),
+                baseCurrency: "CHF",
+                totalCashBase: 200_000,
+                totalNearCashBase: 120_000,
+                totalPortfolioBase: 520_000,
+                totalCryptoBase: 85000,
+                totalTrackedCustodyBase: 320_000,
+                cashBreakdown: [
+                    .init(id: 1, accountName: "ZKB Private Account", institutionName: "Zürcher Kantonalbank", currency: "CHF", localAmount: 200_000, baseAmount: 200_000),
+                    .init(id: 2, accountName: "Credit Suisse USD", institutionName: "Credit Suisse", currency: "USD", localAmount: 70000, baseAmount: 61000),
+                ],
+                nearCashHoldings: [
+                    .init(id: 101, name: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", category: "Bonds", currency: "CHF", localValue: 80000, baseValue: 80000),
+                    .init(id: 102, name: "iShares Ultra Short Bond ETF", accountName: "IBKR Custody", category: "Money Market", currency: "USD", localValue: 45000, baseValue: 39000),
+                ],
+                cryptoHoldings: [
+                    .init(id: 900, instrumentName: "Bitcoin", currency: "BTC", totalQuantity: 1.8, baseValue: 60000),
+                    .init(id: 901, instrumentName: "Ethereum", currency: "ETH", totalQuantity: 12, baseValue: 25000),
+                ],
+                currencyAllocations: [
+                    .init(id: "CHF", currency: "CHF", baseValue: 320_000, percentage: 61.5),
+                    .init(id: "USD", currency: "USD", baseValue: 160_000, percentage: 30.7),
+                    .init(id: "EUR", currency: "EUR", baseValue: 40000, percentage: 7.8),
+                ],
+                assetClassBreakdown: [
+                    .init(
+                        id: "Equities",
+                        code: "EQ",
+                        name: "Equities",
+                        baseValue: 280_000,
+                        percentage: 53.8,
+                        positions: [
+                            .init(id: 9001, instrumentName: "Apple Inc.", accountName: "IBKR Custody", assetSubClass: "US Equity", currency: "USD", quantity: 120, localValue: 24000, baseValue: 20900),
+                            .init(id: 9002, instrumentName: "Nestlé", accountName: "ZKB Custody", assetSubClass: "CH Equity", currency: "CHF", quantity: 180, localValue: 22000, baseValue: 22000),
+                        ]
+                    ),
+                    .init(
+                        id: "Bonds",
+                        code: "FI",
+                        name: "Bonds",
+                        baseValue: 140_000,
+                        percentage: 26.9,
+                        positions: [
+                            .init(id: 9101, instrumentName: "Swiss Gov 2028", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 100_000, localValue: 100_000, baseValue: 100_000),
+                            .init(id: 9102, instrumentName: "iShares Bond ETF", accountName: "IBKR Custody", assetSubClass: "BOND_ETF", currency: "USD", quantity: 1500, localValue: 38000, baseValue: 32000),
+                        ]
+                    ),
+                    .init(
+                        id: "Alternatives",
+                        code: "ALT",
+                        name: "Alternatives",
+                        baseValue: 100_000,
+                        percentage: 19.2,
+                        positions: [
+                            .init(id: 9201, instrumentName: "Bitcoin ETP", accountName: "IBKR Custody", assetSubClass: "Crypto", currency: "USD", quantity: 5, localValue: 50000, baseValue: 44000),
+                            .init(id: 9202, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60000, baseValue: 56000),
+                        ]
+                    ),
+                ],
+                custodySummaries: [
+                    .init(
+                        id: "ZKB",
+                        displayName: "Zürcher Kantonalbank",
+                        totalBaseValue: 180_000,
+                        accounts: [
+                            .init(
+                                id: "ZKB_main",
+                                name: "ZKB Custody Account",
+                                totalBaseValue: 180_000,
+                                positions: [
+                                    .init(id: 9301, instrumentName: "Nestlé", accountName: "ZKB Custody", assetSubClass: "CH Equity", currency: "CHF", quantity: 180, localValue: 22000, baseValue: 22000),
+                                    .init(id: 9302, instrumentName: "Swiss Gov 2028", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 100_000, localValue: 100_000, baseValue: 100_000),
+                                    .init(id: 9303, instrumentName: "Swiss Confederation 1.5% 2027", accountName: "ZKB Custody", assetSubClass: "GOV_BOND", currency: "CHF", quantity: 80000, localValue: 80000, baseValue: 58000),
+                                ]
+                            ),
+                        ]
+                    ),
+                    .init(
+                        id: "UBS",
+                        displayName: "UBS (Credit-Suisse)",
+                        totalBaseValue: 140_000,
+                        accounts: [
+                            .init(
+                                id: "UBS_main",
+                                name: "Credit-Suisse Custody Account 📈",
+                                totalBaseValue: 140_000,
+                                positions: [
+                                    .init(id: 9401, instrumentName: "Private Equity Fund", accountName: "Credit Suisse Custody", assetSubClass: "Private Equity", currency: "USD", quantity: 1, localValue: 60000, baseValue: 56000),
+                                    .init(id: 9402, instrumentName: "iShares Bond ETF", accountName: "Credit Suisse Custody", assetSubClass: "BOND_ETF", currency: "USD", quantity: 1500, localValue: 38000, baseValue: 32000),
+                                    .init(id: 9403, instrumentName: "Synergy Global Market Neutral Fund", accountName: "Credit Suisse Custody", assetSubClass: "Alternatives", currency: "USD", quantity: 1, localValue: 60000, baseValue: 52000),
+                                ]
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
     }
-}
 
-extension AssetManagementReportViewModel {
-    func applyPreviewData(_ summary: AssetManagementReportSummary) {
-        self.summary = summary
-        self.errorMessage = nil
-        self.isLoading = false
+    extension AssetManagementReportViewModel {
+        func applyPreviewData(_ summary: AssetManagementReportSummary) {
+            self.summary = summary
+            errorMessage = nil
+            isLoading = false
+        }
     }
-}
 #endif

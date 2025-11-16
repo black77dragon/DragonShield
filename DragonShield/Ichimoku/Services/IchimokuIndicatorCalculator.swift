@@ -11,21 +11,21 @@ final class IchimokuIndicatorCalculator {
         guard !bars.isEmpty else { return [] }
         let sortedBars = bars.sorted { $0.date < $1.date }
         let count = sortedBars.count
-        var tenkanValues = Array<Double?>(repeating: nil, count: count)
-        var kijunValues = Array<Double?>(repeating: nil, count: count)
+        var tenkanValues = [Double?](repeating: nil, count: count)
+        var kijunValues = [Double?](repeating: nil, count: count)
         var senkouAForward = [Int: Double]()
         var senkouBForward = [Int: Double]()
-        var chikouValues = Array<Double?>(repeating: nil, count: count)
+        var chikouValues = [Double?](repeating: nil, count: count)
 
-        for i in 0..<count {
+        for i in 0 ..< count {
             if i >= 8 {
-                let window = sortedBars[(i - 8)...i]
+                let window = sortedBars[(i - 8) ... i]
                 let high = window.map { $0.high }.max() ?? 0
                 let low = window.map { $0.low }.min() ?? 0
                 tenkanValues[i] = (high + low) / 2.0
             }
             if i >= 25 {
-                let window = sortedBars[(i - 25)...i]
+                let window = sortedBars[(i - 25) ... i]
                 let high = window.map { $0.high }.max() ?? 0
                 let low = window.map { $0.low }.min() ?? 0
                 kijunValues[i] = (high + low) / 2.0
@@ -37,7 +37,7 @@ final class IchimokuIndicatorCalculator {
                 }
             }
             if i >= 51 {
-                let window = sortedBars[(i - 51)...i]
+                let window = sortedBars[(i - 51) ... i]
                 let high = window.map { $0.high }.max() ?? 0
                 let low = window.map { $0.low }.min() ?? 0
                 let value = (high + low) / 2.0
@@ -52,10 +52,10 @@ final class IchimokuIndicatorCalculator {
             }
         }
 
-        var tenkanSlopeValues = Array<Double?>(repeating: nil, count: count)
-        var kijunSlopeValues = Array<Double?>(repeating: nil, count: count)
+        var tenkanSlopeValues = [Double?](repeating: nil, count: count)
+        var kijunSlopeValues = [Double?](repeating: nil, count: count)
         if regressionWindow >= 2 {
-            for i in 0..<count {
+            for i in 0 ..< count {
                 if let slope = regressionSlope(values: tenkanValues, endIndex: i, window: regressionWindow) {
                     tenkanSlopeValues[i] = slope
                 }
@@ -67,7 +67,7 @@ final class IchimokuIndicatorCalculator {
 
         var indicators: [IchimokuIndicatorRow] = []
         indicators.reserveCapacity(count)
-        for i in 0..<count {
+        for i in 0 ..< count {
             let bar = sortedBars[i]
             let senkouA = senkouAForward[i]
             let senkouB = senkouBForward[i]
@@ -111,7 +111,7 @@ final class IchimokuIndicatorCalculator {
         }
         let n = Double(y.count)
         guard n >= 2 else { return nil }
-        let xs = (0..<y.count).map { Double($0) }
+        let xs = (0 ..< y.count).map { Double($0) }
         let sumX = xs.reduce(0, +)
         let sumY = y.reduce(0, +)
         let sumXX = xs.map { $0 * $0 }.reduce(0, +)

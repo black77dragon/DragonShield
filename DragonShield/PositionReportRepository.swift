@@ -1,5 +1,7 @@
 // DragonShield/PositionReportRepository.swift
+
 // MARK: - Version 1.0.0
+
 // Repository for inserting position reports into the database.
 
 import Foundation
@@ -23,9 +25,9 @@ enum PositionReportRepositoryError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .prepareFailed(let msg):
+        case let .prepareFailed(msg):
             return "Failed to prepare INSERT statement: \(msg)"
-        case .insertFailed(let msg):
+        case let .insertFailed(msg):
             return "Failed to insert position: \(msg)"
         case .connectionUnavailable:
             return "Database connection unavailable"

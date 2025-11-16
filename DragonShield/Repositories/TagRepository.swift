@@ -16,7 +16,7 @@ final class TagRepository {
     private let db: OpaquePointer?
 
     init(dbManager: DatabaseManager) {
-        self.db = dbManager.db
+        db = dbManager.db
     }
 
     func listActive() -> [TagRow] {
@@ -39,4 +39,3 @@ final class TagRepository {
         return rows
     }
 }
-

@@ -30,8 +30,8 @@ struct InstrumentsListView: View {
         let needle = q.lowercased()
         return rows.filter { r in
             r.name.lowercased().contains(needle) ||
-            (r.tickerSymbol?.lowercased().contains(needle) ?? false) ||
-            (r.isin?.lowercased().contains(needle) ?? false)
+                (r.tickerSymbol?.lowercased().contains(needle) ?? false) ||
+                (r.isin?.lowercased().contains(needle) ?? false)
         }
     }
 }
@@ -159,7 +159,7 @@ struct InstrumentDetailView: View {
             }
         case .qty:
             return rows.sorted { a, b in
-                return sortAscending ? (a.quantity < b.quantity) : (a.quantity > b.quantity)
+                sortAscending ? (a.quantity < b.quantity) : (a.quantity > b.quantity)
             }
         case .chf:
             return rows.sorted { a, b in
@@ -255,13 +255,13 @@ struct InstrumentDetailView: View {
                     perAccountValuesChf[h.accountId] = v * r
                 }
                 #if DEBUG
-                LoggingService.shared.log("[iOS Valuation] FX applied instrId=\(instrumentId) priceCurr=\(priceCurrency) usedRateFrom=\(rateFrom) rate=\(r)", type: .debug, logger: .database)
+                    LoggingService.shared.log("[iOS Valuation] FX applied instrId=\(instrumentId) priceCurr=\(priceCurrency) usedRateFrom=\(rateFrom) rate=\(r)", type: .debug, logger: .database)
                 #endif
             } else {
                 totalValueChf = nil
                 fxMissing = true
                 #if DEBUG
-                LoggingService.shared.log("[iOS Valuation] FX missing instrId=\(instrumentId) priceCurr=\(priceCurrency)", type: .warning, logger: .database)
+                    LoggingService.shared.log("[iOS Valuation] FX missing instrId=\(instrumentId) priceCurr=\(priceCurrency)", type: .warning, logger: .database)
                 #endif
             }
         }
@@ -292,7 +292,7 @@ struct InstrumentDetailView: View {
     }
 
     private func formattedAmount(_ v: Double) -> String {
-        if abs(v) >= 1_000 { return ValueFormatting.large(v) }
+        if abs(v) >= 1000 { return ValueFormatting.large(v) }
         return currencyString(v)
     }
 

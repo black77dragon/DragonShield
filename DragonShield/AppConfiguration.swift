@@ -1,7 +1,7 @@
 import Foundation
 
 /// Reads configuration from command line and environment.
-struct AppConfiguration {
+enum AppConfiguration {
     static func runStartupHealthChecks(
         args: [String] = CommandLine.arguments,
         env: [String: String] = ProcessInfo.processInfo.environment,
@@ -9,7 +9,8 @@ struct AppConfiguration {
         default defaultValue: Bool = true
     ) -> Bool {
         if let idx = args.firstIndex(of: "--runStartupHealthChecks"),
-           let value = args.dropFirst(idx + 1).first {
+           let value = args.dropFirst(idx + 1).first
+        {
             return value.lowercased() != "false"
         }
         if let value = env["RUN_STARTUP_HEALTH_CHECKS"] {
@@ -28,7 +29,8 @@ struct AppConfiguration {
         default defaultValue: Set<String>? = nil
     ) -> Set<String>? {
         if let idx = args.firstIndex(of: "--enabledHealthChecks"),
-           let value = args.dropFirst(idx + 1).first {
+           let value = args.dropFirst(idx + 1).first
+        {
             return parseList(value)
         }
         if let value = env["ENABLED_HEALTH_CHECKS"] {
@@ -44,4 +46,3 @@ struct AppConfiguration {
         Set(value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
     }
 }
-

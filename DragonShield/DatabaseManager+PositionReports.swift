@@ -1,37 +1,39 @@
 // DragonShield/DatabaseManager+PositionReports.swift
+
 // MARK: - Version 1.1 (2025-06-16)
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Move PositionReportData struct to global scope for easier access.
 // - Initial creation: Fetch position reports from PositionReports table joining Accounts and Instruments.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 struct PositionReportData: Identifiable {
-        var id: Int
-        var instrumentId: Int? = nil
-        var importSessionId: Int?
-        var accountName: String
-        var institutionName: String
-        var instrumentName: String
-        var instrumentCurrency: String
-        var instrumentCountry: String?
-        var instrumentSector: String?
-        var assetClass: String?
-        var assetClassCode: String? = nil
-        var assetSubClass: String?
-        var assetSubClassCode: String? = nil
-        var quantity: Double
-        var purchasePrice: Double?
-        var currentPrice: Double?
-        var instrumentUpdatedAt: Date?
-        var notes: String?
-        var reportDate: Date
-        var uploadedAt: Date
+    var id: Int
+    var instrumentId: Int? = nil
+    var importSessionId: Int?
+    var accountName: String
+    var institutionName: String
+    var instrumentName: String
+    var instrumentCurrency: String
+    var instrumentCountry: String?
+    var instrumentSector: String?
+    var assetClass: String?
+    var assetClassCode: String? = nil
+    var assetSubClass: String?
+    var assetSubClassCode: String? = nil
+    var quantity: Double
+    var purchasePrice: Double?
+    var currentPrice: Double?
+    var instrumentUpdatedAt: Date?
+    var notes: String?
+    var reportDate: Date
+    var uploadedAt: Date
 }
 
 extension DatabaseManager {
-
     func fetchPositionReports() -> [PositionReportData] {
         var reports: [PositionReportData] = []
         let query = """
@@ -231,12 +233,12 @@ extension DatabaseManager {
     /// - Returns: The number of deleted rows.
     func deletePositionReports(accountNameContains substring: String) -> Int {
         let sql = """
-            DELETE FROM PositionReports
-            WHERE account_id IN (
-                SELECT account_id FROM Accounts
-                WHERE account_name LIKE '%' || ? || '%' COLLATE NOCASE
-            );
-            """
+        DELETE FROM PositionReports
+        WHERE account_id IN (
+            SELECT account_id FROM Accounts
+            WHERE account_name LIKE '%' || ? || '%' COLLATE NOCASE
+        );
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
@@ -261,13 +263,13 @@ extension DatabaseManager {
         guard !institutionIds.isEmpty else { return 0 }
         let placeholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
         let sql = """
-            DELETE FROM PositionReports
-                  WHERE institution_id IN (\(placeholders))
-                     OR account_id IN (
-                        SELECT account_id FROM Accounts
-                         WHERE institution_id IN (\(placeholders))
-                  );
-            """
+        DELETE FROM PositionReports
+              WHERE institution_id IN (\(placeholders))
+                 OR account_id IN (
+                    SELECT account_id FROM Accounts
+                     WHERE institution_id IN (\(placeholders))
+              );
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
@@ -296,12 +298,12 @@ extension DatabaseManager {
         let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
         let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
         let sql = """
-            SELECT COUNT(*)
-              FROM PositionReports pr
-              JOIN Accounts a ON pr.account_id = a.account_id
-             WHERE pr.institution_id IN (\(instPlaceholders))
-               AND a.account_type_id IN (\(typePlaceholders));
-            """
+        SELECT COUNT(*)
+          FROM PositionReports pr
+          JOIN Accounts a ON pr.account_id = a.account_id
+         WHERE pr.institution_id IN (\(instPlaceholders))
+           AND a.account_type_id IN (\(typePlaceholders));
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare countPositionReports: \(String(cString: sqlite3_errmsg(db)))")
@@ -309,8 +311,12 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(stmt) }
         var index: Int32 = 1
-        for id in institutionIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
-        for id in accountTypeIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        for id in institutionIds {
+            sqlite3_bind_int(stmt, index, Int32(id)); index += 1
+        }
+        for id in accountTypeIds {
+            sqlite3_bind_int(stmt, index, Int32(id)); index += 1
+        }
         guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
         return Int(sqlite3_column_int(stmt, 0))
     }
@@ -321,13 +327,13 @@ extension DatabaseManager {
         let instPlaceholders = Array(repeating: "?", count: institutionIds.count).joined(separator: ", ")
         let typePlaceholders = Array(repeating: "?", count: accountTypeIds.count).joined(separator: ", ")
         let sql = """
-            DELETE FROM PositionReports
-                  WHERE institution_id IN (\(instPlaceholders))
-                    AND account_id IN (
-                        SELECT account_id FROM Accounts
-                         WHERE account_type_id IN (\(typePlaceholders))
-                  );
-            """
+        DELETE FROM PositionReports
+              WHERE institution_id IN (\(instPlaceholders))
+                AND account_id IN (
+                    SELECT account_id FROM Accounts
+                     WHERE account_type_id IN (\(typePlaceholders))
+              );
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deletePositionReports: \(String(cString: sqlite3_errmsg(db)))")
@@ -335,8 +341,12 @@ extension DatabaseManager {
         }
         defer { sqlite3_finalize(stmt) }
         var index: Int32 = 1
-        for id in institutionIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
-        for id in accountTypeIds { sqlite3_bind_int(stmt, index, Int32(id)); index += 1 }
+        for id in institutionIds {
+            sqlite3_bind_int(stmt, index, Int32(id)); index += 1
+        }
+        for id in accountTypeIds {
+            sqlite3_bind_int(stmt, index, Int32(id)); index += 1
+        }
         let step = sqlite3_step(stmt)
         let deleted = sqlite3_changes(db)
         if step == SQLITE_DONE {
@@ -374,11 +384,11 @@ extension DatabaseManager {
     /// - Returns: The number of deleted rows.
     func purgePositionReports(subClassId: Int) -> Int {
         let sql = """
-            DELETE FROM PositionReports
-                  WHERE instrument_id IN (
-                        SELECT instrument_id FROM Instruments WHERE sub_class_id = ?
-                  );
-            """
+        DELETE FROM PositionReports
+              WHERE instrument_id IN (
+                    SELECT instrument_id FROM Instruments WHERE sub_class_id = ?
+              );
+        """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             print("❌ Failed to prepare purgePositionReports: \(String(cString: sqlite3_errmsg(db)))")
@@ -530,17 +540,17 @@ extension DatabaseManager {
     func fetchEditablePositions(accountId: Int) -> [EditablePositionData] {
         var rows: [EditablePositionData] = []
         let sql = """
-            SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
-                   i.instrument_name, i.currency,
-                   pr.quantity, pr.purchase_price, pr.current_price,
-                   COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
-                   pr.notes, pr.report_date, pr.import_session_id
-              FROM PositionReports pr
-              JOIN Instruments i ON pr.instrument_id = i.instrument_id
-              LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
-             WHERE pr.account_id = ?
-             ORDER BY (pr.quantity * IFNULL(pr.current_price,0)) DESC;
-            """
+        SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
+               i.instrument_name, i.currency,
+               pr.quantity, pr.purchase_price, pr.current_price,
+               COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
+               pr.notes, pr.report_date, pr.import_session_id
+          FROM PositionReports pr
+          JOIN Instruments i ON pr.instrument_id = i.instrument_id
+          LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
+         WHERE pr.account_id = ?
+         ORDER BY (pr.quantity * IFNULL(pr.current_price,0)) DESC;
+        """
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(accountId))

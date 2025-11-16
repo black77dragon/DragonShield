@@ -1,15 +1,17 @@
 // DragonShield/DatabaseManager+Configuration.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Enhanced loadConfiguration to populate new @Published vars. Added updateConfiguration method.
 // - 1.1 -> 1.2: Load db_version configuration and expose via dbVersion property.
 // - Initial creation: Refactored from DatabaseManager.swift.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     /// Returns whether the manager currently has an open SQLite connection.
     /// iOS views rely on this to decide if snapshot data can be read.
     func hasOpenConnection() -> Bool {
@@ -24,8 +26,8 @@ extension DatabaseManager {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             #if DEBUG
-            let message = String(cString: sqlite3_errmsg(db))
-            print("❌ [config] Failed to prepare lookup for key \(key): \(message)")
+                let message = String(cString: sqlite3_errmsg(db))
+                print("❌ [config] Failed to prepare lookup for key \(key): \(message)")
             #endif
             return nil
         }
@@ -33,7 +35,8 @@ extension DatabaseManager {
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
         guard sqlite3_step(statement) == SQLITE_ROW,
-              let pointer = sqlite3_column_text(statement, 0) else {
+              let pointer = sqlite3_column_text(statement, 0)
+        else {
             return nil
         }
         return String(cString: pointer)
@@ -66,20 +69,20 @@ extension DatabaseManager {
         """
         var statement: OpaquePointer?
         var loadedVersion = ""
-        
+
         var pendingAssignments: [(DatabaseManager) -> Void] = []
 
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 guard let keyPtr = sqlite3_column_text(statement, 0),
                       let valuePtr = sqlite3_column_text(statement, 1)
-                      // let dataTypePtr = sqlite3_column_text(statement, 2) // For future use if needed
+                // let dataTypePtr = sqlite3_column_text(statement, 2) // For future use if needed
                 else { continue }
 
                 let key = String(cString: keyPtr)
                 let value = String(cString: valuePtr)
                 // let dataType = String(cString: dataTypePtr)
-                                
+
                 if key == "db_version" {
                     loadedVersion = value
                 }
@@ -226,20 +229,20 @@ extension DatabaseManager {
         print("⚙️ Configuration loaded/reloaded.")
         return loadedVersion
     }
-    
+
     func updateConfiguration(key: String, value: String) -> Bool {
         let query = "UPDATE Configuration SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?;"
         var statement: OpaquePointer?
-        
+
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ [config] Failed to prepare update for key \(key): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, (value as NSString).utf8String, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(statement, 2, (key as NSString).utf8String, -1, SQLITE_TRANSIENT)
-        
+
         let success = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
         if success {
@@ -261,7 +264,7 @@ extension DatabaseManager {
 
     /// Insert or update a configuration key with explicit data type and optional description.
     /// Uses an UPSERT to create the key if it doesn't exist.
-    func upsertConfiguration(key: String, value: String, dataType: String, description: String? = nil) -> Bool {
+    func upsertConfiguration(key: String, value: String, dataType: String, description _: String? = nil) -> Bool {
         let query = """
             INSERT INTO Configuration (key, value, data_type, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -329,7 +332,8 @@ extension DatabaseManager {
 
     private static func decodeFractionDictionary(from json: String) -> [String: Double] {
         guard let data = json.data(using: .utf8),
-              let raw = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+              let raw = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        else {
             return [:]
         }
         var result: [String: Double] = [:]
@@ -353,7 +357,7 @@ extension DatabaseManager {
         dictionary.reduce(into: [String: Double]()) { partialResult, element in
             guard element.value.isFinite else { return }
             let clamped = max(0.0, element.value)
-            let rounded = (clamped * 10_000).rounded() / 10_000
+            let rounded = (clamped * 10000).rounded() / 10000
             partialResult[element.key] = rounded
         }
     }

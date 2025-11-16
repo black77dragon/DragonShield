@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class ThemeValuationFxParityTests: XCTestCase {
     private func setupManager() -> DatabaseManager {

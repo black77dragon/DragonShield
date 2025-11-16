@@ -1,11 +1,11 @@
-import XCTest
 @testable import DragonShield
+import XCTest
 
 final class PositionFormCurrencyTests: XCTestCase {
     func testInstrumentCurrencyLookup() {
         let instruments: [InstrumentInfo] = [
             (id: 1, name: "A", subClassId: 1, currency: "USD", valorNr: nil, tickerSymbol: nil, isin: nil),
-            (id: 2, name: "B", subClassId: 1, currency: "CHF", valorNr: nil, tickerSymbol: nil, isin: nil)
+            (id: 2, name: "B", subClassId: 1, currency: "CHF", valorNr: nil, tickerSymbol: nil, isin: nil),
         ]
         XCTAssertEqual(instrumentCurrency(for: 2, instruments: instruments), "CHF")
         XCTAssertNil(instrumentCurrency(for: nil, instruments: instruments))

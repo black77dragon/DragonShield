@@ -1,16 +1,18 @@
 // DragonShield/DatabaseManager+TransactionHistory.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Implemented database query to fetch transaction history items.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     func fetchTransactionHistoryItems() -> [TransactionRowData] {
         var transactions: [TransactionRowData] = []
-        
+
         let query = """
             SELECT
                 t.transaction_id,
@@ -32,50 +34,50 @@ extension DatabaseManager {
             ORDER BY t.transaction_date DESC, t.transaction_id DESC;
         """
         var statement: OpaquePointer?
-        
+
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             print("✅ Successfully prepared fetchTransactionHistoryItems query.")
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
-                
+
                 let dateStr = String(cString: sqlite3_column_text(statement, 1))
                 let date = DateFormatter.iso8601DateOnly.date(from: dateStr) ?? Date() // Fallback to current date if parsing fails
-                
+
                 let accountName = String(cString: sqlite3_column_text(statement, 2))
-                
+
                 let instrumentName: String?
                 if sqlite3_column_type(statement, 3) != SQLITE_NULL {
                     instrumentName = String(cString: sqlite3_column_text(statement, 3))
                 } else {
                     instrumentName = nil
                 }
-                
+
                 let typeName = String(cString: sqlite3_column_text(statement, 4))
-                
+
                 let description: String?
                 if sqlite3_column_type(statement, 5) != SQLITE_NULL {
                     description = String(cString: sqlite3_column_text(statement, 5))
                 } else {
                     description = nil
                 }
-                
+
                 let quantity: Double?
                 if sqlite3_column_type(statement, 6) != SQLITE_NULL {
                     quantity = sqlite3_column_double(statement, 6)
                 } else {
                     quantity = nil
                 }
-                
+
                 let price: Double?
                 if sqlite3_column_type(statement, 7) != SQLITE_NULL {
                     price = sqlite3_column_double(statement, 7)
                 } else {
                     price = nil
                 }
-                
+
                 let netAmount = sqlite3_column_double(statement, 8)
                 let currency = String(cString: sqlite3_column_text(statement, 9))
-                
+
                 let portfolioName: String?
                 if sqlite3_column_type(statement, 10) != SQLITE_NULL {
                     portfolioName = String(cString: sqlite3_column_text(statement, 10))
@@ -102,7 +104,7 @@ extension DatabaseManager {
             print("❌ Failed to prepare fetchTransactionHistoryItems: \(errmsg)")
         }
         sqlite3_finalize(statement)
-        
+
         print("ℹ️ fetchTransactionHistoryItems() retrieved \(transactions.count) items.")
         return transactions
     }

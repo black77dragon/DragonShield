@@ -1,8 +1,8 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 /// A reusable floating picker that mimics a Spotlight-style search experience.
@@ -57,11 +57,11 @@ struct FloatingSearchPicker: View {
         self.title = title
         self.placeholder = placeholder
         self.items = items
-        self._selectedId = selectedId
+        _selectedId = selectedId
         self.showsClearButton = showsClearButton
         self.emptyStateText = emptyStateText
         self.coordinateSpace = coordinateSpace
-        self.externalQuery = query
+        externalQuery = query
         self.maxDropdownHeight = maxDropdownHeight
         self.onFieldFrameChange = onFieldFrameChange
         self.onSelection = onSelection
@@ -203,17 +203,17 @@ struct FloatingSearchPicker: View {
                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.16), radius: 18, x: 0, y: 10)
-    #if os(macOS)
-        .onHover { hovering in
-            isHoveringDropdown = hovering
-            withAnimation(.easeInOut(duration: 0.12)) {
-                isDropdownVisible = hovering || isFocused
+        #if os(macOS)
+            .onHover { hovering in
+                isHoveringDropdown = hovering
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    isDropdownVisible = hovering || isFocused
+                }
             }
-        }
-    #endif
+        #endif
     }
 
-    private func row(for item: Item, isSelected: Bool) -> some View {
+    private func row(for item: Item, isSelected _: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.title)
                 .font(.system(size: 14, weight: .medium))
@@ -278,9 +278,9 @@ struct FloatingSearchPicker: View {
 
     private var fieldBackground: Color {
         #if os(macOS)
-        return Color(nsColor: NSColor.textBackgroundColor)
+            return Color(nsColor: NSColor.textBackgroundColor)
         #else
-        return Color(UIColor.secondarySystemBackground)
+            return Color(UIColor.secondarySystemBackground)
         #endif
     }
 
@@ -322,7 +322,8 @@ struct FloatingSearchPicker: View {
 
     private func syncQueryWithSelection() {
         guard let id = selectedId,
-              let match = items.first(where: { $0.id == id }) else {
+              let match = items.first(where: { $0.id == id })
+        else {
             queryBinding.wrappedValue = ""
             return
         }

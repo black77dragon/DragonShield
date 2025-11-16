@@ -1,6 +1,9 @@
 // DragonShield/Models/PortfolioTheme.swift
+
 // MARK: - Version 1.3
+
 // MARK: - History
+
 // - Added description and optional institutionId for richer metadata.
 // - Added optional totalValueBase and instrumentCount for list overview metrics.
 // - Conformed to Hashable for SwiftUI List selection compatibility.
@@ -24,14 +27,14 @@ struct PortfolioTheme: Identifiable, Hashable {
     var totalValueBase: Double? = nil
     var instrumentCount: Int = 0
 
-  static func isValidName(_ name: String) -> Bool {
-    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    return !trimmed.isEmpty && trimmed.count <= 64
-  }
+    static func isValidName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.count <= 64
+    }
 
-  static func isValidCode(_ code: String) -> Bool {
-    let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
-    let pattern = "^[A-Z][A-Z0-9_]{1,30}$"
-    return trimmed.range(of: pattern, options: .regularExpression) != nil
-  }
+    static func isValidCode(_ code: String) -> Bool {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = "^[A-Z][A-Z0-9_]{1,30}$"
+        return trimmed.range(of: pattern, options: .regularExpression) != nil
+    }
 }

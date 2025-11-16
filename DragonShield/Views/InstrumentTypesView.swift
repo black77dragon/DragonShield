@@ -1,6 +1,9 @@
 // DragonShield/Views/AssetSubClassesView.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - 1.1 -> 1.2: Renamed Instrument Types screen to Asset SubClasses and added
 //   asset class description column.
 // - 1.0 -> 1.1: Updated deprecated onChange modifiers to new syntax for macOS 14.0+.
@@ -8,10 +11,10 @@
 
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
-fileprivate enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
+private enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
     case name
     case assetClass
     case code
@@ -33,7 +36,7 @@ fileprivate enum AssetSubClassColumn: String, CaseIterable, Codable, Maintenance
     var menuTitle: String { title }
 }
 
-fileprivate struct AssetSubClass: Identifiable, Equatable {
+private struct AssetSubClass: Identifiable, Equatable {
     let id: Int
     let classId: Int
     let classDescription: String
@@ -45,6 +48,7 @@ fileprivate struct AssetSubClass: Identifiable, Equatable {
 }
 
 // MARK: - Version 1.0
+
 // MARK: - History: Initial creation - instrument types management with CRUD operations
 
 struct AssetSubClassesView: View {
@@ -59,12 +63,12 @@ struct AssetSubClassesView: View {
     @State private var searchText = ""
 
     @StateObject private var tableModel = ResizableTableViewModel<AssetSubClassColumn>(configuration: AssetSubClassesView.tableConfiguration)
-    
+
     // Animation states
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
-    
+
     // Filtered subclasses based on search
     private var filteredSubClasses: [AssetSubClass] {
         if searchText.isEmpty {
@@ -72,87 +76,87 @@ struct AssetSubClassesView: View {
         } else {
             return subClasses.filter { type in
                 type.name.localizedCaseInsensitiveContains(searchText) ||
-                type.code.localizedCaseInsensitiveContains(searchText) ||
-                type.description.localizedCaseInsensitiveContains(searchText)
+                    type.code.localizedCaseInsensitiveContains(searchText) ||
+                    type.description.localizedCaseInsensitiveContains(searchText)
             }.sorted { $0.sortOrder < $1.sortOrder }
         }
     }
 
     private static let tableConfiguration: MaintenanceTableConfiguration<AssetSubClassColumn> = {
-#if os(macOS)
-        MaintenanceTableConfiguration(
-            preferenceKind: .assetSubClasses,
-            columnOrder: AssetSubClassColumn.allCases,
-            defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
-            requiredColumns: [.name],
-            defaultColumnWidths: [
-                .name: 220,
-                .assetClass: 220,
-                .code: 120,
-                .description: 280,
-                .sortOrder: 80,
-                .status: 120
-            ],
-            minimumColumnWidths: [
-                .name: 180,
-                .assetClass: 160,
-                .code: 100,
-                .description: 220,
-                .sortOrder: 60,
-                .status: 100
-            ],
-            visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.gray.opacity(0.1),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            },
-            columnResizeCursor: nil
-        )
-#else
-        MaintenanceTableConfiguration(
-            preferenceKind: .assetSubClasses,
-            columnOrder: AssetSubClassColumn.allCases,
-            defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
-            requiredColumns: [.name],
-            defaultColumnWidths: [
-                .name: 220,
-                .assetClass: 220,
-                .code: 120,
-                .description: 280,
-                .sortOrder: 80,
-                .status: 120
-            ],
-            minimumColumnWidths: [
-                .name: 180,
-                .assetClass: 160,
-                .code: 100,
-                .description: 220,
-                .sortOrder: 60,
-                .status: 100
-            ],
-            visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
-            columnHandleWidth: 10,
-            columnHandleHitSlop: 8,
-            columnTextInset: 12,
-            headerBackground: Color.gray.opacity(0.1),
-            fontConfigBuilder: { size in
-                MaintenanceTableFontConfig(
-                    primary: size.baseSize,
-                    secondary: max(11, size.secondarySize),
-                    header: size.headerSize,
-                    badge: max(10, size.badgeSize)
-                )
-            }
-        )
-#endif
+        #if os(macOS)
+            MaintenanceTableConfiguration(
+                preferenceKind: .assetSubClasses,
+                columnOrder: AssetSubClassColumn.allCases,
+                defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
+                requiredColumns: [.name],
+                defaultColumnWidths: [
+                    .name: 220,
+                    .assetClass: 220,
+                    .code: 120,
+                    .description: 280,
+                    .sortOrder: 80,
+                    .status: 120,
+                ],
+                minimumColumnWidths: [
+                    .name: 180,
+                    .assetClass: 160,
+                    .code: 100,
+                    .description: 220,
+                    .sortOrder: 60,
+                    .status: 100,
+                ],
+                visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.gray.opacity(0.1),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                },
+                columnResizeCursor: nil
+            )
+        #else
+            MaintenanceTableConfiguration(
+                preferenceKind: .assetSubClasses,
+                columnOrder: AssetSubClassColumn.allCases,
+                defaultVisibleColumns: Set(AssetSubClassColumn.allCases),
+                requiredColumns: [.name],
+                defaultColumnWidths: [
+                    .name: 220,
+                    .assetClass: 220,
+                    .code: 120,
+                    .description: 280,
+                    .sortOrder: 80,
+                    .status: 120,
+                ],
+                minimumColumnWidths: [
+                    .name: 180,
+                    .assetClass: 160,
+                    .code: 100,
+                    .description: 220,
+                    .sortOrder: 60,
+                    .status: 100,
+                ],
+                visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
+                columnHandleWidth: 10,
+                columnHandleHitSlop: 8,
+                columnTextInset: 12,
+                headerBackground: Color.gray.opacity(0.1),
+                fontConfigBuilder: { size in
+                    MaintenanceTableFontConfig(
+                        primary: size.baseSize,
+                        secondary: max(11, size.secondarySize),
+                        header: size.headerSize,
+                        badge: max(10, size.badgeSize)
+                    )
+                }
+            )
+        #endif
     }()
 
     private var fontConfig: MaintenanceTableFontConfig { tableModel.fontConfig }
@@ -165,7 +169,7 @@ struct AssetSubClassesView: View {
             set: { tableModel.selectedFontSize = $0 }
         )
     }
-    
+
     var body: some View {
         ZStack {
             // Premium gradient background
@@ -173,16 +177,16 @@ struct AssetSubClassesView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
+
             // Subtle animated background elements
             TypesParticleBackground()
-            
+
             VStack(spacing: 0) {
                 modernHeader
                 searchAndStats
@@ -213,8 +217,9 @@ struct AssetSubClassesView: View {
         }
         .toast(isPresented: $showDeleteSuccessToast, message: "Asset subclass deleted")
     }
-    
+
     // MARK: - Modern Header
+
     private var modernHeader: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -222,7 +227,7 @@ struct AssetSubClassesView: View {
                     Image(systemName: "folder.circle.fill")
                         .font(.system(size: 32))
                         .foregroundColor(.purple)
-                    
+
                     Text("Asset SubClasses")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(
@@ -233,14 +238,14 @@ struct AssetSubClassesView: View {
                             )
                         )
                 }
-                
+
                 Text("Manage your asset categories and classifications")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
-            
+
             Spacer()
-            
+
             // Quick stats
             HStack(spacing: 16) {
                 modernStatCard(
@@ -249,14 +254,14 @@ struct AssetSubClassesView: View {
                     icon: "number.circle.fill",
                     color: .purple
                 )
-                
+
                 modernStatCard(
                     title: "Active",
                     value: "\(subClasses.filter { $0.isActive }.count)",
                     icon: "checkmark.circle.fill",
                     color: .green
                 )
-                
+
                 modernStatCard(
                     title: "Inactive",
                     value: "\(subClasses.filter { !$0.isActive }.count)",
@@ -269,18 +274,19 @@ struct AssetSubClassesView: View {
         .padding(.vertical, 20)
         .opacity(headerOpacity)
     }
-    
+
     // MARK: - Search and Stats
+
     private var searchAndStats: some View {
         VStack(spacing: 12) {
             // Search bar
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
-                
+
                 TextField("Search asset subclasses...", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
-                
+
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -302,7 +308,7 @@ struct AssetSubClassesView: View {
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-            
+
             // Results indicator
             if !searchText.isEmpty {
                 HStack {
@@ -316,8 +322,9 @@ struct AssetSubClassesView: View {
         .padding(.horizontal, 24)
         .offset(y: contentOffset)
     }
-    
+
     // MARK: - Types Content
+
     private var typesContent: some View {
         VStack(spacing: 16) {
             tableControls
@@ -333,10 +340,11 @@ struct AssetSubClassesView: View {
     }
 
     // MARK: - Empty State
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Spacer()
-            
+
             VStack(spacing: 16) {
                 Image(systemName: searchText.isEmpty ? "folder" : "magnifyingglass")
                     .font(.system(size: 64))
@@ -347,21 +355,21 @@ struct AssetSubClassesView: View {
                             endPoint: .bottom
                         )
                     )
-                
+
                 VStack(spacing: 8) {
                     Text(searchText.isEmpty ? "No asset subclasses yet" : "No matching subclasses")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(.gray)
-                    
+
                     Text(searchText.isEmpty ?
-                         "Create your first asset subclass to categorize your assets" :
-                         "Try adjusting your search terms")
+                        "Create your first asset subclass to categorize your assets" :
+                        "Try adjusting your search terms")
                         .font(.body)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                 }
-                
+
                 if searchText.isEmpty {
                     Button { showAddTypeSheet = true } label: {
                         Label("Add Asset Subclass", systemImage: "plus")
@@ -372,13 +380,14 @@ struct AssetSubClassesView: View {
                     .padding(.top, 8)
                 }
             }
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
+
     // MARK: - Types Table
+
     private var typesTable: some View {
         MaintenanceTableView(
             model: tableModel,
@@ -413,15 +422,16 @@ struct AssetSubClassesView: View {
             .font(.system(size: fontConfig.header, weight: .semibold))
             .foregroundColor(.gray)
     }
-    
+
     // MARK: - Modern Action Bar
+
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             // Divider line
             Rectangle()
                 .fill(Color.gray.opacity(0.2))
                 .frame(height: 1)
-            
+
             HStack(spacing: 16) {
                 // Primary action
                 Button { showAddTypeSheet = true } label: {
@@ -430,7 +440,7 @@ struct AssetSubClassesView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
                 .foregroundColor(.black)
-                
+
                 // Secondary actions
                 if selectedSubClass != nil {
                     Button {
@@ -452,7 +462,7 @@ struct AssetSubClassesView: View {
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    
+
                     Button {
                         if let type = selectedSubClass {
                             handleDelete(type)
@@ -475,9 +485,9 @@ struct AssetSubClassesView: View {
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
-                
+
                 Spacer()
-                
+
                 // Selection indicator
                 if let type = selectedSubClass {
                     HStack(spacing: 8) {
@@ -499,8 +509,9 @@ struct AssetSubClassesView: View {
         }
         .opacity(buttonsOpacity)
     }
-    
+
     // MARK: - Helper Views
+
     private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
@@ -511,7 +522,7 @@ struct AssetSubClassesView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.gray)
             }
-            
+
             Text(value)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primary)
@@ -528,17 +539,18 @@ struct AssetSubClassesView: View {
         )
         .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
     }
-    
+
     // MARK: - Animations
+
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
             headerOpacity = 1.0
         }
-        
+
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) {
             contentOffset = 0
         }
-        
+
         withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
             buttonsOpacity = 1.0
         }
@@ -598,8 +610,9 @@ struct AssetSubClassesView: View {
     private func resetTablePreferences() {
         tableModel.resetTablePreferences()
     }
-    
+
     // MARK: - Functions
+
     private func loadSubClasses() {
         let currentId = selectedSubClass?.id
         subClasses = dbManager.fetchInstrumentTypes().map { item in
@@ -641,7 +654,8 @@ struct AssetSubClassesView: View {
 }
 
 // MARK: - Asset SubClass Row
-fileprivate struct AssetSubClassRowView: View {
+
+private struct AssetSubClassRowView: View {
     let type: AssetSubClass
     let columns: [AssetSubClassColumn]
     let fontConfig: MaintenanceTableFontConfig
@@ -672,7 +686,7 @@ fileprivate struct AssetSubClassRowView: View {
         .onTapGesture(count: 2) {
             onEdit()
         }
-#if os(macOS)
+        #if os(macOS)
         .contextMenu {
             Button("Edit SubClass", action: onEdit)
             Button("Select SubClass", action: onTap)
@@ -688,7 +702,7 @@ fileprivate struct AssetSubClassRowView: View {
                 pasteboard.setString(type.code, forType: .string)
             }
         }
-#endif
+        #endif
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 
@@ -744,13 +758,14 @@ fileprivate struct AssetSubClassRowView: View {
 }
 
 // MARK: - Add Asset SubClass View
+
 struct AddAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
 
     @State private var assetClasses: [(id: Int, name: String)] = []
     @State private var selectedClassId: Int = 0
-    
+
     @State private var typeName = ""
     @State private var typeCode = ""
     @State private var typeDescription = ""
@@ -759,19 +774,19 @@ struct AddAssetSubClassView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    
+
     // Animation states
     @State private var formScale: CGFloat = 0.9
     @State private var headerOpacity: Double = 0
     @State private var sectionsOffset: CGFloat = 50
-    
+
     var isValid: Bool {
         !assetClasses.isEmpty && selectedClassId != 0 &&
-        !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        Int(sortOrder) != nil
+            !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            Int(sortOrder) != nil
     }
-    
+
     var body: some View {
         ZStack {
             // Premium gradient background
@@ -779,13 +794,13 @@ struct AddAssetSubClassView: View {
                 colors: [
                     Color(red: 0.98, green: 0.99, blue: 1.0),
                     Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98)
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
+
             // Main content
             VStack(spacing: 0) {
                 addModernHeader
@@ -810,8 +825,9 @@ struct AddAssetSubClassView: View {
             Text(alertMessage)
         }
     }
-    
+
     // MARK: - Add Modern Header
+
     private var addModernHeader: some View {
         HStack {
             Button {
@@ -826,14 +842,14 @@ struct AddAssetSubClassView: View {
                     .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(ScaleButtonStyle())
-            
+
             Spacer()
-            
+
             HStack(spacing: 12) {
                 Image(systemName: "folder.badge.plus")
                     .font(.system(size: 24))
                     .foregroundColor(.purple)
-                
+
                 Text("Add Asset SubClass")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(
@@ -844,9 +860,9 @@ struct AddAssetSubClassView: View {
                         )
                     )
             }
-            
+
             Spacer()
-            
+
             Button {
                 saveInstrumentType()
             } label: {
@@ -859,7 +875,7 @@ struct AddAssetSubClassView: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 14, weight: .bold))
                     }
-                    
+
                     Text(isLoading ? "Saving..." : "Save")
                         .font(.system(size: 14, weight: .semibold))
                 }
@@ -889,8 +905,9 @@ struct AddAssetSubClassView: View {
         .padding(.vertical, 20)
         .opacity(headerOpacity)
     }
-    
+
     // MARK: - Add Modern Content
+
     private var addModernContent: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -901,22 +918,23 @@ struct AddAssetSubClassView: View {
         }
         .offset(y: sectionsOffset)
     }
-    
+
     // MARK: - Add Form Section
+
     private var addFormSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.purple)
-                
+
                 Text("Type Information")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black.opacity(0.8))
-                
+
                 Spacer()
             }
-            
+
             VStack(spacing: 16) {
                 // Asset Class selection
                 HStack {
@@ -965,7 +983,7 @@ struct AddAssetSubClassView: View {
                     icon: "textformat",
                     isRequired: true
                 )
-                
+
                 addModernTextField(
                     title: "Type Code",
                     text: $typeCode,
@@ -974,7 +992,7 @@ struct AddAssetSubClassView: View {
                     isRequired: true,
                     autoUppercase: true
                 )
-                
+
                 addModernTextField(
                     title: "Description",
                     text: $typeDescription,
@@ -982,7 +1000,7 @@ struct AddAssetSubClassView: View {
                     icon: "text.alignleft",
                     isRequired: false
                 )
-                
+
                 HStack(spacing: 16) {
                     addModernTextField(
                         title: "Sort Order",
@@ -992,20 +1010,19 @@ struct AddAssetSubClassView: View {
                         isRequired: true
                     )
 
-                    
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 14))
                                 .foregroundColor(.gray)
-                            
+
                             Text("Status")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.black.opacity(0.7))
-                            
+
                             Spacer()
                         }
-                        
+
                         Toggle("Active", isOn: $isActive)
                             .toggleStyle(SwitchToggleStyle(tint: .purple))
                             .padding(.horizontal, 16)
@@ -1033,8 +1050,9 @@ struct AddAssetSubClassView: View {
         )
         .shadow(color: .purple.opacity(0.1), radius: 10, x: 0, y: 5)
     }
-    
+
     // MARK: - Add Helper Views
+
     private func addModernTextField(
         title: String,
         text: Binding<String>,
@@ -1048,14 +1066,14 @@ struct AddAssetSubClassView: View {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
-                
+
                 Text(title + (isRequired ? "*" : ""))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
-                
+
                 Spacer()
             }
-            
+
             TextField(placeholder, text: text)
                 .font(.system(size: 16))
                 .foregroundColor(.black)
@@ -1075,44 +1093,46 @@ struct AddAssetSubClassView: View {
                 }
         }
     }
-    
+
     // MARK: - Add Animations
+
     private func animateAddEntrance() {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
             formScale = 1.0
         }
-        
+
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
             headerOpacity = 1.0
         }
-        
+
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
             sectionsOffset = 0
         }
     }
-    
+
     private func animateAddExit() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             formScale = 0.9
             headerOpacity = 0
             sectionsOffset = 50
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             presentationMode.wrappedValue.dismiss()
         }
     }
-    
+
     // MARK: - Add Functions
+
     func saveInstrumentType() {
         guard isValid else {
             alertMessage = "Please fill in all required fields"
             showingAlert = true
             return
         }
-        
+
         isLoading = true
-        
+
         let success = dbManager.addInstrumentType(
             classId: selectedClassId,
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
@@ -1121,10 +1141,10 @@ struct AddAssetSubClassView: View {
             sortOrder: Int(sortOrder) ?? 0,
             isActive: isActive
         )
-        
+
         DispatchQueue.main.async {
             self.isLoading = false
-            
+
             if success {
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
                 self.alertMessage = "✅ Asset SubClass added successfully."
@@ -1146,6 +1166,7 @@ struct AddAssetSubClassView: View {
 }
 
 // MARK: - Edit Asset SubClass View
+
 struct EditAssetSubClassView: View {
     @Environment(\.presentationMode) private var presentationMode
     @EnvironmentObject var dbManager: DatabaseManager
@@ -1153,7 +1174,7 @@ struct EditAssetSubClassView: View {
 
     @State private var assetClasses: [(id: Int, name: String)] = []
     @State private var selectedClassId: Int = 0
-    
+
     @State private var typeName = ""
     @State private var typeCode = ""
     @State private var typeDescription = ""
@@ -1162,13 +1183,13 @@ struct EditAssetSubClassView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    
+
     // Animation states
     @State private var formScale: CGFloat = 0.9
     @State private var headerOpacity: Double = 0
     @State private var sectionsOffset: CGFloat = 50
     @State private var hasChanges = false
-    
+
     // Store original values
     @State private var originalName = ""
     @State private var originalCode = ""
@@ -1176,23 +1197,23 @@ struct EditAssetSubClassView: View {
     @State private var originalSortOrder = "0"
     @State private var originalIsActive = true
     @State private var originalClassId = 0
-    
+
     var isValid: Bool {
         !assetClasses.isEmpty && selectedClassId != 0 &&
-        !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        Int(sortOrder) != nil
+            !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            Int(sortOrder) != nil
     }
-    
+
     private func detectChanges() {
         hasChanges = typeName != originalName ||
-                     typeCode != originalCode ||
-                     typeDescription != originalDescription ||
-                     sortOrder != originalSortOrder ||
-                     isActive != originalIsActive ||
-                     selectedClassId != originalClassId
+            typeCode != originalCode ||
+            typeDescription != originalDescription ||
+            sortOrder != originalSortOrder ||
+            isActive != originalIsActive ||
+            selectedClassId != originalClassId
     }
-    
+
     var body: some View {
         ZStack {
             // Premium gradient background
@@ -1200,13 +1221,13 @@ struct EditAssetSubClassView: View {
                 colors: [
                     Color(red: 0.97, green: 0.98, blue: 1.0),
                     Color(red: 0.94, green: 0.96, blue: 0.99),
-                    Color(red: 0.91, green: 0.94, blue: 0.98)
+                    Color(red: 0.91, green: 0.94, blue: 0.98),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
+
             // Main content
             VStack(spacing: 0) {
                 editModernHeader
@@ -1231,8 +1252,9 @@ struct EditAssetSubClassView: View {
             Text(alertMessage)
         }
     }
-    
+
     // MARK: - Edit Modern Header
+
     private var editModernHeader: some View {
         HStack {
             Button {
@@ -1251,14 +1273,14 @@ struct EditAssetSubClassView: View {
                     .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(ScaleButtonStyle())
-            
+
             Spacer()
-            
+
             HStack(spacing: 12) {
                 Image(systemName: "folder.badge.gearshape")
                     .font(.system(size: 24))
                     .foregroundColor(.orange)
-                
+
                 Text("Edit Asset SubClass")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(
@@ -1269,9 +1291,9 @@ struct EditAssetSubClassView: View {
                         )
                     )
             }
-            
+
             Spacer()
-            
+
             Button {
                 saveEditInstrumentType()
             } label: {
@@ -1284,7 +1306,7 @@ struct EditAssetSubClassView: View {
                         Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark")
                             .font(.system(size: 14, weight: .bold))
                     }
-                    
+
                     Text(isLoading ? "Saving..." : "Save Changes")
                         .font(.system(size: 14, weight: .semibold))
                 }
@@ -1314,8 +1336,9 @@ struct EditAssetSubClassView: View {
         .padding(.vertical, 20)
         .opacity(headerOpacity)
     }
-    
+
     // MARK: - Edit Change Indicator
+
     private var editChangeIndicator: some View {
         HStack {
             if hasChanges {
@@ -1323,7 +1346,7 @@ struct EditAssetSubClassView: View {
                     Image(systemName: "circle.fill")
                         .font(.system(size: 8))
                         .foregroundColor(.orange)
-                    
+
                     Text("Unsaved changes")
                         .font(.caption)
                         .foregroundColor(.orange)
@@ -1338,14 +1361,15 @@ struct EditAssetSubClassView: View {
                 )
                 .transition(.opacity.combined(with: .scale))
             }
-            
+
             Spacer()
         }
         .padding(.horizontal, 24)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: hasChanges)
     }
-    
+
     // MARK: - Edit Modern Content
+
     private var editModernContent: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -1356,22 +1380,23 @@ struct EditAssetSubClassView: View {
         }
         .offset(y: sectionsOffset)
     }
-    
+
     // MARK: - Edit Form Section
+
     private var editFormSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.orange)
-                
+
                 Text("Type Information")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black.opacity(0.8))
-                
+
                 Spacer()
             }
-            
+
             VStack(spacing: 16) {
                 // Asset Class selection
                 HStack {
@@ -1421,7 +1446,7 @@ struct EditAssetSubClassView: View {
                     isRequired: true
                 )
                 .onChange(of: typeName) { _, _ in detectChanges() }
-                
+
                 editModernTextField(
                     title: "Type Code",
                     text: $typeCode,
@@ -1431,7 +1456,7 @@ struct EditAssetSubClassView: View {
                     autoUppercase: true
                 )
                 .onChange(of: typeCode) { _, _ in detectChanges() }
-                
+
                 editModernTextField(
                     title: "Description",
                     text: $typeDescription,
@@ -1440,7 +1465,7 @@ struct EditAssetSubClassView: View {
                     isRequired: false
                 )
                 .onChange(of: typeDescription) { _, _ in detectChanges() }
-                
+
                 HStack(spacing: 16) {
                     editModernTextField(
                         title: "Sort Order",
@@ -1450,20 +1475,20 @@ struct EditAssetSubClassView: View {
                         isRequired: true
                     )
                     .onChange(of: sortOrder) { _, _ in detectChanges() }
-                    
+
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 14))
                                 .foregroundColor(.gray)
-                            
+
                             Text("Status")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.black.opacity(0.7))
-                            
+
                             Spacer()
                         }
-                        
+
                         Toggle("Active", isOn: $isActive)
                             .toggleStyle(SwitchToggleStyle(tint: .orange))
                             .padding(.horizontal, 16)
@@ -1492,8 +1517,9 @@ struct EditAssetSubClassView: View {
         )
         .shadow(color: .orange.opacity(0.1), radius: 10, x: 0, y: 5)
     }
-    
+
     // MARK: - Edit Helper Views
+
     private func editModernTextField(
         title: String,
         text: Binding<String>,
@@ -1507,14 +1533,14 @@ struct EditAssetSubClassView: View {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                     .foregroundColor(.gray)
-                
+
                 Text(title + (isRequired ? "*" : ""))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.black.opacity(0.7))
-                
+
                 Spacer()
             }
-            
+
             TextField(placeholder, text: text)
                 .font(.system(size: 16))
                 .foregroundColor(.black)
@@ -1534,35 +1560,37 @@ struct EditAssetSubClassView: View {
                 }
         }
     }
-    
+
     // MARK: - Edit Animations
+
     private func animateEditEntrance() {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
             formScale = 1.0
         }
-        
+
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
             headerOpacity = 1.0
         }
-        
+
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
             sectionsOffset = 0
         }
     }
-    
+
     private func animateEditExit() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             formScale = 0.9
             headerOpacity = 0
             sectionsOffset = 50
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             presentationMode.wrappedValue.dismiss()
         }
     }
-    
+
     // MARK: - Edit Functions
+
     func loadTypeData() {
         if let details = dbManager.fetchInstrumentTypeDetails(id: typeId) {
             typeName = details.name
@@ -1581,7 +1609,7 @@ struct EditAssetSubClassView: View {
             originalClassId = details.classId
         }
     }
-    
+
     private func showUnsavedChangesAlert() {
         let alert = NSAlert()
         alert.messageText = "Unsaved Changes"
@@ -1590,9 +1618,9 @@ struct EditAssetSubClassView: View {
         alert.addButton(withTitle: "Save & Close")
         alert.addButton(withTitle: "Discard Changes")
         alert.addButton(withTitle: "Cancel")
-        
+
         let response = alert.runModal()
-        
+
         switch response {
         case .alertFirstButtonReturn: // Save & Close
             saveEditInstrumentType()
@@ -1602,16 +1630,16 @@ struct EditAssetSubClassView: View {
             break
         }
     }
-    
+
     func saveEditInstrumentType() {
         guard isValid else {
             alertMessage = "Please fill in all required fields correctly"
             showingAlert = true
             return
         }
-        
+
         isLoading = true
-        
+
         let success = dbManager.updateInstrumentType(
             id: typeId,
             classId: selectedClassId,
@@ -1621,10 +1649,10 @@ struct EditAssetSubClassView: View {
             sortOrder: Int(sortOrder) ?? 0,
             isActive: isActive
         )
-        
+
         DispatchQueue.main.async {
             self.isLoading = false
-            
+
             if success {
                 // Update original values to reflect saved state
                 self.originalName = self.typeName
@@ -1634,9 +1662,9 @@ struct EditAssetSubClassView: View {
                 self.originalIsActive = self.isActive
                 self.originalClassId = self.selectedClassId
                 self.detectChanges()
-                
+
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshAssetSubClasses"), object: nil)
-                
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.animateEditExit()
                 }
@@ -1655,9 +1683,10 @@ struct EditAssetSubClassView: View {
 }
 
 // MARK: - Background Particles
+
 struct TypesParticleBackground: View {
     @State private var particles: [TypesParticle] = []
-    
+
     var body: some View {
         ZStack {
             ForEach(particles.indices, id: \.self) { index in
@@ -1673,25 +1702,25 @@ struct TypesParticleBackground: View {
             animateParticles()
         }
     }
-    
+
     private func createParticles() {
-        particles = (0..<15).map { _ in
+        particles = (0 ..< 15).map { _ in
             TypesParticle(
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...1200),
-                    y: CGFloat.random(in: 0...800)
+                    x: CGFloat.random(in: 0 ... 1200),
+                    y: CGFloat.random(in: 0 ... 800)
                 ),
-                size: CGFloat.random(in: 2...8),
-                opacity: Double.random(in: 0.1...0.2)
+                size: CGFloat.random(in: 2 ... 8),
+                opacity: Double.random(in: 0.1 ... 0.2)
             )
         }
     }
-    
+
     private func animateParticles() {
         withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
             for index in particles.indices {
                 particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05...0.15)
+                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
             }
         }
     }

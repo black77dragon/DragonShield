@@ -1,9 +1,8 @@
-import XCTest
 @testable import DragonShield
+import XCTest
 
 @MainActor
 final class KanbanTodoTests: XCTestCase {
-
     func testKanbanTodoDecodingDefaults() throws {
         let json = """
         {

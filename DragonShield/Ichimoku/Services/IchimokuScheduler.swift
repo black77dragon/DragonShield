@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 
 @MainActor
 final class IchimokuScheduler: ObservableObject {
@@ -11,7 +11,8 @@ final class IchimokuScheduler: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
 
     init(settingsService: IchimokuSettingsService,
-         viewModel: IchimokuDragonViewModel) {
+         viewModel: IchimokuDragonViewModel)
+    {
         self.settingsService = settingsService
         self.viewModel = viewModel
         settingsService.$state

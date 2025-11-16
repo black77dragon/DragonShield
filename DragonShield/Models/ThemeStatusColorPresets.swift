@@ -1,6 +1,9 @@
 // DragonShield/Models/ThemeStatusColorPresets.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - Initial creation: Defines preset colors for Theme Status picker.
 
 import Foundation
@@ -31,7 +34,7 @@ let themeStatusColorPresets: [ThemeStatusColorPreset] = [
     ThemeStatusColorPreset(name: "Rose", hex: "#F43F5E"),
     ThemeStatusColorPreset(name: "Slate", hex: "#64748B"),
     ThemeStatusColorPreset(name: "Gray", hex: "#6B7280"),
-    ThemeStatusColorPreset(name: "Stone", hex: "#78716C")
+    ThemeStatusColorPreset(name: "Stone", hex: "#78716C"),
 ]
 
 extension ThemeStatusColorPreset {
@@ -43,4 +46,3 @@ extension ThemeStatusColorPreset {
         themeStatusColorPresets.first { $0.hex.caseInsensitiveCompare(hex) == .orderedSame }
     }
 }
-

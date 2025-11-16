@@ -1,10 +1,13 @@
 // DragonShield/DatabaseManager+PortfolioThemes.swift
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - Initial creation: CRUD helpers for PortfolioTheme.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     struct ThemeAllocationRow: Identifiable {
@@ -39,6 +42,7 @@ extension DatabaseManager {
         }
         return rows
     }
+
     func ensurePortfolioThemeTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS PortfolioTheme (
@@ -82,6 +86,7 @@ extension DatabaseManager {
             LoggingService.shared.log("Normalized empty archived_at markers to NULL", logger: .database)
         }
     }
+
     private func singleIntQuery(_ sql: String, bind: ((OpaquePointer) -> Void)? = nil) -> Int? {
         var stmt: OpaquePointer?
         var result: Int?
@@ -550,7 +555,7 @@ extension DatabaseManager {
     func softDeletePortfolioTheme(id: Int) -> Bool {
         let checkSql = "SELECT archived_at FROM PortfolioTheme WHERE id = ?"
         var checkStmt: OpaquePointer?
-        var archived: Bool = false
+        var archived = false
         if sqlite3_prepare_v2(db, checkSql, -1, &checkStmt, nil) == SQLITE_OK {
             sqlite3_bind_int(checkStmt, 1, Int32(id))
             if sqlite3_step(checkStmt) == SQLITE_ROW {
@@ -584,6 +589,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Hard delete (only if no attachments)
+
     func canHardDeletePortfolioTheme(id: Int) -> (ok: Bool, reason: String) {
         // Count direct links to provide actionable guidance
         let assetLinks = singleIntQuery("SELECT COUNT(*) FROM PortfolioThemeAsset WHERE theme_id = ?") { stmt in sqlite3_bind_int(stmt, 1, Int32(id)) } ?? 0
@@ -625,6 +631,7 @@ extension DatabaseManager {
     }
 
     // MARK: - Theme Budget
+
     private func ensureThemeBudgetColumn() {
         guard !tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf") else { return }
         let sql = "ALTER TABLE PortfolioTheme ADD COLUMN theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0)"

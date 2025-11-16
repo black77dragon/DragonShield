@@ -1,8 +1,8 @@
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-    struct IdName: Identifiable, Hashable { public let id: Int; public let name: String }
+    struct IdName: Identifiable, Hashable { let id: Int; public let name: String }
 
     func listInstrumentNames(limit: Int = 500) -> [IdName] {
         guard let db else { return [] }
@@ -72,4 +72,3 @@ extension DatabaseManager {
         return out
     }
 }
-

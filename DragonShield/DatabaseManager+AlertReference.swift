@@ -1,5 +1,5 @@
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     func ensureAlertReferenceTables() {
@@ -43,17 +43,17 @@ extension DatabaseManager {
             if sqlite3_step(countStmt) == SQLITE_ROW {
                 sqlite3_finalize(countStmt)
                 let seed = "INSERT OR IGNORE INTO AlertTriggerType (code, display_name, description, sort_order, active, requires_date) VALUES (?,?,?,?,?,?)"
-                let types: [(String,String,String,Int,Int,Int)] = [
-                        ("date","Date","Fires on a specific date; supports warnings and recurrence (later).",1,1,1),
-                        ("price","Price Level","Fires when price crosses a threshold or exits a band.",2,1,0),
-                        ("holding_abs","Holding Value (Abs)","Fires when exposure exceeds/falls below an absolute value.",3,1,0),
-                        ("holding_pct","Holding Share (%)","Fires when holding share (%) crosses a threshold.",4,1,0),
-                        ("calendar_event","Calendar Event","Fires around scheduled macro/company events (earnings, meetings).",5,1,1),
-                        ("macro_indicator_threshold","Macro Indicator Threshold","Fires when a macro series crosses a configured threshold.",6,1,1),
-                        ("news_keyword","News Keyword","Fires when tagged news mentions configured keywords or entities.",7,1,0),
-                        ("volatility","Volatility","Fires when realised vs implied volatility deviates from bounds.",8,1,0),
-                        ("liquidity","Liquidity","Fires when liquidity metrics drop below configured levels.",9,1,0),
-                        ("scripted","Scripted","Runs custom expressions over data series and fires on true results.",10,1,0)
+                let types: [(String, String, String, Int, Int, Int)] = [
+                    ("date", "Date", "Fires on a specific date; supports warnings and recurrence (later).", 1, 1, 1),
+                    ("price", "Price Level", "Fires when price crosses a threshold or exits a band.", 2, 1, 0),
+                    ("holding_abs", "Holding Value (Abs)", "Fires when exposure exceeds/falls below an absolute value.", 3, 1, 0),
+                    ("holding_pct", "Holding Share (%)", "Fires when holding share (%) crosses a threshold.", 4, 1, 0),
+                    ("calendar_event", "Calendar Event", "Fires around scheduled macro/company events (earnings, meetings).", 5, 1, 1),
+                    ("macro_indicator_threshold", "Macro Indicator Threshold", "Fires when a macro series crosses a configured threshold.", 6, 1, 1),
+                    ("news_keyword", "News Keyword", "Fires when tagged news mentions configured keywords or entities.", 7, 1, 0),
+                    ("volatility", "Volatility", "Fires when realised vs implied volatility deviates from bounds.", 8, 1, 0),
+                    ("liquidity", "Liquidity", "Fires when liquidity metrics drop below configured levels.", 9, 1, 0),
+                    ("scripted", "Scripted", "Runs custom expressions over data series and fires on true results.", 10, 1, 0),
                 ]
                 for t in types {
                     var stmt: OpaquePointer?

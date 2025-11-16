@@ -8,8 +8,8 @@ extension DatabaseManager {
         let hasRequiresDate = hasRequiresDateColumn()
         let column = hasRequiresDate ? "requires_date" : "0 AS requires_date"
         let sql = includeInactive ?
-        "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType ORDER BY sort_order, id" :
-        "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
+            "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType ORDER BY sort_order, id" :
+            "SELECT id, code, display_name, description, sort_order, active, \(column) FROM AlertTriggerType WHERE active = 1 ORDER BY sort_order, id"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             defer { sqlite3_finalize(stmt) }

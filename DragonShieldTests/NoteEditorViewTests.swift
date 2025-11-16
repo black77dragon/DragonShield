@@ -1,6 +1,6 @@
-import XCTest
-import SwiftUI
 @testable import DragonShield
+import SwiftUI
+import XCTest
 
 final class NoteEditorViewTests: XCTestCase {
     func testViewInitializes() {
@@ -13,6 +13,7 @@ final class NoteEditorViewTests: XCTestCase {
         )
         XCTAssertNotNil(view.body)
     }
+
     func testSaveDisabledWhenOverLimit() {
         let longNote = String(repeating: "a", count: NoteEditorView.maxLength + 1)
         let view = NoteEditorView(

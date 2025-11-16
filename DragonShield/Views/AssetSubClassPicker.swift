@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct AssetSubClassPickerModel {
+enum AssetSubClassPickerModel {
     static func sort(_ groups: [(id: Int, name: String)]) -> [(id: Int, name: String)] {
         groups.sorted {
             $0.name

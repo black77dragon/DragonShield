@@ -6,4 +6,3 @@ extension Double {
         return (self * p).rounded() / p
     }
 }
-

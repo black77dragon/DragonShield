@@ -20,6 +20,7 @@ struct NewsTypeSettingsView: View {
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         return !code.isEmpty && !name.isEmpty && !rows.contains { $0.code.caseInsensitiveCompare(code) == .orderedSame }
     }
+
     @State private var info: String?
 
     private var hasUnsavedChanges: Bool { !dirtyRows.isEmpty }
@@ -84,9 +85,9 @@ struct NewsTypeSettingsView: View {
                 .listStyle(.inset)
                 .frame(minHeight: 300)
             }
-#if os(iOS)
+            #if os(iOS)
             .environment(\.editMode, .constant(.active))
-#endif
+            #endif
             .overlay(alignment: .bottomLeading) {
                 Text(info ?? "Drag the handle to reorder. Save; Deactivate/Restore to manage availability.")
                     .font(.caption)
@@ -110,7 +111,7 @@ struct NewsTypeSettingsView: View {
         }
         .onAppear { load(focusAddField: true) }
         .alert("Hold It, Padawan!", isPresented: $showLeaveWarning) {
-            Button("Stay and Finish Training", role: .cancel) { }
+            Button("Stay and Finish Training", role: .cancel) {}
             Button("Leave Without Saving", role: .destructive) {
                 discardChanges()
                 dismiss()
@@ -231,7 +232,7 @@ struct NewsTypeSettingsView: View {
     private func addType() {
         let code = newCode.trimmingCharacters(in: .whitespacesAndNewlines)
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty && !name.isEmpty else { return }
+        guard !code.isEmpty, !name.isEmpty else { return }
         if rows.contains(where: { $0.code.caseInsensitiveCompare(code) == .orderedSame }) {
             error = "Code already exists"
             return
@@ -305,7 +306,9 @@ struct NewsTypeSettingsView: View {
                     return NewsTypeRow(id: current.id, code: current.code, displayName: current.displayName, sortOrder: idx + 1, active: current.active)
                 }
             }
-            for id in Array(dirtyRows) { updateDirtyState(for: id) }
+            for id in Array(dirtyRows) {
+                updateDirtyState(for: id)
+            }
         } else {
             error = "Failed to save order"
             info = nil

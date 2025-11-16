@@ -1,14 +1,16 @@
 // DragonShield/DatabaseManager+AssetClasses.swift
+
 // MARK: - Version 1.0 (2025-06-30)
+
 // MARK: - History
+
 // - Initial creation: Provides CRUD operations for AssetClasses table.
 
-import SQLite3
 import Foundation
 import OSLog
+import SQLite3
 
 extension DatabaseManager {
-
     struct AssetClassData: Identifiable, Hashable {
         let id: Int
         var code: String
@@ -237,4 +239,3 @@ extension DatabaseManager {
         return (canDelete, subClassCount, instrumentCount, positionCount)
     }
 }
-

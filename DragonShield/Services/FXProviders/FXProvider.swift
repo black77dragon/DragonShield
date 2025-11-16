@@ -19,4 +19,3 @@ public enum FXProviderError: Error {
     case badResponse
     case decodingFailed
 }
-

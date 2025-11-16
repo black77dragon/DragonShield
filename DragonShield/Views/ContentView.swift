@@ -2,16 +2,16 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var instruments: [SimpleInstrument] = []
-    
+
     var body: some View {
         VStack {
             HStack {
                 Text("Assets: \(instruments.count)")
                     .padding()
                     .background(Color.yellow.opacity(0.3))
-                
+
                 Spacer()
-                
+
                 Button("Load from DB") {
                     loadFromDatabase()
                 }
@@ -19,7 +19,7 @@ struct ContentView: View {
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(8)
-                
+
                 Button("Force Reload DB") {
                     reloadDatabase()
                 }
@@ -28,7 +28,7 @@ struct ContentView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
             }
-            
+
             if instruments.isEmpty {
                 VStack {
                     Spacer()
@@ -62,16 +62,16 @@ struct ContentView: View {
             loadFromDatabase()
         }
     }
-    
+
     func loadFromDatabase() {
         let db = DatabaseManager()
         let dbInstruments = db.fetchAssets()
         let dbTypes = db.fetchAssetTypes()
-        
+
         print("DB: \(dbInstruments.count) instruments, \(dbTypes.count) types")
-        
+
         let typeLookup = Dictionary(uniqueKeysWithValues: dbTypes.map { ($0.id, $0.name) })
-        
+
         instruments = dbInstruments.map { instrument in
             SimpleInstrument(
                 name: instrument.name,
@@ -79,10 +79,10 @@ struct ContentView: View {
                 currency: instrument.currency
             )
         }
-        
+
         print("Loaded \(instruments.count) instruments")
     }
-    
+
     func reloadDatabase() {
         let db = DatabaseManager()
         db.forceReloadData()

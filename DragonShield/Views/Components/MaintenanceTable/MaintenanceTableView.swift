@@ -128,21 +128,21 @@ struct MaintenanceTableView<Data: RandomAccessCollection, Column: MaintenanceTab
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-#if os(macOS)
-                        if let cursor = model.configuration.columnResizeCursor {
-                            cursor.set()
-                        } else {
-                            NSCursor.resizeLeftRight.set()
-                        }
-#endif
+                        #if os(macOS)
+                            if let cursor = model.configuration.columnResizeCursor {
+                                cursor.set()
+                            } else {
+                                NSCursor.resizeLeftRight.set()
+                            }
+                        #endif
                         model.beginDrag(for: column)
                         model.updateDrag(for: column, translation: value.translation.width)
                     }
                     .onEnded { _ in
                         model.finalizeDrag()
-#if os(macOS)
-                        NSCursor.arrow.set()
-#endif
+                        #if os(macOS)
+                            NSCursor.arrow.set()
+                        #endif
                     }
             )
             .overlay(alignment: .leading) {
@@ -152,7 +152,7 @@ struct MaintenanceTableView<Data: RandomAccessCollection, Column: MaintenanceTab
             }
             .padding(.vertical, 2)
             .background(Color.clear)
-#if os(macOS)
+        #if os(macOS)
             .onHover { inside in
                 if inside {
                     if let cursor = model.configuration.columnResizeCursor {
@@ -164,6 +164,6 @@ struct MaintenanceTableView<Data: RandomAccessCollection, Column: MaintenanceTab
                     NSCursor.arrow.set()
                 }
             }
-#endif
+        #endif
     }
 }

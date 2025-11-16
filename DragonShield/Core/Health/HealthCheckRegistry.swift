@@ -2,7 +2,7 @@ import Foundation
 
 /// Registers available `HealthCheck`s and provides filtered access.
 public enum HealthCheckRegistry {
-    nonisolated(unsafe) private static var checks: [String: HealthCheck] = [:]
+    private nonisolated(unsafe) static var checks: [String: HealthCheck] = [:]
 
     /// Register a new `HealthCheck`.
     public static func register(_ check: HealthCheck) {
@@ -22,4 +22,3 @@ public enum HealthCheckRegistry {
         checks.removeAll()
     }
 }
-

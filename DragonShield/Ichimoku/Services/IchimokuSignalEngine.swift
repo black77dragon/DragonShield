@@ -14,7 +14,8 @@ final class IchimokuSignalEngine {
     }
 
     func generateCandidates(for tickers: [IchimokuTicker],
-                            context: IchimokuSignalContext) -> [IchimokuCandidateStoreRow] {
+                            context: IchimokuSignalContext) -> [IchimokuCandidateStoreRow]
+    {
         let dateStr = DateFormatter.iso8601DateOnly.string(from: context.targetDate)
         logger.log("[Ichimoku] Evaluating candidates for \(dateStr)...", logger: .general)
         var scored: [CandidateScore] = []
@@ -34,17 +35,17 @@ final class IchimokuSignalEngine {
         let limited = scored.prefix(context.maxCandidates).enumerated().map { index, element -> IchimokuCandidateStoreRow in
             let row = element.storeRow
             return IchimokuCandidateStoreRow(scanDate: row.scanDate,
-                                            tickerId: row.tickerId,
-                                            rank: index + 1,
-                                            momentumScore: row.momentumScore,
-                                            closePrice: row.closePrice,
-                                            tenkan: row.tenkan,
-                                            kijun: row.kijun,
-                                            tenkanSlope: row.tenkanSlope,
-                                            kijunSlope: row.kijunSlope,
-                                            priceToKijunRatio: row.priceToKijunRatio,
-                                            tenkanKijunDistance: row.tenkanKijunDistance,
-                                            notes: row.notes)
+                                             tickerId: row.tickerId,
+                                             rank: index + 1,
+                                             momentumScore: row.momentumScore,
+                                             closePrice: row.closePrice,
+                                             tenkan: row.tenkan,
+                                             kijun: row.kijun,
+                                             tenkanSlope: row.tenkanSlope,
+                                             kijunSlope: row.kijunSlope,
+                                             priceToKijunRatio: row.priceToKijunRatio,
+                                             tenkanKijunDistance: row.tenkanKijunDistance,
+                                             notes: row.notes)
         }
         return Array(limited)
     }
@@ -57,8 +58,9 @@ final class IchimokuSignalEngine {
     }
 
     private func evaluateTicker(_ ticker: IchimokuTicker,
-                                 bars: [IchimokuPriceBar],
-                                 targetDate: Date) -> CandidateScore? {
+                                bars: [IchimokuPriceBar],
+                                targetDate: Date) -> CandidateScore?
+    {
         guard bars.count >= 90 else { return nil }
         let dateFormatter = DateFormatter.iso8601DateOnly
         let targetKey = dateFormatter.string(from: targetDate)

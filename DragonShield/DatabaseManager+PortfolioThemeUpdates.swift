@@ -1,11 +1,14 @@
 // DragonShield/DatabaseManager+PortfolioThemeUpdates.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Support Markdown bodies and pinning with ordering options.
 // - 1.1 -> 1.2: Add search, type filter, and soft-delete with restore and permanent delete.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
     enum ThemeUpdateView {
@@ -173,7 +176,7 @@ extension DatabaseManager {
             "actor": author,
             "op": "create",
             "pinned": pinned ? 1 : 0,
-            "created_at": item.createdAt
+            "created_at": item.createdAt,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -216,14 +219,14 @@ extension DatabaseManager {
 
     func updateThemeUpdate(id: Int, title: String?, bodyMarkdown: String?, newsTypeCode: String?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> PortfolioThemeUpdate? {
         // Guard: block changes when parent theme is locked
-        var themeId: Int = 0
+        var themeId = 0
         var guardStmt: OpaquePointer?
         if sqlite3_prepare_v2(db, "SELECT theme_id FROM PortfolioThemeUpdate WHERE id = ?", -1, &guardStmt, nil) == SQLITE_OK {
             sqlite3_bind_int(guardStmt, 1, Int32(id))
             if sqlite3_step(guardStmt) == SQLITE_ROW { themeId = Int(sqlite3_column_int(guardStmt, 0)) }
         }
         sqlite3_finalize(guardStmt)
-        if themeId > 0 && !themeEditableForUpdates(themeId: themeId) {
+        if themeId > 0, !themeEditableForUpdates(themeId: themeId) {
             LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
             return nil
         }
@@ -278,7 +281,7 @@ extension DatabaseManager {
             "actor": actor,
             "op": op,
             "pinned": item.pinned ? 1 : 0,
-            "updated_at": item.updatedAt
+            "updated_at": item.updatedAt,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -288,7 +291,7 @@ extension DatabaseManager {
     }
 
     func softDeleteThemeUpdate(id: Int, actor: String, source: String? = nil) -> Bool {
-        var themeId: Int = 0
+        var themeId = 0
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, "SELECT theme_id FROM PortfolioThemeUpdate WHERE id = ?", -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(id))
@@ -312,7 +315,7 @@ extension DatabaseManager {
             "updateId": id,
             "actor": actor,
             "op": "soft_delete",
-            "deleted_at": now
+            "deleted_at": now,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -322,7 +325,7 @@ extension DatabaseManager {
     }
 
     func restoreThemeUpdate(id: Int, actor: String, source: String? = nil) -> Bool {
-        var themeId: Int = 0
+        var themeId = 0
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, "SELECT theme_id FROM PortfolioThemeUpdate WHERE id = ?", -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(id))
@@ -341,7 +344,7 @@ extension DatabaseManager {
             "themeId": themeId,
             "updateId": id,
             "actor": actor,
-            "op": "restore"
+            "op": "restore",
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -351,7 +354,7 @@ extension DatabaseManager {
     }
 
     func deleteThemeUpdatePermanently(id: Int, actor: String, source: String? = nil) -> Bool {
-        var themeId: Int = 0
+        var themeId = 0
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, "SELECT theme_id FROM PortfolioThemeUpdate WHERE id = ?", -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(id))
@@ -370,7 +373,7 @@ extension DatabaseManager {
             "themeId": themeId,
             "updateId": id,
             "actor": actor,
-            "op": "delete_permanent"
+            "op": "delete_permanent",
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {
@@ -384,7 +387,7 @@ extension DatabaseManager {
     // List all theme updates across all themes with optional filters
     func listAllThemeUpdates(view: ThemeUpdateView = .active, typeId: Int? = nil, searchQuery: String? = nil, pinnedFirst: Bool = true) -> [PortfolioThemeUpdate] {
         var items: [PortfolioThemeUpdate] = []
-        var clauses: [String] = ["u.soft_delete = \(view == .active ? 0 : 1)"]
+        var clauses = ["u.soft_delete = \(view == .active ? 0 : 1)"]
         var binds: [Any] = []
         if let tid = typeId {
             clauses.append("u.type_id = ?")

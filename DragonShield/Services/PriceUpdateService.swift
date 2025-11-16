@@ -4,7 +4,7 @@ import OSLog
 final class PriceUpdateService {
     private let db: DatabaseManager
 
-    init(dbManager: DatabaseManager) { self.db = dbManager }
+    init(dbManager: DatabaseManager) { db = dbManager }
 
     struct ResultItem {
         let instrumentId: Int
@@ -50,7 +50,9 @@ final class PriceUpdateService {
                     }
                 }
             }
-            for await item in group { if let it = item { results.append(it) } }
+            for await item in group {
+                if let it = item { results.append(it) }
+            }
         }
         return results
     }

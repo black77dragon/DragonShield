@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class FetchInstrumentsWithoutThemesTests: XCTestCase {
     private func makeManager() -> DatabaseManager {

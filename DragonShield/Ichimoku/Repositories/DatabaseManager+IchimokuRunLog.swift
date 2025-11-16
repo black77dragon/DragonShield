@@ -27,7 +27,8 @@ extension DatabaseManager {
                                 ticksProcessed: Int,
                                 candidatesFound: Int,
                                 alertsTriggered: Int,
-                                completedAt: Date = Date()) -> Bool {
+                                completedAt: Date = Date()) -> Bool
+    {
         let sql = """
             UPDATE ichimoku_run_log
                SET status = ?,

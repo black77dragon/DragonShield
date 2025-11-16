@@ -25,7 +25,8 @@ final class IchimokuHistoricalDataFetcher {
     }
 
     func fetchMissingHistory(for ticker: IchimokuTicker,
-                             lookbackDays: Int) async throws -> IchimokuFetchSummary {
+                             lookbackDays: Int) async throws -> IchimokuFetchSummary
+    {
         let latestDate = dbManager.ichimokuLatestPriceDate(for: ticker.id)
         let today = Date()
         let calendar = Calendar(identifier: .gregorian)
@@ -56,7 +57,7 @@ final class IchimokuHistoricalDataFetcher {
             URLQueryItem(name: "includePrePost", value: "false"),
             URLQueryItem(name: "events", value: "div,splits"),
             URLQueryItem(name: "period1", value: String(Int(startDate.timeIntervalSince1970))),
-            URLQueryItem(name: "period2", value: String(Int(period2.timeIntervalSince1970)))
+            URLQueryItem(name: "period2", value: String(Int(period2.timeIntervalSince1970))),
         ]
         guard let url = components.url else { throw IchimokuDataFetcherError.invalidResponse }
 
@@ -96,7 +97,7 @@ final class IchimokuHistoricalDataFetcher {
 
             var bars: [IchimokuPriceBar] = []
             let count = timestamps.count
-            for i in 0..<count {
+            for i in 0 ..< count {
                 let ts = timestamps[i]
                 let open = i < opens.count ? opens[i] : nil
                 let high = i < highs.count ? highs[i] : nil

@@ -1,8 +1,8 @@
-import Foundation
-import CryptoKit
-import UniformTypeIdentifiers
 import AppKit
+import CryptoKit
+import Foundation
 import SQLite3
+import UniformTypeIdentifiers
 
 final class AttachmentService {
     struct ValidatedFile {
@@ -33,7 +33,7 @@ final class AttachmentService {
         UTType("net.daringfireball.markdown")!,
         UTType(filenameExtension: "docx")!,
         UTType(filenameExtension: "xlsx")!,
-        UTType(filenameExtension: "pptx")!
+        UTType(filenameExtension: "pptx")!,
     ]
     private let maxFileSize = 100 * 1024 * 1024
 
@@ -68,7 +68,7 @@ final class AttachmentService {
         switch validate(fileURL: fileURL) {
         case .failure:
             return nil
-        case .success(let valid):
+        case let .success(valid):
             let data: Data
             do {
                 data = try Data(contentsOf: valid.url)

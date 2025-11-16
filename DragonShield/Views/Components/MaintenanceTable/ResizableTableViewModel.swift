@@ -1,5 +1,5 @@
-import SwiftUI
 import Combine
+import SwiftUI
 
 final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableObject {
     @Published private(set) var visibleColumns: Set<Column>
@@ -9,6 +9,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
             persistFontSize()
         }
     }
+
     @Published private(set) var columnFractions: [Column: CGFloat]
     @Published private(set) var resolvedColumnWidths: [Column: CGFloat]
     @Published var availableTableWidth: CGFloat = 0
@@ -33,10 +34,10 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         self.configuration = configuration
         var initialVisible = ResizableTableViewModel.initialVisibleColumns(configuration)
         ResizableTableViewModel.enforceRequiredColumns(configuration, on: &initialVisible)
-        self.visibleColumns = initialVisible
-        self.selectedFontSize = .medium
-        self.columnFractions = ResizableTableViewModel.initialFractions(configuration)
-        self.resolvedColumnWidths = configuration.defaultColumnWidths
+        visibleColumns = initialVisible
+        selectedFontSize = .medium
+        columnFractions = ResizableTableViewModel.initialFractions(configuration)
+        resolvedColumnWidths = configuration.defaultColumnWidths
     }
 
     func connect(to manager: DatabaseManager) {
@@ -174,7 +175,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         if abs(availableTableWidth - targetWidth) < 0.5 { return }
         availableTableWidth = targetWidth
         adjustResolvedWidths(for: targetWidth)
-        if hasHydratedPreferences && !hasAppliedHydratedLayout {
+        if hasHydratedPreferences, !hasAppliedHydratedLayout {
             hasAppliedHydratedLayout = true
             debugLog("updateAvailableWidth target=\(String(format: "%.1f", Double(targetWidth))) → applied hydrated layout (no persist)")
             return
@@ -439,7 +440,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
             debugLog("Skipping persistColumnFractions (no manager)")
             return
         }
-        if !force && !canPersistFractions {
+        if !force, !canPersistFractions {
             debugLog("Skipping persistColumnFractions (not ready and force=false)")
             return
         }
@@ -527,11 +528,11 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         (!hasHydratedPreferences || hasAppliedHydratedLayout) && !isHydratingPreferences
     }
 
-#if DEBUG
-    private func debugLog(_ message: String) {
-        print("🧭 [table:\(configuration.preferenceKind.logLabel)] \(message)")
-    }
-#else
-    private func debugLog(_ message: String) { }
-#endif
+    #if DEBUG
+        private func debugLog(_ message: String) {
+            print("🧭 [table:\(configuration.preferenceKind.logLabel)] \(message)")
+        }
+    #else
+        private func debugLog(_: String) {}
+    #endif
 }

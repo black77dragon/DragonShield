@@ -1,14 +1,16 @@
 // DragonShield/DatabaseManager+AccountTypes.swift
+
 // MARK: - Version 1.2
+
 // MARK: - History
+
 // - 1.1 -> 1.2: Added updateAccountType method to support editing. Corrected var/let warning.
 // - 1.0 -> 1.1: Added addAccountType, deleteAccountType, canDeleteAccountType methods.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     struct AccountTypeData: Identifiable, Equatable {
         let id: Int
         let code: String
@@ -31,10 +33,10 @@ extension DatabaseManager {
                 let id = Int(sqlite3_column_int(statement, 0))
                 let code = String(cString: sqlite3_column_text(statement, 1))
                 let name = String(cString: sqlite3_column_text(statement, 2))
-                
+
                 let description: String? = sqlite3_column_text(statement, 3).map { String(cString: $0) }
                 let isActive = sqlite3_column_int(statement, 4) == 1
-                
+
                 accountTypes.append(AccountTypeData(
                     id: id, code: code, name: name, description: description, isActive: isActive
                 ))
@@ -159,7 +161,7 @@ extension DatabaseManager {
         }
         return (true, 0, "Account type can be deleted.")
     }
-    
+
     func fetchAccountTypeDetails(id: Int) -> AccountTypeData? {
         // Corrected the var to let for the query string
         let query = "SELECT account_type_id, type_code, type_name, type_description, is_active FROM AccountTypes WHERE account_type_id = ?"

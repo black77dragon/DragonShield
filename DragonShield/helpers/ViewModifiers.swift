@@ -1,6 +1,9 @@
 // DragonShield/Views/Helpers/ViewModifiers.swift (or your chosen shared file)
+
 // MARK: - Version 1.0
+
 // MARK: - History
+
 // - Initial creation: Common ViewModifiers for forms and buttons.
 
 import SwiftUI
@@ -77,9 +80,9 @@ struct ModernToggleStyle: ViewModifier {
         content
             .toggleStyle(SwitchToggleStyle(tint: tint))
             .padding(.horizontal, 16).padding(.vertical, 12)
-            // Removed background and overlay to simplify and let section background apply
-            // .background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
-            // .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        // Removed background and overlay to simplify and let section background apply
+        // .background(Color.white.opacity(0.8)).clipShape(RoundedRectangle(cornerRadius: 10))
+        // .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1)).shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 

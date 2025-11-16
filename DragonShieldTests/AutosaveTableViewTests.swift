@@ -1,6 +1,6 @@
-import XCTest
-@testable import DragonShield
 import AppKit
+@testable import DragonShield
+import XCTest
 
 final class AutosaveTableViewTests: XCTestCase {
     func testConfigureSetsAutosaveAndIdentifiers() {

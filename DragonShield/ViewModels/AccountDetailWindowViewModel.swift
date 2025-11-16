@@ -13,7 +13,7 @@ final class AccountDetailWindowViewModel: ObservableObject {
     }
 
     func configure(db: DatabaseManager) {
-        self.dbManager = db
+        dbManager = db
         loadData()
     }
 

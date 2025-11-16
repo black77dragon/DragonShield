@@ -1,6 +1,6 @@
 import Foundation
-import SwiftUI
 import SQLite3
+import SwiftUI
 
 // MARK: - Supporting Structs
 
@@ -35,7 +35,6 @@ struct BackupManifest: Codable {
     }
 }
 
-
 // MARK: - Backup Service Class
 
 class BackupService: ObservableObject {
@@ -55,13 +54,13 @@ class BackupService: ObservableObject {
     let referenceTables = [
         "Configuration", "Currencies", "ExchangeRates", "FxRateUpdates",
         "AssetClasses", "AssetSubClasses", "TransactionTypes", "AccountTypes",
-        "Institutions", "Instruments", "Accounts"
+        "Institutions", "Instruments", "Accounts",
     ]
 
     let transactionTables = [
         "Portfolios", "PortfolioInstruments", "Transactions",
         "PositionReports", "ImportSessions", "ImportSessionValueReports",
-        "ExchangeRates", "ClassTargets", "SubClassTargets", "TargetChangeLog"
+        "ExchangeRates", "ClassTargets", "SubClassTargets", "TargetChangeLog",
     ]
 
     var fullTables: [String] {
@@ -69,19 +68,20 @@ class BackupService: ObservableObject {
     }
 
     init() {
-        self.timeFormatter = DateFormatter()
+        timeFormatter = DateFormatter()
         timeFormatter.dateFormat = "HH:mm"
-        self.scheduleEnabled = UserDefaults.standard.bool(forKey: UserDefaultsKeys.automaticBackupsEnabled)
+        scheduleEnabled = UserDefaults.standard.bool(forKey: UserDefaultsKeys.automaticBackupsEnabled)
         if let timeStr = UserDefaults.standard.string(forKey: UserDefaultsKeys.automaticBackupTime),
-           let date = timeFormatter.date(from: timeStr) {
-            self.scheduledTime = date
+           let date = timeFormatter.date(from: timeStr)
+        {
+            scheduledTime = date
         } else {
-            self.scheduledTime = Calendar.current.date(bySettingHour: 2, minute: 0, second: 0, of: Date()) ?? Date()
+            scheduledTime = Calendar.current.date(bySettingHour: 2, minute: 0, second: 0, of: Date()) ?? Date()
         }
-        self.lastBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastBackupTimestamp) as? Date
-        self.lastReferenceBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastReferenceBackupTimestamp) as? Date
-        self.logMessages = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.backupLog) ?? []
-        self.backupDirectory = BackupService.loadBackupDirectory()
+        lastBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastBackupTimestamp) as? Date
+        lastReferenceBackup = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastReferenceBackupTimestamp) as? Date
+        logMessages = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.backupLog) ?? []
+        backupDirectory = BackupService.loadBackupDirectory()
         if let bookmark = UserDefaults.standard.data(forKey: UserDefaultsKeys.backupDirectoryBookmark) {
             var stale = false
             if let url = try? URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], bookmarkDataIsStale: &stale) {
@@ -91,7 +91,7 @@ class BackupService: ObservableObject {
                         UserDefaults.standard.set(data, forKey: UserDefaultsKeys.backupDirectoryBookmark)
                     }
                 }
-                self.backupDirectory = url
+                backupDirectory = url
             }
         }
         scheduleTimer()
@@ -214,13 +214,13 @@ class BackupService: ObservableObject {
             self.logMessages.insert(output, at: 0)
             self.appendLog(action: "Full Backup", file: destination.lastPathComponent, success: true)
         }
-        
+
         let manifestURL = destination.appendingPathExtension("manifest.json")
         if FileManager.default.fileExists(atPath: manifestURL.path) {
             let data = try Data(contentsOf: manifestURL)
             let manifest = try JSONDecoder().decode(BackupManifest.self, from: data)
             let report = manifest.validationReport
-            
+
             if report.hasCriticalIssues || report.hasWarnings {
                 let message = "Backup completed with \(report.totalIssues) issues (Critical: \(report.hasCriticalIssues)). See manifest for details."
                 DispatchQueue.main.async {
@@ -229,22 +229,23 @@ class BackupService: ObservableObject {
             }
         }
     }
-    
+
     // ==============================================================================
     // == REWRITTEN SAFER RESTORE METHOD                                           ==
     // ==============================================================================
     func performRestore(dbManager: DatabaseManager, from backupURL: URL) throws -> [RestoreDelta] {
         let dbPath = dbManager.dbFilePath
-        
+
         // --- Stage 1: Python prepares a temporary, validated restore file ---
         let pythonOutput = try runPythonScript(arguments: ["restore", dbPath, backupURL.path])
-        
+
         // The Python script prints the path of the temporary file as its last line.
         guard let tempPath = pythonOutput.split(separator: "\n").last.map(String.init),
-              FileManager.default.fileExists(atPath: tempPath) else {
+              FileManager.default.fileExists(atPath: tempPath)
+        else {
             throw NSError(domain: "BackupServiceError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Python script failed to create a temporary restore file."])
         }
-        
+
         let tempURL = URL(fileURLWithPath: tempPath)
         defer {
             // Clean up the temporary file when we're done.
@@ -252,26 +253,26 @@ class BackupService: ObservableObject {
         }
 
         // --- Stage 2: Swift performs a live, atomic restore using SQLite's Backup API ---
-        
+
         // Get pre-restore counts from the live database
         let preCounts = rowCounts(db: dbManager.db!, tables: fullTables)
-        
+
         var pBackup: OpaquePointer?
         var pSrc: OpaquePointer?
-        
+
         // Open a connection to the temporary source database
         guard sqlite3_open(tempPath, &pSrc) == SQLITE_OK else {
             throw NSError(domain: "SQLite", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not open temporary restore database."])
         }
         defer { sqlite3_close(pSrc) }
-        
+
         // Initialize the backup process from the temp file ("main") to the live DB ("main")
         pBackup = sqlite3_backup_init(dbManager.db!, "main", pSrc, "main")
         guard pBackup != nil else {
             let msg = String(cString: sqlite3_errmsg(dbManager.db!))
             throw NSError(domain: "SQLite", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize restore: \(msg)"])
         }
-        
+
         // Perform the restore in one step (-1 means copy all pages)
         let result = sqlite3_backup_step(pBackup, -1)
         if result != SQLITE_DONE {
@@ -279,13 +280,13 @@ class BackupService: ObservableObject {
             sqlite3_backup_finish(pBackup)
             throw NSError(domain: "SQLite", code: 5, userInfo: [NSLocalizedDescriptionKey: "Restore failed during copy step: \(msg) (Code: \(result))"])
         }
-        
+
         // Finalize the backup process
         sqlite3_backup_finish(pBackup)
-        
+
         // Get post-restore counts and create the delta summary
         let postCounts = rowCounts(db: dbManager.db!, tables: fullTables)
-        
+
         var deltas: [RestoreDelta] = []
         let allTables = Set(preCounts.map { $0.0 } + postCounts.map { $0.0 })
         for table in allTables.sorted() {
@@ -309,7 +310,7 @@ class BackupService: ObservableObject {
         var deltas: [RestoreDelta] = []
         let lines = output.split(separator: "\n")
         guard let summaryIndex = lines.firstIndex(where: { $0.contains("Restore Summary") }) else { return [] }
-        
+
         for line in lines.suffix(from: summaryIndex + 2) {
             let components = line.split(whereSeparator: \.isWhitespace)
             if components.count >= 4 {
@@ -348,7 +349,7 @@ class BackupService: ObservableObject {
                 let columns = Int(sqlite3_column_count(stmt))
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     var values: [String] = []
-                    for i in 0..<columns {
+                    for i in 0 ..< columns {
                         if let text = sqlite3_column_text(stmt, Int32(i)) {
                             let val = escape(String(cString: text))
                             values.append("'\(val)'")
@@ -382,7 +383,7 @@ class BackupService: ObservableObject {
 
         return destination
     }
-    
+
     func restoreReferenceData(dbManager: DatabaseManager, from url: URL) throws {
         guard let db = dbManager.db else { return }
         let rawSQL = try String(contentsOf: url, encoding: .utf8)
@@ -425,7 +426,7 @@ class BackupService: ObservableObject {
             }
         }
     }
-    
+
     func backupTransactionData(dbManager: DatabaseManager, to destination: URL, tables: [String]) throws -> URL {
         let dbPath = dbManager.dbFilePath
         var db: OpaquePointer?
@@ -451,7 +452,7 @@ class BackupService: ObservableObject {
                 let columns = Int(sqlite3_column_count(stmt))
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     var values: [String] = []
-                    for i in 0..<columns {
+                    for i in 0 ..< columns {
                         if let text = sqlite3_column_text(stmt, Int32(i)) {
                             let val = escape(String(cString: text))
                             values.append("'\(val)'")

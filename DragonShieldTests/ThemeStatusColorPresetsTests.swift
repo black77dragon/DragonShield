@@ -1,6 +1,6 @@
-import XCTest
-import SwiftUI
 @testable import DragonShield
+import SwiftUI
+import XCTest
 
 final class ThemeStatusColorPresetsTests: XCTestCase {
     func testPresetCount() {
@@ -13,11 +13,11 @@ final class ThemeStatusColorPresetsTests: XCTestCase {
 
     func testTextColorContrast() {
         #if os(macOS)
-        XCTAssertEqual(NSColor(Color.textColor(forHex: "#6366F1")), NSColor.white)
-        XCTAssertEqual(NSColor(Color.textColor(forHex: "#EAB308")), NSColor.black)
+            XCTAssertEqual(NSColor(Color.textColor(forHex: "#6366F1")), NSColor.white)
+            XCTAssertEqual(NSColor(Color.textColor(forHex: "#EAB308")), NSColor.black)
         #else
-        XCTAssertEqual(UIColor(Color.textColor(forHex: "#6366F1")), UIColor.white)
-        XCTAssertEqual(UIColor(Color.textColor(forHex: "#EAB308")), UIColor.black)
+            XCTAssertEqual(UIColor(Color.textColor(forHex: "#6366F1")), UIColor.white)
+            XCTAssertEqual(UIColor(Color.textColor(forHex: "#EAB308")), UIColor.black)
         #endif
     }
 }

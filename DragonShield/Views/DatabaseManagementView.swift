@@ -1,6 +1,6 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-import AppKit
 
 struct DatabaseManagementView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -18,6 +18,7 @@ struct DatabaseManagementView: View {
     @State private var restoreDeltas: [RestoreDelta] = []
 
     // MARK: - Info Card
+
     private func infoRow(_ label: String, value: String, mono: Bool = false) -> some View {
         HStack {
             Text(label)
@@ -48,6 +49,7 @@ struct DatabaseManagementView: View {
     }
 
     // MARK: - Backup & Restore Actions
+
     private var actionsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Backup & Restore")
@@ -69,10 +71,10 @@ struct DatabaseManagementView: View {
                         .disabled(processing)
                         .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [UTType(filenameExtension: "sqlite")!, UTType(filenameExtension: "db")!]) { result in
                             switch result {
-                            case .success(let url):
+                            case let .success(url):
                                 restoreURL = url
                                 showRestoreConfirm = true
-                            case .failure(let error):
+                            case let .failure(error):
                                 errorMessage = error.localizedDescription
                             }
                         }
@@ -169,6 +171,7 @@ struct DatabaseManagementView: View {
     }
 
     // MARK: - Log Card
+
     private var summaryTable: some View {
         VStack(spacing: 0) {
             HStack {
@@ -237,6 +240,7 @@ struct DatabaseManagementView: View {
     }
 
     // MARK: - Layout
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -262,7 +266,7 @@ struct DatabaseManagementView: View {
         } message: {
             Text("Are you sure you want to replace your current database with '\(restoreURL?.lastPathComponent ?? "")'?\nThis action cannot be undone without another backup.")
         }
-        
+
         .sheet(isPresented: $showRestoreComparison) {
             RestoreComparisonView(rows: restoreDeltas) {
                 showRestoreComparison = false
@@ -274,6 +278,7 @@ struct DatabaseManagementView: View {
     }
 
     // MARK: - Actions
+
     private func backupNow() {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
@@ -287,7 +292,7 @@ struct DatabaseManagementView: View {
         )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
-        
+
         // This is the block that was causing the "Trailing closure" error.
         // It's now fixed by calling the new, simpler `performBackup` function.
         DispatchQueue.global().async {

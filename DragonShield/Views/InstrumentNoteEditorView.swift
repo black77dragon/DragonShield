@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct InstrumentNoteEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager

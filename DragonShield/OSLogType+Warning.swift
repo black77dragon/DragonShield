@@ -1,6 +1,9 @@
 // DragonShield/OSLogType+Warning.swift
+
 // MARK: - Version 1.0.0.0
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Introduce warning log level convenience.
 
 import OSLog

@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ValueReportView: View {
@@ -20,7 +20,7 @@ struct ValueReportView: View {
         delimiter: String = ","
     ) -> String {
         var lines: [String] = [
-            ["Instrument", "Currency", "Value", "Value CHF"].joined(separator: delimiter)
+            ["Instrument", "Currency", "Value", "Value CHF"].joined(separator: delimiter),
         ]
         for item in items {
             let value = String(format: "%.2f", item.valueOrig)

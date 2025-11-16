@@ -1,11 +1,14 @@
 // DragonShield/DatabaseManager+PortfolioThemeStatus.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - Initial creation: CRUD helpers for PortfolioThemeStatus with default enforcement.
 // - 1.1: Return detailed errors and support deletion of unused statuses.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 enum ThemeStatusDBError: Error, Equatable, LocalizedError {
     case invalidCode
@@ -28,9 +31,9 @@ enum ThemeStatusDBError: Error, Equatable, LocalizedError {
             return "Could not set default. Please retry."
         case .isDefault:
             return "Select a different default first."
-        case .inUse(let count):
+        case let .inUse(count):
             return "Cannot delete status; in use by \(count) themes."
-        case .database(let message):
+        case let .database(message):
             return "Database error: \(message)"
         }
     }

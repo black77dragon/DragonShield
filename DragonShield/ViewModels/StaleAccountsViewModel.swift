@@ -22,7 +22,8 @@ class StaleAccountsViewModel: ObservableObject {
     }
 
     private static func earliestThenName(_ a: DatabaseManager.AccountData,
-                                         _ b: DatabaseManager.AccountData) -> Bool {
+                                         _ b: DatabaseManager.AccountData) -> Bool
+    {
         let lhsDate = a.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
         let rhsDate = b.earliestInstrumentLastUpdatedAt ?? Date.distantFuture
         if lhsDate == rhsDate {

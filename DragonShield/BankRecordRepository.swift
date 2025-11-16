@@ -1,6 +1,9 @@
 // DragonShield/BankRecordRepository.swift
+
 // MARK: - Version 1.0.1.1
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial repository for saving records using SQLite.
 // - 1.0.0.0 -> 1.0.0.1: Create table if missing and surface SQLite errors.
 // - 1.0.0.1 -> 1.0.0.2: Provide detailed insert/prepare error information.
@@ -17,9 +20,9 @@ enum BankRecordRepositoryError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .prepareFailed(let msg):
+        case let .prepareFailed(msg):
             return "Failed to prepare INSERT statement: \(msg)"
-        case .insertFailed(let msg):
+        case let .insertFailed(msg):
             return "Failed to insert record: \(msg)"
         case .connectionUnavailable:
             return "Database connection unavailable"
@@ -38,15 +41,15 @@ class BankRecordRepository {
 
     private func createTableIfNeeded() {
         let createSQL = """
-            CREATE TABLE IF NOT EXISTS bankRecord (
-                id TEXT PRIMARY KEY,
-                transactionDate TEXT NOT NULL,
-                description TEXT NOT NULL,
-                amount REAL NOT NULL,
-                currency TEXT NOT NULL,
-                bankAccount TEXT NOT NULL
-            );
-            """
+        CREATE TABLE IF NOT EXISTS bankRecord (
+            id TEXT PRIMARY KEY,
+            transactionDate TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL,
+            bankAccount TEXT NOT NULL
+        );
+        """
 
         guard let db = dbManager.db else {
             print("❌ Database connection not available when creating table")
@@ -79,7 +82,6 @@ class BankRecordRepository {
             if sqlite3_step(stmt) != SQLITE_DONE {
                 let msg = String(cString: sqlite3_errmsg(db))
                 throw BankRecordRepositoryError.insertFailed(msg)
-
             }
             sqlite3_reset(stmt)
         }

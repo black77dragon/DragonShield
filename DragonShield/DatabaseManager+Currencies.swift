@@ -1,14 +1,16 @@
 // DragonShield/DatabaseManager+Currencies.swift
+
 // MARK: - Version 1.1
+
 // MARK: - History
+
 // - 1.0 -> 1.1: Corrected string binding in fetchCurrencyDetails to fix data loading bug.
 // - Initial creation: Refactored from DatabaseManager.swift.
 
-import SQLite3
 import Foundation
+import SQLite3
 
 extension DatabaseManager {
-
     func fetchActiveCurrencies() -> [(code: String, name: String, symbol: String)] {
         var currencies: [(code: String, name: String, symbol: String)] = []
         let query = """
@@ -24,14 +26,14 @@ extension DatabaseManager {
                 END,
                 currency_code
         """
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 let code = String(cString: sqlite3_column_text(statement, 0))
                 let name = String(cString: sqlite3_column_text(statement, 1))
                 let symbol = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? code
-                
+
                 currencies.append((code: code, name: name, symbol: symbol))
             }
         } else {
@@ -48,7 +50,7 @@ extension DatabaseManager {
             FROM Currencies
             ORDER BY currency_code
         """
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -57,7 +59,7 @@ extension DatabaseManager {
                 let symbol = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? code
                 let isActive = sqlite3_column_int(statement, 3) == 1
                 let apiSupported = sqlite3_column_int(statement, 4) == 1
-                
+
                 currencies.append((code: code, name: name, symbol: symbol, isActive: isActive, apiSupported: apiSupported))
             }
         } else {
@@ -66,12 +68,12 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return currencies
     }
-    
+
     func debugListAllCurrencies() {
         print("🔍 DEBUG: Listing ALL currencies in database:")
         let query = "SELECT currency_code, currency_name, currency_symbol, is_active, api_supported FROM Currencies ORDER BY currency_code"
         var statement: OpaquePointer?
-        
+
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 let code = String(cString: sqlite3_column_text(statement, 0))
@@ -86,14 +88,14 @@ extension DatabaseManager {
         }
         sqlite3_finalize(statement)
     }
-    
+
     func fetchCurrencyDetails(code: String) -> (code: String, name: String, symbol: String, isActive: Bool, apiSupported: Bool)? {
         let query = """
             SELECT currency_code, currency_name, currency_symbol, is_active, api_supported
             FROM Currencies
             WHERE currency_code = ? COLLATE NOCASE
         """
-        
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             // --- THIS IS THE FIX ---
@@ -108,11 +110,11 @@ extension DatabaseManager {
                 let currencySymbol = sqlite3_column_text(statement, 2).map { String(cString: $0) } ?? currencyCode
                 let isActive = sqlite3_column_int(statement, 3) == 1
                 let apiSupported = sqlite3_column_int(statement, 4) == 1
-                
+
                 sqlite3_finalize(statement)
                 return (code: currencyCode, name: currencyName, symbol: currencySymbol, isActive: isActive, apiSupported: apiSupported)
             } else {
-                 print("ℹ️ No currency details found for code: '\(code)'")
+                print("ℹ️ No currency details found for code: '\(code)'")
             }
         } else {
             print("❌ Failed to prepare fetchCurrencyDetails (Code: \(code)): \(String(cString: sqlite3_errmsg(db)))")
@@ -120,30 +122,30 @@ extension DatabaseManager {
         sqlite3_finalize(statement)
         return nil
     }
-    
+
     func addCurrency(code: String, name: String, symbol: String, isActive: Bool, apiSupported: Bool) -> Bool {
         let query = """
             INSERT INTO Currencies (currency_code, currency_name, currency_symbol, is_active, api_supported)
             VALUES (?, ?, ?, ?, ?)
         """
-        
+
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare addCurrency: \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        
+
         _ = code.withCString { sqlite3_bind_text(statement, 1, $0, -1, SQLITE_TRANSIENT) }
         _ = name.withCString { sqlite3_bind_text(statement, 2, $0, -1, SQLITE_TRANSIENT) }
         _ = symbol.withCString { sqlite3_bind_text(statement, 3, $0, -1, SQLITE_TRANSIENT) }
         sqlite3_bind_int(statement, 4, isActive ? 1 : 0)
         sqlite3_bind_int(statement, 5, apiSupported ? 1 : 0)
-        
+
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
+
         if result {
             print("✅ Inserted currency: \(code)")
         } else {
@@ -151,20 +153,20 @@ extension DatabaseManager {
         }
         return result
     }
-    
+
     func updateCurrency(code: String, name: String, symbol: String, isActive: Bool, apiSupported: Bool) -> Bool {
         let query = """
             UPDATE Currencies
             SET currency_name = ?, currency_symbol = ?, is_active = ?, api_supported = ?, updated_at = CURRENT_TIMESTAMP
             WHERE currency_code = ? COLLATE NOCASE
         """
-        
+
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare updateCurrency (Code: \(code)): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
         _ = name.withCString { sqlite3_bind_text(statement, 1, $0, -1, SQLITE_TRANSIENT) }
@@ -172,7 +174,7 @@ extension DatabaseManager {
         sqlite3_bind_int(statement, 3, isActive ? 1 : 0)
         sqlite3_bind_int(statement, 4, apiSupported ? 1 : 0)
         _ = code.withCString { sqlite3_bind_text(statement, 5, $0, -1, SQLITE_TRANSIENT) }
-        
+
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
 
@@ -183,20 +185,20 @@ extension DatabaseManager {
         }
         return result
     }
-    
+
     func deleteCurrency(code: String) -> Bool { // Soft delete
         let query = "UPDATE Currencies SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE currency_code = ? COLLATE NOCASE"
         var statement: OpaquePointer?
-        
+
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             print("❌ Failed to prepare deleteCurrency (Code: \(code)): \(String(cString: sqlite3_errmsg(db)))")
             return false
         }
-        
+
         _ = code.withCString { sqlite3_bind_text(statement, 1, $0, -1, nil) } // SQLITE_STATIC
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
-        
+
         if result {
             print("✅ Soft deleted currency: \(code)")
         } else {

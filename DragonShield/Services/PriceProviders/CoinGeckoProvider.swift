@@ -22,7 +22,7 @@ final class CoinGeckoProvider: PriceProvider {
         comps.queryItems = [
             URLQueryItem(name: "ids", value: externalId.lowercased()),
             URLQueryItem(name: "vs_currencies", value: currency),
-            URLQueryItem(name: "include_last_updated_at", value: "true")
+            URLQueryItem(name: "include_last_updated_at", value: "true"),
         ]
         guard let url = comps.url else {
             log.log("[CoinGecko] Failed to build URL", type: .error, logger: .network)
@@ -86,7 +86,7 @@ final class CoinGeckoProvider: PriceProvider {
         if http.statusCode != 200 {
             logBody(data)
             // Fallback to free endpoint if Pro returns 4xx (except 401/429)
-            if usingPro, (400...499).contains(http.statusCode), http.statusCode != 401, http.statusCode != 429 {
+            if usingPro, (400 ... 499).contains(http.statusCode), http.statusCode != 401, http.statusCode != 429 {
                 // Detect demo key hint → pin to free for the session
                 if isDemoKeyHint(data) { Self.preferFreeHost = true }
                 var freeComps = URLComponents(string: "https://api.coingecko.com/api/v3/simple/price")!
@@ -117,7 +117,8 @@ final class CoinGeckoProvider: PriceProvider {
             throw PriceProviderError.invalidResponse
         }
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let obj = json[externalId.lowercased()] as? [String: Any] else {
+              let obj = json[externalId.lowercased()] as? [String: Any]
+        else {
             log.log("[CoinGecko] Missing id key in JSON for id=\(externalId.lowercased())", type: .error, logger: .network)
             throw PriceProviderError.notFound
         }

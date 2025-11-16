@@ -4,7 +4,7 @@
 
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 struct SettingsView: View {
@@ -161,12 +161,12 @@ struct SettingsView: View {
                                         dbManager.iosSnapshotTargetPath = trimmed
                                         _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: trimmed, dataType: "string", description: "Destination folder for iOS snapshot export")
                                         #if os(macOS)
-                                        if trimmed != previous { dbManager.clearIOSSnapshotBookmark() }
+                                            if trimmed != previous { dbManager.clearIOSSnapshotBookmark() }
                                         #endif
                                         updateIOSStatus()
                                     }
                                 #if os(macOS)
-                                Button("Select Path…") { selectIOSSnapshotDestination() }
+                                    Button("Select Path…") { selectIOSSnapshotDestination() }
                                 #endif
                                 Spacer()
                             }
@@ -325,25 +325,25 @@ private struct CardSection<Content: View>: View {
 
 extension SettingsView {
     #if os(macOS)
-    private func selectIOSSnapshotDestination() {
-        let panel = NSOpenPanel()
-        panel.prompt = "Select"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.allowsMultipleSelection = false
-        if !iosTargetPath.isEmpty {
-            panel.directoryURL = URL(fileURLWithPath: iosTargetPath, isDirectory: true)
-        } else {
-            let svc = IOSSnapshotExportService(dbManager: dbManager)
-            panel.directoryURL = svc.defaultTargetFolder()
+        private func selectIOSSnapshotDestination() {
+            let panel = NSOpenPanel()
+            panel.prompt = "Select"
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.canCreateDirectories = true
+            panel.allowsMultipleSelection = false
+            if !iosTargetPath.isEmpty {
+                panel.directoryURL = URL(fileURLWithPath: iosTargetPath, isDirectory: true)
+            } else {
+                let svc = IOSSnapshotExportService(dbManager: dbManager)
+                panel.directoryURL = svc.defaultTargetFolder()
+            }
+            if panel.runModal() == .OK, let url = panel.url {
+                _ = dbManager.setIOSSnapshotTargetFolder(url)
+                iosTargetPath = url.path
+                updateIOSStatus()
+            }
         }
-        if panel.runModal() == .OK, let url = panel.url {
-            _ = dbManager.setIOSSnapshotTargetFolder(url)
-            iosTargetPath = url.path
-            updateIOSStatus()
-        }
-    }
     #endif
 
     private func testCoinGecko() {
@@ -429,11 +429,11 @@ extension SettingsView {
             iosStatus = "No snapshot found. Will export on next launch if enabled."
         }
         #if os(macOS)
-        let trimmed = dbManager.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, dbManager.iosSnapshotTargetBookmark == nil {
-            let advisory = "Select Path to authorise folder access"
-            iosStatus = iosStatus.isEmpty ? advisory : iosStatus + " — " + advisory
-        }
+            let trimmed = dbManager.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty, dbManager.iosSnapshotTargetBookmark == nil {
+                let advisory = "Select Path to authorise folder access"
+                iosStatus = iosStatus.isEmpty ? advisory : iosStatus + " — " + advisory
+            }
         #endif
     }
 

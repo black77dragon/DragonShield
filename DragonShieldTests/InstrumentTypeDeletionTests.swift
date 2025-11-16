@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class InstrumentTypeDeletionTests: XCTestCase {
     private func setupDb() -> DatabaseManager {
@@ -80,4 +80,3 @@ final class InstrumentTypeDeletionTests: XCTestCase {
         sqlite3_close(dbm.db)
     }
 }
-

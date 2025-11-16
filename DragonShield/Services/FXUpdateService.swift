@@ -18,7 +18,7 @@ final class FXUpdateService {
     private(set) var lastError: Error?
 
     init(dbManager: DatabaseManager, provider: FXRateProvider = FrankfurterProvider()) {
-        self.db = dbManager
+        db = dbManager
         self.provider = provider
     }
 
@@ -105,7 +105,7 @@ final class FXUpdateService {
                 guard status == "PARTIAL" else { return nil }
                 let obj: [String: Any] = [
                     "failed": failed.map { ["code": $0.0, "reason": $0.1] },
-                    "skipped": skipped.map { ["code": $0.0, "reason": $0.1] }
+                    "skipped": skipped.map { ["code": $0.0, "reason": $0.1] },
                 ]
                 if let data = try? JSONSerialization.data(withJSONObject: obj, options: []), let s = String(data: data, encoding: .utf8) { return s }
                 return "failed=\(failedCount); skipped=\(skippedCount)"
@@ -130,7 +130,7 @@ final class FXUpdateService {
                 "skippedCount": skippedCount,
                 "provider": provider.code,
                 "base": baseUpper,
-                "asOf": DateFormatter.iso8601DateTime.string(from: response.asOf)
+                "asOf": DateFormatter.iso8601DateTime.string(from: response.asOf),
             ]
             _ = db.recordSystemJobRun(jobKey: .fxUpdate,
                                       status: jobStatus,
@@ -149,7 +149,7 @@ final class FXUpdateService {
             _ = db.recordFxRateUpdate(updateDate: Date(), apiProvider: provider.code, currenciesUpdated: [], status: "FAILED", errorMessage: String(describing: error), ratesCount: 0, executionTimeMs: durationMs)
             let metadata: [String: Any] = [
                 "provider": provider.code,
-                "base": baseUpper
+                "base": baseUpper,
             ]
             _ = db.recordSystemJobRun(jobKey: .fxUpdate,
                                       status: .failed,

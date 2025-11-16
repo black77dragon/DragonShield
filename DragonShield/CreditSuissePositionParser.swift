@@ -1,5 +1,7 @@
 // DragonShield/CreditSuissePositionParser.swift
+
 // MARK: - Version 1.0.0
+
 // Parses Credit-Suisse position statements using XLSXParsingService.
 
 import Foundation
@@ -58,11 +60,11 @@ struct CreditSuissePositionParser {
         progress?("Rows found: \(rows.count)")
 
         var summary = PositionImportSummary(totalRows: rows.count,
-                                             parsedRows: 0,
-                                             cashAccounts: 0,
-                                             securityRecords: 0,
-                                             unmatchedInstruments: 0,
-                                             percentValuationRecords: 0)
+                                            parsedRows: 0,
+                                            cashAccounts: 0,
+                                            securityRecords: 0,
+                                            unmatchedInstruments: 0,
+                                            percentValuationRecords: 0)
         var records: [ParsedPositionRecord] = []
 
         for (idx, row) in rows.enumerated() {
@@ -81,20 +83,20 @@ struct CreditSuissePositionParser {
                 quantity = q
             } else if instrumentName == "Credit-Suisse Call Account USD" {
                 quantity = 0
-                logging.log("Row \(idx+1) missing quantity - defaulting to 0 for Call Account USD", type: .debug, logger: log)
+                logging.log("Row \(idx + 1) missing quantity - defaulting to 0 for Call Account USD", type: .debug, logger: log)
             } else {
-                logging.log("Row \(idx+1) skipped - missing quantity", type: .debug, logger: log)
-                progress?("Row \(idx+1) skipped")
+                logging.log("Row \(idx + 1) skipped - missing quantity", type: .debug, logger: log)
+                progress?("Row \(idx + 1) skipped")
                 continue
             }
-           let purchasePrice = row["Einstandskurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
-           let currentPrice = row["Kurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
+            let purchasePrice = row["Einstandskurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
+            let currentPrice = row["Kurs"].flatMap { CreditSuisseXLSXProcessor.parseNumber($0) }
             let guess = Self.guessSubClassId(category: category, subCategory: subCategory, isCash: isCash)
             let accountName = isCash ? Self.renameCashAccount(description: descr,
-                                                             currency: currency,
-                                                             institution: "Credit-Suisse")
-                                     : "Credit-Suisse Account"
-           let record = ParsedPositionRecord(accountNumber: accountNumber,
+                                                              currency: currency,
+                                                              institution: "Credit-Suisse")
+                : "Credit-Suisse Account"
+            let record = ParsedPositionRecord(accountNumber: accountNumber,
                                               accountName: accountName,
                                               instrumentName: instrumentName,
                                               tickerSymbol: ticker,
@@ -106,12 +108,12 @@ struct CreditSuissePositionParser {
                                               currentPrice: currentPrice,
                                               reportDate: valueDate,
                                               isCash: isCash,
-                                               subClassIdGuess: guess)
+                                              subClassIdGuess: guess)
             records.append(record)
             summary.parsedRows += 1
             if isCash { summary.cashAccounts += 1 } else { summary.securityRecords += 1 }
-            let msg = "Parsed row \(idx+1): \(instrumentName) qty \(quantity) \(currency)" +
-                      " isin:\(isin ?? "") valor:\(valor ?? "")"
+            let msg = "Parsed row \(idx + 1): \(instrumentName) qty \(quantity) \(currency)" +
+                " isin:\(isin ?? "") valor:\(valor ?? "")"
             logging.log(msg, type: .debug, logger: log)
             progress?(msg)
         }
@@ -129,7 +131,8 @@ struct CreditSuissePositionParser {
     /// - Returns: The formatted account name.
     private static func renameCashAccount(description: String,
                                           currency: String,
-                                          institution: String) -> String {
+                                          institution: String) -> String
+    {
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = trimmed.lowercased()
         let english = (lower == "kontokorrent" || lower == "kontokorrent wertschriften")
@@ -155,7 +158,7 @@ struct CreditSuissePositionParser {
             13: "Commodities", 14: "Infrastructure", 15: "Hedge Fund",
             16: "Private Equity / Debt", 17: "Structured Product",
             18: "Cryptocurrency", 19: "Options", 20: "Futures",
-            21: "Other"
+            21: "Other",
         ]
 
         let cat = category.lowercased()

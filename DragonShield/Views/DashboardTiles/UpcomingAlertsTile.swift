@@ -17,6 +17,7 @@ struct UpcomingAlertsTile: DashboardTile {
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
+
     private static let outDf: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "de_CH")

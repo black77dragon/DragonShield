@@ -79,7 +79,7 @@ final class LinkService {
         let createdAtSQL = "SELECT created_at FROM Link WHERE id = ?"
         guard sqlite3_prepare_v2(db, createdAtSQL, -1, &stmt, nil) == SQLITE_OK else { return nil }
         sqlite3_bind_int(stmt, 1, Int32(id))
-        var createdAt: String = ""
+        var createdAt = ""
         if sqlite3_step(stmt) == SQLITE_ROW {
             createdAt = String(cString: sqlite3_column_text(stmt, 0))
         }

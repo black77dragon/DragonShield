@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class FXConversionServiceTests: XCTestCase {
     private func makeManager() -> DatabaseManager {
@@ -42,4 +42,3 @@ final class FXConversionServiceTests: XCTestCase {
         sqlite3_close(manager.db)
     }
 }
-

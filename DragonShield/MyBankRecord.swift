@@ -1,6 +1,9 @@
 // DragonShield/MyBankRecord.swift
+
 // MARK: - Version 1.0.0.0
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial creation of record model used for CSV imports.
 
 import Foundation

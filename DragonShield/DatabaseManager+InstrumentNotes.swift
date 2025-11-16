@@ -129,7 +129,7 @@ extension DatabaseManager {
             "noteId": newId,
             "actor": author,
             "op": "create",
-            "pinned": pinned ? 1 : 0
+            "pinned": pinned ? 1 : 0,
         ]
         if let source = source { payload["source"] = source }
         if let data = try? JSONSerialization.data(withJSONObject: payload), let log = String(data: data, encoding: .utf8) {

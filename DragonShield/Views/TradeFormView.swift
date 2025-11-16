@@ -8,7 +8,7 @@ struct TradeFormView: View {
     var editTradeId: Int? = nil
 
     @State private var typeCode: String = "BUY"
-    @State private var date: Date = Date()
+    @State private var date: Date = .init()
     @State private var instruments: [DatabaseManager.InstrumentRow] = []
     @State private var accounts: [DatabaseManager.AccountData] = []
     @State private var accountTypes: [DatabaseManager.AccountTypeData] = []
@@ -63,7 +63,7 @@ struct TradeFormView: View {
         let val = qty * p
         let cash = typeCode == "BUY" ? -(val + fees + comm) : +(val - fees - comm)
         let instr = typeCode == "BUY" ? qty : -qty
-        return (round(cash * 10000)/10000, round(instr * 10000)/10000)
+        return (round(cash * 10000) / 10000, round(instr * 10000) / 10000)
     }
 
     // Current holdings based on selected accounts/instrument and date
@@ -71,14 +71,17 @@ struct TradeFormView: View {
         guard let acc = cashAccountId else { return nil }
         return dbManager.currentCashBalance(accountId: acc, upTo: date)
     }
+
     private var currentHolding: Double? {
         guard let acc = custodyAccountId, let iid = instrumentId else { return nil }
         return dbManager.currentInstrumentHolding(accountId: acc, instrumentId: iid, upTo: date)
     }
+
     private var updatedCash: Double? {
         guard let cur = currentCash, let pv = preview else { return nil }
         return (cur + pv.cashDelta).rounded(toPlaces: 4)
     }
+
     private var updatedHolding: Double? {
         guard let cur = currentHolding, let pv = preview else { return nil }
         return (cur + pv.instrDelta).rounded(toPlaces: 4)
@@ -98,138 +101,138 @@ struct TradeFormView: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.blue.opacity(0.2), lineWidth: 1))
             .cornerRadius(8)
             ScrollView {
-            Form {
-                let labelWidth: CGFloat = 120
-                Section {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Date")
-                            .frame(width: labelWidth, alignment: .trailing)
-                        DatePicker("", selection: $date, displayedComponents: .date)
-                            .labelsHidden()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Type")
-                            .frame(width: labelWidth, alignment: .trailing)
-                        Picker("", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Instrument")
-                            .frame(width: labelWidth, alignment: .trailing)
-                        Button("Choose Instrument…") {
-                            instrumentSearch = instrumentDisplayForCurrent() ?? ""
-                            showInstrumentPicker = true
-                        }
-                        Text(selectedInstrumentDisplay)
-                            .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                Section {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Custody Account")
-                            .frame(width: labelWidth, alignment: .trailing)
-                        Picker("", selection: $custodyAccountId) {
-                            Text("Select Account").tag(Optional<Int>(nil))
-                            ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: 280, alignment: .leading)
-                        Spacer()
-                        if let curH = currentHolding {
-                            Text(String(format: "Holding: %.4f", curH))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    if let code = currency {
+                Form {
+                    let labelWidth: CGFloat = 120
+                    Section {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("Cash Account (\(code))")
+                            Text("Date")
                                 .frame(width: labelWidth, alignment: .trailing)
-                            Picker("", selection: $cashAccountId) {
-                                Text("Select Account").tag(Optional<Int>(nil))
-                                ForEach(cashAccounts, id: \.id) { a in Text(a.accountName).tag(Optional(a.id)) }
+                            DatePicker("", selection: $date, displayedComponents: .date)
+                                .labelsHidden()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text("Type")
+                                .frame(width: labelWidth, alignment: .trailing)
+                            Picker("", selection: $typeCode) { Text("Buy").tag("BUY"); Text("Sell").tag("SELL") }
+                                .labelsHidden()
+                                .pickerStyle(.segmented)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text("Instrument")
+                                .frame(width: labelWidth, alignment: .trailing)
+                            Button("Choose Instrument…") {
+                                instrumentSearch = instrumentDisplayForCurrent() ?? ""
+                                showInstrumentPicker = true
+                            }
+                            Text(selectedInstrumentDisplay)
+                                .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    Section {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text("Custody Account")
+                                .frame(width: labelWidth, alignment: .trailing)
+                            Picker("", selection: $custodyAccountId) {
+                                Text("Select Account").tag(Int?(nil))
+                                ForEach(custodyAccounts, id: \.id) { a in Text("\(a.accountName) [\(a.currencyCode)]").tag(Optional(a.id)) }
                             }
                             .labelsHidden()
                             .frame(maxWidth: 280, alignment: .leading)
                             Spacer()
-                            if let curC = currentCash {
-                                Text(String(format: "Cash: %.4f %@", curC, (cashCurrency ?? code)))
+                            if let curH = currentHolding {
+                                Text(String(format: "Holding: %.4f", curH))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
-                    }
-                }
-                Section {
-                    Grid(horizontalSpacing: 12, verticalSpacing: 10) {
-                        GridRow {
-                            Text("Quantity").frame(width: labelWidth, alignment: .trailing)
-                            TextField("", text: $quantity)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 160)
-                        }
-                        GridRow {
-                            Text("Price").frame(width: labelWidth, alignment: .trailing)
-                            TextField("", text: $price)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 160)
-                        }
-                        GridRow {
-                            Text("Fees (CHF)").frame(width: labelWidth, alignment: .trailing)
-                            TextField("", text: $feesChf)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 160)
-                        }
-                        GridRow {
-                            Text("Commission (CHF)").frame(width: labelWidth, alignment: .trailing)
-                            TextField("", text: $commissionChf)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 160)
-                        }
-                    }
-                }
-                Section("Preview") {
-                    if let pv = preview, let code = (cashCurrency ?? currency) {
-                        HStack { Text("Cash Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@", pv.cashDelta, code)).foregroundColor(pv.cashDelta >= 0 ? .green : .red) }
-                        HStack { Text("Instrument Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f", pv.instrDelta)) }
-                        if let code = (cashCurrency ?? currency) {
-                            // FX used for CHF->cash conversion
-                            if let rate = dbManager.fetchExchangeRates(currencyCode: code, upTo: date).first {
-                                let chfToTxn = rate.rateToChf > 0 ? (1.0 / rate.rateToChf) : 1.0
-                                HStack {
-                                    Text("FX used").frame(width: 120, alignment: .trailing)
-                                    Text(String(format: "1 CHF = %.6f %@ (as of %@)", chfToTxn, code, DateFormatter.iso8601DateOnly.string(from: rate.rateDate)))
+                        if let code = currency {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Cash Account (\(code))")
+                                    .frame(width: labelWidth, alignment: .trailing)
+                                Picker("", selection: $cashAccountId) {
+                                    Text("Select Account").tag(Int?(nil))
+                                    ForEach(cashAccounts, id: \.id) { a in Text(a.accountName).tag(Optional(a.id)) }
+                                }
+                                .labelsHidden()
+                                .frame(maxWidth: 280, alignment: .leading)
+                                Spacer()
+                                if let curC = currentCash {
+                                    Text(String(format: "Cash: %.4f %@", curC, cashCurrency ?? code))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
                             }
                         }
-                    } else {
-                        Text("Enter instrument, qty and price to preview.").foregroundColor(.secondary)
+                    }
+                    Section {
+                        Grid(horizontalSpacing: 12, verticalSpacing: 10) {
+                            GridRow {
+                                Text("Quantity").frame(width: labelWidth, alignment: .trailing)
+                                TextField("", text: $quantity)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 160)
+                            }
+                            GridRow {
+                                Text("Price").frame(width: labelWidth, alignment: .trailing)
+                                TextField("", text: $price)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 160)
+                            }
+                            GridRow {
+                                Text("Fees (CHF)").frame(width: labelWidth, alignment: .trailing)
+                                TextField("", text: $feesChf)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 160)
+                            }
+                            GridRow {
+                                Text("Commission (CHF)").frame(width: labelWidth, alignment: .trailing)
+                                TextField("", text: $commissionChf)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 160)
+                            }
+                        }
+                    }
+                    Section("Preview") {
+                        if let pv = preview, let code = (cashCurrency ?? currency) {
+                            HStack { Text("Cash Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@", pv.cashDelta, code)).foregroundColor(pv.cashDelta >= 0 ? .green : .red) }
+                            HStack { Text("Instrument Leg").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f", pv.instrDelta)) }
+                            if let code = (cashCurrency ?? currency) {
+                                // FX used for CHF->cash conversion
+                                if let rate = dbManager.fetchExchangeRates(currencyCode: code, upTo: date).first {
+                                    let chfToTxn = rate.rateToChf > 0 ? (1.0 / rate.rateToChf) : 1.0
+                                    HStack {
+                                        Text("FX used").frame(width: 120, alignment: .trailing)
+                                        Text(String(format: "1 CHF = %.6f %@ (as of %@)", chfToTxn, code, DateFormatter.iso8601DateOnly.string(from: rate.rateDate)))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        } else {
+                            Text("Enter instrument, qty and price to preview.").foregroundColor(.secondary)
+                        }
+                    }
+                    Section("Holdings (as of date)") {
+                        if let curC = currentCash, let upC = updatedCash, let code = (cashCurrency ?? currency) {
+                            HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@ → %.4f %@", curC, code, upC, code)) }
+                        } else {
+                            HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text("Select cash account and fill preview inputs").foregroundColor(.secondary) }
+                        }
+                        if let curH = currentHolding, let upH = updatedHolding {
+                            HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f → %.4f", curH, upH)) }
+                        } else {
+                            HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text("Select custody account and instrument").foregroundColor(.secondary) }
+                        }
+                    }
+                    Section("Notes") {
+                        TextField("", text: $notes)
                     }
                 }
-                Section("Holdings (as of date)") {
-                    if let curC = currentCash, let upC = updatedCash, let code = (cashCurrency ?? currency) {
-                        HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f %@ → %.4f %@", curC, code, upC, code)) }
-                    } else {
-                        HStack { Text("Cash").frame(width: 120, alignment: .trailing); Text("Select cash account and fill preview inputs").foregroundColor(.secondary) }
-                    }
-                    if let curH = currentHolding, let upH = updatedHolding {
-                        HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text(String(format: "%.4f → %.4f", curH, upH)) }
-                    } else {
-                        HStack { Text("Holding").frame(width: 120, alignment: .trailing); Text("Select custody account and instrument").foregroundColor(.secondary) }
-                    }
-                }
-                Section("Notes") {
-                    TextField("", text: $notes)
-                }
-            }
             }
             if let e = errorMessage { Text(e).foregroundColor(.red) }
             HStack {

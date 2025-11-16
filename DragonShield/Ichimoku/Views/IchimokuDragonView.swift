@@ -1,6 +1,6 @@
 import SwiftUI
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 private enum IchimokuDragonSection: String, CaseIterable, Identifiable {
@@ -207,7 +207,7 @@ private struct IchimokuDashboardSection: View {
 
     private func open(url: URL) {
         #if os(macOS)
-        NSWorkspace.shared.open(url)
+            NSWorkspace.shared.open(url)
         #endif
     }
 }
@@ -365,15 +365,15 @@ private struct IchimokuSettingsSection: View {
                     Spacer()
                     DatePicker("",
                                selection: Binding(get: {
-                        let comps = viewModel.settingsService.state.scheduleTime
-                        let calendar = Calendar.current
-                        return calendar.date(from: comps) ?? Date()
-                    }, set: { newDate in
-                        var comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                        comps.timeZone = viewModel.settingsService.state.scheduleTimeZone
-                        workingState.scheduleTime = comps
-                        viewModel.settingsService.update(workingState)
-                    }),
+                                   let comps = viewModel.settingsService.state.scheduleTime
+                                   let calendar = Calendar.current
+                                   return calendar.date(from: comps) ?? Date()
+                               }, set: { newDate in
+                                   var comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                                   comps.timeZone = viewModel.settingsService.state.scheduleTimeZone
+                                   workingState.scheduleTime = comps
+                                   viewModel.settingsService.update(workingState)
+                               }),
                                displayedComponents: [.hourAndMinute])
                         .labelsHidden()
                         .datePickerStyle(.field)
@@ -394,7 +394,7 @@ private struct IchimokuSettingsSection: View {
                 }, set: { newValue in
                     workingState.maxCandidates = Int(newValue)
                     viewModel.settingsService.update(workingState)
-                }), in: 1...10, step: 1) {
+                }), in: 1 ... 10, step: 1) {
                     Text("Max candidates: \(viewModel.settingsService.state.maxCandidates)")
                 }
                 Stepper(value: Binding(get: {
@@ -402,7 +402,7 @@ private struct IchimokuSettingsSection: View {
                 }, set: { newValue in
                     workingState.historyLookbackDays = Int(newValue)
                     viewModel.settingsService.update(workingState)
-                }), in: 60...400, step: 10) {
+                }), in: 60 ... 400, step: 10) {
                     Text("History lookback: \(viewModel.settingsService.state.historyLookbackDays) days")
                 }
                 Stepper(value: Binding(get: {
@@ -410,7 +410,7 @@ private struct IchimokuSettingsSection: View {
                 }, set: { newValue in
                     workingState.regressionWindow = Int(newValue)
                     viewModel.settingsService.update(workingState)
-                }), in: 3...15, step: 1) {
+                }), in: 3 ... 15, step: 1) {
                     Text("Regression window: \(viewModel.settingsService.state.regressionWindow) days")
                 }
             }

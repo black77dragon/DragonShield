@@ -1,5 +1,5 @@
-import XCTest
 @testable import DragonShield
+import XCTest
 
 final class DateFormattingTests: XCTestCase {
     func testUserFriendly() {

@@ -1,5 +1,5 @@
-import SwiftUI
 import Charts
+import SwiftUI
 
 struct RiskBucketsTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager

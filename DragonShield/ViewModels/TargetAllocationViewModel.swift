@@ -13,6 +13,7 @@ class TargetAllocationViewModel: ObservableObject {
             }
         }
     }
+
     @Published var subClassTargets: [Int: Double] = [:]
     @Published var assetClasses: [DatabaseManager.AssetClassData] = []
     @Published var expandedClasses: [Int: Bool] = [:]
@@ -40,8 +41,8 @@ class TargetAllocationViewModel: ObservableObject {
     init(dbManager: DatabaseManager, portfolioId: Int) {
         self.dbManager = dbManager
         self.portfolioId = portfolioId
-        self.includeDirectRealEstate = dbManager.includeDirectRealEstate
-        self.directRealEstateTargetCHF = dbManager.directRealEstateTargetCHF
+        includeDirectRealEstate = dbManager.includeDirectRealEstate
+        directRealEstateTargetCHF = dbManager.directRealEstateTargetCHF
         loadTargets()
     }
 
@@ -106,8 +107,12 @@ class TargetAllocationViewModel: ObservableObject {
     }
 
     func resetAllTargets() {
-        for key in classTargets.keys { classTargets[key] = 0 }
-        for key in subClassTargets.keys { subClassTargets[key] = 0 }
+        for key in classTargets.keys {
+            classTargets[key] = 0
+        }
+        for key in subClassTargets.keys {
+            subClassTargets[key] = 0
+        }
         directRealEstateTargetCHF = 0
     }
 }

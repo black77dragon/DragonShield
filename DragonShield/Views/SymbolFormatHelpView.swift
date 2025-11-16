@@ -60,9 +60,9 @@ struct SymbolFormatHelpView: View {
 }
 
 #if DEBUG
-struct SymbolFormatHelpView_Previews: PreviewProvider {
-    static var previews: some View {
-        SymbolFormatHelpView()
+    struct SymbolFormatHelpView_Previews: PreviewProvider {
+        static var previews: some View {
+            SymbolFormatHelpView()
+        }
     }
-}
 #endif

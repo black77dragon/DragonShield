@@ -1,14 +1,14 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct AutosaveTableView: NSViewRepresentable {
     let name: String
 
-    func makeNSView(context: Context) -> NSView {
+    func makeNSView(context _: Context) -> NSView {
         NSView()
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    func updateNSView(_ nsView: NSView, context _: Context) {
         DispatchQueue.main.async {
             guard let table = findTableView(from: nsView) else { return }
             if table.autosaveName != name {

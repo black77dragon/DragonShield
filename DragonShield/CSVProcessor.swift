@@ -1,10 +1,11 @@
 // DragonShield/CSVProcessor.swift
 
 // MARK: - Version 1.0.0.1
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial orchestrator combining parsing and validation.
 // - 1.0.0.0 -> 1.0.0.1: Add fallback encoding support when reading CSV files.
-
 
 import Foundation
 
@@ -16,7 +17,6 @@ class CSVProcessor {
         self.parser = parser
         self.validator = validator
     }
-
 
     private func readCSV(from url: URL) throws -> String {
         // Try UTF-8 first, then fall back to common legacy encodings

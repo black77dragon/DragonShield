@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class ThemeAssetUpdateAttachmentRepositoryTests: XCTestCase {
     var manager: DatabaseManager!
@@ -36,9 +36,9 @@ final class ThemeAssetUpdateAttachmentRepositoryTests: XCTestCase {
             XCTFail("update missing"); return
         }
         let insertSQL = """
-            INSERT INTO Attachment (sha256, original_filename, mime, byte_size, ext, created_at, created_by)
-            VALUES ('abc', 'f.txt', 'text/plain', 3, 'txt', '2024-01-01T00:00:00Z', 'tester');
-            """
+        INSERT INTO Attachment (sha256, original_filename, mime, byte_size, ext, created_at, created_by)
+        VALUES ('abc', 'f.txt', 'text/plain', 3, 'txt', '2024-01-01T00:00:00Z', 'tester');
+        """
         sqlite3_exec(manager.db, insertSQL, nil, nil, nil)
         let attachmentId = Int(sqlite3_last_insert_rowid(manager.db))
 
@@ -57,9 +57,9 @@ final class ThemeAssetUpdateAttachmentRepositoryTests: XCTestCase {
             XCTFail("update missing"); return
         }
         let insertSQL = """
-            INSERT INTO Attachment (sha256, original_filename, mime, byte_size, ext, created_at, created_by)
-            VALUES ('abc', 'f.txt', 'text/plain', 3, 'txt', '2024-01-01T00:00:00Z', 'tester');
-            """
+        INSERT INTO Attachment (sha256, original_filename, mime, byte_size, ext, created_at, created_by)
+        VALUES ('abc', 'f.txt', 'text/plain', 3, 'txt', '2024-01-01T00:00:00Z', 'tester');
+        """
         sqlite3_exec(manager.db, insertSQL, nil, nil, nil)
         let attachmentId = Int(sqlite3_last_insert_rowid(manager.db))
         XCTAssertTrue(repo.linkAttachment(updateId: update.id, attachmentId: attachmentId))

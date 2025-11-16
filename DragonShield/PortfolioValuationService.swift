@@ -148,7 +148,7 @@ final class PortfolioValuationService {
                 "totalChf": total,
                 "fxAsOf": fxAsOf.map { Self.dateFormatter.string(from: $0) } ?? NSNull(),
                 "durationMs": duration,
-                "fxPolicy": "latest/is_latest"
+                "fxPolicy": "latest/is_latest",
             ]
             do {
                 let data = try JSONSerialization.data(withJSONObject: event)

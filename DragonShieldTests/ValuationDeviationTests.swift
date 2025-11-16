@@ -1,6 +1,6 @@
-import XCTest
-import SQLite3
 @testable import DragonShield
+import SQLite3
+import XCTest
 
 final class ValuationDeviationTests: XCTestCase {
     private func setupDb(includeExcluded: Bool) -> DatabaseManager {
@@ -20,7 +20,7 @@ final class ValuationDeviationTests: XCTestCase {
         """
         sqlite3_exec(db, sql, nil, nil, nil)
         if includeExcluded {
-            let more = "INSERT INTO PortfolioThemeAsset VALUES (1,3,5,5,NULL);";
+            let more = "INSERT INTO PortfolioThemeAsset VALUES (1,3,5,5,NULL);"
             sqlite3_exec(db, more, nil, nil, nil)
         }
         let moreSql = """
@@ -30,7 +30,7 @@ final class ValuationDeviationTests: XCTestCase {
         """
         sqlite3_exec(db, moreSql, nil, nil, nil)
         if includeExcluded {
-            let ins3 = "INSERT INTO Instruments VALUES (3,'C','USD');";
+            let ins3 = "INSERT INTO Instruments VALUES (3,'C','USD');"
             sqlite3_exec(db, ins3, nil, nil, nil)
         }
         let posSql = """
@@ -40,10 +40,10 @@ final class ValuationDeviationTests: XCTestCase {
         """
         sqlite3_exec(db, posSql, nil, nil, nil)
         if includeExcluded {
-            let pos3 = "INSERT INTO PositionReports VALUES (3,1,3,10,1,'2025-08-20T14:05:00Z');";
+            let pos3 = "INSERT INTO PositionReports VALUES (3,1,3,10,1,'2025-08-20T14:05:00Z');"
             sqlite3_exec(db, pos3, nil, nil, nil)
         }
-        let fxSql = "CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL, is_latest INTEGER);";
+        let fxSql = "CREATE TABLE ExchangeRates (currency_code TEXT, rate_date TEXT, rate_to_chf REAL, is_latest INTEGER);"
         sqlite3_exec(db, fxSql, nil, nil, nil)
         return manager
     }

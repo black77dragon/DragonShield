@@ -1,6 +1,9 @@
 // DragonShield/DataValidationService.swift
+
 // MARK: - Version 1.0.0.2
+
 // MARK: - History
+
 // - 0.0.0.0 -> 1.0.0.0: Initial validation logic for parsed CSV rows.
 // - 1.0.0.0 -> 1.0.0.1: Provide detailed error descriptions.
 // - 1.0.0.1 -> 1.0.0.2: Minor wording tweaks for clarity.
@@ -14,11 +17,11 @@ enum ValidationError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missingField(let field):
+        case let .missingField(field):
             return "Missing required field '\(field)'."
-        case .invalidDate(let value):
+        case let .invalidDate(value):
             return "Value '\(value)' is not a valid date (yyyy-MM-dd)."
-        case .invalidNumber(let value):
+        case let .invalidNumber(value):
             return "Value '\(value)' is not a valid number."
         }
     }

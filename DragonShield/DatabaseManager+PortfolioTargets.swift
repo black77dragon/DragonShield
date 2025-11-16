@@ -1,6 +1,6 @@
 import Foundation
-import SwiftUI
 import SQLite3
+import SwiftUI
 
 extension DatabaseManager {
     struct AllocationTarget: Identifiable, Hashable {
@@ -49,9 +49,9 @@ extension DatabaseManager {
         let variance = fetchAssetAllocationVariance()
         return variance.items.map { item in
             AllocationTarget(id: item.id,
-                              assetClassName: item.assetClassName,
-                              targetPercent: item.targetPercent,
-                              currentPercent: item.currentPercent)
+                             assetClassName: item.assetClassName,
+                             targetPercent: item.targetPercent,
+                             currentPercent: item.currentPercent)
         }
     }
 
@@ -276,7 +276,7 @@ extension DatabaseManager {
     func recomputeClassValidation(classId: Int) {
         let classQuery = "SELECT id, target_percent, target_amount_chf, target_kind, tolerance_percent FROM ClassTargets WHERE asset_class_id = ?"
         var classStmt: OpaquePointer?
-        var classTargetId: Int = 0
+        var classTargetId = 0
         var classPercent = 0.0
         var classAmount = 0.0
         var classKind = "percent"
@@ -353,7 +353,7 @@ extension DatabaseManager {
                 findings.append(("warning", "CLS_REMAINING_PCT_NOT_ZERO", msg))
             }
             let allSubsAmount = subs.allSatisfy { $0.targetKind == "amount" }
-            if allSubsAmount && classAmount == 0 {
+            if allSubsAmount, classAmount == 0 {
                 let msg = "Target kind configuration is inconsistent between class and sub-classes."
                 findings.append(("warning", "CLS_KIND_INCONSISTENT", msg))
             }
@@ -450,7 +450,7 @@ extension DatabaseManager {
     }
 
     /// Returns stored target percentages aggregated by asset class or sub-class.
-    func fetchPortfolioTargetRecords(portfolioId: Int) -> [(
+    func fetchPortfolioTargetRecords(portfolioId _: Int) -> [(
         classId: Int?,
         subClassId: Int?,
         percent: Double,
@@ -530,7 +530,7 @@ extension DatabaseManager {
     }
 
     /// Upsert a class-level target percentage.
-    func upsertClassTarget(portfolioId: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
+    func upsertClassTarget(portfolioId _: Int, classId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting ClassTargets id=\(classId)", type: .info, logger: .database)
         let query = """
             INSERT INTO ClassTargets (asset_class_id, target_percent, target_amount_chf, target_kind, tolerance_percent, updated_at)
@@ -564,7 +564,7 @@ extension DatabaseManager {
     }
 
     /// Upsert a sub-class-level target percentage.
-    func upsertSubClassTarget(portfolioId: Int, subClassId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
+    func upsertSubClassTarget(portfolioId _: Int, subClassId: Int, percent: Double, amountChf: Double? = nil, kind: String = "percent", tolerance: Double) {
         LoggingService.shared.log("Upserting SubClassTargets id=\(subClassId)", type: .info, logger: .database)
         guard let classTargetId = classTargetId(for: subClassId) else {
             LoggingService.shared.log("Cannot find class_target_id for subClassId=\(subClassId)", type: .error, logger: .database)
