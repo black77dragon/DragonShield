@@ -4,7 +4,7 @@ private let layoutKey = "dashboardTileLayout"
 private let layoutVersionKey = UserDefaultsKeys.dashboardLayoutVersion
 private let currentLayoutVersion = 1
 
-struct DashboardView: View {
+struct LegacyDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
     @AppStorage(UserDefaultsKeys.dashboardIncomingPopupShownThisLaunch) private var incomingDeadlinesPopupShownThisLaunch: Bool = false
@@ -410,7 +410,7 @@ private struct StartupAlertsPopupView: View {
     }
 }
 
-private extension DashboardView {
+private extension LegacyDashboardView {
     func loadUpcomingWeekAlerts() {
         // Fetch upcoming and filter to next 7 days
         var rows = dbManager.listUpcomingDateAlerts(limit: 200)

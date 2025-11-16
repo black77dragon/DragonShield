@@ -45,4 +45,8 @@ enum UserDefaultsKeys {
     static let kanbanTodos = "kanbanTodos"
     /// Tracks migrations applied to the Dashboard tile layout.
     static let dashboardLayoutVersion = "dashboardLayoutVersion"
+    /// Tracks migrations applied to the new Dashboard tile layout (three fixed panels).
+    static let newDashboardLayoutVersion = "newDashboardLayoutVersion"
+    /// Persist tile order for the new Dashboard's three panels.
+    static let newDashboardColumnsLayout = "newDashboardColumnsLayout"
 }
