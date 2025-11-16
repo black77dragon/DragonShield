@@ -622,9 +622,10 @@ struct PriceUpdatesView: View {
 
             coordinator.applyingWidths = true
             for (idx, column) in tableView.tableColumns.enumerated() {
-                guard let spec = PriceUpdatesColumnSpec.spec(for: column.title)
+                let spec = PriceUpdatesColumnSpec.spec(for: column.title)
                     ?? PriceUpdatesColumnSpec.spec(for: column.identifier.rawValue)
-                    ?? PriceUpdatesColumnSpec.allCases[safe: idx] else { continue }
+                    ?? (idx < PriceUpdatesColumnSpec.allCases.count ? PriceUpdatesColumnSpec.allCases[idx] : nil)
+                guard let spec else { continue }
                 let desired = spec.clamped(targetWidths[spec.title] ?? spec.idealWidth)
                 column.minWidth = spec.minWidth
                 column.maxWidth = spec.maxWidth
@@ -635,9 +636,10 @@ struct PriceUpdatesView: View {
 
         private func normalizeColumns(in tableView: NSTableView) {
             for (idx, column) in tableView.tableColumns.enumerated() {
-                guard let spec = PriceUpdatesColumnSpec.spec(for: column.title)
+                let spec = PriceUpdatesColumnSpec.spec(for: column.title)
                     ?? PriceUpdatesColumnSpec.spec(for: column.identifier.rawValue)
-                    ?? PriceUpdatesColumnSpec.allCases[safe: idx] else { continue }
+                    ?? (idx < PriceUpdatesColumnSpec.allCases.count ? PriceUpdatesColumnSpec.allCases[idx] : nil)
+                guard let spec else { continue }
                 let identifier = NSUserInterfaceItemIdentifier(spec.title)
                 if column.identifier != identifier {
                     column.identifier = identifier
@@ -655,7 +657,7 @@ struct PriceUpdatesView: View {
             if let idSpec = PriceUpdatesColumnSpec.spec(for: column.identifier.rawValue) {
                 return idSpec
             }
-            return PriceUpdatesColumnSpec.allCases[safe: index]
+            return index < PriceUpdatesColumnSpec.allCases.count ? PriceUpdatesColumnSpec.allCases[index] : nil
         }
 
         private static func normalize(column: NSTableColumn, to spec: PriceUpdatesColumnSpec) {
