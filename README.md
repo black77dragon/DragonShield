@@ -90,6 +90,7 @@ DragonShield/
 Additional references:
 - `docs/releases/` retains release briefs (latest: `4.7.1.md`).
 - `DragonShield/docs/UX_UI_concept/dragon_shield_ui_guide.md` covers detailed UI/UX conventions.
+- `new_features.md` (a.k.a. "New_Feature.Md") tracks the backlog of planned changes and upcoming work.
 
 ## 🚀 Getting Started / Setup
 

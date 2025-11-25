@@ -67,6 +67,10 @@ struct SidebarView: View {
                 NavigationLink(destination: PositionsView()) {
                     Label("Positions", systemImage: "tablecells")
                 }
+
+                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
+                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
+                }
                 
                 NavigationLink(destination: AllocationDashboardView()) {
                     Label("Asset Allocation", systemImage: "chart.pie")
@@ -98,10 +102,6 @@ struct SidebarView: View {
 
             // 4. System Group
             DisclosureGroup("System", isExpanded: $showSystem) {
-                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
-                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
-                }
-                
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
                     Label("Alerts & Events", systemImage: "bell")
                 }

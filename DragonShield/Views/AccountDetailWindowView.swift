@@ -5,6 +5,7 @@ struct AccountDetailWindowView: View {
     @Environment(\.undoManager) private var undoManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: AccountDetailWindowViewModel
+    @State private var showPriceConfirmation = false
 
     private static let numberFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -55,10 +56,7 @@ struct AccountDetailWindowView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("OK") {
-                    viewModel.saveChanges()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        dismiss()
-                    }
+                    handleSave()
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -71,6 +69,9 @@ struct AccountDetailWindowView: View {
             }
         }
         .onAppear { viewModel.configure(db: dbManager) }
+        .onChange(of: viewModel.pendingPriceConfirmation) { newValue in
+            showPriceConfirmation = newValue != nil
+        }
         .sheet(item: $editingInstrument) { target in
             InstrumentEditView(
                 instrumentId: target.id,
@@ -81,11 +82,20 @@ struct AccountDetailWindowView: View {
             )
             .environmentObject(dbManager)
         }
+        .alert("Latest Price Saved", isPresented: $showPriceConfirmation, presenting: viewModel.pendingPriceConfirmation) { _ in
+            Button("OK") {
+                showPriceConfirmation = false
+                viewModel.clearPendingPriceConfirmation()
+                dismiss()
+            }
+        } message: { confirmation in
+            Text(confirmationMessage(for: confirmation))
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
-            Text("Update Account Information")
+            Text("Update Prices in Account")
                 .dsHeaderLarge()
                 .foregroundColor(DSColor.textPrimary)
             Text(viewModel.account.accountName)
@@ -163,6 +173,23 @@ struct AccountDetailWindowView: View {
 }
 
 private extension AccountDetailWindowView {
+    func handleSave() {
+        viewModel.saveChanges()
+        if viewModel.pendingPriceConfirmation == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                dismiss()
+            }
+        } else {
+            showPriceConfirmation = true
+        }
+    }
+
+    func confirmationMessage(for confirmation: AccountDetailWindowViewModel.PriceSaveConfirmation) -> String {
+        let dateText = AccountDetailWindowView.priceDateFormatter.string(from: confirmation.asOf)
+        let priceText = AccountDetailWindowView.priceFormatter.string(from: NSNumber(value: confirmation.price)) ?? String(format: "%.2f", confirmation.price)
+        return "Saved latest price \(priceText) \(confirmation.currency) for \(confirmation.instrumentName) dated \(dateText)."
+    }
+
     func priceBinding(for index: Int) -> Binding<String> {
         Binding<String>(
             get: {

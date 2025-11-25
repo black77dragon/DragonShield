@@ -7,7 +7,7 @@ When adding new features or change requests to the Backlog, please provide a pre
 
 ## Backlog
 
-- [ ] **[DS-001] Fix Instrument Edit Save Button**
+- [x] **[DS-001] Fix Instrument Edit Save Button**
     In the "Edit Instrument" GUI, the "Save" button is unresponsive. Specifically, after pressing the button, the window does not close automatically, giving the impression that the action failed.
 
 - [ ] **[DS-002] Harmonize Asset Classes View**
@@ -34,5 +34,11 @@ When adding new features or change requests to the Backlog, please provide a pre
 - [ ] **[DS-009] Harmonize Data Import/Export**
     Upgrade `DataImportExportView.swift` and `DatabaseManagementView.swift` to use standard Design System components.
 
+- [ ] **[DS-014] Tighten Dashboard Tile Padding**
+    In the Dashboard view's horizontal canvas with three tiles, reduce the lower padding/white space so the distance from the tile border to the title/text matches the top spacing.
+
 ## Implemented
+- [x] **[DS-012] Fix Account Price Update Flow (2026-02-06)** From the Dashboard's "accounts need updating" tile, the "latest price" update now persists the latest price with today's date in the instrument prices table and shows a confirmation popup (price + date with an "OK" button) after a successful update that closes upon acknowledgment.
+- [x] **[DS-013] Move Transactions to Portfolio Sidebar (2025-11-25)** Transactions link moved from System group to Portfolio group under Positions.
 - [x] **[DS-010]** Improve contrast in Edit Instrument GUI (change white fields to light grey)
+- [x] **[DS-011] Rename Accounts Update Dialog** Dialog now titled "Update Prices in Account" when opened from the "accounts need updating" tile.

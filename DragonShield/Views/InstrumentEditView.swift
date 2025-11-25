@@ -209,7 +209,7 @@ struct InstrumentEditView: View {
 
             // Save button with premium styling
             Button {
-                saveInstrument()
+                handleSaveAction()
             } label: {
                 HStack(spacing: 6) {
                     if isLoading {
@@ -225,7 +225,7 @@ struct InstrumentEditView: View {
                 }
             }
             .buttonStyle(DSButtonStyle(type: .primary, size: .small))
-            .disabled(isLoading || !isValid || !hasChanges)
+            .disabled(isLoading || !isValid)
         }
         .padding(.horizontal, DSLayout.spaceL)
         .padding(.vertical, DSLayout.spaceM)
@@ -815,6 +815,7 @@ struct InstrumentEditView: View {
             originalTickerSymbol = tickerSymbol
             originalIsin = isin
             originalSector = sector
+            detectChanges()
         }
         refreshInstrumentUsage()
     }
@@ -1047,6 +1048,21 @@ struct InstrumentEditView: View {
             animateExit()
         default: // Cancel
             break
+        }
+    }
+
+    private func handleSaveAction() {
+        if isLoading { return }
+        guard isValid else {
+            alertMessage = "Please fill in all required fields correctly"
+            showingAlert = true
+            return
+        }
+
+        if hasChanges {
+            saveInstrument()
+        } else {
+            animateExit()
         }
     }
 
