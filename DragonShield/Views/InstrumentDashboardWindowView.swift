@@ -42,25 +42,22 @@ struct InstrumentDashboardWindowView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Divider().overlay(DSColor.border)
             content
-            Divider()
+            Divider().overlay(DSColor.border)
             HStack {
                 Spacer()
-                Button(role: .cancel) { dismiss() } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.gray)
-                .foregroundColor(.white)
-                .keyboardShortcut("w", modifiers: .command)
+                Button("Close") { dismiss() }
+                    .buttonStyle(DSButtonStyle(type: .primary))
+                    .keyboardShortcut("w", modifiers: .command)
             }
-            .padding(12)
+            .padding(DSLayout.spaceM)
         }
+        .background(DSColor.background)
         .frame(minWidth: 980, minHeight: 680)
         .onAppear(perform: load)
         .sheet(isPresented: $editingInstrument) {
-            InstrumentEditView(instrumentId: instrumentId)
+            InstrumentEditView(instrumentId: instrumentId, isPresented: $editingInstrument)
                 .environmentObject(dbManager)
         }
         .sheet(item: Binding(get: {
@@ -77,38 +74,39 @@ struct InstrumentDashboardWindowView: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
                 Text("Instrument Dashboard")
-                    .font(.title3).bold()
+                    .dsHeaderSmall()
+                    .foregroundColor(DSColor.textSecondary)
                 if let d = details {
                     Text(d.name)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Theme.textPrimary)
-                    HStack(spacing: 8) {
+                        .dsHeaderLarge()
+                        .foregroundColor(DSColor.textPrimary)
+                    HStack(spacing: DSLayout.spaceS) {
                         Tag("Currency: \(d.currency)")
                         if let t = d.tickerSymbol, !t.isEmpty { Tag("Ticker: \(t.uppercased())") }
                         if let i = d.isin, !i.isEmpty { Tag("ISIN: \(i.uppercased())") }
                         if let v = d.valorNr, !v.isEmpty { Tag("Valor: \(v)") }
                         if let s = d.sector, !s.isEmpty { Tag("Sector: \(s)") }
                         Button("Edit Instrument") { editingInstrument = true }
-                            .buttonStyle(.link)
+                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                     }
                 } else {
                     EmptyView()
                 }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: DSLayout.spaceXS) {
                 Text(formatCHFNoDecimalsPrefix(totalValueCHF))
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundColor(Theme.primaryAccent)
+                    .dsHeaderLarge()
+                    .foregroundColor(DSColor.accentMain)
                 Text("Total Position")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .dsCaption()
+                    .foregroundColor(DSColor.textSecondary)
             }
         }
-        .padding(16)
-        .background(Theme.surface)
+        .padding(DSLayout.spaceM)
+        .background(DSColor.surface)
     }
 
     private var content: some View {
@@ -122,18 +120,18 @@ struct InstrumentDashboardWindowView: View {
 
     private var overviewTab: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceM) {
                 topCards
                 holdingsSection
             }
-            .padding(12)
+            .padding(DSLayout.spaceM)
         }
     }
 
     private var topCards: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: DSLayout.spaceM) {
             infoCard(title: "Price & Value") {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
                     if let p = latestPrice {
                         rowKV("Latest Price", String(format: "%.2f %@", p.price, p.currency))
                         rowKV("As Of", DateFormatting.userFriendly(p.asOf))
@@ -141,7 +139,7 @@ struct InstrumentDashboardWindowView: View {
                         rowKV("Latest Price", "—")
                         rowKV("As Of", "—")
                     }
-                    Divider().padding(.vertical, 2)
+                    Divider().overlay(DSColor.border).padding(.vertical, 2)
                     rowKV("Total Position (\(dbManager.baseCurrency))", formatCHFNoDecimalsSuffix(totalValueCHF))
                 }
             }
@@ -153,21 +151,22 @@ struct InstrumentDashboardWindowView: View {
                         Text("User %").frame(width: 80, alignment: .trailing)
                         Text("Actual CHF").frame(width: 140, alignment: .trailing)
                     }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 4)
-                    Divider()
+                    .dsCaption()
+                    .foregroundColor(DSColor.textSecondary)
+                    .padding(.horizontal, DSLayout.spaceS)
+                    .padding(.bottom, DSLayout.spaceXS)
+                    Divider().overlay(DSColor.border)
                     if themes.isEmpty {
                         Text("Not included in any portfolios")
-                            .foregroundColor(.secondary)
-                            .padding(8)
+                            .dsBody()
+                            .foregroundColor(DSColor.textSecondary)
+                            .padding(DSLayout.spaceS)
                     } else {
                         ForEach(themes, id: \.themeId) { t in
                             HStack {
                                 Text(t.themeName)
-                                    .underline()
-                                    .foregroundColor(Theme.primaryAccent)
+                                    .dsBody()
+                                    .foregroundColor(DSColor.accentMain)
                                     .fontWeight(.semibold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .onTapGesture(count: 2) { openThemeId = t.themeId }
@@ -175,16 +174,22 @@ struct InstrumentDashboardWindowView: View {
                                 Text(alloc.map { String(format: "%.1f%%", $0.researchPct) } ?? "—")
                                     .frame(width: 90, alignment: .trailing)
                                     .monospacedDigit()
+                                    .dsBody()
+                                    .foregroundColor(DSColor.textPrimary)
                                 Text(alloc.map { String(format: "%.1f%%", $0.userPct) } ?? "—")
                                     .frame(width: 80, alignment: .trailing)
                                     .monospacedDigit()
+                                    .dsBody()
+                                    .foregroundColor(DSColor.textPrimary)
                                 Text(formatCHFNoDecimalsSuffix(actualChfByTheme[t.themeId] ?? 0))
                                     .frame(width: 140, alignment: .trailing)
                                     .monospacedDigit()
+                                    .dsBody()
+                                    .foregroundColor(DSColor.textPrimary)
                             }
-                            .padding(.horizontal, 8)
-                            .frame(height: 28)
-                            if t.themeId != themes.last?.themeId { Divider() }
+                            .padding(.horizontal, DSLayout.spaceS)
+                            .frame(height: 32)
+                            if t.themeId != themes.last?.themeId { Divider().overlay(DSColor.border) }
                         }
                     }
                 }
@@ -195,39 +200,46 @@ struct InstrumentDashboardWindowView: View {
     // Consolidated into Portfolios & Allocations card
 
     private var holdingsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Holdings by Account").font(.headline)
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                .background(Color.white)
+        VStack(alignment: .leading, spacing: DSLayout.spaceS) {
+            Text("Holdings by Account").dsHeaderSmall().foregroundColor(DSColor.textPrimary)
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .stroke(DSColor.border, lineWidth: 1)
+                .background(DSColor.surface)
                 .overlay(
                     VStack(alignment: .leading, spacing: 0) {
                         headerRow()
-                        Divider()
+                        Divider().overlay(DSColor.border)
                         if accountHoldings.isEmpty {
                             Text("No holdings found in current positions snapshot.")
-                                .foregroundColor(.secondary)
-                                .padding(8)
+                                .dsBody()
+                                .foregroundColor(DSColor.textSecondary)
+                                .padding(DSLayout.spaceS)
                         } else {
                             ForEach(accountHoldings) { r in
                                 HStack {
                                     Text(r.accountName)
                                         .frame(maxWidth: .infinity, alignment: .leading)
+                                        .dsBody()
+                                        .foregroundColor(DSColor.textPrimary)
                                     Text(String(format: "%.2f", r.quantity))
                                         .frame(width: 120, alignment: .trailing)
                                         .monospacedDigit()
+                                        .dsBody()
+                                        .foregroundColor(DSColor.textPrimary)
                                     Text(formatCHFNoDecimalsSuffix(r.valueCHF))
                                         .frame(width: 160, alignment: .trailing)
                                         .monospacedDigit()
+                                        .dsBody()
+                                        .foregroundColor(DSColor.textPrimary)
                                 }
-                                .padding(.horizontal, 8)
-                                .frame(height: 28)
-                                if r.id != accountHoldings.last?.id { Divider() }
+                                .padding(.horizontal, DSLayout.spaceS)
+                                .frame(height: 32)
+                                if r.id != accountHoldings.last?.id { Divider().overlay(DSColor.border) }
                             }
                         }
                     }
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusM))
                 .frame(minHeight: tileRowHeight * CGFloat(minRowsToShow) + 40)
         }
     }
@@ -238,10 +250,10 @@ struct InstrumentDashboardWindowView: View {
             Text("Amount").frame(width: 140, alignment: .trailing)
             Text("Value").frame(width: 180, alignment: .trailing)
         }
-        .font(.caption)
-        .foregroundColor(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.top, 4)
+        .dsCaption()
+        .foregroundColor(DSColor.textSecondary)
+        .padding(.horizontal, DSLayout.spaceS)
+        .padding(.top, DSLayout.spaceXS)
     }
 
     private var notesTab: some View {
@@ -263,24 +275,24 @@ struct InstrumentDashboardWindowView: View {
     }
 
     private func infoCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline)
+        VStack(alignment: .leading, spacing: DSLayout.spaceS) {
+            Text(title).dsHeaderSmall().foregroundColor(DSColor.textPrimary)
             content()
         }
-        .padding(8)
+        .padding(DSLayout.spaceM)
         .frame(maxWidth: .infinity)
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .background(DSColor.surface)
+        .cornerRadius(DSLayout.radiusM)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 
     private func rowKV(_ key: String, _ value: String?) -> some View {
         HStack {
-            Text(key).foregroundColor(.secondary)
+            Text(key).foregroundColor(DSColor.textSecondary)
             Spacer()
-            Text(value ?? "—")
+            Text(value ?? "—").foregroundColor(DSColor.textPrimary)
         }
-        .font(.system(size: 13))
+        .dsBody()
     }
 
     private func load() {
@@ -408,10 +420,11 @@ private struct Tag: View {
     init(_ text: String) { self.text = text }
     var body: some View {
         Text(text)
-            .font(.caption)
-            .padding(.horizontal, 8)
+            .dsCaption()
+            .foregroundColor(DSColor.textSecondary)
+            .padding(.horizontal, DSLayout.spaceS)
             .padding(.vertical, 4)
-            .background(Color.gray.opacity(0.12))
-            .cornerRadius(6)
+            .background(DSColor.surfaceSecondary)
+            .cornerRadius(DSLayout.radiusS)
     }
 }

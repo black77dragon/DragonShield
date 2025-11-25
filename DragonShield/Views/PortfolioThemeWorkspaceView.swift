@@ -217,36 +217,46 @@ struct PortfolioThemeWorkspaceView: View {
 
     // MARK: - Header
 
+    // MARK: - Header
+
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: DSLayout.spaceM) {
             headerInfoLine
             Spacer()
             headerActions
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceS)
+        .background(DSColor.surfaceSecondary)
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(DSColor.border),
+            alignment: .bottom
+        )
     }
 
     private var titleBar: some View {
         HStack {
             Text("Portfolio: \(displayName)")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .dsHeaderLarge()
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 4)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.top, DSLayout.spaceL)
+        .padding(.bottom, DSLayout.spaceXS)
+        .background(DSColor.background)
     }
 
     private var headerInfoLine: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 20) {
+        HStack(alignment: .firstTextBaseline, spacing: DSLayout.spaceL) {
             Text("Status \(statusDisplay.name)")
                 .foregroundColor(statusDisplay.color)
             Text("Total (Actual) \(baseCurrencyCode): \(formatWholeAmount(actualTotalBase))")
             if let delta = deltaToSetTarget {
                 let deltaColor: Color = {
-                    if delta == 0 { return .primary }
-                    return delta > 0 ? .green : .red
+                    if delta == 0 { return DSColor.textPrimary }
+                    return delta > 0 ? DSColor.accentSuccess : DSColor.accentError
                 }()
                 Text("Δ vs Set Target: \(formatSignedWholeAmount(delta)) \(baseCurrencyCode)")
                     .foregroundColor(deltaColor)
@@ -255,7 +265,7 @@ struct PortfolioThemeWorkspaceView: View {
             }
             Text("- # Instruments: \(instrumentCountDisplay)")
         }
-        .font(.system(size: 16, weight: .medium, design: .rounded))
+        .dsBody()
         .lineLimit(1)
         .minimumScaleFactor(0.85)
     }

@@ -176,10 +176,10 @@ struct AlertsSettingsView: View {
                 resizeHandle(for: column)
             }
         }
-        .font(.footnote)
-        .foregroundColor(.secondary)
+        .dsCaption()
+        .foregroundColor(DSColor.textSecondary)
         .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(DSColor.surfaceSecondary)
         .overlay(alignment: .bottom) {
             Divider()
         }
@@ -230,7 +230,7 @@ struct AlertsSettingsView: View {
         Rectangle()
             .fill(Color.gray.opacity(0.001))
             .frame(width: alertResizeHandleWidth, height: 22)
-            .overlay(Rectangle().fill(Color.gray.opacity(0.25)).frame(width: 1))
+            .overlay(Rectangle().fill(DSColor.border).frame(width: 1))
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
                 if dragStartAlertColumnWidths[column] == nil {
@@ -352,25 +352,30 @@ struct AlertsSettingsView: View {
                     Text("⚠️")
                 }
                 Text(row.name)
+                    .dsBody()
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .severity:
             Text(row.severity.capitalized)
+                .dsBodySmall()
                 .frame(maxWidth: .infinity, alignment: .center)
         case .subject:
             Text(row.subject)
+                .dsBodySmall()
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .triggerType:
             Text(row.triggerType)
+                .dsBodySmall()
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .triggerDate:
             Text(row.triggerDateDisplay)
+                .dsMonoSmall()
                 .frame(maxWidth: .infinity, alignment: .center)
         case .actions:
             HStack(spacing: 8) {
@@ -394,8 +399,7 @@ struct AlertsSettingsView: View {
     }
 
     private func rowBackground(for index: Int) -> Color {
-        let base = Color.gray.opacity(0.04)
-        return index.isMultiple(of: 2) ? Color.clear : base
+        index.isMultiple(of: 2) ? DSColor.surface : DSColor.surfaceSubtle
     }
 
     var body: some View {

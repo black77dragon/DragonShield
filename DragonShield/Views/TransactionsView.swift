@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Version 1.0
+// MARK: - Version 1.1 (Design System)
 
 // MARK: - History: Initial placeholder - transactions management (coming soon)
 
@@ -10,17 +10,9 @@ struct TransactionsView: View {
 
     var body: some View {
         ZStack {
-            // Premium gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            // Premium background
+            DSColor.background
+                .ignoresSafeArea()
 
             // Subtle animated background elements
             TransactionsParticleBackground()
@@ -39,56 +31,36 @@ struct TransactionsView: View {
 
     private var modernHeader: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceM) {
                     Image(systemName: "list.bullet.rectangle.portrait")
                         .font(.system(size: 32))
-                        .foregroundColor(.green)
+                        .foregroundColor(DSColor.accentMain)
 
                     Text("Transactions")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.black, .gray],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .dsHeaderLarge()
+                        .foregroundColor(DSColor.textPrimary)
                 }
 
                 Text("Manage your financial transactions and activities")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
 
             Spacer()
 
             // Status indicator
-            HStack(spacing: 8) {
-                Image(systemName: "clock.badge.fill")
-                    .foregroundColor(.orange)
-                Text("Coming Soon")
-                    .font(.headline)
-                    .foregroundColor(.orange)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.1))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-            )
+            DSBadge(text: "Coming Soon", color: DSColor.accentWarning)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceL)
         .opacity(headerOpacity)
     }
 
     // MARK: - Coming Soon Content
 
     private var comingSoonContent: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: DSLayout.spaceXL) {
             Spacer()
 
             // Icon
@@ -96,68 +68,67 @@ struct TransactionsView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [.green.opacity(0.7), .green.opacity(0.4)],
+                        colors: [DSColor.accentMain.opacity(0.7), DSColor.accentMain.opacity(0.4)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
 
             // Content
-            VStack(spacing: 16) {
+            VStack(spacing: DSLayout.spaceM) {
                 Text("Transactions Management")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                    .dsHeaderMedium()
+                    .foregroundColor(DSColor.textPrimary)
 
                 Text("Comprehensive transaction tracking is coming soon!")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
+                    .dsHeaderSmall()
+                    .foregroundColor(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    featureItem(icon: "plus.circle", text: "Add and categorize transactions", color: .blue)
-                    featureItem(icon: "magnifyingglass", text: "Search and filter transaction history", color: .purple)
-                    featureItem(icon: "chart.line.uptrend.xyaxis", text: "Track portfolio performance over time", color: .green)
-                    featureItem(icon: "doc.text", text: "Import from bank statements", color: .orange)
-                    featureItem(icon: "calendar", text: "View transactions by date ranges", color: .red)
+                VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                    featureItem(icon: "plus.circle", text: "Add and categorize transactions", color: DSColor.accentMain)
+                    featureItem(icon: "magnifyingglass", text: "Search and filter transaction history", color: DSColor.accentMain)
+                    featureItem(icon: "chart.line.uptrend.xyaxis", text: "Track portfolio performance over time", color: DSColor.accentSuccess)
+                    featureItem(icon: "doc.text", text: "Import from bank statements", color: DSColor.accentWarning)
+                    featureItem(icon: "calendar", text: "View transactions by date ranges", color: DSColor.accentError)
                 }
-                .padding(.top, 20)
+                .padding(.top, DSLayout.spaceL)
             }
 
             Spacer()
 
             // Progress indicator
-            VStack(spacing: 8) {
+            VStack(spacing: DSLayout.spaceS) {
                 Text("Development Progress")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .dsCaption()
+                    .foregroundColor(DSColor.textTertiary)
 
                 ProgressView(value: 0.25)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                    .progressViewStyle(LinearProgressViewStyle(tint: DSColor.accentSuccess))
                     .frame(width: 200)
 
                 Text("25% Complete")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                    .dsMonoSmall()
+                    .foregroundColor(DSColor.textTertiary)
             }
-            .padding(.bottom, 40)
+            .padding(.bottom, DSLayout.spaceXL)
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, DSLayout.spaceXL)
         .offset(y: contentOffset)
     }
 
     // MARK: - Feature Item
 
     private func featureItem(icon: String, text: String, color: Color) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(color)
                 .frame(width: 20)
 
             Text(text)
-                .font(.body)
-                .foregroundColor(.secondary)
+                .dsBody()
+                .foregroundColor(DSColor.textSecondary)
 
             Spacer()
         }
@@ -185,7 +156,7 @@ struct TransactionsParticleBackground: View {
         ZStack {
             ForEach(particles.indices, id: \.self) { index in
                 Circle()
-                    .fill(Color.green.opacity(0.03))
+                    .fill(DSColor.accentMain.opacity(0.03))
                     .frame(width: particles[index].size, height: particles[index].size)
                     .position(particles[index].position)
                     .opacity(particles[index].opacity)

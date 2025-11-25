@@ -1,3 +1,4 @@
+// Google Gemini Version
 import SwiftUI
 
 private let layoutKey = "dashboardTileLayout"
@@ -77,8 +78,8 @@ struct LegacyDashboardView: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                         }
                         Text("FX")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .font(.ds.caption)
+                            .foregroundColor(DSColor.textSecondary)
                     }
                     .frame(minWidth: 48)
                 }
@@ -91,8 +92,8 @@ struct LegacyDashboardView: View {
                             Image(systemName: "chart.line.uptrend.xyaxis")
                         }
                         Text("Price")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .font(.ds.caption)
+                            .foregroundColor(DSColor.textSecondary)
                     }
                     .frame(minWidth: 48)
                 }
@@ -361,52 +362,63 @@ private struct StartupAlertsPopupView: View {
 
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DSLayout.spaceM) {
             HStack {
                 Image("dragonshieldAppLogo")
                     .resizable()
                     .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusM))
                     .accessibilityHidden(true)
                 Text("Incoming Deadlines Detected")
-                    .font(.title2).bold()
+                    .dsHeaderMedium()
                 Spacer()
             }
-            .padding(.top, 8)
+            .padding(.top, DSLayout.spaceS)
+            
             Text("A long time ago in a galaxy not so far away… upcoming alerts began to stir. Use the Force to stay on target!")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .dsBody()
+                .foregroundColor(DSColor.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            
             Divider()
-            VStack(alignment: .leading, spacing: 8) {
+                .background(DSColor.border)
+            
+            VStack(alignment: .leading, spacing: DSLayout.spaceS) {
                 ForEach(Array(items.enumerated()), id: \.0) { _, it in
                     HStack {
                         Text(it.name)
+                            .dsBody()
                             .lineLimit(1)
                             .truncationMode(.tail)
                         Spacer()
-                        HStack(spacing: 8) {
+                        HStack(spacing: DSLayout.spaceS) {
                             Text(format(it.date))
-                                .foregroundColor(.secondary)
+                                .dsCaption()
                             if let daysText = daysUntilText(it.date) {
                                 Text(daysText)
-                                    .bold()
-                                    .foregroundColor(.red)
+                                    .font(.ds.caption.bold())
+                                    .foregroundColor(DSColor.accentError)
                             }
                         }
                     }
                 }
             }
+            
             Divider()
+                .background(DSColor.border)
+            
             HStack {
                 Spacer()
                 Button("Dismiss") { dismiss() }
+                    .buttonStyle(DSButtonStyle(type: .primary))
             }
         }
-        .padding(20)
+        .padding(DSLayout.spaceL)
         .frame(width: 520)
+        .background(DSColor.surfaceElevated)
+        .cornerRadius(DSLayout.radiusXL)
     }
 }
 

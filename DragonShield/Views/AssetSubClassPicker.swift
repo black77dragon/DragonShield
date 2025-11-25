@@ -34,11 +34,11 @@ struct AssetSubClassPickerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "folder.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .font(.system(size: 11))
+                    .foregroundColor(DSColor.textSecondary)
                 Text("Asset SubClass*")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
+                    .dsCaption()
+                    .foregroundColor(DSColor.textPrimary)
                 Spacer()
             }
 
@@ -47,22 +47,21 @@ struct AssetSubClassPickerView: View {
             } label: {
                 HStack {
                     Text(instrumentGroups.first { $0.id == selectedGroupId }?.name ?? "Select Asset SubClass")
-                        .foregroundColor(.black)
-                        .font(.system(size: 16))
+                        .foregroundColor(DSColor.textPrimary)
+                        .dsBody()
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
+                        .foregroundColor(DSColor.textSecondary)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(DSColor.surfaceSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DSLayout.radiusS)
+                        .stroke(DSColor.border, lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
             }
             .buttonStyle(PlainButtonStyle())
             .sheet(isPresented: $isPresented) {

@@ -149,8 +149,14 @@ struct UnusedInstrumentsTile: DashboardTile {
             }
         }
         .sheet(item: editBinding) { ident in
-            InstrumentEditView(instrumentId: ident.value)
-                .environmentObject(dbManager)
+            InstrumentEditView(
+                instrumentId: ident.value,
+                isPresented: Binding(
+                    get: { editingInstrumentId != nil },
+                    set: { if !$0 { editingInstrumentId = nil } }
+                )
+            )
+            .environmentObject(dbManager)
         }
     }
 }

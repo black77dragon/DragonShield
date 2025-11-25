@@ -19,11 +19,12 @@ struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var todoBoardViewModel = KanbanBoardViewModel()
 
-    @AppStorage("sidebar.showOverview") private var showOverview = true
-    @AppStorage("sidebar.showManagement") private var showManagement = true
-    @AppStorage("sidebar.showConfiguration") private var showConfiguration = true
-    @AppStorage("sidebar.showStaticData") private var showStaticData = true
+    // New AppStorage keys for the new structure
+    @AppStorage("sidebar.showDashboard") private var showDashboard = true
+    @AppStorage("sidebar.showPortfolio") private var showPortfolio = true
+    @AppStorage("sidebar.showMarket") private var showMarket = true
     @AppStorage("sidebar.showSystem") private var showSystem = true
+    @AppStorage("sidebar.showConfiguration") private var showConfiguration = false
 
     private let applicationStartupIconName = "paperplane.circle.fill"
 
@@ -41,23 +42,12 @@ struct SidebarView: View {
 
     var body: some View {
         List {
-            DisclosureGroup("Overview", isExpanded: $showOverview) {
+            // 1. Dashboard Group
+            DisclosureGroup("Dashboard", isExpanded: $showDashboard) {
                 NavigationLink(destination: DashboardView()) {
                     Label("Dashboard", systemImage: "square.grid.3x3.fill")
                 }
-
-                NavigationLink(destination: IchimokuDragonView()) {
-                    Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
-                }
-
-                NavigationLink(destination: PositionsView()) {
-                    Label("Positions", systemImage: "tablecells")
-                }
-
-                NavigationLink(destination: AssetManagementReportView()) {
-                    Label("Asset Management Report", systemImage: "chart.bar.fill")
-                }
-
+                
                 NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {
                     HStack(spacing: 8) {
                         Label("To-Do Board", systemImage: "list.bullet.rectangle.fill")
@@ -68,104 +58,120 @@ struct SidebarView: View {
                 }
             }
 
-            DisclosureGroup("Management", isExpanded: $showManagement) {
-                NavigationLink(destination: AllocationDashboardView()) {
-                    Label("Asset Allocation", systemImage: "chart.pie")
-                }
+            // 2. Portfolio Group
+            DisclosureGroup("Portfolio", isExpanded: $showPortfolio) {
                 NavigationLink(destination: NewPortfoliosView().environmentObject(dbManager)) {
                     Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
-
-                NavigationLink(destination: PriceUpdatesView().environmentObject(dbManager)) {
-                    Label("Price Updates", systemImage: "dollarsign.circle")
+                
+                NavigationLink(destination: PositionsView()) {
+                    Label("Positions", systemImage: "tablecells")
                 }
-
-                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
-                    Label("Alerts & Events", systemImage: "bell")
+                
+                NavigationLink(destination: AllocationDashboardView()) {
+                    Label("Asset Allocation", systemImage: "chart.pie")
                 }
-
-                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
-                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
+                
+                NavigationLink(destination: AssetManagementReportView()) {
+                    Label("Asset Management Report", systemImage: "chart.bar.fill")
                 }
             }
 
+            // 3. Market Group
+            DisclosureGroup("Market", isExpanded: $showMarket) {
+                NavigationLink(destination: PortfolioView()) {
+                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
+                }
+                
+                NavigationLink(destination: PriceUpdatesView().environmentObject(dbManager)) {
+                    Label("Price Updates", systemImage: "dollarsign.circle")
+                }
+                
+                NavigationLink(destination: CurrenciesView()) {
+                    Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
+                }
+                
+                NavigationLink(destination: IchimokuDragonView()) {
+                    Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
+                }
+            }
+
+            // 4. System Group
+            DisclosureGroup("System", isExpanded: $showSystem) {
+                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
+                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
+                }
+                
+                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
+                    Label("Alerts & Events", systemImage: "bell")
+                }
+                
+                NavigationLink(destination: DataImportExportView()) {
+                    Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
+                }
+                
+                NavigationLink(destination: SettingsView()) {
+                    Label("Settings", systemImage: "gear")
+                }
+                
+                NavigationLink(destination: ApplicationStartupView()) {
+                    Label("Application Start Up", systemImage: applicationStartupIconName)
+                }
+                
+                NavigationLink(destination: DatabaseManagementView()) {
+                    Label("Database Management", systemImage: "externaldrive.badge.timemachine")
+                }
+            }
+
+            // 5. Configuration Group
             DisclosureGroup("Configuration", isExpanded: $showConfiguration) {
                 NavigationLink(destination: InstitutionsView()) {
                     Label("Institutions", systemImage: "building.2.fill")
                 }
-
-                NavigationLink(destination: CurrenciesView()) {
-                    Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
-                }
-
+                
                 NavigationLink(destination: AccountsView()) {
                     Label("Accounts", systemImage: "building.columns.fill")
                 }
-
-                NavigationLink(destination: PortfolioView()) {
-                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
-                }
-            }
-
-            DisclosureGroup("Static Data", isExpanded: $showStaticData) {
+                
                 NavigationLink(destination: ClassManagementView()) {
                     Label("Asset Classes", systemImage: "folder")
                 }
-
+                
                 NavigationLink(destination: AccountTypesView().environmentObject(dbManager)) {
                     Label("Account Types", systemImage: "creditcard")
                 }
-
+                
                 NavigationLink(destination: TransactionTypesView()) {
                     Label("Transaction Types", systemImage: "tag.circle.fill")
                 }
-
+                
                 NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
                     Label("Theme Statuses", systemImage: "paintpalette")
                 }
-
+                
                 NavigationLink(destination: NewsTypeSettingsView().environmentObject(dbManager)) {
                     Label("News Types", systemImage: "newspaper")
                 }
-
+                
                 NavigationLink(destination: AlertTriggerTypeSettingsView().environmentObject(dbManager)) {
                     Label("Alert Trigger Types", systemImage: "bell.badge")
                 }
-
+                
                 NavigationLink(destination: TagSettingsView().environmentObject(dbManager)) {
                     Label("Tags", systemImage: "tag.fill")
-                }
-            }
-
-            DisclosureGroup("System", isExpanded: $showSystem) {
-                NavigationLink(destination: ApplicationStartupView()) {
-                    Label("Application Start Up", systemImage: applicationStartupIconName)
-                }
-
-                NavigationLink(destination: DataImportExportView()) {
-                    Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
-                }
-
-                NavigationLink(destination: DatabaseManagementView()) {
-                    Label("Database Management", systemImage: "externaldrive.badge.timemachine")
-                }
-
-                NavigationLink(destination: SettingsView()) {
-                    Label("Settings", systemImage: "gear")
                 }
             }
 
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("About")
-                        .font(.headline)
+                        .dsHeaderSmall()
                     VStack(alignment: .leading, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("VERSION")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .dsCaption()
                             Text(AppVersionProvider.version)
-                                .font(.callout)
+                                .dsBody()
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -173,10 +179,9 @@ struct SidebarView: View {
                         if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("VERSION_LAST_CHANGE")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .dsCaption()
                                 Text(lastChange)
-                                    .font(.callout)
+                                    .dsBody()
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -184,8 +189,7 @@ struct SidebarView: View {
                         }
                         if let branch = GitInfoProvider.branch, !branch.isEmpty {
                             Text("Branch: \(branch)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .dsCaption()
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -197,7 +201,7 @@ struct SidebarView: View {
             .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 16))
         }
         .listStyle(.sidebar)
-        .navigationTitle("Dragon Shield")
+        .navigationTitle("Dragon Shield (Gemini Version)")
         .onAppear {
             todoBoardViewModel.refreshFromStorage()
         }
@@ -217,7 +221,7 @@ private struct BoardStatCard: View {
     let stat: BoardStat
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: DSLayout.spaceS) {
             ZStack {
                 Circle()
                     .fill(stat.accent.opacity(0.12))
@@ -229,27 +233,27 @@ private struct BoardStatCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(stat.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.ds.caption)
+                    .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(1)
                 Text(stat.value)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.ds.headerMedium)
                     .foregroundStyle(stat.accent)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DSLayout.spaceM)
         .padding(.vertical, 10)
         .frame(width: 180, height: 60, alignment: .center)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+            RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                .fill(DSColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(hex: "E6E8F5"), lineWidth: 0.6)
+            RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                .stroke(DSColor.border, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
     }
@@ -277,48 +281,48 @@ private extension KanbanColumn {
         switch self {
         case .backlog:
             return KanbanColumnPalette(
-                accent: Color(hex: "F29933"),
-                backgroundTop: Color(hex: "FFF8E9"),
-                backgroundBottom: Color(hex: "FFEFD1"),
-                cardBackground: .white,
-                cardBorder: Color(hex: "FFE2B2"),
-                filterActiveBackground: Color(hex: "FFF3DF")
+                accent: DSColor.accentWarning,
+                backgroundTop: DSColor.surface,
+                backgroundBottom: DSColor.surfaceSecondary,
+                cardBackground: DSColor.surface,
+                cardBorder: DSColor.border,
+                filterActiveBackground: DSColor.surfaceHighlight
             )
         case .prioritised:
             return KanbanColumnPalette(
-                accent: Color(hex: "F45B7A"),
-                backgroundTop: Color(hex: "FFEFF4"),
-                backgroundBottom: Color(hex: "FFDDE5"),
-                cardBackground: .white,
-                cardBorder: Color(hex: "FFC5D5"),
-                filterActiveBackground: Color(hex: "FFE7ED")
+                accent: DSColor.accentError,
+                backgroundTop: DSColor.surface,
+                backgroundBottom: DSColor.surfaceSecondary,
+                cardBackground: DSColor.surface,
+                cardBorder: DSColor.border,
+                filterActiveBackground: DSColor.surfaceHighlight
             )
         case .doing:
             return KanbanColumnPalette(
-                accent: Color(hex: "7A6BFF"),
-                backgroundTop: Color(hex: "F2F1FF"),
-                backgroundBottom: Color(hex: "E3E1FF"),
-                cardBackground: .white,
-                cardBorder: Color(hex: "CCC8FF"),
-                filterActiveBackground: Color(hex: "ECEBFF")
+                accent: DSColor.accentMain,
+                backgroundTop: DSColor.surface,
+                backgroundBottom: DSColor.surfaceSecondary,
+                cardBackground: DSColor.surface,
+                cardBorder: DSColor.border,
+                filterActiveBackground: DSColor.surfaceHighlight
             )
         case .done:
             return KanbanColumnPalette(
-                accent: Color(hex: "42C195"),
-                backgroundTop: Color(hex: "EEFBF5"),
-                backgroundBottom: Color(hex: "DBF3E7"),
-                cardBackground: .white,
-                cardBorder: Color(hex: "B5E8D4"),
-                filterActiveBackground: Color(hex: "E8F7F0")
+                accent: DSColor.accentSuccess,
+                backgroundTop: DSColor.surface,
+                backgroundBottom: DSColor.surfaceSecondary,
+                cardBackground: DSColor.surface,
+                cardBorder: DSColor.border,
+                filterActiveBackground: DSColor.surfaceHighlight
             )
         case .archived:
             return KanbanColumnPalette(
-                accent: Color(hex: "8F95A5"),
-                backgroundTop: Color(hex: "F4F5F8"),
-                backgroundBottom: Color(hex: "E7E8EF"),
-                cardBackground: .white,
-                cardBorder: Color(hex: "D5D6E0"),
-                filterActiveBackground: Color(hex: "F0F1F5")
+                accent: DSColor.textTertiary,
+                backgroundTop: DSColor.surface,
+                backgroundBottom: DSColor.surfaceSecondary,
+                cardBackground: DSColor.surface,
+                cardBorder: DSColor.border,
+                filterActiveBackground: DSColor.surfaceHighlight
             )
         }
     }
@@ -379,10 +383,9 @@ private struct TagBadge: View {
 
     var body: some View {
         let pill = Text("#\(tag.displayName)")
-            .font(.caption)
-            .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .font(.ds.caption)
+            .padding(.horizontal, DSLayout.spaceS)
+            .padding(.vertical, DSLayout.spaceXS)
             .background(
                 Capsule()
                     .fill(baseColor.opacity(action == nil ? 0.22 : 0.18))
@@ -394,7 +397,7 @@ private struct TagBadge: View {
                 pill
                     .overlay(
                         Capsule()
-                            .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: isSelected ? 1.5 : 1)
+                            .stroke(isSelected ? DSColor.accentMain : DSColor.border, lineWidth: isSelected ? 1.5 : 1)
                     )
             }
             .buttonStyle(.plain)
@@ -505,7 +508,7 @@ private struct TodoEditorSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
-                .font(.title2.weight(.semibold))
+                .dsHeaderMedium()
 
             TextField("Task description", text: $description, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
@@ -557,8 +560,7 @@ private struct TodoEditorSheet: View {
                     .pickerStyle(.segmented)
 
                     Text("Repeat-enabled tasks reset themselves after completion.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                        .dsCaption()
                 }
             }
             .onChange(of: isRepeating) { _, newValue in
@@ -574,11 +576,10 @@ private struct TodoEditorSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tags")
-                    .font(.headline)
+                    .dsHeaderSmall()
                 if availableTags.isEmpty {
                     Text("No tags configured yet. Manage tags via Settings → Tags.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                        .dsCaption()
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], alignment: .leading, spacing: 8) {
