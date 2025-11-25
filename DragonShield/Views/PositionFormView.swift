@@ -78,14 +78,15 @@ struct PositionFormView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(position == nil ? "Add Position" : "Edit Position")
-                .font(.title2).bold()
+                .dsHeaderLarge()
+                .foregroundColor(DSColor.textPrimary)
             formFields
             HStack {
                 Spacer()
                 Button("Cancel") { presentationMode.wrappedValue.dismiss() }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .secondary))
                 Button("Save") { save() }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .primary))
                     .keyboardShortcut(.defaultAction)
                     .disabled(!isValid)
             }
@@ -95,7 +96,8 @@ struct PositionFormView: View {
         .sheet(isPresented: $showInstrumentPicker) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Choose Instrument")
-                    .font(.headline)
+                    .dsHeaderSmall()
+                    .foregroundColor(DSColor.textPrimary)
                 FloatingSearchPicker(
                     title: "Choose Instrument",
                     placeholder: "Search instrument, ticker, or ISIN",
@@ -165,19 +167,20 @@ struct PositionFormView: View {
 
                 HStack {
                     Text("Institution")
-                        .font(.headline)
+                        .dsBody()
+                        .foregroundColor(DSColor.textPrimary)
                     Spacer()
                     Text(institutionName)
                         .frame(width: 200, alignment: .trailing)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DSColor.textSecondary)
                 }
                 .accessibilityLabel("Institution")
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Instrument").font(.headline)
+                    Text("Instrument").dsBody().foregroundColor(DSColor.textPrimary)
                     HStack(spacing: 8) {
                         Text(selectedInstrumentDisplay)
-                            .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? .secondary : .primary)
+                            .foregroundColor(selectedInstrumentDisplay == "No instrument selected" ? DSColor.textSecondary : DSColor.textPrimary)
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,11 +195,12 @@ struct PositionFormView: View {
 
                 HStack {
                     Text("Currency")
-                        .font(.headline)
+                        .dsBody()
+                        .foregroundColor(DSColor.textPrimary)
                     Spacer()
                     Text(currencyCode)
                         .frame(width: 120, alignment: .trailing)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DSColor.textSecondary)
                 }
                 .accessibilityLabel("Currency")
             }
@@ -206,15 +210,16 @@ struct PositionFormView: View {
                 numericField(label: "Purchase Price", text: $purchasePrice)
                 HStack {
                     Text("Latest Price")
-                        .font(.headline)
+                        .dsBody()
+                        .foregroundColor(DSColor.textPrimary)
                     Spacer()
                     if let p = latestInstrumentPrice, !currencyCode.isEmpty {
                         let formatted = Self.priceFormatter.string(from: NSNumber(value: p)) ?? String(format: "%.2f", p)
                         Text("\(formatted) \(currencyCode)")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DSColor.textSecondary)
                     } else {
                         Text("—")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DSColor.textSecondary)
                     }
                 }
             }
@@ -228,7 +233,7 @@ struct PositionFormView: View {
                     .frame(height: 60)
                     .overlay(
                         RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.gray.opacity(0.3))
+                            .stroke(DSColor.border)
                     )
                     .accessibilityLabel("Notes")
             }
@@ -239,14 +244,15 @@ struct PositionFormView: View {
     private func numericField(label: String, text: Binding<String>) -> some View {
         HStack {
             Text(label)
-                .font(.headline)
+                .dsBody()
+                .foregroundColor(DSColor.textPrimary)
             Spacer()
             TextField("", text: text)
                 .multilineTextAlignment(.trailing)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
                 .accessibilityLabel(label)
-                .font(.body)
+                .font(.ds.body)
         }
     }
 
@@ -269,12 +275,13 @@ struct PositionFormView: View {
     private func dateField(label: String, date: Binding<Date>, onSetToday: (() -> Void)? = nil) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.headline)
+                .dsBody()
+                .foregroundColor(DSColor.textPrimary)
             Spacer(minLength: 8)
             DatePicker("", selection: date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.field)
-                .font(.body)
+                .font(.ds.body)
             if let onSetToday {
                 Button(action: onSetToday) {
                     Image(systemName: "calendar.badge.clock")

@@ -314,16 +314,8 @@ struct PositionsView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 16) {
                 header
@@ -338,7 +330,7 @@ struct PositionsView: View {
                 }
                 footerActions
             }
-            .padding(24)
+            .padding(DSLayout.spaceL)
         }
         .onAppear {
             tableModel.connect(to: dbManager)
@@ -375,20 +367,21 @@ struct PositionsView: View {
 
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceM) {
                     Image(systemName: "tablecells")
                         .font(.system(size: 32))
-                        .foregroundColor(.blue)
+                        .foregroundColor(DSColor.accentMain)
                     Text("Positions")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .dsHeaderLarge()
+                        .foregroundColor(DSColor.textPrimary)
                 }
                 Text("Holdings table with filters, resizing, and persistence")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 8) {
+            VStack(alignment: .trailing, spacing: DSLayout.spaceS) {
                 statBlock(title: "Positions", value: "\(positions.count)")
                 statBlock(
                     title: "Filtered Value (CHF)",
@@ -401,32 +394,31 @@ struct PositionsView: View {
 
     private var searchAndFilters: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSLayout.spaceS) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
                 TextField("Search positions…", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
+                    .font(.ds.body)
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+                            .foregroundColor(DSColor.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                    )
+            .padding(.horizontal, DSLayout.spaceM)
+            .padding(.vertical, DSLayout.spaceS)
+            .background(DSColor.surface)
+            .cornerRadius(DSLayout.radiusM)
+            .overlay(
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .stroke(DSColor.border, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
 
             HStack(spacing: 12) {
                 filterMenu(
@@ -459,10 +451,10 @@ struct PositionsView: View {
             }
 
             if isFiltering {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
                     Text("Showing \(filteredPositions.count) of \(positions.count) positions")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
                     filterChips
                 }
             }
@@ -574,7 +566,7 @@ struct PositionsView: View {
             } else {
                 Text(column.title)
                     .font(.system(size: fontConfig.header, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundColor(DSColor.textPrimary)
             }
         }
     }
@@ -616,15 +608,14 @@ struct PositionsView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DSLayout.spaceL) {
             Spacer()
             Image(systemName: "tray")
                 .font(.system(size: 64))
-                .foregroundColor(.gray.opacity(0.4))
+                .foregroundColor(DSColor.textTertiary)
             Text(isFiltering ? "No positions match your filters" : "No positions available")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(.gray)
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.textSecondary)
             if isFiltering {
                 Button("Clear Filters") {
                     searchText = ""
@@ -632,6 +623,7 @@ struct PositionsView: View {
                     institutionFilters.removeAll()
                     assetClassFilters.removeAll()
                 }
+                .buttonStyle(DSButtonStyle(type: .secondary))
             }
             Spacer()
         }
@@ -639,7 +631,7 @@ struct PositionsView: View {
     }
 
     private var footerActions: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             if isRefreshing {
                 ProgressView()
                     .progressViewStyle(.circular)
@@ -648,7 +640,7 @@ struct PositionsView: View {
             Button(action: refresh) {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(DSButtonStyle(type: .secondary))
             .disabled(isRefreshing)
 
             Button {
@@ -656,14 +648,14 @@ struct PositionsView: View {
             } label: {
                 Label("New Position", systemImage: "plus")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(DSButtonStyle(type: .primary))
 
             Button {
                 editSelectedPosition()
             } label: {
                 Label("Edit Selected", systemImage: "square.and.pencil")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(DSButtonStyle(type: .secondary))
             .disabled(selectedPositionId == nil)
 
             Button {
@@ -671,8 +663,7 @@ struct PositionsView: View {
             } label: {
                 Label("Delete Selected", systemImage: "trash")
             }
-            .buttonStyle(.bordered)
-            .tint(.red)
+            .buttonStyle(DSButtonStyle(type: .secondary)) // Using secondary for destructive action, could add a destructive style later
             .disabled(selectedPositionId == nil)
 
             Spacer()
@@ -681,8 +672,8 @@ struct PositionsView: View {
                let position = positions.first(where: { $0.id == selected })
             {
                 Text("Selected: \(position.instrumentName) — \(position.accountName)")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
+                    .dsCaption()
+                    .foregroundColor(DSColor.textSecondary)
             }
         }
     }
@@ -876,12 +867,11 @@ struct PositionsView: View {
     private func statBlock(title: String, value: String) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(title.uppercased())
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .dsCaption()
+                .foregroundColor(DSColor.textSecondary)
             Text(value)
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.textPrimary)
         }
     }
 
@@ -911,23 +901,26 @@ struct PositionsView: View {
             Label(title, systemImage: icon)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.08))
+                .background(DSColor.surfaceSecondary)
                 .clipShape(Capsule())
+                .foregroundColor(DSColor.textPrimary)
         }
     }
 
     private func filterChip(label: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.caption)
+                .dsCaption()
+                .foregroundColor(DSColor.textPrimary)
             Button(action: action) {
                 Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(DSColor.textSecondary)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.12))
+        .background(DSColor.surfaceSecondary)
         .clipShape(Capsule())
     }
 
@@ -990,15 +983,15 @@ private struct PositionsRowView: View {
         .padding(.vertical, max(4, fontConfig.badge - 6))
         .background(
             Rectangle()
-                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
         .overlay(
             Rectangle()
-                .fill(Color.black.opacity(0.05))
+                .fill(DSColor.border)
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -1014,11 +1007,11 @@ private struct PositionsRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(position.instrumentName)
                     .font(.system(size: fontConfig.primary, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundColor(DSColor.textPrimary)
                 if let sector = position.instrumentSector, !sector.isEmpty {
                     Text(sector)
                         .font(.system(size: fontConfig.secondary))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DSColor.textSecondary)
                 }
             }
             .padding(.leading, PositionsView.columnTextInset)
@@ -1028,10 +1021,10 @@ private struct PositionsRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(position.accountName)
                     .font(.system(size: fontConfig.secondary))
-                    .foregroundColor(.primary)
+                    .foregroundColor(DSColor.textPrimary)
                 Text(position.institutionName)
                     .font(.system(size: fontConfig.badge))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DSColor.textSecondary)
             }
             .padding(.leading, PositionsView.columnTextInset)
             .padding(.trailing, 8)
@@ -1039,17 +1032,17 @@ private struct PositionsRowView: View {
         case .institution:
             Text(position.institutionName)
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.institution), alignment: .leading)
         case .currency:
             Text(position.instrumentCurrency.uppercased())
                 .font(.system(size: fontConfig.badge, weight: .semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textOnAccent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.blue.opacity(0.12))
+                .background(DSColor.accentMain)
                 .clipShape(Capsule())
                 .padding(.leading, PositionsView.columnTextInset)
                 .frame(width: widthFor(.currency), alignment: .leading)
@@ -1071,77 +1064,77 @@ private struct PositionsRowView: View {
         case .purchaseValue:
             Text(monetaryText(position.purchasePrice))
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(position.purchasePrice == nil ? .secondary : .primary)
+                .foregroundColor(position.purchasePrice == nil ? DSColor.textTertiary : DSColor.textPrimary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.purchaseValue), alignment: .trailing)
         case .currentValue:
             Text(monetaryText(position.currentPrice))
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(position.currentPrice == nil ? .secondary : .primary)
+                .foregroundColor(position.currentPrice == nil ? DSColor.textTertiary : DSColor.textPrimary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.currentValue), alignment: .trailing)
         case .valueOriginal:
             Text(formattedOriginalValue)
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(originalValue == nil ? .secondary : .primary)
+                .foregroundColor(originalValue == nil ? DSColor.textTertiary : DSColor.textPrimary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.valueOriginal), alignment: .trailing)
         case .valueChf:
             Text(formattedChfValue)
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(chfValue == nil ? .secondary : .primary)
+                .foregroundColor(chfValue == nil ? DSColor.textTertiary : DSColor.textPrimary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.valueChf), alignment: .trailing)
         case .reportDate:
             Text(dateText(position.reportDate))
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.reportDate), alignment: .leading)
         case .uploadedAt:
             Text(dateTimeText(position.uploadedAt))
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.uploadedAt), alignment: .leading)
         case .assetClass:
             Text(position.assetClass ?? "–")
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.assetClass), alignment: .leading)
         case .assetSubClass:
             Text(position.assetSubClass ?? "–")
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.assetSubClass), alignment: .leading)
         case .sector:
             Text(position.instrumentSector ?? "–")
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.sector), alignment: .leading)
         case .country:
             Text(position.instrumentCountry ?? "–")
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.country), alignment: .leading)
         case .importSession:
             Text(position.importSessionId.map { "#\($0)" } ?? "—")
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.importSession), alignment: .trailing)
@@ -1175,23 +1168,26 @@ private struct PositionsRowView: View {
                     showNotes = true
                 } label: {
                     Image(systemName: "note.text")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(DSColor.accentMain)
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showNotes) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Notes")
-                            .font(.headline)
+                            .dsHeaderSmall()
+                            .foregroundColor(DSColor.textPrimary)
                         Text(notes)
-                            .font(.body)
+                            .dsBody()
+                            .foregroundColor(DSColor.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding()
+                    .padding(DSLayout.spaceM)
                     .frame(width: 260)
+                    .background(DSColor.surface)
                 }
             } else {
                 Image(systemName: "note.text")
-                    .foregroundColor(.gray.opacity(0.3))
+                    .foregroundColor(DSColor.textTertiary)
             }
         }
     }

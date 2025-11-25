@@ -38,13 +38,14 @@ struct AccountDetailWindowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
             header
             positionsTable
             Spacer()
         }
-        .padding(16)
+        .padding(DSLayout.spaceM)
         .frame(minWidth: 600, minHeight: 400)
+        .background(DSColor.background)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") {
@@ -64,87 +65,98 @@ struct AccountDetailWindowView: View {
         }
         .overlay(alignment: .topTrailing) {
             if viewModel.showSaved {
-                Text("Saved")
-                    .padding(6)
-                    .background(Color.green.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
+                DSBadge(text: "Saved", color: DSColor.accentSuccess)
+                    .padding(DSLayout.spaceS)
                     .transition(.opacity)
             }
         }
         .onAppear { viewModel.configure(db: dbManager) }
         .sheet(item: $editingInstrument) { target in
-            InstrumentEditView(instrumentId: target.id)
-                .environmentObject(dbManager)
+            InstrumentEditView(
+                instrumentId: target.id,
+                isPresented: Binding(
+                    get: { editingInstrument != nil },
+                    set: { if !$0 { editingInstrument = nil } }
+                )
+            )
+            .environmentObject(dbManager)
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
             Text("Update Account Information")
-                .font(.system(size: 22, weight: .bold))
+                .dsHeaderLarge()
+                .foregroundColor(DSColor.textPrimary)
             Text(viewModel.account.accountName)
-                .font(.headline)
-                .foregroundColor(.accentColor)
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.accentMain)
             Text("Account Number: \(viewModel.account.accountNumber)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .dsBody()
+                .foregroundColor(DSColor.textSecondary)
             Text("Institution: \(viewModel.account.institutionName)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .dsBody()
+                .foregroundColor(DSColor.textSecondary)
             if let d = viewModel.account.earliestInstrumentLastUpdatedAt {
                 Text("Earliest Update: \(DateFormatter.swissDate.string(from: d))")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .dsCaption()
+                    .foregroundColor(DSColor.textTertiary)
             }
         }
     }
 
     private var positionsTable: some View {
         ScrollView {
-            Grid(horizontalSpacing: 16, verticalSpacing: 16) {
+            Grid(horizontalSpacing: DSLayout.spaceM, verticalSpacing: DSLayout.spaceM) {
                 ForEach(Array(viewModel.positions.enumerated()), id: \.element.id) { index, item in
                     GridRow {
                         Text(item.instrumentName)
+                            .dsBody()
+                            .foregroundColor(DSColor.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("Quantity")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                             TextField("", value: $viewModel.positions[index].quantity, formatter: Self.numberFormatter)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .font(.ds.mono)
                                 .frame(width: 80)
                         }
 
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("Latest Price")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 6) {
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
+                            HStack(spacing: DSLayout.spaceXS) {
                                 TextField("", text: priceBinding(for: index))
-                                    .textFieldStyle(.roundedBorder)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .font(.ds.mono)
                                     .multilineTextAlignment(.trailing)
                                     .frame(width: 100, alignment: .trailing)
                                 Text(item.instrumentCurrency)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .dsCaption()
+                                    .foregroundColor(DSColor.textSecondary)
                             }
                             Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
                                 .buttonStyle(.link)
-                                .font(.caption)
+                                .font(.ds.caption)
                                 .frame(width: 140, alignment: .leading)
                         }
 
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("Price As Of")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                             priceAsOfStyledText(for: item.instrumentUpdatedAt)
                                 .frame(width: 120, alignment: .leading)
                         }
                     }
+                    Divider()
                 }
             }
+            .padding(DSLayout.spaceS)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -191,7 +203,7 @@ private extension AccountDetailWindowView {
         let formatted = formattedPriceAsOf(date)
         let stale = priceIsStale(date)
         Text(formatted)
-            .font(.caption2.weight(stale ? .bold : .regular))
-            .foregroundColor(stale ? .red : .secondary)
+            .font(stale ? .ds.caption.weight(.bold) : .ds.caption)
+            .foregroundColor(stale ? DSColor.accentError : DSColor.textSecondary)
     }
 }

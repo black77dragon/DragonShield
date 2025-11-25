@@ -760,11 +760,8 @@ struct PortfolioView: View {
         }
         .sheet(isPresented: $showEditInstrumentSheet) {
             if let asset = selectedAsset {
-                InstrumentEditView(instrumentId: asset.id)
-                    .onDisappear {
-                        assetManager.loadAssets()
-                        selectedAsset = nil
-                    }
+                InstrumentEditView(instrumentId: asset.id, isPresented: $showEditInstrumentSheet)
+                    .environmentObject(dbManager)
             }
         }
         .sheet(isPresented: $showUnusedReport) {

@@ -137,7 +137,7 @@ struct NewPortfoliosView: View {
     @State private var showingAddSheet = false
     @State private var headerOpacity: Double = 0
     @State private var contentOffset: CGFloat = 30
-    @State private var buttonsOpacity: Double = 0
+
 
     @State private var columnFractions: [ThemeColumn: CGFloat]
     @State private var resolvedColumnWidths: [ThemeColumn: CGFloat]
@@ -168,43 +168,38 @@ struct NewPortfoliosView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                CustomToolbar(actions: [
+                    ToolbarAction(icon: "plus", tooltip: "Create New Portfolio", action: { showingAddSheet = true }),
+                    ToolbarAction(icon: "arrow.turn.down.right", tooltip: "Open Selected Portfolio", isDisabled: selectedTheme == nil, action: openSelected),
+                    ToolbarAction(icon: "slider.horizontal.3", tooltip: "Columns", action: { /* handled by menu */ }),
+                    ToolbarAction(icon: "eye", tooltip: "View Settings", action: { /* handled by menu */ })
+                ])
+                .opacity(headerOpacity)
+                
                 header
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
+                    .padding(.horizontal, DSLayout.spaceL)
+                    .padding(.top, DSLayout.spaceL)
                     .opacity(headerOpacity)
                 searchAndToggles
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                    .padding(.horizontal, DSLayout.spaceL)
+                    .padding(.top, DSLayout.spaceM)
                     .opacity(headerOpacity)
                 filterChips
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
-                    .opacity(headerOpacity)
-                tableControls
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
+                    .padding(.horizontal, DSLayout.spaceL)
+                    .padding(.top, DSLayout.spaceS)
                     .opacity(headerOpacity)
                 tableContent
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DSLayout.spaceL)
                     .padding(.top, 12)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, DSLayout.spaceL)
                     .offset(y: contentOffset)
-                actionBar
-                    .opacity(buttonsOpacity)
             }
         }
+
         .onAppear {
             animateEntrance()
             hydratePreferencesIfNeeded()
@@ -226,44 +221,53 @@ struct NewPortfoliosView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: DSLayout.spaceM) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Portfolios")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .dsHeaderLarge()
                 Text("Modern table view for managing portfolio themes")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(filteredThemes.count)")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.accentColor)
+                    .dsStatLarge()
+                    .foregroundColor(DSColor.accentMain)
                 Text("Themes visible")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .dsCaption()
             }
         }
     }
 
     private var searchAndToggles: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 8) {
+        HStack(spacing: DSLayout.spaceM) {
+            HStack(spacing: DSLayout.spaceS) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textTertiary)
                 TextField("Search by name or code", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
+                    .font(.ds.body)
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
-            .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+            .background(
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .fill(DSColor.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .stroke(DSColor.border, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
             .frame(minWidth: 280)
 
             Divider().frame(height: 32)
 
             Toggle("Show archived", isOn: $showArchivedThemes)
+                .toggleStyle(.switch)
                 .onChange(of: showArchivedThemes) { _, _ in loadData() }
             Toggle("Show soft-deleted", isOn: $showSoftDeletedThemes)
+                .toggleStyle(.switch)
                 .onChange(of: showSoftDeletedThemes) { _, _ in loadData() }
             Spacer()
         }
@@ -280,28 +284,7 @@ struct NewPortfoliosView: View {
         }
     }
 
-    private var tableControls: some View {
-        HStack(spacing: 12) {
-            columnsMenu
-            fontPicker
-            Spacer()
-            if visibleColumns != NewPortfoliosView.defaultVisibleColumns || selectedFontSize != .medium {
-                Button("Reset View", action: resetTablePreferences)
-                    .buttonStyle(.link)
-            }
-            Button(action: openSelected) {
-                Label("Open", systemImage: "arrow.turn.down.right")
-            }
-            .disabled(selectedTheme == nil)
-            Button(action: { showingAddSheet = true }) {
-                Label("Add new Portfolio", systemImage: "plus")
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-            .foregroundColor(.black)
-        }
-        .font(.system(size: 12))
-    }
+
 
     private var columnsMenu: some View {
         Menu {
@@ -321,17 +304,7 @@ struct NewPortfoliosView: View {
         }
     }
 
-    private var fontPicker: some View {
-        Picker("Font Size", selection: $selectedFontSize) {
-            ForEach(TableFontSize.allCases, id: \.self) { size in
-                Text(size.label).tag(size)
-            }
-        }
-        .pickerStyle(.segmented)
-        .frame(maxWidth: 260)
-        .labelsHidden()
-        .onChange(of: selectedFontSize) { _, _ in persistFontSize() }
-    }
+
 
     private var tableContent: some View {
         Group {
@@ -400,11 +373,11 @@ struct NewPortfoliosView: View {
             }
         }
         .padding(.trailing, 12)
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
         .background(
             Rectangle()
-                .fill(headerBackground)
-                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
+                .fill(DSColor.surfaceSecondary)
+                .overlay(Rectangle().stroke(DSColor.border, lineWidth: 1))
         )
         .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
@@ -436,36 +409,7 @@ struct NewPortfoliosView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var actionBar: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(Color.gray.opacity(0.2)).frame(height: 1)
-            HStack(spacing: 16) {
-                Button(action: { showingAddSheet = true }) {
-                    Label("Add new Portfolio", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
 
-                Button(action: openSelected) {
-                    Label("Open", systemImage: "arrow.turn.down.right")
-                }
-                .disabled(selectedTheme == nil)
-
-                Spacer()
-
-                if let selected = selectedTheme {
-                    Text("Selected: \(selected.name)")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(.regularMaterial)
-        }
-    }
 
     private func alignment(for column: ThemeColumn) -> Alignment {
         switch column {
@@ -931,7 +875,6 @@ struct NewPortfoliosView: View {
     private func animateEntrance() {
         withAnimation(.easeOut(duration: 0.6)) {
             headerOpacity = 1
-            buttonsOpacity = 1
         }
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0.3)) {
             contentOffset = 0
@@ -978,15 +921,15 @@ private struct PortfolioThemeRowView: View {
         .padding(.vertical, verticalPadding)
         .background(
             Rectangle()
-                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
         .overlay(
             Rectangle()
-                .fill(Color.black.opacity(0.05))
+                .fill(DSColor.border)
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -1021,16 +964,15 @@ private struct PortfolioThemeRowView: View {
         case .name:
             HStack(spacing: 6) {
                 Text(theme.name)
-                    .font(.system(size: fontConfig.nameSize, weight: .medium))
-                    .foregroundColor(.primary)
+                    .dsBody()
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 if let archivedAt = theme.archivedAt, !archivedAt.isEmpty {
-                    badge(text: "Archived", tint: .orange)
+                    DSBadge(text: "Archived", color: DSColor.accentWarning)
                 }
                 if theme.softDelete {
-                    badge(text: "Soft Deleted", tint: .pink)
+                    DSBadge(text: "Soft Deleted", color: DSColor.accentError)
                 }
             }
             .padding(.leading, NewPortfoliosView.columnTextInset)
@@ -1038,8 +980,7 @@ private struct PortfolioThemeRowView: View {
             .frame(width: widthFor(.name), alignment: .leading)
         case .code:
             Text(theme.code)
-                .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(.secondary)
+                .dsMonoSmall()
                 .lineLimit(nil)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1052,7 +993,7 @@ private struct PortfolioThemeRowView: View {
                     .fill(statusColor)
                     .frame(width: 8, height: 8)
                 Text(status?.name ?? "—")
-                    .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                    .dsBodySmall()
                     .foregroundColor(statusColor)
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
@@ -1066,14 +1007,13 @@ private struct PortfolioThemeRowView: View {
         case .totalValue:
             if let value = theme.totalValueBase, let formatted = formattedTotalValue(value) {
                 Text(formatted)
-                    .font(.system(size: fontConfig.secondarySize, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.primary)
+                    .dsMono()
                     .padding(.trailing, 8)
                     .frame(width: widthFor(.totalValue), alignment: .trailing)
             } else {
                 HStack(spacing: 4) {
                     Text("—")
-                        .foregroundColor(.secondary)
+                        .dsBodySmall()
                     ProgressView().controlSize(.small)
                 }
                 .padding(.trailing, 8)
@@ -1081,14 +1021,12 @@ private struct PortfolioThemeRowView: View {
             }
         case .instruments:
             Text("\(theme.instrumentCount)")
-                .font(.system(size: fontConfig.secondarySize, weight: .semibold))
-                .foregroundColor(.primary)
+                .dsBody()
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.instruments), alignment: .trailing)
         case .description:
             Text(theme.description ?? "—")
-                .font(.system(size: fontConfig.secondarySize))
-                .foregroundColor(.secondary)
+                .dsBodySmall()
                 .lineLimit(nil)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1104,17 +1042,17 @@ private struct PortfolioThemeRowView: View {
             return Color(hex: status.colorHex)
         }
         if theme.archivedAt != nil {
-            return Color.orange
+            return DSColor.accentWarning
         }
-        return .secondary
+        return DSColor.textSecondary
     }
 
     private func updatedAtText() -> some View {
         let isStale = isUpdatedDateStale(theme.updatedAt)
         return Text(DateFormatting.dateOnly(theme.updatedAt))
-            .font(.system(size: fontConfig.secondarySize))
+            .dsBodySmall()
             .fontWeight(isStale ? .bold : .regular)
-            .foregroundColor(isStale ? .red : .secondary)
+            .foregroundColor(isStale ? DSColor.accentError : DSColor.textSecondary)
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -1153,16 +1091,6 @@ private struct PortfolioThemeRowView: View {
         formatter.minimumFractionDigits = 0
         return formatter
     }()
-
-    private func badge(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.system(size: fontConfig.badgeSize, weight: .semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.15))
-            .clipShape(Capsule())
-            .foregroundColor(tint)
-    }
 }
 
 #if DEBUG

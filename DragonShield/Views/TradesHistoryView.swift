@@ -261,16 +261,8 @@ struct TradesHistoryView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 modernHeader
@@ -327,26 +319,20 @@ struct TradesHistoryView: View {
 
     private var modernHeader: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceM) {
                     Image(systemName: "list.bullet.rectangle.portrait")
                         .font(.system(size: 32))
-                        .foregroundColor(.green)
+                        .foregroundColor(DSColor.accentMain)
 
                     Text("Transactions")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.black, .gray],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .dsHeaderLarge()
+                        .foregroundColor(DSColor.textPrimary)
                 }
 
                 Text("Buy/Sell trades with cash and instrument legs")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
 
             Spacer()
@@ -378,60 +364,61 @@ struct TradesHistoryView: View {
     }
 
     private var infoBanner: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: DSLayout.spaceS) {
             Image(systemName: "info.circle.fill")
-                .foregroundColor(.blue)
+                .foregroundColor(DSColor.accentMain)
             Text("Transactions are NOT updating the custody and cash accounts. They are maintained manually. Currently the purpose of the transaction journal is to calculate the P&L of transactions only.")
-                .font(.callout)
-                .foregroundColor(.primary)
+                .dsCaption()
+                .foregroundColor(DSColor.textPrimary)
         }
-        .padding(12)
-        .background(Color.blue.opacity(0.08))
+        .padding(DSLayout.spaceM)
+        .background(DSColor.surfaceSecondary)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .stroke(DSColor.border, lineWidth: 1)
         )
-        .cornerRadius(8)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 8)
+        .cornerRadius(DSLayout.radiusM)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.bottom, DSLayout.spaceS)
     }
 
     private var searchAndFilters: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSLayout.spaceS) {
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
 
                 TextField("Search instrument/account/currency, #id…", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
+                    .font(.ds.body)
 
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+                            .foregroundColor(DSColor.textSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, DSLayout.spaceM)
+            .padding(.vertical, DSLayout.spaceS)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .fill(DSColor.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                            .stroke(DSColor.border, lineWidth: 1)
                     )
             )
-            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
 
             if showSearchSummary {
                 HStack {
                     Text("Found \(sortedTrades.count) of \(trades.count) trades")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
                     Spacer()
                 }
 
@@ -535,15 +522,15 @@ struct TradesHistoryView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 0)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
+            RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                .fill(DSColor.surface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.12), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                        .stroke(DSColor.border, lineWidth: 1)
                 )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusL))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 
     private var modernTableHeader: some View {
@@ -557,8 +544,8 @@ struct TradesHistoryView: View {
         .padding(.vertical, 2)
         .background(
             Rectangle()
-                .fill(TradesHistoryView.headerBackground)
-                .overlay(Rectangle().stroke(Color.blue.opacity(0.15), lineWidth: 1))
+                .fill(DSColor.surface)
+                .overlay(Rectangle().stroke(DSColor.border, lineWidth: 1))
         )
         .frame(width: max(availableTableWidth, totalMinimumWidth()), alignment: .leading)
     }
@@ -606,7 +593,7 @@ struct TradesHistoryView: View {
                 } else {
                     Text(column.title)
                         .font(.system(size: fontConfig.headerSize, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(DSColor.textPrimary)
                 }
 
                 if let binding = filterBinding, !filterOptions.isEmpty {
@@ -630,7 +617,7 @@ struct TradesHistoryView: View {
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
-                            .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
+                            .foregroundColor(binding.wrappedValue.isEmpty ? DSColor.textTertiary : DSColor.accentMain)
                     }
                     .menuStyle(BorderlessButtonMenuStyle())
                 }
@@ -674,23 +661,16 @@ struct TradesHistoryView: View {
                 let isEmptyState = searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !hasActiveFilters
                 Image(systemName: isEmptyState ? "doc.text.magnifyingglass" : "magnifyingglass")
                     .font(.system(size: 64))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .foregroundStyle(DSColor.textTertiary)
 
                 VStack(spacing: 8) {
                     Text(isEmptyState ? "No transactions yet" : "No matching trades")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.gray)
+                        .dsHeaderSmall()
+                        .foregroundColor(DSColor.textSecondary)
 
                     Text(isEmptyState ? "Start by adding your first trade." : "Try adjusting your search or filters.")
-                        .font(.body)
-                        .foregroundColor(.gray)
+                        .dsBody()
+                        .foregroundColor(DSColor.textSecondary)
                         .multilineTextAlignment(.center)
                 }
 
@@ -701,9 +681,7 @@ struct TradesHistoryView: View {
                     } label: {
                         Label("Add Trade", systemImage: "plus")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                    .foregroundColor(.black)
+                    .buttonStyle(DSButtonStyle(type: .primary))
                 }
             }
 
@@ -715,7 +693,7 @@ struct TradesHistoryView: View {
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.gray.opacity(0.2))
+                .fill(DSColor.border)
                 .frame(height: 1)
 
             HStack(spacing: 16) {
@@ -725,9 +703,7 @@ struct TradesHistoryView: View {
                 } label: {
                     Label("Add Trade", systemImage: "plus")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
+                .buttonStyle(DSButtonStyle(type: .primary))
 
                 Button {
                     if let trade = selectedTrade {
@@ -735,81 +711,42 @@ struct TradesHistoryView: View {
                         showForm = true
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "pencil")
-                        Text("Edit")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.blue)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                    )
+                    Label("Edit", systemImage: "pencil")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(DSButtonStyle(type: .secondary))
                 .disabled(selectedTrade == nil)
 
                 Button {
                     showReverseConfirm = true
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.uturn.left")
-                        Text("Reverse")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.purple)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.purple.opacity(0.1))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                    )
+                    Label("Reverse", systemImage: "arrow.uturn.left")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(DSButtonStyle(type: .secondary))
                 .disabled(selectedTrade == nil)
 
                 Button {
                     showDeleteConfirm = true
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "trash")
-                        Text("Delete")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.red.opacity(0.1))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                    )
+                    Label("Delete", systemImage: "trash")
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(DSButtonStyle(type: .secondary))
                 .disabled(selectedTrade == nil)
 
                 Spacer()
 
                 if let trade = selectedTrade {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DSLayout.spaceS) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(DSColor.accentSuccess)
                         Text("Selected #\(trade.tradeId) • \(DateFormatter.iso8601DateOnly.string(from: trade.date))")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .dsCaption()
+                            .foregroundColor(DSColor.textSecondary)
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(.regularMaterial)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.vertical, DSLayout.spaceM)
+            .background(DSColor.surface)
             .opacity(buttonsOpacity)
         }
     }
@@ -1247,7 +1184,7 @@ struct TradesHistoryView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.1))
+        .background(DSColor.surfaceSecondary)
         .clipShape(Capsule())
     }
 
@@ -1258,15 +1195,15 @@ struct TradesHistoryView: View {
                     .foregroundColor(color)
                 Text(title)
                     .font(.system(size: selectedFontSize.badgeSize))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DSColor.textSecondary)
             }
             Text(value)
                 .font(.system(size: selectedFontSize.baseSize, weight: .semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(color.opacity(0.08))
+        .background(DSColor.surfaceSecondary)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -1482,16 +1419,16 @@ private struct ModernTradeRowView: View {
         .padding(.vertical, 8)
         .background(
             Rectangle()
-                .fill(isSelected ? Color.green.opacity(0.1) : Color.clear)
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? Color.green.opacity(0.25) : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
-                    .fill(Color.black.opacity(0.05))
+                    .fill(DSColor.border)
                     .frame(height: 1)
             }
         }
@@ -1508,7 +1445,7 @@ private struct ModernTradeRowView: View {
         switch column {
         case .tradeId:
             Text("#\(trade.tradeId)")
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .font(.system(size: fontConfig.secondarySize))
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
@@ -1516,21 +1453,21 @@ private struct ModernTradeRowView: View {
         case .date:
             Text(DateFormatter.iso8601DateOnly.string(from: trade.date))
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.date), alignment: .leading)
         case .type:
             Text(trade.typeCode.capitalized)
                 .font(.system(size: fontConfig.primarySize, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.type), alignment: .leading)
         case .instrument:
             Text(trade.instrumentName)
                 .font(.system(size: fontConfig.primarySize, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .padding(.leading, TradesHistoryView.columnTextInset)
@@ -1539,7 +1476,7 @@ private struct ModernTradeRowView: View {
         case .quantity:
             Text(formatNumber(trade.quantity, 4))
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.quantity), alignment: .trailing)
@@ -1547,21 +1484,21 @@ private struct ModernTradeRowView: View {
             let value = trade.instrumentDelta
             Text(formatNumber(value, 4))
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(value >= 0 ? .green : .red)
+                .foregroundColor(value >= 0 ? DSColor.accentSuccess : DSColor.accentError)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.instrumentDelta), alignment: .trailing)
         case .price:
             Text(formatNumber(trade.price, 4))
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.price), alignment: .trailing)
         case .tradeValue:
             Text(formatNumber(trade.quantity * trade.price, 2))
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.tradeValue), alignment: .trailing)
@@ -1569,17 +1506,17 @@ private struct ModernTradeRowView: View {
             let value = trade.cashDelta
             Text("\(formatNumber(value, 2)) \(trade.currency)")
                 .font(.system(size: fontConfig.secondarySize, design: .monospaced))
-                .foregroundColor(value >= 0 ? .green : .red)
+                .foregroundColor(value >= 0 ? DSColor.accentSuccess : DSColor.accentError)
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.cashDelta), alignment: .trailing)
         case .currency:
             Text(trade.currency)
                 .font(.system(size: fontConfig.badgeSize, weight: .semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textOnAccent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.blue.opacity(0.12))
+                .background(DSColor.accentMain)
                 .clipShape(Capsule())
                 .padding(.leading, TradesHistoryView.columnTextInset)
                 .padding(.trailing, 8)
@@ -1588,7 +1525,7 @@ private struct ModernTradeRowView: View {
             let name = trade.custodyAccountName.trimmingCharacters(in: .whitespacesAndNewlines)
             Text(name.isEmpty ? "—" : name)
                 .font(.system(size: fontConfig.secondarySize))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .padding(.leading, TradesHistoryView.columnTextInset)

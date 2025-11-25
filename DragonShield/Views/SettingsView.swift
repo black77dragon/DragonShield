@@ -35,16 +35,18 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            Color.gray.opacity(0.06).ignoresSafeArea()
+            DSColor.background.ignoresSafeArea()
             ScrollView {
-                VStack(spacing: 16) {
-                    HStack(alignment: .top, spacing: 16) {
+                VStack(spacing: DSLayout.spaceL) {
+                    HStack(alignment: .top, spacing: DSLayout.spaceL) {
                         CardSection(title: "App Basics") {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Base Currency").frame(width: 160, alignment: .leading)
+                                    .dsBody()
                                 TextField("", text: $tempBaseCurrency)
                                     .frame(width: 100)
                                     .multilineTextAlignment(.trailing)
+                                    .textFieldStyle(.roundedBorder)
                                     .onSubmit {
                                         let v = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
                                         if v.count == 3 && v.allSatisfy({ $0.isLetter }) { _ = dbManager.updateConfiguration(key: "base_currency", value: v) }
@@ -54,13 +56,18 @@ struct SettingsView: View {
                             }
                             Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
                                     value: Binding(get: { dbManager.decimalPrecision }, set: { _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\($0)") }), in: 0 ... 8)
+                                .dsBody()
                             Divider().padding(.vertical, 2)
                             Toggle("Show \"Incoming Deadlines\" pop-up every time Dashboard opens", isOn: $showIncomingDeadlinesEveryVisit)
+                                .dsBody()
                             HStack {
                                 Text("Last Result").frame(width: 160, alignment: .leading)
+                                    .dsBody()
                                 Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
+                                    .dsBody()
                                 Spacer()
                                 NavigationLink("Detailed Report", destination: HealthCheckResultsView())
+                                    .dsBody()
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -68,8 +75,10 @@ struct SettingsView: View {
                         CardSection(title: "Table Display Settings") {
                             Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
                                     value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0 ... 10.0, step: 0.5)
+                                .dsBody()
                             Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
                                     value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0 ... 20.0, step: 1.0)
+                                .dsBody()
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -79,14 +88,15 @@ struct SettingsView: View {
                         ProviderKeyRow(label: "Finnhub API Key", account: "finnhub", placeholder: "Enter Finnhub key")
                         ProviderKeyRow(label: "Alpha Vantage API Key", account: "alphavantage", placeholder: "Enter Alpha Vantage key")
                         Text("Keys are stored securely in your macOS Keychain. Env vars also supported.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .dsCaption()
+                            .foregroundColor(DSColor.textSecondary)
                         Toggle("Prefer Free CoinGecko (don’t use API key)", isOn: $coingeckoPreferFree)
+                            .dsBody()
                             .help("Skips Keychain access and always uses api.coingecko.com.")
                         HStack { Spacer(); Button(action: testCoinGecko) { isTestingCG ? AnyView(AnyView(ProgressView())) : AnyView(Text("Test CoinGecko")) }; Button("View Logs") { showLogs = true } }
                     }
 
-                    HStack(alignment: .top, spacing: 16) {
+                    HStack(alignment: .top, spacing: DSLayout.spaceL) {
                         CardSection(title: "FX Updates") {
                             Toggle("Auto-update on Launch", isOn: Binding(
                                 get: { dbManager.fxAutoUpdateEnabled },
@@ -98,8 +108,10 @@ struct SettingsView: View {
                                 }
                             ))
                             .toggleStyle(.switch)
+                            .dsBody()
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
+                                    .dsBody()
                                 Picker("", selection: Binding(
                                     get: { dbManager.fxUpdateFrequency },
                                     set: { newValue in
@@ -116,7 +128,10 @@ struct SettingsView: View {
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Status").frame(width: 160, alignment: .leading)
-                                Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary).foregroundColor(.secondary)
+                                    .dsBody()
+                                Text(fxLastSummary.isEmpty ? "No updates yet" : fxLastSummary)
+                                    .dsBody()
+                                    .foregroundColor(DSColor.textSecondary)
                                 Spacer()
                             }
                         }
@@ -133,8 +148,10 @@ struct SettingsView: View {
                                 }
                             ))
                             .toggleStyle(.switch)
+                            .dsBody()
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
+                                    .dsBody()
                                 Picker("", selection: Binding(
                                     get: { dbManager.iosSnapshotFrequency },
                                     set: { newValue in
@@ -151,6 +168,7 @@ struct SettingsView: View {
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Destination").frame(width: 160, alignment: .leading)
+                                    .dsBody()
                                 TextField("~/Library/Mobile Documents/com~apple~CloudDocs/...", text: $iosTargetPath)
                                     .textFieldStyle(.roundedBorder)
                                     .frame(minWidth: 300)
@@ -172,7 +190,10 @@ struct SettingsView: View {
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Status").frame(width: 160, alignment: .leading)
-                                Text(iosStatus.isEmpty ? "Unknown" : iosStatus).foregroundColor(.secondary)
+                                    .dsBody()
+                                Text(iosStatus.isEmpty ? "Unknown" : iosStatus)
+                                    .dsBody()
+                                    .foregroundColor(DSColor.textSecondary)
                                 Spacer()
                                 Button("Export Now") { exportIOSNow() }
                                 #if os(macOS)
@@ -186,40 +207,42 @@ struct SettingsView: View {
                     #if DEBUG
                         CardSection(title: "Development / Debug Options") {
                             Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
+                                .dsBody()
                         }
                     #endif
 
                     CardSection(title: "About") {
                         HStack(alignment: .top, spacing: 12) {
                             Text("App Version").frame(width: 160, alignment: .leading)
+                                .dsBody()
                             VStack(alignment: .leading, spacing: 6) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("VERSION")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .dsCaption()
+                                        .foregroundColor(DSColor.textSecondary)
                                     Text(AppVersionProvider.version)
-                                        .font(.callout)
+                                        .dsBody()
                                 }
                                 if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("VERSION_LAST_CHANGE")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .dsCaption()
+                                            .foregroundColor(DSColor.textSecondary)
                                         Text(lastChange)
-                                            .font(.callout)
+                                            .dsBody()
                                     }
                                 }
                                 if let branch = GitInfoProvider.branch, !branch.isEmpty {
                                     Text("Branch: \(branch)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .dsCaption()
+                                        .foregroundColor(DSColor.textSecondary)
                                 }
                             }
                             Spacer()
                         }
                     }
                 }
-                .padding(16)
+                .padding(DSLayout.spaceL)
             }
         }
         .navigationTitle("Settings")
@@ -270,6 +293,7 @@ private struct ProviderKeyRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label).frame(width: 160, alignment: .leading)
+                .dsBody()
             SecureField(placeholder, text: $temp)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 260)
@@ -279,6 +303,7 @@ private struct ProviderKeyRow: View {
                 }
             Toggle("Store locally (UserDefaults)", isOn: $storeInUserDefaults)
                 .toggleStyle(.switch)
+                .dsBody()
                 .help("Stores the key in app preferences (less secure, avoids Keychain prompts)")
                 .frame(width: 260)
             Button(saved ? "Saved" : "Save") {
@@ -309,15 +334,16 @@ private struct CardSection<Content: View>: View {
     @ViewBuilder let content: Content
     init(title: String, @ViewBuilder content: () -> Content) { self.title = title; self.content = content() }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.headline)
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            Text(title)
+                .dsHeaderSmall()
             content
         }
-        .padding(16)
-        .background(Color.white)
-        .cornerRadius(10)
+        .padding(DSLayout.spaceL)
+        .background(DSColor.surface)
+        .cornerRadius(DSLayout.radiusL)
         .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.15), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DSLayout.radiusL).stroke(DSColor.border, lineWidth: 1))
     }
 }
 

@@ -22,7 +22,7 @@ struct DashboardCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                     .font(titleFont)
@@ -33,7 +33,7 @@ struct DashboardCard<Content: View>: View {
             }
             content
         }
-        .padding(16)
+        .padding(10)
         .dashboardTileBackground(cornerRadius: cornerRadius)
     }
 }
@@ -83,9 +83,9 @@ struct MetricTile: DashboardTile {
     var body: some View {
         DashboardCard(title: Self.tileName) {
             Text("123")
-                .font(.system(size: 48, weight: .bold))
+                .font(.ds.statLarge)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .foregroundColor(Theme.primaryAccent)
+                .foregroundColor(.ds.accentMain)
         }
         .accessibilityElement(children: .combine)
     }
@@ -134,10 +134,12 @@ struct TotalValueTile: DashboardTile {
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 Text(Self.formatter.string(from: NSNumber(value: total)) ?? "0")
-                    .font(.system(size: 48, weight: .bold))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundColor(Theme.primaryAccent)
+                    .foregroundColor(.ds.accentMain)
             }
+            Spacer()
         }
         .onAppear(perform: calculate)
         .accessibilityElement(children: .combine)
@@ -720,8 +722,14 @@ struct MissingPricesTile: DashboardTile {
         .overlay(alignment: .leading) { Rectangle().fill(Color.numberRed).frame(width: 4).cornerRadius(2) }
         .onAppear(perform: load)
         .sheet(item: editBinding) { ident in
-            InstrumentEditView(instrumentId: ident.value)
-                .environmentObject(dbManager)
+            InstrumentEditView(
+                instrumentId: ident.value,
+                isPresented: Binding(
+                    get: { editingInstrumentId != nil },
+                    set: { if !$0 { editingInstrumentId = nil } }
+                )
+            )
+            .environmentObject(dbManager)
         }
     }
 

@@ -11,14 +11,14 @@ struct DashboardView: View {
 
     private enum Layout {
         static let columnCount = 3
-        static let columnSpacing: CGFloat = 24
-        static let tileSpacing: CGFloat = 20
-        static let horizontalPadding: CGFloat = 24
+        static let columnSpacing: CGFloat = 12
+        static let tileSpacing: CGFloat = 12
+        static let horizontalPadding: CGFloat = 12
         static let minColumnWidth: CGFloat = 260
         static let maxColumnWidth: CGFloat = 380
-        static let sectionSpacing: CGFloat = 24
-        static let headerHeight: CGFloat = 120
-        static let headerPadding: CGFloat = 8
+        static let sectionSpacing: CGFloat = 12
+        static let headerHeight: CGFloat = 110
+        static let headerPadding: CGFloat = 4
     }
 
     @State private var tileColumns: [[String]] = Array(repeating: [], count: Layout.columnCount)
@@ -45,40 +45,47 @@ struct DashboardView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ScrollView {
-                VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                    headerSection(width: columnWidth(for: geo.size.width))
-                        .padding(.horizontal, Layout.horizontalPadding)
+            VStack(spacing: 0) {
+                CustomToolbar(actions: [
+                    ToolbarAction(icon: "arrow.triangle.2.circlepath", tooltip: "FX Update", isDisabled: isUpdatingFx, action: triggerFxUpdate),
+                    ToolbarAction(icon: "chart.line.uptrend.xyaxis", tooltip: "Price Update", isDisabled: isUpdatingPrices, action: triggerPriceUpdate),
+                    ToolbarAction(icon: "square.dashed.inset.filled", tooltip: "Customize Dashboard", action: { showingPicker = true })
+                ])
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                        headerSection(width: columnWidth(for: geo.size.width))
+                            .padding(.horizontal, Layout.horizontalPadding)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: Layout.columnSpacing) {
-                            ForEach(tileColumns.indices, id: \.self) { columnIndex in
-                                VStack(spacing: Layout.tileSpacing) {
-                                    ForEach(tileColumns[columnIndex], id: \.self) { id in
-                                        dashboardTile(id: id, columnIndex: columnIndex)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(alignment: .top, spacing: Layout.columnSpacing) {
+                                ForEach(tileColumns.indices, id: \.self) { columnIndex in
+                                    VStack(spacing: Layout.tileSpacing) {
+                                        ForEach(tileColumns[columnIndex], id: \.self) { id in
+                                            dashboardTile(id: id, columnIndex: columnIndex)
+                                        }
+                                        Spacer(minLength: 0)
                                     }
-                                    Spacer(minLength: 0)
+                                    .frame(width: columnWidth(for: geo.size.width), alignment: .top)
+                                    .onDrop(
+                                        of: [.text],
+                                        delegate: ColumnTileDropDelegate(
+                                            item: nil,
+                                            columnIndex: columnIndex,
+                                            columns: $tileColumns,
+                                            dragged: $draggedTile
+                                        ) {
+                                            saveLayout()
+                                        }
+                                    )
                                 }
-                                .frame(width: columnWidth(for: geo.size.width), alignment: .top)
-                                .onDrop(
-                                    of: [.text],
-                                    delegate: ColumnTileDropDelegate(
-                                        item: nil,
-                                        columnIndex: columnIndex,
-                                        columns: $tileColumns,
-                                        dragged: $draggedTile
-                                    ) {
-                                        saveLayout()
-                                    }
-                                )
                             }
+                            .padding(.horizontal, Layout.horizontalPadding)
+                            .id(refreshToken)
                         }
-                        .padding(.horizontal, Layout.horizontalPadding)
-                        .id(refreshToken)
                     }
+                    .padding(.vertical, Layout.sectionSpacing)
                 }
-                .padding(.vertical, Layout.sectionSpacing)
-            }
             .onAppear(perform: loadLayout)
             .onAppear {
                 if !startupChecked {
@@ -87,42 +94,8 @@ struct DashboardView: View {
                 }
             }
         }
-        .navigationTitle("Dashboard")
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                Button(action: triggerFxUpdate) {
-                    VStack(spacing: 2) {
-                        if isUpdatingFx {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                        }
-                        Text("FX")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(minWidth: 48)
-                }
-                .disabled(isUpdatingFx)
-                Button(action: triggerPriceUpdate) {
-                    VStack(spacing: 2) {
-                        if isUpdatingPrices {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "chart.line.uptrend.xyaxis")
-                        }
-                        Text("Price")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(minWidth: 48)
-                }
-                .disabled(isUpdatingPrices)
-            }
-            ToolbarItem(placement: .automatic) {
-                Button("Configure") { showingPicker = true }
-            }
         }
+        .navigationTitle("Dashboard")
         .alert(item: $dashboardAlert) { alert in
             Alert(
                 title: Text(alert.title),
@@ -142,17 +115,17 @@ struct DashboardView: View {
     private func headerSection(width: CGFloat) -> some View {
         HStack(alignment: .top, spacing: Layout.columnSpacing) {
             TotalValueTile()
-                .frame(width: width, height: Layout.headerHeight, alignment: .top)
+                .frame(width: width, height: Layout.headerHeight)
             InstrumentDashboardTile()
-                .frame(width: width, height: Layout.headerHeight, alignment: .top)
+                .frame(width: width, height: Layout.headerHeight)
             CurrentDateTile()
-                .frame(width: width, height: Layout.headerHeight, alignment: .top)
+                .frame(width: width, height: Layout.headerHeight)
         }
-        .frame(height: Layout.headerHeight, alignment: .top)
+        .frame(height: Layout.headerHeight)
         .padding(Layout.headerPadding)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
+                .fill(Color.secondary.opacity(0.1))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -483,8 +456,9 @@ private struct CurrentDateTile: View {
     var body: some View {
         DashboardCard(title: "Today") {
             Text(Self.formatter.string(from: now))
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer()
         }
         .accessibilityElement(children: .combine)
     }

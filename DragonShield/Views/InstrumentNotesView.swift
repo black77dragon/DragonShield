@@ -56,8 +56,9 @@ struct InstrumentNotesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Instrument Notes — \(instrumentName) (Code: \(instrumentCode))")
-                .font(.headline)
-                .padding(16)
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.textPrimary)
+                .padding(DSLayout.spaceM)
             Picker("Theme", selection: $selectedThemeId) {
                 Text("All themes").tag(nil as Int?)
                 ForEach(themeInfos) { info in
@@ -65,14 +66,14 @@ struct InstrumentNotesView: View {
                 }
             }
             .pickerStyle(.menu)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSLayout.spaceM)
             Picker("", selection: $selectedTab) {
                 Text("General Notes").tag(Tab.general)
                 Text("Portfolio Updates").tag(Tab.updates)
                 Text("Theme Mentions").tag(Tab.mentions)
             }
             .pickerStyle(.segmented)
-            .padding(16)
+            .padding(DSLayout.spaceM)
             switch selectedTab {
             case .general:
                 generalList
@@ -81,20 +82,17 @@ struct InstrumentNotesView: View {
             case .mentions:
                 mentionsList
             }
-            Divider()
+            Divider().overlay(DSColor.border)
             HStack {
                 Spacer()
-                Button(role: .cancel) { onClose() } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.gray)
-                .foregroundColor(.white)
-                .keyboardShortcut("w", modifiers: .command)
+                Button("Close") { onClose() }
+                    .buttonStyle(DSButtonStyle(type: .primary))
+                    .keyboardShortcut("w", modifiers: .command)
             }
-            .padding(16)
+            .padding(DSLayout.spaceM)
         }
         .frame(minWidth: 640, minHeight: 400)
+        .background(DSColor.background)
         .onAppear {
             loadThemes()
             loadData()
@@ -138,9 +136,7 @@ struct InstrumentNotesView: View {
                     editingGeneralNote = nil
                     showGeneralEditor = true
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
+                .buttonStyle(DSButtonStyle(type: .primary, size: .small))
                 Spacer()
                 Toggle("Pinned first", isOn: $generalPinnedFirst)
                     .toggleStyle(.checkbox)
@@ -148,27 +144,35 @@ struct InstrumentNotesView: View {
                         if selectedTab == .general { loadGeneralNotes() }
                     }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSLayout.spaceM)
             List {
                 ForEach(generalNotes, id: \.id) { note in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("\(DateFormatting.userFriendly(note.createdAt)) • \(note.author) • \(note.typeDisplayName ?? note.typeCode)")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                             Spacer()
                             Text(note.pinned ? "★" : "☆")
+                                .foregroundColor(note.pinned ? DSColor.accentWarning : DSColor.textSecondary)
                         }
-                        Text(note.title).fontWeight(.semibold)
-                        Text(MarkdownRenderer.attributedString(from: note.bodyMarkdown)).lineLimit(3)
+                        Text(note.title)
+                            .dsBody()
+                            .fontWeight(.semibold)
+                            .foregroundColor(DSColor.textPrimary)
+                        Text(MarkdownRenderer.attributedString(from: note.bodyMarkdown))
+                            .lineLimit(3)
+                            .foregroundColor(DSColor.textPrimary)
                         HStack {
                             Spacer()
                             Button("Edit") {
                                 editingGeneralNote = note
                             }
-                            .font(.caption)
-                            Button("Delete", role: .destructive) {
+                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+                            Button("Delete") {
                                 deleteNote(note)
                             }
-                            .font(.caption)
+                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                         }
                     }
                 }
@@ -247,40 +251,46 @@ struct InstrumentNotesView: View {
                     editingThemeUpdate = nil
                     showThemeEditor = true
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
+                .buttonStyle(DSButtonStyle(type: .primary, size: .small))
                 .disabled(selectedThemeId == nil)
                 Spacer()
                 Toggle("Pinned first", isOn: $pinnedFirst)
                     .toggleStyle(.checkbox)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSLayout.spaceM)
             List {
                 ForEach(updates, id: \.id) { update in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("\(DateFormatting.userFriendly(update.createdAt)) • \(update.author) • \(update.typeDisplayName ?? update.typeCode)")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                             Spacer()
                             Text(update.pinned ? "★" : "☆")
+                                .foregroundColor(update.pinned ? DSColor.accentWarning : DSColor.textSecondary)
                         }
                         if selectedThemeId == nil, let themeId = update.themeId {
                             Text("Theme: \(themeName(for: themeId))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                         }
                         HStack {
-                            Text(update.title).fontWeight(.semibold)
-                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip") }
+                            Text(update.title)
+                                .dsBody()
+                                .fontWeight(.semibold)
+                                .foregroundColor(DSColor.textPrimary)
+                            if (attachmentCounts[update.id] ?? 0) > 0 { Image(systemName: "paperclip").foregroundColor(DSColor.textSecondary) }
                         }
-                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown)).lineLimit(3)
+                        Text(MarkdownRenderer.attributedString(from: update.bodyMarkdown))
+                            .lineLimit(3)
+                            .foregroundColor(DSColor.textPrimary)
                         HStack {
                             Spacer()
                             Button("Open") {
                                 editingThemeUpdate = update
                                 showThemeEditor = true
                             }
-                            .font(.caption)
+                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                         }
                     }
                 }
@@ -298,16 +308,23 @@ struct InstrumentNotesView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("\(DateFormatting.userFriendly(mention.createdAt)) • Theme: \(themeName(for: mention.themeId)) • Type: \(mention.typeDisplayName ?? mention.typeCode)")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
                             if isThemeArchived(mention.themeId) {
-                                Text("Archived").font(.caption).foregroundColor(.secondary)
+                                Text("Archived").dsCaption().foregroundColor(DSColor.textSecondary)
                             }
                         }
-                        Text(mention.title).fontWeight(.semibold)
-                        Text(MarkdownRenderer.attributedString(from: mention.bodyMarkdown)).lineLimit(3)
+                        Text(mention.title)
+                            .dsBody()
+                            .fontWeight(.semibold)
+                            .foregroundColor(DSColor.textPrimary)
+                        Text(MarkdownRenderer.attributedString(from: mention.bodyMarkdown))
+                            .lineLimit(3)
+                            .foregroundColor(DSColor.textPrimary)
                         HStack {
                             Spacer()
                             Button("Open in Theme") { openTheme(mention.themeId) }
-                                .font(.caption)
+                                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                         }
                     }
                 }
