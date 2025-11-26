@@ -3,7 +3,9 @@
 This document serves as a central backlog for all pending changes, new features, and maintenance tasks for the DragonShield project. It tracks the lifecycle of features from request to implementation.
 
 **Instructions:**
-When adding new features or change requests to the Backlog, please provide a precise and detailed description of the desired change. Include the context ("Why") and acceptance criteria ("What") to ensure clarity. Once work starts on a backlog item, mark it with `[x]` to show it is in progress. After a feature has been successfully implemented, move it to the **Implemented** section.
+- Add new requests to the Backlog with a unique ID (e.g., `DS-006`) and include context ("Why") plus acceptance criteria ("What").
+- When work starts on a backlog item, mark it with `[*]` to show it is in progress and keep it in the Backlog.
+- After the user confirms testing and explicitly asks to move it, shift the item to **Implemented** and mark it with `[x]`.
 
 ## Backlog
 
@@ -15,6 +17,9 @@ When adding new features or change requests to the Backlog, please provide a pre
 
 - [ ] **[DS-009] Harmonize Data Import/Export**
     Upgrade `DataImportExportView.swift` and `DatabaseManagementView.swift` to use standard Design System components.
+
+- [ ] **[DS-016] Update DragonShield Logo**
+    Replace existing logo assets with the latest DragonShield branding and ensure the updated logo appears consistently in the app icon, splash/loading screens, and primary navigation.
 
 ## Implemented
 - [x] **[DS-001] Fix Instrument Edit Save Button**
