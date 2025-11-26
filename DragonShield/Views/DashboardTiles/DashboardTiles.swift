@@ -139,7 +139,6 @@ struct TotalValueTile: DashboardTile {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .foregroundColor(.ds.accentMain)
             }
-            Spacer()
         }
         .onAppear(perform: calculate)
         .accessibilityElement(children: .combine)

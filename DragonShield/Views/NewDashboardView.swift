@@ -17,7 +17,6 @@ struct DashboardView: View {
         static let minColumnWidth: CGFloat = 260
         static let maxColumnWidth: CGFloat = 380
         static let sectionSpacing: CGFloat = 12
-        static let headerHeight: CGFloat = 110
         static let headerPadding: CGFloat = 4
     }
 
@@ -115,13 +114,12 @@ struct DashboardView: View {
     private func headerSection(width: CGFloat) -> some View {
         HStack(alignment: .top, spacing: Layout.columnSpacing) {
             TotalValueTile()
-                .frame(width: width, height: Layout.headerHeight)
+                .frame(width: width, alignment: .top)
             InstrumentDashboardTile()
-                .frame(width: width, height: Layout.headerHeight)
+                .frame(width: width, alignment: .top)
             CurrentDateTile()
-                .frame(width: width, height: Layout.headerHeight)
+                .frame(width: width, alignment: .top)
         }
-        .frame(height: Layout.headerHeight)
         .padding(Layout.headerPadding)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -458,7 +456,6 @@ private struct CurrentDateTile: View {
             Text(Self.formatter.string(from: now))
                 .font(.system(size: 24, weight: .bold))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer()
         }
         .accessibilityElement(children: .combine)
     }

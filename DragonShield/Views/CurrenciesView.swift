@@ -1,9 +1,10 @@
 // DragonShield/Views/CurrenciesView.swift
 
-// MARK: - Version 2.0
+// MARK: - Version 2.1
 
 // MARK: - History
 
+// - 2.0 -> 2.1: Adopted Design System styling for layout, table badges, and actions.
 // - 1.4 -> 2.0: Adopted shared maintenance-table UX with column controls, font persistence, and API/Status filters.
 // - 1.3 -> 1.4: Fixed EditCurrencyView to correctly use the environment's DatabaseManager instance.
 // - 1.2 -> 1.3: Updated deprecated onChange modifiers to use new two-parameter syntax.
@@ -85,7 +86,7 @@ struct CurrenciesView: View {
     private static let columnOrder: [CurrencyTableColumn] = [.code, .name, .symbol, .api, .status]
     private static let defaultVisibleColumns: Set<CurrencyTableColumn> = Set(columnOrder)
     private static let visibleColumnsKey = "CurrenciesView.visibleColumns.v1"
-    private static let headerBackground = Color(red: 230.0 / 255.0, green: 242.0 / 255.0, blue: 1.0)
+    private static let headerBackground = DSColor.surfaceSecondary
 
     private static let defaultColumnWidths: [CurrencyTableColumn: CGFloat] = [
         .code: 110,
@@ -105,7 +106,7 @@ struct CurrenciesView: View {
 
     private static let columnHandleWidth: CGFloat = 10
     private static let columnHandleHitSlop: CGFloat = 8
-    fileprivate static let columnTextInset: CGFloat = 12
+    fileprivate static let columnTextInset: CGFloat = DSLayout.spaceS
     private static let tableConfiguration: MaintenanceTableConfiguration<CurrencyTableColumn> = {
         #if os(macOS)
             MaintenanceTableConfiguration(
@@ -223,33 +224,25 @@ struct CurrenciesView: View {
         return sortAscending ? sorted : Array(sorted.reversed())
     }
 
+    private var isFiltering: Bool {
+        !searchText.isEmpty || !apiFilters.isEmpty || !statusFilters.isEmpty
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
-            CurrencyParticleBackground()
-
-            VStack(spacing: 16) {
-                modePicker
-                Group {
-                    if selectedSegment == 0 {
-                        currenciesSection
-                    } else {
-                        fxSection
-                    }
+            VStack(spacing: DSLayout.spaceM) {
+                if selectedSegment == 0 {
+                    currenciesSection
+                } else {
+                    fxSection
                 }
-                .transition(.opacity)
             }
-            .padding(24)
+            .transition(.opacity)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.vertical, DSLayout.spaceL)
         }
         .onAppear {
             tableModel.connect(to: dbManager)
@@ -299,12 +292,20 @@ struct CurrenciesView: View {
             Text("Currencies").tag(0)
             Text("FX Rates").tag(1)
         }
-        .pickerStyle(SegmentedPickerStyle())
-        .font(.system(size: 13, weight: .semibold))
+        .pickerStyle(.segmented)
+        .font(.ds.caption)
+        .frame(maxWidth: 320)
     }
 
     private var currenciesSection: some View {
         VStack(spacing: 0) {
+            HStack {
+                modePicker
+                Spacer()
+            }
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.bottom, DSLayout.spaceS)
+
             modernHeader
             searchAndStats
             currenciesContent
@@ -313,12 +314,16 @@ struct CurrenciesView: View {
     }
 
     private var fxSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            HStack {
+                modePicker
+                Spacer()
+            }
             HStack {
                 Button(action: { withAnimation { selectedSegment = 0 } }) {
                     Label("Back to Currencies", systemImage: "chevron.left")
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(DSButtonStyle(type: .secondary))
                 Spacer()
             }
             ExchangeRatesView()
@@ -328,69 +333,63 @@ struct CurrenciesView: View {
 
     private var modernHeader: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceM) {
                     Image(systemName: "dollarsign.circle.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(.green)
+                        .foregroundColor(DSColor.accentMain)
                     Text("Currencies")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.black, .gray],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .dsHeaderLarge()
                 }
                 Text("Manage supported currencies and exchange rates")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
             Spacer()
-            HStack(spacing: 16) {
-                modernStatCard(title: "Total", value: "\(currencies.count)", icon: "number.circle.fill", color: .green)
-                modernStatCard(title: "Active", value: "\(currencies.filter { $0.isActive }.count)", icon: "checkmark.circle.fill", color: .blue)
-                modernStatCard(title: "API", value: "\(currencies.filter { $0.apiSupported }.count)", icon: "wifi.circle.fill", color: .purple)
+            HStack(spacing: DSLayout.spaceM) {
+                modernStatCard(title: "Total", value: "\(currencies.count)", icon: "number.circle.fill", color: DSColor.accentMain)
+                modernStatCard(title: "Active", value: "\(currencies.filter { $0.isActive }.count)", icon: "checkmark.circle.fill", color: DSColor.accentSuccess)
+                modernStatCard(title: "API", value: "\(currencies.filter { $0.apiSupported }.count)", icon: "wifi.circle.fill", color: DSColor.textSecondary)
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceL)
         .opacity(headerOpacity)
     }
 
     private var searchAndStats: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSLayout.spaceM) {
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
                 TextField("Search currencies...", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
+                    .font(.ds.body)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                        Image(systemName: "xmark.circle.fill").foregroundColor(DSColor.textSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSLayout.spaceM)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .fill(DSColor.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                            .stroke(DSColor.border, lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
 
-            if !searchText.isEmpty || !apiFilters.isEmpty || !statusFilters.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+            if isFiltering {
+                VStack(alignment: .leading, spacing: DSLayout.spaceS) {
                     Text("Found \(sortedCurrencies.count) of \(currencies.count) currencies")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    HStack(spacing: 8) {
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
+                    HStack(spacing: DSLayout.spaceS) {
                         ForEach(Array(apiFilters), id: \.self) { value in
                             filterChip(text: "API: \(value)") { apiFilters.remove(value) }
                         }
@@ -401,36 +400,37 @@ struct CurrenciesView: View {
                 }
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, DSLayout.spaceL)
         .offset(y: contentOffset)
     }
 
     private var currenciesContent: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSLayout.spaceM) {
             tableControls
             if sortedCurrencies.isEmpty {
                 emptyStateView
+                    .offset(y: contentOffset)
             } else {
                 currenciesTable
+                    .offset(y: contentOffset)
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .offset(y: contentOffset)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.top, DSLayout.spaceS)
     }
 
     private var tableControls: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             columnsMenu
             fontSizePicker
             Spacer()
             if visibleColumns != CurrenciesView.defaultVisibleColumns || selectedFontSize != .medium {
                 Button("Reset View", action: resetTablePreferences)
                     .buttonStyle(.link)
+                    .font(.ds.caption)
             }
         }
         .padding(.horizontal, 4)
-        .font(.system(size: 12))
     }
 
     private var columnsMenu: some View {
@@ -448,6 +448,7 @@ struct CurrenciesView: View {
             Button("Reset Columns", action: resetVisibleColumns)
         } label: {
             Label("Columns", systemImage: "slider.horizontal.3")
+                .font(.ds.caption)
         }
     }
 
@@ -463,36 +464,33 @@ struct CurrenciesView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: DSLayout.spaceL) {
             Spacer()
-            VStack(spacing: 16) {
+            VStack(spacing: DSLayout.spaceM) {
                 Image(systemName: searchText.isEmpty && apiFilters.isEmpty && statusFilters.isEmpty ? "dollarsign.circle" : "magnifyingglass")
                     .font(.system(size: 64))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
+                            colors: [DSColor.textTertiary, DSColor.textTertiary.opacity(0.5)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
-                VStack(spacing: 8) {
+                VStack(spacing: DSLayout.spaceS) {
                     Text(searchText.isEmpty && apiFilters.isEmpty && statusFilters.isEmpty ? "No currencies yet" : "No results match your filters")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.gray)
+                        .dsHeaderMedium()
+                        .foregroundColor(DSColor.textSecondary)
                     Text(searchText.isEmpty && apiFilters.isEmpty && statusFilters.isEmpty ? "Add your first currency to start managing FX." : "Try adjusting your search or filter selections.")
-                        .font(.body)
-                        .foregroundColor(.gray)
+                        .dsBody()
+                        .foregroundColor(DSColor.textTertiary)
                         .multilineTextAlignment(.center)
                 }
                 if searchText.isEmpty && apiFilters.isEmpty && statusFilters.isEmpty {
                     Button { showAddCurrencySheet = true } label: {
                         Label("Add Currency", systemImage: "plus")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                    .foregroundColor(.black)
-                    .padding(.top, 8)
+                    .buttonStyle(DSButtonStyle(type: .primary))
+                    .padding(.top, DSLayout.spaceS)
                 }
             }
             Spacer()
@@ -548,18 +546,20 @@ struct CurrenciesView: View {
                     HStack(spacing: 4) {
                         Text(column.title)
                             .font(.system(size: fontConfig.header, weight: .semibold))
-                            .foregroundColor(.black)
-                        Text(sortAscending ? "▲" : "▼")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(isActiveSort ? .accentColor : .clear)
-                            .accessibilityHidden(!isActiveSort)
+                            .foregroundColor(DSColor.textPrimary)
+                        if isActiveSort {
+                            Image(systemName: "triangle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(DSColor.accentMain)
+                                .rotationEffect(.degrees(sortAscending ? 0 : 180))
+                        }
                     }
                 }
                 .buttonStyle(.plain)
             } else {
                 Text(column.title)
                     .font(.system(size: fontConfig.header, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundColor(DSColor.textPrimary)
             }
 
             if let binding = filterBinding, !filterOptions.isEmpty {
@@ -577,7 +577,7 @@ struct CurrenciesView: View {
                     }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle")
-                        .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
+                        .foregroundColor(binding.wrappedValue.isEmpty ? DSColor.textTertiary : DSColor.accentMain)
                 }
                 .menuStyle(BorderlessButtonMenuStyle())
             }
@@ -585,43 +585,36 @@ struct CurrenciesView: View {
     }
 
     private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
-        HStack(spacing: 4) {
-            Text(text)
-                .font(.caption)
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.1))
-        .clipShape(Capsule())
+        DSBadge(text: text, color: DSColor.accentMain)
+            .overlay(
+                Button(action: onRemove) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(DSColor.textOnAccent)
+                }
+                .padding(.leading, 4),
+                alignment: .trailing
+            )
     }
 
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.gray.opacity(0.2))
+                .fill(DSColor.border)
                 .frame(height: 1)
-            HStack(spacing: 16) {
+            HStack(spacing: DSLayout.spaceM) {
                 Button { showAddCurrencySheet = true } label: {
                     Label("Add Currency", systemImage: "plus")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
+                .buttonStyle(DSButtonStyle(type: .primary))
 
                 if selectedCurrency != nil {
                     Button {
                         showEditCurrencySheet = true
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "pencil")
-                            Text("Edit")
-                        }
+                        Label("Edit", systemImage: "pencil")
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .secondary))
 
                     Button {
                         if let currency = selectedCurrency {
@@ -629,62 +622,60 @@ struct CurrenciesView: View {
                             showingDeleteAlert = true
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Delete")
-                        }
+                        Label("Delete", systemImage: "trash")
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .destructive))
                 }
 
                 Spacer()
 
                 if let currency = selectedCurrency {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DSLayout.spaceS) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(DSColor.accentSuccess)
                         Text("Selected: \(currency.code)")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DSColor.textSecondary)
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.green.opacity(0.05))
+                    .padding(.horizontal, DSLayout.spaceM)
+                    .padding(.vertical, DSLayout.spaceS)
+                    .background(DSColor.surfaceHighlight)
                     .clipShape(Capsule())
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(.regularMaterial)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.vertical, DSLayout.spaceM)
+            .background(DSColor.surfaceSecondary)
         }
         .opacity(buttonsOpacity)
     }
 
     private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+            HStack(spacing: DSLayout.spaceXS) {
                 Image(systemName: icon)
                     .font(.system(size: 12))
                     .foregroundColor(color)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.gray)
+                    .font(.ds.caption)
+                    .foregroundColor(DSColor.textSecondary)
             }
             Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.primary)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(DSColor.textPrimary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DSLayout.spaceM)
+        .padding(.vertical, DSLayout.spaceS)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.regularMaterial)
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .fill(DSColor.surface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(color.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                        .stroke(DSColor.border, lineWidth: 1)
                 )
         )
-        .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
     }
 
     private func animateEntrance() {
@@ -824,15 +815,15 @@ private struct ModernCurrencyRowView: View {
         .padding(.vertical, max(4, rowPadding))
         .background(
             Rectangle()
-                .fill(isSelected ? Color.green.opacity(0.1) : Color.clear)
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         )
         .overlay(
             Rectangle()
-                .fill(Color.black.opacity(0.05))
+                .fill(DSColor.border)
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -867,54 +858,58 @@ private struct ModernCurrencyRowView: View {
         switch column {
         case .code:
             Text(currency.code)
-                .font(.system(size: fontConfig.primary, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .font(.system(size: fontConfig.primary, weight: .semibold, design: .monospaced))
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.green.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .background(DSColor.surfaceHighlight)
+                .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
                 .padding(.leading, CurrenciesView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.code), alignment: .leading)
         case .name:
             Text(currency.name)
                 .font(.system(size: fontConfig.primary, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .padding(.leading, CurrenciesView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.name), alignment: .leading)
         case .symbol:
             Text(currency.symbol)
                 .font(.system(size: fontConfig.secondary, weight: .medium))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.leading, CurrenciesView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.symbol), alignment: .leading)
         case .api:
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(currency.apiSupported ? Color.purple : Color.gray.opacity(0.5))
-                    .frame(width: 8, height: 8)
-                Text(currency.apiLabel)
-                    .font(.system(size: fontConfig.badge, weight: .semibold))
-                    .foregroundColor(currency.apiSupported ? .purple : .gray)
-            }
-            .padding(.leading, CurrenciesView.columnTextInset)
-            .padding(.trailing, 8)
-            .frame(width: widthFor(.api), alignment: .leading)
+            badge(text: currency.apiLabel, color: apiBadgeColor, fontSize: fontConfig.badge)
+                .padding(.leading, CurrenciesView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.api), alignment: .leading)
         case .status:
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(currency.isActive ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
-                Text(currency.statusLabel)
-                    .font(.system(size: fontConfig.badge, weight: .semibold))
-                    .foregroundColor(currency.isActive ? .green : .orange)
-            }
-            .padding(.leading, CurrenciesView.columnTextInset)
-            .padding(.trailing, 8)
-            .frame(width: widthFor(.status), alignment: .leading)
+            badge(text: currency.statusLabel, color: statusBadgeColor, fontSize: fontConfig.badge)
+                .padding(.leading, CurrenciesView.columnTextInset)
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.status), alignment: .leading)
         }
+    }
+
+    private var apiBadgeColor: Color {
+        currency.apiSupported ? DSColor.accentMain : DSColor.textTertiary
+    }
+
+    private var statusBadgeColor: Color {
+        currency.isActive ? DSColor.accentSuccess : DSColor.accentWarning
+    }
+
+    private func badge(text: String, color: Color, fontSize: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: fontSize, weight: .semibold))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
     }
 }
 

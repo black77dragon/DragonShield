@@ -38,9 +38,7 @@ private struct TransactionTypeItem: Identifiable, Equatable {
     let sortOrder: Int
 }
 
-// MARK: - Version 1.0
-
-// MARK: - History: Initial creation - transaction types management with CRUD operations
+// MARK: - Transaction Types View
 
 struct TransactionTypesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -50,6 +48,7 @@ struct TransactionTypesView: View {
     @State private var selectedType: TransactionTypeItem? = nil
     @State private var showingDeleteAlert = false
     @State private var typeToDelete: TransactionTypeItem? = nil
+    @State private var deleteInfo: (canDelete: Bool, transactionCount: Int)? = nil
     @State private var searchText = ""
 
     @State private var sortColumn: SortColumn = .sortOrder
@@ -87,8 +86,8 @@ struct TransactionTypesView: View {
                     .name: 220,
                     .code: 120,
                     .description: 320,
-                    .affectsPosition: 110,
-                    .affectsCash: 100,
+                    .affectsPosition: 120,
+                    .affectsCash: 110,
                     .isIncome: 110,
                     .sortOrder: 90,
                 ],
@@ -96,16 +95,16 @@ struct TransactionTypesView: View {
                     .name: 180,
                     .code: 100,
                     .description: 240,
-                    .affectsPosition: 90,
-                    .affectsCash: 80,
-                    .isIncome: 80,
+                    .affectsPosition: 100,
+                    .affectsCash: 90,
+                    .isIncome: 90,
                     .sortOrder: 70,
                 ],
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
                 columnHandleHitSlop: 8,
-                columnTextInset: 12,
-                headerBackground: Color.orange.opacity(0.1),
+                columnTextInset: DSLayout.spaceS,
+                headerBackground: DSColor.surfaceSecondary,
                 fontConfigBuilder: { size in
                     MaintenanceTableFontConfig(
                         primary: size.baseSize,
@@ -126,8 +125,8 @@ struct TransactionTypesView: View {
                     .name: 220,
                     .code: 120,
                     .description: 320,
-                    .affectsPosition: 110,
-                    .affectsCash: 100,
+                    .affectsPosition: 120,
+                    .affectsCash: 110,
                     .isIncome: 110,
                     .sortOrder: 90,
                 ],
@@ -135,16 +134,16 @@ struct TransactionTypesView: View {
                     .name: 180,
                     .code: 100,
                     .description: 240,
-                    .affectsPosition: 90,
-                    .affectsCash: 80,
-                    .isIncome: 80,
+                    .affectsPosition: 100,
+                    .affectsCash: 90,
+                    .isIncome: 90,
                     .sortOrder: 70,
                 ],
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
                 columnHandleHitSlop: 8,
-                columnTextInset: 12,
-                headerBackground: Color.orange.opacity(0.1),
+                columnTextInset: DSLayout.spaceS,
+                headerBackground: DSColor.surfaceSecondary,
                 fontConfigBuilder: { size in
                     MaintenanceTableFontConfig(
                         primary: size.baseSize,
@@ -166,13 +165,13 @@ struct TransactionTypesView: View {
         )
     }
 
-    // Filtered types based on search
+    private var trimmedSearchText: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
+
     private var filteredTypes: [TransactionTypeItem] {
         var result = transactionTypes
 
-        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedQuery.isEmpty {
-            let query = trimmedQuery.lowercased()
+        if !trimmedSearchText.isEmpty {
+            let query = trimmedSearchText.lowercased()
             result = result.filter { type in
                 type.name.lowercased().contains(query) ||
                     type.code.lowercased().contains(query) ||
@@ -219,29 +218,30 @@ struct TransactionTypesView: View {
         return sortAscending ? sorted : Array(sorted.reversed())
     }
 
+    private var hasActiveFilters: Bool {
+        !positionFilters.isEmpty || !cashFilters.isEmpty || !incomeFilters.isEmpty
+    }
+
     var body: some View {
         ZStack {
-            // Premium gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
-            // Subtle animated background elements
-            TransactionTypesParticleBackground()
+            VStack(spacing: DSLayout.spaceM) {
+                headerSection
+                    .opacity(headerOpacity)
 
-            VStack(spacing: 0) {
-                modernHeader
-                searchAndStats
-                typesContent
-                modernActionBar
+                controlsSection
+                    .offset(y: contentOffset)
+
+                tableSection
+                    .offset(y: contentOffset)
+
+                actionBar
+                    .opacity(buttonsOpacity)
             }
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.vertical, DSLayout.spaceL)
         }
         .onAppear {
             tableModel.connect(to: dbManager)
@@ -261,212 +261,137 @@ struct TransactionTypesView: View {
                 EditTransactionTypeView(typeId: type.id).environmentObject(dbManager)
             }
         }
-        .alert("Delete Transaction Type", isPresented: $showingDeleteAlert) {
+        .alert(deleteAlertTitle, isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let type = typeToDelete {
-                    confirmDelete(type)
-                }
+            if (deleteInfo?.transactionCount ?? 0) > 0 {
+                Button("Delete Anyway", role: .destructive) { proceedDelete() }
+            } else {
+                Button("Delete", role: .destructive) { proceedDelete() }
             }
         } message: {
-            if let type = typeToDelete {
-                Text("Are you sure you want to delete '\(type.name)'?")
-            }
+            Text(deleteAlertMessage)
         }
         .onChange(of: tableModel.visibleColumns) { _, _ in
             ensureFiltersWithinVisibleColumns()
         }
     }
 
-    // MARK: - Modern Header
+    // MARK: - Layout
 
-    private var modernHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
+    private var headerSection: some View {
+        HStack(alignment: .center, spacing: DSLayout.spaceM) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceS) {
                     Image(systemName: "tag.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.orange)
-
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(DSColor.accentMain)
                     Text("Transaction Types")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.black, .gray],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .dsHeaderLarge()
                 }
 
-                Text("Manage your transaction categories and classifications")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                Text("Manage transaction categories used across your portfolios.")
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
 
             Spacer()
 
-            // Quick stats
-            HStack(spacing: 16) {
-                modernStatCard(
-                    title: "Total",
-                    value: "\(transactionTypes.count)",
-                    icon: "number.circle.fill",
-                    color: .orange
-                )
-
-                modernStatCard(
-                    title: "Position",
-                    value: "\(transactionTypes.filter { $0.affectsPosition }.count)",
-                    icon: "chart.line.uptrend.xyaxis.circle.fill",
-                    color: .blue
-                )
-
-                modernStatCard(
-                    title: "Income",
-                    value: "\(transactionTypes.filter { $0.isIncome }.count)",
-                    icon: "plus.circle.fill",
-                    color: .green
-                )
+            HStack(spacing: DSLayout.spaceS) {
+                statPill(title: "Total", value: "\(transactionTypes.count)", color: DSColor.textSecondary)
+                statPill(title: "Position", value: "\(transactionTypes.filter { $0.affectsPosition }.count)", color: DSColor.accentMain)
+                statPill(title: "Income", value: "\(transactionTypes.filter { $0.isIncome }.count)", color: DSColor.accentSuccess)
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
-        .opacity(headerOpacity)
     }
 
-    // MARK: - Search and Stats
-
-    private var searchAndStats: some View {
-        VStack(spacing: 12) {
-            // Search bar
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
-
-                TextField("Search transaction types...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                    )
-            )
-            .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
-
-            // Results indicator
-            if !searchText.isEmpty || hasActiveFilters {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Found \(filteredTypes.count) of \(transactionTypes.count) types")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-
+    private var controlsSection: some View {
+        DSCard {
+            VStack(spacing: DSLayout.spaceS) {
+                HStack(spacing: DSLayout.spaceS) {
+                    searchField
+                    Spacer(minLength: DSLayout.spaceS)
+                    columnsMenu
+                    fontSizePicker
                     if hasActiveFilters {
-                        HStack(spacing: 8) {
-                            ForEach(positionFilters.sorted(), id: \.self) { value in
-                                filterChip(text: "Position: \(value)") { positionFilters.remove(value) }
-                            }
-                            ForEach(cashFilters.sorted(), id: \.self) { value in
-                                filterChip(text: "Cash: \(value)") { cashFilters.remove(value) }
-                            }
-                            ForEach(incomeFilters.sorted(), id: \.self) { value in
-                                filterChip(text: "Income: \(value)") { incomeFilters.remove(value) }
-                            }
+                        Button("Reset Filters", action: clearFilters)
+                            .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+                    }
+                    if visibleColumns != TransactionTypesView.tableConfiguration.defaultVisibleColumns || selectedFontSize != .medium {
+                        Button("Reset View", action: resetTablePreferences)
+                            .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+                    }
+                }
+
+                if hasActiveFilters {
+                    HStack(spacing: DSLayout.spaceS) {
+                        ForEach(positionFilters.sorted(), id: \.self) { value in
+                            filterChip(text: "Position: \(value)") { positionFilters.remove(value) }
+                        }
+                        ForEach(cashFilters.sorted(), id: \.self) { value in
+                            filterChip(text: "Cash: \(value)") { cashFilters.remove(value) }
+                        }
+                        ForEach(incomeFilters.sorted(), id: \.self) { value in
+                            filterChip(text: "Income: \(value)") { incomeFilters.remove(value) }
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 24)
-        .offset(y: contentOffset)
-    }
 
-    // MARK: - Types Content
-
-    private var typesContent: some View {
-        VStack(spacing: 16) {
-            tableControls
-            if filteredTypes.isEmpty {
-                emptyStateView
-            } else {
-                typesTable
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 16)
-        .offset(y: contentOffset)
-    }
-
-    // MARK: - Empty State
-
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
-            VStack(spacing: 16) {
-                Image(systemName: searchText.isEmpty ? "tag" : "magnifyingglass")
-                    .font(.system(size: 64))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                VStack(spacing: 8) {
-                    Text(searchText.isEmpty ? "No transaction types yet" : "No matching types")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.gray)
-
-                    Text(searchText.isEmpty ?
-                        "Create your first transaction type to categorize your financial activities" :
-                        "Try adjusting your search terms")
-                        .font(.body)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                }
-
-                if searchText.isEmpty {
-                    Button { showAddTypeSheet = true } label: {
-                        Label("Add Transaction Type", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                    .foregroundColor(.black)
-                    .padding(.top, 8)
+                if !trimmedSearchText.isEmpty {
+                    Text("Showing \(filteredTypes.count) of \(transactionTypes.count) types")
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Types Table
+    private var searchField: some View {
+        HStack(spacing: DSLayout.spaceS) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(DSColor.textSecondary)
+
+            TextField("Search transaction types", text: $searchText)
+                .textFieldStyle(.plain)
+                .foregroundColor(DSColor.textPrimary)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(DSColor.textSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, DSLayout.spaceM)
+        .padding(.vertical, DSLayout.spaceS)
+        .background(DSColor.surfaceSecondary)
+        .cornerRadius(DSLayout.radiusM)
+        .overlay(
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .stroke(DSColor.border, lineWidth: 1)
+        )
+    }
+
+    private var tableSection: some View {
+        DSCard(padding: DSLayout.spaceS) {
+            VStack(spacing: DSLayout.spaceS) {
+                if filteredTypes.isEmpty {
+                    emptyStateView
+                } else {
+                    typesTable
+                }
+            }
+        }
+    }
 
     private var typesTable: some View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedTypes,
-            rowSpacing: 1,
+            rowSpacing: CGFloat(dbManager.tableRowSpacing),
             showHorizontalIndicators: true,
             rowContent: { type, context in
                 TransactionTypeRowView(
@@ -489,22 +414,117 @@ struct TransactionTypesView: View {
         )
     }
 
-    private var tableControls: some View {
-        HStack(spacing: 12) {
-            columnsMenu
-            fontSizePicker
-            if hasActiveFilters {
-                Button("Reset Filters", action: clearFilters)
-                    .buttonStyle(.link)
-            }
-            Spacer()
-            if visibleColumns != TransactionTypesView.tableConfiguration.defaultVisibleColumns || selectedFontSize != .medium {
-                Button("Reset View", action: resetTablePreferences)
-                    .buttonStyle(.link)
+    private var actionBar: some View {
+        DSCard {
+            HStack(spacing: DSLayout.spaceS) {
+                Button { showAddTypeSheet = true } label: {
+                    Label("Add Transaction Type", systemImage: "plus")
+                }
+                .buttonStyle(DSButtonStyle(type: .primary))
+
+                Button {
+                    if selectedType != nil {
+                        showEditTypeSheet = true
+                    }
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary))
+                .disabled(selectedType == nil)
+
+                Button {
+                    if let type = selectedType {
+                        prepareDelete(type)
+                    }
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .buttonStyle(DSButtonStyle(type: .destructive))
+                .disabled(selectedType == nil)
+
+                Spacer()
+
+                if let type = selectedType {
+                    HStack(spacing: DSLayout.spaceS) {
+                        Text("Selected:")
+                            .dsCaption()
+                            .foregroundColor(DSColor.textSecondary)
+                        DSBadge(text: type.name, color: DSColor.textSecondary)
+                    }
+                }
             }
         }
-        .padding(.horizontal, 4)
-        .font(.system(size: 12))
+        .opacity(buttonsOpacity)
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: DSLayout.spaceM) {
+            Image(systemName: trimmedSearchText.isEmpty ? "tray" : "magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundColor(DSColor.textSecondary)
+
+            VStack(spacing: DSLayout.spaceXS) {
+                Text(trimmedSearchText.isEmpty ? "No transaction types yet" : "No matches found")
+                    .dsHeaderSmall()
+                    .foregroundColor(DSColor.textPrimary)
+
+                Text(trimmedSearchText.isEmpty ?
+                    "Create your first transaction type to categorize activity." :
+                    "Adjust your search terms or clear filters.")
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if trimmedSearchText.isEmpty {
+                Button { showAddTypeSheet = true } label: {
+                    Label("Add Transaction Type", systemImage: "plus")
+                }
+                .buttonStyle(DSButtonStyle(type: .primary))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 220)
+    }
+
+    // MARK: - Table Helpers
+
+    private func transactionHeaderContent(for column: TransactionTypeColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
+        let targetSort = sortColumn(from: column)
+        let isActiveSort = sortColumn == targetSort
+        let binding = filterBinding(for: column)
+        let options = filterOptions(for: column)
+
+        return HStack(spacing: DSLayout.spaceXS) {
+            Button(action: { toggleSort(for: column) }) {
+                HStack(spacing: DSLayout.spaceXS) {
+                    Text(column.title)
+                        .font(.system(size: fontConfig.header, weight: .semibold))
+                        .foregroundColor(DSColor.textPrimary)
+                    if isActiveSort {
+                        Image(systemName: sortAscending ? "arrow.up" : "arrow.down")
+                            .font(.system(size: fontConfig.header - 3, weight: .bold))
+                            .foregroundColor(DSColor.accentMain)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            if let binding, !options.isEmpty {
+                Menu {
+                    ForEach(options, id: \.self) { value in
+                        Button {
+                            toggleFilter(value, binding: binding)
+                        } label: {
+                            Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .foregroundColor(binding.wrappedValue.isEmpty ? DSColor.textSecondary : DSColor.accentMain)
+                }
+                .menuStyle(BorderlessButtonMenuStyle())
+            }
+        }
     }
 
     private var columnsMenu: some View {
@@ -522,6 +542,7 @@ struct TransactionTypesView: View {
             Button("Reset Columns", action: resetVisibleColumns)
         } label: {
             Label("Columns", systemImage: "slider.horizontal.3")
+                .dsBody()
         }
     }
 
@@ -532,7 +553,7 @@ struct TransactionTypesView: View {
             }
         }
         .pickerStyle(.segmented)
-        .frame(maxWidth: 240)
+        .frame(maxWidth: 220)
         .labelsHidden()
     }
 
@@ -551,10 +572,6 @@ struct TransactionTypesView: View {
         clearFilters()
     }
 
-    private var hasActiveFilters: Bool {
-        !positionFilters.isEmpty || !cashFilters.isEmpty || !incomeFilters.isEmpty
-    }
-
     private func filterBinding(for column: TransactionTypeColumn) -> Binding<Set<String>>? {
         switch column {
         case .affectsPosition: return $positionFilters
@@ -571,6 +588,14 @@ struct TransactionTypesView: View {
         }
     }
 
+    private func toggleFilter(_ value: String, binding: Binding<Set<String>>) {
+        if binding.wrappedValue.contains(value) {
+            binding.wrappedValue.remove(value)
+        } else {
+            binding.wrappedValue.insert(value)
+        }
+    }
+
     private func booleanLabel(for value: Bool) -> String {
         value ? "Yes" : "No"
     }
@@ -579,23 +604,6 @@ struct TransactionTypesView: View {
         positionFilters.removeAll()
         cashFilters.removeAll()
         incomeFilters.removeAll()
-    }
-
-    private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
-        HStack(spacing: 4) {
-            Text(text)
-                .font(.caption)
-                .foregroundColor(.primary)
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.gray)
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.orange.opacity(0.15))
-        .clipShape(Capsule())
     }
 
     private func ensureFiltersWithinVisibleColumns() {
@@ -641,184 +649,24 @@ struct TransactionTypesView: View {
         return lhs && !rhs
     }
 
-    private func transactionHeaderContent(for column: TransactionTypeColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
-        let targetSort = sortColumn(from: column)
-        let isActiveSort = sortColumn == targetSort
-        let filterBinding = filterBinding(for: column)
-        let options = filterOptions(for: column)
-
-        return HStack(spacing: 6) {
-            Button(action: { toggleSort(for: column) }) {
-                HStack(spacing: 4) {
-                    Text(column.title)
-                        .font(.system(size: fontConfig.header, weight: .semibold))
-                        .foregroundColor(.black)
-                    Image(systemName: "triangle.fill")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(isActiveSort ? .accentColor : .gray.opacity(0.3))
-                        .rotationEffect(.degrees(isActiveSort && !sortAscending ? 180 : 0))
-                        .opacity(isActiveSort ? 1 : 0)
-                }
+    private func filterChip(text: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: DSLayout.spaceXS) {
+            Text(text)
+                .dsCaption()
+                .foregroundColor(DSColor.textPrimary)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(DSColor.textSecondary)
             }
             .buttonStyle(.plain)
-
-            if let binding = filterBinding, !options.isEmpty {
-                Menu {
-                    ForEach(options, id: \.self) { value in
-                        Button {
-                            if binding.wrappedValue.contains(value) {
-                                binding.wrappedValue.remove(value)
-                            } else {
-                                binding.wrappedValue.insert(value)
-                            }
-                        } label: {
-                            Label(value, systemImage: binding.wrappedValue.contains(value) ? "checkmark" : "")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .foregroundColor(binding.wrappedValue.isEmpty ? .gray : .accentColor)
-                }
-                .menuStyle(BorderlessButtonMenuStyle())
-            }
         }
+        .padding(.horizontal, DSLayout.spaceS)
+        .padding(.vertical, DSLayout.spaceXS)
+        .background(DSColor.surfaceSecondary)
+        .cornerRadius(DSLayout.radiusM)
     }
 
-    // MARK: - Modern Action Bar
-
-    private var modernActionBar: some View {
-        VStack(spacing: 0) {
-            // Divider line
-            Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(height: 1)
-
-            HStack(spacing: 16) {
-                // Primary action
-                Button { showAddTypeSheet = true } label: {
-                    Label("Add Transaction Type", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
-
-                // Secondary actions
-                if selectedType != nil {
-                    Button {
-                        showEditTypeSheet = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "pencil")
-                            Text("Edit")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-
-                    Button {
-                        if let type = selectedType {
-                            typeToDelete = type
-                            showingDeleteAlert = true
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Delete")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                }
-
-                Spacer()
-
-                // Selection indicator
-                if let type = selectedType {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.orange)
-                        Text("Selected: \(type.name)")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.05))
-                    .clipShape(Capsule())
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(.regularMaterial)
-        }
-        .opacity(buttonsOpacity)
-    }
-
-    // MARK: - Helper Views
-
-    private func modernStatCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 12))
-                    .foregroundColor(color)
-                Text(title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.primary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.regularMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(color.opacity(0.2), lineWidth: 1)
-                )
-        )
-        .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
-    }
-
-    // MARK: - Animations
-
-    private func animateEntrance() {
-        withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
-            headerOpacity = 1.0
-        }
-
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) {
-            contentOffset = 0
-        }
-
-        withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
-            buttonsOpacity = 1.0
-        }
-    }
-
-    // MARK: - Functions
+    // MARK: - Data
 
     func loadTransactionTypes() {
         let currentId = selectedType?.id
@@ -839,36 +687,16 @@ struct TransactionTypesView: View {
         }
     }
 
-    private func confirmDelete(_ type: TransactionTypeItem) {
-        #if os(macOS)
-            let deleteInfo = dbManager.canDeleteTransactionType(id: type.id)
+    private func prepareDelete(_ type: TransactionTypeItem) {
+        typeToDelete = type
+        deleteInfo = dbManager.canDeleteTransactionType(id: type.id)
+        showingDeleteAlert = true
+    }
 
-            if deleteInfo.transactionCount > 0 {
-                let alert = NSAlert()
-                alert.messageText = "Delete Transaction Type with Data"
-                alert.informativeText = "This transaction type '\(type.name)' is used by \(deleteInfo.transactionCount) transaction(s). Deleting it may cause data inconsistencies.\n\nAre you sure you want to proceed?"
-                alert.alertStyle = .critical
-                alert.addButton(withTitle: "Delete Anyway")
-                alert.addButton(withTitle: "Cancel")
-
-                if alert.runModal() == .alertFirstButtonReturn {
-                    performDelete(type)
-                }
-            } else {
-                let alert = NSAlert()
-                alert.messageText = "Delete Transaction Type"
-                alert.informativeText = "Are you sure you want to delete '\(type.name)'?"
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "Delete")
-                alert.addButton(withTitle: "Cancel")
-
-                if alert.runModal() == .alertFirstButtonReturn {
-                    performDelete(type)
-                }
-            }
-        #else
+    private func proceedDelete() {
+        if let type = typeToDelete {
             performDelete(type)
-        #endif
+        }
     }
 
     private func performDelete(_ type: TransactionTypeItem) {
@@ -880,9 +708,60 @@ struct TransactionTypesView: View {
             typeToDelete = nil
         }
     }
+
+    private var deleteAlertTitle: String {
+        let count = deleteInfo?.transactionCount ?? 0
+        return count > 0 ? "Delete Transaction Type with Data" : "Delete Transaction Type"
+    }
+
+    private var deleteAlertMessage: String {
+        guard let type = typeToDelete else { return "Are you sure you want to delete this transaction type?" }
+        let count = deleteInfo?.transactionCount ?? 0
+        if count > 0 {
+            return "'\(type.name)' is used by \(count) transaction(s). Deleting it may remove references."
+        }
+        return "Delete '\(type.name)'?"
+    }
+
+    // MARK: - Animations
+
+    private func animateEntrance() {
+        withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+            headerOpacity = 1.0
+        }
+
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3)) {
+            contentOffset = 0
+        }
+
+        withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
+            buttonsOpacity = 1.0
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func statPill(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+            Text(title.uppercased())
+                .dsCaption()
+                .foregroundColor(DSColor.textSecondary)
+            Text(value)
+                .font(.ds.headerSmall)
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, DSLayout.spaceM)
+        .padding(.vertical, DSLayout.spaceS)
+        .background(DSColor.surface)
+        .cornerRadius(DSLayout.radiusM)
+        .overlay(
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .stroke(DSColor.border, lineWidth: 1)
+        )
+    }
 }
 
-// MARK: - Transaction Type Row
+// MARK: - Table Row
 
 private struct TransactionTypeRowView: View {
     let type: TransactionTypeItem
@@ -900,14 +779,14 @@ private struct TransactionTypeRowView: View {
                 columnView(for: column)
             }
         }
-        .padding(.trailing, 12)
-        .padding(.vertical, max(rowPadding, 8))
+        .padding(.trailing, DSLayout.spaceM)
+        .padding(.vertical, max(rowPadding, DSLayout.spaceS))
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.orange.opacity(0.1) : Color.clear)
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.35) : Color.clear, lineWidth: 1)
                 )
         )
         .contentShape(Rectangle())
@@ -939,56 +818,57 @@ private struct TransactionTypeRowView: View {
         case .name:
             Text(type.name)
                 .font(.system(size: fontConfig.primary, weight: .medium))
-                .foregroundColor(.primary)
-                .padding(.leading, 16)
-                .padding(.trailing, 8)
+                .foregroundColor(DSColor.textPrimary)
+                .padding(.leading, DSLayout.spaceM)
+                .padding(.trailing, DSLayout.spaceS)
                 .frame(width: widthFor(.name), alignment: .leading)
         case .code:
             Text(type.code)
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.gray.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .foregroundColor(DSColor.textSecondary)
+                .padding(.horizontal, DSLayout.spaceS)
+                .padding(.vertical, DSLayout.spaceXS)
+                .background(DSColor.surfaceSecondary)
+                .cornerRadius(DSLayout.radiusS)
                 .frame(width: widthFor(.code), alignment: .leading)
         case .description:
             Text(type.description)
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .lineLimit(2)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DSLayout.spaceS)
                 .frame(width: widthFor(.description), alignment: .leading)
         case .affectsPosition:
-            indicatorView(isOn: type.affectsPosition, onColor: .blue)
+            indicatorView(isOn: type.affectsPosition, onColor: DSColor.accentMain)
                 .frame(width: widthFor(.affectsPosition), alignment: .center)
         case .affectsCash:
-            indicatorView(isOn: type.affectsCash, onColor: .green)
+            indicatorView(isOn: type.affectsCash, onColor: DSColor.accentSuccess)
                 .frame(width: widthFor(.affectsCash), alignment: .center)
         case .isIncome:
-            indicatorView(isOn: type.isIncome, onColor: .purple)
+            indicatorView(isOn: type.isIncome, onColor: DSColor.accentWarning)
                 .frame(width: widthFor(.isIncome), alignment: .center)
         case .sortOrder:
             Text("\(type.sortOrder)")
                 .font(.system(size: fontConfig.secondary, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .frame(width: widthFor(.sortOrder), alignment: .center)
         }
     }
 
     private func indicatorView(isOn: Bool, onColor: Color) -> some View {
         let size = max(fontConfig.badge, 8)
-        return Circle()
-            .fill(isOn ? onColor : Color.gray.opacity(0.3))
-            .frame(width: size, height: size)
-            .overlay(
-                Circle()
-                    .stroke(isOn ? onColor.opacity(0.4) : Color.gray.opacity(0.2), lineWidth: 1)
-            )
+        return HStack(spacing: DSLayout.spaceXS) {
+            Circle()
+                .fill(isOn ? onColor : DSColor.textTertiary.opacity(0.4))
+                .frame(width: size, height: size)
+            Text(isOn ? "Yes" : "No")
+                .font(.system(size: fontConfig.secondary, weight: .medium))
+                .foregroundColor(isOn ? onColor : DSColor.textSecondary)
+        }
     }
 }
 
-// MARK: - Add Transaction Type View
+// MARK: - Add Transaction Type
 
 struct AddTransactionTypeView: View {
     @Environment(\.presentationMode) private var presentationMode
@@ -1005,488 +885,114 @@ struct AddTransactionTypeView: View {
     @State private var alertMessage = ""
     @State private var isLoading = false
 
-    // Animation states
-    @State private var formScale: CGFloat = 0.9
-    @State private var headerOpacity: Double = 0
-    @State private var sectionsOffset: CGFloat = 50
-
     var isValid: Bool {
         !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             Int(sortOrder) != nil
     }
 
-    // MARK: - Computed Properties
-
-    private var completionPercentage: Double {
-        var completed = 0.0
-        let total = 4.0
-
-        if !typeName.isEmpty { completed += 1 }
-        if !typeCode.isEmpty { completed += 1 }
-        if !typeDescription.isEmpty { completed += 1 }
-        completed += 1 // Always count settings
-
-        return completed / total
-    }
-
     var body: some View {
-        ZStack {
-            // Premium gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+        VStack(spacing: 0) {
+            transactionFormHeader(
+                title: "New Transaction Type",
+                subtitle: "Create a reusable category for transactions.",
+                primaryLabel: isLoading ? "Saving..." : "Save",
+                isPrimaryEnabled: isValid && !isLoading,
+                isLoading: isLoading,
+                onSave: saveTransactionType,
+                onCancel: { presentationMode.wrappedValue.dismiss() }
             )
-            .ignoresSafeArea()
 
-            // Subtle animated background elements
-            AddTransactionTypeParticleBackground()
+            Divider().overlay(DSColor.border)
 
-            // Main content
-            VStack(spacing: 0) {
-                addModernHeader
-                addProgressBar
-                addModernContent
-            }
-        }
-        .frame(width: 700, height: 650)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-        .scaleEffect(formScale)
-        .onAppear {
-            animateAddEntrance()
-        }
-        .alert("Result", isPresented: $showingAlert) {
-            Button("OK") {
-                if alertMessage.contains("✅") {
-                    animateAddExit()
+            ScrollView {
+                DSCard {
+                    VStack(alignment: .leading, spacing: DSLayout.spaceL) {
+                        typeInfoSection(accent: DSColor.accentMain)
+                        behaviorSection(accent: DSColor.accentSuccess)
+                    }
                 }
+                .padding(DSLayout.spaceM)
             }
+        }
+        .frame(width: 640, height: 560)
+        .background(DSColor.background)
+        .alert("Unable to Save", isPresented: $showingAlert) {
+            Button("OK", role: .cancel) {}
         } message: {
             Text(alertMessage)
         }
     }
 
-    // MARK: - Add Modern Header
+    private func typeInfoSection(accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            transactionFormSectionHeader(title: "Type Information", icon: "tag", color: accent)
 
-    private var addModernHeader: some View {
-        HStack {
-            Button {
-                animateAddExit()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
-            }
-            .buttonStyle(ScaleButtonStyle())
+            transactionTypeFormField(
+                title: "Type Name",
+                placeholder: "e.g., Stock Purchase",
+                icon: "textformat",
+                text: $typeName,
+                isRequired: true
+            )
 
-            Spacer()
+            transactionTypeFormField(
+                title: "Type Code",
+                placeholder: "e.g., BUY_STOCK",
+                icon: "number",
+                text: $typeCode,
+                isRequired: true,
+                autoUppercase: true
+            )
 
-            HStack(spacing: 12) {
-                Image(systemName: "tag.circle.badge.plus")
-                    .font(.system(size: 24))
-                    .foregroundColor(.orange)
+            transactionTypeFormField(
+                title: "Description",
+                placeholder: "Brief description of this transaction type",
+                icon: "text.alignleft",
+                text: $typeDescription,
+                isRequired: false
+            )
 
-                Text("Add Transaction Type")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.black, .gray],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            }
-
-            Spacer()
-
-            Button {
-                saveTransactionType()
-            } label: {
-                HStack(spacing: 8) {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-
-                    Text(isLoading ? "Saving..." : "Save")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .frame(height: 32)
-                .padding(.horizontal, 16)
-                .background(
-                    Group {
-                        if isValid && !isLoading {
-                            Color.orange
-                        } else {
-                            Color.gray.opacity(0.4)
-                        }
-                    }
-                )
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(.white.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: isValid ? .orange.opacity(0.3) : .clear, radius: 8, x: 0, y: 2)
-            }
-            .disabled(isLoading || !isValid)
-            .buttonStyle(ScaleButtonStyle())
+            transactionTypeFormField(
+                title: "Sort Order",
+                placeholder: "0",
+                icon: "arrow.up.arrow.down",
+                text: $sortOrder,
+                isRequired: true
+            )
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
-        .opacity(headerOpacity)
     }
 
-    // MARK: - Add Progress Bar
+    private func behaviorSection(accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            transactionFormSectionHeader(title: "Transaction Behavior", icon: "gearshape.fill", color: accent)
 
-    private var addProgressBar: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text("Completion")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                Spacer()
-
-                Text("\(Int(completionPercentage * 100))%")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.orange)
-            }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.15))
-                        .frame(height: 6)
-
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [.orange, .green],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * completionPercentage, height: 6)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: completionPercentage)
-                        .shadow(color: .orange.opacity(0.3), radius: 3, x: 0, y: 1)
-                }
-            }
-            .frame(height: 6)
-        }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
-    }
-
-    // MARK: - Add Modern Content
-
-    private var addModernContent: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                addTypeInfoSection
-                addBehaviorSection
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 100)
-        }
-        .offset(y: sectionsOffset)
-    }
-
-    // MARK: - Type Info Section
-
-    private var addTypeInfoSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            addSectionHeader(title: "Type Information", icon: "tag.circle.fill", color: .orange)
-
-            VStack(spacing: 16) {
-                addModernTextField(
-                    title: "Type Name",
-                    text: $typeName,
-                    placeholder: "e.g., Stock Purchase",
-                    icon: "textformat",
-                    isRequired: true
+            VStack(spacing: DSLayout.spaceM) {
+                behaviorToggle(
+                    title: "Affects Position",
+                    description: "Changes security holdings",
+                    isOn: $affectsPosition,
+                    accent: DSColor.accentMain
                 )
 
-                addModernTextField(
-                    title: "Type Code",
-                    text: $typeCode,
-                    placeholder: "e.g., BUY_STOCK",
-                    icon: "number",
-                    isRequired: true,
-                    autoUppercase: true
+                behaviorToggle(
+                    title: "Affects Cash",
+                    description: "Changes cash balance",
+                    isOn: $affectsCash,
+                    accent: DSColor.accentSuccess
                 )
 
-                addModernTextField(
-                    title: "Description",
-                    text: $typeDescription,
-                    placeholder: "Brief description of this transaction type",
-                    icon: "text.alignleft",
-                    isRequired: false
-                )
-
-                addModernTextField(
-                    title: "Sort Order",
-                    text: $sortOrder,
-                    placeholder: "0",
-                    icon: "arrow.up.arrow.down",
-                    isRequired: true
+                behaviorToggle(
+                    title: "Income Transaction",
+                    description: "Dividends, interest, or other income",
+                    isOn: $isIncome,
+                    accent: DSColor.accentWarning
                 )
             }
         }
-        .padding(24)
-        .background(addTransactionTypeGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .orange.opacity(0.1), radius: 10, x: 0, y: 5)
     }
 
-    // MARK: - Behavior Section
-
-    private var addBehaviorSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            addSectionHeader(title: "Transaction Behavior", icon: "gearshape.circle.fill", color: .blue)
-
-            VStack(spacing: 16) {
-                HStack(spacing: 16) {
-                    // Affects Position Toggle
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "chart.line.uptrend.xyaxis.circle")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-
-                            Text("Affects Position")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-
-                            Spacer()
-                        }
-
-                        Toggle("Changes security holdings", isOn: $affectsPosition)
-                            .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.8))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    // Affects Cash Toggle
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "dollarsign.circle")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-
-                            Text("Affects Cash")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-
-                            Spacer()
-                        }
-
-                        Toggle("Changes cash balance", isOn: $affectsCash)
-                            .toggleStyle(SwitchToggleStyle(tint: .green))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.8))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Is Income Toggle
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 14))
-                            .foregroundColor(.gray)
-
-                        Text("Income Transaction")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.black.opacity(0.7))
-
-                        Spacer()
-                    }
-
-                    Toggle("This is an income transaction (dividends, interest, etc.)", isOn: $isIncome)
-                        .toggleStyle(SwitchToggleStyle(tint: .purple))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                }
-            }
-        }
-        .padding(24)
-        .background(addTransactionTypeGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
-    }
-
-    // MARK: - Add Glassmorphism Background
-
-    private var addTransactionTypeGlassMorphismBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.8),
-                            .white.opacity(0.6),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .orange.opacity(0.05),
-                            .blue.opacity(0.03),
-                            .clear,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        }
-    }
-
-    // MARK: - Helper Views
-
-    private func addSectionHeader(title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            Text(title)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
-
-            Spacer()
-        }
-    }
-
-    private func addModernTextField(
-        title: String,
-        text: Binding<String>,
-        placeholder: String,
-        icon: String,
-        isRequired: Bool,
-        autoUppercase: Bool = false
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-
-                Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
-
-                Spacer()
-            }
-
-            TextField(placeholder, text: text)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                .onChange(of: text.wrappedValue) { _, newValue in
-                    if autoUppercase {
-                        text.wrappedValue = newValue.uppercased()
-                    }
-                }
-        }
-    }
-
-    // MARK: - Animations
-
-    private func animateAddEntrance() {
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
-            formScale = 1.0
-        }
-
-        withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
-            headerOpacity = 1.0
-        }
-
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
-            sectionsOffset = 0
-        }
-    }
-
-    private func animateAddExit() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            formScale = 0.9
-            headerOpacity = 0
-            sectionsOffset = 50
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-    // MARK: - Functions
-
-    func saveTransactionType() {
+    private func saveTransactionType() {
         guard isValid else {
             alertMessage = "Please fill in all required fields"
             showingAlert = true
@@ -1510,18 +1016,16 @@ struct AddTransactionTypeView: View {
 
             if success {
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionTypes"), object: nil)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.animateAddExit()
-                }
+                presentationMode.wrappedValue.dismiss()
             } else {
-                self.alertMessage = "❌ Failed to add transaction type. Please try again."
+                self.alertMessage = "Failed to add transaction type. Please try again."
                 self.showingAlert = true
             }
         }
     }
 }
 
-// MARK: - Edit Transaction Type View
+// MARK: - Edit Transaction Type
 
 struct EditTransactionTypeView: View {
     @Environment(\.presentationMode) private var presentationMode
@@ -1539,13 +1043,8 @@ struct EditTransactionTypeView: View {
     @State private var alertMessage = ""
     @State private var isLoading = false
 
-    // Animation states
-    @State private var formScale: CGFloat = 0.9
-    @State private var headerOpacity: Double = 0
-    @State private var sectionsOffset: CGFloat = 50
     @State private var hasChanges = false
 
-    // Store original values
     @State private var originalName = ""
     @State private var originalCode = ""
     @State private var originalDescription = ""
@@ -1570,519 +1069,138 @@ struct EditTransactionTypeView: View {
             isIncome != originalIsIncome
     }
 
-    // MARK: - Computed Properties
-
-    private var completionPercentage: Double {
-        var completed = 0.0
-        let total = 4.0
-
-        if !typeName.isEmpty { completed += 1 }
-        if !typeCode.isEmpty { completed += 1 }
-        if !typeDescription.isEmpty { completed += 1 }
-        completed += 1 // Always count settings
-
-        return completed / total
-    }
-
     var body: some View {
-        ZStack {
-            // Premium gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.97, green: 0.98, blue: 1.0),
-                    Color(red: 0.94, green: 0.96, blue: 0.99),
-                    Color(red: 0.91, green: 0.94, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+        VStack(spacing: 0) {
+            transactionFormHeader(
+                title: "Edit Transaction Type",
+                subtitle: "Update how this transaction type behaves.",
+                primaryLabel: isLoading ? "Saving..." : "Save Changes",
+                isPrimaryEnabled: isValid && hasChanges && !isLoading,
+                isLoading: isLoading,
+                onSave: saveEditTransactionType,
+                onCancel: {
+                    if hasChanges {
+                        showUnsavedChangesAlert()
+                    } else {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
             )
-            .ignoresSafeArea()
 
-            // Background particles
-            EditTransactionTypeParticleBackground()
+            if hasChanges {
+                HStack(spacing: DSLayout.spaceS) {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(DSColor.accentWarning)
+                    Text("Unsaved changes")
+                        .dsCaption()
+                        .foregroundColor(DSColor.accentWarning)
+                    Spacer()
+                }
+                .padding(.horizontal, DSLayout.spaceM)
+                .padding(.vertical, DSLayout.spaceXS)
+            }
 
-            // Main content
-            VStack(spacing: 0) {
-                editModernHeader
-                editChangeIndicator
-                editProgressBar
-                editModernContent
+            Divider().overlay(DSColor.border)
+
+            ScrollView {
+                DSCard {
+                    VStack(alignment: .leading, spacing: DSLayout.spaceL) {
+                        typeInfoSection(accent: DSColor.accentMain)
+                        behaviorSection(accent: DSColor.accentSuccess)
+                    }
+                }
+                .padding(DSLayout.spaceM)
             }
         }
-        .frame(width: 700, height: 700)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-        .scaleEffect(formScale)
+        .frame(width: 640, height: 580)
+        .background(DSColor.background)
         .onAppear {
             loadTypeData()
-            animateEditEntrance()
         }
-        .alert("Result", isPresented: $showingAlert) {
-            Button("OK") {
-                showingAlert = false
-            }
+        .alert("Unable to Save", isPresented: $showingAlert) {
+            Button("OK", role: .cancel) {}
         } message: {
             Text(alertMessage)
         }
     }
 
-    // MARK: - Edit Modern Header
+    private func typeInfoSection(accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            transactionFormSectionHeader(title: "Type Information", icon: "tag", color: accent)
 
-    private var editModernHeader: some View {
-        HStack {
-            Button {
-                if hasChanges {
-                    showUnsavedChangesAlert()
-                } else {
-                    animateEditExit()
-                }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Color.gray.opacity(0.1))
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
-            }
-            .buttonStyle(ScaleButtonStyle())
+            transactionTypeFormField(
+                title: "Type Name",
+                placeholder: "e.g., Stock Purchase",
+                icon: "textformat",
+                text: $typeName,
+                isRequired: true
+            )
+            .onChange(of: typeName) { _, _ in detectChanges() }
 
-            Spacer()
+            transactionTypeFormField(
+                title: "Type Code",
+                placeholder: "e.g., BUY_STOCK",
+                icon: "number",
+                text: $typeCode,
+                isRequired: true,
+                autoUppercase: true
+            )
+            .onChange(of: typeCode) { _, _ in detectChanges() }
 
-            HStack(spacing: 12) {
-                Image(systemName: "tag.circle.badge.gearshape")
-                    .font(.system(size: 24))
-                    .foregroundColor(.orange)
+            transactionTypeFormField(
+                title: "Description",
+                placeholder: "Brief description of this transaction type",
+                icon: "text.alignleft",
+                text: $typeDescription,
+                isRequired: false
+            )
+            .onChange(of: typeDescription) { _, _ in detectChanges() }
 
-                Text("Edit Transaction Type")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.black, .gray],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            }
-
-            Spacer()
-
-            Button {
-                saveEditTransactionType()
-            } label: {
-                HStack(spacing: 8) {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-
-                    Text(isLoading ? "Saving..." : "Save Changes")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .frame(height: 32)
-                .padding(.horizontal, 16)
-                .background(
-                    Group {
-                        if isValid && hasChanges && !isLoading {
-                            Color.orange
-                        } else {
-                            Color.gray.opacity(0.4)
-                        }
-                    }
-                )
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(.white.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: isValid && hasChanges ? .orange.opacity(0.3) : .clear, radius: 8, x: 0, y: 2)
-            }
-            .disabled(isLoading || !isValid || !hasChanges)
-            .buttonStyle(ScaleButtonStyle())
+            transactionTypeFormField(
+                title: "Sort Order",
+                placeholder: "0",
+                icon: "arrow.up.arrow.down",
+                text: $sortOrder,
+                isRequired: true
+            )
+            .onChange(of: sortOrder) { _, _ in detectChanges() }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
-        .opacity(headerOpacity)
     }
 
-    // MARK: - Edit Change Indicator
+    private func behaviorSection(accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            transactionFormSectionHeader(title: "Transaction Behavior", icon: "gearshape.fill", color: accent)
 
-    private var editChangeIndicator: some View {
-        HStack {
-            if hasChanges {
-                HStack(spacing: 8) {
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 8))
-                        .foregroundColor(.orange)
-
-                    Text("Unsaved changes")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.1))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+            VStack(spacing: DSLayout.spaceM) {
+                behaviorToggle(
+                    title: "Affects Position",
+                    description: "Changes security holdings",
+                    isOn: $affectsPosition,
+                    accent: DSColor.accentMain
                 )
-                .transition(.opacity.combined(with: .scale))
-            }
+                .onChange(of: affectsPosition) { _, _ in detectChanges() }
 
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: hasChanges)
-    }
-
-    // MARK: - Edit Progress Bar
-
-    private var editProgressBar: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text("Completion")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                Spacer()
-
-                Text("\(Int(completionPercentage * 100))%")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.orange)
-            }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.15))
-                        .frame(height: 6)
-
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [.orange, .green],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * completionPercentage, height: 6)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: completionPercentage)
-                        .shadow(color: .orange.opacity(0.3), radius: 3, x: 0, y: 1)
-                }
-            }
-            .frame(height: 6)
-        }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
-    }
-
-    // MARK: - Edit Modern Content
-
-    private var editModernContent: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                editTypeInfoSection
-                editBehaviorSection
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 100)
-        }
-        .offset(y: sectionsOffset)
-    }
-
-    // MARK: - Edit Type Info Section
-
-    private var editTypeInfoSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            editSectionHeader(title: "Type Information", icon: "tag.circle.fill", color: .orange)
-
-            VStack(spacing: 16) {
-                editModernTextField(
-                    title: "Type Name",
-                    text: $typeName,
-                    placeholder: "e.g., Stock Purchase",
-                    icon: "textformat",
-                    isRequired: true
+                behaviorToggle(
+                    title: "Affects Cash",
+                    description: "Changes cash balance",
+                    isOn: $affectsCash,
+                    accent: DSColor.accentSuccess
                 )
-                .onChange(of: typeName) { _, _ in detectChanges() }
+                .onChange(of: affectsCash) { _, _ in detectChanges() }
 
-                editModernTextField(
-                    title: "Type Code",
-                    text: $typeCode,
-                    placeholder: "e.g., BUY_STOCK",
-                    icon: "number",
-                    isRequired: true,
-                    autoUppercase: true
+                behaviorToggle(
+                    title: "Income Transaction",
+                    description: "Dividends, interest, or other income",
+                    isOn: $isIncome,
+                    accent: DSColor.accentWarning
                 )
-                .onChange(of: typeCode) { _, _ in detectChanges() }
-
-                editModernTextField(
-                    title: "Description",
-                    text: $typeDescription,
-                    placeholder: "Brief description of this transaction type",
-                    icon: "text.alignleft",
-                    isRequired: false
-                )
-                .onChange(of: typeDescription) { _, _ in detectChanges() }
-
-                editModernTextField(
-                    title: "Sort Order",
-                    text: $sortOrder,
-                    placeholder: "0",
-                    icon: "arrow.up.arrow.down",
-                    isRequired: true
-                )
-                .onChange(of: sortOrder) { _, _ in detectChanges() }
+                .onChange(of: isIncome) { _, _ in detectChanges() }
             }
         }
-        .padding(24)
-        .background(editTransactionTypeGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .orange.opacity(0.1), radius: 10, x: 0, y: 5)
     }
 
-    // MARK: - Edit Behavior Section
-
-    private var editBehaviorSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            editSectionHeader(title: "Transaction Behavior", icon: "gearshape.circle.fill", color: .blue)
-
-            VStack(spacing: 16) {
-                HStack(spacing: 16) {
-                    // Affects Position Toggle
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "chart.line.uptrend.xyaxis.circle")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-
-                            Text("Affects Position")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-
-                            Spacer()
-                        }
-
-                        Toggle("Changes security holdings", isOn: $affectsPosition)
-                            .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.8))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                            .onChange(of: affectsPosition) { _, _ in detectChanges() }
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    // Affects Cash Toggle
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "dollarsign.circle")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-
-                            Text("Affects Cash")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-
-                            Spacer()
-                        }
-
-                        Toggle("Changes cash balance", isOn: $affectsCash)
-                            .toggleStyle(SwitchToggleStyle(tint: .green))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.8))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                            .onChange(of: affectsCash) { _, _ in detectChanges() }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Is Income Toggle
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 14))
-                            .foregroundColor(.gray)
-
-                        Text("Income Transaction")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.black.opacity(0.7))
-
-                        Spacer()
-                    }
-
-                    Toggle("This is an income transaction (dividends, interest, etc.)", isOn: $isIncome)
-                        .toggleStyle(SwitchToggleStyle(tint: .purple))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        .onChange(of: isIncome) { _, _ in detectChanges() }
-                }
-            }
-        }
-        .padding(24)
-        .background(editTransactionTypeGlassMorphismBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: .blue.opacity(0.1), radius: 10, x: 0, y: 5)
-    }
-
-    // MARK: - Edit Glassmorphism Background
-
-    private var editTransactionTypeGlassMorphismBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.85),
-                            .white.opacity(0.65),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .orange.opacity(0.05),
-                            .blue.opacity(0.03),
-                            .clear,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        }
-    }
-
-    // MARK: - Helper Views
-
-    private func editSectionHeader(title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            Text(title)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
-
-            Spacer()
-        }
-    }
-
-    private func editModernTextField(
-        title: String,
-        text: Binding<String>,
-        placeholder: String,
-        icon: String,
-        isRequired: Bool,
-        autoUppercase: Bool = false
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-
-                Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
-
-                Spacer()
-            }
-
-            TextField(placeholder, text: text)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                .onChange(of: text.wrappedValue) { _, newValue in
-                    if autoUppercase {
-                        text.wrappedValue = newValue.uppercased()
-                    }
-                }
-        }
-    }
-
-    // MARK: - Animations
-
-    private func animateEditEntrance() {
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
-            formScale = 1.0
-        }
-
-        withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
-            headerOpacity = 1.0
-        }
-
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
-            sectionsOffset = 0
-        }
-    }
-
-    private func animateEditExit() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            formScale = 0.9
-            headerOpacity = 0
-            sectionsOffset = 50
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-    // MARK: - Functions
-
-    func loadTypeData() {
+    private func loadTypeData() {
         if let details = dbManager.fetchTransactionTypeDetails(id: typeId) {
             typeName = details.name
             typeCode = details.code
@@ -2092,7 +1210,6 @@ struct EditTransactionTypeView: View {
             affectsCash = details.affectsCash
             isIncome = details.isIncome
 
-            // Store original values
             originalName = typeName
             originalCode = typeCode
             originalDescription = typeDescription
@@ -2100,6 +1217,8 @@ struct EditTransactionTypeView: View {
             originalAffectsPosition = affectsPosition
             originalAffectsCash = affectsCash
             originalIsIncome = isIncome
+
+            detectChanges()
         }
     }
 
@@ -2118,18 +1237,14 @@ struct EditTransactionTypeView: View {
         case .alertFirstButtonReturn: // Save & Close
             saveEditTransactionType()
         case .alertSecondButtonReturn: // Discard Changes
-            animateEditExit()
-        default: // Cancel
+            presentationMode.wrappedValue.dismiss()
+        default:
             break
         }
     }
 
-    func saveEditTransactionType() {
-        guard isValid else {
-            alertMessage = "Please fill in all required fields correctly"
-            showingAlert = true
-            return
-        }
+    private func saveEditTransactionType() {
+        guard isValid && hasChanges else { return }
 
         isLoading = true
 
@@ -2148,7 +1263,6 @@ struct EditTransactionTypeView: View {
             self.isLoading = false
 
             if success {
-                // Update original values to reflect saved state
                 self.originalName = self.typeName
                 self.originalCode = self.typeCode
                 self.originalDescription = self.typeDescription
@@ -2160,161 +1274,123 @@ struct EditTransactionTypeView: View {
 
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshTransactionTypes"), object: nil)
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.animateEditExit()
-                }
+                presentationMode.wrappedValue.dismiss()
             } else {
-                self.alertMessage = "❌ Failed to update transaction type. Please try again."
+                self.alertMessage = "Failed to update transaction type. Please try again."
                 self.showingAlert = true
             }
         }
     }
 }
 
-// MARK: - Background Particles for Add/Edit Views
+// MARK: - Form Helpers
 
-struct AddTransactionTypeParticleBackground: View {
-    @State private var particles: [AddTransactionTypeParticle] = []
+private func transactionFormHeader(
+    title: String,
+    subtitle: String,
+    primaryLabel: String,
+    isPrimaryEnabled: Bool,
+    isLoading: Bool,
+    onSave: @escaping () -> Void,
+    onCancel: @escaping () -> Void
+) -> some View {
+    HStack {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+            Text(title)
+                .dsHeaderMedium()
+            Text(subtitle)
+                .dsBodySmall()
+                .foregroundColor(DSColor.textSecondary)
+        }
 
-    var body: some View {
-        ZStack {
-            ForEach(particles.indices, id: \.self) { index in
-                Circle()
-                    .fill(Color.orange.opacity(0.04))
-                    .frame(width: particles[index].size, height: particles[index].size)
-                    .position(particles[index].position)
-                    .opacity(particles[index].opacity)
+        Spacer()
+
+        Button("Cancel", action: onCancel)
+            .buttonStyle(DSButtonStyle(type: .ghost))
+
+        Button {
+            onSave()
+        } label: {
+            HStack(spacing: DSLayout.spaceXS) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+                Text(primaryLabel)
             }
         }
-        .onAppear {
-            createParticles()
-            animateParticles()
-        }
+        .buttonStyle(DSButtonStyle(type: .primary))
+        .disabled(!isPrimaryEnabled)
     }
+    .padding(DSLayout.spaceM)
+}
 
-    private func createParticles() {
-        particles = (0 ..< 12).map { _ in
-            AddTransactionTypeParticle(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0 ... 700),
-                    y: CGFloat.random(in: 0 ... 650)
-                ),
-                size: CGFloat.random(in: 3 ... 9),
-                opacity: Double.random(in: 0.1 ... 0.2)
+private func transactionFormSectionHeader(title: String, icon: String, color: Color) -> some View {
+    HStack(spacing: DSLayout.spaceS) {
+        Image(systemName: icon)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(color)
+        Text(title)
+            .dsHeaderSmall()
+    }
+}
+
+private func transactionTypeFormField(
+    title: String,
+    placeholder: String,
+    icon: String,
+    text: Binding<String>,
+    isRequired: Bool,
+    autoUppercase: Bool = false
+) -> some View {
+    VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+        HStack(spacing: DSLayout.spaceXS) {
+            Image(systemName: icon)
+                .foregroundColor(DSColor.textSecondary)
+            Text(title + (isRequired ? "*" : ""))
+                .dsBodySmall()
+                .foregroundColor(DSColor.textSecondary)
+        }
+
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.ds.body)
+            .foregroundColor(DSColor.textPrimary)
+            .padding(.horizontal, DSLayout.spaceM)
+            .padding(.vertical, DSLayout.spaceS)
+            .background(DSColor.surfaceSecondary)
+            .cornerRadius(DSLayout.radiusM)
+            .overlay(
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .stroke(DSColor.border, lineWidth: 1)
             )
-        }
-    }
-
-    private func animateParticles() {
-        withAnimation(.linear(duration: 25).repeatForever(autoreverses: false)) {
-            for index in particles.indices {
-                particles[index].position.y -= 800
-                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
+            .onChange(of: text.wrappedValue) { _, newValue in
+                if autoUppercase {
+                    text.wrappedValue = newValue.uppercased()
+                }
             }
-        }
     }
 }
 
-struct EditTransactionTypeParticleBackground: View {
-    @State private var particles: [EditTransactionTypeParticle] = []
+private func behaviorToggle(title: String, description: String, isOn: Binding<Bool>, accent: Color) -> some View {
+    VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+        Text(title)
+            .dsBody()
+            .foregroundColor(DSColor.textPrimary)
+        Text(description)
+            .dsCaption()
+            .foregroundColor(DSColor.textSecondary)
 
-    var body: some View {
-        ZStack {
-            ForEach(particles.indices, id: \.self) { index in
-                Circle()
-                    .fill(Color.orange.opacity(0.04))
-                    .frame(width: particles[index].size, height: particles[index].size)
-                    .position(particles[index].position)
-                    .opacity(particles[index].opacity)
-            }
-        }
-        .onAppear {
-            createParticles()
-            animateParticles()
-        }
-    }
-
-    private func createParticles() {
-        particles = (0 ..< 12).map { _ in
-            EditTransactionTypeParticle(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0 ... 700),
-                    y: CGFloat.random(in: 0 ... 700)
-                ),
-                size: CGFloat.random(in: 3 ... 9),
-                opacity: Double.random(in: 0.1 ... 0.2)
+        Toggle(description, isOn: isOn)
+            .labelsHidden()
+            .toggleStyle(SwitchToggleStyle(tint: accent))
+            .padding(.horizontal, DSLayout.spaceM)
+            .padding(.vertical, DSLayout.spaceS)
+            .background(DSColor.surfaceSecondary)
+            .cornerRadius(DSLayout.radiusM)
+            .overlay(
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .stroke(DSColor.border, lineWidth: 1)
             )
-        }
     }
-
-    private func animateParticles() {
-        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
-            for index in particles.indices {
-                particles[index].position.y -= 900
-                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
-            }
-        }
-    }
-}
-
-struct AddTransactionTypeParticle {
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
-}
-
-struct EditTransactionTypeParticle {
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
-}
-
-// MARK: - Background Particles
-
-struct TransactionTypesParticleBackground: View {
-    @State private var particles: [TransactionTypesParticle] = []
-
-    var body: some View {
-        ZStack {
-            ForEach(particles.indices, id: \.self) { index in
-                Circle()
-                    .fill(Color.orange.opacity(0.03))
-                    .frame(width: particles[index].size, height: particles[index].size)
-                    .position(particles[index].position)
-                    .opacity(particles[index].opacity)
-            }
-        }
-        .onAppear {
-            createParticles()
-            animateParticles()
-        }
-    }
-
-    private func createParticles() {
-        particles = (0 ..< 15).map { _ in
-            TransactionTypesParticle(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0 ... 1200),
-                    y: CGFloat.random(in: 0 ... 800)
-                ),
-                size: CGFloat.random(in: 2 ... 8),
-                opacity: Double.random(in: 0.1 ... 0.2)
-            )
-        }
-    }
-
-    private func animateParticles() {
-        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
-            for index in particles.indices {
-                particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
-            }
-        }
-    }
-}
-
-struct TransactionTypesParticle {
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
 }
