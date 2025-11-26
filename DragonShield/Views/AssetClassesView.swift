@@ -50,6 +50,7 @@ struct AssetClassesView: View {
     @State private var buttonsOpacity: Double = 0
 
     private static let visibleColumnsKey = "AssetClassesView.visibleColumns.v1"
+    fileprivate static let columnTextInset: CGFloat = DSLayout.spaceS
 
     private enum SortColumn: String, CaseIterable {
         case code
@@ -80,8 +81,8 @@ struct AssetClassesView: View {
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
                 columnHandleHitSlop: 8,
-                columnTextInset: 12,
-                headerBackground: Color.blue.opacity(0.08),
+                columnTextInset: columnTextInset,
+                headerBackground: DSColor.surfaceSecondary,
                 fontConfigBuilder: { size in
                     MaintenanceTableFontConfig(
                         primary: size.baseSize,
@@ -113,8 +114,8 @@ struct AssetClassesView: View {
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
                 columnHandleHitSlop: 8,
-                columnTextInset: 12,
-                headerBackground: Color.blue.opacity(0.08),
+                columnTextInset: columnTextInset,
+                headerBackground: DSColor.surfaceSecondary,
                 fontConfigBuilder: { size in
                     MaintenanceTableFontConfig(
                         primary: size.baseSize,
@@ -172,18 +173,8 @@ struct AssetClassesView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            AssetClassesParticleBackground()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 modernHeader
@@ -240,69 +231,64 @@ struct AssetClassesView: View {
 
     private var modernHeader: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                HStack(spacing: DSLayout.spaceM) {
                     Image(systemName: "folder.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(.blue)
+                        .foregroundColor(DSColor.accentMain)
 
                     Text("Asset Classes")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.black, .gray],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .dsHeaderLarge()
+                        .foregroundColor(DSColor.textPrimary)
                 }
 
                 Text("Manage your high-level asset categories")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .dsBody()
+                    .foregroundColor(DSColor.textSecondary)
             }
 
             Spacer()
 
-            HStack(spacing: 16) {
+            HStack(spacing: DSLayout.spaceL) {
                 modernStatCard(
                     title: "Total",
                     value: "\(assetClasses.count)",
                     icon: "number.circle.fill",
-                    color: .blue
+                    color: DSColor.accentMain
                 )
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceL)
         .opacity(headerOpacity)
     }
 
     private var searchAndStats: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSLayout.spaceM) {
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
 
                 TextField("Search asset classes...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
+                    .textFieldStyle(.plain)
+                    .font(.ds.body)
 
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+                            .foregroundColor(DSColor.textSecondary)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSLayout.spaceM)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .fill(DSColor.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                            .stroke(DSColor.border, lineWidth: 1)
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
@@ -310,18 +296,18 @@ struct AssetClassesView: View {
             if !searchText.isEmpty {
                 HStack {
                     Text("Found \(filteredClasses.count) of \(assetClasses.count) classes")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
                     Spacer()
                 }
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, DSLayout.spaceL)
         .offset(y: contentOffset)
     }
 
     private var classesContent: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DSLayout.spaceM) {
             tableControls
             if sortedClasses.isEmpty {
                 emptyStateView
@@ -329,23 +315,23 @@ struct AssetClassesView: View {
                 classesTable
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 16)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.top, DSLayout.spaceS)
         .offset(y: contentOffset)
     }
 
     private var tableControls: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             columnsMenu
             fontSizePicker
             Spacer()
             if visibleColumns != AssetClassesView.tableConfiguration.defaultVisibleColumns || selectedFontSize != .medium {
                 Button("Reset View", action: resetTablePreferences)
                     .buttonStyle(.link)
+                    .font(.ds.caption)
             }
         }
         .padding(.horizontal, 4)
-        .font(.system(size: 12))
     }
 
     private var columnsMenu: some View {
@@ -363,6 +349,7 @@ struct AssetClassesView: View {
             Button("Reset Columns", action: resetVisibleColumns)
         } label: {
             Label("Columns", systemImage: "slider.horizontal.3")
+                .font(.ds.caption)
         }
     }
 
@@ -405,28 +392,27 @@ struct AssetClassesView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: DSLayout.spaceL) {
             Spacer()
-            VStack(spacing: 16) {
+            VStack(spacing: DSLayout.spaceM) {
                 Image(systemName: searchText.isEmpty ? "folder" : "magnifyingglass")
                     .font(.system(size: 64))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.gray.opacity(0.5), .gray.opacity(0.3)],
+                            colors: [DSColor.textTertiary, DSColor.textTertiary.opacity(0.5)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
 
-                VStack(spacing: 8) {
+                VStack(spacing: DSLayout.spaceS) {
                     Text(searchText.isEmpty ? "No asset classes yet" : "No matching asset classes")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.gray)
+                        .dsHeaderMedium()
+                        .foregroundColor(DSColor.textSecondary)
 
                     Text(searchText.isEmpty ? "Add your first asset class to categorize your assets" : "Try adjusting your search.")
-                        .font(.body)
-                        .foregroundColor(.gray)
+                        .dsBody()
+                        .foregroundColor(DSColor.textTertiary)
                         .multilineTextAlignment(.center)
                 }
 
@@ -434,10 +420,8 @@ struct AssetClassesView: View {
                     Button { showAddSheet = true } label: {
                         Label("Add Asset Class", systemImage: "plus")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                    .foregroundColor(.black)
-                    .padding(.top, 8)
+                    .buttonStyle(DSButtonStyle(type: .primary))
+                    .padding(.top, DSLayout.spaceS)
                 }
             }
             Spacer()
@@ -448,37 +432,22 @@ struct AssetClassesView: View {
     private var modernActionBar: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.gray.opacity(0.2))
+                .fill(DSColor.border)
                 .frame(height: 1)
 
-            HStack(spacing: 16) {
+            HStack(spacing: DSLayout.spaceM) {
                 Button { showAddSheet = true } label: {
                     Label("Add Asset Class", systemImage: "plus")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.67, green: 0.89, blue: 0.67))
-                .foregroundColor(.black)
+                .buttonStyle(DSButtonStyle(type: .primary))
 
                 if selectedClass != nil {
                     Button {
                         showEditSheet = true
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "pencil")
-                            Text("Edit")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.purple)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.purple.opacity(0.1))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                        )
+                        Label("Edit", systemImage: "pencil")
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .secondary))
 
                     Button {
                         if let assetClass = selectedClass {
@@ -487,43 +456,31 @@ struct AssetClassesView: View {
                             showingDeleteAlert = true
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Delete")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.red.opacity(0.1))
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                        )
+                        Label("Delete", systemImage: "trash")
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(DSButtonStyle(type: .destructive))
                 }
 
                 Spacer()
 
                 if let assetClass = selectedClass {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DSLayout.spaceS) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(DSColor.accentMain)
                         Text("Selected: \(assetClass.name)")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DSColor.textSecondary)
+                            .lineLimit(1)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.05))
+                    .background(DSColor.surfaceSecondary)
                     .clipShape(Capsule())
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(.regularMaterial)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.vertical, DSLayout.spaceL - DSLayout.spaceS)
+            .background(DSColor.surface)
         }
         .opacity(buttonsOpacity)
     }
@@ -536,10 +493,10 @@ struct AssetClassesView: View {
             HStack(spacing: 4) {
                 Text(column.title)
                     .font(.system(size: fontConfig.header, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundColor(DSColor.textPrimary)
                 Image(systemName: "triangle.fill")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(isActiveSort ? .accentColor : .gray.opacity(0.3))
+                    .foregroundColor(isActiveSort ? DSColor.accentMain : DSColor.textTertiary)
                     .rotationEffect(.degrees(isActiveSort && !sortAscending ? 180 : 0))
                     .opacity(isActiveSort ? 1 : 0)
             }
@@ -654,12 +611,18 @@ private struct AssetClassRowView: View {
         .padding(.trailing, 12)
         .padding(.vertical, max(rowPadding, 8))
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue.opacity(0.12) : Color.clear)
+            Rectangle()
+                .fill(isSelected ? DSColor.surfaceHighlight : Color.clear)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                    Rectangle()
+                        .stroke(isSelected ? DSColor.accentMain.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
+        )
+        .overlay(
+            Rectangle()
+                .fill(DSColor.border)
+                .frame(height: 1),
+            alignment: .bottom
         )
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
@@ -686,29 +649,33 @@ private struct AssetClassRowView: View {
         case .code:
             Text(assetClass.code)
                 .font(.system(size: fontConfig.secondary, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.gray.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(DSColor.surfaceSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
+                .padding(.leading, AssetClassesView.columnTextInset)
+                .padding(.trailing, 8)
                 .frame(width: widthFor(.code), alignment: .leading)
         case .name:
             Text(assetClass.name)
                 .font(.system(size: fontConfig.primary, weight: .medium))
-                .foregroundColor(.primary)
-                .padding(.horizontal, 8)
+                .foregroundColor(DSColor.textPrimary)
+                .padding(.leading, AssetClassesView.columnTextInset)
+                .padding(.trailing, 8)
                 .frame(width: widthFor(.name), alignment: .leading)
         case .description:
             Text(assetClass.description)
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(DSColor.textSecondary)
                 .lineLimit(2)
-                .padding(.horizontal, 8)
+                .padding(.leading, AssetClassesView.columnTextInset)
+                .padding(.trailing, 8)
                 .frame(width: widthFor(.description), alignment: .leading)
         case .sortOrder:
             Text("\(assetClass.sortOrder)")
                 .font(.system(size: fontConfig.secondary, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(DSColor.textPrimary)
                 .frame(width: widthFor(.sortOrder), alignment: .center)
         }
     }
@@ -740,24 +707,16 @@ struct AddAssetClassView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.99, blue: 1.0),
-                    Color(red: 0.95, green: 0.97, blue: 0.99),
-                    Color(red: 0.93, green: 0.95, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 addHeader
                 addContent
             }
         }
-        .frame(width: 500, height: 420)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .frame(width: 560, height: 460)
+        .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusL))
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale)
         .onAppear { animateEntrance() }
@@ -776,40 +735,32 @@ struct AddAssetClassView: View {
         HStack {
             Button { animateExit() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Color.gray.opacity(0.1))
+                    .foregroundColor(DSColor.textSecondary)
+                    .padding(8)
+                    .background(DSColor.surfaceSecondary)
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: DSLayout.spaceS) {
                 Image(systemName: "folder.badge.plus")
                     .font(.system(size: 24))
-                    .foregroundColor(.purple)
+                    .foregroundColor(DSColor.accentMain)
 
                 Text("Add Asset Class")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.black, .gray],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .dsHeaderLarge()
+                    .foregroundColor(DSColor.textPrimary)
             }
 
             Spacer()
 
             Button { save() } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: DSLayout.spaceS) {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(.circular)
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "checkmark")
@@ -817,32 +768,37 @@ struct AddAssetClassView: View {
                     }
 
                     Text(isLoading ? "Saving..." : "Save")
-                        .font(.system(size: 14, weight: .semibold))
+                        .dsBodySmall()
+                        .fontWeight(.semibold)
                 }
-                .modifier(ModernPrimaryButton(color: .purple, isDisabled: !isValid || isLoading))
             }
+            .buttonStyle(DSButtonStyle(type: .primary))
+            .disabled(!isValid || isLoading)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceL)
         .opacity(headerOpacity)
     }
 
     private var addContent: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 20) {
-                    sectionHeader(title: "Class Information", icon: "folder.fill", color: .purple)
-                    VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceL) {
+                VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                    sectionHeader(title: "Class Information", icon: "folder.fill", color: DSColor.accentMain)
+                    VStack(spacing: DSLayout.spaceM) {
                         modernTextField(title: "Class Code", text: $code, placeholder: "e.g., EQTY", icon: "number", isRequired: true, autoUppercase: true)
                         modernTextField(title: "Class Name", text: $name, placeholder: "e.g., Equity", icon: "textformat", isRequired: true)
                         modernTextField(title: "Description", text: $description, placeholder: "Optional", icon: "text.justify")
                         modernTextField(title: "Sort Order", text: $sortOrder, placeholder: "0", icon: "arrow.up.arrow.down", isRequired: true)
                     }
                 }
-                .modifier(ModernFormSection(color: .purple))
+                .padding(DSLayout.spaceM)
+                .background(DSColor.surface)
+                .cornerRadius(DSLayout.radiusM)
+                .overlay(RoundedRectangle(cornerRadius: DSLayout.radiusM).stroke(DSColor.border, lineWidth: 1))
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 60)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.bottom, DSLayout.spaceL)
         }
         .offset(y: sectionsOffset)
     }
@@ -868,38 +824,37 @@ struct AddAssetClassView: View {
     }
 
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundStyle(LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .foregroundColor(color)
             Text(title)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.textPrimary)
             Spacer()
         }
     }
 
     private func modernTextField(title: String, text: Binding<String>, placeholder: String, icon: String, isRequired: Bool = false, autoUppercase: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
                 Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
+                    .dsBodySmall()
+                    .foregroundColor(DSColor.textSecondary)
                 Spacer()
             }
 
             TextField(placeholder, text: text)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                .textFieldStyle(.plain)
+                .padding(DSLayout.spaceS)
+                .background(DSColor.surfaceSecondary)
+                .cornerRadius(DSLayout.radiusS)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSLayout.radiusS)
+                        .stroke(DSColor.border, lineWidth: 1)
+                )
                 .onChange(of: text.wrappedValue) { _, newValue in
                     if autoUppercase {
                         text.wrappedValue = newValue.uppercased()
@@ -958,24 +913,16 @@ struct EditAssetClassView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.97, green: 0.98, blue: 1.0),
-                    Color(red: 0.94, green: 0.96, blue: 0.99),
-                    Color(red: 0.91, green: 0.94, blue: 0.98),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DSColor.background
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 editHeader
                 editContent
             }
         }
-        .frame(width: 520, height: 460)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .frame(width: 580, height: 480)
+        .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusL))
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
         .scaleEffect(formScale)
         .onAppear {
@@ -997,40 +944,32 @@ struct EditAssetClassView: View {
         HStack {
             Button { animateExit() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Color.gray.opacity(0.1))
+                    .foregroundColor(DSColor.textSecondary)
+                    .padding(8)
+                    .background(DSColor.surfaceSecondary)
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1))
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.plain)
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: DSLayout.spaceS) {
                 Image(systemName: "folder.badge.gearshape")
                     .font(.system(size: 24))
-                    .foregroundColor(.orange)
+                    .foregroundColor(DSColor.accentWarning)
 
                 Text("Edit Asset Class")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.black, .gray],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .dsHeaderLarge()
+                    .foregroundColor(DSColor.textPrimary)
             }
 
             Spacer()
 
             Button { save() } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: DSLayout.spaceS) {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(.circular)
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: hasChanges ? "checkmark.circle.fill" : "checkmark")
@@ -1038,32 +977,37 @@ struct EditAssetClassView: View {
                     }
 
                     Text(isLoading ? "Saving..." : "Save Changes")
-                        .font(.system(size: 14, weight: .semibold))
+                        .dsBodySmall()
+                        .fontWeight(.semibold)
                 }
-                .modifier(ModernPrimaryButton(color: .orange, isDisabled: !isValid || !hasChanges || isLoading))
             }
+            .buttonStyle(DSButtonStyle(type: .primary))
+            .disabled(!isValid || !hasChanges || isLoading)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, DSLayout.spaceL)
+        .padding(.vertical, DSLayout.spaceL)
         .opacity(headerOpacity)
     }
 
     private var editContent: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 20) {
-                    sectionHeader(title: "Class Information", icon: "folder.fill", color: .orange)
-                    VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceL) {
+                VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                    sectionHeader(title: "Class Information", icon: "folder.fill", color: DSColor.accentWarning)
+                    VStack(spacing: DSLayout.spaceM) {
                         modernTextField(title: "Class Code", text: $code, placeholder: "e.g., EQTY", icon: "number", isRequired: true, autoUppercase: true)
                         modernTextField(title: "Class Name", text: $name, placeholder: "e.g., Equity", icon: "textformat", isRequired: true)
                         modernTextField(title: "Description", text: $description, placeholder: "", icon: "text.justify")
                         modernTextField(title: "Sort Order", text: $sortOrder, placeholder: "0", icon: "arrow.up.arrow.down", isRequired: true)
                     }
                 }
-                .modifier(ModernFormSection(color: .orange))
+                .padding(DSLayout.spaceM)
+                .background(DSColor.surface)
+                .cornerRadius(DSLayout.radiusM)
+                .overlay(RoundedRectangle(cornerRadius: DSLayout.radiusM).stroke(DSColor.border, lineWidth: 1))
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 70)
+            .padding(.horizontal, DSLayout.spaceL)
+            .padding(.bottom, DSLayout.spaceL)
         }
         .offset(y: sectionsOffset)
     }
@@ -1109,38 +1053,37 @@ struct EditAssetClassView: View {
     }
 
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSLayout.spaceM) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundStyle(LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .foregroundColor(color)
             Text(title)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundColor(.black.opacity(0.8))
+                .dsHeaderSmall()
+                .foregroundColor(DSColor.textPrimary)
             Spacer()
         }
     }
 
     private func modernTextField(title: String, text: Binding<String>, placeholder: String, icon: String, isRequired: Bool = false, autoUppercase: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(DSColor.textSecondary)
                 Text(title + (isRequired ? "*" : ""))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
+                    .dsBodySmall()
+                    .foregroundColor(DSColor.textSecondary)
                 Spacer()
             }
 
             TextField(placeholder, text: text)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                .textFieldStyle(.plain)
+                .padding(DSLayout.spaceS)
+                .background(DSColor.surfaceSecondary)
+                .cornerRadius(DSLayout.radiusS)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSLayout.radiusS)
+                        .stroke(DSColor.border, lineWidth: 1)
+                )
                 .onChange(of: text.wrappedValue) { _, newValue in
                     if autoUppercase {
                         text.wrappedValue = newValue.uppercased()
@@ -1174,71 +1117,25 @@ private func modernStatCard(title: String, value: String, icon: String, color: C
                 .font(.system(size: 12))
                 .foregroundColor(color)
             Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.gray)
+                .dsCaption()
+                .foregroundColor(DSColor.textSecondary)
         }
 
         Text(value)
             .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.primary)
+            .foregroundColor(DSColor.textPrimary)
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
+    .padding(.horizontal, DSLayout.spaceM)
+    .padding(.vertical, DSLayout.spaceS)
     .background(
-        RoundedRectangle(cornerRadius: 8)
-            .fill(.regularMaterial)
+        RoundedRectangle(cornerRadius: DSLayout.radiusM)
+            .fill(DSColor.surface)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(color.opacity(0.2), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                    .stroke(DSColor.border, lineWidth: 1)
             )
     )
-    .shadow(color: color.opacity(0.1), radius: 3, x: 0, y: 1)
-}
-
-private struct AssetClassParticle: Identifiable {
-    let id = UUID()
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
-}
-
-private struct AssetClassesParticleBackground: View {
-    @State private var particles: [AssetClassParticle] = []
-
-    var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle()
-                    .fill(Color.blue.opacity(0.03))
-                    .frame(width: particle.size, height: particle.size)
-                    .position(particle.position)
-                    .opacity(particle.opacity)
-            }
-        }
-        .onAppear {
-            createParticles()
-            animateParticles()
-        }
-    }
-
-    private func createParticles() {
-        particles = (0 ..< 18).map { _ in
-            AssetClassParticle(
-                position: CGPoint(x: CGFloat.random(in: 0 ... 1200), y: CGFloat.random(in: 0 ... 800)),
-                size: CGFloat.random(in: 2 ... 9),
-                opacity: Double.random(in: 0.1 ... 0.2)
-            )
-        }
-    }
-
-    private func animateParticles() {
-        withAnimation(.linear(duration: 35).repeatForever(autoreverses: false)) {
-            for index in particles.indices {
-                particles[index].position.y -= 1000
-                particles[index].opacity = Double.random(in: 0.05 ... 0.15)
-            }
-        }
-    }
+    .shadow(color: color.opacity(0.08), radius: 3, x: 0, y: 1)
 }
 
 struct AssetClassesView_Previews: PreviewProvider {

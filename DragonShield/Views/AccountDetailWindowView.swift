@@ -69,7 +69,7 @@ struct AccountDetailWindowView: View {
             }
         }
         .onAppear { viewModel.configure(db: dbManager) }
-        .onChange(of: viewModel.pendingPriceConfirmation) { newValue in
+        .onChange(of: viewModel.pendingPriceConfirmation) { _, newValue in
             showPriceConfirmation = newValue != nil
         }
         .sheet(item: $editingInstrument) { target in

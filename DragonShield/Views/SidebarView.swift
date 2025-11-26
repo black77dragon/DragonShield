@@ -134,7 +134,7 @@ struct SidebarView: View {
                 }
                 
                 NavigationLink(destination: ClassManagementView()) {
-                    Label("Asset Classes", systemImage: "folder")
+                    Label("Asset Classes & Instr. Types", systemImage: "folder")
                 }
                 
                 NavigationLink(destination: AccountTypesView().environmentObject(dbManager)) {

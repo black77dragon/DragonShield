@@ -6,12 +6,12 @@ struct ClassManagementView: View {
         TabView {
             AssetClassesView()
                 .tabItem {
-                    Label("Classes", systemImage: "folder")
+                    Label("Asset Classes", systemImage: "folder")
                 }
 
             AssetSubClassesView()
                 .tabItem {
-                    Label("Sub Classes", systemImage: "folder.circle")
+                    Label("Instrument Types", systemImage: "folder.circle")
                 }
         }
         .navigationTitle("Class Management")

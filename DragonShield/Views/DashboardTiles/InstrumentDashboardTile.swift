@@ -41,7 +41,7 @@ struct InstrumentDashboardTile: DashboardTile {
             }
         }
         .padding(DashboardTileLayout.tilePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: loadInstruments)
         .accessibilityElement(children: .combine)
