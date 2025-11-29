@@ -1,4 +1,9 @@
 import SwiftUI
+import Foundation
+
+extension Notification.Name {
+    static let dashboardPriceUpdateCompleted = Notification.Name("DashboardPriceUpdateCompleted")
+}
 
 protocol DashboardTile: View {
     init()
@@ -112,7 +117,10 @@ private enum LargeSumFormatter {
 struct TotalValueTile: DashboardTile {
     @EnvironmentObject var dbManager: DatabaseManager
     @State private var total: Double = 0
+    @State private var lastComputedTotal: Double?
+    @State private var delta: Double?
     @State private var loading = false
+    @State private var calculationToken = UUID()
 
     private static let formatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -129,41 +137,90 @@ struct TotalValueTile: DashboardTile {
 
     var body: some View {
         DashboardCard(title: Self.tileName) {
-            if loading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                Text(Self.formatter.string(from: NSNumber(value: total)) ?? "0")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .minimumScaleFactor(0.5)
+            VStack(alignment: .leading, spacing: 6) {
+                if loading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    Text(formattedTotal(total))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundColor(.ds.accentMain)
+                }
+                if let delta = delta {
+                    HStack(spacing: 6) {
+                        Image(systemName: delta > 0 ? "arrow.up.right" : (delta < 0 ? "arrow.down.right" : "arrow.right"))
+                            .font(.subheadline.weight(.bold))
+                        Text(deltaText(for: delta))
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(deltaColor(for: delta))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundColor(.ds.accentMain)
+                }
             }
         }
-        .onAppear(perform: calculate)
+        .onAppear { calculate() }
+        .onReceive(NotificationCenter.default.publisher(for: .dashboardPriceUpdateCompleted)) { _ in
+            calculate(showDelta: true)
+        }
         .accessibilityElement(children: .combine)
     }
 
-    private func calculate() {
+    private func formattedTotal(_ value: Double) -> String {
+        Self.formatter.string(from: NSNumber(value: value)) ?? "0"
+    }
+
+    private func deltaText(for delta: Double) -> String {
+        if delta == 0 { return "No change" }
+        let absValue = abs(delta)
+        let numberText = Self.formatter.string(from: NSNumber(value: absValue)) ?? String(format: "%.0f", absValue)
+        let sign = delta > 0 ? "+" : "-"
+        return "\(sign)CHF \(numberText)"
+    }
+
+    private func deltaColor(for delta: Double) -> Color {
+        if delta > 0 { return .numberGreen }
+        if delta < 0 { return .numberRed }
+        return .secondary
+    }
+
+    private func calculate(showDelta: Bool = false) {
+        let baseline = showDelta ? lastComputedTotal : nil
+        let token = UUID()
+        calculationToken = token
         loading = true
-        DispatchQueue.global().async {
-            let positions = dbManager.fetchPositionReports()
-            var sum: Double = 0
-            for p in positions {
-                guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
-                var value = p.quantity * lp.price
-                if p.instrumentCurrency.uppercased() != "CHF" {
-                    let rates = dbManager.fetchExchangeRates(currencyCode: p.instrumentCurrency, upTo: nil)
-                    guard let rate = rates.first?.rateToChf else { continue }
-                    value *= rate
-                }
-                sum += value
-            }
+        if showDelta { delta = nil }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let sum = computeTotal()
             DispatchQueue.main.async {
+                guard calculationToken == token else { return }
                 total = sum
+                lastComputedTotal = sum
+                if showDelta, let baseline {
+                    delta = sum - baseline
+                } else {
+                    delta = nil
+                }
                 loading = false
             }
         }
+    }
+
+    private func computeTotal() -> Double {
+        let positions = dbManager.fetchPositionReports()
+        var sum: Double = 0
+        for p in positions {
+            guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
+            var value = p.quantity * lp.price
+            if p.instrumentCurrency.uppercased() != "CHF" {
+                let rates = dbManager.fetchExchangeRates(currencyCode: p.instrumentCurrency, upTo: nil)
+                guard let rate = rates.first?.rateToChf else { continue }
+                value *= rate
+            }
+            sum += value
+        }
+        return sum
     }
 }
 

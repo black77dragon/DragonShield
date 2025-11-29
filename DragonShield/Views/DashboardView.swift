@@ -217,6 +217,7 @@ struct LegacyDashboardView: View {
                     title: failures == 0 ? "Price Update Complete" : "Price Update Completed with Issues",
                     message: message
                 )
+                NotificationCenter.default.post(name: .dashboardPriceUpdateCompleted, object: nil)
             }
         }
     }

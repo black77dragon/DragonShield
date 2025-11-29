@@ -9,16 +9,27 @@ import UniformTypeIdentifiers
     import UIKit
 #endif
 
+private enum ReportPalette {
+    static let background = DSColor.background
+    static let surface = DSColor.surface
+    static let surfaceSubtle = DSColor.surfaceSubtle
+    static let border = DSColor.border
+    static let accent = DSColor.accentMain
+    static let textPrimary = DSColor.textPrimary
+    static let textSecondary = DSColor.textSecondary
+    static let shadow = Color.black.opacity(0.08)
+}
+
 private enum ReportLayout {
-    static let outerPadding: CGFloat = 12
-    static let sectionSpacing: CGFloat = 8
-    static let cardPadding: CGFloat = 16
-    static let cardCornerRadius: CGFloat = 16
-    static let cardContentSpacing: CGFloat = 10
-    static let cardHeaderSpacing: CGFloat = 8
+    static let outerPadding: CGFloat = DSLayout.spaceL
+    static let sectionSpacing: CGFloat = DSLayout.spaceL
+    static let cardPadding: CGFloat = DSLayout.spaceM
+    static let cardCornerRadius: CGFloat = DSLayout.radiusXL
+    static let cardContentSpacing: CGFloat = DSLayout.spaceS
+    static let cardHeaderSpacing: CGFloat = DSLayout.spaceS
     static let letterSize: CGFloat = 28
-    static let letterCornerRadius: CGFloat = 6
-    static let cardShadowRadius: CGFloat = 6
+    static let letterCornerRadius: CGFloat = DSLayout.radiusM
+    static let cardShadowRadius: CGFloat = 8
     static let cardShadowYOffset: CGFloat = 3
 }
 
@@ -101,7 +112,7 @@ struct AssetManagementReportView: View {
     @ViewBuilder
     private var printableReportView: some View {
         reportContent(expandedAll: true, includePrintButton: false)
-            .background(Theme.surface)
+            .background(ReportPalette.surface)
     }
 
     private var pdfDefaultFileName: String {
@@ -186,7 +197,7 @@ struct AssetManagementReportView: View {
         ScrollView {
             reportContent(expandedAll: false, includePrintButton: true)
         }
-        .background(Theme.surface.ignoresSafeArea())
+        .background(ReportPalette.background.ignoresSafeArea())
         .navigationTitle("Asset Management Report")
         .toolbar {
             ToolbarItem(placement: .automatic) {
@@ -229,43 +240,44 @@ struct AssetManagementReportView: View {
     }
 
     private func header(includePrintButton: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: DSLayout.spaceM) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
                 Text("Asset Management Report")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                HStack(spacing: 8) {
+                    .font(.ds.headerLarge)
+                    .foregroundColor(ReportPalette.textPrimary)
+                HStack(spacing: DSLayout.spaceS) {
                     Text("As of \(reportDateText)")
-                        .font(.title3.weight(.semibold))
-                        .foregroundColor(.secondary)
+                        .font(.ds.bodySmall)
+                        .foregroundColor(ReportPalette.textSecondary)
                     if includePrintButton {
                         Button {
                             Task { await exportReportAsPDF() }
                         } label: {
                             Label(isGeneratingPDF ? "Preparing…" : "Print", systemImage: "printer")
                                 .labelStyle(.titleAndIcon)
-                                .font(.callout.weight(.semibold))
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                         .disabled(isGeneratingPDF || viewModel.isLoading || !summary.hasData)
                         .help("Create a PDF copy of the current report.")
                     }
                 }
             }
             Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "calendar")
+            HStack(spacing: DSLayout.spaceS) {
+                Image(systemName: "calendar.badge.clock")
+                    .foregroundColor(ReportPalette.accent)
                 Text(currentDateText)
-                    .font(.headline)
+                    .font(.ds.body)
+                    .foregroundColor(ReportPalette.textPrimary)
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 16)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Theme.tileBackground)
+                RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                    .fill(ReportPalette.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Theme.tileBorder, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DSLayout.radiusL)
+                            .stroke(ReportPalette.border, lineWidth: 1)
                     )
             )
         }
@@ -280,9 +292,9 @@ struct AssetManagementReportView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Theme.tileBackground)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.tileBorder, lineWidth: 1))
+            RoundedRectangle(cornerRadius: DSLayout.radiusXL)
+                .fill(ReportPalette.surface)
+                .overlay(RoundedRectangle(cornerRadius: DSLayout.radiusXL).stroke(ReportPalette.border, lineWidth: 1))
         )
     }
 
@@ -386,7 +398,7 @@ struct AssetManagementReportView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(category.name)
                                             .font(CategoryCardStyle.titleFont)
-                                            .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
+                                            .foregroundStyle(isSelected ? Color.white : ReportPalette.textPrimary)
                                         Text(formatCurrency(category.totalBase, currency: summary.baseCurrency))
                                             .font(.footnote.monospacedDigit())
                                             .foregroundColor(isSelected ? Color.white.opacity(0.9) : .secondary)
@@ -395,10 +407,10 @@ struct AssetManagementReportView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(
                                         RoundedRectangle(cornerRadius: 14)
-                                            .fill(isSelected ? Theme.primaryAccent : Theme.tileBackground)
+                                            .fill(isSelected ? ReportPalette.accent : ReportPalette.surface)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 14)
-                                                    .stroke(isSelected ? Theme.primaryAccent : Theme.tileBorder, lineWidth: 1)
+                                                    .stroke(isSelected ? ReportPalette.accent : ReportPalette.border, lineWidth: 1)
                                             )
                                     )
                                 }
@@ -708,7 +720,7 @@ struct AssetManagementReportView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(formatCurrency(card.amount, currency: summary.baseCurrency))
                             .font(.title3.weight(.semibold).monospacedDigit())
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(ReportPalette.textPrimary)
                         Text(formatPercentage(percentageShare(of: card.amount, total: totalTrackedAmount)))
                             .font(.caption2.weight(.semibold).monospacedDigit())
                             .foregroundColor(.secondary)
@@ -718,10 +730,10 @@ struct AssetManagementReportView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Theme.tileBackground)
+                        .fill(ReportPalette.surface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Theme.tileBorder, lineWidth: 1)
+                                .stroke(ReportPalette.border, lineWidth: 1)
                         )
                 )
             }
@@ -758,10 +770,10 @@ struct AssetManagementReportView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Theme.tileBackground)
+                .fill(ReportPalette.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Theme.tileBorder, lineWidth: 1)
+                        .stroke(ReportPalette.border, lineWidth: 1)
                 )
         )
     }
@@ -779,10 +791,10 @@ struct AssetManagementReportView: View {
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Theme.tileBackground.opacity(0.7))
+                    .fill(ReportPalette.surface.opacity(0.7))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Theme.tileBorder.opacity(0.7), lineWidth: 0.8)
+                            .stroke(ReportPalette.border.opacity(0.7), lineWidth: 0.8)
                     )
             )
         } else {
@@ -870,7 +882,7 @@ struct AssetManagementReportView: View {
                             .foregroundColor(.secondary)
                         Text(formatCurrency(summary.totalPortfolioBase, currency: summary.baseCurrency))
                             .font(.callout.weight(.semibold).monospacedDigit())
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(ReportPalette.textPrimary)
                     }
                 }
             }
@@ -882,21 +894,21 @@ struct AssetManagementReportView: View {
             Text(title.uppercased())
                 .font(.caption)
                 .kerning(1)
-                .foregroundColor(.secondary)
+                .foregroundColor(ReportPalette.textSecondary)
             Text(formatCurrency(amount, currency: currency))
                 .font(.system(size: 30, weight: .regular, design: .rounded))
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(ReportPalette.textPrimary)
             Text(currency)
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.secondary)
+                .foregroundColor(ReportPalette.textSecondary)
         }
         .lineLimit(1)
     }
 
     private func sectionTitleView(_ text: Text) -> some View {
         text
-            .font(.system(size: 20, weight: .regular, design: .rounded))
-            .foregroundColor(Theme.textPrimary)
+            .font(.ds.headerMedium)
+            .foregroundColor(ReportPalette.textPrimary)
             .multilineTextAlignment(.leading)
     }
 
@@ -918,8 +930,8 @@ struct AssetManagementReportView: View {
     private func detailDisclosureLabel(_ title: String) -> some View {
         Label(title, systemImage: "chevron.down.circle")
             .labelStyle(.titleAndIcon)
-            .font(.subheadline)
-            .foregroundColor(.secondary)
+            .font(.ds.bodySmall)
+            .foregroundColor(ReportPalette.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -932,13 +944,13 @@ struct AssetManagementReportView: View {
                     Text(title.uppercased())
                         .font(.caption2)
                         .fontWeight(isBold ? .semibold : .regular)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(ReportPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(title.uppercased())
                         .font(.caption2)
                         .fontWeight(isBold ? .semibold : .regular)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(ReportPalette.textSecondary)
                         .frame(width: 160, alignment: .trailing)
                 }
             }
@@ -948,19 +960,19 @@ struct AssetManagementReportView: View {
     private func highlight(_ word: String) -> Text {
         Text(word)
             .fontWeight(.black)
-            .foregroundColor(Theme.primaryAccent)
+            .foregroundColor(ReportPalette.accent)
     }
 
     private func placeholder(_ text: String) -> some View {
         Text(text)
             .font(.callout)
-            .foregroundColor(.secondary)
+            .foregroundColor(ReportPalette.textSecondary)
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                    .foregroundColor(Theme.tileBorder)
+                    .foregroundColor(ReportPalette.border)
             )
     }
 
@@ -1036,7 +1048,7 @@ struct AssetManagementReportView: View {
     }
 
     private func currencyColor(for code: String) -> Color {
-        Theme.currencyColors[code.uppercased()] ?? Theme.primaryAccent
+        Theme.currencyColors[code.uppercased()] ?? ReportPalette.accent
     }
 
     private enum CategoryCardStyle {
@@ -1088,12 +1100,12 @@ struct AssetManagementReportView: View {
                 .frame(width: totalWidth, height: proxy.size.height)
                 .background(
                     Rectangle()
-                        .fill(Theme.tileBorder.opacity(0.18))
+                        .fill(ReportPalette.border.opacity(0.18))
                 )
                 .clipShape(Rectangle())
                 .overlay(
                     Rectangle()
-                        .stroke(Theme.tileBorder.opacity(0.5), lineWidth: 0.8)
+                        .stroke(ReportPalette.border.opacity(0.5), lineWidth: 0.8)
                 )
             }
         }
@@ -1186,7 +1198,7 @@ private struct ReportSectionCard<Header: View, Content: View>: View {
                     .frame(width: ReportLayout.letterSize, height: ReportLayout.letterSize)
                     .background(
                         RoundedRectangle(cornerRadius: ReportLayout.letterCornerRadius)
-                            .fill(Theme.primaryAccent)
+                            .fill(ReportPalette.accent)
                     )
                 header()
             }
@@ -1196,13 +1208,13 @@ private struct ReportSectionCard<Header: View, Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: ReportLayout.cardCornerRadius)
-                .fill(Theme.tileBackground)
+                .fill(ReportPalette.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: ReportLayout.cardCornerRadius)
-                        .stroke(Theme.tileBorder, lineWidth: 1)
+                        .stroke(ReportPalette.border, lineWidth: 1)
                 )
                 .shadow(
-                    color: Theme.tileShadow.opacity(0.12),
+                    color: ReportPalette.shadow.opacity(0.12),
                     radius: ReportLayout.cardShadowRadius,
                     x: 0,
                     y: ReportLayout.cardShadowYOffset
@@ -1331,10 +1343,10 @@ private struct AssetClassSubClassSheet: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 RoundedRectangle(cornerRadius: DetailListLayout.rowCornerRadius)
-                                    .fill(Theme.tileBackground)
+                                    .fill(ReportPalette.surface)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: DetailListLayout.rowCornerRadius)
-                                            .stroke(Theme.tileBorder, lineWidth: 1)
+                                            .stroke(ReportPalette.border, lineWidth: 1)
                                     )
                             )
                             .contentShape(RoundedRectangle(cornerRadius: DetailListLayout.rowCornerRadius))
@@ -1460,10 +1472,10 @@ private struct PositionsDetailSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: DetailListLayout.rowCornerRadius)
-                                .fill(Theme.tileBackground)
+                                .fill(ReportPalette.surface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: DetailListLayout.rowCornerRadius)
-                                        .stroke(Theme.tileBorder, lineWidth: 1)
+                                        .stroke(ReportPalette.border, lineWidth: 1)
                                 )
                         )
                     }
@@ -1482,14 +1494,14 @@ private struct ExitButtonStyle: ButtonStyle {
             .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
-            .foregroundColor(Theme.primaryAccent)
+            .foregroundColor(ReportPalette.accent)
             .background(
                 Rectangle()
-                    .fill(configuration.isPressed ? Theme.primaryAccent.opacity(0.08) : Color.clear)
+                    .fill(configuration.isPressed ? ReportPalette.accent.opacity(0.08) : Color.clear)
             )
             .overlay(
                 Rectangle()
-                    .stroke(Theme.primaryAccent, lineWidth: 1)
+                    .stroke(ReportPalette.accent, lineWidth: 1)
             )
             .contentShape(Rectangle())
     }
@@ -1507,8 +1519,8 @@ private struct AssetClassStackedBarView: View {
         GeometryReader { geo in
             ZStack {
                 Rectangle()
-                    .fill(Theme.tileBackground)
-                    .overlay(Rectangle().stroke(Theme.tileBorder, lineWidth: 1))
+                    .fill(ReportPalette.surface)
+                    .overlay(Rectangle().stroke(ReportPalette.border, lineWidth: 1))
 
                 if totalValue > 0 {
                     HStack(spacing: 0) {
@@ -1551,9 +1563,9 @@ private struct AssetClassStackedBarView: View {
 private extension AssetManagementReportSummary.AssetClassBreakdown {
     var displayColor: Color {
         if let code = code?.uppercased(), let classCode = AssetClassCode(rawValue: code) {
-            return Theme.assetClassColors[classCode] ?? Theme.primaryAccent
+            return Theme.assetClassColors[classCode] ?? ReportPalette.accent
         }
-        return Theme.primaryAccent
+        return ReportPalette.accent
     }
 }
 
