@@ -101,6 +101,11 @@ final class AccountDetailWindowViewModel: ObservableObject {
         pendingPriceConfirmation = nil
     }
 
+    func originalPriceInfo(for positionId: Int) -> (price: Double?, asOf: Date?)? {
+        guard let match = originalPositions.first(where: { $0.id == positionId }) else { return nil }
+        return (price: match.currentPrice, asOf: match.instrumentUpdatedAt)
+    }
+
     private func shouldPersistLatestPrice(new: DatabaseManager.EditablePositionData,
                                           original: DatabaseManager.EditablePositionData?) -> Bool
     {
@@ -126,6 +131,8 @@ final class AccountDetailWindowViewModel: ObservableObject {
     }
 
     private func startOfDay(_ date: Date) -> Date {
-        Calendar.current.startOfDay(for: date)
+        var utcCalendar = Calendar(identifier: .iso8601)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return utcCalendar.startOfDay(for: date)
     }
 }

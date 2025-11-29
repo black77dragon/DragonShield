@@ -1,5 +1,6 @@
 // DragonShield/Views/AssetSubClassesView.swift
-// MARK: - Version 1.3
+// MARK: - Version 1.4
+// - 1.3 -> 1.4: Removed legacy order-based fetching and aligned header sorting (DS-021).
 // - 1.2 -> 1.3: Harmonized with the DragonShield Design System (DS-004).
 
 import SwiftUI
@@ -27,6 +28,14 @@ private enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTabl
     var menuTitle: String { title }
 }
 
+private enum AssetSubClassSort: String, CaseIterable {
+    case name
+    case assetClass
+    case code
+    case description
+    case status
+}
+
 private struct AssetSubClass: Identifiable, Equatable {
     let id: Int
     let classId: Int
@@ -47,7 +56,7 @@ struct AssetSubClassesView: View {
     @State private var deleteResultMessage = ""
     @State private var showDeleteSuccessToast = false
     @State private var searchText = ""
-    @State private var sortColumn: AssetSubClassColumn = .name
+    @State private var sortColumn: AssetSubClassSort = .name
     @State private var sortAscending: Bool = true
 
     @StateObject private var tableModel = ResizableTableViewModel<AssetSubClassColumn>(configuration: AssetSubClassesView.tableConfiguration)
@@ -560,17 +569,37 @@ struct AssetSubClassesView: View {
         }
     }
 
-    private func sortOption(for column: AssetSubClassColumn) -> AssetSubClassColumn? {
-        column
+    private func sortOption(for column: AssetSubClassColumn) -> AssetSubClassSort? {
+        switch column {
+        case .name: return .name
+        case .assetClass: return .assetClass
+        case .code: return .code
+        case .description: return .description
+        case .status: return .status
+        }
     }
 
     private func ensureValidSortColumn() {
-        if !visibleColumns.contains(sortColumn) {
-            if let fallback = tableModel.activeColumns.compactMap({ sortOption(for: $0) }).first {
-                sortColumn = fallback
-            } else {
-                sortColumn = .name
-            }
+        let activeSortColumn = column(for: sortColumn)
+
+        if visibleColumns.contains(activeSortColumn) {
+            return
+        }
+
+        if let fallback = tableModel.activeColumns.compactMap({ sortOption(for: $0) }).first {
+            sortColumn = fallback
+        } else {
+            sortColumn = .name
+        }
+    }
+
+    private func column(for sort: AssetSubClassSort) -> AssetSubClassColumn {
+        switch sort {
+        case .name: return .name
+        case .assetClass: return .assetClass
+        case .code: return .code
+        case .description: return .description
+        case .status: return .status
         }
     }
 

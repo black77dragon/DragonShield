@@ -139,6 +139,10 @@ struct AccountDetailWindowView: View {
                             Text("Latest Price")
                                 .dsCaption()
                                 .foregroundColor(DSColor.textSecondary)
+                            Text(existingPriceSummary(for: item))
+                                .dsCaption()
+                                .foregroundColor(DSColor.textTertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             HStack(spacing: DSLayout.spaceXS) {
                                 TextField("", text: priceBinding(for: index))
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -232,5 +236,20 @@ private extension AccountDetailWindowView {
         Text(formatted)
             .font(stale ? .ds.caption.weight(.bold) : .ds.caption)
             .foregroundColor(stale ? DSColor.accentError : DSColor.textSecondary)
+    }
+
+    func existingPriceSummary(for position: DatabaseManager.EditablePositionData) -> String {
+        guard
+            let info = viewModel.originalPriceInfo(for: position.id),
+            let price = info.price
+        else {
+            return "Current: —"
+        }
+        let priceText = AccountDetailWindowView.priceFormatter.string(from: NSNumber(value: price)) ?? String(format: "%.2f", price)
+        if let asOf = info.asOf {
+            let dateText = AccountDetailWindowView.priceDateFormatter.string(from: asOf)
+            return "Current: \(priceText) \(position.instrumentCurrency) (\(dateText))"
+        }
+        return "Current: \(priceText) \(position.instrumentCurrency)"
     }
 }
