@@ -12,7 +12,6 @@ private enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTabl
     case assetClass
     case code
     case description
-    case sortOrder
     case status
 
     var title: String {
@@ -21,7 +20,6 @@ private enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTabl
         case .assetClass: return "Asset Class"
         case .code: return "Code"
         case .description: return "Description"
-        case .sortOrder: return "Order"
         case .status: return "Status"
         }
     }
@@ -36,7 +34,6 @@ private struct AssetSubClass: Identifiable, Equatable {
     let code: String
     let name: String
     let description: String
-    let sortOrder: Int
     let isActive: Bool
 }
 
@@ -50,6 +47,8 @@ struct AssetSubClassesView: View {
     @State private var deleteResultMessage = ""
     @State private var showDeleteSuccessToast = false
     @State private var searchText = ""
+    @State private var sortColumn: AssetSubClassColumn = .name
+    @State private var sortAscending: Bool = true
 
     @StateObject private var tableModel = ResizableTableViewModel<AssetSubClassColumn>(configuration: AssetSubClassesView.tableConfiguration)
 
@@ -69,7 +68,6 @@ struct AssetSubClassesView: View {
                     .assetClass: 220,
                     .code: 120,
                     .description: 280,
-                    .sortOrder: 80,
                     .status: 120,
                 ],
                 minimumColumnWidths: [
@@ -77,7 +75,6 @@ struct AssetSubClassesView: View {
                     .assetClass: 160,
                     .code: 100,
                     .description: 220,
-                    .sortOrder: 60,
                     .status: 100,
                 ],
                 visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
@@ -106,7 +103,6 @@ struct AssetSubClassesView: View {
                     .assetClass: 220,
                     .code: 120,
                     .description: 280,
-                    .sortOrder: 80,
                     .status: 120,
                 ],
                 minimumColumnWidths: [
@@ -114,7 +110,6 @@ struct AssetSubClassesView: View {
                     .assetClass: 160,
                     .code: 100,
                     .description: 220,
-                    .sortOrder: 60,
                     .status: 100,
                 ],
                 visibleColumnsDefaultsKey: "AssetSubClassesView.visibleColumns.v1",
@@ -158,12 +153,37 @@ struct AssetSubClassesView: View {
             }
         }
 
-        return base.sorted {
-            if $0.sortOrder == $1.sortOrder {
-                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        return base
+    }
+
+    private var sortedSubClasses: [AssetSubClass] {
+        let sorted = filteredSubClasses.sorted { lhs, rhs in
+            switch sortColumn {
+            case .name:
+                let cmp = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                if cmp != .orderedSame { return cmp == .orderedAscending }
+                return lhs.classDescription.localizedCaseInsensitiveCompare(rhs.classDescription) == .orderedAscending
+            case .assetClass:
+                let cmp = lhs.classDescription.localizedCaseInsensitiveCompare(rhs.classDescription)
+                if cmp != .orderedSame { return cmp == .orderedAscending }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            case .code:
+                let lhsCode = lhs.code.uppercased()
+                let rhsCode = rhs.code.uppercased()
+                if lhsCode != rhsCode { return lhsCode < rhsCode }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            case .description:
+                let cmp = lhs.description.localizedCaseInsensitiveCompare(rhs.description)
+                if cmp != .orderedSame { return cmp == .orderedAscending }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            case .status:
+                if lhs.isActive == rhs.isActive {
+                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.isActive && !rhs.isActive
             }
-            return $0.sortOrder < $1.sortOrder
         }
+        return sortAscending ? sorted : Array(sorted.reversed())
     }
 
     var body: some View {
@@ -191,10 +211,14 @@ struct AssetSubClassesView: View {
             tableModel.connect(to: dbManager)
             tableModel.recalcColumnWidths(shouldPersist: false)
             loadSubClasses()
+            ensureValidSortColumn()
             animateEntrance()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshAssetSubClasses"))) { _ in
             loadSubClasses()
+        }
+        .onChange(of: tableModel.visibleColumns) { _, _ in
+            ensureValidSortColumn()
         }
         .sheet(isPresented: $showAddTypeSheet) {
             AddAssetSubClassView().environmentObject(dbManager)
@@ -306,7 +330,7 @@ struct AssetSubClassesView: View {
     private var typesTable: some View {
         MaintenanceTableView(
             model: tableModel,
-            rows: filteredSubClasses,
+            rows: sortedSubClasses,
             rowSpacing: CGFloat(dbManager.tableRowSpacing),
             showHorizontalIndicators: true,
             rowContent: { type, context in
@@ -333,9 +357,38 @@ struct AssetSubClassesView: View {
     }
 
     private func assetSubClassHeaderContent(for column: AssetSubClassColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
-        Text(column.title)
-            .font(.system(size: fontConfig.header, weight: .semibold))
-            .foregroundColor(DSColor.textPrimary)
+        let sortOption = sortOption(for: column)
+        let isActiveSort = sortOption.map { $0 == sortColumn } ?? false
+
+        return HStack(spacing: DSLayout.spaceXS) {
+            if let sortOption {
+                Button {
+                    if isActiveSort {
+                        sortAscending.toggle()
+                    } else {
+                        sortColumn = sortOption
+                        sortAscending = true
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(column.title)
+                            .font(.system(size: fontConfig.header, weight: .semibold))
+                            .foregroundColor(DSColor.textPrimary)
+                        if isActiveSort {
+                            Image(systemName: "triangle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(DSColor.accentMain)
+                                .rotationEffect(.degrees(sortAscending ? 0 : 180))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(column.title)
+                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .foregroundColor(DSColor.textPrimary)
+            }
+        }
     }
 
     private var emptyStateView: some View {
@@ -442,14 +495,17 @@ struct AssetSubClassesView: View {
 
     private func toggleColumn(_ column: AssetSubClassColumn) {
         tableModel.toggleColumn(column)
+        ensureValidSortColumn()
     }
 
     private func resetVisibleColumns() {
         tableModel.resetVisibleColumns()
+        ensureValidSortColumn()
     }
 
     private func resetTablePreferences() {
         tableModel.resetTablePreferences()
+        ensureValidSortColumn()
     }
 
     private func animateEntrance() {
@@ -476,7 +532,6 @@ struct AssetSubClassesView: View {
                 code: item.code,
                 name: item.name,
                 description: item.description,
-                sortOrder: item.sortOrder,
                 isActive: item.isActive
             )
         }
@@ -502,6 +557,20 @@ struct AssetSubClassesView: View {
                 deleteResultMessage = "Failed to delete asset subclass."
             }
             showDeleteResultAlert = true
+        }
+    }
+
+    private func sortOption(for column: AssetSubClassColumn) -> AssetSubClassColumn? {
+        column
+    }
+
+    private func ensureValidSortColumn() {
+        if !visibleColumns.contains(sortColumn) {
+            if let fallback = tableModel.activeColumns.compactMap({ sortOption(for: $0) }).first {
+                sortColumn = fallback
+            } else {
+                sortColumn = .name
+            }
         }
     }
 
@@ -608,11 +677,6 @@ private struct AssetSubClassRowView: View {
                 .lineLimit(2)
                 .padding(.horizontal, DSLayout.spaceS)
                 .frame(width: widthFor(.description), alignment: .leading)
-        case .sortOrder:
-            Text("\(type.sortOrder)")
-                .font(.system(size: fontConfig.secondary, weight: .medium))
-                .foregroundColor(DSColor.textPrimary)
-                .frame(width: widthFor(.sortOrder), alignment: .center)
         case .status:
             HStack(spacing: DSLayout.spaceXS) {
                 Circle()
@@ -637,7 +701,6 @@ struct AddAssetSubClassView: View {
     @State private var typeName = ""
     @State private var typeCode = ""
     @State private var typeDescription = ""
-    @State private var sortOrder = "0"
     @State private var isActive = true
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -646,8 +709,7 @@ struct AddAssetSubClassView: View {
     private var isValid: Bool {
         !assetClasses.isEmpty && selectedClassId != 0 &&
             !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            Int(sortOrder) != nil
+            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -714,17 +776,7 @@ struct AddAssetSubClassView: View {
                     isRequired: false
                 )
 
-                HStack(spacing: DSLayout.spaceM) {
-                    typeFormField(
-                        title: "Sort Order",
-                        placeholder: "0",
-                        icon: "arrow.up.arrow.down",
-                        text: $sortOrder,
-                        isRequired: true
-                    )
-
-                    statusToggle(isOn: $isActive, accent: accent)
-                }
+                statusToggle(isOn: $isActive, accent: accent)
             }
         }
     }
@@ -794,7 +846,6 @@ struct AddAssetSubClassView: View {
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: typeName.trimmingCharacters(in: .whitespacesAndNewlines),
             description: typeDescription.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: Int(sortOrder) ?? 0,
             isActive: isActive
         )
 
@@ -830,7 +881,6 @@ struct EditAssetSubClassView: View {
     @State private var typeName = ""
     @State private var typeCode = ""
     @State private var typeDescription = ""
-    @State private var sortOrder = "0"
     @State private var isActive = true
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -841,15 +891,13 @@ struct EditAssetSubClassView: View {
     @State private var originalName = ""
     @State private var originalCode = ""
     @State private var originalDescription = ""
-    @State private var originalSortOrder = "0"
     @State private var originalIsActive = true
     @State private var originalClassId = 0
 
     private var isValid: Bool {
         !assetClasses.isEmpty && selectedClassId != 0 &&
             !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            Int(sortOrder) != nil
+            !typeCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -940,19 +988,8 @@ struct EditAssetSubClassView: View {
                 )
                 .onChange(of: typeDescription) { _, _ in detectChanges() }
 
-                HStack(spacing: DSLayout.spaceM) {
-                    typeFormField(
-                        title: "Sort Order",
-                        placeholder: "0",
-                        icon: "arrow.up.arrow.down",
-                        text: $sortOrder,
-                        isRequired: true
-                    )
-                    .onChange(of: sortOrder) { _, _ in detectChanges() }
-
-                    statusToggle(isOn: $isActive, accent: accent)
-                        .onChange(of: isActive) { _, _ in detectChanges() }
-                }
+                statusToggle(isOn: $isActive, accent: accent)
+                    .onChange(of: isActive) { _, _ in detectChanges() }
             }
         }
     }
@@ -1012,7 +1049,6 @@ struct EditAssetSubClassView: View {
         hasChanges = typeName != originalName ||
             typeCode != originalCode ||
             typeDescription != originalDescription ||
-            sortOrder != originalSortOrder ||
             isActive != originalIsActive ||
             selectedClassId != originalClassId
     }
@@ -1028,7 +1064,6 @@ struct EditAssetSubClassView: View {
             code: typeCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: typeName.trimmingCharacters(in: .whitespacesAndNewlines),
             description: typeDescription.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: Int(sortOrder) ?? 0,
             isActive: isActive
         )
 
@@ -1039,7 +1074,6 @@ struct EditAssetSubClassView: View {
                 originalName = typeName
                 originalCode = typeCode
                 originalDescription = typeDescription
-                originalSortOrder = sortOrder
                 originalIsActive = isActive
                 originalClassId = selectedClassId
                 detectChanges()
@@ -1059,14 +1093,12 @@ struct EditAssetSubClassView: View {
             typeName = details.name
             typeCode = details.code
             typeDescription = details.description
-            sortOrder = "\(details.sortOrder)"
             isActive = details.isActive
             selectedClassId = details.classId
 
             originalName = typeName
             originalCode = typeCode
             originalDescription = typeDescription
-            originalSortOrder = sortOrder
             originalIsActive = isActive
             originalClassId = details.classId
 

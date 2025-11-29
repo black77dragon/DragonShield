@@ -20,77 +20,191 @@ struct FetchResultsReportView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Fetch Latest Results").font(.title3).bold()
-                Spacer()
-                Button(role: .cancel) { dismiss() } label: {
-                    Label("Close", systemImage: "xmark")
+        ZStack {
+            DSColor.background.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                header
+                summaryRow
+                contextSection
+                HStack(alignment: .top, spacing: DSLayout.spaceM) {
+                    resultColumn(
+                        title: "Successful",
+                        icon: "checkmark.seal.fill",
+                        accent: DSColor.accentSuccess,
+                        items: successes,
+                        isFailure: false
+                    )
+                    resultColumn(
+                        title: "Failed",
+                        icon: "exclamationmark.triangle.fill",
+                        accent: DSColor.accentError,
+                        items: failures,
+                        isFailure: true
+                    )
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.gray)
-                .foregroundColor(.white)
-                .keyboardShortcut("w", modifiers: .command)
+                Spacer(minLength: 0)
             }
-
-            contextSection
-                .padding(8)
-                .background(Color.gray.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            // Two aligned columns, each with its count above the list
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 10) {
-                    summaryTile(title: "Loaded instruments", value: successes.count)
-                    Text("Successful").font(.headline)
-                    if successes.isEmpty {
-                        Text("None").foregroundColor(.secondary)
-                    } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 6) {
-                                ForEach(successes, id: \.instrumentId) { r in
-                                    Text("• \(nameById[r.instrumentId] ?? "#\(r.instrumentId)")")
-                                }
-                            }
-                        }
-                    }
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    summaryTile(title: "Failed", value: failures.count)
-                    Text("Failed").font(.headline)
-                    if failures.isEmpty {
-                        Text("None").foregroundColor(.secondary)
-                    } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 6) {
-                                ForEach(failures, id: \.instrumentId) { r in
-                                    let name = nameById[r.instrumentId] ?? "#\(r.instrumentId)"
-                                    let msg = r.message
-                                    Text("• \(name), Error: \(msg)")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
+            .padding(DSLayout.spaceL)
         }
-        .padding(16)
-        .frame(minWidth: 720, minHeight: 520)
+        .frame(minWidth: 780, minHeight: 560)
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+                Text("Price Fetch Results")
+                    .font(.ds.headerMedium)
+                    .foregroundColor(DSColor.textPrimary)
+                Text("Summary of the latest provider run")
+                    .font(.ds.bodySmall)
+                    .foregroundColor(DSColor.textSecondary)
+            }
+            Spacer()
+            Button(role: .cancel) { dismiss() } label: {
+                Label("Close", systemImage: "xmark")
+            }
+            .buttonStyle(DSButtonStyle(type: .secondary))
+            .keyboardShortcut("w", modifiers: .command)
+        }
+    }
+
+    private var summaryRow: some View {
+        HStack(spacing: DSLayout.spaceM) {
+            statCard(title: "Total Instruments", value: results.count, icon: "square.grid.2x2.fill", color: DSColor.accentMain)
+            statCard(title: "Successful", value: successes.count, icon: "checkmark.circle.fill", color: DSColor.accentSuccess)
+            statCard(title: "Failed", value: failures.count, icon: "exclamationmark.triangle.fill", color: DSColor.accentError)
+        }
+    }
+
+    private func statCard(title: String, value: Int, icon: String, color: Color) -> some View {
+        DSCard {
+            HStack(spacing: DSLayout.spaceS) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(color)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.ds.caption)
+                        .foregroundColor(DSColor.textSecondary)
+                    Text("\(value)")
+                        .font(.ds.headerSmall)
+                        .foregroundColor(DSColor.textPrimary)
+                }
+            }
+        }
     }
 
     private var contextSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("Providers:").frame(width: 120, alignment: .leading).foregroundColor(.secondary)
-                Text(providerSummary())
-            }
-            HStack {
-                Text("Date & Time:").frame(width: 120, alignment: .leading).foregroundColor(.secondary)
-                Text(nowString())
+        DSCard {
+            VStack(alignment: .leading, spacing: DSLayout.spaceS) {
+                contextRow(icon: "antenna.radiowaves.left.and.right", title: "Providers", value: providerSummary())
+                contextRow(icon: "clock.arrow.circlepath", title: "Generated", value: nowString())
+                contextRow(icon: "globe", title: "Time Zone", value: timeZoneLabel)
             }
         }
+    }
+
+    private func contextRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: DSLayout.spaceS) {
+            Image(systemName: icon)
+                .foregroundColor(DSColor.accentMain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.ds.caption)
+                    .foregroundColor(DSColor.textSecondary)
+                Text(value)
+                    .font(.ds.body)
+                    .foregroundColor(DSColor.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func resultColumn(title: String, icon: String, accent: Color, items: [PriceUpdateService.ResultItem], isFailure: Bool) -> some View {
+        DSCard {
+            VStack(alignment: .leading, spacing: DSLayout.spaceS) {
+                HStack {
+                    Label(title, systemImage: icon)
+                        .font(.ds.headerSmall)
+                        .foregroundColor(accent)
+                    Spacer()
+                    countBadge(items.count, accent: accent)
+                }
+                Divider()
+                if items.isEmpty {
+                    emptyState(text: isFailure ? "No failed instruments in this run." : "No successful updates yet.")
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: DSLayout.spaceS) {
+                            ForEach(items, id: \.instrumentId) { item in
+                                resultRow(item: item, accent: accent, isFailure: isFailure)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private func resultRow(item: PriceUpdateService.ResultItem, accent: Color, isFailure: Bool) -> some View {
+        let name = nameById[item.instrumentId] ?? "#\(item.instrumentId)"
+        let provider = providerById[item.instrumentId] ?? "—"
+        let message = item.message.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return VStack(alignment: .leading, spacing: DSLayout.spaceXS) {
+            HStack(alignment: .firstTextBaseline, spacing: DSLayout.spaceS) {
+                Circle()
+                    .fill(accent)
+                    .frame(width: 8, height: 8)
+                Text(name)
+                    .font(.ds.body.weight(.semibold))
+                    .foregroundColor(DSColor.textPrimary)
+                Spacer()
+                Text(provider)
+                    .font(.ds.caption)
+                    .foregroundColor(DSColor.textSecondary)
+            }
+            if !message.isEmpty {
+                Text(isFailure ? "Error: \(message)" : message)
+                    .font(.ds.caption)
+                    .foregroundColor(isFailure ? DSColor.accentError : DSColor.textSecondary)
+            } else if isFailure {
+                Text("No error message provided.")
+                    .font(.ds.caption)
+                    .foregroundColor(DSColor.accentError)
+            }
+        }
+        .padding(DSLayout.spaceS)
+        .background(DSColor.surfaceSubtle)
+        .cornerRadius(DSLayout.radiusM)
+    }
+
+    private func emptyState(text: String) -> some View {
+        Text(text)
+            .font(.ds.bodySmall)
+            .foregroundColor(DSColor.textSecondary)
+            .padding(.vertical, DSLayout.spaceS)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func countBadge(_ count: Int, accent: Color) -> some View {
+        Text("\(count)")
+            .font(.ds.caption)
+            .foregroundColor(accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(accent.opacity(0.12))
+            .cornerRadius(DSLayout.radiusS)
+    }
+
+    private var timeZoneLabel: String {
+        TimeZone(identifier: timeZoneId)?.identifier ?? timeZoneId
     }
 
     private func providerSummary() -> String {
@@ -106,16 +220,6 @@ struct FetchResultsReportView: View {
         df.timeZone = tz
         df.dateFormat = "dd.MM.yy HH:mm"
         return df.string(from: Date())
-    }
-
-    private func summaryTile(title: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundColor(.secondary)
-            Text("\(value)").font(.title3).bold()
-        }
-        .padding(12)
-        .background(Color.gray.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

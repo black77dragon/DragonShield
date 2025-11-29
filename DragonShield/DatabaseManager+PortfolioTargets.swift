@@ -123,7 +123,7 @@ extension DatabaseManager {
 
     private func fetchSubClasses(for classId: Int) -> [(id: Int, name: String)] {
         var subClasses: [(id: Int, name: String)] = []
-        let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses WHERE class_id = ? ORDER BY sort_order, sub_class_name"
+        let query = "SELECT sub_class_id, sub_class_name FROM AssetSubClasses WHERE class_id = ? ORDER BY sub_class_name COLLATE NOCASE"
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -428,7 +428,7 @@ extension DatabaseManager {
             LEFT JOIN ClassTargets ct ON ct.asset_class_id = asc.class_id
             LEFT JOIN SubClassTargets s ON s.class_target_id = ct.id AND s.asset_sub_class_id = asc.sub_class_id
             WHERE asc.class_id = ?
-            ORDER BY asc.sort_order, asc.sub_class_name;
+            ORDER BY asc.sub_class_name COLLATE NOCASE;
         """
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
