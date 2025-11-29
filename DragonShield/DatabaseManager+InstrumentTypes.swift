@@ -57,7 +57,6 @@ extension DatabaseManager {
                    asc.sub_class_description, 1
             FROM AssetSubClasses asc
             JOIN AssetClasses ac ON asc.class_id = ac.class_id
-            ORDER BY ac.class_description COLLATE NOCASE, asc.sub_class_name COLLATE NOCASE
         """
 
         var statement: OpaquePointer?

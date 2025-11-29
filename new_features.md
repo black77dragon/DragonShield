@@ -16,16 +16,16 @@ This document serves as a central backlog for all pending changes, new features,
 - [ ] [changes] **[DS-019] Drop "Order" column in next DB update**
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.
 
-- [ ] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
-    Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
-
-- [ ] [changes] **[DS-021] Remove Order Logic from Instrument Types UI**
-    Why: The "Order" field is no longer required and should not appear in the Instrument Types GUI. What: Remove the Order field/logic from the Instrument Types screens while leaving the database column untouched, and ensure the table supports sorting by each header using the standard DragonShield table interaction pattern.
-
 ## Implemented
 
 - [x] [changes] **[DS-018] Remove "Order" from Instrument Types UI**
     Why: The "Order" attribute is unused and confuses users when creating or editing instrument types. Keep the column in the database for now but stop exposing or relying on it in the app. What: Remove the "Order" field from the Instrument Types GUI and the "New Instrument Type" window, eliminate any code references/validation bindings to the field while leaving the database column untouched, and ensure existing instrument type flows still compile and function without the attribute.
+
+- [x] [changes] **[DS-021] Remove Order Logic from Instrument Types UI**
+    Why: The "Order" field is no longer required and should not appear in the Instrument Types GUI. What: Remove the Order field/logic from the Instrument Types screens while leaving the database column untouched, and ensure the table supports sorting by each header using the standard DragonShield table interaction pattern.
+
+- [x] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
+    Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
 
 - [x] **[DS-017] Refresh Dashboard Total Asset Value**
     When prices are updated via the price update button in the Dashboard's upper right, immediately refresh the Total Asset Value tile using the new prices and show the delta from the previous value (green if positive, red if negative) so the tile always reflects current data.
