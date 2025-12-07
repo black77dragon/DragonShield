@@ -7,14 +7,12 @@ private enum AssetClassColumn: String, CaseIterable, Codable, MaintenanceTableCo
     case code
     case name
     case description
-    case sortOrder
 
     var title: String {
         switch self {
         case .code: return "Code"
         case .name: return "Name"
         case .description: return "Description"
-        case .sortOrder: return "Order"
         }
     }
 
@@ -41,7 +39,7 @@ struct AssetClassesView: View {
     @State private var classToDelete: AssetClassItem? = nil
     @State private var deletionInfo: (canDelete: Bool, subClassCount: Int, instrumentCount: Int, positionReportCount: Int)? = nil
 
-    @State private var sortColumn: SortColumn = .sortOrder
+    @State private var sortColumn: SortColumn = .name
     @State private var sortAscending: Bool = true
     @StateObject private var tableModel = ResizableTableViewModel<AssetClassColumn>(configuration: AssetClassesView.tableConfiguration)
 
@@ -49,14 +47,13 @@ struct AssetClassesView: View {
     @State private var contentOffset: CGFloat = 30
     @State private var buttonsOpacity: Double = 0
 
-    private static let visibleColumnsKey = "AssetClassesView.visibleColumns.v1"
+    private static let visibleColumnsKey = "AssetClassesView.visibleColumns.v2"
     fileprivate static let columnTextInset: CGFloat = DSLayout.spaceS
 
     private enum SortColumn: String, CaseIterable {
         case code
         case name
         case description
-        case sortOrder
     }
 
     private static let tableConfiguration: MaintenanceTableConfiguration<AssetClassColumn> = {
@@ -69,14 +66,12 @@ struct AssetClassesView: View {
                 defaultColumnWidths: [
                     .code: 140,
                     .name: 260,
-                    .description: 420,
-                    .sortOrder: 120,
+                    .description: 420
                 ],
                 minimumColumnWidths: [
                     .code: 110,
                     .name: 220,
-                    .description: 300,
-                    .sortOrder: 90,
+                    .description: 300
                 ],
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
@@ -102,14 +97,12 @@ struct AssetClassesView: View {
                 defaultColumnWidths: [
                     .code: 140,
                     .name: 260,
-                    .description: 420,
-                    .sortOrder: 120,
+                    .description: 420
                 ],
                 minimumColumnWidths: [
                     .code: 110,
                     .name: 220,
-                    .description: 300,
-                    .sortOrder: 90,
+                    .description: 300
                 ],
                 visibleColumnsDefaultsKey: visibleColumnsKey,
                 columnHandleWidth: 10,
@@ -163,8 +156,6 @@ struct AssetClassesView: View {
                 return compare(lhs.name, rhs.name)
             case .description:
                 return compare(lhs.description, rhs.description)
-            case .sortOrder:
-                return lhs.sortOrder < rhs.sortOrder
             }
         }
 
@@ -517,7 +508,6 @@ struct AssetClassesView: View {
         case .code: return .code
         case .name: return .name
         case .description: return .description
-        case .sortOrder: return .sortOrder
         }
     }
 
@@ -672,11 +662,6 @@ private struct AssetClassRowView: View {
                 .padding(.leading, AssetClassesView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.description), alignment: .leading)
-        case .sortOrder:
-            Text("\(assetClass.sortOrder)")
-                .font(.system(size: fontConfig.secondary, weight: .medium))
-                .foregroundColor(DSColor.textPrimary)
-                .frame(width: widthFor(.sortOrder), alignment: .center)
         }
     }
 }
@@ -690,7 +675,6 @@ struct AddAssetClassView: View {
     @State private var code = ""
     @State private var name = ""
     @State private var description = ""
-    @State private var sortOrder = "0"
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
@@ -701,8 +685,7 @@ struct AddAssetClassView: View {
 
     private var isValid: Bool {
         !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            Int(sortOrder) != nil
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -789,7 +772,6 @@ struct AddAssetClassView: View {
                         modernTextField(title: "Class Code", text: $code, placeholder: "e.g., EQTY", icon: "number", isRequired: true, autoUppercase: true)
                         modernTextField(title: "Class Name", text: $name, placeholder: "e.g., Equity", icon: "textformat", isRequired: true)
                         modernTextField(title: "Description", text: $description, placeholder: "Optional", icon: "text.justify")
-                        modernTextField(title: "Sort Order", text: $sortOrder, placeholder: "0", icon: "arrow.up.arrow.down", isRequired: true)
                     }
                 }
                 .padding(DSLayout.spaceM)
@@ -810,7 +792,7 @@ struct AddAssetClassView: View {
             code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: Int(sortOrder) ?? 0
+            sortOrder: nextSortOrder()
         )
         isLoading = false
         if ok {
@@ -821,6 +803,11 @@ struct AddAssetClassView: View {
             alertMessage = "❌ Failed to add asset class"
             showingAlert = true
         }
+    }
+
+    private func nextSortOrder() -> Int {
+        let existingOrders = dbManager.fetchAssetClassesDetailed().map(\.sortOrder)
+        return (existingOrders.max() ?? 0) + 1
     }
 
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
@@ -891,7 +878,6 @@ struct EditAssetClassView: View {
     @State private var code = ""
     @State private var name = ""
     @State private var description = ""
-    @State private var sortOrder = "0"
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
@@ -903,12 +889,11 @@ struct EditAssetClassView: View {
     @State private var originalCode = ""
     @State private var originalName = ""
     @State private var originalDescription = ""
-    @State private var originalSortOrder = "0"
+    @State private var existingSortOrder = 0
 
     private var isValid: Bool {
         !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            Int(sortOrder) != nil
+            !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -937,7 +922,6 @@ struct EditAssetClassView: View {
         .onChange(of: code) { _, _ in detectChanges() }
         .onChange(of: name) { _, _ in detectChanges() }
         .onChange(of: description) { _, _ in detectChanges() }
-        .onChange(of: sortOrder) { _, _ in detectChanges() }
     }
 
     private var editHeader: some View {
@@ -998,7 +982,6 @@ struct EditAssetClassView: View {
                         modernTextField(title: "Class Code", text: $code, placeholder: "e.g., EQTY", icon: "number", isRequired: true, autoUppercase: true)
                         modernTextField(title: "Class Name", text: $name, placeholder: "e.g., Equity", icon: "textformat", isRequired: true)
                         modernTextField(title: "Description", text: $description, placeholder: "", icon: "text.justify")
-                        modernTextField(title: "Sort Order", text: $sortOrder, placeholder: "0", icon: "arrow.up.arrow.down", isRequired: true)
                     }
                 }
                 .padding(DSLayout.spaceM)
@@ -1017,19 +1000,17 @@ struct EditAssetClassView: View {
         code = data.code
         name = data.name
         description = data.description ?? ""
-        sortOrder = String(data.sortOrder)
+        existingSortOrder = data.sortOrder
         originalCode = code
         originalName = name
         originalDescription = description
-        originalSortOrder = sortOrder
         detectChanges()
     }
 
     private func detectChanges() {
         hasChanges = code != originalCode ||
             name != originalName ||
-            description != originalDescription ||
-            sortOrder != originalSortOrder
+            description != originalDescription
     }
 
     private func save() {
@@ -1040,7 +1021,7 @@ struct EditAssetClassView: View {
             code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: Int(sortOrder) ?? 0
+            sortOrder: existingSortOrder
         )
         isLoading = false
         if ok {

@@ -15,6 +15,8 @@
                     .tabItem { Label("Portfolios", systemImage: "square.grid.2x2") }
                 NavigationStack { InstrumentsListView() }
                     .tabItem { Label("Instruments", systemImage: "list.bullet") }
+                NavigationStack { ReportsMenuView() }
+                    .tabItem { Label("Reports", systemImage: "chart.bar.doc.horizontal") }
                 NavigationStack { SearchView() }
                     .tabItem { Label("Search", systemImage: "magnifyingglass") }
                 NavigationStack { IOSSettingsView() }

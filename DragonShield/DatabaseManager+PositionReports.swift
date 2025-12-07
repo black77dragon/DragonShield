@@ -545,11 +545,11 @@ extension DatabaseManager {
                pr.quantity, pr.purchase_price, pr.current_price,
                COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                pr.notes, pr.report_date, pr.import_session_id
-          FROM PositionReports pr
-          JOIN Instruments i ON pr.instrument_id = i.instrument_id
+         FROM PositionReports pr
+         JOIN Instruments i ON pr.instrument_id = i.instrument_id
           LEFT JOIN InstrumentPriceLatest ipl ON ipl.instrument_id = pr.instrument_id
          WHERE pr.account_id = ?
-         ORDER BY (pr.quantity * IFNULL(pr.current_price,0)) DESC;
+         ORDER BY (price_as_of IS NULL), price_as_of ASC, i.instrument_name COLLATE NOCASE ASC;
         """
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
