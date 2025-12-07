@@ -10,19 +10,28 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- [ ] [changes] **[DS-006] Harmonize Price Maintenance View**
-    Upgrade `PriceMaintenanceSimplifiedView.swift` to use the Design System. This is a data-heavy view, so focus on readability and table styling.
-
 - [ ] [changes] **[DS-019] Drop "Order" column in next DB update**
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.
 
-- [ ] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
-    Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
-
-- [ ] [changes] **[DS-021] Remove Order Logic from Instrument Types UI**
-    Why: The "Order" field is no longer required and should not appear in the Instrument Types GUI. What: Remove the Order field/logic from the Instrument Types screens while leaving the database column untouched, and ensure the table supports sorting by each header using the standard DragonShield table interaction pattern.
+- [ ] [changes] **[DS-025] Drop Order Column from Asset Class Table**
+    Why: The "Order" column is unused and should be removed to simplify the schema. What: Add a database migration to remove the "Order" column from the Asset Class table and update related models/ORM mappings and queries accordingly.
 
 ## Implemented
+
+- [x] [changes] **[DS-022] Sort Instruments by Prices As Of in Update Prices Window**
+    Why: Users want to quickly find the most recent prices when updating accounts. What: In the "Update Prices in Account" GUI, sort the instrument list by the "Prices As Of" column (most recent first) so the freshest data is surfaced by default.
+
+- [x] [new_features] **[DS-023] Add Asset Management Report to iOS**
+    Why: Mobile users need the same Asset Management insights available on desktop. What: Implement the "Asset Management Report" in the iOS app with the existing report logic and filters (accounts/date range), accessible from the mobile Reports menu, and ensure the rendered output matches the current report formatting.
+
+- [x] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
+    Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
+
+- [x] [changes] **[DS-021] Remove Order Logic from Instrument Types UI**
+    Why: The "Order" field is no longer required and should not appear in the Instrument Types GUI. What: Remove the Order field/logic from the Instrument Types screens while leaving the database column untouched, and ensure the table supports sorting by each header using the standard DragonShield table interaction pattern.
+
+- [x] [changes] **[DS-024] Remove Order Field from Asset Classes View**
+    Why: The "Order" field is no longer needed and clutters the UI. What: Update the Asset Classes GUI to remove the "Order" field from forms/tables while leaving the database unchanged.
 
 - [x] [changes] **[DS-018] Remove "Order" from Instrument Types UI**
     Why: The "Order" attribute is unused and confuses users when creating or editing instrument types. Keep the column in the database for now but stop exposing or relying on it in the app. What: Remove the "Order" field from the Instrument Types GUI and the "New Instrument Type" window, eliminate any code references/validation bindings to the field while leaving the database column untouched, and ensure existing instrument type flows still compile and function without the attribute.
@@ -64,3 +73,8 @@ This document serves as a central backlog for all pending changes, new features,
     Update the sidebar menu item label from "Asset Classes" to "Asset Classes & Instr. Types". In the Asset Classes maintenance window, rename the tab buttons "Classes" → "Asset Classes" and "Sub Classes" → "Instrument Types" for clarity.
 - [x] **[DS-016] Update DragonShield Logo**
     Replace existing logo assets with the latest DragonShield branding and ensure the updated logo appears consistently in the app icon, splash/loading screens, and primary navigation.
+
+## Postponed Features
+
+- [ ] [changes] **[DS-006] Harmonize Price Maintenance View**
+    Upgrade `PriceMaintenanceSimplifiedView.swift` to use the Design System. This is a data-heavy view, so focus on readability and table styling.

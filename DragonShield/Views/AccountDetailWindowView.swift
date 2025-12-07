@@ -118,6 +118,14 @@ struct AccountDetailWindowView: View {
     private var positionsTable: some View {
         ScrollView {
             Grid(horizontalSpacing: DSLayout.spaceM, verticalSpacing: DSLayout.spaceM) {
+                GridRow {
+                    Color.clear
+                    Color.clear
+                    Color.clear
+                    priceAsOfHeader()
+                        .frame(width: 120, alignment: .leading)
+                }
+                Divider()
                 ForEach(Array(viewModel.positions.enumerated()), id: \.element.id) { index, item in
                     GridRow {
                         Text(item.instrumentName)
@@ -155,13 +163,8 @@ struct AccountDetailWindowView: View {
                                 .frame(width: 140, alignment: .leading)
                         }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Price As Of")
-                                .dsCaption()
-                                .foregroundColor(DSColor.textSecondary)
-                            priceAsOfStyledText(for: item.instrumentUpdatedAt)
-                                .frame(width: 120, alignment: .leading)
-                        }
+                        priceAsOfStyledText(for: item.instrumentUpdatedAt)
+                            .frame(width: 120, alignment: .leading)
                     }
                     Divider()
                 }
@@ -232,5 +235,35 @@ private extension AccountDetailWindowView {
         Text(formatted)
             .font(stale ? .ds.caption.weight(.bold) : .ds.caption)
             .foregroundColor(stale ? DSColor.accentError : DSColor.textSecondary)
+    }
+
+    @ViewBuilder
+    func priceAsOfHeader() -> some View {
+        HStack(spacing: DSLayout.spaceXS) {
+            Text("Price As Of")
+                .dsCaption()
+                .foregroundColor(DSColor.textSecondary)
+            HStack(spacing: 2) {
+                sortArrowButton(direction: .ascending, systemName: "arrow.up")
+                sortArrowButton(direction: .descending, systemName: "arrow.down")
+            }
+        }
+    }
+
+    private func sortArrowButton(direction: AccountDetailWindowViewModel.PriceSortDirection,
+                                 systemName: String) -> some View
+    {
+        let isSelected = viewModel.priceSortDirection == direction
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.setPriceSortDirection(direction)
+            }
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(isSelected ? DSColor.accentMain : DSColor.textTertiary)
+        }
+        .buttonStyle(.plain)
+        .help(direction == .ascending ? "Sort by oldest first" : "Sort by newest first")
     }
 }

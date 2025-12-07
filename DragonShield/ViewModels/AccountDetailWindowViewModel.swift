@@ -5,6 +5,7 @@ final class AccountDetailWindowViewModel: ObservableObject {
     @Published var positions: [DatabaseManager.EditablePositionData] = []
     @Published var showSaved = false
     @Published var pendingPriceConfirmation: PriceSaveConfirmation?
+    @Published var priceSortDirection: PriceSortDirection = .ascending
 
     private var dbManager: DatabaseManager?
     private var originalPositions: [DatabaseManager.EditablePositionData] = []
@@ -20,6 +21,11 @@ final class AccountDetailWindowViewModel: ObservableObject {
         self.account = account
     }
 
+    enum PriceSortDirection {
+        case ascending
+        case descending
+    }
+
     func configure(db: DatabaseManager) {
         dbManager = db
         loadData()
@@ -27,7 +33,8 @@ final class AccountDetailWindowViewModel: ObservableObject {
 
     func loadData() {
         guard let db = dbManager else { return }
-        positions = db.fetchEditablePositions(accountId: account.id)
+        let fetched = db.fetchEditablePositions(accountId: account.id)
+        positions = sortPositions(fetched, direction: priceSortDirection)
         originalPositions = positions
         if let updated = db.fetchAccountDetails(id: account.id) {
             account = updated
@@ -94,11 +101,16 @@ final class AccountDetailWindowViewModel: ObservableObject {
     }
 
     func discardChanges() {
-        positions = originalPositions
+        positions = sortPositions(originalPositions, direction: priceSortDirection)
     }
 
     func clearPendingPriceConfirmation() {
         pendingPriceConfirmation = nil
+    }
+
+    func setPriceSortDirection(_ direction: PriceSortDirection) {
+        priceSortDirection = direction
+        positions = sortPositions(positions, direction: direction)
     }
 
     private func shouldPersistLatestPrice(new: DatabaseManager.EditablePositionData,
@@ -123,6 +135,26 @@ final class AccountDetailWindowViewModel: ObservableObject {
             return startOfDay(Date())
         }
         return nil
+    }
+
+    private func sortPositions(_ items: [DatabaseManager.EditablePositionData],
+                               direction: PriceSortDirection) -> [DatabaseManager.EditablePositionData]
+    {
+        items.sorted { lhs, rhs in
+            switch (lhs.instrumentUpdatedAt, rhs.instrumentUpdatedAt) {
+            case (nil, nil):
+                return lhs.instrumentName.localizedCaseInsensitiveCompare(rhs.instrumentName) == .orderedAscending
+            case (nil, _):
+                return false
+            case (_, nil):
+                return true
+            case let (lhsDate?, rhsDate?):
+                if lhsDate == rhsDate {
+                    return lhs.instrumentName.localizedCaseInsensitiveCompare(rhs.instrumentName) == .orderedAscending
+                }
+                return direction == .ascending ? lhsDate < rhsDate : lhsDate > rhsDate
+            }
+        }
     }
 
     private func startOfDay(_ date: Date) -> Date {

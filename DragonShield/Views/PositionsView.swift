@@ -540,6 +540,7 @@ struct PositionsView: View {
     private func positionsHeader(for column: PositionTableColumn, fontConfig: MaintenanceTableFontConfig) -> some View {
         let sortOption = sortOption(for: column)
         let isActiveSort = sortOption == sortColumn
+        let headerWeight: Font.Weight = column == .valueChf ? .bold : .semibold
         return HStack(spacing: 6) {
             if let sortOption {
                 Button {
@@ -552,7 +553,7 @@ struct PositionsView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(column.title)
-                            .font(.system(size: fontConfig.header, weight: .semibold))
+                            .font(.system(size: fontConfig.header, weight: headerWeight))
                             .foregroundColor(.black)
                         if isActiveSort {
                             Image(systemName: "triangle.fill")
@@ -565,7 +566,7 @@ struct PositionsView: View {
                 .buttonStyle(.plain)
             } else {
                 Text(column.title)
-                    .font(.system(size: fontConfig.header, weight: .semibold))
+                    .font(.system(size: fontConfig.header, weight: headerWeight))
                     .foregroundColor(DSColor.textPrimary)
             }
         }
@@ -1084,7 +1085,7 @@ private struct PositionsRowView: View {
                 .frame(width: widthFor(.valueOriginal), alignment: .trailing)
         case .valueChf:
             Text(formattedChfValue)
-                .font(.system(size: fontConfig.secondary, design: .monospaced))
+                .font(.system(size: fontConfig.secondary, weight: .bold, design: .monospaced))
                 .foregroundColor(chfValue == nil ? DSColor.textTertiary : DSColor.textPrimary)
                 .padding(.leading, PositionsView.columnTextInset)
                 .padding(.trailing, 8)
