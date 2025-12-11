@@ -9,6 +9,7 @@ final class AccountDetailWindowViewModel: ObservableObject {
 
     private var dbManager: DatabaseManager?
     private var originalPositions: [DatabaseManager.EditablePositionData] = []
+    private var originalPositionsById: [Int: DatabaseManager.EditablePositionData] = [:]
 
     struct PriceSaveConfirmation: Equatable {
         let instrumentName: String
@@ -36,6 +37,7 @@ final class AccountDetailWindowViewModel: ObservableObject {
         let fetched = db.fetchEditablePositions(accountId: account.id)
         positions = sortPositions(fetched, direction: priceSortDirection)
         originalPositions = positions
+        originalPositionsById = Dictionary(uniqueKeysWithValues: positions.map { ($0.id, $0) })
         if let updated = db.fetchAccountDetails(id: account.id) {
             account = updated
         }
@@ -106,6 +108,10 @@ final class AccountDetailWindowViewModel: ObservableObject {
 
     func clearPendingPriceConfirmation() {
         pendingPriceConfirmation = nil
+    }
+
+    func baselinePosition(for id: Int) -> DatabaseManager.EditablePositionData? {
+        originalPositionsById[id]
     }
 
     func setPriceSortDirection(_ direction: PriceSortDirection) {

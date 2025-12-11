@@ -6,6 +6,7 @@ import SwiftUI
 #if os(macOS)
     import AppKit
 #endif
+import UniformTypeIdentifiers
 
 private enum AssetSubClassColumn: String, CaseIterable, Codable, MaintenanceTableColumn {
     case name
@@ -46,6 +47,10 @@ struct AssetSubClassesView: View {
     @State private var showDeleteResultAlert = false
     @State private var deleteResultMessage = ""
     @State private var showDeleteSuccessToast = false
+    @State private var showExportErrorAlert = false
+    @State private var exportErrorMessage = ""
+    @State private var showExportSuccessToast = false
+    @State private var exportToastMessage = ""
     @State private var searchText = ""
     @State private var sortColumn: AssetSubClassColumn = .name
     @State private var sortAscending: Bool = true
@@ -233,7 +238,13 @@ struct AssetSubClassesView: View {
         } message: {
             Text(deleteResultMessage)
         }
+        .alert("Export Failed", isPresented: $showExportErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage)
+        }
         .toast(isPresented: $showDeleteSuccessToast, message: "Asset subclass deleted")
+        .toast(isPresented: $showExportSuccessToast, message: exportToastMessage.isEmpty ? "Instrument types exported" : exportToastMessage)
     }
 
     private var headerSection: some View {
@@ -448,6 +459,12 @@ struct AssetSubClassesView: View {
                 .buttonStyle(DSButtonStyle(type: .destructive))
                 .disabled(selectedSubClass == nil)
 
+                Button(action: exportInstrumentTypes) {
+                    Label("Export Types", systemImage: "arrow.down.doc")
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary))
+                .disabled(subClasses.isEmpty)
+
                 Spacer()
 
                 if let type = selectedSubClass {
@@ -572,6 +589,78 @@ struct AssetSubClassesView: View {
                 sortColumn = .name
             }
         }
+    }
+
+    private func exportInstrumentTypes() {
+        #if os(macOS)
+            let types = dbManager.fetchInstrumentTypes()
+            let tableText = instrumentTypesTableText(from: types)
+
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [UTType.plainText]
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = "dragonshield_instrument_types.txt"
+            panel.title = "Export Instrument Types"
+
+            if panel.runModal() == .OK, let url = panel.url {
+                do {
+                    try tableText.write(to: url, atomically: true, encoding: .utf8)
+                    exportToastMessage = "Saved \(types.count) types to \(url.lastPathComponent)"
+                    showExportSuccessToast = true
+                } catch {
+                    exportErrorMessage = "Unable to save file: \(error.localizedDescription)"
+                    showExportErrorAlert = true
+                }
+            }
+        #else
+            exportErrorMessage = "Instrument type export is only available on macOS."
+            showExportErrorAlert = true
+        #endif
+    }
+
+    private func instrumentTypesTableText(
+        from types: [(id: Int, classId: Int, classDescription: String, code: String, name: String, description: String, isActive: Bool)]
+    ) -> String {
+        let headers = ["Instrument Type Name", "Asset Class", "Code", "Description"]
+        let sanitizedRows = types.map { type in
+            [
+                cleaned(type.name),
+                cleaned(type.classDescription),
+                cleaned(type.code),
+                cleaned(type.description),
+            ]
+        }
+        return makeTextTable(headers: headers, rows: sanitizedRows)
+    }
+
+    private func cleaned(_ value: String) -> String {
+        value.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func makeTextTable(headers: [String], rows: [[String]]) -> String {
+        let allRows = [headers] + rows
+        let columnWidths = (0 ..< headers.count).map { index in
+            allRows.map { $0[index].count }.max() ?? 0
+        }
+
+        var lines: [String] = []
+        lines.append(formatRow(headers, widths: columnWidths))
+        lines.append(columnWidths.map { String(repeating: "-", count: $0) }.joined(separator: "-+-"))
+
+        if rows.isEmpty {
+            lines.append("(no instrument types found)")
+        } else {
+            lines.append(contentsOf: rows.map { formatRow($0, widths: columnWidths) })
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func formatRow(_ columns: [String], widths: [Int]) -> String {
+        zip(columns, widths).map { value, width in
+            value.padding(toLength: width, withPad: " ", startingAt: 0)
+        }
+        .joined(separator: " | ")
     }
 
     private func statPill(title: String, value: String, color: Color) -> some View {
