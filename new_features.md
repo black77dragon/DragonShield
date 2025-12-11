@@ -10,6 +10,10 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- [ ] [new_features] **[DS-027] Introduce Instrument-Level Risk Concept**
+    Why: We need a standardized risk label per instrument, aligned with market conventions, to support controls, dashboards, and reporting.
+    What: Document and adopt the new risk concept (`risk_concept.md`) that scores each instrument into a risk type using volatility, asset class, duration/credit, liquidity, leverage/derivatives, and currency factors, then store the resulting risk type on instruments for downstream UI and reports.
+
 - [ ] [changes] **[DS-019] Drop "Order" column in next DB update**
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.
 
@@ -18,14 +22,17 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [new_features] **[DS-026] Add Instrument Types Export Button**
+    Why: Users need a quick way to extract instrument type definitions for audits and bulk edits without querying the database. What: In the Instrument Types GUI, add a button that generates a text file named "dragonshield_instrument_types.txt" containing a table of all instrument types with the columns: Instrument Type Name, Asset Class, Code, Description.
+
 - [x] [changes] **[DS-022] Sort Instruments by Prices As Of in Update Prices Window**
     Why: Users want to quickly find the most recent prices when updating accounts. What: In the "Update Prices in Account" GUI, sort the instrument list by the "Prices As Of" column (most recent first) so the freshest data is surfaced by default.
 
-- [x] [new_features] **[DS-023] Add Asset Management Report to iOS**
-    Why: Mobile users need the same Asset Management insights available on desktop. What: Implement the "Asset Management Report" in the iOS app with the existing report logic and filters (accounts/date range), accessible from the mobile Reports menu, and ensure the rendered output matches the current report formatting.
-
 - [x] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
     Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
+
+- [x] [new_features] **[DS-023] Add Asset Management Report to iOS**
+    Why: Mobile users need the same Asset Management insights available on desktop. What: Implement the "Asset Management Report" in the iOS app with the existing report logic and filters (accounts/date range), accessible from the mobile Reports menu, and ensure the rendered output matches the current report formatting.
 
 - [x] [changes] **[DS-021] Remove Order Logic from Instrument Types UI**
     Why: The "Order" field is no longer required and should not appear in the Instrument Types GUI. What: Remove the Order field/logic from the Instrument Types screens while leaving the database column untouched, and ensure the table supports sorting by each header using the standard DragonShield table interaction pattern.

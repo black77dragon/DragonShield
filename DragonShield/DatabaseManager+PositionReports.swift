@@ -543,6 +543,7 @@ extension DatabaseManager {
         SELECT pr.position_id, pr.account_id, pr.institution_id, pr.instrument_id,
                i.instrument_name, i.currency,
                pr.quantity, pr.purchase_price, pr.current_price,
+               ipl.price AS latest_price,
                COALESCE(ipl.as_of, pr.instrument_updated_at) AS price_as_of,
                pr.notes, pr.report_date, pr.import_session_id
          FROM PositionReports pr
@@ -570,17 +571,21 @@ extension DatabaseManager {
                 if sqlite3_column_type(stmt, 8) != SQLITE_NULL {
                     cPrice = sqlite3_column_double(stmt, 8)
                 }
-                var updated: Date?
+                var latestPrice: Double?
                 if sqlite3_column_type(stmt, 9) != SQLITE_NULL {
-                    let str = String(cString: sqlite3_column_text(stmt, 9))
+                    latestPrice = sqlite3_column_double(stmt, 9)
+                }
+                var updated: Date?
+                if sqlite3_column_type(stmt, 10) != SQLITE_NULL {
+                    let str = String(cString: sqlite3_column_text(stmt, 10))
                     updated = ISO8601DateParser.parse(str)
                 }
-                let notes = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
-                let reportStr = String(cString: sqlite3_column_text(stmt, 11))
+                let notes = sqlite3_column_text(stmt, 11).map { String(cString: $0) }
+                let reportStr = String(cString: sqlite3_column_text(stmt, 12))
                 let reportDate = DateFormatter.iso8601DateOnly.date(from: reportStr) ?? Date()
                 let sess: Int?
-                if sqlite3_column_type(stmt, 12) != SQLITE_NULL {
-                    sess = Int(sqlite3_column_int(stmt, 12))
+                if sqlite3_column_type(stmt, 13) != SQLITE_NULL {
+                    sess = Int(sqlite3_column_int(stmt, 13))
                 } else { sess = nil }
                 rows.append(EditablePositionData(
                     id: id,
@@ -591,7 +596,7 @@ extension DatabaseManager {
                     instrumentCurrency: instrumentCurrency,
                     quantity: qty,
                     purchasePrice: pPrice,
-                    currentPrice: cPrice,
+                    currentPrice: cPrice ?? latestPrice,
                     instrumentUpdatedAt: updated,
                     notes: notes,
                     reportDate: reportDate,

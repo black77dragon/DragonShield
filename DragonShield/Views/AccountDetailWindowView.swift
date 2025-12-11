@@ -157,6 +157,7 @@ struct AccountDetailWindowView: View {
                                     .dsCaption()
                                     .foregroundColor(DSColor.textSecondary)
                             }
+                            currentPriceInfo(for: item)
                             Button("Edit Price") { editingInstrument = InstrumentSheetTarget(id: item.instrumentId) }
                                 .buttonStyle(.link)
                                 .font(.ds.caption)
@@ -217,9 +218,41 @@ private extension AccountDetailWindowView {
         )
     }
 
+    @ViewBuilder
+    func currentPriceInfo(for item: DatabaseManager.EditablePositionData) -> some View {
+        if let baseline = viewModel.baselinePosition(for: item.id) {
+            let priceText = formattedPriceValue(baseline.currentPrice)
+            let priceWithCurrency = baseline.currentPrice == nil ? priceText : "\(priceText) \(baseline.instrumentCurrency)"
+            let dateText = formattedPriceAsOf(baseline.instrumentUpdatedAt)
+
+            HStack(spacing: DSLayout.spaceXS) {
+                Text("Current:")
+                    .dsCaption()
+                    .foregroundColor(DSColor.textTertiary)
+                Text(priceWithCurrency)
+                    .font(.ds.caption.monospacedDigit())
+                    .foregroundColor(DSColor.textTertiary)
+                Text("as of \(dateText)")
+                    .dsCaption()
+                    .foregroundColor(DSColor.textTertiary)
+            }
+            .padding(.top, 2)
+        } else {
+            Text("Current: —")
+                .dsCaption()
+                .foregroundColor(DSColor.textTertiary)
+                .padding(.top, 2)
+        }
+    }
+
     func formattedPriceAsOf(_ date: Date?) -> String {
         guard let date else { return "—" }
         return AccountDetailWindowView.priceDateFormatter.string(from: date)
+    }
+
+    func formattedPriceValue(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return AccountDetailWindowView.priceFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
     }
 
     func priceIsStale(_ date: Date?) -> Bool {
