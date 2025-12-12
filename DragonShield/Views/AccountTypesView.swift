@@ -400,14 +400,14 @@ struct AccountTypesView: View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedTypes,
-            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            rowSpacing: DSLayout.tableRowSpacing,
             showHorizontalIndicators: true,
             rowContent: { type, context in
                 AccountTypeRowView(
                     type: type,
                     columns: context.columns,
                     fontConfig: context.fontConfig,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     isSelected: selectedType?.id == type.id,
                     onTap: { selectedType = type },
                     onEdit: {

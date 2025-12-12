@@ -479,7 +479,7 @@ struct AccountsView: View {
                     account: account,
                     columns: context.columns,
                     fontConfig: context.fontConfig,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     isSelected: selectedAccount?.id == account.id,
                     onTap: {
                         selectedAccount = account

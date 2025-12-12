@@ -11,16 +11,15 @@ struct SettingsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @EnvironmentObject var runner: HealthCheckRunner
 
-    @AppStorage(UserDefaultsKeys.enableParsingCheckpoints) private var enableParsingCheckpoints: Bool = false
     @AppStorage("coingeckoPreferFree") private var coingeckoPreferFree: Bool = false
     @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
+    @AppStorage("runStartupHealthChecks") private var runStartupHealthChecks: Bool = true
 
     private var okCount: Int { runner.reports.filter { if case .ok = $0.result { true } else { false } }.count }
     private var warningCount: Int { runner.reports.filter { if case .warning = $0.result { true } else { false } }.count }
     private var errorCount: Int { runner.reports.filter { if case .error = $0.result { true } else { false } }.count }
 
     // Local state
-    @State private var tempBaseCurrency: String = ""
     @State private var showLogs: Bool = false
     @State private var isTestingCG: Bool = false
     @State private var showCGResult: Bool = false
@@ -33,54 +32,126 @@ struct SettingsView: View {
     @State private var iosTargetPath: String = ""
     @State private var iosStatus: String = ""
 
+    private var fxAutoBinding: Binding<Bool> {
+        Binding(
+            get: { dbManager.fxAutoUpdateEnabled },
+            set: { newValue in
+                guard dbManager.fxAutoUpdateEnabled != newValue else { return }
+                dbManager.fxAutoUpdateEnabled = newValue
+                _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                updateFxStatus()
+            }
+        )
+    }
+
+    private var iosAutoBinding: Binding<Bool> {
+        Binding(
+            get: { dbManager.iosSnapshotAutoEnabled },
+            set: { newValue in
+                guard dbManager.iosSnapshotAutoEnabled != newValue else { return }
+                dbManager.iosSnapshotAutoEnabled = newValue
+                _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                updateIOSStatus()
+            }
+        )
+    }
+
+    private var fxStartupDetail: String {
+        fxLastSummary.isEmpty ? "No updates yet — auto-update \(dbManager.fxAutoUpdateEnabled ? "enabled" : "disabled")." : fxLastSummary
+    }
+
+    private var iosStartupDetail: String {
+        iosStatus.isEmpty ? "No snapshot found. Will export on next launch if enabled." : iosStatus
+    }
+
     var body: some View {
         ZStack {
             DSColor.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: DSLayout.spaceL) {
                     HStack(alignment: .top, spacing: DSLayout.spaceL) {
-                        CardSection(title: "App Basics") {
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text("Base Currency").frame(width: 160, alignment: .leading)
+                        CardSection(title: "About") {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("App Version").frame(width: 160, alignment: .leading)
                                     .dsBody()
-                                TextField("", text: $tempBaseCurrency)
-                                    .frame(width: 100)
-                                    .multilineTextAlignment(.trailing)
-                                    .textFieldStyle(.roundedBorder)
-                                    .onSubmit {
-                                        let v = tempBaseCurrency.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-                                        if v.count == 3 && v.allSatisfy({ $0.isLetter }) { _ = dbManager.updateConfiguration(key: "base_currency", value: v) }
-                                        else { tempBaseCurrency = dbManager.baseCurrency }
+                                VStack(alignment: .leading, spacing: 6) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("VERSION")
+                                            .dsCaption()
+                                            .foregroundColor(DSColor.textSecondary)
+                                        Text(AppVersionProvider.version)
+                                            .dsBody()
                                     }
+                                    if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("VERSION_LAST_CHANGE")
+                                                .dsCaption()
+                                                .foregroundColor(DSColor.textSecondary)
+                                            Text(lastChange)
+                                                .dsBody()
+                                        }
+                                    }
+                                    if let branch = GitInfoProvider.branch, !branch.isEmpty {
+                                        Text("Branch: \(branch)")
+                                            .dsCaption()
+                                            .foregroundColor(DSColor.textSecondary)
+                                    }
+                                }
                                 Spacer()
                             }
-                            Stepper("Decimal Precision: \(dbManager.decimalPrecision)",
-                                    value: Binding(get: { dbManager.decimalPrecision }, set: { _ = dbManager.updateConfiguration(key: "decimal_precision", value: "\($0)") }), in: 0 ... 8)
-                                .dsBody()
-                            Divider().padding(.vertical, 2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        CardSection(title: "App Basics") {
                             Toggle("Show \"Incoming Deadlines\" pop-up every time Dashboard opens", isOn: $showIncomingDeadlinesEveryVisit)
                                 .dsBody()
-                            HStack {
-                                Text("Last Result").frame(width: 160, alignment: .leading)
-                                    .dsBody()
-                                Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
-                                    .dsBody()
-                                Spacer()
-                                NavigationLink("Detailed Report", destination: HealthCheckResultsView())
-                                    .dsBody()
+                            Divider().padding(.vertical, 2)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Health Checks")
+                                    .dsHeaderSmall()
+                                HStack {
+                                    Text("Last Result").frame(width: 160, alignment: .leading)
+                                        .dsBody()
+                                    Text("\(okCount) ok / \(warningCount) warning / \(errorCount) error")
+                                        .dsBody()
+                                    Spacer()
+                                    NavigationLink("Detailed Report", destination: HealthCheckResultsView())
+                                        .dsBody()
+                                }
                             }
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
-                        CardSection(title: "Table Display Settings") {
-                            Stepper("Row Spacing: \(String(format: "%.1f", dbManager.tableRowSpacing)) pts",
-                                    value: Binding(get: { dbManager.tableRowSpacing }, set: { _ = dbManager.updateConfiguration(key: "table_row_spacing", value: String(format: "%.1f", $0)) }), in: 0.0 ... 10.0, step: 0.5)
-                                .dsBody()
-                            Stepper("Row Padding: \(String(format: "%.1f", dbManager.tableRowPadding)) pts",
-                                    value: Binding(get: { dbManager.tableRowPadding }, set: { _ = dbManager.updateConfiguration(key: "table_row_padding", value: String(format: "%.1f", $0)) }), in: 0.0 ... 20.0, step: 1.0)
-                                .dsBody()
+                    CardSection(title: "Application Startup") {
+                        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                            Text("Configure which tasks run automatically when DragonShield launches.")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
+
+                            VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                                StartupToggleRow(
+                                    title: "Run Health Checks on Startup",
+                                    subtitle: "Ensure the data pipeline is healthy before you start working.",
+                                    detail: nil,
+                                    isOn: $runStartupHealthChecks
+                                )
+                                Divider()
+                                StartupToggleRow(
+                                    title: "Auto-update FX Rates",
+                                    subtitle: "Fetch latest FX data if rates are stale when the app opens.",
+                                    detail: fxStartupDetail,
+                                    isOn: fxAutoBinding
+                                )
+                                Divider()
+                                StartupToggleRow(
+                                    title: "Create iOS DB Snapshot",
+                                    subtitle: "Auto-export on Launch for the iOS companion app.",
+                                    detail: iosStartupDetail,
+                                    isOn: iosAutoBinding
+                                )
+                            }
                         }
-                        .frame(maxWidth: .infinity)
                     }
 
                     CardSection(title: "Price Providers") {
@@ -98,15 +169,7 @@ struct SettingsView: View {
 
                     HStack(alignment: .top, spacing: DSLayout.spaceL) {
                         CardSection(title: "FX Updates") {
-                            Toggle("Auto-update on Launch", isOn: Binding(
-                                get: { dbManager.fxAutoUpdateEnabled },
-                                set: { newValue in
-                                    guard dbManager.fxAutoUpdateEnabled != newValue else { return }
-                                    dbManager.fxAutoUpdateEnabled = newValue
-                                    _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
-                                    updateFxStatus()
-                                }
-                            ))
+                            Toggle("Auto-update on Launch", isOn: fxAutoBinding)
                             .toggleStyle(.switch)
                             .dsBody()
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -138,15 +201,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
 
                         CardSection(title: "iOS Snapshot (DB Copy for iPhone app)") {
-                            Toggle("Create iOS DB Snapshot", isOn: Binding(
-                                get: { dbManager.iosSnapshotAutoEnabled },
-                                set: { newValue in
-                                    guard dbManager.iosSnapshotAutoEnabled != newValue else { return }
-                                    dbManager.iosSnapshotAutoEnabled = newValue
-                                    _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
-                                    updateIOSStatus()
-                                }
-                            ))
+                            Toggle("Create iOS DB Snapshot", isOn: iosAutoBinding)
                             .toggleStyle(.switch)
                             .dsBody()
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -203,44 +258,6 @@ struct SettingsView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-
-                    #if DEBUG
-                        CardSection(title: "Development / Debug Options") {
-                            Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
-                                .dsBody()
-                        }
-                    #endif
-
-                    CardSection(title: "About") {
-                        HStack(alignment: .top, spacing: 12) {
-                            Text("App Version").frame(width: 160, alignment: .leading)
-                                .dsBody()
-                            VStack(alignment: .leading, spacing: 6) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("VERSION")
-                                        .dsCaption()
-                                        .foregroundColor(DSColor.textSecondary)
-                                    Text(AppVersionProvider.version)
-                                        .dsBody()
-                                }
-                                if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("VERSION_LAST_CHANGE")
-                                            .dsCaption()
-                                            .foregroundColor(DSColor.textSecondary)
-                                        Text(lastChange)
-                                            .dsBody()
-                                    }
-                                }
-                                if let branch = GitInfoProvider.branch, !branch.isEmpty {
-                                    Text("Branch: \(branch)")
-                                        .dsCaption()
-                                        .foregroundColor(DSColor.textSecondary)
-                                }
-                            }
-                            Spacer()
-                        }
-                    }
                 }
                 .padding(DSLayout.spaceL)
             }
@@ -248,7 +265,6 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .frame(minWidth: 600, idealWidth: 760, minHeight: 520)
         .onAppear {
-            tempBaseCurrency = dbManager.baseCurrency
             updateFxStatus()
             iosTargetPath = dbManager.iosSnapshotTargetPath
             updateIOSStatus()
@@ -325,6 +341,34 @@ private struct ProviderKeyRow: View {
     }
 
     private var defaultsKey: String { "api_key.\(account)" }
+}
+
+// MARK: - StartupToggleRow
+
+private struct StartupToggleRow: View {
+    let title: String
+    let subtitle: String
+    let detail: String?
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .dsBody()
+                    .fontWeight(.semibold)
+                Text(subtitle)
+                    .dsCaption()
+                    .foregroundColor(DSColor.textSecondary)
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .dsCaption()
+                        .foregroundColor(DSColor.textSecondary)
+                }
+            }
+        }
+        .toggleStyle(.switch)
+    }
 }
 
 // MARK: - Card Section helper

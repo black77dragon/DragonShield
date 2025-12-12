@@ -23,13 +23,13 @@ struct ImportSessionHistoryView: View {
         VStack(spacing: 0) {
             tableHeader
             ScrollView {
-                LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) {
+                LazyVStack(spacing: DSLayout.tableRowSpacing) {
                     ForEach(sessions) { session in
                         ImportSessionRowView(
                             session: session,
                             totalValue: totalValues[session.id] ?? 0,
                             isSelected: selected?.id == session.id,
-                            rowPadding: CGFloat(dbManager.tableRowPadding)
+                            rowPadding: DSLayout.tableRowPadding
                         ) {
                             selected = session
                         }

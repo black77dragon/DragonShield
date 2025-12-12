@@ -15,8 +15,6 @@ INSERT INTO Configuration VALUES ('3', 'decimal_precision', '4', 'number', 'Deci
 INSERT INTO Configuration VALUES ('4', 'fx_api_provider', 'exchangerate-api', 'string', 'FX rate API provider', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('5', 'fx_update_frequency', 'daily', 'string', 'FX rate update frequency', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('6', 'default_timezone', 'Europe/Zurich', 'string', 'Default timezone for the application', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('7', 'table_row_spacing', '1.0', 'number', 'Spacing between table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO Configuration VALUES ('8', 'table_row_padding', '12.0', 'number', 'Vertical padding inside table rows in points', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('9', 'table_font_size', '14.0', 'number', 'Font size for text in data table rows (in points)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('10', 'include_direct_re', 'true', 'boolean', 'Include direct real estate in allocation views', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 INSERT INTO Configuration VALUES ('11', 'direct_re_target_chf', '0', 'number', 'Target CHF amount for direct real estate', '2025-07-13 09:04:29', '2025-07-13 09:04:29');

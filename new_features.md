@@ -10,29 +10,14 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- [*] [new_features] **[DS-031] Portfolio Risk Scoring & Tab**
-    Why: Portfolio managers need a simple risk score per portfolio and per constituent to assess posture quickly.
-    What: Compute a risk score for each portfolio (e.g., weighted SRI/illiquidity) and display it in the Portfolios GUI; add a "Risks" tab in Portfolio Maintenance showing the total portfolio risk score plus the risk (SRI/liquidity) of each instrument.
+
+- [ ] [changes] **[DS-050] Refine Portfolio Risks Tab for Actionable Use**
+    Why: The current Risks tab is text-heavy, lacks filters or drill-downs, and does not clearly surface high-risk/illiquid concentrations or data-quality warnings, so portfolio managers cannot act on the risk score.
+    What: Redesign the Risks tab with an actionable hero (risk score gauge with base currency/as-of, high-risk 6–7 and illiquid callouts), SRI and liquidity donuts with Count/Value toggles that filter the list, and a sortable/searchable contributions table showing value, weight, SRI, liquidity, blended score, and badges for fallbacks/overrides; add chips for quick filters (High risk, Illiquid, Missing data) plus drill-through to Instrument Maintenance/Risk profile and an export to CSV of the filtered table; surface coverage/fallback warnings with counts for missing FX/price/mapping and expiring overrides.
 
 - [ ] [new_features] **[DS-028] Drill-Through to Instrument Maintenance from Risk Report**
     Why: Analysts need to jump from Risk Report drilldowns directly into instrument maintenance to review or adjust details without leaving context.
     What: In the Risk Report GUI, when detailed instrument lists are shown in SRI Distribution, SRI Distribution (Value), and Liquidity sections, make each instrument row clickable and open the Instrument Maintenance GUI for that instrument.
-
-- [ ] [new_features] **[DS-029] Add Risk Tiles to Dashboard**
-    Why: Users want an at-a-glance view of portfolio risk posture directly on the dashboard.
-    What: Add Risk Tiles to the Dashboard GUI showing key risk aspects (e.g., SRI distribution, liquidity tiers, overrides) using graphical donut charts; enable drill-down from each tile to show the underlying instruments and details.
-
-- [ ] [new_features] **[DS-030] Enhance Risk Report with Actionable Visuals**
-    Why: Users need to spot risk hot spots quickly and know where to act.
-    What: Add graphical diagrams to the Risk Report: SRI distribution and allocation as donuts/bars with clickable slices; liquidity tiers as a donut with drill-down; a heatmap of top exposures vs. risk buckets; and a panel highlighting overrides/expiries with jump-to instrument actions.
-
-- [ ] [new_features] **[DS-039] Show Portfolio Risk Score in Portfolio Table**
-    Why: Portfolio managers need to see portfolio risk posture at a glance without opening each portfolio.
-    What: In the Portfolios GUI overview/table, add a "Risk Score" column showing the computed portfolio risk score (from DS-032) with sorting and standard formatting so users can compare portfolios directly.
-
-- [ ] [changes] **[DS-040] Simplify Portfolio Status Indicator**
-    Why: The Portfolios table shows two color-coded status visuals (icon plus small bubble), cluttering the column.
-    What: In the Portfolios GUI Status column, remove the larger color icon and retain only the small bubble as the status indicator.
 
 - [ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**
     Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
@@ -46,13 +31,13 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Provide at-a-glance risk posture on the main dashboard with quick drill-down.
     What: Add dashboard tiles for SRI distribution, liquidity tiers, and active overrides using donut charts; each slice opens a filtered list of underlying instruments; include badges for high-risk (SRI 6–7) and illiquid percentages.
 
-- [ ] [new_features] **[DS-036] Portfolio Risks Tab with Instrument Breakdown**
-    Why: Portfolio maintenance needs a dedicated risk view.
-    What: Add a "Risks" tab in Portfolio Maintenance showing the portfolio risk score (from DS-032), the distribution of instruments by SRI/liquidity (count and value), and a table of constituents with their SRI, liquidity tier, and weighted contribution; allow sorting and export.
+- [ ] [changes] **[DS-049] Color-Code Risk Score Tile Slider**
+    Why: Users need an immediate visual cue on whether the risk score trends low or high without reading labels.
+    What: In the Risk Score tile, keep showing the current risk score number and color the slider from green on the left (low risk) to red on the right (high risk), with the thumb/track reflecting the color at the score position.
 
-- [ ] [changes] **[DS-037] Simplify Sideview Menu (Systems Section)**
-    Why: The Systems menu contains rarely used items that clutter navigation and confuse users.
-    What: Audit the Systems section of the sideview menu to identify consolidation opportunities and unused entries (e.g., "Ichimoku Dragon"); grey out any unused/legacy items in the menu and provide a streamlined set of active options.
+- [ ] [changes] **[DS-048] Review Ichimoku Cloud Implementation**
+    Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
+    What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 - [ ] [changes] **[DS-038] Align Dashboard Tile Dimensions**
     Why: The Dashboard tiles have inconsistent sizing and shapes, making the canvas look uneven.
@@ -66,9 +51,69 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [bugs] **[DS-040] Align Portfolios Table Headers with Content**
+    Why: In the Portfolios GUI the column headers become offset and do not scroll with the table contents, making the list hard to read.
+    What: Build a new alternate Portfolios view using the working table layout pattern so header and rows scroll together; keep the legacy view available until the new version is verified, then remove the old implementation.
+
+- [x] [new_features] **[DS-029] Add Risk Tiles to Dashboard**
+    Why: Users want an at-a-glance view of portfolio risk posture directly on the dashboard.
+    What: Add Risk Tiles to the Dashboard GUI showing key risk aspects (e.g., SRI distribution, liquidity tiers, overrides) using graphical donut charts; enable drill-down from each tile to show the underlying instruments and details.
+
+- [x] [new_features] **[DS-039] Show Portfolio Risk Score in Portfolio Table**
+    Why: Portfolio managers need to see portfolio risk posture at a glance without opening each portfolio.
+    What: In the Portfolios GUI overview/table, add a "Risk Score" column showing the computed portfolio risk score (from DS-032) with sorting and standard formatting so users can compare portfolios directly.
+
+- [x] [changes] **[DS-047] Relocate Development/Debug Options Tile**
+    Why: The Development/Debug options tile clutters the Settings GUI and belongs with data utilities.
+    What: Move the "Development/Debug options" tile out of Settings and into the Data Import/Export GUI, keeping its functionality unchanged in the new location.
+
+- [x] [bugs] **[DS-041] Backup Database Script Missing**
+    Why: The "Backup Database" action fails because `/Applications/Xcode.app/Contents/Developer/usr/bin/python3` cannot find `python_scripts/backup_restore.py`, preventing backups from running.
+    What: Restore or relocate the backup/restore Python script and update the command/path so the Backup Database flow completes successfully on macOS, with a check that the script exists before execution.
+
+- [x] [changes] **[DS-037] Simplify Sideview Menu (Systems Section)**
+    Why: The Systems menu contains rarely used items that clutter navigation and confuse users.
+    What: Audit the Systems section of the sideview menu to identify consolidation opportunities and unused entries (e.g., "Ichimoku Dragon"); grey out any unused/legacy items in the menu and provide a streamlined set of active options.
+
+- [x] [changes] **[DS-043] Standardize Table Spacing**
+    Why: User-adjustable table spacing/padding creates inconsistent table layouts and adds settings that diverge from the Design System defaults.
+    What: Audit all uses of the Settings-driven table spacing/padding, replace them with the standard application defaults, and remove the "Table Display Settings" section from Settings once the swap is complete.
+
+- [x] [changes] **[DS-045] Relocate Risk Management Menu Entry**
+    Why: The "Risk Management" entry currently sits under the Portfolio section, making the configuration item hard to find and inconsistent with other maintenance screens.
+    What: Move the "Risk Management" sideview menu entry from the Portfolio group into the Configuration section and rename it to "Instrument Risk Maint." to match the desired naming.
+
+- [x] [changes] **[DS-044] Consolidate Application Startup into Systems GUI**
+    Why: The standalone Application Startup GUI duplicates navigation and clutters the sideview.
+    What: Move all Application Startup content/controls into the Systems GUI and remove the "Application Startup" entry from the sideview menu, keeping functionality unchanged in its new location.
+
+- [x] [bugs] **[DS-042] Validate Instruments Button Does Nothing**
+    Why: In the Database Management GUI, pressing "Validate Instruments" shows no visible action or feedback, so users cannot tell whether validation is running or completed.
+    What: Fix the Validate Instruments implementation so the validation executes and surfaces progress/result feedback; add a short light-grey description (matching the Application Start Up GUI style) explaining the purpose of the Validate Instruments function.
+
+- [x] [changes] **[DS-046] Rework Settings Layout**
+    Why: The Settings screen layout buries the About info, shows unused fields, and lacks a clear header for health status.
+    What: In the Settings GUI, place the "About" canvas at the top-left and "App Basics" at the top-right; remove/hide the "Base Currency" and "Decimal Precision" fields since they are unused; add a "Health Checks" header above the line starting with "Last Result ...".
+
+- [x] [changes] **[DS-040] Simplify Portfolio Status Indicator**
+    Why: The Portfolios table shows two color-coded status visuals (icon plus small bubble), cluttering the column.
+    What: In the Portfolios GUI Status column, remove the larger color icon and retain only the small bubble as the status indicator.
+
 - [x] [new_features] **[DS-032] Define Portfolio Risk Scoring Methodology**
     Why: We need a clear, consistent way to compute a portfolio risk score using instrument-level risk and allocation.
     What: Specify and implement a methodology to calculate portfolio risk that weights each instrument's risk score (SRI/liquidity) by its allocated value, producing a portfolio-level score and category for use in dashboards, reports, and the new Risks tab.
+
+- [x] [new_features] **[DS-031] Portfolio Risk Scoring & Tab**
+    Why: Portfolio managers need a simple risk score per portfolio and per constituent to assess posture quickly.
+    What: Compute a risk score for each portfolio (e.g., weighted SRI/illiquidity) and display it in the Portfolios GUI; add a "Risks" tab in Portfolio Maintenance showing the total portfolio risk score plus the risk (SRI/liquidity) of each instrument.
+
+- [x] [new_features] **[DS-030] Enhance Risk Report with Actionable Visuals**
+    Why: Users need to spot risk hot spots quickly and know where to act.
+    What: Add graphical diagrams to the Risk Report: SRI distribution and allocation as donuts/bars with clickable slices; liquidity tiers as a donut with drill-down; a heatmap of top exposures vs. risk buckets; and a panel highlighting overrides/expiries with jump-to instrument actions.
+
+- [x] [new_features] **[DS-036] Portfolio Risks Tab with Instrument Breakdown**
+    Why: Portfolio maintenance needs a dedicated risk view.
+    What: Add a "Risks" tab in Portfolio Maintenance showing the portfolio risk score (from DS-032), the distribution of instruments by SRI/liquidity (count and value), and a table of constituents with their SRI, liquidity tier, and weighted contribution; allow sorting and export.
 
 - [x] [new_features] **[DS-027] Introduce Instrument-Level Risk Concept**
     Why: We need a standardized risk label per instrument, aligned with market conventions, to support controls, dashboards, and reporting.

@@ -215,12 +215,12 @@ struct TransactionHistoryView: View {
         VStack(spacing: 0) {
             modernTableHeader
             ScrollView {
-                LazyVStack(spacing: CGFloat(dbManager.tableRowSpacing)) {
+                LazyVStack(spacing: DSLayout.tableRowSpacing) {
                     ForEach(filteredTransactions) { transaction in
                         ModernTransactionRowView(
                             transaction: transaction,
                             isSelected: selectedTransaction?.id == transaction.id,
-                            rowPadding: CGFloat(dbManager.tableRowPadding),
+                            rowPadding: DSLayout.tableRowPadding,
                             onTap: { selectedTransaction = transaction },
                             onEdit: {
                                 selectedTransaction = transaction
@@ -244,7 +244,7 @@ struct TransactionHistoryView: View {
             Text("Amount").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 100, alignment: .trailing) // Adjusted width
             Text("Curr.").font(.system(size: 14, weight: .semibold)).foregroundColor(.gray).frame(width: 40, alignment: .leading) // Adjusted width
         }
-        .padding(.horizontal, CGFloat(dbManager.tableRowPadding))
+        .padding(.horizontal, DSLayout.tableRowPadding)
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.gray.opacity(0.1)))
         .padding(.bottom, 1)

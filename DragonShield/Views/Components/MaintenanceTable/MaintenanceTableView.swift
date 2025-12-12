@@ -60,8 +60,8 @@ struct MaintenanceTableView<Data: RandomAccessCollection, Column: MaintenanceTab
                     .frame(width: model.width(for: column), alignment: .leading)
             }
         }
-        .padding(.trailing, 12)
-        .padding(.vertical, 2)
+        .padding(.vertical, model.configuration.headerVerticalPadding)
+        .padding(.trailing, model.configuration.headerTrailingPadding)
         .background(
             Rectangle()
                 .fill(model.configuration.headerBackground)

@@ -2,7 +2,7 @@ import SwiftUI
 
 private let newLayoutKey = UserDefaultsKeys.newDashboardColumnsLayout
 private let newLayoutVersionKey = UserDefaultsKeys.newDashboardLayoutVersion
-private let newLayoutCurrentVersion = 1
+private let newLayoutCurrentVersion = 2
 
 struct DashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -254,6 +254,25 @@ struct DashboardView: View {
         }
         if !flattened.contains(InstitutionsAUMTile.tileID) {
             flattened.append(InstitutionsAUMTile.tileID)
+        }
+        if previousVersion < 2 {
+            let riskTiles = [
+                RiskScoreTile.tileID,
+                RiskSRIDonutTile.tileID,
+                RiskLiquidityDonutTile.tileID,
+                RiskOverridesTile.tileID
+            ]
+            if let idx = flattened.firstIndex(of: RiskBucketsTile.tileID) {
+                var insertIndex = idx
+                for id in riskTiles where !flattened.contains(id) {
+                    flattened.insert(id, at: min(insertIndex, flattened.count))
+                    insertIndex += 1
+                }
+            } else {
+                for id in riskTiles where !flattened.contains(id) {
+                    flattened.append(id)
+                }
+            }
         }
 
         return distribute(flattened)

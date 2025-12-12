@@ -3,7 +3,7 @@ import SwiftUI
 
 private let layoutKey = "dashboardTileLayout"
 private let layoutVersionKey = UserDefaultsKeys.dashboardLayoutVersion
-private let currentLayoutVersion = 1
+private let currentLayoutVersion = 2
 
 struct LegacyDashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
@@ -276,6 +276,20 @@ struct LegacyDashboardView: View {
         }
         if !updated.contains(InstitutionsAUMTile.tileID) {
             updated.append(InstitutionsAUMTile.tileID)
+        }
+        if previousVersion < 2 {
+            let riskTiles = [
+                RiskScoreTile.tileID,
+                RiskSRIDonutTile.tileID,
+                RiskLiquidityDonutTile.tileID,
+                RiskOverridesTile.tileID
+            ]
+            let baseIndex = updated.firstIndex(of: RiskBucketsTile.tileID) ?? updated.count
+            var insertIndex = baseIndex
+            for id in riskTiles where !updated.contains(id) {
+                updated.insert(id, at: min(insertIndex, updated.count))
+                insertIndex += 1
+            }
         }
 
         return updated

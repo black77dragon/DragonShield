@@ -13,6 +13,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
     @Published private(set) var columnFractions: [Column: CGFloat]
     @Published private(set) var resolvedColumnWidths: [Column: CGFloat]
     @Published var availableTableWidth: CGFloat = 0
+    @Published private(set) var minimumWidthOverrides: [Column: CGFloat] = [:]
 
     let configuration: MaintenanceTableConfiguration<Column>
 
@@ -22,6 +23,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
     private var hasHydratedPreferences = false
     private var dragContext: ColumnDragContext?
     private var hasAppliedHydratedLayout = false
+    private let minimumWidthsDefaultsKey: String?
 
     private struct ColumnDragContext {
         let primary: Column
@@ -38,6 +40,8 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         selectedFontSize = .medium
         columnFractions = ResizableTableViewModel.initialFractions(configuration)
         resolvedColumnWidths = configuration.defaultColumnWidths
+        minimumWidthsDefaultsKey = configuration.minimumWidthsDefaultsKey ?? (configuration.visibleColumnsDefaultsKey + ".minWidths")
+        minimumWidthOverrides = ResizableTableViewModel.loadMinimumWidthOverrides(configuration: configuration, defaultsKey: minimumWidthsDefaultsKey)
     }
 
     func connect(to manager: DatabaseManager) {
@@ -75,7 +79,10 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
     }
 
     func minimumWidth(for column: Column) -> CGFloat {
-        configuration.minimumColumnWidths[column] ?? 80
+        if let override = minimumWidthOverrides[column], override > 0 {
+            return override
+        }
+        return configuration.minimumColumnWidths[column] ?? 80
     }
 
     var totalMinimumWidth: CGFloat {
@@ -164,10 +171,12 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         visibleColumns = defaults
         selectedFontSize = .medium
         columnFractions = defaultFractions()
+        minimumWidthOverrides = [:]
         recalcColumnWidths()
         persistVisibleColumns()
         persistFontSize()
         persistColumnFractions()
+        persistMinimumWidths()
     }
 
     func updateAvailableWidth(_ width: CGFloat) {
@@ -458,6 +467,39 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         DispatchQueue.main.async { [weak self] in
             self?.isHydratingPreferences = false
         }
+    }
+
+    func updateMinimumWidths(_ overrides: [Column: CGFloat]) {
+        minimumWidthOverrides = overrides.filter { $0.value.isFinite && $0.value > 0 }
+        persistMinimumWidths()
+        recalcColumnWidths()
+    }
+
+    func resetMinimumWidths() {
+        minimumWidthOverrides = [:]
+        persistMinimumWidths()
+        recalcColumnWidths()
+    }
+
+    private static func loadMinimumWidthOverrides(configuration: MaintenanceTableConfiguration<Column>, defaultsKey: String?) -> [Column: CGFloat] {
+        guard let key = defaultsKey else { return [:] }
+        let defaults = UserDefaults.standard
+        guard let raw = defaults.dictionary(forKey: key) else { return [:] }
+        return raw.reduce(into: [Column: CGFloat]()) { result, entry in
+            guard let column = Column(rawValue: entry.key) else { return }
+            if let number = entry.value as? NSNumber {
+                let value = CGFloat(number.doubleValue)
+                if value.isFinite, value > 0 { result[column] = value }
+            }
+        }
+    }
+
+    private func persistMinimumWidths() {
+        guard let key = minimumWidthsDefaultsKey else { return }
+        let payload = minimumWidthOverrides.reduce(into: [String: Double]()) { result, entry in
+            result[entry.key.rawValue] = Double(entry.value)
+        }
+        UserDefaults.standard.set(payload, forKey: key)
     }
 
     private func observe(manager: DatabaseManager) {

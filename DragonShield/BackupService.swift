@@ -35,6 +35,48 @@ struct BackupManifest: Codable {
     }
 }
 
+struct InstrumentValidationReport: Decodable {
+    struct Summary: Decodable {
+        let tableName: String?
+        let totalRecords: Int?
+        let validRecords: Int?
+        let invalidRecords: Int?
+        let pendingRecords: Int?
+        let duplicateConflicts: Int?
+    }
+
+    let summary: Summary?
+    let validationIssues: [ValidationIssue]?
+    let duplicateConflicts: [DuplicateConflict]?
+    let foreignKeyViolations: [ForeignKeyViolation]?
+    let hasCriticalIssues: Bool
+    let hasWarnings: Bool
+    let totalIssues: Int
+
+    struct ValidationIssue: Decodable {
+        let instrumentId: Int?
+        let instrumentName: String?
+        let validationStatus: String?
+    }
+
+    struct DuplicateConflict: Decodable {
+        let conflictType: String?
+        let conflictingValue: String?
+        let duplicateCount: Int?
+    }
+
+    struct ForeignKeyViolation: Decodable {
+        let table: String?
+        let parentTable: String?
+    }
+}
+
+struct InstrumentValidationResult {
+    let report: InstrumentValidationReport?
+    let rawOutput: String
+    let exitCode: Int32
+}
+
 // MARK: - Backup Service Class
 
 class BackupService: ObservableObject {
@@ -48,6 +90,7 @@ class BackupService: ObservableObject {
 
     private var timer: Timer?
     private var isAccessing = false
+    private var cachedScriptURL: URL?
     private let timeFormatter: DateFormatter
     private let isoFormatter = ISO8601DateFormatter()
 
@@ -174,12 +217,97 @@ class BackupService: ObservableObject {
         return "DragonShield_Transaction_\(modeTag)_v\(version)_\(df.string(from: Date())).sql"
     }
 
-    private func runPythonScript(arguments: [String]) throws -> String {
-        let scriptPath = "/Users/renekeller/Projects/DragonShield/DragonShield/python_scripts/backup_restore.py"
+    private func scriptCacheDirectory() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)
+        return appSupport.appendingPathComponent("DragonShield/python_scripts", isDirectory: true)
+    }
 
+    private func scriptLookupCandidates() -> [URL] {
+        let envPath = ProcessInfo.processInfo.environment["DS_BACKUP_RESTORE_SCRIPT"]
+        let bundleRoot = Bundle.main.resourceURL
+        let devRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let cacheDir = scriptCacheDirectory()
+
+        return [
+            envPath.flatMap { URL(fileURLWithPath: $0) },
+            cacheDir.appendingPathComponent("backup_restore.py"),
+            Bundle.main.url(forResource: "backup_restore", withExtension: "py"),
+            bundleRoot?.appendingPathComponent("python_scripts/backup_restore.py"),
+            bundleRoot?.appendingPathComponent("backup_restore.py"),
+            devRoot.appendingPathComponent("python_scripts/backup_restore.py"),
+            cwd.appendingPathComponent("DragonShield/python_scripts/backup_restore.py"),
+            cwd.appendingPathComponent("python_scripts/backup_restore.py"),
+        ].compactMap { $0 }
+    }
+
+    private func materializeBundledScript(into destination: URL) -> URL? {
+        let fm = FileManager.default
+        let bundleSources = [
+            Bundle.main.url(forResource: "backup_restore", withExtension: "py"),
+            Bundle.main.resourceURL?.appendingPathComponent("python_scripts/backup_restore.py"),
+            URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("python_scripts/backup_restore.py"),
+        ].compactMap { $0 }
+
+        guard let source = bundleSources.first(where: { fm.fileExists(atPath: $0.path) }) else {
+            return nil
+        }
+
+        do {
+            try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if fm.fileExists(atPath: destination.path) {
+                try fm.removeItem(at: destination)
+            }
+            try fm.copyItem(at: source, to: destination)
+            return destination
+        } catch {
+            return nil
+        }
+    }
+
+    private func resolveBackupRestoreScript() -> URL? {
+        let fm = FileManager.default
+
+        if let cachedScriptURL, fm.fileExists(atPath: cachedScriptURL.path) {
+            return cachedScriptURL
+        }
+
+        for candidate in scriptLookupCandidates() where fm.fileExists(atPath: candidate.path) {
+            cachedScriptURL = candidate
+            return candidate
+        }
+
+        let cacheDestination = scriptCacheDirectory().appendingPathComponent("backup_restore.py")
+        if let materialized = materializeBundledScript(into: cacheDestination), fm.fileExists(atPath: materialized.path) {
+            cachedScriptURL = materialized
+            return materialized
+        }
+
+        return nil
+    }
+
+    private func runPython(arguments: [String], allowNonZeroExit: Bool) throws -> (String, Int32) {
+        guard let scriptURL = resolveBackupRestoreScript() else {
+            throw NSError(
+                domain: "BackupServiceError",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey:
+                    """
+                    Python helper not found. Expected backup_restore.py at one of:
+                    \(scriptLookupCandidates().map { "• \($0.path)" }.joined(separator: "\n"))
+                    You can also set DS_BACKUP_RESTORE_SCRIPT to the full path of the script.
+                    """
+                ]
+            )
+        }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [scriptPath] + arguments
+        process.arguments = [scriptURL.path] + arguments
+        process.environment = PythonEnvironment.enrichedEnvironment(anchorFile: #filePath)
+        process.currentDirectoryURL = scriptURL.deletingLastPathComponent()
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -191,16 +319,48 @@ class BackupService: ObservableObject {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
 
-        if process.terminationStatus != 0 {
-            throw NSError(domain: "BackupServiceError", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: output])
+        if process.terminationStatus != 0, !allowNonZeroExit {
+            throw NSError(
+                domain: "BackupServiceError",
+                code: Int(process.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey: output.trimmingCharacters(in: .whitespacesAndNewlines)]
+            )
         }
 
-        return output
+        return (output, process.terminationStatus)
     }
 
-    func validateInstruments(dbManager: DatabaseManager) throws -> String {
+    private func runPythonScript(arguments: [String]) throws -> String {
+        try runPython(arguments: arguments, allowNonZeroExit: false).0
+    }
+
+    private func runPythonScriptWithStatus(arguments: [String]) throws -> (String, Int32) {
+        try runPython(arguments: arguments, allowNonZeroExit: true)
+    }
+
+    func validateInstruments(dbManager: DatabaseManager) throws -> InstrumentValidationResult {
         let dbPath = dbManager.dbFilePath
-        return try runPythonScript(arguments: ["validate", dbPath])
+        let (output, status) = try runPythonScriptWithStatus(arguments: ["validate", dbPath])
+        let report = parseValidationReport(from: output)
+
+        if status != 0, report == nil {
+            throw NSError(
+                domain: "BackupServiceError",
+                code: Int(status),
+                userInfo: [NSLocalizedDescriptionKey: output.trimmingCharacters(in: .whitespacesAndNewlines)]
+            )
+        }
+
+        return InstrumentValidationResult(report: report, rawOutput: output, exitCode: status)
+    }
+
+    private func parseValidationReport(from output: String) -> InstrumentValidationReport? {
+        guard let start = output.firstIndex(of: "{"), let end = output.lastIndex(of: "}") else { return nil }
+        let jsonString = String(output[start ... end])
+        guard let data = jsonString.data(using: .utf8) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try? decoder.decode(InstrumentValidationReport.self, from: data)
     }
 
     func performBackup(dbManager: DatabaseManager, to destination: URL) throws {

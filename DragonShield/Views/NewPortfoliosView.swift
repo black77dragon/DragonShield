@@ -353,7 +353,7 @@ struct NewPortfoliosView: View {
                         columns: activeColumns,
                         fontConfig: fontConfig,
                         baseCurrency: dbManager.baseCurrency,
-                        rowPadding: CGFloat(dbManager.tableRowPadding),
+                        rowPadding: DSLayout.tableRowPadding,
                         isSelected: selectedTheme?.id == theme.id,
                         widthFor: { width(for: $0) },
                         onSelect: { selectedTheme = theme },
@@ -1012,7 +1012,6 @@ private struct PortfolioThemeRowView: View {
                     .frame(width: 8, height: 8)
                 Text(status?.name ?? "—")
                     .dsBodySmall()
-                    .foregroundColor(statusColor)
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)

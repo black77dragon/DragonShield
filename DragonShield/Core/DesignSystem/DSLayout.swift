@@ -24,6 +24,12 @@ struct DSLayout {
     /// 48pt - Large whitespace for "Sophisticated Simplicity"
     static let spaceXXL: CGFloat = 48
     
+    /// Standard spacing between rows in data tables
+    static let tableRowSpacing: CGFloat = 1
+    
+    /// Standard vertical padding inside table rows
+    static let tableRowPadding: CGFloat = 12
+    
     // MARK: - Corner Radii
     
     /// 4pt - Small elements (tags, badges)

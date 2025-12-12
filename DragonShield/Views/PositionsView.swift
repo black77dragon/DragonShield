@@ -511,7 +511,7 @@ struct PositionsView: View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedPositions,
-            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            rowSpacing: DSLayout.tableRowSpacing,
             showHorizontalIndicators: true,
             rowContent: { position, context in
                 PositionsRowView(

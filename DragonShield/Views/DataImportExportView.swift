@@ -15,6 +15,9 @@ struct DataImportExportView: View {
         return formatter
     }()
 
+    #if DEBUG
+        @AppStorage(UserDefaultsKeys.enableParsingCheckpoints) private var enableParsingCheckpoints: Bool = false
+    #endif
     @State private var logMessages: [String] = UserDefaults.standard.stringArray(forKey: UserDefaultsKeys.statementImportLog) ?? []
     @State private var statusMessage: String = "Status: \u{2B24} Idle \u{2022} No file loaded"
     @State private var showImporterFor: StatementType?
@@ -42,6 +45,9 @@ struct DataImportExportView: View {
                 importPanel
                 statusPanel
                 logPanel
+                #if DEBUG
+                    debugPanel
+                #endif
             }
             .frame(minWidth: 800, minHeight: 800)
             .padding(.top, 32)
@@ -258,6 +264,23 @@ struct DataImportExportView: View {
         )
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
     }
+
+    #if DEBUG
+        private var debugPanel: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Development / Debug Options")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Theme.primaryAccent)
+                Toggle("Bank Statement (ZKB, CS) File import. Enable Parsing Checkpoints", isOn: $enableParsingCheckpoints)
+                    .font(.system(size: 14))
+                    .toggleStyle(.switch)
+            }
+            .padding(16)
+            .background(Theme.surface)
+            .cornerRadius(8)
+            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+        }
+    #endif
 
     private func typeName(_ type: StatementType) -> String {
         switch type {

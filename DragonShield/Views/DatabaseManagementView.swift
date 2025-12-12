@@ -2,6 +2,13 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct ValidationStatusBanner {
+    enum Level { case info, success, warning, error }
+    let level: Level
+    let title: String
+    let detail: String
+}
+
 struct DatabaseManagementView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var backupService = BackupService()
@@ -14,6 +21,8 @@ struct DatabaseManagementView: View {
     @State private var showLogDetails = true
     @State private var showReferenceInfo = false
     @State private var validationProcessing = false
+    @State private var validationStatus: ValidationStatusBanner?
+    @State private var backupStatus: ValidationStatusBanner?
     @State private var showRestoreComparison = false
     @State private var restoreDeltas: [RestoreDelta] = []
 
@@ -59,6 +68,9 @@ struct DatabaseManagementView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Full Database")
                     .font(.system(size: 14, weight: .medium))
+                if let status = backupStatus {
+                    validationStatusBanner(status)
+                }
                 HStack(spacing: 12) {
                     Button(action: backupNow) {
                         if processing { ProgressView() } else { Text("Backup Database") }
@@ -143,6 +155,12 @@ struct DatabaseManagementView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Validation")
                     .font(.system(size: 14, weight: .medium))
+                Text("Run integrity checks on instrument data to catch duplicates, broken links, and invalid references before you back up or restore.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                if let status = validationStatus {
+                    validationStatusBanner(status)
+                }
                 HStack(spacing: 12) {
                     Button(action: validateInstruments) {
                         if validationProcessing { ProgressView() } else { Text("Validate Instruments") }
@@ -168,6 +186,43 @@ struct DatabaseManagementView: View {
         .background(Theme.surface)
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
+    }
+
+    private func validationStatusBanner(_ status: ValidationStatusBanner) -> some View {
+        let style = validationStyle(for: status.level)
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: style.icon)
+                .foregroundColor(style.tint)
+                .font(.system(size: 14, weight: .semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(status.title)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(status.detail)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(style.background.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(style.tint.opacity(0.4), lineWidth: 1)
+        )
+        .cornerRadius(8)
+    }
+
+    private func validationStyle(for level: ValidationStatusBanner.Level) -> (tint: Color, background: Color, icon: String) {
+        switch level {
+        case .success:
+            return (.green, .green, "checkmark.circle.fill")
+        case .warning:
+            return (.orange, .orange, "exclamationmark.triangle.fill")
+        case .error:
+            return (.red, .red, "xmark.octagon.fill")
+        case .info:
+            return (Theme.primaryAccent, Theme.primaryAccent, "info.circle.fill")
+        }
     }
 
     // MARK: - Log Card
@@ -292,6 +347,11 @@ struct DatabaseManagementView: View {
         )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true
+        backupStatus = ValidationStatusBanner(
+            level: .info,
+            title: "Running backup...",
+            detail: "Saving the full database and validating the manifest."
+        )
 
         // This is the block that was causing the "Trailing closure" error.
         // It's now fixed by calling the new, simpler `performBackup` function.
@@ -300,11 +360,23 @@ struct DatabaseManagementView: View {
                 try backupService.updateBackupDirectory(to: url.deletingLastPathComponent())
                 // CHANGED: The function call is now much simpler.
                 try backupService.performBackup(dbManager: dbManager, to: url)
-                DispatchQueue.main.async { processing = false }
+                DispatchQueue.main.async {
+                    processing = false
+                    backupStatus = ValidationStatusBanner(
+                        level: .success,
+                        title: "Backup completed",
+                        detail: "Saved \(url.lastPathComponent) — validation manifest created."
+                    )
+                }
             } catch {
                 DispatchQueue.main.async {
                     processing = false
                     errorMessage = error.localizedDescription
+                    backupStatus = ValidationStatusBanner(
+                        level: .error,
+                        title: "Backup failed",
+                        detail: error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
                 }
             }
         }
@@ -332,20 +404,85 @@ struct DatabaseManagementView: View {
 
     private func validateInstruments() {
         validationProcessing = true
+        validationStatus = ValidationStatusBanner(
+            level: .info,
+            title: "Running validation...",
+            detail: "Checking instruments for duplicates and broken references. This may take a moment."
+        )
         DispatchQueue.global().async {
             do {
-                let output = try backupService.validateInstruments(dbManager: dbManager)
+                let result = try backupService.validateInstruments(dbManager: dbManager)
                 DispatchQueue.main.async {
                     validationProcessing = false
-                    backupService.logMessages.insert(output, at: 0)
+                    let trimmedOutput = result.rawOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    backupService.logMessages.insert(trimmedOutput, at: 0)
+                    validationStatus = buildValidationStatus(from: result)
                 }
             } catch {
                 DispatchQueue.main.async {
                     validationProcessing = false
-                    backupService.logMessages.insert("Error: \(error.localizedDescription)", at: 0)
+                    let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                    backupService.logMessages.insert("Error: \(message)", at: 0)
+                    validationStatus = ValidationStatusBanner(
+                        level: .error,
+                        title: "Validation failed",
+                        detail: message
+                    )
                 }
             }
         }
+    }
+
+    private func buildValidationStatus(from result: InstrumentValidationResult) -> ValidationStatusBanner {
+        let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
+
+        if let report = result.report {
+            let totalChecked = report.summary?.totalRecords
+            if report.hasCriticalIssues {
+                let invalidCount = report.summary?.invalidRecords ?? report.totalIssues
+                return ValidationStatusBanner(
+                    level: .error,
+                    title: "Validation found critical issues",
+                    detail: "Detected \(invalidCount) invalid records. Review the log for details (\(timestamp))."
+                )
+            }
+
+            if report.hasWarnings || report.totalIssues > 0 {
+                return ValidationStatusBanner(
+                    level: .warning,
+                    title: "Validation completed with warnings",
+                    detail: "\(report.totalIssues) issues flagged. Check the log for duplicates or missing links (\(timestamp))."
+                )
+            }
+
+            if let totalChecked {
+                return ValidationStatusBanner(
+                    level: .success,
+                    title: "Validation passed",
+                    detail: "Checked \(totalChecked) instruments — no issues detected (\(timestamp))."
+                )
+            }
+
+            return ValidationStatusBanner(
+                level: .success,
+                title: "Validation passed",
+                detail: "No issues detected (\(timestamp))."
+            )
+        }
+
+        if result.exitCode == 0 {
+            return ValidationStatusBanner(
+                level: .success,
+                title: "Validation completed",
+                detail: "Finished without structured report. See log for details (\(timestamp))."
+            )
+        }
+
+        return ValidationStatusBanner(
+            level: .error,
+            title: "Validation failed",
+            detail: "See log for details (\(timestamp))."
+        )
     }
 
     private func confirmSwitchMode() {

@@ -502,7 +502,7 @@ struct CurrenciesView: View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedCurrencies,
-            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            rowSpacing: DSLayout.tableRowSpacing,
             showHorizontalIndicators: false,
             rowContent: { currency, context in
                 ModernCurrencyRowView(
@@ -510,7 +510,7 @@ struct CurrenciesView: View {
                     columns: context.columns,
                     fontConfig: context.fontConfig,
                     isSelected: selectedCurrency?.code == currency.code,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     widthFor: { context.widthForColumn($0) },
                     onTap: {
                         selectedCurrency = currency

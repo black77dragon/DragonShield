@@ -7,6 +7,7 @@
 // - 1.5 -> 1.6: Expose database path, creation date and modification date via
 //               @Published properties.
 // - 1.6 -> 1.6.0.1: Use sqlite3_open_v2 with FULLMUTEX and log errors when opening fails.
+// - 1.6.0.1 -> 1.6.0.2: Dropped user-configurable table row spacing/padding in favor of DSLayout defaults.
 // - 1.3 -> 1.4: Added @Published properties for defaultTimeZone, tableRowSpacing, tableRowPadding.
 // - 1.4 -> 1.5: Added dbVersion property and logging of database version.
 // - 1.2 -> 1.3: Modified #if DEBUG block to use a UserDefaults setting for forcing DB re-copy.
@@ -35,8 +36,6 @@ class DatabaseManager: ObservableObject {
 
     // New @Published properties from Configuration table
     @Published var defaultTimeZone: String = "Europe/Zurich"
-    @Published var tableRowSpacing: Double = 1.0
-    @Published var tableRowPadding: Double = 12.0
     @Published var dbVersion: String = ""
     @Published var dbFilePath: String = ""
     @Published var dbCreated: Date?
