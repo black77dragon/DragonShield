@@ -12,12 +12,13 @@ private struct TableFontConfig {
 }
 
 private enum InstrumentTableColumn: String, CaseIterable, Codable {
-    case name, type, currency, symbol, valor, isin, notes
+    case name, type, risk, currency, symbol, valor, isin, notes
 
     var title: String {
         switch self {
         case .name: return "Name"
         case .type: return "Type"
+        case .risk: return "Risk"
         case .currency: return "$£"
         case .symbol: return "Ticker"
         case .valor: return "Valor"
@@ -53,6 +54,15 @@ struct PortfolioView: View {
     @State private var dragContext: ColumnDragContext? = nil
     @State private var hasHydratedPreferences = false
     @State private var isHydratingPreferences = false
+    private let riskColors: [Color] = [
+        Color.green.opacity(0.7),
+        Color.green,
+        Color.yellow,
+        Color.orange,
+        Color.orange.opacity(0.85),
+        Color.red.opacity(0.9),
+        Color.red
+    ]
     private static let legacyColumnFractionsKey = "PortfolioView.instrumentColumnFractions.v2"
     private static let visibleColumnsKey = "PortfolioView.visibleColumns.v1"
     private static let legacyFontSizeKey = "PortfolioView.tableFontSize.v1"
@@ -73,10 +83,10 @@ struct PortfolioView: View {
     }
 
     enum SortColumn {
-        case name, type, currency, symbol, valor, isin
+        case name, type, risk, currency, symbol, valor, isin
     }
 
-    private static let columnOrder: [InstrumentTableColumn] = [.name, .type, .currency, .symbol, .valor, .isin, .notes]
+    private static let columnOrder: [InstrumentTableColumn] = [.name, .type, .risk, .currency, .symbol, .valor, .isin, .notes]
     private static let defaultVisibleColumns: Set<InstrumentTableColumn> = Set(columnOrder)
 
     private enum TableFontSize: String, CaseIterable {
@@ -159,6 +169,10 @@ struct PortfolioView: View {
                 return sortAscending ? a.name < b.name : a.name > b.name
             case .type:
                 return sortAscending ? a.type < b.type : a.type > b.type
+            case .risk:
+                let ar = a.riskSRI ?? 0
+                let br = b.riskSRI ?? 0
+                return sortAscending ? ar < br : ar > br
             case .currency:
                 return sortAscending ? a.currency < b.currency : a.currency > b.currency
             case .symbol:
@@ -188,6 +202,7 @@ struct PortfolioView: View {
     private static let defaultColumnWidths: [InstrumentTableColumn: CGFloat] = [
         .name: 280,
         .type: 140,
+        .risk: 100,
         .currency: 90,
         .symbol: 120,
         .valor: 110,
@@ -198,6 +213,7 @@ struct PortfolioView: View {
     private static let minimumColumnWidths: [InstrumentTableColumn: CGFloat] = [
         .name: 200,
         .type: 110,
+        .risk: 80,
         .currency: 80,
         .symbol: 90,
         .valor: 90,
@@ -369,6 +385,7 @@ struct PortfolioView: View {
         switch sortColumn {
         case .name: return .name
         case .type: return .type
+        case .risk: return .risk
         case .currency: return .currency
         case .symbol: return .symbol
         case .valor: return .valor
@@ -380,6 +397,7 @@ struct PortfolioView: View {
         switch column {
         case .name: return .name
         case .type: return .type
+        case .risk: return .risk
         case .currency: return .currency
         case .symbol: return .symbol
         case .valor: return .valor
@@ -1335,6 +1353,15 @@ private struct ModernAssetRowView: View {
     let onTap: () -> Void
     let onEdit: () -> Void
     fileprivate let widthFor: (InstrumentTableColumn) -> CGFloat
+    private let riskColors: [Color] = [
+        Color.green.opacity(0.7),
+        Color.green,
+        Color.yellow,
+        Color.orange,
+        Color.orange.opacity(0.85),
+        Color.red.opacity(0.9),
+        Color.red
+    ]
 
     fileprivate init(
         asset: DragonAsset,
@@ -1434,6 +1461,21 @@ private struct ModernAssetRowView: View {
                 .padding(.leading, PortfolioView.columnTextInset)
                 .padding(.trailing, 8)
                 .frame(width: widthFor(.type), alignment: .leading)
+        case .risk:
+            HStack(spacing: 6) {
+                riskBadge(asset.riskSRI)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(asset.riskSRI.map { "SRI \($0)" } ?? "—")
+                        .font(.system(size: fontConfig.secondarySize, weight: .medium))
+                        .foregroundColor(.primary)
+                    Text(riskShortDescription(asset.riskSRI))
+                        .font(.system(size: max(10, fontConfig.badgeSize - 1)))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.leading, PortfolioView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.risk), alignment: .leading)
         case .currency:
             HStack {
                 Text(asset.currency)
@@ -1472,6 +1514,37 @@ private struct ModernAssetRowView: View {
         case .notes:
             NotesIconView(instrumentId: asset.id, instrumentName: asset.name, instrumentCode: asset.tickerSymbol ?? "")
                 .frame(width: widthFor(.notes), alignment: .center)
+        }
+    }
+
+    @ViewBuilder
+    private func riskBadge(_ value: Int?) -> some View {
+        if let v = value, v >= 1, v <= 7 {
+            Text("SRI \(v)")
+                .font(.system(size: 11, weight: .bold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(riskColors[v - 1])
+                .foregroundColor(.white)
+                .clipShape(Capsule())
+                .help(riskShortDescription(value))
+        } else {
+            Text("—")
+                .font(.system(size: fontConfig.secondarySize))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func riskShortDescription(_ value: Int?) -> String {
+        switch value {
+        case 1: return "Very low risk: cash-like."
+        case 2: return "Low risk: short-duration IG."
+        case 3: return "Low–medium risk: IG credit/balanced."
+        case 4: return "Medium risk: diversified equity."
+        case 5: return "Medium–high risk: concentrated/EM/commods."
+        case 6: return "High risk: leverage/complex/volatile."
+        case 7: return "Very high risk: speculative/extreme."
+        default: return "Risk category unavailable."
         }
     }
 }

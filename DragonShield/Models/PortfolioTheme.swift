@@ -26,6 +26,8 @@ struct PortfolioTheme: Identifiable, Hashable {
     var theoreticalBudgetChf: Double? = nil
     var totalValueBase: Double? = nil
     var instrumentCount: Int = 0
+    var riskScore: Double? = nil
+    var riskCategory: String? = nil
 
     static func isValidName(_ name: String) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

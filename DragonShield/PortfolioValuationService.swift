@@ -163,3 +163,195 @@ final class PortfolioValuationService {
         return ValuationSnapshot(positionsAsOf: positionsAsOf, fxAsOf: fxAsOf, totalValueBase: total, rows: rows, excludedFxCount: excludedFx, missingCurrencies: Array(missing), excludedPriceCount: excludedPrice)
     }
 }
+
+// MARK: - Portfolio Risk Scoring (DS-032)
+
+struct PortfolioRiskBucket: Identifiable {
+    let bucket: Int
+    let valueBase: Double
+    let weight: Double
+    var id: Int { bucket }
+}
+
+struct PortfolioRiskInstrumentContribution: Identifiable {
+    let id: Int
+    let instrumentName: String
+    let sri: Int
+    let liquidityTier: Int
+    let valueBase: Double
+    let weight: Double
+    let blendedScore: Double
+    let usedFallback: Bool
+}
+
+enum PortfolioRiskCategory: String {
+    case low = "Low"
+    case moderate = "Moderate"
+    case elevated = "Elevated"
+    case high = "High"
+}
+
+struct PortfolioRiskSnapshot {
+    let themeId: Int
+    let positionsAsOf: Date?
+    let fxAsOf: Date?
+    let baseCurrency: String
+    let totalValueBase: Double
+    let weightedSRI: Double
+    let weightedLiquidityPremium: Double
+    let portfolioScore: Double
+    let category: PortfolioRiskCategory
+    let sriBuckets: [PortfolioRiskBucket]
+    let liquidityBuckets: [PortfolioRiskBucket]
+    let instruments: [PortfolioRiskInstrumentContribution]
+    let excludedFxCount: Int
+    let excludedPriceCount: Int
+    let missingRiskCount: Int
+}
+
+/// Scores portfolio risk by value-weighting instrument SRI and a liquidity premium.
+/// Implements DS-032 methodology: blended score = weighted SRI + weighted liquidity premium, clamped to 1...7.
+final class PortfolioRiskScoringService {
+    private let dbManager: DatabaseManager
+    private let fxService: FXConversionService
+    private let valuationService: PortfolioValuationService
+
+    init(dbManager: DatabaseManager, fxService: FXConversionService) {
+        self.dbManager = dbManager
+        self.fxService = fxService
+        self.valuationService = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
+    }
+
+    func score(themeId: Int, valuation: ValuationSnapshot? = nil) -> PortfolioRiskSnapshot {
+        let valuation = valuation ?? valuationService.snapshot(themeId: themeId)
+        let total = valuation.totalValueBase
+        var sriTotals: [Int: Double] = [:]
+        var liquidityTotals: [Int: Double] = [:]
+        var weightedSRI = 0.0
+        var weightedLiquidityPremium = 0.0
+        var missingRisk = 0
+        var instrumentRows: [PortfolioRiskInstrumentContribution] = []
+
+        guard total > 0 else {
+            return PortfolioRiskSnapshot(
+                themeId: themeId,
+                positionsAsOf: valuation.positionsAsOf,
+                fxAsOf: valuation.fxAsOf,
+                baseCurrency: dbManager.baseCurrency,
+                totalValueBase: 0,
+                weightedSRI: 0,
+                weightedLiquidityPremium: 0,
+                portfolioScore: 0,
+                category: .low,
+                sriBuckets: [],
+                liquidityBuckets: [],
+                instruments: [],
+                excludedFxCount: valuation.excludedFxCount,
+                excludedPriceCount: valuation.excludedPriceCount,
+                missingRiskCount: 0
+            )
+        }
+
+        for row in valuation.rows where row.status == .ok && row.currentValueBase > 0 {
+            let risk = resolveRisk(instrumentId: row.instrumentId)
+            if risk.usedFallback { missingRisk += 1 }
+
+            let weight = row.currentValueBase / total
+            weightedSRI += weight * Double(risk.sri)
+            weightedLiquidityPremium += weight * risk.liquidityPenalty
+
+            sriTotals[risk.sri, default: 0] += row.currentValueBase
+            liquidityTotals[risk.liquidityTier, default: 0] += row.currentValueBase
+
+            let blended = min(7.0, Double(risk.sri) + risk.liquidityPenalty)
+            instrumentRows.append(
+                PortfolioRiskInstrumentContribution(
+                    id: row.instrumentId,
+                    instrumentName: row.instrumentName,
+                    sri: risk.sri,
+                    liquidityTier: risk.liquidityTier,
+                    valueBase: row.currentValueBase,
+                    weight: weight,
+                    blendedScore: blended,
+                    usedFallback: risk.usedFallback
+                )
+            )
+        }
+
+        let bucketsSRI = sriTotals.map { key, value in
+            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total)
+        }.sorted { $0.bucket < $1.bucket }
+
+        let bucketsLiquidity = liquidityTotals.map { key, value in
+            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total)
+        }.sorted { $0.bucket < $1.bucket }
+
+        let blendedScore = clampScore(weightedSRI + weightedLiquidityPremium)
+
+        return PortfolioRiskSnapshot(
+            themeId: themeId,
+            positionsAsOf: valuation.positionsAsOf,
+            fxAsOf: valuation.fxAsOf,
+            baseCurrency: dbManager.baseCurrency,
+            totalValueBase: total,
+            weightedSRI: weightedSRI,
+            weightedLiquidityPremium: weightedLiquidityPremium,
+            portfolioScore: blendedScore,
+            category: category(for: blendedScore),
+            sriBuckets: bucketsSRI,
+            liquidityBuckets: bucketsLiquidity,
+            instruments: instrumentRows.sorted { $0.weight > $1.weight },
+            excludedFxCount: valuation.excludedFxCount,
+            excludedPriceCount: valuation.excludedPriceCount,
+            missingRiskCount: missingRisk
+        )
+    }
+
+    private struct InstrumentRiskInputs {
+        let sri: Int
+        let liquidityTier: Int
+        let liquidityPenalty: Double
+        let usedFallback: Bool
+    }
+
+    private func resolveRisk(instrumentId: Int) -> InstrumentRiskInputs {
+        if let profile = dbManager.fetchRiskProfile(instrumentId: instrumentId) {
+            let sri = dbManager.coerceSRI(profile.effectiveSRI)
+            let tier = dbManager.coerceLiquidityTier(profile.effectiveLiquidityTier)
+            return InstrumentRiskInputs(sri: sri, liquidityTier: tier, liquidityPenalty: liquidityPenalty(for: tier), usedFallback: false)
+        }
+
+        guard let details = dbManager.fetchInstrumentDetails(id: instrumentId) else {
+            // Fallback to conservative defaults when the instrument cannot be resolved.
+            return InstrumentRiskInputs(sri: 5, liquidityTier: 1, liquidityPenalty: liquidityPenalty(for: 1), usedFallback: true)
+        }
+
+        let defaults = dbManager.riskDefaults(for: details.subClassId)
+        let tier = dbManager.coerceLiquidityTier(defaults.liquidityTier)
+        return InstrumentRiskInputs(
+            sri: dbManager.coerceSRI(defaults.sri),
+            liquidityTier: tier,
+            liquidityPenalty: liquidityPenalty(for: tier),
+            usedFallback: true
+        )
+    }
+
+    private func liquidityPenalty(for tier: Int) -> Double {
+        switch tier {
+        case 0: return 0.0 // Liquid
+        case 1: return 0.5 // Restricted
+        default: return 1.0 // Illiquid or unknown
+        }
+    }
+
+    private func clampScore(_ score: Double) -> Double {
+        max(1.0, min(7.0, score))
+    }
+
+    private func category(for score: Double) -> PortfolioRiskCategory {
+        if score <= 2.5 { return .low }
+        if score <= 4.0 { return .moderate }
+        if score <= 5.5 { return .elevated }
+        return .high
+    }
+}

@@ -179,19 +179,6 @@ extension DatabaseManager {
         return exists
     }
 
-    private func tableExists(_ name: String) -> Bool {
-        var stmt: OpaquePointer?
-        let sql = "SELECT 1 FROM sqlite_master WHERE type='table' AND LOWER(name)=LOWER(?) LIMIT 1"
-        var exists = false
-        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
-            exists = (sqlite3_step(stmt) == SQLITE_ROW)
-        }
-        sqlite3_finalize(stmt)
-        return exists
-    }
-
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
         guard tableExists("PortfolioTheme") else {

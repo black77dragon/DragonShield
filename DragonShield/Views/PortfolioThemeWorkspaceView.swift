@@ -59,6 +59,7 @@ struct PortfolioThemeWorkspaceView: View {
         case overview
         case holdings
         case analytics
+        case risks
         case updates
         case settings
 
@@ -68,6 +69,7 @@ struct PortfolioThemeWorkspaceView: View {
             case .overview: return "Overview"
             case .holdings: return "Holdings"
             case .analytics: return "Analytics"
+            case .risks: return "Risks"
             case .updates: return "Updates"
             case .settings: return "Settings"
             }
@@ -78,6 +80,7 @@ struct PortfolioThemeWorkspaceView: View {
             case .overview: return "rectangle.grid.2x2"
             case .holdings: return "list.bullet.rectangle"
             case .analytics: return "chart.bar"
+            case .risks: return "shield.lefthalf.filled"
             case .updates: return "doc.text"
             case .settings: return "gearshape"
             }
@@ -94,6 +97,7 @@ struct PortfolioThemeWorkspaceView: View {
 
     @State private var theme: PortfolioTheme?
     @State private var valuation: ValuationSnapshot?
+    @State private var riskSnapshot: PortfolioRiskSnapshot?
     @State private var loadingValuation = false
     // Classic editor references removed; Workspace is the default
     @State private var instrumentCurrencies: [Int: String] = [:]
@@ -185,6 +189,9 @@ struct PortfolioThemeWorkspaceView: View {
                     analyticsTab
                         .tag(WorkspaceTab.analytics)
                         .tabItem { Label(WorkspaceTab.analytics.label, systemImage: WorkspaceTab.analytics.systemImage) }
+                    risksTab
+                        .tag(WorkspaceTab.risks)
+                        .tabItem { Label(WorkspaceTab.risks.label, systemImage: WorkspaceTab.risks.systemImage) }
                     updatesTab
                         .tag(WorkspaceTab.updates)
                         .tabItem { Label(WorkspaceTab.updates.label, systemImage: WorkspaceTab.updates.systemImage) }
@@ -211,7 +218,7 @@ struct PortfolioThemeWorkspaceView: View {
         }
         .onChange(of: selectedTab) { _, newValue in
             lastTabRaw = newValue.rawValue
-            if newValue == .overview || newValue == .analytics || newValue == .holdings { runValuation() }
+            if newValue == .overview || newValue == .analytics || newValue == .holdings || newValue == .risks { runValuation() }
         }
     }
 
@@ -253,6 +260,10 @@ struct PortfolioThemeWorkspaceView: View {
             Text("Status \(statusDisplay.name)")
                 .foregroundColor(statusDisplay.color)
             Text("Total (Actual) \(baseCurrencyCode): \(formatWholeAmount(actualTotalBase))")
+            if let snap = riskSnapshot {
+                Text("Risk \(snap.portfolioScore, format: .number.precision(.fractionLength(1))) (\(snap.category.rawValue))")
+                    .foregroundColor(riskScoreColor(snap.portfolioScore))
+            }
             if let delta = deltaToSetTarget {
                 let deltaColor: Color = {
                     if delta == 0 { return DSColor.textPrimary }
@@ -779,6 +790,191 @@ struct PortfolioThemeWorkspaceView: View {
 
     private enum AnalyticsRange: String, CaseIterable, Identifiable { case oneM, threeM, ytd, oneY, all; var id: String { rawValue }; var label: String { switch self { case .oneM: return "1M"; case .threeM: return "3M"; case .ytd: return "YTD"; case .oneY: return "1Y"; case .all: return "All" } } }
 
+    private var risksTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Risks").font(.headline)
+                    Spacer()
+                    Button("Recalculate", action: runValuation)
+                        .buttonStyle(.link)
+                }
+                if loadingValuation && riskSnapshot == nil {
+                    ProgressView().controlSize(.small)
+                } else if let snap = riskSnapshot {
+                    riskSummarySection(snap)
+                    riskDistributionSection(snap)
+                    riskLiquiditySection(snap)
+                    riskInstrumentSection(snap)
+                } else {
+                    Text("No risk data available. Add holdings or refresh.")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func riskSummarySection(_ snap: PortfolioRiskSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                riskCard(
+                    title: "Portfolio Risk Score",
+                    value: snap.portfolioScore,
+                    subtitle: snap.category.rawValue,
+                    color: riskScoreColor(snap.portfolioScore)
+                )
+                riskCard(
+                    title: "Weighted SRI",
+                    value: snap.weightedSRI,
+                    subtitle: "Value-weighted average SRI",
+                    color: DSColor.textPrimary
+                )
+                riskCard(
+                    title: "Liquidity Premium",
+                    value: snap.weightedLiquidityPremium,
+                    subtitle: "Penalty added for Restricted/Illiquid",
+                    color: DSColor.textPrimary
+                )
+            }
+            HStack(spacing: 12) {
+                let coverage = "FX \(snap.excludedFxCount) / Price \(snap.excludedPriceCount)"
+                riskCard(
+                    title: "Coverage",
+                    textValue: coverage,
+                    subtitle: "Rows excluded from valuation",
+                    color: snap.excludedFxCount + snap.excludedPriceCount > 0 ? DSColor.accentWarning : DSColor.textSecondary
+                )
+                riskCard(
+                    title: "Fallbacks",
+                    textValue: "\(snap.missingRiskCount) instruments",
+                    subtitle: "Using default risk mapping",
+                    color: snap.missingRiskCount > 0 ? DSColor.accentWarning : DSColor.textSecondary
+                )
+                riskCard(
+                    title: "As of",
+                    textValue: "Pos: \(dateStr(snap.positionsAsOf)) • FX: \(dateStr(snap.fxAsOf))",
+                    subtitle: "Base currency \(snap.baseCurrency)",
+                    color: DSColor.textSecondary
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func riskDistributionSection(_ snap: PortfolioRiskSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SRI Distribution").font(.title3).bold()
+            ForEach(snap.sriBuckets) { bucket in
+                HStack {
+                    riskBadge(value: bucket.bucket)
+                    Text("SRI \(bucket.bucket)")
+                    Spacer()
+                    Text(percent(bucket.weight))
+                        .dsMonoSmall()
+                    Text(formatCurrency(bucket.valueBase))
+                        .dsMonoSmall()
+                        .foregroundColor(.secondary)
+                }
+                Divider()
+            }
+        }
+        .padding()
+        .background(DSColor.surface)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.border, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func riskLiquiditySection(_ snap: PortfolioRiskSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Liquidity Distribution").font(.title3).bold()
+            ForEach(snap.liquidityBuckets) { bucket in
+                HStack {
+                    Text(liquidityLabel(bucket.bucket))
+                    Spacer()
+                    Text(percent(bucket.weight))
+                        .dsMonoSmall()
+                    Text(formatCurrency(bucket.valueBase))
+                        .dsMonoSmall()
+                        .foregroundColor(.secondary)
+                }
+                Divider()
+            }
+        }
+        .padding()
+        .background(DSColor.surface)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.border, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func riskInstrumentSection(_ snap: PortfolioRiskSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Instrument Contributions").font(.title3).bold()
+            HStack {
+                Text("Instrument").font(.subheadline).foregroundColor(.secondary)
+                Spacer()
+                Text("SRI").font(.subheadline).foregroundColor(.secondary).frame(width: 70, alignment: .trailing)
+                Text("Liquidity").font(.subheadline).foregroundColor(.secondary).frame(width: 90, alignment: .trailing)
+                Text("Weight").font(.subheadline).foregroundColor(.secondary).frame(width: 80, alignment: .trailing)
+                Text("Blended").font(.subheadline).foregroundColor(.secondary).frame(width: 80, alignment: .trailing)
+            }
+            Divider()
+            if snap.instruments.isEmpty {
+                Text("No included instruments").foregroundColor(.secondary)
+            } else {
+                ForEach(snap.instruments) { item in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.instrumentName)
+                            if item.usedFallback {
+                                DSBadge(text: "Fallback", color: DSColor.accentWarning)
+                            }
+                        }
+                        Spacer()
+                        Text("SRI \(item.sri)")
+                            .frame(width: 70, alignment: .trailing)
+                            .foregroundColor(riskScoreColor(Double(item.sri)))
+                        Text(liquidityLabel(item.liquidityTier))
+                            .frame(width: 90, alignment: .trailing)
+                        Text(percent(item.weight))
+                            .dsMonoSmall()
+                            .frame(width: 80, alignment: .trailing)
+                        Text(item.blendedScore, format: .number.precision(.fractionLength(1)))
+                            .dsMonoSmall()
+                            .frame(width: 80, alignment: .trailing)
+                            .foregroundColor(riskScoreColor(item.blendedScore))
+                    }
+                    Divider()
+                }
+            }
+        }
+        .padding()
+        .background(DSColor.surface)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.border, lineWidth: 1))
+    }
+
+    private func riskCard(title: String, value: Double, subtitle: String, color: Color) -> some View {
+        riskCard(title: title, textValue: valueFormatted(value), subtitle: subtitle, color: color)
+    }
+
+    private func riskCard(title: String, textValue: String, subtitle: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.subheadline).foregroundColor(.secondary)
+            Text(textValue).font(.title2).bold().foregroundColor(color)
+            Text(subtitle).font(.footnote).foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DSColor.surface)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.border, lineWidth: 1))
+    }
+
     private var updatesTab: some View {
         PortfolioThemeUpdatesView(themeId: themeId, initialSearchText: initialUpdatesSearch, searchHint: initialUpdatesSearchHint)
             .environmentObject(dbManager)
@@ -1128,12 +1324,16 @@ struct PortfolioThemeWorkspaceView: View {
 
     private func runValuation() {
         loadingValuation = true
+        riskSnapshot = nil
         Task {
             let fxService = FXConversionService(dbManager: dbManager)
             let service = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
             let snap = service.snapshot(themeId: themeId)
+            let riskService = PortfolioRiskScoringService(dbManager: dbManager, fxService: fxService)
+            let risk = riskService.score(themeId: themeId, valuation: snap)
             await MainActor.run {
                 self.valuation = snap
+                self.riskSnapshot = risk
                 self.loadingValuation = false
                 self.loadInstrumentSectors()
             }
@@ -1222,6 +1422,49 @@ struct PortfolioThemeWorkspaceView: View {
         formatter.maximumFractionDigits = 0
         formatter.minimumFractionDigits = 0
         return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value)
+    }
+
+    private func percent(_ value: Double) -> String {
+        let pct = value * 100
+        return String(format: "%.1f%%", pct)
+    }
+
+    private func valueFormatted(_ value: Double) -> String {
+        String(format: "%.1f", value)
+    }
+
+    private func formatCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = baseCurrencyCode
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
+    private func liquidityLabel(_ tier: Int) -> String {
+        switch tier {
+        case 0: return "Liquid"
+        case 1: return "Restricted"
+        default: return "Illiquid"
+        }
+    }
+
+    private func riskScoreColor(_ score: Double) -> Color {
+        if score <= 2.5 { return DSColor.accentSuccess }
+        if score <= 4.0 { return Color.blue }
+        if score <= 5.5 { return DSColor.accentWarning }
+        return DSColor.accentError
+    }
+
+    private func riskBadge(value: Int) -> some View {
+        Text("SRI \(value)")
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(riskScoreColor(Double(value)).opacity(0.15))
+            .foregroundColor(riskScoreColor(Double(value)))
+            .clipShape(Capsule())
     }
 
     private func currency(_ value: Double?) -> String {

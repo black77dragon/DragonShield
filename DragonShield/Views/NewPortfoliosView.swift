@@ -18,6 +18,7 @@ struct NewPortfoliosView: View {
         case code
         case status
         case updatedAt
+        case risk
         case totalValue
         case instruments
         case description
@@ -28,6 +29,7 @@ struct NewPortfoliosView: View {
             case .code: return "Code"
             case .status: return "Status"
             case .updatedAt: return "Updated"
+            case .risk: return "Risk"
             case .totalValue: return "Total Value"
             case .instruments: return "# of instr"
             case .description: return "Description"
@@ -45,6 +47,7 @@ struct NewPortfoliosView: View {
         case code
         case status
         case updatedAt
+        case risk
         case totalValue
         case instruments
     }
@@ -86,8 +89,8 @@ struct NewPortfoliosView: View {
         let neighborBaseWidth: CGFloat
     }
 
-    fileprivate static let columnOrder: [ThemeColumn] = [.name, .code, .status, .updatedAt, .totalValue, .instruments, .description]
-    fileprivate static let defaultVisibleColumns: Set<ThemeColumn> = [.name, .status, .updatedAt, .totalValue, .instruments, .description]
+    fileprivate static let columnOrder: [ThemeColumn] = [.name, .code, .status, .updatedAt, .risk, .totalValue, .instruments, .description]
+    fileprivate static let defaultVisibleColumns: Set<ThemeColumn> = [.name, .status, .updatedAt, .risk, .totalValue, .instruments, .description]
     fileprivate static let requiredColumns: Set<ThemeColumn> = [.name]
     fileprivate static let visibleColumnsKey = "NewPortfoliosView.visibleColumns.v1"
 
@@ -96,6 +99,7 @@ struct NewPortfoliosView: View {
         .code: 120,
         .status: 160,
         .updatedAt: 140,
+        .risk: 140,
         .totalValue: 160,
         .instruments: 120,
         .description: 280,
@@ -106,6 +110,7 @@ struct NewPortfoliosView: View {
         .code: 100,
         .status: 140,
         .updatedAt: 120,
+        .risk: 120,
         .totalValue: 140,
         .instruments: 100,
         .description: 200,
@@ -157,7 +162,8 @@ struct NewPortfoliosView: View {
         _resolvedColumnWidths = State(initialValue: NewPortfoliosView.defaultColumnWidths)
 
         if let stored = UserDefaults.standard.array(forKey: NewPortfoliosView.visibleColumnsKey) as? [String] {
-            let decoded = Set(stored.compactMap(ThemeColumn.init(rawValue:)))
+            var decoded = Set(stored.compactMap(ThemeColumn.init(rawValue:)))
+            decoded.insert(.risk) // ensure new risk column is visible by default
             _visibleColumns = State(initialValue: decoded.isEmpty ? NewPortfoliosView.defaultVisibleColumns : decoded)
         } else {
             _visibleColumns = State(initialValue: NewPortfoliosView.defaultVisibleColumns)
@@ -413,7 +419,7 @@ struct NewPortfoliosView: View {
 
     private func alignment(for column: ThemeColumn) -> Alignment {
         switch column {
-        case .totalValue, .instruments:
+        case .risk, .totalValue, .instruments:
             return .trailing
         default:
             return .leading
@@ -618,6 +624,13 @@ struct NewPortfoliosView: View {
                 let l = lhs.updatedAt
                 let r = rhs.updatedAt
                 if sortAscending { return l < r } else { return l > r }
+            case .risk:
+                let ls = lhs.riskScore ?? Double.nan
+                let rs = rhs.riskScore ?? Double.nan
+                if ls.isNaN, rs.isNaN { return false }
+                if ls.isNaN { return !sortAscending }
+                if rs.isNaN { return sortAscending }
+                return sortAscending ? ls < rs : ls > rs
             case .totalValue:
                 let lv = lhs.totalValueBase ?? Double.nan
                 let rv = rhs.totalValueBase ?? Double.nan
@@ -637,6 +650,7 @@ struct NewPortfoliosView: View {
         case .code: return .code
         case .status: return .status
         case .updatedAt: return .updatedAt
+        case .risk: return .risk
         case .totalValue: return .totalValue
         case .instruments: return .instruments
         case .description: return nil
@@ -846,12 +860,16 @@ struct NewPortfoliosView: View {
         valuationTask = Task {
             let fxService = FXConversionService(dbManager: dbManager)
             let service = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
+            let riskService = PortfolioRiskScoringService(dbManager: dbManager, fxService: fxService)
             for id in snapshotIds {
                 if Task.isCancelled { break }
                 let snapshot = service.snapshot(themeId: id)
+                let risk = riskService.score(themeId: id, valuation: snapshot)
                 await MainActor.run {
                     if let index = themes.firstIndex(where: { $0.id == id }) {
                         themes[index].totalValueBase = snapshot.totalValueBase
+                        themes[index].riskScore = risk.portfolioScore
+                        themes[index].riskCategory = risk.category.rawValue
                     }
                 }
             }
@@ -1004,6 +1022,27 @@ private struct PortfolioThemeRowView: View {
             .frame(width: widthFor(.status), alignment: .leading)
         case .updatedAt:
             updatedAtText()
+        case .risk:
+            if let score = theme.riskScore {
+                HStack(spacing: 6) {
+                    Text(score, format: .number.precision(.fractionLength(1)))
+                        .dsMono()
+                        .foregroundColor(riskColor(for: score))
+                    if let cat = theme.riskCategory {
+                        DSBadge(text: cat, color: riskColor(for: score))
+                    }
+                }
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.risk), alignment: .trailing)
+            } else {
+                HStack(spacing: 4) {
+                    Text("—")
+                        .dsBodySmall()
+                    ProgressView().controlSize(.small)
+                }
+                .padding(.trailing, 8)
+                .frame(width: widthFor(.risk), alignment: .trailing)
+            }
         case .totalValue:
             if let value = theme.totalValueBase, let formatted = formattedTotalValue(value) {
                 Text(formatted)
@@ -1045,6 +1084,13 @@ private struct PortfolioThemeRowView: View {
             return DSColor.accentWarning
         }
         return DSColor.textSecondary
+    }
+
+    private func riskColor(for score: Double) -> Color {
+        if score <= 2.5 { return DSColor.accentSuccess }
+        if score <= 4.0 { return Color.blue }
+        if score <= 5.5 { return DSColor.accentWarning }
+        return DSColor.accentError
     }
 
     private func updatedAtText() -> some View {

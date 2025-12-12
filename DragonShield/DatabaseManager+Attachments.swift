@@ -2,17 +2,6 @@ import Foundation
 import SQLite3
 
 extension DatabaseManager {
-    private func tableExists(_ name: String) -> Bool {
-        guard let db else { return false }
-        var stmt: OpaquePointer?
-        defer { sqlite3_finalize(stmt) }
-        let sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
-        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
-        return sqlite3_step(stmt) == SQLITE_ROW
-    }
-
     private func ensureInstrumentNoteAttachmentTable() {
         let sql = """
         CREATE TABLE IF NOT EXISTS InstrumentNoteAttachment (
