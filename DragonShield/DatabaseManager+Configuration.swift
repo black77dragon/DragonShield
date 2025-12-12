@@ -50,7 +50,7 @@ extension DatabaseManager {
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
                 'base_currency', 'as_of_date', 'decimal_precision',
-                'default_timezone', 'table_row_spacing', 'table_row_padding',
+                'default_timezone',
                 'include_direct_re', 'direct_re_target_chf', 'db_version',
                 'fx_auto_update_enabled', 'fx_update_frequency',
                 'ios_snapshot_auto_enabled', 'ios_snapshot_frequency', 'ios_snapshot_target_path', 'ios_snapshot_target_bookmark',
@@ -99,12 +99,6 @@ extension DatabaseManager {
                     pendingAssignments.append { $0.decimalPrecision = precision }
                 case "default_timezone":
                     pendingAssignments.append { $0.defaultTimeZone = value }
-                case "table_row_spacing":
-                    let spacing = Double(value) ?? 1.0
-                    pendingAssignments.append { $0.tableRowSpacing = spacing }
-                case "table_row_padding":
-                    let padding = Double(value) ?? 12.0
-                    pendingAssignments.append { $0.tableRowPadding = padding }
                 case "include_direct_re":
                     let flag = value.lowercased() == "true"
                     pendingAssignments.append { $0.includeDirectRealEstate = flag }

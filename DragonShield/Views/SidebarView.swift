@@ -26,8 +26,6 @@ struct SidebarView: View {
     @AppStorage("sidebar.showSystem") private var showSystem = true
     @AppStorage("sidebar.showConfiguration") private var showConfiguration = false
 
-    private let applicationStartupIconName = "paperplane.circle.fill"
-
     private var dueTodayOrOverdueCount: Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -60,8 +58,8 @@ struct SidebarView: View {
 
             // 2. Portfolio Group
             DisclosureGroup("Portfolio", isExpanded: $showPortfolio) {
-                NavigationLink(destination: NewPortfoliosView().environmentObject(dbManager)) {
-                    Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
+                NavigationLink(destination: PortfolioThemesAlignedView().environmentObject(dbManager)) {
+                    Label("Portfolios", systemImage: "tablecells")
                 }
                 
                 NavigationLink(destination: RiskReportView().environmentObject(dbManager).environmentObject(AssetManager())) {
@@ -83,10 +81,6 @@ struct SidebarView: View {
                 NavigationLink(destination: AssetManagementReportView()) {
                     Label("Asset Management Report", systemImage: "chart.bar.fill")
                 }
-                
-                NavigationLink(destination: RiskManagementMaintenanceView().environmentObject(dbManager)) {
-                    Label("Risk Management", systemImage: "shield.lefthalf.filled")
-                }
             }
 
             // 3. Market Group
@@ -104,8 +98,14 @@ struct SidebarView: View {
                 }
                 
                 NavigationLink(destination: IchimokuDragonView()) {
-                    Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
+                    HStack(spacing: 8) {
+                        Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
+                        Spacer()
+                        SidebarStatusBadge(text: "Legacy")
+                    }
                 }
+                .disabled(true)
+                .opacity(0.55)
 
                 NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
                     Label("Alerts & Events", systemImage: "bell")
@@ -114,18 +114,16 @@ struct SidebarView: View {
 
             // 4. System Group
             DisclosureGroup("System", isExpanded: $showSystem) {
-                NavigationLink(destination: DataImportExportView()) {
-                    Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
-                }
-                
+                SidebarSectionHeader(title: "Core")
                 NavigationLink(destination: SettingsView()) {
                     Label("Settings", systemImage: "gear")
                 }
-                
-                NavigationLink(destination: ApplicationStartupView()) {
-                    Label("Application Start Up", systemImage: applicationStartupIconName)
+
+                NavigationLink(destination: DataImportExportView()) {
+                    Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
                 }
-                
+
+                SidebarSectionHeader(title: "Maintenance")
                 NavigationLink(destination: DatabaseManagementView()) {
                     Label("Database Management", systemImage: "externaldrive.badge.timemachine")
                 }
@@ -151,6 +149,10 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: TransactionTypesView()) {
                     Label("Transaction Types", systemImage: "tag.circle.fill")
+                }
+                
+                NavigationLink(destination: RiskManagementMaintenanceView().environmentObject(dbManager)) {
+                    Label("Instrument Risk Maint.", systemImage: "shield.lefthalf.filled")
                 }
                 
                 NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
@@ -213,6 +215,33 @@ struct SidebarView: View {
         .onAppear {
             todoBoardViewModel.refreshFromStorage()
         }
+    }
+}
+
+private struct SidebarSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(.ds.caption)
+            .foregroundStyle(DSColor.textSecondary)
+            .padding(.top, DSLayout.spaceS)
+            .padding(.leading, 2)
+    }
+}
+
+private struct SidebarStatusBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .padding(.horizontal, DSLayout.spaceS)
+            .padding(.vertical, DSLayout.spaceXS)
+            .background(DSColor.surfaceSecondary)
+            .foregroundStyle(DSColor.textSecondary)
+            .clipShape(Capsule())
     }
 }
 

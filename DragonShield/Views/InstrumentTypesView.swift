@@ -342,14 +342,14 @@ struct AssetSubClassesView: View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedSubClasses,
-            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            rowSpacing: DSLayout.tableRowSpacing,
             showHorizontalIndicators: true,
             rowContent: { type, context in
                 AssetSubClassRowView(
                     type: type,
                     columns: context.columns,
                     fontConfig: context.fontConfig,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     isSelected: selectedSubClass?.id == type.id,
                     onTap: {
                         selectedSubClass = type

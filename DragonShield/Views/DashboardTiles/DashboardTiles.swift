@@ -830,6 +830,10 @@ enum TileRegistry {
         TileInfo(id: ThemesOverviewTile.tileID, name: ThemesOverviewTile.tileName, icon: ThemesOverviewTile.iconName) { AnyView(ThemesOverviewTile()) },
 
         TileInfo(id: CurrencyExposureTile.tileID, name: CurrencyExposureTile.tileName, icon: CurrencyExposureTile.iconName) { AnyView(CurrencyExposureTile()) },
+        TileInfo(id: RiskScoreTile.tileID, name: RiskScoreTile.tileName, icon: RiskScoreTile.iconName) { AnyView(RiskScoreTile()) },
+        TileInfo(id: RiskSRIDonutTile.tileID, name: RiskSRIDonutTile.tileName, icon: RiskSRIDonutTile.iconName) { AnyView(RiskSRIDonutTile()) },
+        TileInfo(id: RiskLiquidityDonutTile.tileID, name: RiskLiquidityDonutTile.tileName, icon: RiskLiquidityDonutTile.iconName) { AnyView(RiskLiquidityDonutTile()) },
+        TileInfo(id: RiskOverridesTile.tileID, name: RiskOverridesTile.tileName, icon: RiskOverridesTile.iconName) { AnyView(RiskOverridesTile()) },
         TileInfo(id: RiskBucketsTile.tileID, name: RiskBucketsTile.tileName, icon: RiskBucketsTile.iconName) { AnyView(RiskBucketsTile()) },
         TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
         TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },

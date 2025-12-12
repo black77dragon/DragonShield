@@ -359,14 +359,14 @@ struct AssetClassesView: View {
         MaintenanceTableView(
             model: tableModel,
             rows: sortedClasses,
-            rowSpacing: CGFloat(dbManager.tableRowSpacing),
+            rowSpacing: DSLayout.tableRowSpacing,
             showHorizontalIndicators: true,
             rowContent: { assetClass, context in
                 AssetClassRowView(
                     assetClass: assetClass,
                     columns: context.columns,
                     fontConfig: context.fontConfig,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     isSelected: selectedClass?.id == assetClass.id,
                     onTap: { selectedClass = assetClass },
                     onEdit: {

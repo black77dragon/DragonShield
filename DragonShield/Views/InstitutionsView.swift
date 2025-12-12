@@ -695,7 +695,7 @@ private extension InstitutionsView {
                     institution: institution,
                     columns: context.columns,
                     fontConfig: context.fontConfig,
-                    rowPadding: CGFloat(dbManager.tableRowPadding),
+                    rowPadding: DSLayout.tableRowPadding,
                     isSelected: selectedInstitution?.id == institution.id,
                     onTap: { selectedInstitution = institution },
                     onEdit: {

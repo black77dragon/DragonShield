@@ -47,10 +47,13 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
     let defaultColumnWidths: [Column: CGFloat]
     let minimumColumnWidths: [Column: CGFloat]
     let visibleColumnsDefaultsKey: String
+    let minimumWidthsDefaultsKey: String?
     let columnHandleWidth: CGFloat
     let columnHandleHitSlop: CGFloat
     let columnTextInset: CGFloat
     let headerBackground: Color
+    let headerTrailingPadding: CGFloat
+    let headerVerticalPadding: CGFloat
     let fontConfigBuilder: (MaintenanceTableFontSize) -> MaintenanceTableFontConfig
     #if os(macOS)
         let columnResizeCursor: NSCursor?
@@ -65,10 +68,13 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
             defaultColumnWidths: [Column: CGFloat],
             minimumColumnWidths: [Column: CGFloat],
             visibleColumnsDefaultsKey: String,
+            minimumWidthsDefaultsKey: String? = nil,
             columnHandleWidth: CGFloat = 10,
             columnHandleHitSlop: CGFloat = 8,
             columnTextInset: CGFloat = 12,
             headerBackground: Color,
+            headerTrailingPadding: CGFloat = 12,
+            headerVerticalPadding: CGFloat = 2,
             fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig,
             columnResizeCursor: NSCursor? = nil
         ) {
@@ -79,10 +85,13 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
             self.defaultColumnWidths = defaultColumnWidths
             self.minimumColumnWidths = minimumColumnWidths
             self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
+            self.minimumWidthsDefaultsKey = minimumWidthsDefaultsKey
             self.columnHandleWidth = columnHandleWidth
             self.columnHandleHitSlop = columnHandleHitSlop
             self.columnTextInset = columnTextInset
             self.headerBackground = headerBackground
+            self.headerTrailingPadding = headerTrailingPadding
+            self.headerVerticalPadding = headerVerticalPadding
             self.fontConfigBuilder = fontConfigBuilder
             self.columnResizeCursor = columnResizeCursor
         }
@@ -95,10 +104,13 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
             defaultColumnWidths: [Column: CGFloat],
             minimumColumnWidths: [Column: CGFloat],
             visibleColumnsDefaultsKey: String,
+            minimumWidthsDefaultsKey: String? = nil,
             columnHandleWidth: CGFloat = 10,
             columnHandleHitSlop: CGFloat = 8,
             columnTextInset: CGFloat = 12,
             headerBackground: Color,
+            headerTrailingPadding: CGFloat = 12,
+            headerVerticalPadding: CGFloat = 2,
             fontConfigBuilder: @escaping (MaintenanceTableFontSize) -> MaintenanceTableFontConfig
         ) {
             self.preferenceKind = preferenceKind
@@ -108,10 +120,13 @@ struct MaintenanceTableConfiguration<Column: MaintenanceTableColumn> {
             self.defaultColumnWidths = defaultColumnWidths
             self.minimumColumnWidths = minimumColumnWidths
             self.visibleColumnsDefaultsKey = visibleColumnsDefaultsKey
+            self.minimumWidthsDefaultsKey = minimumWidthsDefaultsKey
             self.columnHandleWidth = columnHandleWidth
             self.columnHandleHitSlop = columnHandleHitSlop
             self.columnTextInset = columnTextInset
             self.headerBackground = headerBackground
+            self.headerTrailingPadding = headerTrailingPadding
+            self.headerVerticalPadding = headerVerticalPadding
             self.fontConfigBuilder = fontConfigBuilder
         }
     #endif
