@@ -30,6 +30,10 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Portfolio managers need to see portfolio risk posture at a glance without opening each portfolio.
     What: In the Portfolios GUI overview/table, add a "Risk Score" column showing the computed portfolio risk score (from DS-032) with sorting and standard formatting so users can compare portfolios directly.
 
+- [ ] [changes] **[DS-040] Simplify Portfolio Status Indicator**
+    Why: The Portfolios table shows two color-coded status visuals (icon plus small bubble), cluttering the column.
+    What: In the Portfolios GUI Status column, remove the larger color icon and retain only the small bubble as the status indicator.
+
 - [ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**
     Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
     What: Implement PRIIPs-style volatility fallback bucketing when mapping is missing; mark profiles using fallbacks and expose unmapped/stale flags (`recalc_due_at`, missing inputs) in the Risk Report, Maintenance GUI, and instrument detail; default conservative values when data is absent (e.g., SRI 5, liquidity Restricted).
