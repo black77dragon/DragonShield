@@ -10,6 +10,9 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- [ ] [new_features] **[DS-051] Add Risk Management to iOS App**
+    Why: Mobile users currently lack risk management screens and reports available on desktop, limiting their ability to review and act on risk while away from a workstation.
+    What: Bring the Risk Management functionality to the iOS app, including navigation entry, risk maintenance views, and risk reports (risk score, SRI/liquidity distributions, overrides) with parity to desktop interactions and formatting.
 
 - [ ] [changes] **[DS-050] Refine Portfolio Risks Tab for Actionable Use**
     Why: The current Risks tab is text-heavy, lacks filters or drill-downs, and does not clearly surface high-risk/illiquid concentrations or data-quality warnings, so portfolio managers cannot act on the risk score.
@@ -26,14 +29,6 @@ This document serves as a central backlog for all pending changes, new features,
 - [ ] [new_features] **[DS-034] Override Governance Cues (Read-Only Surfaces)**
     Why: Users need visibility into manual overrides outside the edit screens.
     What: In dashboards, Risk Report, and instrument read-only contexts, display override badges with computed vs. override values, who/when/expiry, and highlight expiring/expired overrides; include jump-to-maintenance links where applicable.
-
-- [ ] [new_features] **[DS-035] Risk Dashboard Tiles with Drill-Down**
-    Why: Provide at-a-glance risk posture on the main dashboard with quick drill-down.
-    What: Add dashboard tiles for SRI distribution, liquidity tiers, and active overrides using donut charts; each slice opens a filtered list of underlying instruments; include badges for high-risk (SRI 6–7) and illiquid percentages.
-
-- [ ] [changes] **[DS-049] Color-Code Risk Score Tile Slider**
-    Why: Users need an immediate visual cue on whether the risk score trends low or high without reading labels.
-    What: In the Risk Score tile, keep showing the current risk score number and color the slider from green on the left (low risk) to red on the right (high risk), with the thumb/track reflecting the color at the score position.
 
 - [ ] [changes] **[DS-048] Review Ichimoku Cloud Implementation**
     Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
@@ -59,9 +54,17 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Users want an at-a-glance view of portfolio risk posture directly on the dashboard.
     What: Add Risk Tiles to the Dashboard GUI showing key risk aspects (e.g., SRI distribution, liquidity tiers, overrides) using graphical donut charts; enable drill-down from each tile to show the underlying instruments and details.
 
+- [x] [new_features] **[DS-035] Risk Dashboard Tiles with Drill-Down**
+    Why: Provide at-a-glance risk posture on the main dashboard with quick drill-down.
+    What: Add dashboard tiles for SRI distribution, liquidity tiers, and active overrides using donut charts; each slice opens a filtered list of underlying instruments; include badges for high-risk (SRI 6–7) and illiquid percentages.
+
 - [x] [new_features] **[DS-039] Show Portfolio Risk Score in Portfolio Table**
     Why: Portfolio managers need to see portfolio risk posture at a glance without opening each portfolio.
     What: In the Portfolios GUI overview/table, add a "Risk Score" column showing the computed portfolio risk score (from DS-032) with sorting and standard formatting so users can compare portfolios directly.
+
+- [x] [changes] **[DS-049] Color-Code Risk Score Tile Slider**
+    Why: Users need an immediate visual cue on whether the risk score trends low or high without reading labels.
+    What: In the Risk Score tile, keep showing the current risk score number and color the slider from green on the left (low risk) to red on the right (high risk), with the thumb/track reflecting the color at the score position.
 
 - [x] [changes] **[DS-047] Relocate Development/Debug Options Tile**
     Why: The Development/Debug options tile clutters the Settings GUI and belongs with data utilities.

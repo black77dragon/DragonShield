@@ -16,6 +16,17 @@ private func riskColor(for bucket: Int) -> Color {
     return riskColors[index]
 }
 
+private let riskScoreGradient = LinearGradient(
+    gradient: Gradient(stops: [
+        .init(color: Color.green.opacity(0.8), location: 0.0),
+        .init(color: Color.yellow, location: 0.45),
+        .init(color: Color.orange, location: 0.7),
+        .init(color: Color.red, location: 1.0)
+    ]),
+    startPoint: .leading,
+    endPoint: .trailing
+)
+
 private func liquidityColor(_ tier: Int) -> Color {
     switch tier {
     case 0: return .teal
@@ -118,12 +129,8 @@ struct RiskScoreTile: DashboardTile {
                     .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                     .disabled(snap.totalValue == 0)
                 }
-                Gauge(value: snap.riskScore ?? 1, in: 1 ... 7) {
-                    Text("Risk")
-                } currentValueLabel: {
-                    Text(snap.riskScore.map { String(format: "%.1f", $0) } ?? "—")
-                }
-                .gaugeStyle(.accessoryLinear)
+                RiskScoreGradientSlider(score: snap.riskScore)
+                    .frame(height: 28)
 
                 HStack(spacing: 12) {
                     Text("High risk 6–7: \(percentText(snap.highRiskShare))")
@@ -246,6 +253,51 @@ struct RiskScoreTile: DashboardTile {
         case 1: return "Restricted"
         default: return "Illiquid"
         }
+    }
+}
+
+private struct RiskScoreGradientSlider: View {
+    var score: Double?
+
+    private var clampedScore: Double {
+        let value = score ?? 1
+        return min(max(value, 1), 7)
+    }
+
+    private var thumbColor: Color {
+        guard score != nil else { return Color.gray.opacity(0.5) }
+        return riskColor(for: Int(round(clampedScore)))
+    }
+
+    private var progress: CGFloat {
+        CGFloat((clampedScore - 1) / 6)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let knobRadius: CGFloat = 10
+            let trackHeight: CGFloat = 12
+            let availableWidth = max(0, geo.size.width - knobRadius * 2)
+            let knobX = knobRadius + progress * availableWidth
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 999)
+                    .fill(riskScoreGradient)
+                    .frame(height: trackHeight)
+                RoundedRectangle(cornerRadius: 999)
+                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+                    .frame(height: trackHeight)
+                Circle()
+                    .fill(thumbColor)
+                    .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                    .frame(width: knobRadius * 2, height: knobRadius * 2)
+                    .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                    .position(x: knobX, y: geo.size.height / 2)
+            }
+        }
+        .frame(height: 28)
+        .accessibilityLabel("Risk score slider")
+        .accessibilityValue(score.map { String(format: "%.1f", $0) } ?? "Not available")
     }
 }
 
