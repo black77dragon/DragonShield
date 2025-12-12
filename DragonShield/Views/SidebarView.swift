@@ -64,6 +64,10 @@ struct SidebarView: View {
                     Label("Portfolios", systemImage: "tablecells.badge.ellipsis")
                 }
                 
+                NavigationLink(destination: RiskReportView().environmentObject(dbManager).environmentObject(AssetManager())) {
+                    Label("Risk Report", systemImage: "shield")
+                }
+                
                 NavigationLink(destination: PositionsView()) {
                     Label("Positions", systemImage: "tablecells")
                 }
@@ -78,6 +82,10 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: AssetManagementReportView()) {
                     Label("Asset Management Report", systemImage: "chart.bar.fill")
+                }
+                
+                NavigationLink(destination: RiskManagementMaintenanceView().environmentObject(dbManager)) {
+                    Label("Risk Management", systemImage: "shield.lefthalf.filled")
                 }
             }
 
@@ -98,14 +106,14 @@ struct SidebarView: View {
                 NavigationLink(destination: IchimokuDragonView()) {
                     Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
                 }
+
+                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
+                    Label("Alerts & Events", systemImage: "bell")
+                }
             }
 
             // 4. System Group
             DisclosureGroup("System", isExpanded: $showSystem) {
-                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
-                    Label("Alerts & Events", systemImage: "bell")
-                }
-                
                 NavigationLink(destination: DataImportExportView()) {
                     Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
                 }

@@ -62,6 +62,25 @@ struct InstrumentEditView: View {
     @State private var openThemeId: Int? = nil
     @State private var editingPosition: PositionReportData? = nil
 
+    // Risk profile
+    @State private var riskProfile: DatabaseManager.RiskProfileRow? = nil
+    @State private var riskManualOverride: Bool = false
+    @State private var riskOverrideSRI: Int = 5
+    @State private var riskOverrideLiquidity: Int = 1
+    @State private var riskOverrideReason: String = ""
+    @State private var riskOverrideExpiryEnabled: Bool = false
+    @State private var riskOverrideExpiry: Date = .init()
+    @State private var riskStatusMessage: String?
+    private let riskColors: [Color] = [
+        Color.green.opacity(0.7),
+        Color.green,
+        Color.yellow,
+        Color.orange,
+        Color.orange.opacity(0.85),
+        Color.red.opacity(0.9),
+        Color.red
+    ]
+
     // MARK: - Validation
 
     var isValid: Bool {
@@ -305,6 +324,7 @@ struct InstrumentEditView: View {
             VStack(spacing: 16) {
                 requiredSection
                 optionalSection
+                riskSection
                 priceSection
                 lifecycleSection
                 updatesInThemesSection
@@ -312,6 +332,7 @@ struct InstrumentEditView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
         }
+        .frame(maxHeight: .infinity)
         .offset(y: sectionsOffset)
     }
 
@@ -395,6 +416,76 @@ struct InstrumentEditView: View {
                         isRequired: false
                     )
                     .onChange(of: sector) { _, _ in detectChanges() }
+                }
+            }
+        }
+        .padding(DSLayout.spaceM)
+        .background(DSColor.surface, in: RoundedRectangle(cornerRadius: DSLayout.radiusM))
+    }
+
+    // MARK: - Risk Section
+
+    private var riskSection: some View {
+        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+            sectionHeader(title: "Risk Management", icon: "shield.checkerboard", color: DSColor.accentMain)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Computed").dsCaption().foregroundColor(DSColor.textSecondary)
+                        HStack(spacing: 8) {
+                            riskBadge(riskProfile?.computedSRI ?? 0)
+                            Text(riskShortDescription(riskProfile?.computedSRI))
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
+                        }
+                        Text(liquidityLabel(riskProfile?.computedLiquidityTier))
+                            .dsCaption()
+                            .foregroundColor(DSColor.textSecondary)
+                    }
+                    Divider().overlay(DSColor.border)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Manual override", isOn: $riskManualOverride)
+                            .toggleStyle(.switch)
+                            .onChange(of: riskManualOverride) { _, _ in
+                                riskStatusMessage = nil
+                            }
+                        if riskManualOverride {
+                            Stepper("Override SRI: \(riskOverrideSRI)", value: $riskOverrideSRI, in: 1 ... 7)
+                            HStack(spacing: 8) {
+                                riskBadge(riskOverrideSRI)
+                                Text(riskShortDescription(riskOverrideSRI))
+                                    .dsCaption()
+                                    .foregroundColor(DSColor.textSecondary)
+                            }
+                            Picker("Override Liquidity", selection: $riskOverrideLiquidity) {
+                                Text("Liquid").tag(0)
+                                Text("Restricted").tag(1)
+                                Text("Illiquid").tag(2)
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                            TextField("Reason (optional)", text: $riskOverrideReason)
+                                .textFieldStyle(.roundedBorder)
+                            Toggle("Set expiry", isOn: $riskOverrideExpiryEnabled)
+                            if riskOverrideExpiryEnabled {
+                                DatePicker("Override expires", selection: $riskOverrideExpiry, displayedComponents: .date)
+                            }
+                        } else {
+                            Text("Using computed values from mapping \(riskProfile?.mappingVersion ?? "—")")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
+                        }
+                    }
+                }
+                HStack(spacing: 10) {
+                    Button("Save Risk") { saveRiskProfile() }
+                        .buttonStyle(DSButtonStyle(type: .primary, size: .small))
+                    Button("Recalculate") { recalcRiskProfile() }
+                        .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+                    if let status = riskStatusMessage {
+                        Text(status)
+                            .dsCaption()
+                            .foregroundColor(DSColor.textSecondary)
+                    }
                 }
             }
         }
@@ -818,6 +909,105 @@ struct InstrumentEditView: View {
             detectChanges()
         }
         refreshInstrumentUsage()
+        loadRiskProfile()
+    }
+
+    private func loadRiskProfile() {
+        if let profile = dbManager.fetchRiskProfile(instrumentId: instrumentId) {
+            riskProfile = profile
+        } else {
+            _ = dbManager.recalcRiskProfileForInstrument(instrumentId: instrumentId)
+            riskProfile = dbManager.fetchRiskProfile(instrumentId: instrumentId)
+        }
+        if let profile = riskProfile {
+            riskManualOverride = profile.manualOverride
+            riskOverrideSRI = profile.overrideSRI ?? profile.computedSRI
+            riskOverrideLiquidity = profile.overrideLiquidityTier ?? profile.computedLiquidityTier
+            riskOverrideReason = profile.overrideReason ?? ""
+            if let exp = profile.overrideExpiresAt {
+                riskOverrideExpiryEnabled = true
+                riskOverrideExpiry = exp
+            } else {
+                riskOverrideExpiryEnabled = false
+            }
+        }
+    }
+
+    private func saveRiskProfile() {
+        let reason = riskManualOverride ? riskOverrideReason.trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        let expiry = (riskManualOverride && riskOverrideExpiryEnabled) ? riskOverrideExpiry : nil
+        let ok = dbManager.updateRiskProfileOverride(
+            instrumentId: instrumentId,
+            subClassId: selectedGroupId,
+            manualOverride: riskManualOverride,
+            overrideSRI: riskManualOverride ? riskOverrideSRI : nil,
+            overrideLiquidityTier: riskManualOverride ? riskOverrideLiquidity : nil,
+            overrideReason: reason,
+            overrideBy: NSFullUserName(),
+            overrideExpiresAt: expiry
+        )
+        riskStatusMessage = ok ? "Saved" : "Save failed"
+        loadRiskProfile()
+    }
+
+    private func recalcRiskProfile() {
+        riskManualOverride = false
+        riskOverrideReason = ""
+        riskOverrideExpiryEnabled = false
+        let ok = dbManager.updateRiskProfileOverride(
+            instrumentId: instrumentId,
+            subClassId: selectedGroupId,
+            manualOverride: false,
+            overrideSRI: nil,
+            overrideLiquidityTier: nil,
+            overrideReason: nil,
+            overrideBy: NSFullUserName(),
+            overrideExpiresAt: nil
+        )
+        riskStatusMessage = ok ? "Recalculated" : "Recalc failed"
+        loadRiskProfile()
+    }
+
+    private func riskDisplay(_ value: Int?, prefix: String) -> String {
+        guard let v = value else { return "—" }
+        return "\(prefix) \(v)"
+    }
+
+    private func liquidityLabel(_ tier: Int?) -> String {
+        switch tier {
+        case 0: return "Liquid"
+        case 1: return "Restricted"
+        case 2: return "Illiquid"
+        default: return "Unknown"
+        }
+    }
+
+    private func riskShortDescription(_ value: Int?) -> String {
+        switch value {
+        case 1: return "Very low risk: cash-like."
+        case 2: return "Low risk: short-duration IG."
+        case 3: return "Low–medium risk: IG credit/balanced."
+        case 4: return "Medium risk: diversified equity."
+        case 5: return "Medium–high risk: concentrated/EM/commods."
+        case 6: return "High risk: leverage/complex/volatile."
+        case 7: return "Very high risk: speculative/extreme."
+        default: return "Risk category"
+        }
+    }
+
+    @ViewBuilder
+    private func riskBadge(_ value: Int) -> some View {
+        if value >= 1 && value <= 7 {
+            Text("SRI \(value)")
+                .font(.caption2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(riskColors[value - 1])
+                .foregroundColor(.white)
+                .clipShape(Capsule())
+        } else {
+            EmptyView()
+        }
     }
 
     @ViewBuilder

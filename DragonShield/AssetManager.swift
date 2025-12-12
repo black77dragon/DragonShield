@@ -10,6 +10,8 @@ struct DragonAsset: Identifiable {
     var isin: String?
     var isDeleted: Bool
     var isActive: Bool
+    var riskSRI: Int?
+    var riskLiquidityTier: Int?
 }
 
 class AssetManager: ObservableObject {
@@ -32,6 +34,7 @@ class AssetManager: ObservableObject {
 
         let loadedAssets = instrumentData.map { instrument in
             let typeName = assetTypeLookup[instrument.subClassId] ?? "Unknown"
+            let profile = dbManager.fetchRiskProfile(instrumentId: instrument.id)
             return DragonAsset(
                 id: instrument.id,
                 name: instrument.name,
@@ -41,7 +44,9 @@ class AssetManager: ObservableObject {
                 tickerSymbol: instrument.tickerSymbol,
                 isin: instrument.isin,
                 isDeleted: instrument.isDeleted,
-                isActive: instrument.isActive
+                isActive: instrument.isActive,
+                riskSRI: profile?.effectiveSRI,
+                riskLiquidityTier: profile?.effectiveLiquidityTier
             )
         }
 
