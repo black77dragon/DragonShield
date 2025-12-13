@@ -306,11 +306,14 @@ extension DatabaseManager {
         return getPortfolioTheme(id: id)
     }
 
-    func getPortfolioTheme(id: Int) -> PortfolioTheme? {
+    func getPortfolioTheme(id: Int, includeSoftDeleted: Bool = false) -> PortfolioTheme? {
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
-        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,pt.soft_delete"
+        let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
+        var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,"
+        sql += hasSoftDelete ? "COALESCE(pt.soft_delete,0)" : "0"
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
-        sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ? AND soft_delete = 0"
+        sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ?"
+        if hasSoftDelete && !includeSoftDeleted { sql += " AND COALESCE(pt.soft_delete,0) = 0" }
         var stmt: OpaquePointer?
         var theme: PortfolioTheme?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {

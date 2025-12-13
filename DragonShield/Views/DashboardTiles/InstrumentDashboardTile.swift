@@ -16,13 +16,8 @@ struct InstrumentDashboardTile: DashboardTile {
     // Selection opens dashboard immediately; no extra action button required
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(Self.tileName)
-                    .font(.headline)
-                Spacer()
-            }
-            VStack(alignment: .leading, spacing: 4) {
+        DashboardCard(title: Self.tileName, minHeight: DashboardTileLayout.heroTileHeight) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Choose Instrument")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -37,12 +32,10 @@ struct InstrumentDashboardTile: DashboardTile {
                         showInstrumentPicker = true
                     }
                 }
-                .frame(minWidth: 360, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(DashboardTileLayout.tilePadding)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .dashboardTileBackground(cornerRadius: 16)
         .onAppear(perform: loadInstruments)
         .accessibilityElement(children: .combine)
         .sheet(isPresented: $showInstrumentPicker) {

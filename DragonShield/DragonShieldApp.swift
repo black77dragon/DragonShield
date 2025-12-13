@@ -37,7 +37,7 @@ struct DragonShieldApp: App {
             NavigationSplitView {
                 SidebarView()
             } detail: {
-                DashboardView()
+                CategorizedDashboardView()
             }
             .environmentObject(assetManager) // Your existing one
             .environmentObject(databaseManager) // <<<< ADD THIS LINE

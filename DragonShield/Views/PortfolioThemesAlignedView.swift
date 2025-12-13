@@ -16,7 +16,7 @@ struct PortfolioThemesAlignedView: View {
             case .status: return "Status"
             case .updatedAt: return "Updated"
             case .risk: return "Risk Score"
-            case .totalValue: return "Total Val (CHF)"
+            case .totalValue: return "Counted Val (CHF)"
             case .instruments: return "# Instr"
             case .description: return "Description"
             }
@@ -211,7 +211,9 @@ struct PortfolioThemesAlignedView: View {
         .onAppear {
             tableModel.connect(to: dbManager)
             tableModel.recalcColumnWidths(shouldPersist: false)
-            loadData()
+            DispatchQueue.main.async {
+                loadData()
+            }
         }
         .onDisappear {
             valuationTask?.cancel()
@@ -536,7 +538,7 @@ struct PortfolioThemesAlignedView: View {
         case .updatedAt:
             Text(formattedDate(theme.updatedAt))
                 .font(.system(size: fontConfig.secondary))
-                .foregroundColor(.secondary)
+                .foregroundColor(updatedColor(for: theme.updatedAt))
         case .risk:
             let scoreText = riskText(theme.riskScore, category: theme.riskCategory)
             if let score = theme.riskScore {
@@ -585,6 +587,31 @@ struct PortfolioThemesAlignedView: View {
         return String(format: "%.1f", rounded)
     }
 
+    private func updatedColor(for iso: String) -> Color {
+        switch updatedDateCategory(iso) {
+        case .red:
+            return DSColor.accentError
+        case .amber:
+            return DSColor.accentWarning
+        case .green:
+            return DSColor.accentSuccess
+        case nil:
+            return DSColor.textSecondary
+        }
+    }
+
+    private func updatedDateCategory(_ iso: String) -> UpdatedDateCategory? {
+        guard
+            let date = ISO8601DateParser.parse(iso),
+            let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()),
+            let twoMonthsAgo = Calendar.current.date(byAdding: .month, value: -2, to: Date())
+        else { return nil }
+
+        if date < twoMonthsAgo { return .red }
+        if date < oneMonthAgo { return .amber }
+        return .green
+    }
+
     private func formattedDate(_ iso: String) -> String {
         let date = parsedDate(iso)
         let formatter = DateFormatter()
@@ -613,6 +640,10 @@ struct PortfolioThemesAlignedView: View {
         if score <= 4.0 { return Color.blue }
         if score <= 5.5 { return DSColor.accentWarning }
         return DSColor.accentError
+    }
+
+    private enum UpdatedDateCategory {
+        case green, amber, red
     }
 
     private func toggleSort(_ column: Column) {
@@ -665,7 +696,7 @@ struct PortfolioThemesAlignedView: View {
                 let risk = riskService.score(themeId: id, valuation: snapshot)
                 await MainActor.run {
                     if let index = themes.firstIndex(where: { $0.id == id }) {
-                        themes[index].totalValueBase = snapshot.totalValueBase
+                        themes[index].totalValueBase = snapshot.includedTotalValueBase
                         themes[index].riskScore = risk.portfolioScore
                         themes[index].riskCategory = risk.category.rawValue
                     }

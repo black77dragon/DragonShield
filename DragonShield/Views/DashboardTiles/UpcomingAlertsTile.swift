@@ -79,6 +79,12 @@ struct UpcomingAlertsTile: DashboardTile {
         }
         .padding(DashboardTileLayout.tilePadding)
         .dashboardTileBackground(cornerRadius: 16)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(Color.numberRed)
+                .frame(width: 4)
+                .cornerRadius(2)
+        }
         .onAppear(perform: load)
         .sheet(isPresented: $showAlerts) {
             AlertsSettingsView().environmentObject(dbManager)

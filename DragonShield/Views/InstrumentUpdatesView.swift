@@ -159,7 +159,11 @@ struct InstrumentUpdatesView: View {
 
     private func load() {
         updates = dbManager.listInstrumentUpdates(themeId: themeId, instrumentId: instrumentId, pinnedFirst: pinnedFirst)
-        isArchived = dbManager.getPortfolioTheme(id: themeId)?.archivedAt != nil
+        if let theme = dbManager.getPortfolioTheme(id: themeId, includeSoftDeleted: true) {
+            isArchived = (theme.archivedAt != nil) || theme.softDelete
+        } else {
+            isArchived = false
+        }
         instrumentExists = dbManager.listThemeAssets(themeId: themeId).contains { $0.instrumentId == instrumentId }
         if !updates.isEmpty {
             attachmentCounts = dbManager.getInstrumentAttachmentCounts(for: updates.map { $0.id })

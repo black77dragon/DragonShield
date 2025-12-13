@@ -6,17 +6,21 @@ This document serves as a central backlog for all pending changes, new features,
 - Add new requests to the Backlog with a unique ID (e.g., `DS-006`) and include context ("Why") plus acceptance criteria ("What").
 - Tag each Backlog entry with `[bugs]`, `[changes]`, or `[new_features]` based on the request text; if the fit is unclear, ask the user to clarify before adding or updating the item.
 - When work starts on a backlog item, mark it with `[*]`, keep it in the Backlog, and move it to the top of the Backlog list. Use the in-progress format `[*] [new_features] [DS-031]` (with the item’s own tag/ID).
-- After the user confirms testing and explicitly asks to move it, shift the item to **Implemented** and mark it with `[x]`.
+- After the user confirms testing and explicitly asks to move it, shift the item to **Implemented**, mark it with `[x]`, and append the move date (YYYY-MM-DD) to the entry.
 
 ## Backlog
+
+- [*] [bugs] **[DS-056] Fix Portfolio Total Tal Column Uses Excluded Sum**
+    Why: In the Portfolio View, the "Total Tal (CHF)" column currently shows the total value including excluded amounts, misleading users about the included portfolio value.
+    What: Update the "Total Tal (CHF)" column to display only the included total value in CHF (excluding excluded sums), keeping formatting consistent with other monetary columns.
+
+- [ ] [new_features] **[DS-055] Add Irreversible Portfolio Delete in Danger Zone (No Holdings Only)**
+    Why: Users need a safe way to permanently remove empty portfolios while preventing accidental deletion of portfolios that still contain holdings.
+    What: In the Portfolio Danger Zone, add a "Delete Portfolio" action that is only enabled when the portfolio has zero holdings; trigger a confirmation popup that clearly states the deletion is permanent/irreversible and requires explicit user confirmation before proceeding.
 
 - [ ] [new_features] **[DS-051] Add Risk Management to iOS App**
     Why: Mobile users currently lack risk management screens and reports available on desktop, limiting their ability to review and act on risk while away from a workstation.
     What: Bring the Risk Management functionality to the iOS app, including navigation entry, risk maintenance views, and risk reports (risk score, SRI/liquidity distributions, overrides) with parity to desktop interactions and formatting.
-
-- [ ] [changes] **[DS-050] Refine Portfolio Risks Tab for Actionable Use**
-    Why: The current Risks tab is text-heavy, lacks filters or drill-downs, and does not clearly surface high-risk/illiquid concentrations or data-quality warnings, so portfolio managers cannot act on the risk score.
-    What: Redesign the Risks tab with an actionable hero (risk score gauge with base currency/as-of, high-risk 6–7 and illiquid callouts), SRI and liquidity donuts with Count/Value toggles that filter the list, and a sortable/searchable contributions table showing value, weight, SRI, liquidity, blended score, and badges for fallbacks/overrides; add chips for quick filters (High risk, Illiquid, Missing data) plus drill-through to Instrument Maintenance/Risk profile and an export to CSV of the filtered table; surface coverage/fallback warnings with counts for missing FX/price/mapping and expiring overrides.
 
 - [ ] [new_features] **[DS-028] Drill-Through to Instrument Maintenance from Risk Report**
     Why: Analysts need to jump from Risk Report drilldowns directly into instrument maintenance to review or adjust details without leaving context.
@@ -34,10 +38,6 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
-- [ ] [changes] **[DS-038] Align Dashboard Tile Dimensions**
-    Why: The Dashboard tiles have inconsistent sizing and shapes, making the canvas look uneven.
-    What: In the Dashboard GUI, ensure the "Instrument Dashboard" and "Today" tiles use the same height, width, and rounded-corner shape as the "Total Asset Value (CHF)" tile within the same canvas.
-
 - [ ] [changes] **[DS-019] Drop "Order" column in next DB update**
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.
 
@@ -45,6 +45,26 @@ This document serves as a central backlog for all pending changes, new features,
     Why: The "Order" column is unused and should be removed to simplify the schema. What: Add a database migration to remove the "Order" column from the Asset Class table and update related models/ORM mappings and queries accordingly.
 
 ## Implemented
+
+- [x] [bugs] **[DS-054] Fix Soft Deleted/Archived Theme Toggles in Portfolio Settings** (2025-12-13)
+    Why: In the Portfolio View settings tab, the "Soft Deleted" and "Archived" theme buttons can be clicked but do not show their active state, leaving users unsure whether the filters are applied.
+    What: Make the "Soft Deleted" and "Archived" theme buttons behave as toggles that visually reflect their activated state, maintain state when selected/deselected, and ensure the Portfolio View responds according to the active selections.
+
+- [x] [changes] **[DS-038] Align Dashboard Tile Dimensions**
+    Why: The Dashboard tiles have inconsistent sizing and shapes, making the canvas look uneven.
+    What: In the Dashboard GUI, ensure the "Instrument Dashboard" and "Today" tiles use the same height, width, and rounded-corner shape as the "Total Asset Value (CHF)" tile within the same canvas.
+
+- [x] [changes] **[DS-053] Color-Code Portfolio Updated Date**
+    Why: Portfolio viewers need a quick freshness signal for portfolio data to spot stale updates.
+    What: In the Portfolio GUI, color the "Updated" date text red when older than 2 months, amber when between 1–2 months, and green when within the past month based on today's date.
+
+- [x] [changes] **[DS-050] Refine Portfolio Risks Tab for Actionable Use**
+    Why: The current Risks tab is text-heavy, lacks filters or drill-downs, and does not clearly surface high-risk/illiquid concentrations or data-quality warnings, so portfolio managers cannot act on the risk score.
+    What: Redesign the Risks tab with an actionable hero (risk score gauge with base currency/as-of, high-risk 6–7 and illiquid callouts), SRI and liquidity donuts with Count/Value toggles that filter the list, and a sortable/searchable contributions table showing value, weight, SRI, liquidity, blended score, and badges for fallbacks/overrides; add chips for quick filters (High risk, Illiquid, Missing data) plus drill-through to Instrument Maintenance/Risk profile and an export to CSV of the filtered table; surface coverage/fallback warnings with counts for missing FX/price/mapping and expiring overrides.
+
+- [x] [new_features] **[DS-052] Show Price Staleness on Total Asset Value Tile**
+    Why: Dashboard viewers need to see how fresh the Total Asset Value figure is before acting on it, especially when prices might be stale.
+    What: In the Dashboard's "Total Asset Value (CHF)" tile, display the hours since the last price update directly under the current value (e.g., "Updated 3.2h ago") and refresh it whenever prices are updated.
 
 - [x] [bugs] **[DS-040] Align Portfolios Table Headers with Content**
     Why: In the Portfolios GUI the column headers become offset and do not scroll with the table contents, making the list hard to read.

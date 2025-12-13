@@ -30,7 +30,7 @@ struct NewPortfoliosView: View {
             case .status: return "Status"
             case .updatedAt: return "Updated"
             case .risk: return "Risk"
-            case .totalValue: return "Total Value"
+            case .totalValue: return "Counted Value"
             case .instruments: return "# of instr"
             case .description: return "Description"
             }
@@ -867,7 +867,7 @@ struct NewPortfoliosView: View {
                 let risk = riskService.score(themeId: id, valuation: snapshot)
                 await MainActor.run {
                     if let index = themes.firstIndex(where: { $0.id == id }) {
-                        themes[index].totalValueBase = snapshot.totalValueBase
+                        themes[index].totalValueBase = snapshot.includedTotalValueBase
                         themes[index].riskScore = risk.portfolioScore
                         themes[index].riskCategory = risk.category.rawValue
                     }
@@ -1093,11 +1093,10 @@ private struct PortfolioThemeRowView: View {
     }
 
     private func updatedAtText() -> some View {
-        let isStale = isUpdatedDateStale(theme.updatedAt)
+        let category = updatedDateCategory(theme.updatedAt)
         return Text(DateFormatting.dateOnly(theme.updatedAt))
             .dsBodySmall()
-            .fontWeight(isStale ? .bold : .regular)
-            .foregroundColor(isStale ? DSColor.accentError : DSColor.textSecondary)
+            .foregroundColor(updatedDateColor(for: category))
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -1110,21 +1109,36 @@ private struct PortfolioThemeRowView: View {
         PortfolioThemeRowView.totalValueFormatter.string(from: NSNumber(value: value))
     }
 
-    private func isUpdatedDateStale(_ isoString: String) -> Bool {
+    private func updatedDateCategory(_ isoString: String) -> UpdatedDateCategory? {
         guard
-            let date = PortfolioThemeRowView.isoFormatter.date(from: isoString),
-            let threshold = Calendar.current.date(byAdding: .day, value: -14, to: Date())
+            let date = ISO8601DateParser.parse(isoString),
+            let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()),
+            let twoMonthsAgo = Calendar.current.date(byAdding: .month, value: -2, to: Date())
         else {
-            return false
+            return nil
         }
-        return date < threshold
+
+        if date < twoMonthsAgo { return .red }
+        if date < oneMonthAgo { return .amber }
+        return .green
     }
 
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
+    private func updatedDateColor(for category: UpdatedDateCategory?) -> Color {
+        switch category {
+        case .red:
+            return DSColor.accentError
+        case .amber:
+            return DSColor.accentWarning
+        case .green:
+            return DSColor.accentSuccess
+        case nil:
+            return DSColor.textSecondary
+        }
+    }
+
+    private enum UpdatedDateCategory {
+        case green, amber, red
+    }
 
     private static let totalValueFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
