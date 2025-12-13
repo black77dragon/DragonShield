@@ -17,13 +17,15 @@ struct DashboardCard<Content: View>: View {
     let headerAccessory: AnyView?
     let content: Content
     private let titleFont: Font
+    private let minHeight: CGFloat?
     private let cornerRadius: CGFloat = 12
 
-    init(title: String, titleFont: Font = .headline, headerAccessory: AnyView? = nil, @ViewBuilder content: () -> Content) {
+    init(title: String, titleFont: Font = .headline, headerAccessory: AnyView? = nil, minHeight: CGFloat? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
         self.headerAccessory = headerAccessory
         self.content = content()
         self.titleFont = titleFont
+        self.minHeight = minHeight
     }
 
     var body: some View {
@@ -39,60 +41,8 @@ struct DashboardCard<Content: View>: View {
             content
         }
         .padding(10)
+        .frame(minHeight: minHeight, alignment: .topLeading)
         .dashboardTileBackground(cornerRadius: cornerRadius)
-    }
-}
-
-struct ChartTile: DashboardTile {
-    init() {}
-    static let tileID = "chart"
-    static let tileName = "Chart Tile"
-    static let iconName = "chart.bar"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .cornerRadius(4)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct ListTile: DashboardTile {
-    init() {}
-    static let tileID = "list"
-    static let tileName = "List Tile"
-    static let iconName = "list.bullet"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            VStack(alignment: .leading, spacing: DashboardTileLayout.rowSpacing) {
-                Text("First item")
-                Text("Second item")
-                Text("Third item")
-            }
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct MetricTile: DashboardTile {
-    init() {}
-    static let tileID = "metric"
-    static let tileName = "Metric Tile"
-    static let iconName = "number"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            Text("123")
-                .font(.ds.statLarge)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .foregroundColor(.ds.accentMain)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -121,6 +71,7 @@ struct TotalValueTile: DashboardTile {
     @State private var delta: Double?
     @State private var loading = false
     @State private var calculationToken = UUID()
+    @State private var lastPriceUpdate: Date?
 
     private static let formatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -130,13 +81,22 @@ struct TotalValueTile: DashboardTile {
         return f
     }()
 
+    private static let stalenessFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 1
+        f.minimumFractionDigits = 1
+        f.usesGroupingSeparator = false
+        return f
+    }()
+
     init() {}
     static let tileID = "total_value"
     static let tileName = "Total Asset Value (CHF)"
     static let iconName = "francsign.circle"
 
     var body: some View {
-        DashboardCard(title: Self.tileName) {
+        DashboardCard(title: Self.tileName, minHeight: DashboardTileLayout.heroTileHeight) {
             VStack(alignment: .leading, spacing: 6) {
                 if loading {
                     ProgressView()
@@ -147,6 +107,11 @@ struct TotalValueTile: DashboardTile {
                         .minimumScaleFactor(0.5)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .foregroundColor(.ds.accentMain)
+                }
+                if let updateText = priceUpdateText {
+                    Text(updateText)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
                 if let delta = delta {
                     HStack(spacing: 6) {
@@ -185,6 +150,14 @@ struct TotalValueTile: DashboardTile {
         return .secondary
     }
 
+    private var priceUpdateText: String? {
+        if loading { return nil }
+        guard let lastPriceUpdate else { return "Updated n/a" }
+        let hours = max(0, Date().timeIntervalSince(lastPriceUpdate) / 3600)
+        let formatted = Self.stalenessFormatter.string(from: NSNumber(value: hours)) ?? String(format: "%.1f", hours)
+        return "Updated \(formatted)h ago"
+    }
+
     private func calculate(showDelta: Bool = false) {
         let baseline = showDelta ? lastComputedTotal : nil
         let token = UUID()
@@ -193,10 +166,12 @@ struct TotalValueTile: DashboardTile {
         if showDelta { delta = nil }
         DispatchQueue.global(qos: .userInitiated).async {
             let sum = computeTotal()
+            let priceUpdatedAt = dbManager.latestPriceUpdateTimestamp()
             DispatchQueue.main.async {
                 guard calculationToken == token else { return }
                 total = sum
                 lastComputedTotal = sum
+                lastPriceUpdate = priceUpdatedAt
                 if showDelta, let baseline {
                     delta = sum - baseline
                 } else {
@@ -323,10 +298,14 @@ struct ThemesOverviewTile: DashboardTile {
                 Text(Self.tileName)
                     .font(.system(size: 17, weight: .semibold))
                 Spacer()
-                if loading == false && !rows.isEmpty {
-                    Text("\(rows.count)")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Theme.primaryAccent)
+                HStack(spacing: 8) {
+                    DashboardCategoryPill(category: .allocation)
+                        .fixedSize()
+                    if loading == false && !rows.isEmpty {
+                        Text("\(rows.count)")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(Theme.primaryAccent)
+                    }
                 }
             }
             if loading {
@@ -344,7 +323,7 @@ struct ThemesOverviewTile: DashboardTile {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Text("\(r.instrumentCount)")
                                     .frame(width: 80, alignment: .trailing)
-                                Text(LargeSumFormatter.chf(r.totalValue))
+                                Text(LargeSumFormatter.chf(r.countedValue))
                                     .frame(width: 140, alignment: .trailing)
                             }
                             .font(.system(size: 13))
@@ -365,7 +344,7 @@ struct ThemesOverviewTile: DashboardTile {
         HStack {
             Text("Theme").frame(maxWidth: .infinity, alignment: .leading)
             Text("Instruments").frame(width: 80, alignment: .trailing)
-            Text("Total Value").frame(width: 140, alignment: .trailing)
+            Text("Counted Value").frame(width: 140, alignment: .trailing)
         }
         .font(.caption)
         .foregroundColor(.secondary)
@@ -380,13 +359,13 @@ struct ThemesOverviewTile: DashboardTile {
             let service = PortfolioValuationService(dbManager: dbManager, fxService: fx)
             for t in themes {
                 let snap = service.snapshot(themeId: t.id)
-                // Included total: sum of OK rows where User % > 0
-                let included = snap.rows.reduce(0.0) { acc, r in
+                // Counted total: sum of OK rows where User % > 0
+                let counted = snap.rows.reduce(0.0) { acc, r in
                     (r.userTargetPct > 0 && r.status == .ok) ? acc + r.currentValueBase : acc
                 }
-                result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, totalValue: included))
+                result.append(Row(id: t.id, name: t.name, instrumentCount: t.instrumentCount, countedValue: counted))
             }
-            result.sort { $0.totalValue > $1.totalValue }
+            result.sort { $0.countedValue > $1.countedValue }
             DispatchQueue.main.async { rows = result; loading = false }
         }
     }
@@ -399,26 +378,7 @@ struct ThemesOverviewTile: DashboardTile {
         let id: Int
         let name: String
         let instrumentCount: Int
-        let totalValue: Double
-    }
-}
-
-struct ImageTile: DashboardTile {
-    init() {}
-    static let tileID = "image"
-    static let tileName = "Image Tile"
-    static let iconName = "photo"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 100)
-                .overlay(Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundColor(.gray))
-                .cornerRadius(4)
-        }
-        .accessibilityElement(children: .combine)
+        let countedValue: Double
     }
 }
 
@@ -451,10 +411,15 @@ struct AllNotesTile: DashboardTile {
                 Text(Self.tileName)
                     .font(.system(size: 18, weight: .bold))
                 Spacer()
-                Button("Open All") { openAll = true }
-                Text(loading ? "—" : String(totalCount))
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(Theme.primaryAccent)
+                HStack(spacing: 10) {
+                    Button("Open All") { openAll = true }
+                        .buttonStyle(.link)
+                    DashboardCategoryPill(category: DashboardTileCategories.category(for: Self.tileID))
+                        .fixedSize()
+                    Text(loading ? "—" : String(totalCount))
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Theme.primaryAccent)
+                }
             }
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -684,25 +649,6 @@ private struct NoteSuggestion: Identifiable {
     var id: String { value }
 }
 
-struct MapTile: DashboardTile {
-    init() {}
-    static let tileID = "map"
-    static let tileName = "Map Tile"
-    static let iconName = "map"
-
-    var body: some View {
-        DashboardCard(title: Self.tileName) {
-            Color.gray.opacity(0.3)
-                .frame(height: 120)
-                .overlay(Image(systemName: "map")
-                    .font(.largeTitle)
-                    .foregroundColor(.gray))
-                .cornerRadius(4)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 struct MissingPricesTile: DashboardTile {
     init() {}
     static let tileID = "missing_prices"
@@ -744,14 +690,6 @@ struct MissingPricesTile: DashboardTile {
             HStack(spacing: 8) {
                 Text(Self.tileName)
                     .font(.system(size: 17, weight: .semibold))
-                Text("Warning")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.paleRed)
-                    .foregroundColor(.numberRed)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.numberRed.opacity(0.6), lineWidth: 1))
-                    .cornerRadius(10)
                 Spacer()
                 Text(items.isEmpty ? "—" : String(items.count))
                     .font(.system(size: 24, weight: .bold))
@@ -818,9 +756,6 @@ struct TileInfo {
 
 enum TileRegistry {
     static let all: [TileInfo] = [
-        TileInfo(id: ChartTile.tileID, name: ChartTile.tileName, icon: ChartTile.iconName) { AnyView(ChartTile()) },
-        TileInfo(id: ListTile.tileID, name: ListTile.tileName, icon: ListTile.iconName) { AnyView(ListTile()) },
-        TileInfo(id: MetricTile.tileID, name: MetricTile.tileName, icon: MetricTile.iconName) { AnyView(MetricTile()) },
         TileInfo(id: TotalValueTile.tileID, name: TotalValueTile.tileName, icon: TotalValueTile.iconName) { AnyView(TotalValueTile()) },
         TileInfo(id: TopPositionsTile.tileID, name: TopPositionsTile.tileName, icon: TopPositionsTile.iconName) { AnyView(TopPositionsTile()) },
         TileInfo(id: CryptoTop5Tile.tileID, name: CryptoTop5Tile.tileName, icon: CryptoTop5Tile.iconName) { AnyView(CryptoTop5Tile()) },
@@ -836,8 +771,6 @@ enum TileRegistry {
         TileInfo(id: RiskOverridesTile.tileID, name: RiskOverridesTile.tileName, icon: RiskOverridesTile.iconName) { AnyView(RiskOverridesTile()) },
         TileInfo(id: RiskBucketsTile.tileID, name: RiskBucketsTile.tileName, icon: RiskBucketsTile.iconName) { AnyView(RiskBucketsTile()) },
         TileInfo(id: TextTile.tileID, name: TextTile.tileName, icon: TextTile.iconName) { AnyView(TextTile()) },
-        TileInfo(id: ImageTile.tileID, name: ImageTile.tileName, icon: ImageTile.iconName) { AnyView(ImageTile()) },
-        TileInfo(id: MapTile.tileID, name: MapTile.tileName, icon: MapTile.iconName) { AnyView(MapTile()) },
         TileInfo(id: AccountsNeedingUpdateTile.tileID, name: AccountsNeedingUpdateTile.tileName, icon: AccountsNeedingUpdateTile.iconName) { AnyView(AccountsNeedingUpdateTile()) },
         TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
         TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) },

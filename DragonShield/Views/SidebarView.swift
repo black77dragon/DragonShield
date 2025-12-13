@@ -42,8 +42,10 @@ struct SidebarView: View {
         List {
             // 1. Dashboard Group
             DisclosureGroup("Dashboard", isExpanded: $showDashboard) {
-                NavigationLink(destination: DashboardView()) {
-                    Label("Dashboard", systemImage: "square.grid.3x3.fill")
+                NavigationLink(destination: CategorizedDashboardView()) {
+                    HStack(spacing: 8) {
+                        Label("Dashboard", systemImage: "square.grid.3x1.below.line.grid.1x2")
+                    }
                 }
                 
                 NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {

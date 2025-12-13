@@ -957,7 +957,7 @@ private struct ModernAccountRowView: View {
             HStack(spacing: 6) {
                 Image(systemName: account.includeInPortfolio ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(account.includeInPortfolio ? DSColor.accentSuccess : DSColor.textTertiary)
-                Text(account.includeInPortfolio ? "Included" : "Excluded")
+                Text(account.includeInPortfolio ? "Counted" : "Excluded")
                     .font(.system(size: fontConfig.secondary, weight: .medium))
                     .foregroundColor(account.includeInPortfolio ? DSColor.accentSuccess : DSColor.textSecondary)
             }

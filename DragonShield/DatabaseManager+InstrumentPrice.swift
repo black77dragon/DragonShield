@@ -195,4 +195,20 @@ extension DatabaseManager {
         }
         return rows
     }
+
+    func latestPriceUpdateTimestamp() -> Date? {
+        guard let db else { return nil }
+        let sql = "SELECT MAX(created_at) FROM InstrumentPrice"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            guard sqlite3_column_type(stmt, 0) != SQLITE_NULL,
+                  let raw = sqlite3_column_text(stmt, 0)
+            else { return nil }
+            let created = String(cString: raw)
+            return ISO8601DateParser.parse(created)
+        }
+        return nil
+    }
 }

@@ -43,10 +43,16 @@ enum UserDefaultsKeys {
     static let pricesMaintenanceSimplifiedColWidths = "pricesMaintenanceSimplifiedColWidths"
     /// Persist Kanban board to-do items (JSON encoded).
     static let kanbanTodos = "kanbanTodos"
-    /// Tracks migrations applied to the Dashboard tile layout.
-    static let dashboardLayoutVersion = "dashboardLayoutVersion"
     /// Tracks migrations applied to the new Dashboard tile layout (three fixed panels).
     static let newDashboardLayoutVersion = "newDashboardLayoutVersion"
     /// Persist tile order for the new Dashboard's three panels.
     static let newDashboardColumnsLayout = "newDashboardColumnsLayout"
+    /// Per-tile category overrides for the dashboard (tileID -> DashboardCategory.rawValue).
+    static let dashboardTileCategoryOverrides = "dashboardTileCategoryOverrides"
+    /// Tracks migrations applied to the categorized Dashboard layout.
+    static let categorizedDashboardLayoutVersion = "categorizedDashboardLayoutVersion"
+    /// Persist tile order for the categorized Dashboard (non-warning columns).
+    static let categorizedDashboardMainLayout = "categorizedDashboardMainLayout"
+    /// Persist pinned warning tile order for the categorized Dashboard.
+    static let categorizedDashboardWarningsLayout = "categorizedDashboardWarningsLayout"
 }

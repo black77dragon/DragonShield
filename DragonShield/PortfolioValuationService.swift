@@ -31,6 +31,14 @@ struct ValuationSnapshot {
     let excludedFxCount: Int
     let missingCurrencies: [String]
     let excludedPriceCount: Int
+
+    /// Sums only holdings that are included (user target > 0) and valued successfully.
+    var includedTotalValueBase: Double {
+        rows.reduce(0) { acc, row in
+            guard row.status == .ok, row.userTargetPct > 0 else { return acc }
+            return acc + row.currentValueBase
+        }
+    }
 }
 
 final class PortfolioValuationService {
@@ -170,6 +178,7 @@ struct PortfolioRiskBucket: Identifiable {
     let bucket: Int
     let valueBase: Double
     let weight: Double
+    let count: Int
     var id: Int { bucket }
 }
 
@@ -182,6 +191,11 @@ struct PortfolioRiskInstrumentContribution: Identifiable {
     let weight: Double
     let blendedScore: Double
     let usedFallback: Bool
+    let manualOverride: Bool
+    let overrideExpiresAt: Date?
+    let valuationStatus: ValuationStatus
+    let mappingVersion: String?
+    let calcMethod: String?
 }
 
 enum PortfolioRiskCategory: String {
@@ -207,6 +221,16 @@ struct PortfolioRiskSnapshot {
     let excludedFxCount: Int
     let excludedPriceCount: Int
     let missingRiskCount: Int
+    let overrideSummary: PortfolioRiskOverrideSummary
+    let highRiskShare: Double
+    let illiquidShare: Double
+}
+
+struct PortfolioRiskOverrideSummary {
+    var active: Int
+    var expiringSoon: Int
+    var expired: Int
+    var total: Int { active + expiringSoon + expired }
 }
 
 /// Scores portfolio risk by value-weighting instrument SRI and a liquidity premium.
@@ -227,10 +251,13 @@ final class PortfolioRiskScoringService {
         let total = valuation.totalValueBase
         var sriTotals: [Int: Double] = [:]
         var liquidityTotals: [Int: Double] = [:]
+        var sriCounts: [Int: Int] = [:]
+        var liquidityCounts: [Int: Int] = [:]
         var weightedSRI = 0.0
         var weightedLiquidityPremium = 0.0
         var missingRisk = 0
         var instrumentRows: [PortfolioRiskInstrumentContribution] = []
+        var overrideSummary = PortfolioRiskOverrideSummary(active: 0, expiringSoon: 0, expired: 0)
 
         guard total > 0 else {
             return PortfolioRiskSnapshot(
@@ -248,20 +275,36 @@ final class PortfolioRiskScoringService {
                 instruments: [],
                 excludedFxCount: valuation.excludedFxCount,
                 excludedPriceCount: valuation.excludedPriceCount,
-                missingRiskCount: 0
+                missingRiskCount: 0,
+                overrideSummary: overrideSummary,
+                highRiskShare: 0,
+                illiquidShare: 0
             )
         }
 
-        for row in valuation.rows where row.status == .ok && row.currentValueBase > 0 {
+        for row in valuation.rows {
             let risk = resolveRisk(instrumentId: row.instrumentId)
             if risk.usedFallback { missingRisk += 1 }
 
-            let weight = row.currentValueBase / total
-            weightedSRI += weight * Double(risk.sri)
-            weightedLiquidityPremium += weight * risk.liquidityPenalty
+            let included = row.status == .ok && row.currentValueBase > 0
+            let weight = included ? row.currentValueBase / total : 0
+            if included {
+                weightedSRI += weight * Double(risk.sri)
+                weightedLiquidityPremium += weight * risk.liquidityPenalty
 
-            sriTotals[risk.sri, default: 0] += row.currentValueBase
-            liquidityTotals[risk.liquidityTier, default: 0] += row.currentValueBase
+                sriTotals[risk.sri, default: 0] += row.currentValueBase
+                liquidityTotals[risk.liquidityTier, default: 0] += row.currentValueBase
+                sriCounts[risk.sri, default: 0] += 1
+                liquidityCounts[risk.liquidityTier, default: 0] += 1
+            }
+
+            if risk.manualOverride {
+                switch overrideStatus(for: risk.overrideExpiresAt) {
+                case .active: overrideSummary.active += 1
+                case .expiringSoon: overrideSummary.expiringSoon += 1
+                case .expired: overrideSummary.expired += 1
+                }
+            }
 
             let blended = min(7.0, Double(risk.sri) + risk.liquidityPenalty)
             instrumentRows.append(
@@ -273,20 +316,27 @@ final class PortfolioRiskScoringService {
                     valueBase: row.currentValueBase,
                     weight: weight,
                     blendedScore: blended,
-                    usedFallback: risk.usedFallback
+                    usedFallback: risk.usedFallback,
+                    manualOverride: risk.manualOverride,
+                    overrideExpiresAt: risk.overrideExpiresAt,
+                    valuationStatus: row.status,
+                    mappingVersion: risk.mappingVersion,
+                    calcMethod: risk.calcMethod
                 )
             )
         }
 
         let bucketsSRI = sriTotals.map { key, value in
-            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total)
+            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total, count: sriCounts[key, default: 0])
         }.sorted { $0.bucket < $1.bucket }
 
         let bucketsLiquidity = liquidityTotals.map { key, value in
-            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total)
+            PortfolioRiskBucket(bucket: key, valueBase: value, weight: value / total, count: liquidityCounts[key, default: 0])
         }.sorted { $0.bucket < $1.bucket }
 
         let blendedScore = clampScore(weightedSRI + weightedLiquidityPremium)
+        let highRiskShare = instrumentRows.filter { $0.weight > 0 && $0.sri >= 6 }.reduce(0.0) { $0 + $1.weight }
+        let illiquidShare = instrumentRows.filter { $0.weight > 0 && $0.liquidityTier >= 2 }.reduce(0.0) { $0 + $1.weight }
 
         return PortfolioRiskSnapshot(
             themeId: themeId,
@@ -303,7 +353,10 @@ final class PortfolioRiskScoringService {
             instruments: instrumentRows.sorted { $0.weight > $1.weight },
             excludedFxCount: valuation.excludedFxCount,
             excludedPriceCount: valuation.excludedPriceCount,
-            missingRiskCount: missingRisk
+            missingRiskCount: missingRisk,
+            overrideSummary: overrideSummary,
+            highRiskShare: highRiskShare,
+            illiquidShare: illiquidShare
         )
     }
 
@@ -312,18 +365,40 @@ final class PortfolioRiskScoringService {
         let liquidityTier: Int
         let liquidityPenalty: Double
         let usedFallback: Bool
+        let manualOverride: Bool
+        let overrideExpiresAt: Date?
+        let mappingVersion: String?
+        let calcMethod: String?
     }
 
     private func resolveRisk(instrumentId: Int) -> InstrumentRiskInputs {
         if let profile = dbManager.fetchRiskProfile(instrumentId: instrumentId) {
             let sri = dbManager.coerceSRI(profile.effectiveSRI)
             let tier = dbManager.coerceLiquidityTier(profile.effectiveLiquidityTier)
-            return InstrumentRiskInputs(sri: sri, liquidityTier: tier, liquidityPenalty: liquidityPenalty(for: tier), usedFallback: false)
+            return InstrumentRiskInputs(
+                sri: sri,
+                liquidityTier: tier,
+                liquidityPenalty: liquidityPenalty(for: tier),
+                usedFallback: false,
+                manualOverride: profile.manualOverride,
+                overrideExpiresAt: profile.overrideExpiresAt,
+                mappingVersion: profile.mappingVersion,
+                calcMethod: profile.calcMethod
+            )
         }
 
         guard let details = dbManager.fetchInstrumentDetails(id: instrumentId) else {
             // Fallback to conservative defaults when the instrument cannot be resolved.
-            return InstrumentRiskInputs(sri: 5, liquidityTier: 1, liquidityPenalty: liquidityPenalty(for: 1), usedFallback: true)
+            return InstrumentRiskInputs(
+                sri: 5,
+                liquidityTier: 1,
+                liquidityPenalty: liquidityPenalty(for: 1),
+                usedFallback: true,
+                manualOverride: false,
+                overrideExpiresAt: nil,
+                mappingVersion: nil,
+                calcMethod: nil
+            )
         }
 
         let defaults = dbManager.riskDefaults(for: details.subClassId)
@@ -332,7 +407,11 @@ final class PortfolioRiskScoringService {
             sri: dbManager.coerceSRI(defaults.sri),
             liquidityTier: tier,
             liquidityPenalty: liquidityPenalty(for: tier),
-            usedFallback: true
+            usedFallback: true,
+            manualOverride: false,
+            overrideExpiresAt: nil,
+            mappingVersion: defaults.mappingVersion,
+            calcMethod: defaults.calcMethod
         )
     }
 
@@ -353,5 +432,20 @@ final class PortfolioRiskScoringService {
         if score <= 4.0 { return .moderate }
         if score <= 5.5 { return .elevated }
         return .high
+    }
+
+    private enum OverrideStatus {
+        case active
+        case expiringSoon
+        case expired
+    }
+
+    private func overrideStatus(for expiresAt: Date?) -> OverrideStatus {
+        guard let expires = expiresAt else { return .active }
+        if expires < Date() { return .expired }
+        if let soon = Calendar.current.date(byAdding: .day, value: 30, to: Date()), expires < soon {
+            return .expiringSoon
+        }
+        return .active
     }
 }

@@ -6,6 +6,7 @@ import SwiftUI
 struct TilePickerView: View {
     @Binding var tileIDs: [String]
     @Environment(\.dismiss) private var dismiss
+    @State private var categoryOverrides: [String: DashboardCategory] = DashboardTileCategories.currentOverrides()
 
     var body: some View {
         // Use a VStack for a simple, clean layout.
@@ -25,8 +26,30 @@ struct TilePickerView: View {
                 // This resolves both compiler errors.
                 List {
                     ForEach(TileRegistry.all, id: \.id) { tile in
-                        Toggle(isOn: binding(for: tile.id)) {
-                            Label(tile.name, systemImage: tile.icon)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Toggle(isOn: binding(for: tile.id)) {
+                                    Label(tile.name, systemImage: tile.icon)
+                                }
+                                Spacer()
+                                Menu {
+                                    ForEach(DashboardCategory.allCases.filter { $0 != .all }) { category in
+                                        Button {
+                                            setCategory(category, for: tile.id)
+                                        } label: {
+                                            Label(category.displayName, systemImage: categoryIcon(for: category))
+                                        }
+                                    }
+                                } label: {
+                                    Label("Assign Category", systemImage: "tag")
+                                }
+                                .menuStyle(.borderlessButton)
+                                .fixedSize()
+                                .help("Assign this tile to a category")
+                            }
+                            Text("Category: \(categoryLabel(for: tile.id))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -60,5 +83,28 @@ struct TilePickerView: View {
                 tileIDs.removeAll { $0 == id }
             }
         }
+    }
+
+    private func categoryLabel(for id: String) -> String {
+        let override = categoryOverrides[id]
+        let base = DashboardTileCategories.baseCategory(for: id)
+        let category = override ?? base
+        return override == nil ? category.displayName : "\(category.displayName) (custom)"
+    }
+
+    private func categoryIcon(for category: DashboardCategory) -> String {
+        switch category {
+        case .overview: return "rectangle.grid.2x2"
+        case .allocation: return "chart.pie"
+        case .risk: return "shield.lefthalf.filled"
+        case .warningsAlerts: return "exclamationmark.triangle"
+        case .general: return "square.grid.3x3"
+        case .all: return "asterisk"
+        }
+    }
+
+    private func setCategory(_ category: DashboardCategory, for id: String) {
+        categoryOverrides[id] = category
+        DashboardTileCategories.setOverride(tileID: id, category: category)
     }
 }

@@ -28,6 +28,34 @@ final class ValuationTotalsRowTests: XCTestCase {
         return manager
     }
 
+    private func setupDbWithExcludedHolding() -> DatabaseManager {
+        let manager = DatabaseManager()
+        var db: OpaquePointer?
+        sqlite3_open(":memory:", &db)
+        manager.db = db
+        manager.baseCurrency = "CHF"
+        let sql = """
+        CREATE TABLE PortfolioThemeStatus (id INTEGER PRIMARY KEY, code TEXT, name TEXT, color_hex TEXT, is_default INTEGER);
+        INSERT INTO PortfolioThemeStatus VALUES (1,'ACTIVE','Active','#fff',1);
+        CREATE TABLE PortfolioTheme (id INTEGER PRIMARY KEY, name TEXT, code TEXT, status_id INTEGER, archived_at TEXT, soft_delete INTEGER DEFAULT 0);
+        INSERT INTO PortfolioTheme VALUES (1,'Core','CORE',1,NULL,0);
+        CREATE TABLE PortfolioThemeAsset (theme_id INTEGER, instrument_id INTEGER, research_target_pct REAL, user_target_pct REAL, rwk_set_target_chf REAL, notes TEXT, PRIMARY KEY(theme_id,instrument_id));
+        INSERT INTO PortfolioThemeAsset VALUES (1,1,50,0,NULL,NULL);
+        INSERT INTO PortfolioThemeAsset VALUES (1,2,50,50,NULL,NULL);
+        CREATE TABLE Instruments (instrument_id INTEGER PRIMARY KEY, instrument_name TEXT, currency TEXT);
+        INSERT INTO Instruments VALUES (1,'Cash Drag','CHF');
+        INSERT INTO Instruments VALUES (2,'Core Equity','CHF');
+        CREATE TABLE PositionReports (position_id INTEGER PRIMARY KEY AUTOINCREMENT, import_session_id INTEGER, instrument_id INTEGER, quantity REAL, current_price REAL, report_date TEXT);
+        INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (1,1,5,10,'2025-08-20T14:05:00Z');
+        INSERT INTO PositionReports (import_session_id,instrument_id,quantity,current_price,report_date) VALUES (1,2,5,20,'2025-08-20T14:05:00Z');
+        CREATE TABLE InstrumentPriceLatest (instrument_id INTEGER PRIMARY KEY, price REAL, price_date TEXT, currency TEXT);
+        INSERT INTO InstrumentPriceLatest VALUES (1,10,'2025-08-20T14:00:00Z','CHF');
+        INSERT INTO InstrumentPriceLatest VALUES (2,20,'2025-08-20T14:00:00Z','CHF');
+        """
+        sqlite3_exec(db, sql, nil, nil, nil)
+        return manager
+    }
+
     func testTotalsPctIs100WhenRowsIncluded() {
         let manager = setupDb(withPositions: true)
         let fxService = FXConversionService(dbManager: manager)
@@ -45,6 +73,16 @@ final class ValuationTotalsRowTests: XCTestCase {
         let snap = service.snapshot(themeId: 1)
         let totalPct = snap.rows.contains { $0.status == .ok } ? 100.0 : 0.0
         XCTAssertEqual(totalPct, 0.0)
+        sqlite3_close(manager.db)
+    }
+
+    func testIncludedTotalExcludesZeroUserTargets() {
+        let manager = setupDbWithExcludedHolding()
+        let fxService = FXConversionService(dbManager: manager)
+        let service = PortfolioValuationService(dbManager: manager, fxService: fxService)
+        let snap = service.snapshot(themeId: 1)
+        XCTAssertEqual(snap.totalValueBase, 150, accuracy: 0.01)
+        XCTAssertEqual(snap.includedTotalValueBase, 100, accuracy: 0.01)
         sqlite3_close(manager.db)
     }
 }

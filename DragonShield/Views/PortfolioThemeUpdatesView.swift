@@ -226,7 +226,7 @@ struct PortfolioThemeUpdatesView: View {
             map[upd.id] = UpdateExtras(links: links, attachments: atts)
         }
         extras = map
-        if let theme = dbManager.getPortfolioTheme(id: themeId) {
+        if let theme = dbManager.getPortfolioTheme(id: themeId, includeSoftDeleted: true) {
             themeName = theme.name
             isArchived = (theme.archivedAt != nil) || theme.softDelete
         }

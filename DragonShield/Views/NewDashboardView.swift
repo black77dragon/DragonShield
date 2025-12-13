@@ -114,11 +114,11 @@ struct DashboardView: View {
     private func headerSection(width: CGFloat) -> some View {
         HStack(alignment: .top, spacing: Layout.columnSpacing) {
             TotalValueTile()
-                .frame(width: width, alignment: .top)
+                .frame(width: width, alignment: .topLeading)
             InstrumentDashboardTile()
-                .frame(width: width, alignment: .top)
+                .frame(width: width, alignment: .topLeading)
             CurrentDateTile()
-                .frame(width: width, alignment: .top)
+                .frame(width: width, alignment: .topLeading)
         }
         .padding(Layout.headerPadding)
         .background(
@@ -472,7 +472,7 @@ private struct CurrentDateTile: View {
     private let now = Date()
 
     var body: some View {
-        DashboardCard(title: "Today") {
+        DashboardCard(title: "Today", minHeight: DashboardTileLayout.heroTileHeight) {
             Text(Self.formatter.string(from: now))
                 .font(.system(size: 24, weight: .bold))
                 .frame(maxWidth: .infinity, alignment: .leading)
