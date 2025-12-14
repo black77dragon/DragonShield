@@ -1723,6 +1723,25 @@ struct PortfolioThemeWorkspaceView: View {
                     }
                     Spacer()
                 }
+                // Permanent delete (only available when there are zero holdings)
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Delete Portfolio").frame(width: labelWidth, alignment: .leading)
+                    Button(role: .destructive) { attemptHardDelete() } label: {
+                        Label("Delete Portfolio", systemImage: "trash")
+                    }
+                    .disabled(hasHoldings)
+                    .help(hasHoldings ? "Remove all holdings before deleting." : "This permanently deletes the portfolio.")
+                    if hasHoldings {
+                        Text("Remove all holdings first (\(instrumentCountDisplay) present).")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Irreversible action.")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                    Spacer()
+                }
             }
         }
         .formStyle(.grouped)
@@ -1736,10 +1755,26 @@ struct PortfolioThemeWorkspaceView: View {
             Button("Soft Delete", role: .destructive) { performSoftDelete() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("This hides the theme from lists. Restore via recycle bin only.") }
+        .alert("Cannot delete portfolio", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { newVal in if !newVal { deleteErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteErrorMessage = nil }
+        } message: {
+            Text(deleteErrorMessage ?? "")
+        }
+        .alert("Delete portfolio permanently?", isPresented: $confirmHardDelete) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Permanently", role: .destructive) { performHardDelete() }
+        } message: {
+            Text("This action is irreversible and will permanently delete this portfolio and its metadata.")
+        }
     }
 
     @State private var confirmArchive = false
     @State private var confirmSoftDelete = false
+    @State private var confirmHardDelete = false
+    @State private var deleteErrorMessage: String? = nil
 
     private func performArchive() {
         if dbManager.archivePortfolioTheme(id: themeId) {
@@ -1759,6 +1794,29 @@ struct PortfolioThemeWorkspaceView: View {
         if dbManager.softDeletePortfolioTheme(id: themeId) {
             loadTheme()
             dismiss()
+        }
+    }
+    private var hasHoldings: Bool { instrumentCountDisplay > 0 }
+
+    private func attemptHardDelete() {
+        if hasHoldings {
+            deleteErrorMessage = "Delete is disabled while holdings remain in this portfolio."
+            return
+        }
+        let guardResult = dbManager.canHardDeletePortfolioTheme(id: themeId)
+        if guardResult.ok {
+            confirmHardDelete = true
+        } else {
+            deleteErrorMessage = guardResult.reason
+        }
+    }
+
+    private func performHardDelete() {
+        if dbManager.hardDeletePortfolioTheme(id: themeId) {
+            dismiss()
+        } else {
+            deleteErrorMessage = "Delete failed. Ensure linked holdings, notes, or updates are cleared."
+            loadTheme()
         }
     }
 

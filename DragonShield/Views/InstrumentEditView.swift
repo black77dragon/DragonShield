@@ -70,6 +70,11 @@ struct InstrumentEditView: View {
     @State private var riskOverrideReason: String = ""
     @State private var riskOverrideExpiryEnabled: Bool = false
     @State private var riskOverrideExpiry: Date = .init()
+    @State private var originalRiskManualOverride: Bool = false
+    @State private var originalRiskOverrideSRI: Int = 5
+    @State private var originalRiskOverrideLiquidity: Int = 1
+    @State private var originalRiskOverrideReason: String = ""
+    @State private var originalRiskOverrideExpiry: Date? = nil
     @State private var riskStatusMessage: String?
     private let riskColors: [Color] = [
         Color.green.opacity(0.7),
@@ -106,13 +111,21 @@ struct InstrumentEditView: View {
     // MARK: - Change Detection
 
     private func detectChanges() {
+        let trimmedReason = riskOverrideReason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let originalTrimmedReason = originalRiskOverrideReason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentExpiry = riskOverrideExpiryEnabled ? riskOverrideExpiry : nil
         hasChanges = instrumentName != originalName ||
             selectedGroupId != originalGroupId ||
             currency != originalCurrency ||
             tickerSymbol != originalTickerSymbol ||
             isin != originalIsin ||
             valorNr != originalValorNr ||
-            sector != originalSector
+            sector != originalSector ||
+            riskManualOverride != originalRiskManualOverride ||
+            riskOverrideSRI != originalRiskOverrideSRI ||
+            riskOverrideLiquidity != originalRiskOverrideLiquidity ||
+            trimmedReason != originalTrimmedReason ||
+            currentExpiry != originalRiskOverrideExpiry
     }
 
     // MARK: - Computed Properties
@@ -448,9 +461,11 @@ struct InstrumentEditView: View {
                             .toggleStyle(.switch)
                             .onChange(of: riskManualOverride) { _, _ in
                                 riskStatusMessage = nil
+                                detectChanges()
                             }
                         if riskManualOverride {
                             Stepper("Override SRI: \(riskOverrideSRI)", value: $riskOverrideSRI, in: 1 ... 7)
+                                .onChange(of: riskOverrideSRI) { _, _ in detectChanges() }
                             HStack(spacing: 8) {
                                 riskBadge(riskOverrideSRI)
                                 Text(riskShortDescription(riskOverrideSRI))
@@ -463,11 +478,15 @@ struct InstrumentEditView: View {
                                 Text("Illiquid").tag(2)
                             }
                             .pickerStyle(SegmentedPickerStyle())
+                            .onChange(of: riskOverrideLiquidity) { _, _ in detectChanges() }
                             TextField("Reason (optional)", text: $riskOverrideReason)
                                 .textFieldStyle(.roundedBorder)
+                                .onChange(of: riskOverrideReason) { _, _ in detectChanges() }
                             Toggle("Set expiry", isOn: $riskOverrideExpiryEnabled)
+                                .onChange(of: riskOverrideExpiryEnabled) { _, _ in detectChanges() }
                             if riskOverrideExpiryEnabled {
                                 DatePicker("Override expires", selection: $riskOverrideExpiry, displayedComponents: .date)
+                                    .onChange(of: riskOverrideExpiry) { _, _ in detectChanges() }
                             }
                         } else {
                             Text("Using computed values from mapping \(riskProfile?.mappingVersion ?? "—")")
@@ -912,6 +931,14 @@ struct InstrumentEditView: View {
         loadRiskProfile()
     }
 
+    private func storeRiskBaseline() {
+        originalRiskManualOverride = riskManualOverride
+        originalRiskOverrideSRI = riskOverrideSRI
+        originalRiskOverrideLiquidity = riskOverrideLiquidity
+        originalRiskOverrideReason = riskOverrideReason.trimmingCharacters(in: .whitespacesAndNewlines)
+        originalRiskOverrideExpiry = riskOverrideExpiryEnabled ? riskOverrideExpiry : nil
+    }
+
     private func loadRiskProfile() {
         if let profile = dbManager.fetchRiskProfile(instrumentId: instrumentId) {
             riskProfile = profile
@@ -931,6 +958,8 @@ struct InstrumentEditView: View {
                 riskOverrideExpiryEnabled = false
             }
         }
+        storeRiskBaseline()
+        detectChanges()
     }
 
     private func saveRiskProfile() {
@@ -1275,6 +1304,12 @@ struct InstrumentEditView: View {
         let tick = tickerSymbol.isEmpty ? nil : tickerSymbol.uppercased()
         let i = isin.isEmpty ? nil : isin.uppercased()
         let sec = sector.isEmpty ? nil : sector
+        let riskManual = riskManualOverride
+        let riskSRI = riskOverrideSRI
+        let riskLiquidity = riskOverrideLiquidity
+        let riskReason = riskOverrideReason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let riskExpiry = (riskManualOverride && riskOverrideExpiryEnabled) ? riskOverrideExpiry : nil
+        let riskBy = NSFullUserName()
 
         DispatchQueue.global(qos: .userInitiated).async {
             print("📝 [InstrumentEditView] executing updateInstrument in background...")
@@ -1290,10 +1325,24 @@ struct InstrumentEditView: View {
             )
             print("📝 [InstrumentEditView] updateInstrument result: \(success)")
 
+            var riskSaved = true
+            if success {
+                riskSaved = self.dbManager.updateRiskProfileOverride(
+                    instrumentId: id,
+                    subClassId: grpId,
+                    manualOverride: riskManual,
+                    overrideSRI: riskManual ? riskSRI : nil,
+                    overrideLiquidityTier: riskManual ? riskLiquidity : nil,
+                    overrideReason: riskManual ? riskReason : nil,
+                    overrideBy: riskBy,
+                    overrideExpiresAt: riskExpiry
+                )
+            }
+
             DispatchQueue.main.async {
                 self.isLoading = false
 
-                if success {
+                if success && riskSaved {
                     print("✅ [InstrumentEditView] Save successful. Updating state and dismissing.")
                     // Update original values to reflect saved state
                     self.originalName = self.instrumentName
@@ -1302,6 +1351,7 @@ struct InstrumentEditView: View {
                     self.originalTickerSymbol = self.tickerSymbol
                     self.originalIsin = self.isin
                     self.originalSector = self.sector
+                    self.storeRiskBaseline()
                     self.detectChanges()
 
                     NotificationCenter.default.post(name: NSNotification.Name("RefreshPortfolio"), object: nil)
@@ -1312,7 +1362,11 @@ struct InstrumentEditView: View {
                     self.animateExit()
                 } else {
                     print("❌ [InstrumentEditView] Save failed.")
-                    self.alertMessage = "❌ Failed to update instrument. Please try again."
+                    if !success {
+                        self.alertMessage = "❌ Failed to update instrument. Please try again."
+                    } else {
+                        self.alertMessage = "❌ Instrument saved but risk override failed. Please retry."
+                    }
                     self.showingAlert = true
                 }
             }

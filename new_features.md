@@ -10,29 +10,9 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- [*] [bugs] **[DS-056] Fix Portfolio Total Tal Column Uses Excluded Sum**
-    Why: In the Portfolio View, the "Total Tal (CHF)" column currently shows the total value including excluded amounts, misleading users about the included portfolio value.
-    What: Update the "Total Tal (CHF)" column to display only the included total value in CHF (excluding excluded sums), keeping formatting consistent with other monetary columns.
-
-- [ ] [new_features] **[DS-055] Add Irreversible Portfolio Delete in Danger Zone (No Holdings Only)**
-    Why: Users need a safe way to permanently remove empty portfolios while preventing accidental deletion of portfolios that still contain holdings.
-    What: In the Portfolio Danger Zone, add a "Delete Portfolio" action that is only enabled when the portfolio has zero holdings; trigger a confirmation popup that clearly states the deletion is permanent/irreversible and requires explicit user confirmation before proceeding.
-
-- [ ] [new_features] **[DS-051] Add Risk Management to iOS App**
-    Why: Mobile users currently lack risk management screens and reports available on desktop, limiting their ability to review and act on risk while away from a workstation.
-    What: Bring the Risk Management functionality to the iOS app, including navigation entry, risk maintenance views, and risk reports (risk score, SRI/liquidity distributions, overrides) with parity to desktop interactions and formatting.
-
-- [ ] [new_features] **[DS-028] Drill-Through to Instrument Maintenance from Risk Report**
-    Why: Analysts need to jump from Risk Report drilldowns directly into instrument maintenance to review or adjust details without leaving context.
-    What: In the Risk Report GUI, when detailed instrument lists are shown in SRI Distribution, SRI Distribution (Value), and Liquidity sections, make each instrument row clickable and open the Instrument Maintenance GUI for that instrument.
-
 - [ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**
     Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
     What: Implement PRIIPs-style volatility fallback bucketing when mapping is missing; mark profiles using fallbacks and expose unmapped/stale flags (`recalc_due_at`, missing inputs) in the Risk Report, Maintenance GUI, and instrument detail; default conservative values when data is absent (e.g., SRI 5, liquidity Restricted).
-
-- [ ] [new_features] **[DS-034] Override Governance Cues (Read-Only Surfaces)**
-    Why: Users need visibility into manual overrides outside the edit screens.
-    What: In dashboards, Risk Report, and instrument read-only contexts, display override badges with computed vs. override values, who/when/expiry, and highlight expiring/expired overrides; include jump-to-maintenance links where applicable.
 
 - [ ] [changes] **[DS-048] Review Ichimoku Cloud Implementation**
     Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
@@ -45,6 +25,30 @@ This document serves as a central backlog for all pending changes, new features,
     Why: The "Order" column is unused and should be removed to simplify the schema. What: Add a database migration to remove the "Order" column from the Asset Class table and update related models/ORM mappings and queries accordingly.
 
 ## Implemented
+
+- [x] [new_features] **[DS-051] Add Risk Management to iOS App** (2025-12-14)
+    Why: Mobile users currently lack risk management screens and reports available on desktop, limiting their ability to review and act on risk while away from a workstation.
+    What: Bring the Risk Management functionality to the iOS app, including navigation entry, risk maintenance views, and risk reports (risk score, SRI/liquidity distributions, overrides) with parity to desktop interactions and formatting.
+
+- [x] [bugs] **[DS-059] Align Risk Report Portfolio Risk Score with Dashboard** (2025-12-14)
+    Why: The Risk Report shows a different portfolio risk score than the dashboard because it uses raw import prices without FX and ignores the liquidity premium/clamp.
+    What: Recompute the Risk Report portfolio score using latest prices converted to base currency, apply the same SRI + liquidity premium logic as the dashboard (clamped 1–7), and keep totals/percentages in sync with the dashboard snapshot.
+
+- [x] [new_features] **[DS-058] Add Exposure Heatmap to Risk Report GUI** (2025-12-14)
+    Why: Risk reviewers need a visual that highlights allocation concentration by segment with both percentage of total asset value and CHF amounts so they can spot hot spots quickly.
+    What: Add an exposure heatmap panel to the Risk Report GUI showing each segment’s percentage share of total asset value and the corresponding CHF value; align segments with the existing risk categories, and include clear labels/legend so both % and CHF figures are visible in the heatmap.
+
+- [x] [changes] **[DS-057] Remove Trends Graph from Risk Report GUI** (2025-12-14)
+    Why: The Trends graph in the Risk Report is unused and consumes space that should highlight the actionable risk visuals.
+    What: Remove the Trends graph panel (chart, title, legend, and related controls) from the Risk Report GUI; reflow remaining cards/sections so there is no empty gap, and ensure no dead menu entries or links still point to the removed graph.
+
+- [x] [new_features] **[DS-055] Add Irreversible Portfolio Delete in Danger Zone (No Holdings Only)** (2025-12-14)
+    Why: Users need a safe way to permanently remove empty portfolios while preventing accidental deletion of portfolios that still contain holdings.
+    What: In the Portfolio Danger Zone, add a "Delete Portfolio" action that is only enabled when the portfolio has zero holdings; trigger a confirmation popup that clearly states the deletion is permanent/irreversible and requires explicit user confirmation before proceeding.
+
+- [x] [bugs] **[DS-056] Fix Portfolio Total Tal Column Uses Excluded Sum** (2025-12-13)
+    Why: In the Portfolio View, the "Total Tal (CHF)" column currently shows the total value including excluded amounts, misleading users about the included portfolio value.
+    What: Update the "Total Tal (CHF)" column to display only the included total value in CHF (excluding excluded sums), keeping formatting consistent with other monetary columns.
 
 - [x] [bugs] **[DS-054] Fix Soft Deleted/Archived Theme Toggles in Portfolio Settings** (2025-12-13)
     Why: In the Portfolio View settings tab, the "Soft Deleted" and "Archived" theme buttons can be clicked but do not show their active state, leaving users unsure whether the filters are applied.
@@ -134,6 +138,10 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Users need to spot risk hot spots quickly and know where to act.
     What: Add graphical diagrams to the Risk Report: SRI distribution and allocation as donuts/bars with clickable slices; liquidity tiers as a donut with drill-down; a heatmap of top exposures vs. risk buckets; and a panel highlighting overrides/expiries with jump-to instrument actions.
 
+- [x] [new_features] **[DS-028] Drill-Through to Instrument Maintenance from Risk Report** (2025-12-14)
+    Why: Analysts need to jump from Risk Report drilldowns directly into instrument maintenance to review or adjust details without leaving context.
+    What: In the Risk Report GUI, when detailed instrument lists are shown in SRI Distribution, SRI Distribution (Value), and Liquidity sections, make each instrument row clickable and open the Instrument Maintenance GUI for that instrument.
+
 - [x] [new_features] **[DS-036] Portfolio Risks Tab with Instrument Breakdown**
     Why: Portfolio maintenance needs a dedicated risk view.
     What: Add a "Risks" tab in Portfolio Maintenance showing the portfolio risk score (from DS-032), the distribution of instruments by SRI/liquidity (count and value), and a table of constituents with their SRI, liquidity tier, and weighted contribution; allow sorting and export.
@@ -148,7 +156,7 @@ This document serves as a central backlog for all pending changes, new features,
 - [x] [changes] **[DS-022] Sort Instruments by Prices As Of in Update Prices Window**
     Why: Users want to quickly find the most recent prices when updating accounts. What: In the "Update Prices in Account" GUI, sort the instrument list by the "Prices As Of" column (most recent first) so the freshest data is surfaced by default.
 
-- [x] [changes] **[DS-020] Show Current Price & Date in Update Prices Window**
+- [x] [changes] **[DS-020] Show Current Price & Date in Update Prices Window** (2025-12-14)
     Why: Users need context on the existing recorded price before applying updates so they can confirm they are overwriting the right value. What: In the "Update Prices in Account" window, display the current price and its date as greyed-out, read-only information (no edits allowed) alongside the update fields, ensuring the values reflect the selected instrument/account.
 
 - [x] [new_features] **[DS-023] Add Asset Management Report to iOS**
@@ -202,6 +210,10 @@ This document serves as a central backlog for all pending changes, new features,
     Replace existing logo assets with the latest DragonShield branding and ensure the updated logo appears consistently in the app icon, splash/loading screens, and primary navigation.
 
 ## Postponed Features
+
+- [ ] [new_features] **[DS-034] Override Governance Cues (Read-Only Surfaces)**
+    Why: Users need visibility into manual overrides outside the edit screens.
+    What: In dashboards, Risk Report, and instrument read-only contexts, display override badges with computed vs. override values, who/when/expiry, and highlight expiring/expired overrides; include jump-to-maintenance links where applicable.
 
 - [ ] [changes] **[DS-006] Harmonize Price Maintenance View**
     Upgrade `PriceMaintenanceSimplifiedView.swift` to use the Design System. This is a data-heavy view, so focus on readability and table styling.
