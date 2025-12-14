@@ -77,7 +77,7 @@ extension DatabaseManager {
             _ = sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_instrument_note_theme ON InstrumentNote(theme_id, created_at DESC);", nil, nil, nil)
         }
 
-        if tableExists("InstrumentNoteContext") {
+        if tableExistsSafe("InstrumentNoteContext") {
             if sqlite3_exec(db, "DROP TABLE IF EXISTS InstrumentNoteContext;", nil, nil, nil) != SQLITE_OK {
                 LoggingService.shared.log("drop InstrumentNoteContext failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             }
@@ -85,8 +85,8 @@ extension DatabaseManager {
     }
 
     private func migrateLegacyInstrumentUpdates() {
-        guard tableExists("PortfolioThemeAssetUpdate"),
-              tableExists("InstrumentNote"),
+        guard tableExistsSafe("PortfolioThemeAssetUpdate"),
+              tableExistsSafe("InstrumentNote"),
               singleIntQuery("SELECT COUNT(*) FROM InstrumentNote") == 0 else { return }
 
         LoggingService.shared.log("Migrating legacy PortfolioThemeAssetUpdate records into InstrumentNote", logger: .database)
@@ -422,6 +422,14 @@ extension DatabaseManager {
         }
         sqlite3_finalize(stmt)
         return results
+    }
+
+    private func tableExistsSafe(_ name: String) -> Bool {
+        #if os(iOS)
+            return tableExistsIOS(name)
+        #else
+            return tableExists(name)
+        #endif
     }
 }
 

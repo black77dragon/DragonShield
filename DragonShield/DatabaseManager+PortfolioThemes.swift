@@ -179,14 +179,22 @@ extension DatabaseManager {
         return exists
     }
 
+    private func tableExistsSafe(_ name: String) -> Bool {
+        #if os(iOS)
+            return tableExistsIOS(name)
+        #else
+            return tableExists(name)
+        #endif
+    }
+
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
-        guard tableExists("PortfolioTheme") else {
+        guard tableExistsSafe("PortfolioTheme") else {
             LoggingService.shared.log("PortfolioTheme table missing in database — returning empty list", type: .info, logger: .database)
             return []
         }
         // Optional: avoid prepare error if asset table is absent in snapshot
-        let hasAssetTable = tableExists("PortfolioThemeAsset")
+        let hasAssetTable = tableExistsSafe("PortfolioThemeAsset")
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
         let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
         let hasArchivedAt = tableHasColumn(table: "PortfolioTheme", column: "archived_at")

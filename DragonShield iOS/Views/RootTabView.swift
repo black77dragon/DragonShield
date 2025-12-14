@@ -17,6 +17,8 @@
                     .tabItem { Label("Instruments", systemImage: "list.bullet") }
                 NavigationStack { ReportsMenuView() }
                     .tabItem { Label("Reports", systemImage: "chart.bar.doc.horizontal") }
+                NavigationStack { RiskReportIOSView() }
+                    .tabItem { Label("Risk", systemImage: "shield.lefthalf.filled") }
                 NavigationStack { SearchView() }
                     .tabItem { Label("Search", systemImage: "magnifyingglass") }
                 NavigationStack { IOSSettingsView() }

@@ -9,7 +9,6 @@ Purpose: bold, scannable visuals at the top of the Risk Management view with dri
 │ │Risk Gauge  │SRI Donuts           │Liquidity Donut   │Overrides Status   │ │
 │ │(score+Δ)   │(Count | Value)      │(+ Illiquid chip) │(Active/Exp/Expd)  │ │
 │ └────────────┴─────────────────────┴──────────────────┴────────────────────┘ │
-│ Sparkline row: Risk score 90d | Illiquid % 90d                               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Exposure Heatmap: rows = top asset classes/issuers, cols = SRI buckets       │
@@ -30,7 +29,7 @@ Purpose: bold, scannable visuals at the top of the Risk Management view with dri
 - **Dual SRI Donuts (Count | Value)**: toggle buttons switch metric; slices map to SRI 1–7; slice click filters the instruments list; tooltip shows count/value and % of total.
 - **Liquidity Donut + Illiquid Chip**: donut for tiers (Highly Liquid → Restricted); center chip highlights total illiquid %; slice click filters the liquidity section.
 - **Overrides Status Bar**: three pills (Active / Expiring soon / Expired) with counts; pill click jumps to the overrides panel filtered accordingly.
-- **Trend Sparklines**: two narrow charts under the strip showing 90-day trend for risk score and illiquid % with last point delta indicator.
+- (Removed in DS-057) Trend sparklines were dropped to prioritize the main hero cards and simplify the layout.
 
 ## Exposure heatmap
 - Grid with rows = top N asset classes/issuers; columns = SRI buckets; color intensity = value share.
