@@ -58,7 +58,7 @@ extension DatabaseManager {
     func listAssetClassNames(limit: Int = 500) -> [IdName] {
         guard let db else { return [] }
         var out: [IdName] = []
-        let sql = "SELECT class_id, class_name FROM AssetClasses ORDER BY sort_order, class_name COLLATE NOCASE LIMIT ?"
+        let sql = "SELECT class_id, class_name FROM AssetClasses ORDER BY class_name COLLATE NOCASE LIMIT ?"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_int(stmt, 1, Int32(limit))

@@ -16,12 +16,11 @@ extension DatabaseManager {
         var code: String
         var name: String
         var description: String?
-        var sortOrder: Int
     }
 
     func fetchAssetClassesDetailed() -> [AssetClassData] {
         var classes: [AssetClassData] = []
-        let query = "SELECT class_id, class_code, class_name, class_description, sort_order FROM AssetClasses ORDER BY sort_order, class_name"
+        let query = "SELECT class_id, class_code, class_name, class_description FROM AssetClasses ORDER BY class_name COLLATE NOCASE"
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -30,8 +29,7 @@ extension DatabaseManager {
                 let code = String(cString: sqlite3_column_text(statement, 1))
                 let name = String(cString: sqlite3_column_text(statement, 2))
                 let description = sqlite3_column_text(statement, 3).map { String(cString: $0) }
-                let sortOrder = Int(sqlite3_column_int(statement, 4))
-                classes.append(AssetClassData(id: id, code: code, name: name, description: description, sortOrder: sortOrder))
+                classes.append(AssetClassData(id: id, code: code, name: name, description: description))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchAssetClassesDetailed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -41,7 +39,7 @@ extension DatabaseManager {
     }
 
     func fetchAssetClassDetails(id: Int) -> AssetClassData? {
-        let query = "SELECT class_id, class_code, class_name, class_description, sort_order FROM AssetClasses WHERE class_id = ?"
+        let query = "SELECT class_id, class_code, class_name, class_description FROM AssetClasses WHERE class_id = ?"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(id))
@@ -50,9 +48,8 @@ extension DatabaseManager {
                 let code = String(cString: sqlite3_column_text(statement, 1))
                 let name = String(cString: sqlite3_column_text(statement, 2))
                 let description = sqlite3_column_text(statement, 3).map { String(cString: $0) }
-                let sortOrder = Int(sqlite3_column_int(statement, 4))
                 sqlite3_finalize(statement)
-                return AssetClassData(id: cid, code: code, name: name, description: description, sortOrder: sortOrder)
+                return AssetClassData(id: cid, code: code, name: name, description: description)
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchAssetClassDetails: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -61,8 +58,8 @@ extension DatabaseManager {
         return nil
     }
 
-    func addAssetClass(code: String, name: String, description: String?, sortOrder: Int) -> Bool {
-        let query = "INSERT INTO AssetClasses (class_code, class_name, class_description, sort_order) VALUES (?, ?, ?, ?)"
+    func addAssetClass(code: String, name: String, description: String?) -> Bool {
+        let query = "INSERT INTO AssetClasses (class_code, class_name, class_description) VALUES (?, ?, ?)"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             LoggingService.shared.log("Failed to prepare addAssetClass: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -76,7 +73,6 @@ extension DatabaseManager {
         } else {
             sqlite3_bind_null(statement, 3)
         }
-        sqlite3_bind_int(statement, 4, Int32(sortOrder))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
         if result {
@@ -87,8 +83,8 @@ extension DatabaseManager {
         return result
     }
 
-    func updateAssetClass(id: Int, code: String, name: String, description: String?, sortOrder: Int) -> Bool {
-        let query = "UPDATE AssetClasses SET class_code = ?, class_name = ?, class_description = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE class_id = ?"
+    func updateAssetClass(id: Int, code: String, name: String, description: String?) -> Bool {
+        let query = "UPDATE AssetClasses SET class_code = ?, class_name = ?, class_description = ?, updated_at = CURRENT_TIMESTAMP WHERE class_id = ?"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
             LoggingService.shared.log("Failed to prepare updateAssetClass: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -102,8 +98,7 @@ extension DatabaseManager {
         } else {
             sqlite3_bind_null(statement, 3)
         }
-        sqlite3_bind_int(statement, 4, Int32(sortOrder))
-        sqlite3_bind_int(statement, 5, Int32(id))
+        sqlite3_bind_int(statement, 4, Int32(id))
         let result = sqlite3_step(statement) == SQLITE_DONE
         sqlite3_finalize(statement)
         if result {
