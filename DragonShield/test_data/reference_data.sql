@@ -48,19 +48,18 @@ CREATE TABLE AssetClasses (
     class_code TEXT NOT NULL UNIQUE,
     class_name TEXT NOT NULL,
     class_description TEXT,
-    sort_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO AssetClasses VALUES ('1', 'LIQ', 'Liquidity', 'Cash and money market instruments', '1', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('2', 'EQ', 'Equity', 'Publicly traded equities', '2', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('3', 'FI', 'Fixed Income', 'Government and corporate bonds', '3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('4', 'REAL', 'Real Assets', 'Physical real estate and commodities', '4', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('5', 'ALT', 'Alternatives', 'Hedge funds and private equity', '5', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('6', 'DERIV', 'Derivatives', 'Options and futures', '6', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('7', 'CRYP', 'Crypto Currency', 'Digital Assets Bitcoin, L1, L2, L3', '7', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('8', 'COMM', 'Commodity', 'Physical goods traded on exchange (metals, energy, agriculture)', '8', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
-INSERT INTO AssetClasses VALUES ('9', 'OTHER', 'Other', 'Other investment instruments', '9', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('1', 'LIQ', 'Liquidity', 'Cash and money market instruments', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('2', 'EQ', 'Equity', 'Publicly traded equities', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('3', 'FI', 'Fixed Income', 'Government and corporate bonds', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('4', 'REAL', 'Real Assets', 'Physical real estate and commodities', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('5', 'ALT', 'Alternatives', 'Hedge funds and private equity', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('6', 'DERIV', 'Derivatives', 'Options and futures', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('7', 'CRYP', 'Crypto Currency', 'Digital Assets Bitcoin, L1, L2, L3', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('8', 'COMM', 'Commodity', 'Physical goods traded on exchange (metals, energy, agriculture)', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
+INSERT INTO AssetClasses VALUES ('9', 'OTHER', 'Other', 'Other investment instruments', '2025-07-13 09:04:29', '2025-07-13 09:04:29');
 CREATE TABLE AssetSubClasses (
     sub_class_id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_id INTEGER NOT NULL,

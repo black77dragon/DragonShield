@@ -10,6 +10,22 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- [ ] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State**
+    Why: Database connection logic, domain queries, and UI/table preferences live in the same type, which creates tight coupling and makes testing and maintenance harder.
+    What: Split into a focused DB connection/repository layer plus a separate settings/preferences store; move UI table preferences out of `DatabaseManager` and update call sites to use the new services.
+
+- [ ] [changes] **[DS-063] Design Issue: Multiple DatabaseManager Instances Across the App**
+    Why: Views and services instantiate their own `DatabaseManager`, leading to multiple SQLite connections, duplicated state, and inconsistent configuration.
+    What: Introduce a single shared `DatabaseManager` (DI container or root `EnvironmentObject`), remove direct instantiation in views/services, and pass dependencies explicitly.
+
+- [ ] [changes] **[DS-064] Design Issue: Duplicated macOS/iOS Data Access Logic**
+    Why: The same queries and models are duplicated in platform-specific `DatabaseManager` extensions, increasing maintenance cost and risk of platform drift.
+    What: Extract shared data-access code into a common module used by both macOS and iOS targets, and eliminate duplicated model/query definitions.
+
+- [ ] [bugs] **[DS-061] Portfolio Risk Drops Options**
+    Why: In portfolios that hold options, the Risk tab ignores them because `PortfolioValuationService.snapshot` only pulls instruments listed in `PortfolioThemeAsset`, while the importer stores options solely in `PositionReports` and never links them into the theme assets table—so options never enter the risk snapshot and are missing from the contributions list.
+    What: Include option positions in portfolio risk calculations by sourcing holdings from `PositionReports` (or auto-linking imported options into `PortfolioThemeAsset`) so they appear in the Risk tab with correct value, SRI/liquidity, and weighting; add safeguards to avoid filtering out derivatives or other non-target holdings.
+
 - [ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**
     Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
     What: Implement PRIIPs-style volatility fallback bucketing when mapping is missing; mark profiles using fallbacks and expose unmapped/stale flags (`recalc_due_at`, missing inputs) in the Risk Report, Maintenance GUI, and instrument detail; default conservative values when data is absent (e.g., SRI 5, liquidity Restricted).
@@ -18,13 +34,17 @@ This document serves as a central backlog for all pending changes, new features,
     Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
-- [ ] [changes] **[DS-019] Drop "Order" column in next DB update**
+## Implemented
+
+- [x] [changes] **[DS-019] Drop "Order" column in next DB update** (2025-12-20)
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.
 
-- [ ] [changes] **[DS-025] Drop Order Column from Asset Class Table**
+- [x] [changes] **[DS-025] Drop Order Column from Asset Class Table** (2025-12-20)
     Why: The "Order" column is unused and should be removed to simplify the schema. What: Add a database migration to remove the "Order" column from the Asset Class table and update related models/ORM mappings and queries accordingly.
 
-## Implemented
+- [x] [changes] **[DS-060] Shorten To-Do-Tracker Tile** (2025-12-20)
+    Why: The To-Do-Tracker tile currently lists every to-do, making the dashboard tile excessively long and hard to scan.
+    What: Limit the To-Do-Tracker dashboard tile to show only the top 4 to-dos by default and enable scrolling within the tile to view the remaining items, matching the behavior of the Institutions AUM tile.
 
 - [x] [new_features] **[DS-051] Add Risk Management to iOS App** (2025-12-14)
     Why: Mobile users currently lack risk management screens and reports available on desktop, limiting their ability to review and act on risk while away from a workstation.

@@ -12,6 +12,11 @@ struct TodoDashboardTile: DashboardTile {
     @State private var selectedFontSize: KanbanFontSize = .medium
     @State private var hasHydratedFontSize = false
     @State private var isHydratingFontSize = false
+    @State private var todoRowHeight: CGFloat = 0
+
+    private static let maxVisibleTodos = 4
+    private static let todoRowSpacing: CGFloat = 8
+    private static let dividerHeight: CGFloat = 1
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -76,21 +81,31 @@ struct TodoDashboardTile: DashboardTile {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(todos) { todo in
-                        Button {
-                            KanbanTodoEditRouter.shared.requestEdit(for: todo.id)
-                            openWindow(id: "todoBoard")
-                        } label: {
-                            TodoRow(todo: todo, fontSize: selectedFontSize)
-                        }
-                        .buttonStyle(.plain)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Self.todoRowSpacing) {
+                        ForEach(todos) { todo in
+                            Button {
+                                KanbanTodoEditRouter.shared.requestEdit(for: todo.id)
+                                openWindow(id: "todoBoard")
+                            } label: {
+                                TodoRow(todo: todo, fontSize: selectedFontSize)
+                                    .background(todoRowHeightReader)
+                            }
+                            .buttonStyle(.plain)
 
-                        if todo.id != todos.last?.id {
-                            Divider()
+                            if todo.id != todos.last?.id {
+                                Divider()
+                            }
+                        }
+                    }
+                    .onPreferenceChange(TodoRowHeightPreferenceKey.self) { newValue in
+                        if newValue > 0, abs(newValue - todoRowHeight) > 0.5 {
+                            todoRowHeight = newValue
                         }
                     }
                 }
+                .scrollIndicators(.visible)
+                .frame(maxHeight: todoListMaxHeight(for: todos.count))
             }
         }
         .onAppear {
@@ -101,6 +116,7 @@ struct TodoDashboardTile: DashboardTile {
             handleExternalFontSizeUpdate(newValue)
         }
         .onChange(of: selectedFontSize) { _, _ in
+            todoRowHeight = 0
             persistFontSize()
         }
         .accessibilityElement(children: .contain)
@@ -228,6 +244,36 @@ struct TodoDashboardTile: DashboardTile {
             .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
+    }
+
+    private struct TodoRowHeightPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+
+    private var todoRowHeightReader: some View {
+        GeometryReader { proxy in
+            Color.clear.preference(key: TodoRowHeightPreferenceKey.self, value: proxy.size.height)
+        }
+    }
+
+    private func todoListMaxHeight(for count: Int) -> CGFloat? {
+        guard count > Self.maxVisibleTodos else { return nil }
+        let rowHeight = todoRowHeight > 0 ? todoRowHeight : estimatedTodoRowHeight(for: selectedFontSize)
+        let dividerCount = max(0, Self.maxVisibleTodos - 1)
+        let gapHeight = CGFloat(dividerCount) * (Self.todoRowSpacing * 2 + Self.dividerHeight)
+        return rowHeight * CGFloat(Self.maxVisibleTodos) + gapHeight
+    }
+
+    private func estimatedTodoRowHeight(for fontSize: KanbanFontSize) -> CGFloat {
+        let primaryLineHeight = fontSize.primaryPointSize * 1.2
+        let secondaryLineHeight = fontSize.secondaryPointSize * 1.2
+        let primaryLines: CGFloat = 2
+        let lineSpacing: CGFloat = 4
+        let verticalPadding: CGFloat = 8
+        return primaryLineHeight * primaryLines + secondaryLineHeight + lineSpacing + verticalPadding
     }
 
     private func hydrateFontSizeIfNeeded() {

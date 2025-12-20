@@ -49,7 +49,6 @@ CREATE TABLE AssetClasses (
     class_code TEXT NOT NULL UNIQUE,
     class_name TEXT NOT NULL,
     class_description TEXT,
-    sort_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

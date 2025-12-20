@@ -24,7 +24,6 @@ private struct AssetClassItem: Identifiable, Equatable {
     let code: String
     let name: String
     let description: String
-    let sortOrder: Int
 }
 
 struct AssetClassesView: View {
@@ -536,8 +535,7 @@ struct AssetClassesView: View {
                 id: data.id,
                 code: data.code,
                 name: data.name,
-                description: data.description ?? "",
-                sortOrder: data.sortOrder
+                description: data.description ?? ""
             )
         }
         if let currentId, let match = assetClasses.first(where: { $0.id == currentId }) {
@@ -791,8 +789,7 @@ struct AddAssetClassView: View {
         let ok = dbManager.addAssetClass(
             code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: nextSortOrder()
+            description: description.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         isLoading = false
         if ok {
@@ -803,11 +800,6 @@ struct AddAssetClassView: View {
             alertMessage = "❌ Failed to add asset class"
             showingAlert = true
         }
-    }
-
-    private func nextSortOrder() -> Int {
-        let existingOrders = dbManager.fetchAssetClassesDetailed().map(\.sortOrder)
-        return (existingOrders.max() ?? 0) + 1
     }
 
     private func sectionHeader(title: String, icon: String, color: Color) -> some View {
@@ -889,7 +881,6 @@ struct EditAssetClassView: View {
     @State private var originalCode = ""
     @State private var originalName = ""
     @State private var originalDescription = ""
-    @State private var existingSortOrder = 0
 
     private var isValid: Bool {
         !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -1000,7 +991,6 @@ struct EditAssetClassView: View {
         code = data.code
         name = data.name
         description = data.description ?? ""
-        existingSortOrder = data.sortOrder
         originalCode = code
         originalName = name
         originalDescription = description
@@ -1020,8 +1010,7 @@ struct EditAssetClassView: View {
             id: classId,
             code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-            sortOrder: existingSortOrder
+            description: description.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         isLoading = false
         if ok {

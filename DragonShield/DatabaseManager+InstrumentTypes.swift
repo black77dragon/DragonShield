@@ -12,7 +12,7 @@ import SQLite3
 extension DatabaseManager {
     func fetchAssetClasses() -> [(id: Int, name: String)] {
         var classes: [(id: Int, name: String)] = []
-        let query = "SELECT class_id, class_name FROM AssetClasses ORDER BY sort_order, class_name"
+        let query = "SELECT class_id, class_name FROM AssetClasses ORDER BY class_name COLLATE NOCASE"
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
