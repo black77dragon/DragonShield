@@ -10,10 +10,6 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- [ ] [new_features] **[DS-065] Persist Daily Total Portfolio Value History**
-    Why: Users need to track how the total portfolio value develops over time, which requires a persistent daily history rather than only the latest snapshot.
-    What: Store the total portfolio value in the database once per day (one value per day) and retain these daily snapshots for trend/graph views.
-
 - [x] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State** (2025-12-22)
     Why: Database connection logic, domain queries, and UI/table preferences live in the same type, which creates tight coupling and makes testing and maintenance harder.
     What: Split into a focused DB connection/repository layer plus a separate settings/preferences store; move UI table preferences out of `DatabaseManager` and update call sites to use the new services.
@@ -40,6 +36,14 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [new_features] **[DS-065] Persist Daily Total Portfolio Value History** (2025-12-22)
+    Why: Users need to track how the total portfolio value develops over time, which requires a persistent daily history rather than only the latest snapshot.
+    What: Store the total portfolio value in the database once per day (one value per day), and add a "Historic Performance" view under Portfolio in the sideview that lists daily CHF totals and shows a simple line chart (x: time, y: CHF).
+
+- [x] [changes] **[DS-066] Add Version Release Notes Popup (Sidebar)** (2025-12-22)
+    Why: Users need to review what changed in a release directly from the sidebar, and release notes must be understandable when feature branches are merged.
+    What: When clicking the Version entry in the sidebar, open a window that shows all changes for the current release in a table format; during feature-branch merges, ensure each version's change description is written clearly and unambiguously for release notes.
 
 - [x] [changes] **[DS-019] Drop "Order" column in next DB update** (2025-12-20)
     Why: The "Order" attribute is being retired and should be removed from the schema to simplify maintenance. What: In the next database update, add a migration to drop the "Order" column from Instrument Types, update ORM/model definitions and queries to match, and document the schema change in the release notes for the database update.

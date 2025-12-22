@@ -13,6 +13,7 @@
 		B3D7C7AB2E6A29A600334317 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B3D7C7AA2E6A29A600334317 /* libsqlite3.tbd */; };
 		B3ECBDE02DF4D581002110F4 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = B3ECBDDF2DF4D581002110F4 /* SQLite */; };
 		B3ECBE992DFC8D26002110F4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B3ECBE982DFC8D26002110F4 /* README.md */; };
+		B3ECBE9B2F3C0001002110F4 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = B3ECBE9A2F3C0001002110F4 /* CHANGELOG.md */; };
 		B3F2A4522E91222200123456 /* python_scripts in Resources */ = {isa = PBXBuildFile; fileRef = B3F2A4512E91222200123456 /* python_scripts */; };
 /* End PBXBuildFile section */
 
@@ -24,6 +25,7 @@
 		B3D7C7802E68C07E00334317 /* DragonShield iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DragonShield iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3D7C7AA2E6A29A600334317 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/usr/lib/libsqlite3.tbd; sourceTree = DEVELOPER_DIR; };
 		B3ECBE982DFC8D26002110F4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		B3ECBE9A2F3C0001002110F4 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		B3F2A4512E91222200123456 /* python_scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = python_scripts; path = DragonShield/python_scripts; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -117,6 +119,7 @@
 				B3933B102D98475A00DDA4C2 /* Products */,
 				B3933B112D98475A00DDA4C2 /* DragonShield */,
 				B3ECBE982DFC8D26002110F4 /* README.md */,
+				B3ECBE9A2F3C0001002110F4 /* CHANGELOG.md */,
 				B3F2A4512E91222200123456 /* python_scripts */,
 				B3D7C7812E68C07E00334317 /* DragonShield iOS */,
 			);
@@ -227,6 +230,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3ECBE992DFC8D26002110F4 /* README.md in Resources */,
+				B3ECBE9B2F3C0001002110F4 /* CHANGELOG.md in Resources */,
 				B3F2A4522E91222200123456 /* python_scripts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

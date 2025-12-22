@@ -18,6 +18,7 @@ import UniformTypeIdentifiers
 struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var todoBoardViewModel = KanbanBoardViewModel()
+    @State private var showReleaseNotes = false
 
     // New AppStorage keys for the new structure
     @AppStorage("sidebar.showDashboard") private var showDashboard = true
@@ -78,6 +79,10 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: AllocationDashboardView()) {
                     Label("Asset Allocation", systemImage: "chart.pie")
+                }
+
+                NavigationLink(destination: HistoricPerformanceView().environmentObject(dbManager)) {
+                    Label("Historic Performance", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 
                 NavigationLink(destination: AssetManagementReportView()) {
@@ -179,15 +184,27 @@ struct SidebarView: View {
                     Text("About")
                         .dsHeaderSmall()
                     VStack(alignment: .leading, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("VERSION")
+                        Button {
+                            showReleaseNotes = true
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("VERSION")
+                                    .dsCaption()
+                                Text(AppVersionProvider.version)
+                                    .dsBody()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "doc.text.magnifyingglass")
+                                    Text("Release Notes")
+                                }
                                 .dsCaption()
-                            Text(AppVersionProvider.version)
-                                .dsBody()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .help("Click to view release notes")
                         if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("VERSION_LAST_CHANGE")
@@ -214,6 +231,9 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Dragon Shield (Gemini Version)")
+        .sheet(isPresented: $showReleaseNotes) {
+            ReleaseNotesView(version: AppVersionProvider.version)
+        }
         .onAppear {
             todoBoardViewModel.refreshFromStorage()
         }
