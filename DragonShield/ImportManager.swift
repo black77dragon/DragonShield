@@ -150,7 +150,8 @@ class ImportManager {
         window.title = "Add Account"
         window.isReleasedWhenClosed = false
         window.center()
-        window.contentView = NSHostingView(rootView: view.environmentObject(dbManager))
+        window.contentView = NSHostingView(rootView: view.environmentObject(dbManager)
+            .environmentObject(dbManager.preferences))
         NSApp.runModal(for: window)
         return result
     }

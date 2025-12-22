@@ -7,6 +7,7 @@ struct TodoDashboardTile: DashboardTile {
     static let iconName = "checklist"
 
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @StateObject private var viewModel = KanbanBoardViewModel()
     @Environment(\.openWindow) private var openWindow
     @State private var selectedFontSize: KanbanFontSize = .medium
@@ -112,7 +113,7 @@ struct TodoDashboardTile: DashboardTile {
             viewModel.refreshFromStorage()
             hydrateFontSizeIfNeeded()
         }
-        .onReceive(dbManager.$todoBoardFontSize) { newValue in
+        .onReceive(preferences.$todoBoardFontSize) { newValue in
             handleExternalFontSizeUpdate(newValue)
         }
         .onChange(of: selectedFontSize) { _, _ in
@@ -280,7 +281,7 @@ struct TodoDashboardTile: DashboardTile {
         guard !hasHydratedFontSize else { return }
         hasHydratedFontSize = true
         isHydratingFontSize = true
-        if let stored = KanbanFontSize(rawValue: dbManager.todoBoardFontSize) {
+        if let stored = KanbanFontSize(rawValue: preferences.todoBoardFontSize) {
             selectedFontSize = stored
         }
         DispatchQueue.main.async {
@@ -301,7 +302,7 @@ struct TodoDashboardTile: DashboardTile {
 
     private func persistFontSize() {
         guard !isHydratingFontSize else { return }
-        guard dbManager.todoBoardFontSize != selectedFontSize.rawValue else { return }
+        guard preferences.todoBoardFontSize != selectedFontSize.rawValue else { return }
         isHydratingFontSize = true
         dbManager.setTodoBoardFontSize(selectedFontSize.rawValue)
         DispatchQueue.main.async {

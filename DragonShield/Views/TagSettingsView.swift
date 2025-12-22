@@ -54,59 +54,41 @@ struct TagSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Table(rows, selection: .constant(nil)) {
-                TableColumn("Order") { row in
-                    Stepper("\(row.sortOrder)", value: Binding(
-                        get: { row.sortOrder },
-                        set: { new in
-                            if let idx = rows.firstIndex(where: { $0.id == row.id }) {
-                                rows[idx] = TagRow(id: row.id, code: row.code, displayName: row.displayName, color: row.color, sortOrder: new, active: row.active)
-                                save(rows[idx])
-                            } else {
-                                save(row)
-                            }
-                        }
-                    )).frame(width: 80)
-                }.width(90)
-                TableColumn("Code") { row in
-                    TextField("Code", text: binding(for: row).code)
-                        .onSubmit { save(row) }
-                        .frame(width: 160)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Order").font(.caption).foregroundColor(.secondary).frame(width: 60, alignment: .leading)
+                    Text("Code").font(.caption).foregroundColor(.secondary).frame(width: 140, alignment: .leading)
+                    Text("Display Name").font(.caption).foregroundColor(.secondary).frame(minWidth: 180, alignment: .leading)
+                    Text("Color").font(.caption).foregroundColor(.secondary).frame(width: 120, alignment: .leading)
+                    Text("Active").font(.caption).foregroundColor(.secondary).frame(width: 70, alignment: .center)
+                    Text("Actions").font(.caption).foregroundColor(.secondary).frame(width: 160, alignment: .trailing)
                 }
-                TableColumn("Display Name") { row in
-                    TextField("Name", text: binding(for: row).name)
-                        .onSubmit { save(row) }
-                        .frame(width: 220)
-                }
-                TableColumn("Color") { row in
-                    TextField("Hex", text: binding(for: row).color)
-                        .onSubmit { save(row) }
-                        .frame(width: 120)
-                }
-                TableColumn("Active") { row in
-                    Toggle("", isOn: binding(for: row).active)
-                        .labelsHidden()
-                        .onChange(of: binding(for: row).active.wrappedValue) { _, _ in save(row) }
-                }.width(60)
-                TableColumn("Actions") { row in
-                    HStack(spacing: 8) {
-                        Button("Save") { save(row) }
-                        if row.active { Button("Deactivate", role: .destructive) { delete(row) } }
-                        else { Button("Restore") { restore(row) } }
+                .padding(.horizontal, 2)
+
+                List {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { _, row in
+                        rowView(row)
                     }
-                }.width(180)
+                    .onMove(perform: moveRows)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 280)
+                .environment(\.defaultMinListRowHeight, 36)
+                .frame(maxWidth: .infinity)
             }
-            .frame(minHeight: 280)
             .overlay(alignment: .bottomLeading) {
-                Text(info ?? "Save changes or Deactivate/Restore. Use Stepper to adjust order.")
+                Text(info ?? "Drag the handle to reorder. Save to persist edits; Deactivate/Restore toggles availability.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            HStack { Button("Save Order") { saveOrder() }; Spacer() }
         }
         .padding(16)
         .navigationTitle("Tags")
         .onAppear { load() }
+        #if os(iOS)
+            .environment(\.editMode, .constant(.active))
+        #endif
     }
 
     private func binding(for row: TagRow) -> (code: Binding<String>, name: Binding<String>, color: Binding<String>, active: Binding<Bool>) {
@@ -173,12 +155,6 @@ struct TagSettingsView: View {
         load()
     }
 
-    private func saveOrder() {
-        let orderedIds = rows.sorted { $0.sortOrder < $1.sortOrder }.map { $0.id }
-        if dbManager.reorderTags(idsInOrder: orderedIds) { info = "Order saved"; error = nil } else { error = "Failed to save order"; info = nil }
-        load()
-    }
-
     private func delete(_ row: TagRow) {
         if dbManager.deleteTag(id: row.id) {
             if let idx = rows.firstIndex(where: { $0.id == row.id }) {
@@ -196,5 +172,70 @@ struct TagSettingsView: View {
             }
             info = "Restored \(row.code)"; error = nil
         } else { error = "Failed to restore \(row.code)"; info = nil }
+    }
+
+    private func rowView(_ row: TagRow) -> some View {
+        let binding = binding(for: row)
+        return HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.secondary)
+            Text("\(row.sortOrder)")
+                .foregroundColor(.secondary)
+                .frame(width: 28, alignment: .trailing)
+            TextField("Code", text: binding.code)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 140)
+                .onSubmit { save(currentRow(row.id)) }
+            TextField("Display name", text: binding.name)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 180)
+                .onSubmit { save(currentRow(row.id)) }
+            TextField("Hex", text: binding.color)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 120)
+                .onSubmit { save(currentRow(row.id)) }
+            Toggle("", isOn: binding.active)
+                .labelsHidden()
+                .onChange(of: binding.active.wrappedValue) { _, _ in save(currentRow(row.id)) }
+                .frame(width: 40)
+            HStack(spacing: 8) {
+                Button("Save") { save(currentRow(row.id)) }
+                if row.active { Button("Deactivate", role: .destructive) { delete(row) } }
+                else { Button("Restore") { restore(row) } }
+            }
+            .frame(width: 150, alignment: .trailing)
+        }
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func currentRow(_ id: Int) -> TagRow {
+        if let inMemory = rows.first(where: { $0.id == id }) { return inMemory }
+        if let refreshed = dbManager.listTags(includeInactive: true).first(where: { $0.id == id }) {
+            return refreshed
+        }
+        return TagRow(id: id, code: "", displayName: "", color: nil, sortOrder: 0, active: true)
+    }
+
+    private func moveRows(from source: IndexSet, to destination: Int) {
+        rows.move(fromOffsets: source, toOffset: destination)
+        for idx in rows.indices {
+            let row = rows[idx]
+            rows[idx] = TagRow(id: row.id, code: row.code, displayName: row.displayName, color: row.color, sortOrder: idx + 1, active: row.active)
+        }
+        persistCurrentOrder()
+    }
+
+    private func persistCurrentOrder() {
+        let orderedIds = rows.map { $0.id }
+        if dbManager.reorderTags(idsInOrder: orderedIds) {
+            info = "Order saved"
+            error = nil
+            load()
+        } else {
+            error = "Failed to save order"
+            info = nil
+        }
     }
 }

@@ -16,44 +16,116 @@
 import Foundation
 import SQLite3
 
-enum DatabaseMode: String {
-    case production
-    case test
+struct DatabaseFileMetadata {
+    let filePath: String
+    let fileSize: Int64
+    let created: Date?
+    let modified: Date?
 }
 
-class DatabaseManager: ObservableObject {
+final class DatabaseConnection {
     var db: OpaquePointer?
-    private var dbPath: String
-    private let appDir: URL
+    private(set) var dbPath: String
 
-    @Published var dbMode: DatabaseMode
-    @Published var dbFileSize: Int64 = 0
+    init(dbPath: String) {
+        self.dbPath = dbPath
+    }
 
-    // Existing @Published properties
+    func updatePath(_ path: String) {
+        dbPath = path
+    }
+
+    @discardableResult
+    func openReadWrite() -> Bool {
+        let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
+            print("✅ Database opened: \(dbPath)")
+            sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nil, nil, nil)
+            sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+            let testQuery = "CREATE TABLE IF NOT EXISTS test_write_permission (id INTEGER);"
+            if sqlite3_exec(db, testQuery, nil, nil, nil) == SQLITE_OK {
+                sqlite3_exec(db, "DROP TABLE test_write_permission;", nil, nil, nil)
+            } else {
+                let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+                print("❌ Database write test failed: \(message)")
+            }
+            return true
+        } else {
+            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
+            print("❌ Failed to open database at \(dbPath): \(msg)")
+            return false
+        }
+    }
+
+    @discardableResult
+    func openReadOnly() -> Bool {
+        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
+            sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+            print("✅ Opened read-only database at: \(dbPath)")
+            return true
+        } else {
+            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
+            print("❌ Failed to open read-only DB at \(dbPath): \(msg)")
+            return false
+        }
+    }
+
+    func fileMetadata() -> DatabaseFileMetadata? {
+        do {
+            let attrs = try FileManager.default.attributesOfItem(atPath: dbPath)
+            let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+            return DatabaseFileMetadata(
+                filePath: dbPath,
+                fileSize: size,
+                created: attrs[.creationDate] as? Date,
+                modified: attrs[.modificationDate] as? Date
+            )
+        } catch {
+            print("⚠️ Failed to read DB file attributes: \(error)")
+            return nil
+        }
+    }
+
+    @discardableResult
+    func close() -> Bool {
+        if let pointer = db {
+            let rc = sqlite3_close_v2(pointer)
+            if rc == SQLITE_OK {
+                db = nil
+                print("✅ Database connection closed")
+                return true
+            } else {
+                print("❌ sqlite3_close_v2 failed with code \(rc)")
+                return false
+            }
+        }
+        return true
+    }
+
+    func lastSQLErrorMessage() -> String {
+        guard let db else { return "database not open" }
+        if let cString = sqlite3_errmsg(db) {
+            return String(cString: cString)
+        }
+        return "unknown database error"
+    }
+}
+
+final class AppPreferences: ObservableObject {
     @Published var baseCurrency: String = "CHF"
     @Published var asOfDate: Date = .init()
     @Published var decimalPrecision: Int = 4
-
-    // New @Published properties from Configuration table
     @Published var defaultTimeZone: String = "Europe/Zurich"
     @Published var dbVersion: String = ""
-    @Published var dbFilePath: String = ""
-    @Published var dbCreated: Date?
-    @Published var dbModified: Date?
     @Published var includeDirectRealEstate: Bool = true
     @Published var directRealEstateTargetCHF: Double = 0.0
-    // FX Auto Update configuration (defaults)
     @Published var fxAutoUpdateEnabled: Bool = true
-    /// 'daily' or 'weekly'
     @Published var fxUpdateFrequency: String = "daily"
-    // iOS Snapshot Export configuration (defaults)
     @Published var iosSnapshotAutoEnabled: Bool = true
-    /// 'daily' or 'weekly'
     @Published var iosSnapshotFrequency: String = "daily"
-    /// Destination folder for iOS snapshot export
     @Published var iosSnapshotTargetPath: String = ""
     @Published var iosSnapshotTargetBookmark: Data? = nil
-    // Table view personalisation
     @Published var institutionsTableFontSize: String = "medium"
     @Published var institutionsTableColumnFractions: [String: Double] = [:]
     @Published var instrumentsTableFontSize: String = "medium"
@@ -75,6 +147,145 @@ class DatabaseManager: ObservableObject {
     @Published var accountTypesTableFontSize: String = "medium"
     @Published var accountTypesTableColumnFractions: [String: Double] = [:]
     @Published var todoBoardFontSize: String = "medium"
+
+    func apply(_ snapshot: ConfigurationSnapshot) {
+        baseCurrency = snapshot.baseCurrency
+        asOfDate = snapshot.asOfDate
+        decimalPrecision = snapshot.decimalPrecision
+        defaultTimeZone = snapshot.defaultTimeZone
+        dbVersion = snapshot.dbVersion
+        includeDirectRealEstate = snapshot.includeDirectRealEstate
+        directRealEstateTargetCHF = snapshot.directRealEstateTargetCHF
+        fxAutoUpdateEnabled = snapshot.fxAutoUpdateEnabled
+        fxUpdateFrequency = snapshot.fxUpdateFrequency
+        iosSnapshotAutoEnabled = snapshot.iosSnapshotAutoEnabled
+        iosSnapshotFrequency = snapshot.iosSnapshotFrequency
+        iosSnapshotTargetPath = snapshot.iosSnapshotTargetPath
+        iosSnapshotTargetBookmark = snapshot.iosSnapshotTargetBookmark
+        institutionsTableFontSize = snapshot.institutionsTableFontSize
+        institutionsTableColumnFractions = snapshot.institutionsTableColumnFractions
+        instrumentsTableFontSize = snapshot.instrumentsTableFontSize
+        instrumentsTableColumnFractions = snapshot.instrumentsTableColumnFractions
+        assetSubClassesTableFontSize = snapshot.assetSubClassesTableFontSize
+        assetSubClassesTableColumnFractions = snapshot.assetSubClassesTableColumnFractions
+        assetClassesTableFontSize = snapshot.assetClassesTableFontSize
+        assetClassesTableColumnFractions = snapshot.assetClassesTableColumnFractions
+        currenciesTableFontSize = snapshot.currenciesTableFontSize
+        currenciesTableColumnFractions = snapshot.currenciesTableColumnFractions
+        accountsTableFontSize = snapshot.accountsTableFontSize
+        accountsTableColumnFractions = snapshot.accountsTableColumnFractions
+        positionsTableFontSize = snapshot.positionsTableFontSize
+        positionsTableColumnFractions = snapshot.positionsTableColumnFractions
+        portfolioThemesTableFontSize = snapshot.portfolioThemesTableFontSize
+        portfolioThemesTableColumnFractions = snapshot.portfolioThemesTableColumnFractions
+        transactionTypesTableFontSize = snapshot.transactionTypesTableFontSize
+        transactionTypesTableColumnFractions = snapshot.transactionTypesTableColumnFractions
+        accountTypesTableFontSize = snapshot.accountTypesTableFontSize
+        accountTypesTableColumnFractions = snapshot.accountTypesTableColumnFractions
+        todoBoardFontSize = snapshot.todoBoardFontSize
+    }
+}
+
+enum DatabaseMode: String {
+    case production
+    case test
+}
+
+class DatabaseManager: ObservableObject {
+    var db: OpaquePointer? { connection.db }
+    var databaseConnection: DatabaseConnection { connection }
+    private var dbPath: String {
+        get { connection.dbPath }
+        set { connection.updatePath(newValue) }
+    }
+    private let appDir: URL
+    private let connection: DatabaseConnection
+    let preferences: AppPreferences
+    let configurationStore: ConfigurationStore
+
+    @Published var dbMode: DatabaseMode
+    @Published var dbFileSize: Int64 = 0
+
+    // Deprecated @Published preferences (use AppPreferences)
+    @available(*, deprecated, message: "Use AppPreferences.baseCurrency")
+    @Published var baseCurrency: String = "CHF"
+    @available(*, deprecated, message: "Use AppPreferences.asOfDate")
+    @Published var asOfDate: Date = .init()
+    @available(*, deprecated, message: "Use AppPreferences.decimalPrecision")
+    @Published var decimalPrecision: Int = 4
+
+    @available(*, deprecated, message: "Use AppPreferences.defaultTimeZone")
+    @Published var defaultTimeZone: String = "Europe/Zurich"
+    @available(*, deprecated, message: "Use AppPreferences.dbVersion")
+    @Published var dbVersion: String = ""
+    @Published var dbFilePath: String = ""
+    @Published var dbCreated: Date?
+    @Published var dbModified: Date?
+
+    @available(*, deprecated, message: "Use AppPreferences.includeDirectRealEstate")
+    @Published var includeDirectRealEstate: Bool = true
+    @available(*, deprecated, message: "Use AppPreferences.directRealEstateTargetCHF")
+    @Published var directRealEstateTargetCHF: Double = 0.0
+    // FX Auto Update configuration (defaults)
+    @available(*, deprecated, message: "Use AppPreferences.fxAutoUpdateEnabled")
+    @Published var fxAutoUpdateEnabled: Bool = true
+    /// 'daily' or 'weekly'
+    @available(*, deprecated, message: "Use AppPreferences.fxUpdateFrequency")
+    @Published var fxUpdateFrequency: String = "daily"
+    // iOS Snapshot Export configuration (defaults)
+    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotAutoEnabled")
+    @Published var iosSnapshotAutoEnabled: Bool = true
+    /// 'daily' or 'weekly'
+    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotFrequency")
+    @Published var iosSnapshotFrequency: String = "daily"
+    /// Destination folder for iOS snapshot export
+    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotTargetPath")
+    @Published var iosSnapshotTargetPath: String = ""
+    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotTargetBookmark")
+    @Published var iosSnapshotTargetBookmark: Data? = nil
+    // Table view personalisation
+    @available(*, deprecated, message: "Use AppPreferences.institutionsTableFontSize")
+    @Published var institutionsTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.institutionsTableColumnFractions")
+    @Published var institutionsTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.instrumentsTableFontSize")
+    @Published var instrumentsTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.instrumentsTableColumnFractions")
+    @Published var instrumentsTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.assetSubClassesTableFontSize")
+    @Published var assetSubClassesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.assetSubClassesTableColumnFractions")
+    @Published var assetSubClassesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.assetClassesTableFontSize")
+    @Published var assetClassesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.assetClassesTableColumnFractions")
+    @Published var assetClassesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.currenciesTableFontSize")
+    @Published var currenciesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.currenciesTableColumnFractions")
+    @Published var currenciesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.accountsTableFontSize")
+    @Published var accountsTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.accountsTableColumnFractions")
+    @Published var accountsTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.positionsTableFontSize")
+    @Published var positionsTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.positionsTableColumnFractions")
+    @Published var positionsTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.portfolioThemesTableFontSize")
+    @Published var portfolioThemesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.portfolioThemesTableColumnFractions")
+    @Published var portfolioThemesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.transactionTypesTableFontSize")
+    @Published var transactionTypesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.transactionTypesTableColumnFractions")
+    @Published var transactionTypesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.accountTypesTableFontSize")
+    @Published var accountTypesTableFontSize: String = "medium"
+    @available(*, deprecated, message: "Use AppPreferences.accountTypesTableColumnFractions")
+    @Published var accountTypesTableColumnFractions: [String: Double] = [:]
+    @available(*, deprecated, message: "Use AppPreferences.todoBoardFontSize")
+    @Published var todoBoardFontSize: String = "medium"
     // Last trade error for UI feedback
     @Published var lastTradeErrorMessage: String? = nil
 
@@ -93,7 +304,11 @@ class DatabaseManager: ObservableObject {
             let savedMode = UserDefaults.standard.string(forKey: UserDefaultsKeys.databaseMode)
             let mode = DatabaseMode(rawValue: savedMode ?? "production") ?? .production
             dbMode = mode
-            dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+            let initialPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: mode)).path
+            connection = DatabaseConnection(dbPath: initialPath)
+            configurationStore = ConfigurationStore(connection: connection)
+            preferences = AppPreferences()
+            dbPath = initialPath
 
             if !FileManager.default.fileExists(atPath: dbPath) {
                 if let bundlePath = Bundle.main.path(forResource: "dragonshield", ofType: "sqlite") {
@@ -124,8 +339,7 @@ class DatabaseManager: ObservableObject {
             ensureAlertReferenceTables()
             // Trades schema now provisioned via db/migrations (dbmate). No runtime DDL here.
             let version = loadConfiguration()
-            dbVersion = version
-            DispatchQueue.main.async { self.dbVersion = version }
+            DispatchQueue.main.async { self.preferences.dbVersion = version }
             updateFileMetadata()
             print("📂 Database path: \(dbPath) | version: \(version)")
         #else
@@ -134,60 +348,33 @@ class DatabaseManager: ObservableObject {
             appDir = support.appendingPathComponent("DragonShield")
             try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
             dbMode = .production
-            dbPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+            let initialPath = appDir.appendingPathComponent(DatabaseManager.fileName(for: .production)).path
+            connection = DatabaseConnection(dbPath: initialPath)
+            configurationStore = ConfigurationStore(connection: connection)
+            preferences = AppPreferences()
+            dbPath = initialPath
         #endif
     }
 
     // ==============================================================================
 
     func openDatabase() {
-        let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
-            print("✅ Database opened: \(dbPath)")
-            sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nil, nil, nil)
-            sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
-            let testQuery = "CREATE TABLE IF NOT EXISTS test_write_permission (id INTEGER);"
-            if sqlite3_exec(db, testQuery, nil, nil, nil) == SQLITE_OK {
-                sqlite3_exec(db, "DROP TABLE test_write_permission;", nil, nil, nil)
-            } else {
-                print("❌ Database write test failed: \(String(cString: sqlite3_errmsg(db)))")
-            }
-        } else {
-            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
-            print("❌ Failed to open database at \(dbPath): \(msg)")
-        }
+        _ = connection.openReadWrite()
     }
 
     private func updateFileMetadata() {
-        do {
-            let attrs = try FileManager.default.attributesOfItem(atPath: dbPath)
-            DispatchQueue.main.async {
-                self.dbFilePath = self.dbPath
-                if let size = attrs[.size] as? NSNumber {
-                    self.dbFileSize = size.int64Value
-                }
-                self.dbCreated = attrs[.creationDate] as? Date
-                self.dbModified = attrs[.modificationDate] as? Date
-            }
-        } catch {
-            print("⚠️ Failed to read DB file attributes: \(error)")
+        guard let metadata = connection.fileMetadata() else { return }
+        DispatchQueue.main.async {
+            self.dbFilePath = metadata.filePath
+            self.dbFileSize = metadata.fileSize
+            self.dbCreated = metadata.created
+            self.dbModified = metadata.modified
         }
     }
 
     @discardableResult
     func closeConnection() -> Bool {
-        if let pointer = db {
-            let rc = sqlite3_close_v2(pointer)
-            if rc == SQLITE_OK {
-                db = nil
-                print("✅ Database connection closed")
-                return true
-            } else {
-                print("❌ sqlite3_close_v2 failed with code \(rc)")
-                return false
-            }
-        }
-        return true
+        connection.close()
     }
 
     func reopenDatabase() {
@@ -195,17 +382,13 @@ class DatabaseManager: ObservableObject {
         openDatabase()
         #if os(macOS)
             let version = loadConfiguration()
-            DispatchQueue.main.async { self.dbVersion = version }
+            DispatchQueue.main.async { self.preferences.dbVersion = version }
             updateFileMetadata()
         #endif
     }
 
     func lastSQLErrorMessage() -> String {
-        guard let db else { return "database not open" }
-        if let cString = sqlite3_errmsg(db) {
-            return String(cString: cString)
-        }
-        return "unknown database error"
+        connection.lastSQLErrorMessage()
     }
 
     /// Open a specific SQLite file in read-only mode (used by the iOS app to open a snapshot).
@@ -214,30 +397,24 @@ class DatabaseManager: ObservableObject {
     func openReadOnly(at externalPath: String) -> Bool {
         closeConnection()
         dbPath = externalPath
-        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
-        if sqlite3_open_v2(dbPath, &db, flags, nil) == SQLITE_OK {
-            // It's fine to enable foreign keys pragma in RO; it is ignored if not applicable
-            sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nil, nil, nil)
+        if connection.openReadOnly() {
             #if os(macOS)
                 let version = loadConfiguration()
-                DispatchQueue.main.async { self.dbVersion = version }
+                DispatchQueue.main.async { self.preferences.dbVersion = version }
             #else
                 // Lightweight: only load db_version if configuration extension isn't linked
                 var stmt: OpaquePointer?
                 if sqlite3_prepare_v2(db, "SELECT value FROM Configuration WHERE key='db_version'", -1, &stmt, nil) == SQLITE_OK {
                     if sqlite3_step(stmt) == SQLITE_ROW, let cstr = sqlite3_column_text(stmt, 0) {
                         let v = String(cString: cstr)
-                        DispatchQueue.main.async { self.dbVersion = v }
+                        DispatchQueue.main.async { self.preferences.dbVersion = v }
                     }
                 }
                 sqlite3_finalize(stmt)
             #endif
             updateFileMetadata()
-            print("✅ Opened read-only database at: \(dbPath)")
             return true
         } else {
-            let msg = db != nil ? String(cString: sqlite3_errmsg(db)) : "Unknown error"
-            print("❌ Failed to open read-only DB at \(dbPath): \(msg)")
             return false
         }
     }
@@ -281,12 +458,6 @@ class DatabaseManager: ObservableObject {
     }
 
     deinit {
-        if let dbPointer = db {
-            sqlite3_close_v2(dbPointer)
-            print("✅ Database connection closed in deinit.")
-            self.db = nil
-        } else {
-            print("ℹ️ Database connection was already nil in deinit.")
-        }
+        _ = connection.close()
     }
 }

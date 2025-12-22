@@ -19,7 +19,7 @@ final class IOSSnapshotExportService {
                 return bookmarked
             }
         #endif
-        let path = db.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = db.preferences.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
         if path.isEmpty { return defaultTargetFolder() }
         if path.hasPrefix("~/") {
             var p = path; p.removeFirst(2)
@@ -103,7 +103,7 @@ final class IOSSnapshotExportService {
                 let adjustedError: Error
                 if nsError.domain == NSCocoaErrorDomain,
                    nsError.code == NSFileWriteNoPermissionError,
-                   db.iosSnapshotTargetBookmark == nil
+                   db.preferences.iosSnapshotTargetBookmark == nil
                 {
                     let advice = "macOS sandbox blocked access to \(destFolder.path). Use Select Path to authorise the folder and try again."
                     adjustedError = NSError(domain: nsError.domain,
@@ -147,7 +147,7 @@ final class IOSSnapshotExportService {
             }
             let json = KanbanSnapshotCodec.encodeJSON(todos) ?? "[]"
             print("[iOS Snapshot] Preparing to persist \(todos.count) to-dos into snapshot configuration")
-            _ = db.upsertConfiguration(key: KanbanSnapshotConfigurationKey,
+            _ = db.configurationStore.upsertConfiguration(key: KanbanSnapshotConfigurationKey,
                                        value: json,
                                        dataType: "string",
                                        description: "Kanban to-dos snapshot for iOS app")
@@ -170,8 +170,8 @@ final class IOSSnapshotExportService {
     }
 
     func autoExportOnLaunchIfDue() {
-        guard db.iosSnapshotAutoEnabled else { return }
-        if isDueToday(frequency: db.iosSnapshotFrequency) {
+        guard db.preferences.iosSnapshotAutoEnabled else { return }
+        if isDueToday(frequency: db.preferences.iosSnapshotFrequency) {
             do {
                 let url = try exportNow(trigger: "auto")
                 LoggingService.shared.log("[iOS Snapshot] Exported to \(url.path)")

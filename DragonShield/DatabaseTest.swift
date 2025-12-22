@@ -30,8 +30,8 @@ struct DatabaseConnectionTest: View {
 
         let dbManager = DatabaseManager()
 
-        print("📊 Base Currency: \(dbManager.baseCurrency)")
-        print("📅 As Of Date: \(dbManager.asOfDate)")
+        print("📊 Base Currency: \(dbManager.preferences.baseCurrency)")
+        print("📅 As Of Date: \(dbManager.preferences.asOfDate)")
 
         let groups = dbManager.fetchAssetTypes()
         print("📁 Instrument Groups: \(groups.count)")

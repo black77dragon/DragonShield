@@ -479,9 +479,9 @@ extension DatabaseManager {
             measured["value_base"] = metrics.comparisonValue
             measured["base_currency"] = metrics.comparisonCurrency
             measured["threshold_base"] = metrics.thresholdComparison
-        } else if let conversion = convertValueToBase(value: metrics.valueInInstrument, from: metrics.priceCurrency, baseCurrency: baseCurrency.uppercased()) {
+        } else if let conversion = convertValueToBase(value: metrics.valueInInstrument, from: metrics.priceCurrency, baseCurrency: preferences.baseCurrency.uppercased()) {
             measured["value_base"] = conversion.value
-            measured["base_currency"] = baseCurrency.uppercased()
+            measured["base_currency"] = preferences.baseCurrency.uppercased()
         }
 
         if let fx = metrics.fxInstrument {
@@ -537,7 +537,7 @@ extension DatabaseManager {
         let priceCurrency = priceInfo.currency.uppercased()
         let valueInInstrument = quantityAbs * price
 
-        let baseCode = baseCurrency.uppercased()
+        let baseCode = preferences.baseCurrency.uppercased()
         var comparisonValue = valueInInstrument
         var comparisonCurrency = priceCurrency
         var thresholdComparison = rawThreshold

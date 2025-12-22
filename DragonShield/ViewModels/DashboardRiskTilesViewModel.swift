@@ -157,7 +157,7 @@ final class DashboardRiskTilesViewModel: ObservableObject {
         guard totalValue > 0 else {
             let emptyOverrides = summarizeOverrides(overrides: overrides)
             return DashboardRiskSnapshot(
-                baseCurrency: dbManager.baseCurrency,
+                baseCurrency: dbManager.preferences.baseCurrency,
                 totalValue: 0,
                 riskScore: nil,
                 category: nil,
@@ -241,7 +241,7 @@ final class DashboardRiskTilesViewModel: ObservableObject {
         }
 
         return DashboardRiskSnapshot(
-            baseCurrency: dbManager.baseCurrency,
+            baseCurrency: dbManager.preferences.baseCurrency,
             totalValue: totalValue,
             riskScore: riskScore,
             category: category(for: riskScore),

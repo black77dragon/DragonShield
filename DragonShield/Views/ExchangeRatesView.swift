@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExchangeRatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @StateObject private var vm: ExchangeRatesViewModel
 
     init() {
@@ -187,8 +188,10 @@ private struct RateFormView: View {
 
 struct ExchangeRatesView_Previews: PreviewProvider {
     static var previews: some View {
+        let manager = DatabaseManager()
         ExchangeRatesView()
-            .environmentObject(DatabaseManager())
+            .environmentObject(manager)
+            .environmentObject(manager.preferences)
     }
 }
 
@@ -199,15 +202,15 @@ extension ExchangeRatesView {
         if updating { return }
         await MainActor.run { self.updating = true }
         let svc = FXUpdateService(dbManager: dbManager)
-        let targets = svc.targetCurrencies(base: dbManager.baseCurrency)
+        let targets = svc.targetCurrencies(base: preferences.baseCurrency)
         if targets.isEmpty {
             await MainActor.run {
-                vm.log.append("No API-supported active currencies to update (base=\(dbManager.baseCurrency)).")
+                vm.log.append("No API-supported active currencies to update (base=\(preferences.baseCurrency)).")
                 self.updating = false
             }
             return
         }
-        if let summary = await svc.updateLatestForAll(base: dbManager.baseCurrency) {
+        if let summary = await svc.updateLatestForAll(base: preferences.baseCurrency) {
             await MainActor.run {
                 vm.log.append("FX Update: updated=\(summary.insertedCount), failed=\(summary.failedCount), skipped=\(summary.skippedCount) — asOf=\(DateFormatter.iso8601DateOnly.string(from: summary.asOf)) via \(summary.provider)")
                 if !summary.updatedCurrencies.isEmpty {
@@ -227,7 +230,7 @@ extension ExchangeRatesView {
         } else {
             await MainActor.run {
                 let err = (svc.lastError.map { String(describing: $0) } ?? "unknown error")
-                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err). Provider=exchangerate.host; base=\(dbManager.baseCurrency); targets=\(targets.joined(separator: ","))")
+                vm.log.append("FX update failed at \(DateFormatter.iso8601DateTime.string(from: Date())) — \(err). Provider=exchangerate.host; base=\(preferences.baseCurrency); targets=\(targets.joined(separator: ","))")
                 self.updating = false
             }
         }

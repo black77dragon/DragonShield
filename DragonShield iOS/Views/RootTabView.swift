@@ -34,8 +34,10 @@
 
     struct RootTabView_Previews: PreviewProvider {
         static var previews: some View {
+            let manager = DatabaseManager()
             RootTabView()
-                .environmentObject(DatabaseManager())
+                .environmentObject(manager)
+                .environmentObject(manager.preferences)
         }
     }
 #endif

@@ -10,8 +10,8 @@ struct FXStatusHealthCheck: HealthCheck {
 
     func run() async -> HealthCheckResult {
         // Determine schedule
-        let enabled = dbManager.fxAutoUpdateEnabled
-        let freq = dbManager.fxUpdateFrequency.lowercased()
+        let enabled = dbManager.preferences.fxAutoUpdateEnabled
+        let freq = dbManager.preferences.fxUpdateFrequency.lowercased()
         let days = (freq == "weekly") ? 7 : 1
 
         guard let last = dbManager.fetchLastFxRateUpdate() else {
@@ -38,7 +38,7 @@ struct FXStatusHealthCheck: HealthCheck {
         }
 
         let statusStr = last.status
-        let base = dbManager.baseCurrency
+        let base = dbManager.preferences.baseCurrency
         var parts: [String] = []
         parts.append("Last FX: \(fmt.string(from: last.updateDate)) status=\(statusStr) updated=\(last.ratesCount) via \(last.apiProvider) (base=\(base))")
         if let f = failedCount { parts.append("failed=\(f)") }

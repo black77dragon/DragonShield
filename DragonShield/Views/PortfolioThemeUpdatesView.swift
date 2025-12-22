@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PortfolioThemeUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let themeId: Int
     let initialSearchText: String?
     let searchHint: String?
@@ -16,7 +17,7 @@ struct PortfolioThemeUpdatesView: View {
     @State private var newsTypes: [NewsTypeRow] = []
     @State private var pinnedFirst: Bool = true
     @State private var sortOrder: SortOrder = .newest
-    @State private var dateFilter: UpdateDateFilter = .last30d
+    @State private var dateFilter: UpdateDateFilter = .all
     @State private var searchDebounce: DispatchWorkItem?
     @State private var expandedId: Int? = nil
     @State private var themeName: String = ""
@@ -203,14 +204,12 @@ struct PortfolioThemeUpdatesView: View {
         let query = searchText.isEmpty ? nil : searchText
         var list = dbManager.listThemeUpdates(themeId: themeId, view: .active, typeId: selectedTypeId, searchQuery: query, pinnedFirst: pinnedFirst)
         if dateFilter != .all {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let tz = TimeZone(identifier: dbManager.defaultTimeZone) ?? .current
+            let tz = TimeZone(identifier: preferences.defaultTimeZone) ?? .current
             list = list.filter { upd in
-                if let date = formatter.date(from: upd.createdAt) {
+                if let date = ISO8601DateParser.parse(upd.createdAt) {
                     return dateFilter.contains(date, timeZone: tz)
                 }
-                return false
+                return true
             }
         }
         if sortOrder == .oldest {
@@ -237,7 +236,7 @@ struct PortfolioThemeUpdatesView: View {
         selectedTypeId = nil
         pinnedFirst = true
         sortOrder = .newest
-        dateFilter = .last30d
+        dateFilter = .all
         load()
     }
 

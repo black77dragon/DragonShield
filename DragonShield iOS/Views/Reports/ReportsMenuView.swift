@@ -5,6 +5,7 @@
     /// Presents the Asset Management Report with the same data and formatting as desktop.
     struct ReportsMenuView: View {
         @EnvironmentObject private var dbManager: DatabaseManager
+        @EnvironmentObject private var preferences: AppPreferences
         @State private var accountCount: Int = 0
         @State private var positionsAsOf: Date?
 
@@ -50,7 +51,7 @@
                     HStack {
                         Label("Base currency", systemImage: "coloncurrencysign.circle")
                         Spacer()
-                        Text(dbManager.baseCurrency.uppercased())
+                        Text(preferences.baseCurrency.uppercased())
                             .foregroundColor(.secondary)
                     }
                     HStack {
@@ -78,7 +79,7 @@
         }
 
         private var formattedAsOfDate: String {
-            Self.dateFormatter.string(from: dbManager.asOfDate)
+            Self.dateFormatter.string(from: preferences.asOfDate)
         }
 
         private func reloadSnapshotMeta() {

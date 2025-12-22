@@ -185,12 +185,13 @@
 
     private struct TotalValueTileIOS: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @State private var total: Double = 0
         @State private var loading = false
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                HStack { Image(systemName: "francsign.circle"); Text("Total Asset Value (") + Text(dbManager.baseCurrency).bold() + Text(")") }
+                HStack { Image(systemName: "francsign.circle"); Text("Total Asset Value (") + Text(preferences.baseCurrency).bold() + Text(")") }
                     .font(.headline)
                 if loading {
                     ProgressView().frame(maxWidth: .infinity)
@@ -219,7 +220,7 @@
                     guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
                     var value = p.quantity * lp.price
                     let curr = lp.currency.uppercased()
-                    if curr != dbManager.baseCurrency.uppercased() {
+                    if curr != preferences.baseCurrency.uppercased() {
                         if let cached = rateCache[curr] {
                             value *= cached
                         } else if let r = dbManager.latestRateToChf(currencyCode: curr)?.rate {
@@ -291,6 +292,7 @@
 
     private struct CryptoAllocationsTileIOS: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @State private var rows: [(name: String, value: Double, pct: Double)] = []
         @State private var loading = false
 
@@ -332,7 +334,7 @@
                     guard isCrypto else { continue }
                     var value = p.quantity * lp.price
                     let curr = lp.currency.uppercased()
-                    if curr != dbManager.baseCurrency.uppercased() {
+                    if curr != preferences.baseCurrency.uppercased() {
                         if let cached = rateCache[curr] {
                             value *= cached
                         } else if let r = dbManager.latestRateToChf(currencyCode: curr)?.rate {
@@ -351,6 +353,7 @@
 
     private struct CurrencyExposureTileIOS: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @State private var rows: [(currency: String, chf: Double, pct: Double)] = []
         @State private var loading = false
 
@@ -389,7 +392,7 @@
                     guard let iid = p.instrumentId, let lp = dbManager.getLatestPrice(instrumentId: iid) else { continue }
                     var value = p.quantity * lp.price
                     let curr = lp.currency.uppercased()
-                    if curr != dbManager.baseCurrency.uppercased() {
+                    if curr != preferences.baseCurrency.uppercased() {
                         if let cached = rateCache[curr] { value *= cached }
                         else if let r = dbManager.latestRateToChf(currencyCode: curr)?.rate { rateCache[curr] = r; value *= r }
                         else { continue }

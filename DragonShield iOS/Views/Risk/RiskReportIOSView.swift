@@ -6,6 +6,7 @@ import SwiftUI
 /// Mobile Risk tab showing portfolio risk score, SRI/liquidity mix, overrides, and top exposures.
 struct RiskReportIOSView: View {
     @EnvironmentObject private var dbManager: DatabaseManager
+    @EnvironmentObject private var preferences: AppPreferences
     @State private var snapshot: RiskSnapshot = .empty(baseCurrency: "CHF")
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -403,7 +404,7 @@ struct RiskReportIOSView: View {
         if isLoading { return }
         isLoading = true
         errorMessage = nil
-        let base = dbManager.baseCurrency.uppercased()
+        let base = preferences.baseCurrency.uppercased()
         DispatchQueue.global(qos: .userInitiated).async {
             let snap = buildSnapshot(baseCurrency: base)
             DispatchQueue.main.async {

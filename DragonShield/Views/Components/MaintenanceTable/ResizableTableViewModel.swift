@@ -19,6 +19,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
 
     private var cancellables: Set<AnyCancellable> = []
     private weak var dbManager: DatabaseManager?
+    private weak var preferences: AppPreferences?
     private var isHydratingPreferences = false
     private var hasHydratedPreferences = false
     private var dragContext: ColumnDragContext?
@@ -45,12 +46,13 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
     }
 
     func connect(to manager: DatabaseManager) {
-        if dbManager === manager { return }
+        if dbManager === manager, preferences === manager.preferences { return }
         dbManager = manager
+        preferences = manager.preferences
         cancellables.removeAll()
         hasAppliedHydratedLayout = false
         debugLog("Connecting to manager; hasHydrated=\(hasHydratedPreferences)")
-        observe(manager: manager)
+        observe(preferences: manager.preferences)
         hydratePreferencesIfNeeded()
     }
 
@@ -266,17 +268,17 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
     }
 
     private func hydratePreferencesIfNeeded() {
-        guard !hasHydratedPreferences, let manager = dbManager else { return }
+        guard !hasHydratedPreferences, let manager = dbManager, let preferences else { return }
         debugLog("Hydrating preferences…")
         hasHydratedPreferences = true
         isHydratingPreferences = true
 
-        migrateLegacyFontIfNeeded(manager)
-        if let stored = MaintenanceTableFontSize(rawValue: manager.tableFontSize(for: configuration.preferenceKind)) {
+        migrateLegacyFontIfNeeded(manager, preferences: preferences)
+        if let stored = MaintenanceTableFontSize(rawValue: preferences.tableFontSize(for: configuration.preferenceKind)) {
             selectedFontSize = stored
         }
 
-        restoreColumnFractions(using: manager)
+        restoreColumnFractions(using: manager, preferences: preferences)
 
         isHydratingPreferences = false
 
@@ -291,16 +293,16 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         debugLog("Hydration finished; activeFractionCount=\(columnFractions.filter { $0.value > 0 }.count)")
     }
 
-    private func migrateLegacyFontIfNeeded(_ manager: DatabaseManager) {
+    private func migrateLegacyFontIfNeeded(_ manager: DatabaseManager, preferences: AppPreferences) {
         guard let legacy = manager.legacyTableFontSize(for: configuration.preferenceKind) else { return }
-        if manager.tableFontSize(for: configuration.preferenceKind) != legacy {
+        if preferences.tableFontSize(for: configuration.preferenceKind) != legacy {
             manager.setTableFontSize(legacy, for: configuration.preferenceKind)
         }
         manager.clearLegacyTableFontSize(for: configuration.preferenceKind)
     }
 
-    private func restoreColumnFractions(using manager: DatabaseManager) {
-        let live = manager.tableColumnFractions(for: configuration.preferenceKind)
+    private func restoreColumnFractions(using manager: DatabaseManager, preferences: AppPreferences) {
+        let live = preferences.tableColumnFractions(for: configuration.preferenceKind)
         if applyFractions(live) {
             debugLog("Applied live fractions from manager: \(describeFractions(live))")
             return
@@ -502,8 +504,8 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
         UserDefaults.standard.set(payload, forKey: key)
     }
 
-    private func observe(manager: DatabaseManager) {
-        fontPublisher(for: manager)
+    private func observe(preferences: AppPreferences) {
+        fontPublisher(for: preferences)
             .receive(on: RunLoop.main)
             .sink { [weak self] raw in
                 guard let self else { return }
@@ -513,7 +515,7 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
             }
             .store(in: &cancellables)
 
-        fractionsPublisher(for: manager)
+        fractionsPublisher(for: preferences)
             .receive(on: RunLoop.main)
             .sink { [weak self] raw in
                 guard let self else { return }
@@ -529,33 +531,33 @@ final class ResizableTableViewModel<Column: MaintenanceTableColumn>: ObservableO
             .store(in: &cancellables)
     }
 
-    private func fontPublisher(for manager: DatabaseManager) -> AnyPublisher<String, Never> {
+    private func fontPublisher(for preferences: AppPreferences) -> AnyPublisher<String, Never> {
         switch configuration.preferenceKind {
-        case .institutions: return manager.$institutionsTableFontSize.eraseToAnyPublisher()
-        case .instruments: return manager.$instrumentsTableFontSize.eraseToAnyPublisher()
-        case .assetSubClasses: return manager.$assetSubClassesTableFontSize.eraseToAnyPublisher()
-        case .assetClasses: return manager.$assetClassesTableFontSize.eraseToAnyPublisher()
-        case .currencies: return manager.$currenciesTableFontSize.eraseToAnyPublisher()
-        case .accounts: return manager.$accountsTableFontSize.eraseToAnyPublisher()
-        case .positions: return manager.$positionsTableFontSize.eraseToAnyPublisher()
-        case .portfolioThemes: return manager.$portfolioThemesTableFontSize.eraseToAnyPublisher()
-        case .transactionTypes: return manager.$transactionTypesTableFontSize.eraseToAnyPublisher()
-        case .accountTypes: return manager.$accountTypesTableFontSize.eraseToAnyPublisher()
+        case .institutions: return preferences.$institutionsTableFontSize.eraseToAnyPublisher()
+        case .instruments: return preferences.$instrumentsTableFontSize.eraseToAnyPublisher()
+        case .assetSubClasses: return preferences.$assetSubClassesTableFontSize.eraseToAnyPublisher()
+        case .assetClasses: return preferences.$assetClassesTableFontSize.eraseToAnyPublisher()
+        case .currencies: return preferences.$currenciesTableFontSize.eraseToAnyPublisher()
+        case .accounts: return preferences.$accountsTableFontSize.eraseToAnyPublisher()
+        case .positions: return preferences.$positionsTableFontSize.eraseToAnyPublisher()
+        case .portfolioThemes: return preferences.$portfolioThemesTableFontSize.eraseToAnyPublisher()
+        case .transactionTypes: return preferences.$transactionTypesTableFontSize.eraseToAnyPublisher()
+        case .accountTypes: return preferences.$accountTypesTableFontSize.eraseToAnyPublisher()
         }
     }
 
-    private func fractionsPublisher(for manager: DatabaseManager) -> AnyPublisher<[String: Double], Never> {
+    private func fractionsPublisher(for preferences: AppPreferences) -> AnyPublisher<[String: Double], Never> {
         switch configuration.preferenceKind {
-        case .institutions: return manager.$institutionsTableColumnFractions.eraseToAnyPublisher()
-        case .instruments: return manager.$instrumentsTableColumnFractions.eraseToAnyPublisher()
-        case .assetSubClasses: return manager.$assetSubClassesTableColumnFractions.eraseToAnyPublisher()
-        case .assetClasses: return manager.$assetClassesTableColumnFractions.eraseToAnyPublisher()
-        case .currencies: return manager.$currenciesTableColumnFractions.eraseToAnyPublisher()
-        case .accounts: return manager.$accountsTableColumnFractions.eraseToAnyPublisher()
-        case .positions: return manager.$positionsTableColumnFractions.eraseToAnyPublisher()
-        case .portfolioThemes: return manager.$portfolioThemesTableColumnFractions.eraseToAnyPublisher()
-        case .transactionTypes: return manager.$transactionTypesTableColumnFractions.eraseToAnyPublisher()
-        case .accountTypes: return manager.$accountTypesTableColumnFractions.eraseToAnyPublisher()
+        case .institutions: return preferences.$institutionsTableColumnFractions.eraseToAnyPublisher()
+        case .instruments: return preferences.$instrumentsTableColumnFractions.eraseToAnyPublisher()
+        case .assetSubClasses: return preferences.$assetSubClassesTableColumnFractions.eraseToAnyPublisher()
+        case .assetClasses: return preferences.$assetClassesTableColumnFractions.eraseToAnyPublisher()
+        case .currencies: return preferences.$currenciesTableColumnFractions.eraseToAnyPublisher()
+        case .accounts: return preferences.$accountsTableColumnFractions.eraseToAnyPublisher()
+        case .positions: return preferences.$positionsTableColumnFractions.eraseToAnyPublisher()
+        case .portfolioThemes: return preferences.$portfolioThemesTableColumnFractions.eraseToAnyPublisher()
+        case .transactionTypes: return preferences.$transactionTypesTableColumnFractions.eraseToAnyPublisher()
+        case .accountTypes: return preferences.$accountTypesTableColumnFractions.eraseToAnyPublisher()
         }
     }
 

@@ -11,17 +11,52 @@
 import Foundation
 import SQLite3
 
-extension DatabaseManager {
-    /// Returns whether the manager currently has an open SQLite connection.
-    /// iOS views rely on this to decide if snapshot data can be read.
-    func hasOpenConnection() -> Bool {
-        db != nil
+struct ConfigurationSnapshot {
+    var baseCurrency: String = "CHF"
+    var asOfDate: Date = .init()
+    var decimalPrecision: Int = 4
+    var defaultTimeZone: String = "Europe/Zurich"
+    var dbVersion: String = ""
+    var includeDirectRealEstate: Bool = true
+    var directRealEstateTargetCHF: Double = 0.0
+    var fxAutoUpdateEnabled: Bool = true
+    var fxUpdateFrequency: String = "daily"
+    var iosSnapshotAutoEnabled: Bool = true
+    var iosSnapshotFrequency: String = "daily"
+    var iosSnapshotTargetPath: String = ""
+    var iosSnapshotTargetBookmark: Data? = nil
+    var institutionsTableFontSize: String = "medium"
+    var institutionsTableColumnFractions: [String: Double] = [:]
+    var instrumentsTableFontSize: String = "medium"
+    var instrumentsTableColumnFractions: [String: Double] = [:]
+    var assetSubClassesTableFontSize: String = "medium"
+    var assetSubClassesTableColumnFractions: [String: Double] = [:]
+    var assetClassesTableFontSize: String = "medium"
+    var assetClassesTableColumnFractions: [String: Double] = [:]
+    var currenciesTableFontSize: String = "medium"
+    var currenciesTableColumnFractions: [String: Double] = [:]
+    var accountsTableFontSize: String = "medium"
+    var accountsTableColumnFractions: [String: Double] = [:]
+    var positionsTableFontSize: String = "medium"
+    var positionsTableColumnFractions: [String: Double] = [:]
+    var portfolioThemesTableFontSize: String = "medium"
+    var portfolioThemesTableColumnFractions: [String: Double] = [:]
+    var transactionTypesTableFontSize: String = "medium"
+    var transactionTypesTableColumnFractions: [String: Double] = [:]
+    var accountTypesTableFontSize: String = "medium"
+    var accountTypesTableColumnFractions: [String: Double] = [:]
+    var todoBoardFontSize: String = "medium"
+}
+
+final class ConfigurationStore {
+    private let connection: DatabaseConnection
+
+    init(connection: DatabaseConnection) {
+        self.connection = connection
     }
 
-    /// Returns the raw configuration value for the provided key, if it exists.
-    /// Falls back to `nil` when the connection is missing or an error occurs.
     func configurationValue(for key: String) -> String? {
-        guard let db else { return nil }
+        guard let db = connection.db else { return nil }
         let query = "SELECT value FROM Configuration WHERE key = ? LIMIT 1;"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
@@ -42,10 +77,8 @@ extension DatabaseManager {
         return String(cString: pointer)
     }
 
-    /// Loads configuration values from the database and returns the db_version.
-    /// The db_version is also applied to the `dbVersion` property.
-    func loadConfiguration() -> String {
-        // Added new keys to fetch
+    func load() -> ConfigurationSnapshot {
+        guard let db = connection.db else { return ConfigurationSnapshot() }
         let query = """
             SELECT key, value, data_type FROM Configuration
             WHERE key IN (
@@ -68,145 +101,130 @@ extension DatabaseManager {
             );
         """
         var statement: OpaquePointer?
-        var loadedVersion = ""
-
-        var pendingAssignments: [(DatabaseManager) -> Void] = []
+        var snapshot = ConfigurationSnapshot()
 
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 guard let keyPtr = sqlite3_column_text(statement, 0),
                       let valuePtr = sqlite3_column_text(statement, 1)
-                // let dataTypePtr = sqlite3_column_text(statement, 2) // For future use if needed
                 else { continue }
 
                 let key = String(cString: keyPtr)
                 let value = String(cString: valuePtr)
-                // let dataType = String(cString: dataTypePtr)
-
-                if key == "db_version" {
-                    loadedVersion = value
-                }
 
                 switch key {
                 case "base_currency":
-                    pendingAssignments.append { $0.baseCurrency = value }
+                    snapshot.baseCurrency = value
                 case "as_of_date":
                     if let date = DateFormatter.iso8601DateOnly.date(from: value) {
-                        pendingAssignments.append { $0.asOfDate = date }
+                        snapshot.asOfDate = date
                     }
                 case "decimal_precision":
-                    let precision = Int(value) ?? 4
-                    pendingAssignments.append { $0.decimalPrecision = precision }
+                    snapshot.decimalPrecision = Int(value) ?? 4
                 case "default_timezone":
-                    pendingAssignments.append { $0.defaultTimeZone = value }
+                    snapshot.defaultTimeZone = value
                 case "include_direct_re":
-                    let flag = value.lowercased() == "true"
-                    pendingAssignments.append { $0.includeDirectRealEstate = flag }
+                    snapshot.includeDirectRealEstate = value.lowercased() == "true"
                 case "direct_re_target_chf":
-                    let target = Double(value) ?? 0
-                    pendingAssignments.append { $0.directRealEstateTargetCHF = target }
+                    snapshot.directRealEstateTargetCHF = Double(value) ?? 0
                 case "db_version":
-                    pendingAssignments.append { $0.dbVersion = value }
+                    snapshot.dbVersion = value
                     print("📦 Database version loaded: \(value)")
                 case "fx_auto_update_enabled":
-                    let flag = value.lowercased() == "true" || value == "1"
-                    pendingAssignments.append { $0.fxAutoUpdateEnabled = flag }
+                    snapshot.fxAutoUpdateEnabled = value.lowercased() == "true" || value == "1"
                 case "fx_update_frequency":
                     let v = value.lowercased()
-                    let freq = (v == "weekly" ? "weekly" : "daily")
-                    pendingAssignments.append { $0.fxUpdateFrequency = freq }
+                    snapshot.fxUpdateFrequency = (v == "weekly" ? "weekly" : "daily")
                 case "ios_snapshot_auto_enabled":
-                    let flag = value.lowercased() == "true" || value == "1"
-                    pendingAssignments.append { $0.iosSnapshotAutoEnabled = flag }
+                    snapshot.iosSnapshotAutoEnabled = value.lowercased() == "true" || value == "1"
                 case "ios_snapshot_frequency":
                     let v = value.lowercased()
-                    let freq = (v == "weekly" ? "weekly" : "daily")
-                    pendingAssignments.append { $0.iosSnapshotFrequency = freq }
+                    snapshot.iosSnapshotFrequency = (v == "weekly" ? "weekly" : "daily")
                 case "ios_snapshot_target_path":
-                    pendingAssignments.append { $0.iosSnapshotTargetPath = value }
+                    snapshot.iosSnapshotTargetPath = value
                 case "ios_snapshot_target_bookmark":
                     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed.isEmpty {
-                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = nil }
+                        snapshot.iosSnapshotTargetBookmark = nil
                     } else if let data = Data(base64Encoded: trimmed) {
-                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = data }
+                        snapshot.iosSnapshotTargetBookmark = data
                     } else {
-                        pendingAssignments.append { $0.iosSnapshotTargetBookmark = nil }
+                        snapshot.iosSnapshotTargetBookmark = nil
                         print("⚠️ [config] Failed to decode ios_snapshot_target_bookmark")
                     }
                 case "institutions_table_font":
                     print("ℹ️ [config] Loaded institutions_table_font=\(value)")
-                    pendingAssignments.append { $0.institutionsTableFontSize = value }
+                    snapshot.institutionsTableFontSize = value
                 case "institutions_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded institutions_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.institutionsTableColumnFractions = parsed }
+                    snapshot.institutionsTableColumnFractions = parsed
                 case "instruments_table_font":
                     print("ℹ️ [config] Loaded instruments_table_font=\(value)")
-                    pendingAssignments.append { $0.instrumentsTableFontSize = value }
+                    snapshot.instrumentsTableFontSize = value
                 case "instruments_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded instruments_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.instrumentsTableColumnFractions = parsed }
+                    snapshot.instrumentsTableColumnFractions = parsed
                 case "asset_subclasses_table_font":
                     print("ℹ️ [config] Loaded asset_subclasses_table_font=\(value)")
-                    pendingAssignments.append { $0.assetSubClassesTableFontSize = value }
+                    snapshot.assetSubClassesTableFontSize = value
                 case "asset_subclasses_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded asset_subclasses_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.assetSubClassesTableColumnFractions = parsed }
+                    snapshot.assetSubClassesTableColumnFractions = parsed
                 case "asset_classes_table_font":
                     print("ℹ️ [config] Loaded asset_classes_table_font=\(value)")
-                    pendingAssignments.append { $0.assetClassesTableFontSize = value }
+                    snapshot.assetClassesTableFontSize = value
                 case "asset_classes_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded asset_classes_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.assetClassesTableColumnFractions = parsed }
+                    snapshot.assetClassesTableColumnFractions = parsed
                 case "currencies_table_font":
                     print("ℹ️ [config] Loaded currencies_table_font=\(value)")
-                    pendingAssignments.append { $0.currenciesTableFontSize = value }
+                    snapshot.currenciesTableFontSize = value
                 case "currencies_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded currencies_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.currenciesTableColumnFractions = parsed }
+                    snapshot.currenciesTableColumnFractions = parsed
                 case "accounts_table_font":
                     print("ℹ️ [config] Loaded accounts_table_font=\(value)")
-                    pendingAssignments.append { $0.accountsTableFontSize = value }
+                    snapshot.accountsTableFontSize = value
                 case "positions_table_font":
                     print("ℹ️ [config] Loaded positions_table_font=\(value)")
-                    pendingAssignments.append { $0.positionsTableFontSize = value }
+                    snapshot.positionsTableFontSize = value
                 case "portfolio_themes_table_font":
                     print("ℹ️ [config] Loaded portfolio_themes_table_font=\(value)")
-                    pendingAssignments.append { $0.portfolioThemesTableFontSize = value }
+                    snapshot.portfolioThemesTableFontSize = value
                 case "accounts_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded accounts_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.accountsTableColumnFractions = parsed }
+                    snapshot.accountsTableColumnFractions = parsed
                 case "positions_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded positions_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.positionsTableColumnFractions = parsed }
+                    snapshot.positionsTableColumnFractions = parsed
                 case "portfolio_themes_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded portfolio_themes_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.portfolioThemesTableColumnFractions = parsed }
+                    snapshot.portfolioThemesTableColumnFractions = parsed
                 case "transaction_types_table_font":
                     print("ℹ️ [config] Loaded transaction_types_table_font=\(value)")
-                    pendingAssignments.append { $0.transactionTypesTableFontSize = value }
+                    snapshot.transactionTypesTableFontSize = value
                 case "transaction_types_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded transaction_types_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.transactionTypesTableColumnFractions = parsed }
+                    snapshot.transactionTypesTableColumnFractions = parsed
                 case "account_types_table_font":
                     print("ℹ️ [config] Loaded account_types_table_font=\(value)")
-                    pendingAssignments.append { $0.accountTypesTableFontSize = value }
+                    snapshot.accountTypesTableFontSize = value
                 case "account_types_table_column_fractions":
                     let parsed = DatabaseManager.decodeFractionDictionary(from: value)
                     print("ℹ️ [config] Loaded account_types_table_column_fractions=\(parsed)")
-                    pendingAssignments.append { $0.accountTypesTableColumnFractions = parsed }
+                    snapshot.accountTypesTableColumnFractions = parsed
                 case "todo_board_font":
                     print("ℹ️ [config] Loaded todo_board_font=\(value)")
-                    pendingAssignments.append { $0.todoBoardFontSize = value }
+                    snapshot.todoBoardFontSize = value
                 default:
                     print("ℹ️ Unhandled configuration key loaded: \(key)")
                 }
@@ -215,16 +233,11 @@ extension DatabaseManager {
             print("❌ Failed to prepare loadConfiguration: \(String(cString: sqlite3_errmsg(db)))")
         }
         sqlite3_finalize(statement)
-        if !pendingAssignments.isEmpty {
-            DispatchQueue.main.async { [pendingAssignments] in
-                pendingAssignments.forEach { $0(self) }
-            }
-        }
-        print("⚙️ Configuration loaded/reloaded.")
-        return loadedVersion
+        return snapshot
     }
 
     func updateConfiguration(key: String, value: String) -> Bool {
+        guard let db = connection.db else { return false }
         let query = "UPDATE Configuration SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?;"
         var statement: OpaquePointer?
 
@@ -243,8 +256,6 @@ extension DatabaseManager {
             let changeCount = sqlite3_changes(db)
             if changeCount > 0 {
                 print("💾 [config] Updated key \(key) to value=\(value)")
-                let version = loadConfiguration()
-                DispatchQueue.main.async { self.dbVersion = version }
                 return true
             } else {
                 print("ℹ️ [config] No existing row for key \(key); update affected 0 rows")
@@ -256,9 +267,8 @@ extension DatabaseManager {
         }
     }
 
-    /// Insert or update a configuration key with explicit data type and optional description.
-    /// Uses an UPSERT to create the key if it doesn't exist.
     func upsertConfiguration(key: String, value: String, dataType: String, description _: String? = nil) -> Bool {
+        guard let db = connection.db else { return false }
         let query = """
             INSERT INTO Configuration (key, value, data_type, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -281,7 +291,6 @@ extension DatabaseManager {
         let success = sqlite3_step(statement) == SQLITE_DONE
         if success {
             print("💾 [config] Upserted key \(key) value=\(value)")
-            let _ = loadConfiguration()
         } else {
             let errorMessage = String(cString: sqlite3_errmsg(db))
             print("❌ [config] upsertConfiguration failed for key \(key): \(errorMessage)")
@@ -294,6 +303,7 @@ extension DatabaseManager {
         if updateConfiguration(key: key, value: value) {
             return true
         }
+        guard let db = connection.db else { return false }
         let insertQuery = "INSERT INTO Configuration (key, value, data_type, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP);"
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, insertQuery, -1, &statement, nil) == SQLITE_OK else {
@@ -308,23 +318,48 @@ extension DatabaseManager {
         let success = sqlite3_step(statement) == SQLITE_DONE
         if success {
             print("💾 [config] Inserted key \(key) via fallback")
-            let _ = loadConfiguration()
         } else {
             print("❌ [config] Fallback insert failed for key \(key): \(String(cString: sqlite3_errmsg(db)))")
         }
         return success
     }
+}
+
+extension DatabaseManager {
+    /// Returns whether the manager currently has an open SQLite connection.
+    /// iOS views rely on this to decide if snapshot data can be read.
+    func hasOpenConnection() -> Bool {
+        db != nil
+    }
+
+    /// Returns the raw configuration value for the provided key, if it exists.
+    /// Falls back to `nil` when the connection is missing or an error occurs.
+    func configurationValue(for key: String) -> String? {
+        configurationStore.configurationValue(for: key)
+    }
+
+    /// Loads configuration values from the database and returns the db_version.
+    /// The db_version is also applied to `preferences.dbVersion`.
+    func loadConfiguration() -> String {
+        let snapshot = configurationStore.load()
+        let version = snapshot.dbVersion
+        DispatchQueue.main.async {
+            self.preferences.apply(snapshot)
+        }
+        print("⚙️ Configuration loaded/reloaded.")
+        return version
+    }
 
     func forceReloadData() { // This mainly reloads configuration currently
         print("🔄 Force reloading database configuration...")
         let version = loadConfiguration()
-        DispatchQueue.main.async { self.dbVersion = version }
+        DispatchQueue.main.async { self.preferences.dbVersion = version }
         NotificationCenter.default.post(name: NSNotification.Name("DatabaseForceReloaded"), object: nil)
     }
 
     // MARK: - Table Preference Helpers
 
-    private static func decodeFractionDictionary(from json: String) -> [String: Double] {
+    static func decodeFractionDictionary(from json: String) -> [String: Double] {
         guard let data = json.data(using: .utf8),
               let raw = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
         else {
@@ -357,214 +392,232 @@ extension DatabaseManager {
     }
 
     func setInstitutionsTableFontSize(_ value: String) {
-        guard institutionsTableFontSize != value else { return }
+        guard preferences.institutionsTableFontSize != value else { return }
         print("📝 [config] Request to store institutions_table_font=\(value)")
-        _ = upsertConfiguration(key: "institutions_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Institutions table")
+        preferences.institutionsTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "institutions_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Institutions table")
     }
 
     func setInstitutionsTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard institutionsTableColumnFractions != cleaned else { return }
+        guard preferences.institutionsTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store institutions_table_column_fractions=\(cleaned)")
+        preferences.institutionsTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "institutions_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Institutions table")
+        _ = configurationStore.upsertConfiguration(key: "institutions_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Institutions table")
     }
 
     func setInstrumentsTableFontSize(_ value: String) {
-        guard instrumentsTableFontSize != value else { return }
+        guard preferences.instrumentsTableFontSize != value else { return }
         print("📝 [config] Request to store instruments_table_font=\(value)")
-        _ = upsertConfiguration(key: "instruments_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Instruments table")
+        preferences.instrumentsTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "instruments_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Instruments table")
     }
 
     func setInstrumentsTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard instrumentsTableColumnFractions != cleaned else { return }
+        guard preferences.instrumentsTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store instruments_table_column_fractions=\(cleaned)")
+        preferences.instrumentsTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "instruments_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Instruments table")
+        _ = configurationStore.upsertConfiguration(key: "instruments_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Instruments table")
     }
 
     func setCurrenciesTableFontSize(_ value: String) {
-        guard currenciesTableFontSize != value else { return }
+        guard preferences.currenciesTableFontSize != value else { return }
         print("📝 [config] Request to store currencies_table_font=\(value)")
-        _ = upsertConfiguration(key: "currencies_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Currencies table")
+        preferences.currenciesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "currencies_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Currencies table")
     }
 
     func setCurrenciesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard currenciesTableColumnFractions != cleaned else { return }
+        guard preferences.currenciesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store currencies_table_column_fractions=\(cleaned)")
+        preferences.currenciesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "currencies_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Currencies table")
+        _ = configurationStore.upsertConfiguration(key: "currencies_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Currencies table")
     }
 
     func setAccountsTableFontSize(_ value: String) {
-        guard accountsTableFontSize != value else { return }
+        guard preferences.accountsTableFontSize != value else { return }
         print("📝 [config] Request to store accounts_table_font=\(value)")
-        _ = upsertConfiguration(key: "accounts_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Accounts table")
+        preferences.accountsTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "accounts_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Accounts table")
     }
 
     func setAccountsTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard accountsTableColumnFractions != cleaned else { return }
+        guard preferences.accountsTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store accounts_table_column_fractions=\(cleaned)")
+        preferences.accountsTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "accounts_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Accounts table")
+        _ = configurationStore.upsertConfiguration(key: "accounts_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Accounts table")
     }
 
     func setPositionsTableFontSize(_ value: String) {
-        guard positionsTableFontSize != value else { return }
+        guard preferences.positionsTableFontSize != value else { return }
         print("📝 [config] Request to store positions_table_font=\(value)")
-        _ = upsertConfiguration(key: "positions_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Positions table")
+        preferences.positionsTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "positions_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Positions table")
     }
 
     func setPositionsTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard positionsTableColumnFractions != cleaned else { return }
+        guard preferences.positionsTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store positions_table_column_fractions=\(cleaned)")
+        preferences.positionsTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "positions_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Positions table")
+        _ = configurationStore.upsertConfiguration(key: "positions_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Positions table")
     }
 
     func setPortfolioThemesTableFontSize(_ value: String) {
-        guard portfolioThemesTableFontSize != value else { return }
+        guard preferences.portfolioThemesTableFontSize != value else { return }
         print("📝 [config] Request to store portfolio_themes_table_font=\(value)")
-        _ = upsertConfiguration(key: "portfolio_themes_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for New Portfolios table")
+        preferences.portfolioThemesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "portfolio_themes_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for New Portfolios table")
     }
 
     func setPortfolioThemesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard portfolioThemesTableColumnFractions != cleaned else { return }
+        guard preferences.portfolioThemesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store portfolio_themes_table_column_fractions=\(cleaned)")
+        preferences.portfolioThemesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "portfolio_themes_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for New Portfolios table")
+        _ = configurationStore.upsertConfiguration(key: "portfolio_themes_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for New Portfolios table")
     }
 
     func setAssetSubClassesTableFontSize(_ value: String) {
-        guard assetSubClassesTableFontSize != value else { return }
+        guard preferences.assetSubClassesTableFontSize != value else { return }
         print("📝 [config] Request to store asset_subclasses_table_font=\(value)")
-        _ = upsertConfiguration(key: "asset_subclasses_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Asset Subclasses table")
+        preferences.assetSubClassesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "asset_subclasses_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Asset Subclasses table")
     }
 
     func setAssetSubClassesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard assetSubClassesTableColumnFractions != cleaned else { return }
+        guard preferences.assetSubClassesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store asset_subclasses_table_column_fractions=\(cleaned)")
+        preferences.assetSubClassesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "asset_subclasses_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Asset Subclasses table")
+        _ = configurationStore.upsertConfiguration(key: "asset_subclasses_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Asset Subclasses table")
     }
 
     func setAssetClassesTableFontSize(_ value: String) {
-        guard assetClassesTableFontSize != value else { return }
+        guard preferences.assetClassesTableFontSize != value else { return }
         print("📝 [config] Request to store asset_classes_table_font=\(value)")
-        _ = upsertConfiguration(key: "asset_classes_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Asset Classes table")
+        preferences.assetClassesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "asset_classes_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Asset Classes table")
     }
 
     func setAssetClassesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard assetClassesTableColumnFractions != cleaned else { return }
+        guard preferences.assetClassesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store asset_classes_table_column_fractions=\(cleaned)")
-        assetClassesTableColumnFractions = cleaned
+        preferences.assetClassesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "asset_classes_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Asset Classes table")
+        _ = configurationStore.upsertConfiguration(key: "asset_classes_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Asset Classes table")
     }
 
     func setTransactionTypesTableFontSize(_ value: String) {
-        guard transactionTypesTableFontSize != value else { return }
+        guard preferences.transactionTypesTableFontSize != value else { return }
         print("📝 [config] Request to store transaction_types_table_font=\(value)")
-        _ = upsertConfiguration(key: "transaction_types_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Transaction Types table")
+        preferences.transactionTypesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "transaction_types_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Transaction Types table")
     }
 
     func setTransactionTypesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard transactionTypesTableColumnFractions != cleaned else { return }
+        guard preferences.transactionTypesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store transaction_types_table_column_fractions=\(cleaned)")
-        transactionTypesTableColumnFractions = cleaned
+        preferences.transactionTypesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "transaction_types_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Transaction Types table")
+        _ = configurationStore.upsertConfiguration(key: "transaction_types_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Transaction Types table")
     }
 
     func setAccountTypesTableFontSize(_ value: String) {
-        guard accountTypesTableFontSize != value else { return }
+        guard preferences.accountTypesTableFontSize != value else { return }
         print("📝 [config] Request to store account_types_table_font=\(value)")
-        _ = upsertConfiguration(key: "account_types_table_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for Account Types table")
+        preferences.accountTypesTableFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "account_types_table_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for Account Types table")
     }
 
     func setAccountTypesTableColumnFractions(_ fractions: [String: Double]) {
         let cleaned = DatabaseManager.normaliseFractionsForStorage(fractions)
-        guard accountTypesTableColumnFractions != cleaned else { return }
+        guard preferences.accountTypesTableColumnFractions != cleaned else { return }
         print("📝 [config] Request to store account_types_table_column_fractions=\(cleaned)")
-        accountTypesTableColumnFractions = cleaned
+        preferences.accountTypesTableColumnFractions = cleaned
         let payload = DatabaseManager.encodeFractionDictionary(cleaned) ?? "{}"
-        _ = upsertConfiguration(key: "account_types_table_column_fractions",
-                                value: payload,
-                                dataType: "string",
-                                description: "Column width fractions for Account Types table")
+        _ = configurationStore.upsertConfiguration(key: "account_types_table_column_fractions",
+                                                   value: payload,
+                                                   dataType: "string",
+                                                   description: "Column width fractions for Account Types table")
     }
 
     func setTodoBoardFontSize(_ value: String) {
-        guard todoBoardFontSize != value else { return }
+        guard preferences.todoBoardFontSize != value else { return }
         print("📝 [config] Request to store todo_board_font=\(value)")
-        _ = upsertConfiguration(key: "todo_board_font",
-                                value: value,
-                                dataType: "string",
-                                description: "Preferred font size for To-Do board")
+        preferences.todoBoardFontSize = value
+        _ = configurationStore.upsertConfiguration(key: "todo_board_font",
+                                                   value: value,
+                                                   dataType: "string",
+                                                   description: "Preferred font size for To-Do board")
     }
 }

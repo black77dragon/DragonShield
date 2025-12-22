@@ -159,8 +159,8 @@ final class AssetManagementReportViewModel: ObservableObject {
 
     func load(using dbManager: DatabaseManager) {
         if isLoading { return }
-        let baseCurrency = normalizedBaseCurrency(dbManager.baseCurrency)
-        let reportDate = dbManager.asOfDate
+        let baseCurrency = normalizedBaseCurrency(dbManager.preferences.baseCurrency)
+        let reportDate = dbManager.preferences.asOfDate
         let manager = dbManager
         isLoading = true
         errorMessage = nil

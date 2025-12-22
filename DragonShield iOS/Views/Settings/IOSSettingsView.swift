@@ -5,6 +5,7 @@
 
     struct IOSSettingsView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @State private var showImporter = false
         @State private var importError: String?
         @State private var lastImportedPath: String = ""
@@ -91,7 +92,7 @@
                         .frame(minHeight: 160)
                     }
                     Section(header: Text("About")) {
-                        Text("DB Version: \(dbManager.dbVersion)")
+                        Text("DB Version: \(preferences.dbVersion)")
                         if let created = dbManager.dbCreated {
                             Text("Created: \(Self.aboutDateFormatter.string(from: created))")
                         }

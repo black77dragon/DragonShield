@@ -56,7 +56,7 @@ final class PortfolioValuationService {
         guard let db = dbManager.db else {
             return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [], excludedPriceCount: 0)
         }
-        guard !dbManager.baseCurrency.isEmpty else {
+        guard !dbManager.preferences.baseCurrency.isEmpty else {
             LoggingService.shared.log("Base currency not configured.", type: .error, logger: .database)
             return ValuationSnapshot(positionsAsOf: nil, fxAsOf: nil, totalValueBase: 0, rows: [], excludedFxCount: 0, missingCurrencies: [], excludedPriceCount: 0)
         }
@@ -264,7 +264,7 @@ final class PortfolioRiskScoringService {
                 themeId: themeId,
                 positionsAsOf: valuation.positionsAsOf,
                 fxAsOf: valuation.fxAsOf,
-                baseCurrency: dbManager.baseCurrency,
+                baseCurrency: dbManager.preferences.baseCurrency,
                 totalValueBase: 0,
                 weightedSRI: 0,
                 weightedLiquidityPremium: 0,
@@ -342,7 +342,7 @@ final class PortfolioRiskScoringService {
             themeId: themeId,
             positionsAsOf: valuation.positionsAsOf,
             fxAsOf: valuation.fxAsOf,
-            baseCurrency: dbManager.baseCurrency,
+            baseCurrency: dbManager.preferences.baseCurrency,
             totalValueBase: total,
             weightedSRI: weightedSRI,
             weightedLiquidityPremium: weightedLiquidityPremium,

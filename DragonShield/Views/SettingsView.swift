@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @EnvironmentObject var runner: HealthCheckRunner
 
     @AppStorage("coingeckoPreferFree") private var coingeckoPreferFree: Bool = false
@@ -34,11 +35,11 @@ struct SettingsView: View {
 
     private var fxAutoBinding: Binding<Bool> {
         Binding(
-            get: { dbManager.fxAutoUpdateEnabled },
+            get: { preferences.fxAutoUpdateEnabled },
             set: { newValue in
-                guard dbManager.fxAutoUpdateEnabled != newValue else { return }
-                dbManager.fxAutoUpdateEnabled = newValue
-                _ = dbManager.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
+                guard preferences.fxAutoUpdateEnabled != newValue else { return }
+                preferences.fxAutoUpdateEnabled = newValue
+                _ = dbManager.configurationStore.upsertConfiguration(key: "fx_auto_update_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-update exchange rates on app launch")
                 updateFxStatus()
             }
         )
@@ -46,18 +47,18 @@ struct SettingsView: View {
 
     private var iosAutoBinding: Binding<Bool> {
         Binding(
-            get: { dbManager.iosSnapshotAutoEnabled },
+            get: { preferences.iosSnapshotAutoEnabled },
             set: { newValue in
-                guard dbManager.iosSnapshotAutoEnabled != newValue else { return }
-                dbManager.iosSnapshotAutoEnabled = newValue
-                _ = dbManager.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
+                guard preferences.iosSnapshotAutoEnabled != newValue else { return }
+                preferences.iosSnapshotAutoEnabled = newValue
+                _ = dbManager.configurationStore.upsertConfiguration(key: "ios_snapshot_auto_enabled", value: newValue ? "true" : "false", dataType: "boolean", description: "Auto-export iOS snapshot on launch")
                 updateIOSStatus()
             }
         )
     }
 
     private var fxStartupDetail: String {
-        fxLastSummary.isEmpty ? "No updates yet — auto-update \(dbManager.fxAutoUpdateEnabled ? "enabled" : "disabled")." : fxLastSummary
+        fxLastSummary.isEmpty ? "No updates yet — auto-update \(preferences.fxAutoUpdateEnabled ? "enabled" : "disabled")." : fxLastSummary
     }
 
     private var iosStartupDetail: String {
@@ -176,12 +177,12 @@ struct SettingsView: View {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
                                     .dsBody()
                                 Picker("", selection: Binding(
-                                    get: { dbManager.fxUpdateFrequency },
+                                    get: { preferences.fxUpdateFrequency },
                                     set: { newValue in
                                         let value = (newValue == "weekly") ? "weekly" : "daily"
-                                        guard dbManager.fxUpdateFrequency != value else { return }
-                                        dbManager.fxUpdateFrequency = value
-                                        _ = dbManager.upsertConfiguration(key: "fx_update_frequency", value: value, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
+                                        guard preferences.fxUpdateFrequency != value else { return }
+                                        preferences.fxUpdateFrequency = value
+                                        _ = dbManager.configurationStore.upsertConfiguration(key: "fx_update_frequency", value: value, dataType: "string", description: "FX auto-update frequency (daily|weekly)")
                                         updateFxStatus()
                                     }
                                 )) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
@@ -208,12 +209,12 @@ struct SettingsView: View {
                                 Text("Frequency").frame(width: 160, alignment: .leading)
                                     .dsBody()
                                 Picker("", selection: Binding(
-                                    get: { dbManager.iosSnapshotFrequency },
+                                    get: { preferences.iosSnapshotFrequency },
                                     set: { newValue in
                                         let value = (newValue == "weekly") ? "weekly" : "daily"
-                                        guard dbManager.iosSnapshotFrequency != value else { return }
-                                        dbManager.iosSnapshotFrequency = value
-                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_frequency", value: value, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
+                                        guard preferences.iosSnapshotFrequency != value else { return }
+                                        preferences.iosSnapshotFrequency = value
+                                        _ = dbManager.configurationStore.upsertConfiguration(key: "ios_snapshot_frequency", value: value, dataType: "string", description: "iOS snapshot export frequency (daily|weekly)")
                                         updateIOSStatus()
                                     }
                                 )) { Text("Daily").tag("daily"); Text("Weekly").tag("weekly") }
@@ -229,12 +230,15 @@ struct SettingsView: View {
                                     .frame(minWidth: 300)
                                     .onSubmit {
                                         let trimmed = iosTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        let previous = dbManager.iosSnapshotTargetPath
+                                        let previous = preferences.iosSnapshotTargetPath
                                         iosTargetPath = trimmed
-                                        dbManager.iosSnapshotTargetPath = trimmed
-                                        _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: trimmed, dataType: "string", description: "Destination folder for iOS snapshot export")
+                                        preferences.iosSnapshotTargetPath = trimmed
+                                        _ = dbManager.configurationStore.upsertConfiguration(key: "ios_snapshot_target_path", value: trimmed, dataType: "string", description: "Destination folder for iOS snapshot export")
                                         #if os(macOS)
-                                            if trimmed != previous { dbManager.clearIOSSnapshotBookmark() }
+                                            if trimmed != previous {
+                                                dbManager.clearIOSSnapshotBookmark()
+                                                preferences.iosSnapshotTargetBookmark = nil
+                                            }
                                         #endif
                                         updateIOSStatus()
                                     }
@@ -266,25 +270,25 @@ struct SettingsView: View {
         .frame(minWidth: 600, idealWidth: 760, minHeight: 520)
         .onAppear {
             updateFxStatus()
-            iosTargetPath = dbManager.iosSnapshotTargetPath
+            iosTargetPath = preferences.iosSnapshotTargetPath
             updateIOSStatus()
             #if DEBUG
                 GitInfoProvider.debugDump()
             #endif
         }
-        .onChange(of: dbManager.fxAutoUpdateEnabled) { _, _ in
+        .onChange(of: preferences.fxAutoUpdateEnabled) { _, _ in
             updateFxStatus()
         }
-        .onChange(of: dbManager.fxUpdateFrequency) { _, _ in
+        .onChange(of: preferences.fxUpdateFrequency) { _, _ in
             updateFxStatus()
         }
-        .onChange(of: dbManager.iosSnapshotAutoEnabled) { _, _ in
+        .onChange(of: preferences.iosSnapshotAutoEnabled) { _, _ in
             updateIOSStatus()
         }
-        .onChange(of: dbManager.iosSnapshotFrequency) { _, _ in
+        .onChange(of: preferences.iosSnapshotFrequency) { _, _ in
             updateIOSStatus()
         }
-        .onChange(of: dbManager.iosSnapshotTargetPath) { _, newValue in
+        .onChange(of: preferences.iosSnapshotTargetPath) { _, newValue in
             if iosTargetPath != newValue {
                 iosTargetPath = newValue
             }
@@ -411,6 +415,8 @@ extension SettingsView {
             if panel.runModal() == .OK, let url = panel.url {
                 _ = dbManager.setIOSSnapshotTargetFolder(url)
                 iosTargetPath = url.path
+                preferences.iosSnapshotTargetPath = url.path
+                preferences.iosSnapshotTargetBookmark = dbManager.preferences.iosSnapshotTargetBookmark
                 updateIOSStatus()
             }
         }
@@ -451,7 +457,7 @@ extension SettingsView {
         }
 
         if let last = dbManager.fetchLastFxRateUpdate() {
-            let freq = dbManager.fxUpdateFrequency.lowercased()
+            let freq = preferences.fxUpdateFrequency.lowercased()
             let days = (freq == "weekly") ? 7 : 1
             let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
             var breakdown: [String] = []
@@ -467,7 +473,7 @@ extension SettingsView {
         }
 
         if parts.isEmpty {
-            fxLastSummary = "Never (auto-update \(dbManager.fxAutoUpdateEnabled ? "enabled" : "disabled"))"
+            fxLastSummary = "Never (auto-update \(preferences.fxAutoUpdateEnabled ? "enabled" : "disabled"))"
         } else {
             fxLastSummary = parts.joined(separator: " — ")
         }
@@ -477,7 +483,7 @@ extension SettingsView {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         let fmtDate = DateFormatter.iso8601DateOnly
         let fmtTime = DateFormatter(); fmtTime.dateFormat = "HH:mm"
-        let freq = dbManager.iosSnapshotFrequency.lowercased()
+        let freq = preferences.iosSnapshotFrequency.lowercased()
         let days = (freq == "weekly") ? 7 : 1
         if let job = dbManager.fetchLastSystemJobRun(jobKey: .iosSnapshotExport) {
             let timestamp = job.finishedOrStarted
@@ -499,8 +505,8 @@ extension SettingsView {
             iosStatus = "No snapshot found. Will export on next launch if enabled."
         }
         #if os(macOS)
-            let trimmed = dbManager.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty, dbManager.iosSnapshotTargetBookmark == nil {
+            let trimmed = preferences.iosSnapshotTargetPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty, preferences.iosSnapshotTargetBookmark == nil {
                 let advisory = "Select Path to authorise folder access"
                 iosStatus = iosStatus.isEmpty ? advisory : iosStatus + " — " + advisory
             }
@@ -512,7 +518,8 @@ extension SettingsView {
         do {
             _ = try svc.exportNow()
             iosTargetPath = svc.resolvedTargetFolder().path
-            _ = dbManager.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
+            preferences.iosSnapshotTargetPath = iosTargetPath
+            _ = dbManager.configurationStore.upsertConfiguration(key: "ios_snapshot_target_path", value: iosTargetPath, dataType: "string")
             updateIOSStatus()
         } catch {
             updateIOSStatus()

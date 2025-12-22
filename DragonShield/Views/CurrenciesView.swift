@@ -163,7 +163,12 @@ struct CurrenciesView: View {
     private var fontSizeBinding: Binding<MaintenanceTableFontSize> {
         Binding(
             get: { tableModel.selectedFontSize },
-            set: { tableModel.selectedFontSize = $0 }
+            set: { newValue in
+                guard tableModel.selectedFontSize != newValue else { return }
+                DispatchQueue.main.async {
+                    tableModel.selectedFontSize = newValue
+                }
+            }
         )
     }
 

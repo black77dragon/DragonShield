@@ -33,6 +33,7 @@ private enum InstrumentTableColumn: String, CaseIterable, Codable {
 struct PortfolioView: View {
     @EnvironmentObject var assetManager: AssetManager
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @State private var showAddInstrumentSheet = false
     @State private var showEditInstrumentSheet = false
     @State private var selectedAsset: DragonAsset? = nil
@@ -282,7 +283,7 @@ struct PortfolioView: View {
     }
 
     private func restoreColumnFractions() {
-        if restoreFromStoredColumnFractions(dbManager.tableColumnFractions(for: .instruments)) {
+        if restoreFromStoredColumnFractions(preferences.tableColumnFractions(for: .instruments)) {
             print("📥 [instruments] Applied stored column fractions from configuration table")
             return
         }
@@ -331,7 +332,7 @@ struct PortfolioView: View {
 
         migrateLegacyFontIfNeeded()
 
-        let storedFont = dbManager.tableFontSize(for: .instruments)
+        let storedFont = preferences.tableFontSize(for: .instruments)
         if let storedSize = TableFontSize(rawValue: storedFont) {
             print("📥 [instruments] Applying stored font size: \(storedSize.rawValue)")
             selectedFontSize = storedSize
@@ -342,7 +343,7 @@ struct PortfolioView: View {
 
     private func migrateLegacyFontIfNeeded() {
         guard let legacy = dbManager.legacyTableFontSize(for: .instruments) else { return }
-        if dbManager.tableFontSize(for: .instruments) != legacy {
+        if preferences.tableFontSize(for: .instruments) != legacy {
             print("♻️ [instruments] Migrating legacy font size \(legacy) to configuration table")
             dbManager.setTableFontSize(legacy, for: .instruments)
         }

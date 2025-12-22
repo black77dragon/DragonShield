@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InstrumentDashboardWindowView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.dismiss) private var dismiss
     let instrumentId: Int
 
@@ -140,7 +141,7 @@ struct InstrumentDashboardWindowView: View {
                         rowKV("As Of", "—")
                     }
                     Divider().overlay(DSColor.border).padding(.vertical, 2)
-                    rowKV("Total Position (\(dbManager.baseCurrency))", formatCHFNoDecimalsSuffix(totalValueCHF))
+                    rowKV("Total Position (\(preferences.baseCurrency))", formatCHFNoDecimalsSuffix(totalValueCHF))
                 }
             }
             infoCard(title: "Portfolios & Allocations") {
@@ -355,7 +356,7 @@ struct InstrumentDashboardWindowView: View {
             if let pi = priceInfo {
                 value = qty * pi.price
                 // FX to CHF if needed
-                if pi.currency.uppercased() != dbManager.baseCurrency.uppercased() {
+                if pi.currency.uppercased() != preferences.baseCurrency.uppercased() {
                     if let rate = dbManager.fetchExchangeRates(currencyCode: pi.currency, upTo: nil).first?.rateToChf {
                         value *= rate
                     } else {

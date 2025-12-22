@@ -16,6 +16,7 @@
             WindowGroup {
                 RootTabView()
                     .environmentObject(dbManager)
+                    .environmentObject(dbManager.preferences)
                     .dynamicTypeSize(fontSizePreference.dynamicTypeSize)
             }
         }

@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 
 struct InstrumentUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let themeId: Int
     let instrumentId: Int
     let instrumentName: String
@@ -158,7 +159,7 @@ struct InstrumentUpdateEditorView: View {
 
     private func formatted(_ value: Double?) -> String {
         guard let v = value else { return "—" }
-        return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+        return v.formatted(.currency(code: preferences.baseCurrency).precision(.fractionLength(2)))
     }
 
     private func formattedPct(_ value: Double?) -> String {

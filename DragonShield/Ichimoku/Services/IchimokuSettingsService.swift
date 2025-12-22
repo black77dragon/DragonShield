@@ -47,32 +47,32 @@ final class IchimokuSettingsService: ObservableObject {
 
     func save() {
         let state = self.state
-        _ = dbManager.upsertConfiguration(key: "ichimoku.schedule.enabled",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.schedule.enabled",
                                           value: state.scheduleEnabled ? "true" : "false",
                                           dataType: "bool",
                                           description: "Enable or disable the daily Ichimoku Dragon scan")
         let timeString = Self.formatTimeComponents(state.scheduleTime)
-        _ = dbManager.upsertConfiguration(key: "ichimoku.schedule.time",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.schedule.time",
                                           value: timeString,
                                           dataType: "string",
                                           description: "Time of day for Ichimoku scan (HH:mm)")
-        _ = dbManager.upsertConfiguration(key: "ichimoku.schedule.timezone",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.schedule.timezone",
                                           value: state.scheduleTimeZone.identifier,
                                           dataType: "string",
                                           description: "Timezone identifier for scheduling")
-        _ = dbManager.upsertConfiguration(key: "ichimoku.max_candidates",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.max_candidates",
                                           value: String(state.maxCandidates),
                                           dataType: "int",
                                           description: "Maximum number of daily Ichimoku candidates")
-        _ = dbManager.upsertConfiguration(key: "ichimoku.history.lookback_days",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.history.lookback_days",
                                           value: String(state.historyLookbackDays),
                                           dataType: "int",
                                           description: "Historical lookback window in days for price download")
-        _ = dbManager.upsertConfiguration(key: "ichimoku.regression.window",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.regression.window",
                                           value: String(state.regressionWindow),
                                           dataType: "int",
                                           description: "Window length for slope regression (days)")
-        _ = dbManager.upsertConfiguration(key: "ichimoku.provider.priority",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.provider.priority",
                                           value: state.priceProviderPriority.joined(separator: ","),
                                           dataType: "string",
                                           description: "Preferred data providers in order (comma-separated codes)")
