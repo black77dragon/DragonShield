@@ -195,6 +195,7 @@ struct TotalValueTile: DashboardTile {
             }
             sum += value
         }
+        _ = dbManager.recordDailyPortfolioValue(valueChf: sum)
         return sum
     }
 }
