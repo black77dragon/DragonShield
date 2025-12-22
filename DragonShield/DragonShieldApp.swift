@@ -41,6 +41,7 @@ struct DragonShieldApp: App {
             }
             .environmentObject(assetManager) // Your existing one
             .environmentObject(databaseManager) // <<<< ADD THIS LINE
+            .environmentObject(databaseManager.preferences)
             .environmentObject(healthRunner)
             .environmentObject(ichimokuSettingsService)
             .environmentObject(ichimokuViewModel)
@@ -56,9 +57,9 @@ struct DragonShieldApp: App {
                     await healthRunner.runAll()
                 }
                 // Auto-update FX on launch if enabled and stale (Option 2)
-                if databaseManager.fxAutoUpdateEnabled {
+                if databaseManager.preferences.fxAutoUpdateEnabled {
                     let fxService = FXUpdateService(dbManager: databaseManager)
-                    await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.baseCurrency)
+                    await fxService.autoUpdateOnLaunchIfStale(thresholdHours: 24, base: databaseManager.preferences.baseCurrency)
                 }
 
                 // Export iOS snapshot if the auto-export toggle is enabled and run is due
@@ -73,6 +74,7 @@ struct DragonShieldApp: App {
             {
                 AccountDetailWindowView(account: account)
                     .environmentObject(databaseManager)
+                    .environmentObject(databaseManager.preferences)
                     .environmentObject(ichimokuSettingsService)
                     .environmentObject(ichimokuViewModel)
                     .environmentObject(ichimokuScheduler)
@@ -84,6 +86,7 @@ struct DragonShieldApp: App {
             if let cid = classId {
                 TargetEditPanel(classId: cid)
                     .environmentObject(databaseManager)
+                    .environmentObject(databaseManager.preferences)
                     .environmentObject(ichimokuSettingsService)
                     .environmentObject(ichimokuViewModel)
                     .environmentObject(ichimokuScheduler)
@@ -98,6 +101,7 @@ struct DragonShieldApp: App {
             if let iid = instrumentId {
                 InstrumentDashboardWindowView(instrumentId: iid)
                     .environmentObject(databaseManager)
+                    .environmentObject(databaseManager.preferences)
                     .environmentObject(ichimokuSettingsService)
                     .environmentObject(ichimokuViewModel)
                     .environmentObject(ichimokuScheduler)
@@ -111,6 +115,7 @@ struct DragonShieldApp: App {
         WindowGroup(id: "todoBoard") {
             TodoKanbanBoardView()
                 .environmentObject(databaseManager)
+                .environmentObject(databaseManager.preferences)
         }
         .defaultSize(width: 1120, height: 720)
         .windowResizability(.contentSize)
@@ -119,6 +124,7 @@ struct DragonShieldApp: App {
             if let tid = themeId {
                 PortfolioThemeWorkspaceView(themeId: tid, origin: "window")
                     .environmentObject(databaseManager)
+                    .environmentObject(databaseManager.preferences)
                     .environmentObject(ichimokuSettingsService)
                     .environmentObject(ichimokuViewModel)
                     .environmentObject(ichimokuScheduler)

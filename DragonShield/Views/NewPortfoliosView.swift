@@ -5,6 +5,7 @@ import SwiftUI
 
 struct NewPortfoliosView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
 
     fileprivate struct TableFontConfig {
         let nameSize: CGFloat
@@ -352,7 +353,7 @@ struct NewPortfoliosView: View {
                         status: status(for: theme.statusId),
                         columns: activeColumns,
                         fontConfig: fontConfig,
-                        baseCurrency: dbManager.baseCurrency,
+                        baseCurrency: preferences.baseCurrency,
                         rowPadding: DSLayout.tableRowPadding,
                         isSelected: selectedTheme?.id == theme.id,
                         widthFor: { width(for: $0) },
@@ -814,7 +815,7 @@ struct NewPortfoliosView: View {
         hasHydratedPreferences = true
         isHydratingPreferences = true
 
-        let storedFont = dbManager.tableFontSize(for: .portfolioThemes)
+        let storedFont = preferences.tableFontSize(for: .portfolioThemes)
         if let stored = TableFontSize(rawValue: storedFont) {
             selectedFontSize = stored
         }
@@ -825,7 +826,7 @@ struct NewPortfoliosView: View {
     private func restoreColumnFractionsIfNeeded() {
         guard !didRestoreColumnFractions else { return }
         didRestoreColumnFractions = true
-        let stored = dbManager.tableColumnFractions(for: .portfolioThemes)
+        let stored = preferences.tableColumnFractions(for: .portfolioThemes)
         guard !stored.isEmpty else {
             recalcColumnWidths()
             return

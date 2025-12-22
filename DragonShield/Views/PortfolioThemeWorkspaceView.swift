@@ -54,6 +54,7 @@ private struct HoldingsColumnsInfoView: View {
 
 struct PortfolioThemeWorkspaceView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let themeId: Int
     let origin: String
     @Environment(\.dismiss) private var dismiss
@@ -409,7 +410,7 @@ struct PortfolioThemeWorkspaceView: View {
                                 if on { holdingsColumns.insert(col) } else { holdingsColumns.remove(col) }
                                 persistHoldingsColumns()
                             }
-                        )) { Text(col == .actualChf ? "Actual \(dbManager.baseCurrency)" : col.title) }
+                        )) { Text(col == .actualChf ? "Actual \(preferences.baseCurrency)" : col.title) }
                     }
                     Divider()
                     Button("Adjust Widths…") { showWidthsEditor = true }
@@ -1824,7 +1825,7 @@ struct PortfolioThemeWorkspaceView: View {
 
     private var kpiRow: some View {
         HStack(spacing: 12) {
-            KPI(title: "Total Value (\(dbManager.baseCurrency))", value: currency(valuation?.totalValueBase))
+            KPI(title: "Total Value (\(preferences.baseCurrency))", value: currency(valuation?.totalValueBase))
             KPI(title: "Instruments", value: String(theme?.instrumentCount ?? 0))
             KPI(title: "Positions as of", value: dateStr(valuation?.positionsAsOf))
             KPI(title: "FX as of", value: dateStr(valuation?.fxAsOf))
@@ -1891,12 +1892,12 @@ struct PortfolioThemeWorkspaceView: View {
             struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
             let items = top.map { Item(name: $0.instrumentName, value: $0.currentValueBase) }
             return VStack(alignment: .leading, spacing: 8) {
-                Text("Top Contribution (\(dbManager.baseCurrency))").font(.title3).bold()
+                Text("Top Contribution (\(preferences.baseCurrency))").font(.title3).bold()
                 Chart(items) { it in
                     BarMark(x: .value("Value", it.value), y: .value("Instrument", it.name))
                         .foregroundStyle(Theme.primaryAccent)
                 }
-                .chartXAxisLabel(dbManager.baseCurrency, alignment: .trailing)
+                .chartXAxisLabel(preferences.baseCurrency, alignment: .trailing)
                 .frame(minHeight: 280)
                 .accessibilityLabel("Top contribution bar chart")
             }
@@ -1972,7 +1973,7 @@ struct PortfolioThemeWorkspaceView: View {
             struct Item: Identifiable { let id = UUID(); let name: String; let value: Double }
             let items = buckets.map { Item(name: $0.key, value: $0.value) }.sorted { $0.value > $1.value }
             return VStack(alignment: .leading, spacing: 8) {
-                Text("Sector Exposure (\(dbManager.baseCurrency))").font(.title3).bold()
+                Text("Sector Exposure (\(preferences.baseCurrency))").font(.title3).bold()
                 Chart(items) { it in
                     BarMark(x: .value("Value", it.value), y: .value("Sector", it.name))
                 }
@@ -2065,7 +2066,7 @@ struct PortfolioThemeWorkspaceView: View {
     }
 
     private var baseCurrencyCode: String {
-        let trimmed = dbManager.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = preferences.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "CHF" : trimmed
     }
 
@@ -2152,7 +2153,7 @@ struct PortfolioThemeWorkspaceView: View {
 
     private func currency(_ value: Double?) -> String {
         guard let v = value else { return "—" }
-        return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+        return v.formatted(.currency(code: preferences.baseCurrency).precision(.fractionLength(2)))
     }
 
     private func currencyWholeCHF(_ value: Double?) -> String {
@@ -2237,6 +2238,7 @@ private extension View {
 
 private struct HoldingsTable: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.openWindow) private var openWindow
     let themeId: Int
     let isArchived: Bool
@@ -2407,15 +2409,15 @@ private struct HoldingsTable: View {
     private func labelForColumn(_ col: Column) -> String {
         switch col {
         case .actualChf:
-            return "Actual \(dbManager.baseCurrency)"
+            return "Actual \(preferences.baseCurrency)"
         case .targetChf:
-            return "Calc Target \(dbManager.baseCurrency)"
+            return "Calc Target \(preferences.baseCurrency)"
         case .setTargetChf:
-            return "Set Target \(dbManager.baseCurrency)"
+            return "Set Target \(preferences.baseCurrency)"
         case .deltaChf:
-            return "Δ Calc \(dbManager.baseCurrency)"
+            return "Δ Calc \(preferences.baseCurrency)"
         case .setDeltaChf:
-            return "ST Delta \(dbManager.baseCurrency)"
+            return "ST Delta \(preferences.baseCurrency)"
         default:
             return col.title
         }
@@ -2472,14 +2474,14 @@ private struct HoldingsTable: View {
             if resizable(.user) { resizeHandle(for: .user) }
             if columns.contains(.targetChf) {
                 headerCell(for: .targetChf) {
-                    sortHeader(.targetChf, title: "Calc Target \(dbManager.baseCurrency)")
+                    sortHeader(.targetChf, title: "Calc Target \(preferences.baseCurrency)")
                         .frame(width: width(for: .actualChf), alignment: .trailing)
                 }
             }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
             if columns.contains(.setTargetChf) {
                 headerCell(for: .setTargetChf) {
-                    sortHeader(.setTargetChf, title: "Set Target (ST) \(dbManager.baseCurrency)")
+                    sortHeader(.setTargetChf, title: "Set Target (ST) \(preferences.baseCurrency)")
                         .frame(width: width(for: .actualChf), alignment: .trailing)
                 }
             }
@@ -2490,19 +2492,19 @@ private struct HoldingsTable: View {
             if resizable(.delta) { resizeHandle(for: .delta) }
             if columns.contains(.deltaChf) {
                 headerCell(for: .deltaChf) {
-                    sortHeader(.deltaChf, title: "Δ Calc \(dbManager.baseCurrency)")
+                    sortHeader(.deltaChf, title: "Δ Calc \(preferences.baseCurrency)")
                         .frame(width: width(for: .actualChf), alignment: .trailing)
                 }
             }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
             if columns.contains(.setDeltaChf) {
                 headerCell(for: .setDeltaChf) {
-                    sortHeader(.setDeltaChf, title: "ST Delta \(dbManager.baseCurrency)")
+                    sortHeader(.setDeltaChf, title: "ST Delta \(preferences.baseCurrency)")
                         .frame(width: width(for: .actualChf), alignment: .trailing)
                 }
             }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
-            if columns.contains(.actualChf) { sortHeader(.actualChf, title: "Actual \(dbManager.baseCurrency)").frame(width: width(for: .actualChf), alignment: .trailing).accessibilityLabel("Actual \(dbManager.baseCurrency)") }
+            if columns.contains(.actualChf) { sortHeader(.actualChf, title: "Actual \(preferences.baseCurrency)").frame(width: width(for: .actualChf), alignment: .trailing).accessibilityLabel("Actual \(preferences.baseCurrency)") }
             if resizable(.actualChf) { resizeHandle(for: .actualChf) }
             // Notes first (flex)
             if columns.contains(.notes) { sortHeader(.notes, title: "Notes").frame(minWidth: width(for: .notes), maxWidth: .infinity, alignment: .leading) }
@@ -2580,7 +2582,7 @@ private struct HoldingsTable: View {
             }
             target = max(60, min(220, maxW + padding))
         case .targetChf, .setTargetChf, .deltaChf, .setDeltaChf, .actualChf:
-            let codes = dbManager.baseCurrency
+            let codes = preferences.baseCurrency
             let f = NumberFormatter()
             f.numberStyle = .currency
             f.currencyCode = codes
@@ -2879,7 +2881,7 @@ private struct HoldingsTable: View {
 
     // Local CHF whole-number currency with Swiss grouping (apostrophes)
     private var currencyCode: String {
-        let code = dbManager.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = preferences.baseCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
         return code.isEmpty ? "CHF" : code
     }
 

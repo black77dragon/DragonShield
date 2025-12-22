@@ -5,6 +5,7 @@ import SwiftUI
 // (cash, near cash, currency, asset class, crypto, custody) using snapshot data.
 struct AssetManagementReportView: View {
     @EnvironmentObject private var dbManager: DatabaseManager
+    @EnvironmentObject private var preferences: AppPreferences
     @StateObject private var viewModel: AssetManagementReportViewModel = .init()
     @State private var showCash = false
     @State private var showNearCash = false
@@ -45,7 +46,7 @@ struct AssetManagementReportView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    viewModel.load(using: dbManager)
+                    viewModel.load(using: dbManager, preferences: preferences)
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -53,7 +54,7 @@ struct AssetManagementReportView: View {
             }
         }
         .onAppear {
-            viewModel.load(using: dbManager)
+            viewModel.load(using: dbManager, preferences: preferences)
         }
         .sheet(item: $selectedAssetClass) { breakdown in
             AssetClassSubClassSheet(
@@ -833,10 +834,10 @@ final class AssetManagementReportViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
 
-    func load(using dbManager: DatabaseManager) {
+    func load(using dbManager: DatabaseManager, preferences: AppPreferences) {
         if isLoading { return }
-        let baseCurrency = normalizedBaseCurrency(dbManager.baseCurrency)
-        let reportDate = dbManager.asOfDate
+        let baseCurrency = normalizedBaseCurrency(preferences.baseCurrency)
+        let reportDate = preferences.asOfDate
         isLoading = true
         errorMessage = nil
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in

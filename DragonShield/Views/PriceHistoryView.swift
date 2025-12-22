@@ -2,9 +2,10 @@ import SwiftUI
 
 struct PriceHistoryView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let instrumentId: Int
     @Environment(\.dismiss) private var dismiss
-    @State private var rows: [DatabaseManager.InstrumentPriceHistoryRow] = []
+    @State private var rows: [InstrumentPriceHistoryRow] = []
     @State private var isLoading = false
 
     private static let priceFormatter: NumberFormatter = {
@@ -63,7 +64,7 @@ struct PriceHistoryView: View {
         .foregroundColor(.secondary)
     }
 
-    private func rowView(_ r: DatabaseManager.InstrumentPriceHistoryRow) -> some View {
+    private func rowView(_ r: InstrumentPriceHistoryRow) -> some View {
         HStack {
             Text(formatAsOf(r.asOf)).frame(width: 190, alignment: .leading)
             Text(Self.priceFormatter.string(from: NSNumber(value: r.price)) ?? String(r.price))
@@ -97,7 +98,7 @@ struct PriceHistoryView: View {
     }
 
     private func formatAsOf(_ s: String) -> String {
-        let tz = TimeZone(identifier: dbManager.defaultTimeZone) ?? .current
+        let tz = TimeZone(identifier: preferences.defaultTimeZone) ?? .current
         // Try ISO with fractional seconds
         if let d = iso8601Formatter().date(from: s) ?? {
             // Try ISO without fractional seconds
@@ -135,8 +136,10 @@ struct PriceHistoryView: View {
 #if DEBUG
     struct PriceHistoryView_Previews: PreviewProvider {
         static var previews: some View {
+            let manager = DatabaseManager()
             PriceHistoryView(instrumentId: 1)
-                .environmentObject(DatabaseManager())
+                .environmentObject(manager)
+                .environmentObject(manager.preferences)
         }
     }
 #endif

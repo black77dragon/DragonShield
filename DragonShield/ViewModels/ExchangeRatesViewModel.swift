@@ -11,7 +11,7 @@ class ExchangeRatesViewModel: ObservableObject {
 
     init(db: DatabaseManager) {
         self.db = db
-        asOfDate = db.asOfDate
+        asOfDate = db.preferences.asOfDate
         loadCurrencies()
         loadRates()
     }

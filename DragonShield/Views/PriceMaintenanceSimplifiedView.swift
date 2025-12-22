@@ -110,6 +110,7 @@ import SwiftUI
 
 struct PriceUpdatesView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @StateObject private var viewModel = PriceUpdatesViewModel()
     @State private var sortOrder: [KeyPathComparator<PriceUpdatesViewModel.DisplayRow>] = [
         KeyPathComparator(\.instrumentSortKey),
@@ -148,13 +149,15 @@ struct PriceUpdatesView: View {
             case .logs:
                 LogViewerView().environmentObject(dbManager)
             case let .history(id):
-                PriceHistoryView(instrumentId: id).environmentObject(dbManager)
+                PriceHistoryView(instrumentId: id)
+                    .environmentObject(dbManager)
+                    .environmentObject(preferences)
             case .report:
                 FetchResultsReportView(
                     results: viewModel.fetchResults,
                     nameById: viewModel.nameByIdSnapshot,
                     providerById: viewModel.providerByIdSnapshot,
-                    timeZoneId: dbManager.defaultTimeZone
+                    timeZoneId: preferences.defaultTimeZone
                 )
             case .symbolHelp:
                 SymbolFormatHelpView()
@@ -263,7 +266,7 @@ struct PriceUpdatesView: View {
 
                 Group {
                     TableColumn(tableHeader("As Of"), value: \PriceUpdatesViewModel.DisplayRow.asOfSortKey) { row in
-                        Text(viewModel.formatAsOf(row.instrument.asOf, timeZoneId: dbManager.defaultTimeZone))
+                        Text(viewModel.formatAsOf(row.instrument.asOf, timeZoneId: preferences.defaultTimeZone))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -449,7 +452,7 @@ struct PriceUpdatesView: View {
     }
 
     @ViewBuilder
-    private func instrumentCell(_ row: DatabaseManager.InstrumentLatestPriceRow) -> some View {
+    private func instrumentCell(_ row: InstrumentLatestPriceRow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(row.name)

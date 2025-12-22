@@ -11,6 +11,7 @@ private struct ValidationStatusBanner {
 
 struct DatabaseManagementView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @StateObject private var backupService = BackupService()
 
     @State private var processing = false
@@ -46,7 +47,7 @@ struct DatabaseManagementView: View {
 
             infoRow("Database Path:", value: dbManager.dbFilePath, mono: true)
             infoRow("File Size:", value: fileSizeString, mono: true)
-            infoRow("Schema Version:", value: dbManager.dbVersion)
+            infoRow("Schema Version:", value: preferences.dbVersion)
             infoRow("Created:", value: formattedDate(dbManager.dbCreated))
             infoRow("Last Updated:", value: formattedDate(dbManager.dbModified))
             infoRow("Mode:", value: dbManager.dbMode.rawValue.uppercased())
@@ -343,7 +344,7 @@ struct DatabaseManagementView: View {
         panel.directoryURL = backupService.backupDirectory
         panel.nameFieldStringValue = BackupService.defaultFileName(
             mode: dbManager.dbMode,
-            version: dbManager.dbVersion
+            version: preferences.dbVersion
         )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         processing = true

@@ -28,7 +28,7 @@ final class PriceUpdatesViewModel: ObservableObject {
     }
 
     struct DisplayRow: Identifiable {
-        let instrument: DatabaseManager.InstrumentLatestPriceRow
+        let instrument: InstrumentLatestPriceRow
         let source: InstrumentPriceSource?
         let state: RowDraft
         let defaultNewAsOf: Date

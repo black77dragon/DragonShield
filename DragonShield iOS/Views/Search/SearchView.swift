@@ -3,6 +3,7 @@
 
     struct SearchView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @State private var searchText: String = ""
         @State private var results = SearchResults()
         @State private var state: SearchState = .idle
@@ -510,7 +511,7 @@
             }
             let nf = NumberFormatter()
             nf.numberStyle = .currency
-            nf.currencyCode = dbManager.baseCurrency
+            nf.currencyCode = preferences.baseCurrency
             nf.maximumFractionDigits = 2
             nf.minimumFractionDigits = 2
             return nf.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
@@ -534,6 +535,7 @@
 
     struct InstrumentUpdateDetailView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         let hit: DatabaseManager.InstrumentUpdateSearchHit
 
         var body: some View {
@@ -568,7 +570,7 @@
                     }
                     if let value = hit.update.valueChf {
                         HStack {
-                            Text("Value (") + Text(dbManager.baseCurrency).bold() + Text(")")
+                            Text("Value (") + Text(preferences.baseCurrency).bold() + Text(")")
                             Spacer()
                             Text(formatAmount(value))
                                 .foregroundColor(.secondary)
@@ -620,7 +622,7 @@
             }
             let nf = NumberFormatter()
             nf.numberStyle = .currency
-            nf.currencyCode = dbManager.baseCurrency
+            nf.currencyCode = preferences.baseCurrency
             nf.maximumFractionDigits = 2
             nf.minimumFractionDigits = 2
             return nf.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)

@@ -6,6 +6,7 @@ private let newLayoutCurrentVersion = 2
 
 struct DashboardView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @AppStorage(UserDefaultsKeys.dashboardShowIncomingDeadlinesEveryVisit) private var showIncomingDeadlinesEveryVisit: Bool = true
     @AppStorage(UserDefaultsKeys.dashboardIncomingPopupShownThisLaunch) private var incomingDeadlinesPopupShownThisLaunch: Bool = false
 
@@ -288,7 +289,7 @@ struct DashboardView: View {
         if isUpdatingFx { return }
         Task {
             await MainActor.run { isUpdatingFx = true }
-            let base = await MainActor.run { dbManager.baseCurrency }
+            let base = await MainActor.run { preferences.baseCurrency }
             let service = FXUpdateService(dbManager: dbManager)
             let targets = service.targetCurrencies(base: base)
             guard !targets.isEmpty else {

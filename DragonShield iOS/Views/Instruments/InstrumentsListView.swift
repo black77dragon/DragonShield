@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InstrumentsListView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @State private var rows: [DatabaseManager.InstrumentRow] = []
     @State private var search: String = ""
 
@@ -38,6 +39,7 @@ struct InstrumentsListView: View {
 
 struct InstrumentDetailView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let instrumentId: Int
     @State private var details: DatabaseManager.InstrumentDetails?
     @State private var memberships: [(themeId: Int, themeName: String, isArchived: Bool, updatesCount: Int, mentionsCount: Int)] = []
@@ -64,7 +66,7 @@ struct InstrumentDetailView: View {
                         .foregroundColor(.blue)
                 }
                 HStack {
-                    Text("Total Value (\(dbManager.baseCurrency))")
+                    Text("Total Value (\(preferences.baseCurrency))")
                     Spacer()
                     Text(totalValueChf.map { ValueFormatting.large($0) } ?? "—")
                         .fontWeight(.bold)
@@ -105,7 +107,7 @@ struct InstrumentDetailView: View {
                         Spacer()
                         headerButton(title: "Qty", col: .qty)
                             .frame(width: 100, alignment: .trailing)
-                        headerButton(title: dbManager.baseCurrency, col: .chf)
+                        headerButton(title: preferences.baseCurrency, col: .chf)
                             .frame(width: 120, alignment: .trailing)
                     }
                     ForEach(sortedHoldings) { h in
@@ -268,7 +270,7 @@ struct InstrumentDetailView: View {
     }
 
     private func quantityString(_ q: Double) -> String {
-        let precision = max(0, min(8, dbManager.decimalPrecision))
+        let precision = max(0, min(8, preferences.decimalPrecision))
         let nf = NumberFormatter()
         nf.numberStyle = .decimal
         nf.maximumFractionDigits = precision
@@ -280,11 +282,11 @@ struct InstrumentDetailView: View {
 
     private func currencyString(_ v: Double) -> String {
         if #available(iOS 15.0, *) {
-            return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+            return v.formatted(.currency(code: preferences.baseCurrency).precision(.fractionLength(2)))
         } else {
             let nf = NumberFormatter()
             nf.numberStyle = .currency
-            nf.currencyCode = dbManager.baseCurrency
+            nf.currencyCode = preferences.baseCurrency
             nf.maximumFractionDigits = 2
             nf.minimumFractionDigits = 2
             return nf.string(from: NSNumber(value: v)) ?? String(format: "%.2f", v)

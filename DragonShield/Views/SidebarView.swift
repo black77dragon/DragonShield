@@ -395,12 +395,14 @@ private extension Double {
 
 struct SidebarView_Previews: PreviewProvider {
     static var previews: some View {
+        let manager = DatabaseManager()
         NavigationSplitView {
             SidebarView()
         } detail: {
             DashboardView()
         }
-        .environmentObject(DatabaseManager())
+        .environmentObject(manager)
+        .environmentObject(manager.preferences)
         .environmentObject(AssetManager())
     }
 }
@@ -1121,7 +1123,7 @@ struct TodoKanbanBoardView: View {
             newTodoPrefill = request
             isPresentingNewTodo = true
         }
-        .onReceive(dbManager.$todoBoardFontSize) { newValue in
+        .onReceive(dbManager.preferences.$todoBoardFontSize) { newValue in
             handleExternalFontSizeUpdate(newValue)
         }
         .onChange(of: selectedFontSize) { _, _ in
@@ -1478,7 +1480,7 @@ struct TodoKanbanBoardView: View {
         guard !hasHydratedFontSize else { return }
         hasHydratedFontSize = true
         isHydratingFontSize = true
-        if let stored = KanbanFontSize(rawValue: dbManager.todoBoardFontSize) {
+        if let stored = KanbanFontSize(rawValue: dbManager.preferences.todoBoardFontSize) {
             selectedFontSize = stored
         }
         DispatchQueue.main.async {
@@ -1499,7 +1501,7 @@ struct TodoKanbanBoardView: View {
 
     private func persistFontSize() {
         guard !isHydratingFontSize else { return }
-        guard dbManager.todoBoardFontSize != selectedFontSize.rawValue else { return }
+        guard dbManager.preferences.todoBoardFontSize != selectedFontSize.rawValue else { return }
         isHydratingFontSize = true
         dbManager.setTodoBoardFontSize(selectedFontSize.rawValue)
         DispatchQueue.main.async {

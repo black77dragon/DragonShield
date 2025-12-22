@@ -21,7 +21,7 @@ final class IchimokuUniverseService {
             partial += seedTickers(for: source)
         }
         logger.log("[Ichimoku] Seeded \(totalInserted) tickers", logger: .database)
-        _ = dbManager.upsertConfiguration(key: "ichimoku.universe.seeded_at",
+        _ = dbManager.configurationStore.upsertConfiguration(key: "ichimoku.universe.seeded_at",
                                           value: DateFormatter.iso8601DateTime.string(from: Date()),
                                           dataType: "string",
                                           description: "Timestamp when the Ichimoku Dragon universe was last seeded from bundled resources.")

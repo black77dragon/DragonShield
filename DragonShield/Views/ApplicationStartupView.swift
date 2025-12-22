@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ApplicationStartupView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @AppStorage("runStartupHealthChecks") private var runStartupHealthChecks: Bool = true
 
     @State private var fxSummary: String = ""
@@ -9,11 +10,11 @@ struct ApplicationStartupView: View {
 
     private var fxAutoBinding: Binding<Bool> {
         Binding(
-            get: { dbManager.fxAutoUpdateEnabled },
+            get: { preferences.fxAutoUpdateEnabled },
             set: { newValue in
-                guard dbManager.fxAutoUpdateEnabled != newValue else { return }
-                dbManager.fxAutoUpdateEnabled = newValue
-                _ = dbManager.upsertConfiguration(
+                guard preferences.fxAutoUpdateEnabled != newValue else { return }
+                preferences.fxAutoUpdateEnabled = newValue
+                _ = dbManager.configurationStore.upsertConfiguration(
                     key: "fx_auto_update_enabled",
                     value: newValue ? "true" : "false",
                     dataType: "boolean",
@@ -26,11 +27,11 @@ struct ApplicationStartupView: View {
 
     private var iosAutoBinding: Binding<Bool> {
         Binding(
-            get: { dbManager.iosSnapshotAutoEnabled },
+            get: { preferences.iosSnapshotAutoEnabled },
             set: { newValue in
-                guard dbManager.iosSnapshotAutoEnabled != newValue else { return }
-                dbManager.iosSnapshotAutoEnabled = newValue
-                _ = dbManager.upsertConfiguration(
+                guard preferences.iosSnapshotAutoEnabled != newValue else { return }
+                preferences.iosSnapshotAutoEnabled = newValue
+                _ = dbManager.configurationStore.upsertConfiguration(
                     key: "ios_snapshot_auto_enabled",
                     value: newValue ? "true" : "false",
                     dataType: "boolean",
@@ -57,16 +58,16 @@ struct ApplicationStartupView: View {
             refreshFxSummary()
             refreshIosSummary()
         }
-        .onChange(of: dbManager.fxAutoUpdateEnabled) { _, _ in
+        .onChange(of: preferences.fxAutoUpdateEnabled) { _, _ in
             refreshFxSummary()
         }
-        .onChange(of: dbManager.fxUpdateFrequency) { _, _ in
+        .onChange(of: preferences.fxUpdateFrequency) { _, _ in
             refreshFxSummary()
         }
-        .onChange(of: dbManager.iosSnapshotAutoEnabled) { _, _ in
+        .onChange(of: preferences.iosSnapshotAutoEnabled) { _, _ in
             refreshIosSummary()
         }
-        .onChange(of: dbManager.iosSnapshotFrequency) { _, _ in
+        .onChange(of: preferences.iosSnapshotFrequency) { _, _ in
             refreshIosSummary()
         }
     }
@@ -126,14 +127,14 @@ struct ApplicationStartupView: View {
         }
 
         if let last = dbManager.fetchLastFxRateUpdate() {
-            let freq = dbManager.fxUpdateFrequency.lowercased()
+            let freq = preferences.fxUpdateFrequency.lowercased()
             let days = (freq == "weekly") ? 7 : 1
             let next = Calendar.current.date(byAdding: .day, value: days, to: last.updateDate) ?? Date()
             parts.append("Next due: \(fmtDate.string(from: next)) (\(freq))")
         }
 
         if parts.isEmpty {
-            fxSummary = "No updates yet — auto-update \(dbManager.fxAutoUpdateEnabled ? "enabled" : "disabled")."
+            fxSummary = "No updates yet — auto-update \(preferences.fxAutoUpdateEnabled ? "enabled" : "disabled")."
         } else {
             fxSummary = parts.joined(separator: " — ")
         }
@@ -143,7 +144,7 @@ struct ApplicationStartupView: View {
         let svc = IOSSnapshotExportService(dbManager: dbManager)
         let fmtDate = DateFormatter.iso8601DateOnly
         let fmtTime = DateFormatter(); fmtTime.dateFormat = "HH:mm"
-        let freq = dbManager.iosSnapshotFrequency.lowercased()
+        let freq = preferences.iosSnapshotFrequency.lowercased()
         let days = (freq == "weekly") ? 7 : 1
         if let job = dbManager.fetchLastSystemJobRun(jobKey: .iosSnapshotExport) {
             let timestamp = job.finishedOrStarted
@@ -157,7 +158,7 @@ struct ApplicationStartupView: View {
             let next = Calendar.current.date(byAdding: .day, value: days, to: fallback) ?? Date()
             iosSummary = "Last file: \(fmtDate.string(from: fallback)) \(fmtTime.string(from: fallback)), next due: \(fmtDate.string(from: next)) (\(freq))"
         } else {
-            iosSummary = "No export yet — auto-export \(dbManager.iosSnapshotAutoEnabled ? "enabled" : "disabled")."
+            iosSummary = "No export yet — auto-export \(preferences.iosSnapshotAutoEnabled ? "enabled" : "disabled")."
         }
     }
 }

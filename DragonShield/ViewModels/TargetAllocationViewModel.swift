@@ -41,8 +41,8 @@ class TargetAllocationViewModel: ObservableObject {
     init(dbManager: DatabaseManager, portfolioId: Int) {
         self.dbManager = dbManager
         self.portfolioId = portfolioId
-        includeDirectRealEstate = dbManager.includeDirectRealEstate
-        directRealEstateTargetCHF = dbManager.directRealEstateTargetCHF
+        includeDirectRealEstate = dbManager.preferences.includeDirectRealEstate
+        directRealEstateTargetCHF = dbManager.preferences.directRealEstateTargetCHF
         loadTargets()
     }
 
@@ -96,8 +96,10 @@ class TargetAllocationViewModel: ObservableObject {
     }
 
     func saveAllTargets() {
-        _ = dbManager.updateConfiguration(key: "include_direct_re", value: includeDirectRealEstate ? "true" : "false")
-        _ = dbManager.updateConfiguration(key: "direct_re_target_chf", value: String(directRealEstateTargetCHF))
+        dbManager.preferences.includeDirectRealEstate = includeDirectRealEstate
+        dbManager.preferences.directRealEstateTargetCHF = directRealEstateTargetCHF
+        _ = dbManager.configurationStore.upsertConfiguration(key: "include_direct_re", value: includeDirectRealEstate ? "true" : "false", dataType: "boolean")
+        _ = dbManager.configurationStore.upsertConfiguration(key: "direct_re_target_chf", value: String(directRealEstateTargetCHF), dataType: "number")
         for (classId, pct) in classTargets {
             dbManager.upsertClassTarget(portfolioId: portfolioId, classId: classId, percent: pct, tolerance: 5)
         }

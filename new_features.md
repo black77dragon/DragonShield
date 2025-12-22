@@ -10,9 +10,14 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- [ ] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State**
+- [ ] [new_features] **[DS-065] Persist Daily Total Portfolio Value History**
+    Why: Users need to track how the total portfolio value develops over time, which requires a persistent daily history rather than only the latest snapshot.
+    What: Store the total portfolio value in the database once per day (one value per day) and retain these daily snapshots for trend/graph views.
+
+- [x] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State** (2025-12-22)
     Why: Database connection logic, domain queries, and UI/table preferences live in the same type, which creates tight coupling and makes testing and maintenance harder.
     What: Split into a focused DB connection/repository layer plus a separate settings/preferences store; move UI table preferences out of `DatabaseManager` and update call sites to use the new services.
+    Doc: docs/ds-062-database-manager-responsibility-split.md
 
 - [ ] [changes] **[DS-063] Design Issue: Multiple DatabaseManager Instances Across the App**
     Why: Views and services instantiate their own `DatabaseManager`, leading to multiple SQLite connections, duplicated state, and inconsistent configuration.

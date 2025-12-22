@@ -27,33 +27,33 @@ enum TablePreferenceKind {
         }
     }
 
-    var fractionsKeyPath: ReferenceWritableKeyPath<DatabaseManager, [String: Double]> {
+    var preferencesFractionsKeyPath: ReferenceWritableKeyPath<AppPreferences, [String: Double]> {
         switch self {
-        case .institutions: return \DatabaseManager.institutionsTableColumnFractions
-        case .instruments: return \DatabaseManager.instrumentsTableColumnFractions
-        case .assetSubClasses: return \DatabaseManager.assetSubClassesTableColumnFractions
-        case .assetClasses: return \DatabaseManager.assetClassesTableColumnFractions
-        case .currencies: return \DatabaseManager.currenciesTableColumnFractions
-        case .accounts: return \DatabaseManager.accountsTableColumnFractions
-        case .positions: return \DatabaseManager.positionsTableColumnFractions
-        case .portfolioThemes: return \DatabaseManager.portfolioThemesTableColumnFractions
-        case .transactionTypes: return \DatabaseManager.transactionTypesTableColumnFractions
-        case .accountTypes: return \DatabaseManager.accountTypesTableColumnFractions
+        case .institutions: return \AppPreferences.institutionsTableColumnFractions
+        case .instruments: return \AppPreferences.instrumentsTableColumnFractions
+        case .assetSubClasses: return \AppPreferences.assetSubClassesTableColumnFractions
+        case .assetClasses: return \AppPreferences.assetClassesTableColumnFractions
+        case .currencies: return \AppPreferences.currenciesTableColumnFractions
+        case .accounts: return \AppPreferences.accountsTableColumnFractions
+        case .positions: return \AppPreferences.positionsTableColumnFractions
+        case .portfolioThemes: return \AppPreferences.portfolioThemesTableColumnFractions
+        case .transactionTypes: return \AppPreferences.transactionTypesTableColumnFractions
+        case .accountTypes: return \AppPreferences.accountTypesTableColumnFractions
         }
     }
 
-    var fontKeyPath: ReferenceWritableKeyPath<DatabaseManager, String> {
+    var preferencesFontKeyPath: ReferenceWritableKeyPath<AppPreferences, String> {
         switch self {
-        case .institutions: return \DatabaseManager.institutionsTableFontSize
-        case .instruments: return \DatabaseManager.instrumentsTableFontSize
-        case .assetSubClasses: return \DatabaseManager.assetSubClassesTableFontSize
-        case .assetClasses: return \DatabaseManager.assetClassesTableFontSize
-        case .currencies: return \DatabaseManager.currenciesTableFontSize
-        case .accounts: return \DatabaseManager.accountsTableFontSize
-        case .positions: return \DatabaseManager.positionsTableFontSize
-        case .portfolioThemes: return \DatabaseManager.portfolioThemesTableFontSize
-        case .transactionTypes: return \DatabaseManager.transactionTypesTableFontSize
-        case .accountTypes: return \DatabaseManager.accountTypesTableFontSize
+        case .institutions: return \AppPreferences.institutionsTableFontSize
+        case .instruments: return \AppPreferences.instrumentsTableFontSize
+        case .assetSubClasses: return \AppPreferences.assetSubClassesTableFontSize
+        case .assetClasses: return \AppPreferences.assetClassesTableFontSize
+        case .currencies: return \AppPreferences.currenciesTableFontSize
+        case .accounts: return \AppPreferences.accountsTableFontSize
+        case .positions: return \AppPreferences.positionsTableFontSize
+        case .portfolioThemes: return \AppPreferences.portfolioThemesTableFontSize
+        case .transactionTypes: return \AppPreferences.transactionTypesTableFontSize
+        case .accountTypes: return \AppPreferences.accountTypesTableFontSize
         }
     }
 
@@ -90,7 +90,7 @@ enum TablePreferenceKind {
 
 extension DatabaseManager {
     func tableColumnFractions(for kind: TablePreferenceKind) -> [String: Double] {
-        self[keyPath: kind.fractionsKeyPath]
+        preferences.tableColumnFractions(for: kind)
     }
 
     func setTableColumnFractions(_ fractions: [String: Double], for kind: TablePreferenceKind) {
@@ -109,7 +109,7 @@ extension DatabaseManager {
     }
 
     func tableFontSize(for kind: TablePreferenceKind) -> String {
-        self[keyPath: kind.fontKeyPath]
+        preferences.tableFontSize(for: kind)
     }
 
     func setTableFontSize(_ value: String, for kind: TablePreferenceKind) {
@@ -187,5 +187,15 @@ extension DatabaseManager {
 
         let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
         return Double(normalized)
+    }
+}
+
+extension AppPreferences {
+    func tableColumnFractions(for kind: TablePreferenceKind) -> [String: Double] {
+        self[keyPath: kind.preferencesFractionsKeyPath]
+    }
+
+    func tableFontSize(for kind: TablePreferenceKind) -> String {
+        self[keyPath: kind.preferencesFontKeyPath]
     }
 }

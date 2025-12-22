@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RiskReportView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.openWindow) private var openWindow
 
     @State private var positions: [PositionReportData] = []
@@ -449,7 +450,7 @@ struct RiskReportView: View {
         overrides = dbManager.listRiskOverrides()
         riskLookup = riskCache
         valueLookup = values
-        baseCurrency = dbManager.baseCurrency
+        baseCurrency = preferences.baseCurrency
     }
 
     private func positionValue(_ pr: PositionReportData) -> Double {
@@ -1024,8 +1025,10 @@ private struct OverrideCounts {
 
 struct RiskReportView_Previews: PreviewProvider {
     static var previews: some View {
+        let manager = DatabaseManager()
         RiskReportView()
             .environmentObject(AssetManager())
-            .environmentObject(DatabaseManager())
+            .environmentObject(manager)
+            .environmentObject(manager.preferences)
     }
 }

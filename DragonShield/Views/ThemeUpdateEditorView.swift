@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 
 struct ThemeUpdateEditorView: View {
     @EnvironmentObject var dbManager: DatabaseManager
+    @EnvironmentObject var preferences: AppPreferences
     let themeId: Int
     let themeName: String
     var existing: PortfolioThemeUpdate?
@@ -143,7 +144,7 @@ struct ThemeUpdateEditorView: View {
 
     private func formatted(_ value: Double?) -> String {
         guard let v = value else { return "—" }
-        return v.formatted(.currency(code: dbManager.baseCurrency).precision(.fractionLength(2)))
+        return v.formatted(.currency(code: preferences.baseCurrency).precision(.fractionLength(2)))
     }
 
     private func loadSnapshot() {
