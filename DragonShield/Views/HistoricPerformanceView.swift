@@ -9,6 +9,10 @@ struct HistoricPerformanceView: View {
     @State private var isLoading = false
     @State private var timeScale: TimeScale = .daily
     @State private var showingDataManager = false
+    @State private var hoveredPoint: PerformancePoint? = nil
+    @State private var autoScaleOnAppear = true
+    @AppStorage("historicPerformance.chartScale") private var chartScale: Double = 1.2
+    @AppStorage("historicPerformance.yAxisScale") private var yAxisScale: Double = 1.0
     @AppStorage("historicPerformance.yAxisMinEnabled") private var yAxisMinEnabled = false
     @AppStorage("historicPerformance.yAxisMinValue") private var yAxisMinValue: Double = 0
     @AppStorage("historicPerformance.yAxisMaxEnabled") private var yAxisMaxEnabled = false
@@ -61,6 +65,23 @@ struct HistoricPerformanceView: View {
         return f
     }()
 
+    private static let axisValueFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        f.groupingSeparator = "'"
+        f.decimalSeparator = "."
+        f.minimumFractionDigits = 3
+        f.maximumFractionDigits = 3
+        return f
+    }()
+
+    private let chartHeight: CGFloat = 240
+    private let chartMinWidth: CGFloat = 640
+    private let dailyPointSpacing: CGFloat = 18
+    private let monthlyPointSpacing: CGFloat = 36
+    private let chartTodayAnchor = "historicPerformance.chart.today"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -89,6 +110,7 @@ struct HistoricPerformanceView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
+                .onChange(of: timeScale) { _ in hoveredPoint = nil }
                 HStack(spacing: 12) {
                     Toggle("Custom Y-Min", isOn: $yAxisMinEnabled)
                     TextField("Min CHF", value: $yAxisMinValue, formatter: Self.axisInputFormatter)
@@ -100,12 +122,32 @@ struct HistoricPerformanceView: View {
                         .frame(width: 140)
                         .textFieldStyle(.roundedBorder)
                         .disabled(!yAxisMaxEnabled)
+                    Button("Auto-Scale Y") { autoScaleYAxis() }
+                        .buttonStyle(.bordered)
+                }
+                HStack(spacing: 12) {
+                    Text("Timeline Scale")
+                    Slider(value: $chartScale, in: 0.4 ... 3, step: 0.1)
+                        .frame(width: 180)
+                    Text("\(chartScale, specifier: "%.1f")x")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                HStack(spacing: 12) {
+                    Text("Y Scale")
+                    Slider(value: $yAxisScale, in: 0.5 ... 2.5, step: 0.1)
+                        .frame(width: 180)
+                    Text("\(yAxisScale, specifier: "%.1f")x")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 chartSection
+                    .padding(.top, 16)
                 tableSection
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: reload)
         .sheet(isPresented: $showingDataManager, onDismiss: reload) {
             HistoricPerformanceDataView()
@@ -121,66 +163,39 @@ struct HistoricPerformanceView: View {
             let today = Calendar.current.startOfDay(for: Date())
             let todayLineValue = todayValue(points)
             let yDomain = chartYDomain(points)
-            Chart {
-                ForEach(points) { point in
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("CHF", point.totalValueChf)
-                    )
-                    .foregroundStyle(Color.accentColor)
-                    PointMark(
-                        x: .value("Date", point.date),
-                        y: .value("CHF", point.totalValueChf)
-                    )
-                    .foregroundStyle(Color.accentColor)
-                    .symbolSize(18)
-                }
-                if let todayLineValue {
-                    RuleMark(y: .value("Today", todayLineValue))
-                        .foregroundStyle(Color.red)
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-                }
-            }
-            .chartXAxis {
-                if timeScale == .daily {
-                    let weekly = weeklyTickDates(domain: domain)
-                    let ticks = uniqueSortedDates(weekly + [today])
-                    AxisMarks(values: ticks) { value in
-                        if let date = value.as(Date.self) {
-                            let isToday = Calendar.current.isDate(date, inSameDayAs: today)
-                            AxisGridLine()
-                                .foregroundStyle(isToday ? Color.red.opacity(0.5) : Color.gray.opacity(0.2))
-                            AxisTick()
-                                .foregroundStyle(isToday ? Color.red : Color.gray.opacity(0.7))
-                            AxisValueLabel {
-                                Text(Self.dateFormatter.string(from: date))
-                                    .foregroundColor(isToday ? .red : .secondary)
-                            }
+            GeometryReader { geo in
+                ScrollViewReader { scrollProxy in
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        chartView(points: points, domain: domain, yDomain: yDomain, today: today, todayLineValue: todayLineValue)
+                            .frame(width: chartWidth(for: points, domain: domain, availableWidth: geo.size.width), height: chartHeight)
+                            .padding(.bottom, 4)
+                    }
+                    .scrollIndicators(.visible)
+                    .background(DSColor.surface)
+                    .overlay(Rectangle().stroke(DSColor.border, lineWidth: 1))
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }
                     }
-                } else {
-                    AxisMarks(values: .stride(by: .month, count: 1)) { value in
-                        AxisValueLabel {
-                            if let date = value.as(Date.self) {
-                                Text(Self.dateFormatter.string(from: date))
-                            }
+                    .onChange(of: rows.count) { _ in
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
+                        }
+                    }
+                    .onChange(of: timeScale) { _ in
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
+                        }
+                    }
+                    .onChange(of: chartScale) { _ in
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }
                     }
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let val = value.as(Double.self) {
-                            Text(formatValue(val))
-                        }
-                    }
-                }
-            }
-            .chartXScale(domain: domain)
-            .chartYScale(domain: yDomain)
-            .frame(height: 240)
+            .frame(height: chartHeight + 24)
         #else
             Text("Charts not available on this platform.")
                 .foregroundColor(.secondary)
@@ -226,6 +241,12 @@ struct HistoricPerformanceView: View {
             DispatchQueue.main.async {
                 rows = data
                 isLoading = false
+                if autoScaleOnAppear {
+                    yAxisMinEnabled = false
+                    yAxisMaxEnabled = false
+                    yAxisScale = 1.0
+                    autoScaleOnAppear = false
+                }
             }
         }
     }
@@ -235,12 +256,33 @@ struct HistoricPerformanceView: View {
         return "CHF \(formatted)"
     }
 
+    private func formatAxisValue(_ value: Double) -> String {
+        let millions = value / 1_000_000
+        let formatted = Self.axisValueFormatter.string(from: NSNumber(value: millions)) ?? String(format: "%.3f", millions)
+        return "mCHF \(formatted)"
+    }
+
+    #if canImport(Charts)
+        @ViewBuilder
+        private func todayAnchorView(proxy: ChartProxy, geo: GeometryProxy, today: Date) -> some View {
+            if let plotAnchor = proxy.plotFrame,
+               let xPosition = proxy.position(forX: today) {
+                let plotFrame = geo[plotAnchor]
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .position(x: plotFrame.origin.x + xPosition, y: plotFrame.maxY - 1)
+                    .id(chartTodayAnchor)
+            }
+        }
+    #endif
+
     private func buildChartPoints() -> [PerformancePoint] {
         switch timeScale {
         case .daily:
             return rows.map { row in
                 PerformancePoint(date: displayDate(for: row.valueDate), totalValueChf: row.totalValueChf)
             }
+            .sorted { $0.date < $1.date }
         case .monthly:
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
@@ -261,6 +303,204 @@ struct HistoricPerformanceView: View {
 
     private var chartPoints: [PerformancePoint] { buildChartPoints() }
 
+    private func autoScaleYAxis() {
+        let points = chartPoints
+        guard let minValue = points.map(\.totalValueChf).min(),
+              let maxValue = points.map(\.totalValueChf).max() else {
+            return
+        }
+        let delta = maxValue - minValue
+        let padding = delta * 0.1
+        yAxisMinValue = minValue - padding
+        yAxisMaxValue = maxValue + padding
+        yAxisMinEnabled = true
+        yAxisMaxEnabled = true
+    }
+
+    #if canImport(Charts)
+        private func chartView(points: [PerformancePoint], domain: ClosedRange<Date>, yDomain: ClosedRange<Double>, today: Date, todayLineValue: Double?) -> some View {
+            Chart {
+                ForEach(points) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("CHF", point.totalValueChf)
+                    )
+                    .foregroundStyle(Color.accentColor)
+                    PointMark(
+                        x: .value("Date", point.date),
+                        y: .value("CHF", point.totalValueChf)
+                    )
+                    .foregroundStyle(Color.accentColor)
+                    .symbolSize(hoveredPoint?.id == point.id ? 70 : 40)
+                    .annotation(position: .top, alignment: .center) {
+                        if hoveredPoint?.id == point.id {
+                            hoverLabel(for: point)
+                        }
+                    }
+                }
+                if let todayLineValue {
+                    RuleMark(y: .value("Today", todayLineValue))
+                        .foregroundStyle(Color.red)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                }
+                RuleMark(x: .value("Today", today))
+                    .foregroundStyle(Color.red)
+                    .lineStyle(StrokeStyle(lineWidth: 3, dash: [6, 4]))
+                    .annotation(position: .bottom, alignment: .center) {
+                        Image(systemName: "triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                    }
+            }
+            .chartXAxis {
+                if timeScale == .daily {
+                    let weekly = weeklyTickDates(domain: domain)
+                    let ticks = uniqueSortedDates(weekly + [today])
+                    AxisMarks(values: ticks) { value in
+                        if let date = value.as(Date.self) {
+                            let isToday = Calendar.current.isDate(date, inSameDayAs: today)
+                            AxisGridLine()
+                                .foregroundStyle(isToday ? Color.red.opacity(0.35) : Color.gray.opacity(0.2))
+                            AxisTick()
+                                .foregroundStyle(isToday ? Color.red : Color.gray.opacity(0.7))
+                            AxisValueLabel {
+                                if isToday {
+                                    Text(Self.dateFormatter.string(from: date))
+                                        .foregroundColor(.red)
+                                        .fixedSize(horizontal: true, vertical: true)
+                                } else {
+                                    Text(Self.dateFormatter.string(from: date))
+                                        .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: true, vertical: true)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    AxisMarks(values: .stride(by: .month, count: 1)) { value in
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(Self.dateFormatter.string(from: date))
+                            }
+                        }
+                    }
+                    AxisMarks(values: [today]) { value in
+                        AxisGridLine()
+                            .foregroundStyle(Color.red.opacity(0.35))
+                        AxisTick()
+                            .foregroundStyle(Color.red)
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(Self.dateFormatter.string(from: date))
+                                    .foregroundColor(.red)
+                                    .fixedSize(horizontal: true, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let val = value.as(Double.self) {
+                            Text(formatAxisValue(val))
+                        }
+                    }
+                }
+            }
+            .chartXScale(domain: domain)
+            .chartYScale(domain: yDomain)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    ZStack(alignment: .topLeading) {
+                        todayAnchorView(proxy: proxy, geo: geo, today: today)
+                        Rectangle().fill(Color.clear).contentShape(Rectangle())
+                            #if os(macOS)
+                                .modifier(HoverTracking(points: points, proxy: proxy, geo: geo, onHover: { point in
+                                    hoveredPoint = point
+                                }))
+                            #endif
+                    }
+                }
+            }
+        }
+    #endif
+
+    private func hoverLabel(for point: PerformancePoint) -> some View {
+        Text(formatValue(point.totalValueChf))
+            .font(.caption2)
+            .foregroundColor(DSColor.textPrimary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(DSColor.surface))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.border, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+    }
+
+    private func chartWidth(for points: [PerformancePoint], domain: ClosedRange<Date>, availableWidth: CGFloat) -> CGFloat {
+        let baseSpacing = timeScale == .daily ? dailyPointSpacing : monthlyPointSpacing
+        let spacing = baseSpacing * CGFloat(chartScale)
+        let unitCount = max(1, timeScale == .daily ? daysBetween(domain.lowerBound, domain.upperBound) : monthsBetween(domain.lowerBound, domain.upperBound))
+        let targetWidth = CGFloat(unitCount) * spacing + 140
+        let scaledWidth = availableWidth * CGFloat(chartScale)
+        let minimumWidth = max(availableWidth, max(chartMinWidth, max(targetWidth, scaledWidth)))
+        if points.isEmpty {
+            return max(minimumWidth, chartMinWidth)
+        }
+        return minimumWidth
+    }
+
+    private func daysBetween(_ start: Date, _ end: Date) -> Int {
+        let calendar = Calendar.current
+        let startDay = calendar.startOfDay(for: start)
+        let endDay = calendar.startOfDay(for: end)
+        return max(calendar.dateComponents([.day], from: startDay, to: endDay).day ?? 0, 1)
+    }
+
+    private func monthsBetween(_ start: Date, _ end: Date) -> Int {
+        let calendar = Calendar.current
+        let comps = calendar.dateComponents([.month], from: start, to: end)
+        return max(comps.month ?? 0, 1)
+    }
+
+    #if canImport(Charts) && os(macOS)
+        private struct HoverTracking: ViewModifier {
+            let points: [PerformancePoint]
+            let proxy: ChartProxy
+            let geo: GeometryProxy
+            let onHover: (PerformancePoint?) -> Void
+
+            func body(content: Content) -> some View {
+                if #available(macOS 13.0, *) {
+                    content.onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            onHover(updateHover(location))
+                        case .ended:
+                            onHover(nil)
+                        }
+                    }
+                } else {
+                    content.onHover { isHovering in
+                        if !isHovering {
+                            onHover(nil)
+                        }
+                    }
+                }
+            }
+
+            private func updateHover(_ location: CGPoint) -> PerformancePoint? {
+                guard let plotAnchor = proxy.plotFrame else { return nil }
+                let plotFrame = geo[plotAnchor]
+                guard plotFrame.contains(location), !points.isEmpty else { return nil }
+                let xPosition = location.x - plotFrame.origin.x
+                guard let date = proxy.value(atX: xPosition, as: Date.self) else { return nil }
+                return points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
+            }
+        }
+    #endif
+
     private func chartDomain(_ points: [PerformancePoint]) -> ClosedRange<Date> {
         var calendar = Calendar.current
         calendar.firstWeekday = 2 // Monday
@@ -273,7 +513,7 @@ struct HistoricPerformanceView: View {
         var lower = minStart
         if let first = points.first?.date, first < lower { lower = first }
 
-        var upper = today
+        var upper = calendar.date(byAdding: .weekOfYear, value: 3, to: today) ?? today
         if let last = points.last?.date, last > upper { upper = last }
 
         if lower > upper { lower = upper }
@@ -295,21 +535,23 @@ struct HistoricPerformanceView: View {
         let minValue = values.min() ?? 0
         let maxValue = values.max() ?? 0
         let span = max(maxValue - minValue, 1)
-        let padding = span * 0.06
+        let center = (minValue + maxValue) / 2
+        let paddedSpan = span * 1.2
+        let scaledSpan = max(paddedSpan * yAxisScale, 1)
 
-        var lower = minValue - padding
-        var upper = maxValue + padding
+        var lower = center - (scaledSpan / 2)
+        var upper = center + (scaledSpan / 2)
 
         if yAxisMinEnabled { lower = yAxisMinValue }
         if yAxisMaxEnabled { upper = yAxisMaxValue }
 
         if upper <= lower {
             if yAxisMinEnabled && !yAxisMaxEnabled {
-                upper = lower + max(padding, 1)
+                upper = lower + max(scaledSpan * 0.1, 1)
             } else if !yAxisMinEnabled && yAxisMaxEnabled {
-                lower = upper - max(padding, 1)
+                lower = upper - max(scaledSpan * 0.1, 1)
             } else {
-                upper = lower + max(padding, 1)
+                upper = lower + max(scaledSpan * 0.1, 1)
             }
         }
         return lower ... upper
