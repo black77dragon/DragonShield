@@ -10,32 +10,53 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- <mark>[ ] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings**</mark>
+    Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
+    What: Move the remaining iOS preference bindings from `DatabaseManager` to `AppPreferences`, then remove the deprecated published fields once no call sites remain. Update:
+        - `DragonShield iOS/Views/SnapshotGateView.swift`: replace `dbManager.dbVersion` with `preferences.dbVersion` and inject `@EnvironmentObject var preferences: AppPreferences`.
+        - `DragonShield iOS/Views/Todos/TodoBoardView.swift`: replace `dbManager.todoBoardFontSize` and `dbManager.$todoBoardFontSize` with `preferences.todoBoardFontSize` and `preferences.$todoBoardFontSize`.
+        - Verify any remaining `dbManager.*` preference usage is eliminated (rg for `dbManager.(dbVersion|todoBoardFontSize)`).
+        - (Optional) Remove deprecated `@Published` preference fields from `DatabaseManager` once all call sites are migrated.
+    Doc: docs/ds-062-database-manager-responsibility-split.md
+
+- <mark>[ ] [new_features] **[DS-069] Portfolio Invalidation Rule**</mark>
+    Why: Portfolio decisions need a clear, explicit invalidation rule with time-bounded review to avoid stale assumptions.
+    What: For each portfolio, add a required "Invalidation Rule" text field plus a valid-until date that defaults to 1 month from entry; show an unmistakable expired-state alert when the date passes; when opening a Portfolio page with an expired rule, show a reminder popup that lets the user reset the date to "today" with one button to restart the 1-month counter; add an info (I) hover flyover text explaining the purpose: "Before entry, answer one sentence: \"This trade is wrong if ___ happens.\" If it happens, exit. No debate."
+
+- <mark>[*] [changes] **[DS-068] Fix Release Notes Accuracy and References**</mark>
+    Why: The release notes shown from the sidebar are inaccurate and drift from the source of truth.
+    What: Identify the authoritative storage of release note changes (master should be GitHub) and sync it with `new_features.md`; update the release notes display to include the implementation date and the feature reference ID when present (e.g., DS-063).
+
+- <mark>[ ] [changes] **[DS-063] Design Issue: Multiple DatabaseManager Instances Across the App**</mark>
+    Why: Views and services instantiate their own `DatabaseManager`, leading to multiple SQLite connections, duplicated state, and inconsistent configuration.
+    What: Introduce a single shared `DatabaseManager` (DI container or root `EnvironmentObject`), remove direct instantiation in views/services, and pass dependencies explicitly.
+
+- <mark>[ ] [changes] **[DS-064] Design Issue: Duplicated macOS/iOS Data Access Logic**</mark>
+    Why: The same queries and models are duplicated in platform-specific `DatabaseManager` extensions, increasing maintenance cost and risk of platform drift.
+    What: Extract shared data-access code into a common module used by both macOS and iOS targets, and eliminate duplicated model/query definitions.
+
+- <mark>[ ] [bugs] **[DS-061] Portfolio Risk Drops Options**</mark>
+    Why: In portfolios that hold options, the Risk tab ignores them because `PortfolioValuationService.snapshot` only pulls instruments listed in `PortfolioThemeAsset`, while the importer stores options solely in `PositionReports` and never links them into the theme assets table—so options never enter the risk snapshot and are missing from the contributions list.
+    What: Include option positions in portfolio risk calculations by sourcing holdings from `PositionReports` (or auto-linking imported options into `PortfolioThemeAsset`) so they appear in the Risk tab with correct value, SRI/liquidity, and weighting; add safeguards to avoid filtering out derivatives or other non-target holdings.
+
+- <mark>[ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**</mark>
+    Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
+    What: Implement PRIIPs-style volatility fallback bucketing when mapping is missing; mark profiles using fallbacks and expose unmapped/stale flags (`recalc_due_at`, missing inputs) in the Risk Report, Maintenance GUI, and instrument detail; default conservative values when data is absent (e.g., SRI 5, liquidity Restricted).
+
+- <mark>[ ] [changes] **[DS-048] Review Ichimoku Cloud Implementation**</mark>
+    Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
+    What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
+
+## Implemented
+
 - [x] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State** (2025-12-22)
     Why: Database connection logic, domain queries, and UI/table preferences live in the same type, which creates tight coupling and makes testing and maintenance harder.
     What: Split into a focused DB connection/repository layer plus a separate settings/preferences store; move UI table preferences out of `DatabaseManager` and update call sites to use the new services.
     Doc: docs/ds-062-database-manager-responsibility-split.md
 
-- [ ] [changes] **[DS-063] Design Issue: Multiple DatabaseManager Instances Across the App**
-    Why: Views and services instantiate their own `DatabaseManager`, leading to multiple SQLite connections, duplicated state, and inconsistent configuration.
-    What: Introduce a single shared `DatabaseManager` (DI container or root `EnvironmentObject`), remove direct instantiation in views/services, and pass dependencies explicitly.
-
-- [ ] [changes] **[DS-064] Design Issue: Duplicated macOS/iOS Data Access Logic**
-    Why: The same queries and models are duplicated in platform-specific `DatabaseManager` extensions, increasing maintenance cost and risk of platform drift.
-    What: Extract shared data-access code into a common module used by both macOS and iOS targets, and eliminate duplicated model/query definitions.
-
-- [ ] [bugs] **[DS-061] Portfolio Risk Drops Options**
-    Why: In portfolios that hold options, the Risk tab ignores them because `PortfolioValuationService.snapshot` only pulls instruments listed in `PortfolioThemeAsset`, while the importer stores options solely in `PositionReports` and never links them into the theme assets table—so options never enter the risk snapshot and are missing from the contributions list.
-    What: Include option positions in portfolio risk calculations by sourcing holdings from `PositionReports` (or auto-linking imported options into `PortfolioThemeAsset`) so they appear in the Risk tab with correct value, SRI/liquidity, and weighting; add safeguards to avoid filtering out derivatives or other non-target holdings.
-
-- [ ] [new_features] **[DS-033] Risk Engine Fallbacks & Flags**
-    Why: Ensure robust risk classification even when data is missing or stale, and surface quality signals to users.
-    What: Implement PRIIPs-style volatility fallback bucketing when mapping is missing; mark profiles using fallbacks and expose unmapped/stale flags (`recalc_due_at`, missing inputs) in the Risk Report, Maintenance GUI, and instrument detail; default conservative values when data is absent (e.g., SRI 5, liquidity Restricted).
-
-- [ ] [changes] **[DS-048] Review Ichimoku Cloud Implementation**
-    Why: Ensure the Ichimoku Cloud indicator matches standard calculations and visuals so signals remain trustworthy.
-    What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
-
-## Implemented
+- [x] [changes] **[DS-067] Upgrade Historic Performance Graph** (2025-12-25)
+    Why: The historic performance chart is hard to inspect over longer periods and doesn’t surface values on hover.
+    What: Make the timeline scrollable horizontally, show CHF values on hover for each data point, increase dot size, and make the “today” vertical line bolder.
 
 - [x] [new_features] **[DS-065] Persist Daily Total Portfolio Value History** (2025-12-22)
     Why: Users need to track how the total portfolio value develops over time, which requires a persistent daily history rather than only the latest snapshot.
