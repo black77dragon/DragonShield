@@ -110,7 +110,7 @@ struct HistoricPerformanceView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
-                .onChange(of: timeScale) { _ in hoveredPoint = nil }
+                .onChange(of: timeScale) { _, _ in hoveredPoint = nil }
                 HStack(spacing: 12) {
                     Toggle("Custom Y-Min", isOn: $yAxisMinEnabled)
                     TextField("Min CHF", value: $yAxisMinValue, formatter: Self.axisInputFormatter)
@@ -178,17 +178,17 @@ struct HistoricPerformanceView: View {
                             scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }
                     }
-                    .onChange(of: rows.count) { _ in
+                    .onChange(of: rows.count) { _, _ in
                         DispatchQueue.main.async {
                             scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }
                     }
-                    .onChange(of: timeScale) { _ in
+                    .onChange(of: timeScale) { _, _ in
                         DispatchQueue.main.async {
                             scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }
                     }
-                    .onChange(of: chartScale) { _ in
+                    .onChange(of: chartScale) { _, _ in
                         DispatchQueue.main.async {
                             scrollProxy.scrollTo(chartTodayAnchor, anchor: .trailing)
                         }

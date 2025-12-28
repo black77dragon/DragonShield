@@ -63,6 +63,9 @@ final class InstrumentNoteRepository {
         author: String
     ) -> Int? {
         guard let db else { return nil }
+        let legacyTypeCode = PortfolioUpdateType(rawValue: newsTypeCode) != nil
+            ? newsTypeCode
+            : PortfolioUpdateType.General.rawValue
         let sql = """
             INSERT INTO InstrumentNote (instrument_id, theme_id, title, body_text, body_markdown, type, type_id, author, pinned)
             VALUES (?, NULL, ?, ?, ?, ?, (SELECT id FROM NewsType WHERE code = ?), ?, ?)
@@ -77,7 +80,7 @@ final class InstrumentNoteRepository {
         sqlite3_bind_text(stmt, 2, title, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 3, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 5, newsTypeCode, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 5, legacyTypeCode, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 6, newsTypeCode, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 7, author, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 8, pinned ? 1 : 0)

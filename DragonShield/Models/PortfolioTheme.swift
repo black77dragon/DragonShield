@@ -23,6 +23,7 @@ struct PortfolioTheme: Identifiable, Hashable {
     var updatedAt: String
     var archivedAt: String?
     var softDelete: Bool
+    var weeklyChecklistEnabled: Bool = true
     var theoreticalBudgetChf: Double? = nil
     var totalValueBase: Double? = nil
     var instrumentCount: Int = 0

@@ -11,11 +11,17 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ## [Unreleased]
 
+### Added
+- [DS-076] Weekly Macro & Portfolio Checklist (implemented 2025-12-28) (#PR_NUMBER)
+
 ### Changed
-- [DS-067] Upgrade Historic Performance Graph (implemented 2025-12-25)
 - [DS-068] Fix Release Notes Accuracy and References (implemented 2025-12-25)
+- [DS-067] Upgrade Historic Performance Graph (implemented 2025-12-25)
 
 ### Fixed
+- [DS-073] New News Types Do Not Persist on Existing Notes (implemented 2025-12-28)
+- [DS-072] Instrument Notes Editor Opens from Dashboard and Edit Screens (implemented 2025-12-28) (#PR_NUMBER)
+- [DS-071] Preserve Price Updates Table Column Widths While Editing (implemented 2025-12-28) (#PR_NUMBER)
 - [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
 
 ## [1.33.0] - 2025-12-22

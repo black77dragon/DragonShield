@@ -47,7 +47,7 @@ struct ReleaseNotesView: View {
                 Text(errorMessage)
                     .dsBody()
                     .foregroundColor(DSColor.accentError)
-            } else if let result, rows.isEmpty {
+            } else if result != nil && rows.isEmpty {
                 Text("No changes recorded for this release.")
                     .dsBody()
             } else if result != nil {

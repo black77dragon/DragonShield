@@ -110,6 +110,69 @@ struct InstrumentNotesView: View {
         .sheet(item: $openThemeInfo) { info in
             workspaceSheet(info)
         }
+        .sheet(isPresented: $showGeneralEditor) {
+            InstrumentNoteEditorView(
+                instrumentId: instrumentId,
+                instrumentName: instrumentName,
+                existing: editingGeneralNote,
+                onSave: { note in
+                    let wasEditing = editingGeneralNote != nil
+                    showGeneralEditor = false
+                    editingGeneralNote = nil
+                    loadGeneralNotes()
+                    statusFeedback = NoteStatus(title: wasEditing ? "Note Updated" : "Note Saved", message: "“\(note.title)” has been stored for \(instrumentName).")
+                },
+                onCancel: {
+                    showGeneralEditor = false
+                    editingGeneralNote = nil
+                }
+            )
+            .environmentObject(dbManager)
+        }
+        .sheet(item: $editingGeneralNote) { note in
+            InstrumentNoteEditorView(
+                instrumentId: instrumentId,
+                instrumentName: instrumentName,
+                existing: note,
+                onSave: { _ in
+                    editingGeneralNote = nil
+                    loadGeneralNotes()
+                    statusFeedback = NoteStatus(title: "Note Updated", message: "Changes were saved for \(instrumentName).")
+                },
+                onCancel: {
+                    editingGeneralNote = nil
+                }
+            )
+            .environmentObject(dbManager)
+        }
+        .sheet(isPresented: $showThemeEditor) {
+            if let themeId = editingThemeUpdate?.themeId ?? selectedThemeId {
+                let wasEditing = editingThemeUpdate != nil
+                InstrumentUpdateEditorView(
+                    themeId: themeId,
+                    instrumentId: instrumentId,
+                    instrumentName: instrumentName,
+                    themeName: themeName(for: themeId),
+                    existing: editingThemeUpdate,
+                    valuation: nil,
+                    onSave: { _ in
+                        showThemeEditor = false
+                        editingThemeUpdate = nil
+                        loadUpdates()
+                        loadThemes()
+                        let themeName = themeName(for: themeId)
+                        statusFeedback = NoteStatus(title: wasEditing ? "Note Updated" : "Note Saved", message: "“\(instrumentName)” now has an update in \(themeName).")
+                    },
+                    onCancel: {
+                        showThemeEditor = false
+                        editingThemeUpdate = nil
+                    }
+                )
+                .environmentObject(dbManager)
+            } else {
+                EmptyView()
+            }
+        }
         .alert(item: $statusFeedback) { info in
             Alert(title: Text(info.title), message: Text(info.message), dismissButton: .default(Text("OK")))
         }
@@ -176,69 +239,6 @@ struct InstrumentNotesView: View {
                         }
                     }
                 }
-            }
-        }
-        .sheet(isPresented: $showGeneralEditor) {
-            InstrumentNoteEditorView(
-                instrumentId: instrumentId,
-                instrumentName: instrumentName,
-                existing: editingGeneralNote,
-                onSave: { note in
-                    let wasEditing = editingGeneralNote != nil
-                    showGeneralEditor = false
-                    editingGeneralNote = nil
-                    loadGeneralNotes()
-                    statusFeedback = NoteStatus(title: wasEditing ? "Note Updated" : "Note Saved", message: "“\(note.title)” has been stored for \(instrumentName).")
-                },
-                onCancel: {
-                    showGeneralEditor = false
-                    editingGeneralNote = nil
-                }
-            )
-            .environmentObject(dbManager)
-        }
-        .sheet(item: $editingGeneralNote) { note in
-            InstrumentNoteEditorView(
-                instrumentId: instrumentId,
-                instrumentName: instrumentName,
-                existing: note,
-                onSave: { _ in
-                    editingGeneralNote = nil
-                    loadGeneralNotes()
-                    statusFeedback = NoteStatus(title: "Note Updated", message: "Changes were saved for \(instrumentName).")
-                },
-                onCancel: {
-                    editingGeneralNote = nil
-                }
-            )
-            .environmentObject(dbManager)
-        }
-        .sheet(isPresented: $showThemeEditor) {
-            if let themeId = editingThemeUpdate?.themeId ?? selectedThemeId {
-                let wasEditing = editingThemeUpdate != nil
-                InstrumentUpdateEditorView(
-                    themeId: themeId,
-                    instrumentId: instrumentId,
-                    instrumentName: instrumentName,
-                    themeName: themeName(for: themeId),
-                    existing: editingThemeUpdate,
-                    valuation: nil,
-                    onSave: { _ in
-                        showThemeEditor = false
-                        editingThemeUpdate = nil
-                        loadUpdates()
-                        loadThemes()
-                        let themeName = themeName(for: themeId)
-                        statusFeedback = NoteStatus(title: wasEditing ? "Note Updated" : "Note Saved", message: "“\(instrumentName)” now has an update in \(themeName).")
-                    },
-                    onCancel: {
-                        showThemeEditor = false
-                        editingThemeUpdate = nil
-                    }
-                )
-                .environmentObject(dbManager)
-            } else {
-                EmptyView()
             }
         }
     }

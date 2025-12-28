@@ -19,6 +19,7 @@ struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var todoBoardViewModel = KanbanBoardViewModel()
     @State private var showReleaseNotes = false
+    @State private var weeklyDueCount = 0
 
     // New AppStorage keys for the new structure
     @AppStorage("sidebar.showDashboard") private var showDashboard = true
@@ -36,6 +37,17 @@ struct SidebarView: View {
             guard let dueDate = todo.dueDate else { return false }
             let due = calendar.startOfDay(for: dueDate)
             return due <= today
+        }.count
+    }
+
+    private func refreshWeeklyDueCount() {
+        let currentWeek = WeeklyChecklistDateHelper.weekStart(for: Date())
+        let themes = dbManager.fetchPortfolioThemes(includeArchived: false, includeSoftDeleted: false)
+        weeklyDueCount = themes.filter { $0.weeklyChecklistEnabled }.filter { theme in
+            guard let entry = dbManager.fetchWeeklyChecklist(themeId: theme.id, weekStartDate: currentWeek) else {
+                return true
+            }
+            return entry.status != .completed && entry.status != .skipped
         }.count
     }
 
@@ -63,6 +75,15 @@ struct SidebarView: View {
             DisclosureGroup("Portfolio", isExpanded: $showPortfolio) {
                 NavigationLink(destination: PortfolioThemesAlignedView().environmentObject(dbManager)) {
                     Label("Portfolios", systemImage: "tablecells")
+                }
+
+                NavigationLink(destination: WeeklyChecklistOverviewView()) {
+                    HStack(spacing: 8) {
+                        Label("Weekly Checklist", systemImage: "checklist")
+                        if weeklyDueCount > 0 {
+                            WeeklyChecklistDueBadge(count: weeklyDueCount)
+                        }
+                    }
                 }
                 
                 NavigationLink(destination: RiskReportView().environmentObject(dbManager).environmentObject(AssetManager())) {
@@ -236,6 +257,10 @@ struct SidebarView: View {
         }
         .onAppear {
             todoBoardViewModel.refreshFromStorage()
+            refreshWeeklyDueCount()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .weeklyChecklistUpdated)) { _ in
+            refreshWeeklyDueCount()
         }
     }
 }
@@ -948,6 +973,31 @@ private struct TodoDueBadge: View {
                     .fill(Color.red)
             )
             .accessibilityLabel("\(accessibilityCountText) to-dos due soon")
+    }
+}
+
+private struct WeeklyChecklistDueBadge: View {
+    let count: Int
+
+    private var displayText: String {
+        count > 99 ? "99+" : "\(count)"
+    }
+
+    private var accessibilityCountText: String {
+        count > 99 ? "99 or more" : "\(count)"
+    }
+
+    var body: some View {
+        Text(displayText)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(DSColor.accentWarning)
+            )
+            .accessibilityLabel("\(accessibilityCountText) weekly checklists due")
     }
 }
 

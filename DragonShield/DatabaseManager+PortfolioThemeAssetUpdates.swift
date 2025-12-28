@@ -173,6 +173,9 @@ extension DatabaseManager {
             LoggingService.shared.log("Invalid title/body for instrument update", type: .info, logger: .database)
             return nil
         }
+        let legacyTypeCode = PortfolioUpdateType(rawValue: newsTypeCode) != nil
+            ? newsTypeCode
+            : PortfolioUpdateType.General.rawValue
         let sql = """
             INSERT INTO InstrumentNote (instrument_id, theme_id, title, body_text, body_markdown, type, type_id, author, pinned, positions_asof, value_chf, actual_percent)
             VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM NewsType WHERE code = ?), ?, ?, ?, ?, ?)
@@ -188,7 +191,7 @@ extension DatabaseManager {
         sqlite3_bind_text(stmt, 3, title, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 4, bodyMarkdown, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 5, bodyMarkdown, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 6, newsTypeCode, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 6, legacyTypeCode, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 7, newsTypeCode, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 8, author, -1, SQLITE_TRANSIENT)
         sqlite3_bind_int(stmt, 9, pinned ? 1 : 0)
@@ -239,6 +242,7 @@ extension DatabaseManager {
 
     func updateInstrumentUpdate(id: Int, title: String?, bodyMarkdown: String?, newsTypeCode: String?, pinned: Bool?, actor: String, expectedUpdatedAt: String, source: String? = nil) -> InstrumentNote? {
         var sets: [String] = []
+        var updateLegacyType = false
         if let title = title {
             guard InstrumentNote.isValidTitle(title) else { return nil }
             sets.append("title = ?")
@@ -248,8 +252,11 @@ extension DatabaseManager {
             sets.append("body_text = ?")
             sets.append("body_markdown = ?")
         }
-        if let _ = newsTypeCode {
-            sets.append("type = ?")
+        if let code = newsTypeCode {
+            updateLegacyType = PortfolioUpdateType(rawValue: code) != nil
+            if updateLegacyType {
+                sets.append("type = ?")
+            }
             sets.append("type_id = (SELECT id FROM NewsType WHERE code = ?)")
         }
         if let _ = pinned {
@@ -272,7 +279,9 @@ extension DatabaseManager {
             sqlite3_bind_text(stmt, idx, bodyMarkdown, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let code = newsTypeCode {
-            sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
+            if updateLegacyType {
+                sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
+            }
             sqlite3_bind_text(stmt, idx, code, -1, SQLITE_TRANSIENT); idx += 1
         }
         if let pin = pinned {

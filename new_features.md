@@ -10,6 +10,56 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- <mark>[*] [bugs] **[DS-071] Price Updates Table Resets Column Widths on Edit**</mark>
+    Why: Entering a value in the "New Price" field rebuilds the table and resets all columns to default widths, forcing manual resizing. Status: Not fixed yet; the table still resets on focus/edit.
+    What: Preserve the current column widths during inline edits; when the Price Updates table view is rebuilt, reapply in-session widths (even if not manually saved) so editing the "New Price" field no longer resets the layout.
+
+- <mark>[ ] [new_features] **[DS-077] Monthly Deep Dive Check**</mark>
+    Why: Portfolio managers need a structured monthly deep dive to reassess regime, sizing, and behavior patterns, and to keep capital intent aligned with life-stage goals.
+    What: For every portfolio, add a Monthly Deep Dive Check workflow (60-90 minutes, once per month) that records completion and written outputs. Show the next check due date, the last completed check date, and a history list with timestamps and viewable past responses. The GUI must include guidance for each section (inline helper text or hover tips). Before implementation, determine the best UX/UI design for where this lives, how scheduling/reminders work, how responses are captured, how guidance is presented, and how completion/history are tracked. Checklist content:
+        1. Regime reassessment (zoom out)
+           - Ask: What regime did I think we were in 30 days ago?
+           - Ask: What regime are we actually in now?
+           - Ask: What evidence changed my confidence?
+           - Force: What would have to happen next month for this regime call to be wrong? If you cannot answer, you are anchoring.
+        2. Portfolio role clarity (critical at your stage)
+           - For each major holding, label: Strategic (years), Cyclical (months-quarters), Tactical (weeks).
+           - Check: Is it behaving as expected for its bucket?
+           - Check: Am I emotionally treating a tactical position like a strategic one?
+           - Check: Am I micromanaging strategic positions with tactical anxiety?
+           - Reminder: Most experienced investors lose money by mixing buckets.
+        3. Drawdown and stress test (not VaR theater)
+           - Ask: What is my real max drawdown if I am wrong on my top 2 themes?
+           - Ask: Would that change my lifestyle, board roles, or sleep?
+           - Ask: If markets closed for 3 months, would I regret any sizing?
+           - Rule: If the answer is yes, size is wrong, not thesis.
+        4. Decision journal review (pattern detection)
+           - Review the last month's decisions, not P&L.
+           - Ask: Where did I follow my rules?
+           - Ask: Where did I improvise?
+           - Ask: Did improvisation help or hurt?
+           - Look for: Confidence-triggered upsizing, delayed exits due to "one more data point", holding because selling felt emotionally premature.
+        5. Information diet audit (very important for you)
+           - Ask: What inputs actually changed my mind this month?
+           - Ask: What inputs just increased conviction without new evidence?
+           - Ask: Am I consuming insight or reassurance?
+           - Rule: Information that never changes decisions is entertainment, not research.
+        6. Capital purpose reminder (age-appropriate, brutally honest)
+           - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
+           - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
+
+- <mark>[ ] [bugs] **[DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit**</mark>
+    Why: In the Instrument Dashboard Notes tab and Instrument Edit notes sheet, clicking "Add Note"/"Add Update" or "Open" on an existing note does nothing, so users cannot create or view instrument notes.
+    What: Identify the broken presentation path and ensure the note editor sheet opens from all tabs; likely move the `InstrumentNotesView` editor sheets (`showGeneralEditor`, `editingGeneralNote`, `showThemeEditor`) to the top-level view or consolidate into a single `activeEditor` enum so sheet presentation is always attached; keep Add Update disabled unless a theme is selected, but show a clear hint when disabled; verify add/edit works for general notes and theme updates in both Instrument Dashboard and Instrument Edit, with list refresh on save/cancel.
+
+- <mark>[ ] [new_features] **[DS-074] Portfolio Timeline + Time Horizon End Date**</mark>
+    Why: Portfolios need an explicit, standardized time horizon so managers can declare intent and align review timing.
+    What: Add a required `timeline_id` on Portfolio that references a new `PortfolioTimelines` table; allow selecting a default timeline when creating/editing a portfolio; add a manual `time_horizon_end_date` field; maintain timeline entries in a separate maintenance table with `description` (text) and `time_indication` (text) fields; display the portfolio time horizon on the same line as the portfolio title, aligned to the right, and editable there; add a DB migration/seed to prefill timeline rows with standard values (e.g., Short-Term: "0-12m", Medium-Term: "1-3y", Long-Term: "3-5y", Strategic: "5y+").
+
+- <mark>[ ] [new_features] **[DS-075] Dashboard Trading Profile Field**</mark>
+    Why: Traders need a place to capture and keep a short description of the current trading profile directly in the Dashboard area.
+    What: Add a new "Trading Profile" GUI entry under the Dashboard category in the side view; the view contains a text field that stores a free-form trading profile description; persist it in the database and track two dates: `last_updated_at` (when the text changes) and `next_update_due_at` (user-set or default) to indicate when the profile should be updated.
+
 - <mark>[ ] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings**</mark>
     Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
     What: Move the remaining iOS preference bindings from `DatabaseManager` to `AppPreferences`, then remove the deprecated published fields once no call sites remain. Update:
@@ -22,10 +72,6 @@ This document serves as a central backlog for all pending changes, new features,
 - <mark>[ ] [new_features] **[DS-069] Portfolio Invalidation Rule**</mark>
     Why: Portfolio decisions need a clear, explicit invalidation rule with time-bounded review to avoid stale assumptions.
     What: For each portfolio, add a required "Invalidation Rule" text field plus a valid-until date that defaults to 1 month from entry; show an unmistakable expired-state alert when the date passes; when opening a Portfolio page with an expired rule, show a reminder popup that lets the user reset the date to "today" with one button to restart the 1-month counter; add an info (I) hover flyover text explaining the purpose: "Before entry, answer one sentence: \"This trade is wrong if ___ happens.\" If it happens, exit. No debate."
-
-- <mark>[*] [changes] **[DS-068] Fix Release Notes Accuracy and References**</mark>
-    Why: The release notes shown from the sidebar are inaccurate and drift from the source of truth.
-    What: Identify the authoritative storage of release note changes (master should be GitHub) and sync it with `new_features.md`; update the release notes display to include the implementation date and the feature reference ID when present (e.g., DS-063).
 
 - <mark>[ ] [changes] **[DS-063] Design Issue: Multiple DatabaseManager Instances Across the App**</mark>
     Why: Views and services instantiate their own `DatabaseManager`, leading to multiple SQLite connections, duplicated state, and inconsistent configuration.
@@ -48,6 +94,40 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [new_features] **[DS-076] Weekly Macro & Portfolio Checklist** (2025-12-28)
+    Why: Portfolio reviews need a consistent weekly macro and portfolio discipline to reduce narrative drift, oversizing, and reactive allocation.
+    What: Add a weekly checklist workflow per portfolio that runs 15-25 minutes on the same day/time each week and records completion and the written outputs. Before implementation, determine the best UX/UI design for where this lives, how scheduling/reminders work, how responses are captured, and how completion is tracked. The GUI must show when the next check is due, when the last checks were conducted, and provide a history view; include clear guidance text and/or hover tips in the checklist UI. Checklist content:
+        1. Regime sanity check (top-down, non-negotiable)
+           - Ask in order: Has the macro regime changed or is it noise; Liquidity; Rates (real, not nominal); Policy stance; Risk appetite.
+           - Rule: If the regime cannot be articulated in one sentence, you are reacting, not allocating. Capture the one-sentence regime statement.
+        2. Thesis integrity check (Bayesian discipline) per major position/theme
+           - Capture the original thesis (1-2 lines max).
+           - Capture what new data arrived this week.
+           - Mark whether the data strengthened, weakened, or left the thesis unchanged.
+           - Ask and capture: If I did not already own this, would I still enter it today?
+        3. Narrative drift detection
+           - Ask: Am I explaining price action with better stories rather than better evidence?
+           - Ask: Have I relaxed or redefined my invalidation criteria?
+           - Ask: Have I added new reasons to justify an old position?
+           - Red flag language to surface: "Longer term...", "The market doesn't understand yet...", "This is actually bullish if you think about it..."
+        4. Exposure and sizing check
+           - Capture top 3 macro risks right now.
+           - Identify which positions express the same risk.
+           - Identify hidden correlations.
+           - Enforce: No single theme can hurt sleep if wrong; no position grows large only because it went up without re-underwriting.
+           - Rule: Upsizing requires fresh confirmation, not comfort.
+        5. Action discipline
+           - Decide explicitly: Do nothing (most weeks), Trim, Add (only if rule-based), or Exit.
+           - Write the decision in one line; no middle ground.
+
+- [x] [bugs] **[DS-073] New News Types Do Not Persist on Existing Notes** (2025-12-28)
+    Why: When editing an existing note and selecting a newly added News Type, the selection is not saved; only the legacy/default types persist.
+    What: Allow custom News Types (created in News Type settings) to be saved on existing notes by persisting the new type reference and preventing legacy type constraints from blocking updates; verify note updates retain the selected custom type after save and reload.
+
+- [x] [changes] **[DS-068] Fix Release Notes Accuracy and References** (2025-12-25)
+    Why: The release notes shown from the sidebar are inaccurate and drift from the source of truth.
+    What: Identify the authoritative storage of release note changes (master should be GitHub) and sync it with `new_features.md`; update the release notes display to include the implementation date and the feature reference ID when present (e.g., DS-063).
 
 - [x] [changes] **[DS-062] Design Issue: DatabaseManager Mixing Persistence and UI State** (2025-12-22)
     Why: Database connection logic, domain queries, and UI/table preferences live in the same type, which creates tight coupling and makes testing and maintenance harder.

@@ -13,6 +13,7 @@ struct AddPortfolioThemeView: View {
     @State private var code: String = ""
     @State private var statusId: Int = 0 // Use Int, not Int64
     @State private var statuses: [PortfolioThemeStatus] = []
+    @State private var weeklyChecklistEnabled: Bool = true
     @State private var errorMessage: String?
 
     var body: some View {
@@ -36,6 +37,8 @@ struct AddPortfolioThemeView: View {
                             Text(status.name).tag(status.id)
                         }
                     }
+
+                    Toggle("Weekly Checklist", isOn: $weeklyChecklistEnabled)
                 }
             }
             .padding()
@@ -84,7 +87,8 @@ struct AddPortfolioThemeView: View {
             code: code,
             description: nil,
             institutionId: nil,
-            statusId: statusId
+            statusId: statusId,
+            weeklyChecklistEnabled: weeklyChecklistEnabled
         )
 
         if newTheme != nil {
