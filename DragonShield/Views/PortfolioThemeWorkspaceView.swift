@@ -140,6 +140,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var originalUpdatedAtDate: Date? = nil
     @State private var isArchivedTheme: Bool = false
     @State private var isSoftDeletedTheme: Bool = false
+    @State private var weeklyChecklistEnabled: Bool = true
 
     private enum HoldingsFontSize: String, CaseIterable {
         case xSmall, small, medium, large, xLarge
@@ -1661,6 +1662,21 @@ struct PortfolioThemeWorkspaceView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
                     Spacer()
                 }
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Weekly Checklist").frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: Binding(
+                        get: { weeklyChecklistEnabled },
+                        set: { newVal in
+                            if dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: newVal) {
+                                weeklyChecklistEnabled = newVal
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .help("Enable the weekly review for this portfolio.")
+                    Spacer()
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Updated").frame(width: labelWidth, alignment: .leading)
                     DatePicker("", selection: $updatedAtDate, displayedComponents: [.date, .hourAndMinute])
@@ -1993,6 +2009,7 @@ struct PortfolioThemeWorkspaceView: View {
         statusId = fetched.statusId
         descriptionText = fetched.description ?? ""
         institutionId = fetched.institutionId
+        weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
         statuses = dbManager.fetchPortfolioThemeStatuses()
         institutions = dbManager.fetchInstitutions()
         if let parsed = Self.isoFormatter.date(from: fetched.updatedAt) {
@@ -2005,6 +2022,7 @@ struct PortfolioThemeWorkspaceView: View {
         theme = fetched
         isArchivedTheme = fetched.archivedAt != nil
         isSoftDeletedTheme = fetched.softDelete
+        weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
     }
 
     private func shouldPersistCustomUpdatedAt() -> Bool {

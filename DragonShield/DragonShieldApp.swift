@@ -120,6 +120,28 @@ struct DragonShieldApp: App {
         .defaultSize(width: 1120, height: 720)
         .windowResizability(.contentSize)
 
+        WindowGroup(id: "weeklyChecklist") {
+            WeeklyChecklistOverviewView()
+                .environmentObject(databaseManager)
+                .environmentObject(databaseManager.preferences)
+        }
+        .defaultSize(width: 1400, height: 900)
+        .windowResizability(.automatic)
+
+        WindowGroup(id: "weeklyChecklistPortfolio", for: Int.self) { $themeId in
+            if let tid = themeId,
+               let theme = databaseManager.getPortfolioTheme(id: tid, includeSoftDeleted: true)
+            {
+                WeeklyChecklistPortfolioView(themeId: tid, themeName: theme.name)
+                    .environmentObject(databaseManager)
+                    .environmentObject(databaseManager.preferences)
+            } else {
+                Text("Portfolio not found")
+            }
+        }
+        .defaultSize(width: 1400, height: 900)
+        .windowResizability(.automatic)
+
         WindowGroup(id: "themeWorkspace", for: Int.self) { $themeId in
             if let tid = themeId {
                 PortfolioThemeWorkspaceView(themeId: tid, origin: "window")

@@ -26,6 +26,13 @@ struct SettingsView: View {
     @State private var showCGResult: Bool = false
     @State private var cgResultMessage: String = ""
 
+    // Changelog sync
+    @State private var changelogSyncRunning: Bool = false
+    @State private var changelogSyncIncludeGithub: Bool = true
+    @State private var changelogSyncStatus: String = "Ready to sync."
+    @State private var changelogSyncLastRun: String = ""
+    @State private var changelogSyncError: String?
+
     // FX auto-update settings
     @State private var fxLastSummary: String = ""
 
@@ -151,6 +158,44 @@ struct SettingsView: View {
                                     detail: iosStartupDetail,
                                     isOn: iosAutoBinding
                                 )
+                            }
+                        }
+                    }
+
+                    CardSection(title: "Release Notes Sync") {
+                        VStack(alignment: .leading, spacing: DSLayout.spaceM) {
+                            Text("Rebuilds CHANGELOG.md from implemented items in new_features.md, Git tags, and GitHub release notes. Also updates Archive/CHANGELOG-ARCHIVE.md for non-v1 tags. Requires a local repo checkout with scripts/, git, and python3.")
+                                .dsCaption()
+                                .foregroundColor(DSColor.textSecondary)
+                            Toggle("Include GitHub release data (best effort)", isOn: $changelogSyncIncludeGithub)
+                                .toggleStyle(.switch)
+                                .dsBody()
+                            HStack(spacing: 12) {
+                                Button {
+                                    runChangelogSync()
+                                } label: {
+                                    if changelogSyncRunning {
+                                        ProgressView()
+                                    } else {
+                                        Text("Sync Changelog")
+                                    }
+                                }
+                                .disabled(changelogSyncRunning)
+                                if !changelogSyncLastRun.isEmpty {
+                                    Text("Last run: \(changelogSyncLastRun)")
+                                        .dsCaption()
+                                        .foregroundColor(DSColor.textSecondary)
+                                }
+                                Spacer()
+                            }
+                            if let error = changelogSyncError, !error.isEmpty {
+                                Text(error)
+                                    .dsCaption()
+                                    .foregroundColor(DSColor.accentError)
+                            } else if !changelogSyncStatus.isEmpty {
+                                Text(changelogSyncStatus)
+                                    .dsCaption()
+                                    .foregroundColor(DSColor.textSecondary)
                             }
                         }
                     }
@@ -524,5 +569,96 @@ extension SettingsView {
         } catch {
             updateIOSStatus()
         }
+    }
+
+    private func runChangelogSync() {
+        guard !changelogSyncRunning else { return }
+        changelogSyncRunning = true
+        changelogSyncError = nil
+        changelogSyncStatus = "Running sync..."
+        DispatchQueue.global().async {
+            let result = runChangelogSyncProcess()
+            DispatchQueue.main.async {
+                changelogSyncRunning = false
+                if let error = result.error {
+                    changelogSyncError = error
+                    changelogSyncStatus = "Sync failed."
+                } else {
+                    changelogSyncError = nil
+                    changelogSyncStatus = result.output.isEmpty ? "Sync completed." : result.output
+                    let fmt = DateFormatter()
+                    fmt.dateStyle = .medium
+                    fmt.timeStyle = .short
+                    changelogSyncLastRun = fmt.string(from: Date())
+                }
+            }
+        }
+    }
+
+    private func runChangelogSyncProcess() -> (output: String, error: String?) {
+        guard let scriptURL = resolveChangelogSyncScript() else {
+            let message = """
+            sync_changelog.py not found. Expected at:
+            \(changelogScriptCandidates().map { "• \($0.path)" }.joined(separator: "\n"))
+            You can also set DS_CHANGELOG_SYNC_SCRIPT to the full path.
+            """
+            return ("", message)
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        var arguments = [scriptURL.path]
+        if !changelogSyncIncludeGithub {
+            arguments.append("--no-github")
+        }
+        process.arguments = arguments
+        process.environment = PythonEnvironment.enrichedEnvironment(anchorFile: #filePath)
+        process.currentDirectoryURL = scriptURL.deletingLastPathComponent()
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        do {
+            try process.run()
+        } catch {
+            return ("", "Failed to start sync: \(error.localizedDescription)")
+        }
+
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if process.terminationStatus != 0 {
+            let message = output.isEmpty ? "Sync exited with code \(process.terminationStatus)." : output
+            return ("", message)
+        }
+        return (output, nil)
+    }
+
+    private func resolveChangelogSyncScript() -> URL? {
+        let fm = FileManager.default
+        for candidate in changelogScriptCandidates() where fm.fileExists(atPath: candidate.path) {
+            return candidate
+        }
+        return nil
+    }
+
+    private func changelogScriptCandidates() -> [URL] {
+        var candidates: [URL] = []
+        let env = ProcessInfo.processInfo.environment
+        if let override = env["DS_CHANGELOG_SYNC_SCRIPT"], !override.isEmpty {
+            candidates.append(URL(fileURLWithPath: override))
+        }
+        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        candidates.append(cwd.appendingPathComponent("scripts/sync_changelog.py"))
+
+        let moduleDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let parent = moduleDir.deletingLastPathComponent()
+        let grandParent = parent.deletingLastPathComponent()
+        candidates.append(moduleDir.appendingPathComponent("scripts/sync_changelog.py"))
+        candidates.append(parent.appendingPathComponent("scripts/sync_changelog.py"))
+        candidates.append(grandParent.appendingPathComponent("scripts/sync_changelog.py"))
+        return Array(Set(candidates))
     }
 }

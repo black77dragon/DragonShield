@@ -198,11 +198,14 @@ extension DatabaseManager {
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
         let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
         let hasArchivedAt = tableHasColumn(table: "PortfolioTheme", column: "archived_at")
+        let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
 
         var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,"
         sql += (hasArchivedAt ? "pt.archived_at" : "NULL")
         sql += ","
         sql += (hasSoftDelete ? "pt.soft_delete" : "0")
+        sql += ","
+        sql += (hasWeeklyChecklist ? "COALESCE(pt.weekly_checklist_enabled,1)" : "1")
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
         if hasAssetTable {
             sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id)"
@@ -236,7 +239,14 @@ extension DatabaseManager {
                 let archivedRaw = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
                 let archivedAt = (archivedRaw?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : archivedRaw
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
+                let weeklyChecklistEnabled: Bool
                 var idx = 10
+                if hasWeeklyChecklist {
+                    weeklyChecklistEnabled = sqlite3_column_int(stmt, 10) == 1
+                    idx = 11
+                } else {
+                    weeklyChecklistEnabled = true
+                }
                 let budget: Double?
                 if hasBudget {
                     budget = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, Int32(idx))
@@ -245,7 +255,7 @@ extension DatabaseManager {
                     budget = nil
                 }
                 let count = Int(sqlite3_column_int(stmt, Int32(idx)))
-                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count))
+                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -254,7 +264,13 @@ extension DatabaseManager {
         return themes
     }
 
-    func createPortfolioTheme(name: String, code: String, description: String? = nil, institutionId: Int? = nil, statusId: Int? = nil) -> PortfolioTheme? {
+    func createPortfolioTheme(name: String,
+                              code: String,
+                              description: String? = nil,
+                              institutionId: Int? = nil,
+                              statusId: Int? = nil,
+                              weeklyChecklistEnabled: Bool = true) -> PortfolioTheme?
+    {
         let upperCode = code.uppercased()
         guard PortfolioTheme.isValidName(name) else {
             LoggingService.shared.log("Invalid theme name", type: .info, logger: .database)
@@ -283,7 +299,10 @@ extension DatabaseManager {
             LoggingService.shared.log("No default Theme Status found", type: .error, logger: .database)
             return nil
         }
-        let sql = "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id) VALUES (?,?,?,?,?)"
+        let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
+        let sql = hasWeeklyChecklist
+            ? "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id, weekly_checklist_enabled) VALUES (?,?,?,?,?,?)"
+            : "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id) VALUES (?,?,?,?,?)"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -303,6 +322,9 @@ extension DatabaseManager {
             sqlite3_bind_null(stmt, 4)
         }
         sqlite3_bind_int(stmt, 5, Int32(status))
+        if hasWeeklyChecklist {
+            sqlite3_bind_int(stmt, 6, weeklyChecklistEnabled ? 1 : 0)
+        }
         if sqlite3_step(stmt) != SQLITE_DONE {
             LoggingService.shared.log("createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             sqlite3_finalize(stmt)
@@ -317,8 +339,11 @@ extension DatabaseManager {
     func getPortfolioTheme(id: Int, includeSoftDeleted: Bool = false) -> PortfolioTheme? {
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
         let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
+        let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
         var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,"
         sql += hasSoftDelete ? "COALESCE(pt.soft_delete,0)" : "0"
+        sql += ","
+        sql += hasWeeklyChecklist ? "COALESCE(pt.weekly_checklist_enabled,1)" : "1"
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
         sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ?"
         if hasSoftDelete && !includeSoftDeleted { sql += " AND COALESCE(pt.soft_delete,0) = 0" }
@@ -338,7 +363,14 @@ extension DatabaseManager {
                 let archivedRaw = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
                 let archivedAt = (archivedRaw?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) ? nil : archivedRaw
                 let softDelete = sqlite3_column_int(stmt, 9) == 1
+                let weeklyChecklistEnabled: Bool
                 var idx = 10
+                if hasWeeklyChecklist {
+                    weeklyChecklistEnabled = sqlite3_column_int(stmt, 10) == 1
+                    idx = 11
+                } else {
+                    weeklyChecklistEnabled = true
+                }
                 let budget: Double?
                 if hasBudget {
                     budget = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, Int32(idx))
@@ -347,7 +379,7 @@ extension DatabaseManager {
                     budget = nil
                 }
                 let count = Int(sqlite3_column_int(stmt, Int32(idx)))
-                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count)
+                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
@@ -430,6 +462,28 @@ extension DatabaseManager {
             LoggingService.shared.log("updatePortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return false
         }
+    }
+
+    @discardableResult
+    func setPortfolioThemeWeeklyChecklistEnabled(id: Int, enabled: Bool) -> Bool {
+        guard tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled") else { return false }
+        let sql = "UPDATE PortfolioTheme SET weekly_checklist_enabled = ?, updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare setPortfolioThemeWeeklyChecklistEnabled failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        sqlite3_bind_int(stmt, 1, enabled ? 1 : 0)
+        sqlite3_bind_int(stmt, 2, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE {
+            LoggingService.shared.log("setPortfolioThemeWeeklyChecklistEnabled id=\(id) -> \(enabled)", logger: .database)
+            NotificationCenter.default.post(name: .weeklyChecklistUpdated, object: nil)
+            return true
+        }
+        LoggingService.shared.log("setPortfolioThemeWeeklyChecklistEnabled failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
     }
 
     func setPortfolioThemeUpdatedAt(id: Int, isoString: String) -> Bool {

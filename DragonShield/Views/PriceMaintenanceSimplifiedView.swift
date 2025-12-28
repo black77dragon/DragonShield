@@ -518,12 +518,25 @@ struct PriceUpdatesView: View {
     private struct PriceUpdatesTableHeaderStyler: NSViewRepresentable {
         private let headerColor = NSColor(calibratedRed: 233 / 255, green: 241 / 255, blue: 1.0, alpha: 1.0)
         weak static var lastTableView: NSTableView?
+        private static var cachedWidths: [String: CGFloat] = [:]
 
         final class Coordinator: NSObject {
-            var columnWidths: [String: CGFloat] = PriceUpdatesColumnWidthStorage.load()
+            var columnWidths: [String: CGFloat]
             weak var observedTableView: NSTableView?
             var applyingWidths = false
-            var initialized = false
+            var appliedTableViewId: ObjectIdentifier?
+
+            override init() {
+                if !PriceUpdatesTableHeaderStyler.cachedWidths.isEmpty {
+                    columnWidths = PriceUpdatesTableHeaderStyler.cachedWidths
+                } else {
+                    columnWidths = PriceUpdatesColumnWidthStorage.load()
+                }
+                if !columnWidths.isEmpty {
+                    PriceUpdatesTableHeaderStyler.cachedWidths = columnWidths
+                }
+                super.init()
+            }
 
             deinit {
                 if let tableView = observedTableView {
@@ -542,6 +555,22 @@ struct PriceUpdatesView: View {
                       let column = notification.userInfo?["NSTableColumn"] as? NSTableColumn,
                       let index = tableView.tableColumns.firstIndex(of: column) else { return }
 
+                if !PriceUpdatesTableHeaderStyler.cachedWidths.isEmpty {
+                    let current = PriceUpdatesTableHeaderStyler.widthMap(tableView: tableView)
+                    if PriceUpdatesTableHeaderStyler.looksDefaultish(current),
+                       PriceUpdatesTableHeaderStyler.hasMeaningfulDelta(stored: PriceUpdatesTableHeaderStyler.cachedWidths, current: current)
+                    {
+                        DispatchQueue.main.async {
+                            PriceUpdatesTableHeaderStyler.applyWidths(
+                                PriceUpdatesTableHeaderStyler.cachedWidths,
+                                to: tableView,
+                                coordinator: self
+                            )
+                        }
+                        return
+                    }
+                }
+
                 guard let resolvedSpec = PriceUpdatesTableHeaderStyler.resolvedSpec(for: column, index: index) else { return }
 
                 PriceUpdatesTableHeaderStyler.normalize(column: column, to: resolvedSpec)
@@ -551,6 +580,7 @@ struct PriceUpdatesView: View {
                     column.width = clamped
                 }
                 columnWidths[resolvedSpec.title] = clamped
+                PriceUpdatesTableHeaderStyler.cachedWidths = columnWidths
             }
         }
 
@@ -562,6 +592,7 @@ struct PriceUpdatesView: View {
                 guard let tableView = findTableView(from: nsView) else { return }
                 applyStyle(to: tableView)
                 configureColumnSizingOnce(for: tableView, coordinator: context.coordinator)
+                applyCachedWidthsIfNeeded(to: tableView, coordinator: context.coordinator)
             }
         }
 
@@ -591,7 +622,6 @@ struct PriceUpdatesView: View {
         }
 
         private func configureColumnSizingOnce(for tableView: NSTableView, coordinator: Coordinator) {
-            guard !coordinator.initialized else { return }
             // Wait until all columns are present to avoid skipping identifier assignment.
             let expectedCount = PriceUpdatesColumnSpec.allCases.count
             guard tableView.tableColumns.count >= expectedCount else {
@@ -601,8 +631,9 @@ struct PriceUpdatesView: View {
                 return
             }
 
-            coordinator.initialized = true
-            coordinator.columnWidths = PriceUpdatesColumnWidthStorage.load()
+            let tableId = ObjectIdentifier(tableView)
+            guard coordinator.appliedTableViewId != tableId else { return }
+            coordinator.appliedTableViewId = tableId
 
             if coordinator.observedTableView !== tableView {
                 if let previous = coordinator.observedTableView {
@@ -621,6 +652,9 @@ struct PriceUpdatesView: View {
             normalizeColumns(in: tableView)
 
             var targetWidths = PriceUpdatesColumnSpec.defaultWidths
+            if !PriceUpdatesTableHeaderStyler.cachedWidths.isEmpty {
+                coordinator.columnWidths = PriceUpdatesTableHeaderStyler.cachedWidths
+            }
             coordinator.columnWidths.forEach { targetWidths[$0.key] = $0.value }
 
             coordinator.applyingWidths = true
@@ -635,6 +669,8 @@ struct PriceUpdatesView: View {
                 column.width = desired
             }
             coordinator.applyingWidths = false
+            coordinator.columnWidths = targetWidths
+            PriceUpdatesTableHeaderStyler.cachedWidths = targetWidths
         }
 
         private func normalizeColumns(in tableView: NSTableView) {
@@ -673,6 +709,30 @@ struct PriceUpdatesView: View {
             }
         }
 
+        private static func applyWidths(_ widths: [String: CGFloat], to tableView: NSTableView, coordinator: Coordinator) {
+            coordinator.applyingWidths = true
+            for (idx, column) in tableView.tableColumns.enumerated() {
+                guard let spec = resolvedSpec(for: column, index: idx) else { continue }
+                let desired = spec.clamped(widths[spec.title] ?? spec.idealWidth)
+                column.minWidth = spec.minWidth
+                column.maxWidth = spec.maxWidth
+                column.width = desired
+            }
+            coordinator.applyingWidths = false
+        }
+
+        private func applyCachedWidthsIfNeeded(to tableView: NSTableView, coordinator: Coordinator) {
+            var desired = PriceUpdatesColumnSpec.defaultWidths
+            coordinator.columnWidths.forEach { desired[$0.key] = $0.value }
+            guard !desired.isEmpty else { return }
+
+            let current = Self.widthMap(tableView: tableView)
+            guard Self.looksDefaultish(current),
+                  Self.hasMeaningfulDelta(stored: desired, current: current) else { return }
+
+            Self.applyWidths(desired, to: tableView, coordinator: coordinator)
+        }
+
         private static func snapshotAndPersist(tableView: NSTableView, coordinator: Coordinator) {
             var snapshot: [String: CGFloat] = [:]
             for (idx, column) in tableView.tableColumns.enumerated() {
@@ -683,6 +743,7 @@ struct PriceUpdatesView: View {
             guard !snapshot.isEmpty else { return }
             if looksDefaultish(snapshot) { return }
             coordinator.columnWidths = snapshot
+            cachedWidths = snapshot
             PriceUpdatesColumnWidthStorage.persist(snapshot)
             let summary = snapshot
                 .map { "\($0.key)=\(Int($0.value))" }
@@ -773,6 +834,7 @@ struct PriceUpdatesView: View {
             fileprivate static func applyPersistedWidths(to tableView: NSTableView) {
                 let stored = PriceUpdatesColumnWidthStorage.load()
                 guard !stored.isEmpty else { return }
+                cachedWidths = stored
                 for (idx, column) in tableView.tableColumns.enumerated() {
                     guard let spec = resolvedSpec(for: column, index: idx) else { continue }
                     let desired = spec.clamped(stored[spec.title] ?? spec.idealWidth)

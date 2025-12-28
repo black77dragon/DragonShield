@@ -776,6 +776,7 @@ enum TileRegistry {
         TileInfo(id: MissingPricesTile.tileID, name: MissingPricesTile.tileName, icon: MissingPricesTile.iconName) { AnyView(MissingPricesTile()) },
         TileInfo(id: AllNotesTile.tileID, name: AllNotesTile.tileName, icon: AllNotesTile.iconName) { AnyView(AllNotesTile()) },
         TileInfo(id: InstrumentDashboardTile.tileID, name: InstrumentDashboardTile.tileName, icon: InstrumentDashboardTile.iconName) { AnyView(InstrumentDashboardTile()) },
+        TileInfo(id: WeeklyChecklistTile.tileID, name: WeeklyChecklistTile.tileName, icon: WeeklyChecklistTile.iconName) { AnyView(WeeklyChecklistTile()) },
         TileInfo(id: TodoDashboardTile.tileID, name: TodoDashboardTile.tileName, icon: TodoDashboardTile.iconName) { AnyView(TodoDashboardTile()) },
         TileInfo(id: UpcomingAlertsTile.tileID, name: UpcomingAlertsTile.tileName, icon: UpcomingAlertsTile.iconName) { AnyView(UpcomingAlertsTile()) },
     ]
