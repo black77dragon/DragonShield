@@ -1664,17 +1664,17 @@ struct PortfolioThemeWorkspaceView: View {
                 }
                 HStack(alignment: .center, spacing: 12) {
                     Text("Weekly Checklist").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: Binding(
-                        get: { weeklyChecklistEnabled },
+                    Toggle("Exempt", isOn: Binding(
+                        get: { !weeklyChecklistEnabled },
                         set: { newVal in
-                            if dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: newVal) {
-                                weeklyChecklistEnabled = newVal
+                            let enabled = !newVal
+                            if dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: enabled) {
+                                weeklyChecklistEnabled = enabled
                             }
                         }
                     ))
-                    .labelsHidden()
                     .toggleStyle(.switch)
-                    .help("Enable the weekly review for this portfolio.")
+                    .help("Exclude this portfolio from weekly checklist scheduling and reminders.")
                     Spacer()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
