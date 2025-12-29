@@ -48,6 +48,10 @@ This document serves as a central backlog for all pending changes, new features,
            - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
            - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
 
+- <mark>[ ] [changes] **[DS-081] Close Weekly Checklist Window on Mark Complete**</mark>
+    Why: Completing a weekly checklist should return the user to the previous context without requiring an extra close action.
+    What: When pressing the "Mark Complete" button in the Weekly Macro & Portfolio Checklist (DS-076), automatically close the checklist window after a successful completion.
+
 - <mark>[ ] [bugs] **[DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit**</mark>
     Why: In the Instrument Dashboard Notes tab and Instrument Edit notes sheet, clicking "Add Note"/"Add Update" or "Open" on an existing note does nothing, so users cannot create or view instrument notes.
     What: Identify the broken presentation path and ensure the note editor sheet opens from all tabs; likely move the `InstrumentNotesView` editor sheets (`showGeneralEditor`, `editingGeneralNote`, `showThemeEditor`) to the top-level view or consolidate into a single `activeEditor` enum so sheet presentation is always attached; keep Add Update disabled unless a theme is selected, but show a clear hint when disabled; verify add/edit works for general notes and theme updates in both Instrument Dashboard and Instrument Edit, with list refresh on save/cancel.
@@ -94,6 +98,18 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [new_features] **[DS-079] Prefill Thesis Integrity Fields in Weekly Checklist** (2025-12-29)
+    Why: Weekly checklist prep should retain stable thesis context across weeks, while still forcing fresh data capture.
+    What: When preparing the new weekly checklist report for a portfolio, prefill all entries under section 2 (Thesis integrity check) by copying the existing "Position/Theme" and "Original Thesis (1-2 lines)" fields for each prior entry; leave "New Data This Week" empty for each entry.
+
+- [x] [changes] **[DS-080] Weekly Checklist Exit Button Placement + Styling** (2025-12-29)
+    Why: The Exit button should be visually de-emphasized and positioned consistently to reduce accidental clicks while keeping the flow predictable.
+    What: In the Weekly Macro & Portfolio Checklist UI, move the Exit button to the right and use a light grey background for the button.
+
+- [x] [changes] **[DS-078] Exempt Portfolios from Weekly Macro & Portfolio Checklist** (2025-12-29)
+    Why: Some portfolios (e.g., life insurance) are effectively static and should not be forced into weekly checklist cadence or show as overdue.
+    What: Add a per-portfolio "Exempt from weekly checklist" toggle for the Weekly Macro & Portfolio Checklist (DS-076); exempt portfolios are excluded from scheduling, reminders, and overdue counts, and the UI clearly indicates the exempt status with a path to re-enable the checklist.
 
 - [x] [new_features] **[DS-076] Weekly Macro & Portfolio Checklist** (2025-12-28)
     Why: Portfolio reviews need a consistent weekly macro and portfolio discipline to reduce narrative drift, oversizing, and reactive allocation.

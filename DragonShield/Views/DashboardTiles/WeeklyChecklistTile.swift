@@ -62,7 +62,7 @@ struct WeeklyChecklistTile: DashboardTile {
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                Text("No portfolios enabled")
+                Text("No portfolios enabled for weekly checklist")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

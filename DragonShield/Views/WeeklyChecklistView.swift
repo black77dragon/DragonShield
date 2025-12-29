@@ -57,7 +57,7 @@ struct WeeklyChecklistOverviewView: View {
                 Button("Refresh") { load() }
                     .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
             }
-            Text("Review each portfolio every week. Skips require a comment.")
+            Text("Review each non-exempt portfolio every week. Skips require a comment.")
                 .font(.callout)
                 .foregroundColor(.secondary)
             if let lastUpdated {
@@ -95,17 +95,23 @@ struct WeeklyChecklistOverviewView: View {
             }
             Spacer()
             DSBadge(text: statusLabel, color: statusColor)
-            Button("Review") {
-                openWindow(id: "weeklyChecklistPortfolio", value: summary.theme.id)
+            if summary.theme.weeklyChecklistEnabled {
+                Button("Review") {
+                    openWindow(id: "weeklyChecklistPortfolio", value: summary.theme.id)
+                }
+                .buttonStyle(DSButtonStyle(type: .primary, size: .small))
+            } else {
+                Button("Enable") {
+                    enableChecklist(summary.theme.id)
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
             }
-            .buttonStyle(DSButtonStyle(type: .primary, size: .small))
-            .disabled(!summary.theme.weeklyChecklistEnabled)
         }
         .padding(.vertical, 6)
     }
 
     private func statusText(_ summary: WeeklyChecklistSummary) -> String {
-        if !summary.theme.weeklyChecklistEnabled { return "Disabled" }
+        if !summary.theme.weeklyChecklistEnabled { return "Exempt" }
         guard let entry = summary.currentEntry else { return "Due" }
         switch entry.status {
         case .draft: return "In progress"
@@ -155,6 +161,10 @@ struct WeeklyChecklistOverviewView: View {
         case .completed: return .completed
         case .skipped: return .skipped
         }
+    }
+
+    private func enableChecklist(_ themeId: Int) {
+        _ = dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: true)
     }
 
     private func load() {
@@ -452,8 +462,6 @@ struct WeeklyChecklistEditorView: View {
     private var topBar: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Button("Exit") { requestExit() }
-                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                 Button("Cancel") { cancelChanges() }
                     .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                 Button(saveLabel) { saveProgress() }
@@ -464,6 +472,8 @@ struct WeeklyChecklistEditorView: View {
                     .buttonStyle(DSButtonStyle(type: .destructive, size: .small))
                 Spacer()
                 DSBadge(text: statusLabel, color: statusColor)
+                Button("Exit") { requestExit() }
+                    .buttonStyle(WeeklyChecklistExitButtonStyle())
             }
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -589,10 +599,23 @@ struct WeeklyChecklistEditorView: View {
             completedAt = nil
             skippedAt = nil
             revision = 0
+            prefillThesisChecks()
         }
         normalizeAnswers()
         errorMessage = nil
         captureBaseline()
+    }
+
+    private func prefillThesisChecks() {
+        guard let priorEntry = dbManager.listWeeklyChecklists(themeId: themeId, limit: 1).first,
+              let priorChecks = priorEntry.answers?.thesisChecks,
+              !priorChecks.isEmpty else { return }
+        answers.thesisChecks = priorChecks.map { prior in
+            var copy = ThesisCheck()
+            copy.position = prior.position
+            copy.originalThesis = prior.originalThesis
+            return copy
+        }
     }
 
     private func normalizeAnswers() {
@@ -774,6 +797,24 @@ struct WeeklyChecklistEditorView: View {
             }
             .padding()
             .frame(minWidth: 420)
+        }
+    }
+
+    private struct WeeklyChecklistExitButtonStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .font(.ds.body.weight(.medium))
+                .padding(.horizontal, 16)
+                .frame(height: DSLayout.buttonHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                        .fill(DSColor.surfaceSecondary.opacity(configuration.isPressed ? 0.85 : 1.0))
+                )
+                .foregroundColor(DSColor.textSecondary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                        .stroke(DSColor.border, lineWidth: 1)
+                )
         }
     }
 }

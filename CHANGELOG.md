@@ -13,8 +13,11 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Added
 - [DS-076] Weekly Macro & Portfolio Checklist (implemented 2025-12-28) (#1094)
+- [DS-079] Prefill Thesis Integrity Fields in Weekly Checklist (implemented 2025-12-29)
 
 ### Changed
+- [DS-080] Weekly Checklist Exit Button Placement + Styling (implemented 2025-12-29)
+- [DS-078] Exempt Portfolios from Weekly Macro & Portfolio Checklist (implemented 2025-12-29)
 - [DS-068] Fix Release Notes Accuracy and References (implemented 2025-12-25)
 - [DS-067] Upgrade Historic Performance Graph (implemented 2025-12-25)
 
