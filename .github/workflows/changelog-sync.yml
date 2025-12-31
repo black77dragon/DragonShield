@@ -1,0 +1,35 @@
+name: Changelog Sync Check
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run changelog sync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/sync_changelog.py
+
+      - name: Verify generated files are committed
+        run: |
+          if ! git diff --exit-code CHANGELOG.md Archive/CHANGELOG-ARCHIVE.md; then
+            echo "CHANGELOG.md or Archive/CHANGELOG-ARCHIVE.md is out of sync."
+            echo "Run: python3 scripts/sync_changelog.py"
+            exit 1
+          fi

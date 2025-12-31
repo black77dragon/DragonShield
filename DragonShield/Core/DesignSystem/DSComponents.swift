@@ -37,6 +37,7 @@ enum DSButtonStyleType {
 struct DSButtonStyle: ButtonStyle {
     let type: DSButtonStyleType
     let size: ControlSize
+    @Environment(\.isEnabled) private var isEnabled
     
     init(type: DSButtonStyleType = .primary, size: ControlSize = .regular) {
         self.type = type
@@ -44,21 +45,29 @@ struct DSButtonStyle: ButtonStyle {
     }
     
     func makeBody(configuration: Configuration) -> some View {
-        let isPressed = configuration.isPressed
-        
+        let isPressed = configuration.isPressed && isEnabled
+
         configuration.label
             .font(.ds.body.weight(.medium))
             .padding(.horizontal, size == .large ? 24 : 16)
             .frame(height: size == .large ? DSLayout.buttonHeightLarge : DSLayout.buttonHeight)
-            .background(background(isPressed: isPressed))
-            .foregroundColor(foreground(isPressed: isPressed))
+            .background(background(isPressed: isPressed, isEnabled: isEnabled))
+            .foregroundColor(foreground(isPressed: isPressed, isEnabled: isEnabled))
             .cornerRadius(DSLayout.radiusM)
-            .overlay(border(isPressed: isPressed))
+            .overlay(border(isPressed: isPressed, isEnabled: isEnabled))
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: isPressed)
     }
     
-    private func background(isPressed: Bool) -> Color {
+    private func background(isPressed: Bool, isEnabled: Bool) -> Color {
+        if !isEnabled {
+            switch type {
+            case .ghost:
+                return Color.clear
+            case .secondary, .primary, .destructive:
+                return DSColor.surfaceSecondary
+            }
+        }
         switch type {
         case .primary:
             return isPressed ? DSColor.accentMain.opacity(0.9) : DSColor.accentMain
@@ -71,7 +80,10 @@ struct DSButtonStyle: ButtonStyle {
         }
     }
     
-    private func foreground(isPressed: Bool) -> Color {
+    private func foreground(isPressed: Bool, isEnabled: Bool) -> Color {
+        if !isEnabled {
+            return DSColor.textTertiary
+        }
         switch type {
         case .primary, .destructive:
             return DSColor.textOnAccent
@@ -81,10 +93,13 @@ struct DSButtonStyle: ButtonStyle {
     }
     
     @ViewBuilder
-    private func border(isPressed: Bool) -> some View {
+    private func border(isPressed: Bool, isEnabled: Bool) -> some View {
         if type == .secondary {
             RoundedRectangle(cornerRadius: DSLayout.radiusM)
-                .stroke(DSColor.borderStrong, lineWidth: 1)
+                .stroke(isEnabled ? DSColor.borderStrong : DSColor.border, lineWidth: 1)
+        } else if !isEnabled, type != .ghost {
+            RoundedRectangle(cornerRadius: DSLayout.radiusM)
+                .stroke(DSColor.border, lineWidth: 1)
         }
     }
 }
