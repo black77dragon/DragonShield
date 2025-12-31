@@ -81,6 +81,7 @@ struct HistoricPerformanceView: View {
     private let dailyPointSpacing: CGFloat = 18
     private let monthlyPointSpacing: CGFloat = 36
     private let chartTodayAnchor = "historicPerformance.chart.today"
+    private let yAxisWidth: CGFloat = 108
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -163,14 +164,24 @@ struct HistoricPerformanceView: View {
             let today = Calendar.current.startOfDay(for: Date())
             let todayLineValue = todayValue(points)
             let yDomain = chartYDomain(points)
+            let yAxisTicks = yAxisTickValues(for: yDomain)
             GeometryReader { geo in
                 ScrollViewReader { scrollProxy in
-                    ScrollView(.horizontal, showsIndicators: true) {
-                        chartView(points: points, domain: domain, yDomain: yDomain, today: today, todayLineValue: todayLineValue)
-                            .frame(width: chartWidth(for: points, domain: domain, availableWidth: geo.size.width), height: chartHeight)
+                    HStack(spacing: 0) {
+                        yAxisView(domain: domain, yDomain: yDomain, today: today, yAxisTicks: yAxisTicks)
+                            .frame(width: yAxisWidth, height: chartHeight)
                             .padding(.bottom, 4)
+                        Rectangle()
+                            .fill(DSColor.border)
+                            .frame(width: 1, height: chartHeight)
+                            .padding(.bottom, 4)
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            chartView(points: points, domain: domain, yDomain: yDomain, today: today, todayLineValue: todayLineValue, yAxisTicks: yAxisTicks)
+                                .frame(width: chartWidth(for: points, domain: domain, availableWidth: max(geo.size.width - yAxisWidth - 1, 0)), height: chartHeight)
+                                .padding(.bottom, 4)
+                        }
+                        .scrollIndicators(.visible)
                     }
-                    .scrollIndicators(.visible)
                     .background(DSColor.surface)
                     .overlay(Rectangle().stroke(DSColor.border, lineWidth: 1))
                     .onAppear {
@@ -318,8 +329,12 @@ struct HistoricPerformanceView: View {
     }
 
     #if canImport(Charts)
-        private func chartView(points: [PerformancePoint], domain: ClosedRange<Date>, yDomain: ClosedRange<Double>, today: Date, todayLineValue: Double?) -> some View {
+        private func chartView(points: [PerformancePoint], domain: ClosedRange<Date>, yDomain: ClosedRange<Double>, today: Date, todayLineValue: Double?, yAxisTicks: [Double]) -> some View {
             Chart {
+                ForEach(yAxisTicks, id: \.self) { tick in
+                    RuleMark(y: .value("Grid", tick))
+                        .foregroundStyle(Color.gray.opacity(0.2))
+                }
                 ForEach(points) { point in
                     LineMark(
                         x: .value("Date", point.date),
@@ -399,16 +414,7 @@ struct HistoricPerformanceView: View {
                     }
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let val = value.as(Double.self) {
-                            Text(formatAxisValue(val))
-                        }
-                    }
-                }
-            }
+            .chartYAxis(.hidden)
             .chartXScale(domain: domain)
             .chartYScale(domain: yDomain)
             .chartOverlay { proxy in
@@ -424,6 +430,112 @@ struct HistoricPerformanceView: View {
                     }
                 }
             }
+        }
+
+        private func yAxisView(domain: ClosedRange<Date>, yDomain: ClosedRange<Double>, today: Date, yAxisTicks: [Double]) -> some View {
+            Chart {
+                PointMark(
+                    x: .value("Date", domain.lowerBound),
+                    y: .value("CHF", yDomain.lowerBound)
+                )
+                .opacity(0)
+                PointMark(
+                    x: .value("Date", domain.upperBound),
+                    y: .value("CHF", yDomain.upperBound)
+                )
+                .opacity(0)
+            }
+            .chartXAxis {
+                if timeScale == .daily {
+                    let weekly = weeklyTickDates(domain: domain)
+                    let ticks = uniqueSortedDates(weekly + [today])
+                    AxisMarks(values: ticks) { value in
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(Self.dateFormatter.string(from: date))
+                                    .foregroundColor(.clear)
+                                    .fixedSize(horizontal: true, vertical: true)
+                            }
+                        }
+                    }
+                } else {
+                    AxisMarks(values: .stride(by: .month, count: 1)) { value in
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(Self.dateFormatter.string(from: date))
+                                    .foregroundColor(.clear)
+                                    .fixedSize(horizontal: true, vertical: true)
+                            }
+                        }
+                    }
+                    AxisMarks(values: [today]) { value in
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(Self.dateFormatter.string(from: date))
+                                    .foregroundColor(.clear)
+                                    .fixedSize(horizontal: true, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: yAxisTicks) { value in
+                    AxisTick()
+                    AxisValueLabel {
+                        if let val = value.as(Double.self) {
+                            Text(formatAxisValue(val))
+                        }
+                    }
+                }
+            }
+            .chartXScale(domain: domain)
+            .chartYScale(domain: yDomain)
+        }
+
+        private func yAxisTickValues(for domain: ClosedRange<Double>) -> [Double] {
+            let span = max(domain.upperBound - domain.lowerBound, 1)
+            let targetTickCount = 5
+            let rawStep = span / Double(max(targetTickCount - 1, 1))
+            let step = niceAxisStep(rawStep)
+            if !step.isFinite || step <= 0 {
+                return [domain.lowerBound, domain.upperBound].sorted()
+            }
+            let start = ceil(domain.lowerBound / step) * step
+            let end = floor(domain.upperBound / step) * step
+            var ticks: [Double] = []
+            var value = start
+            var guardCount = 0
+            while value <= end + (step * 0.5), guardCount < 12 {
+                ticks.append(value)
+                value += step
+                guardCount += 1
+            }
+            if ticks.isEmpty {
+                return [domain.lowerBound, domain.upperBound].sorted()
+            }
+            if ticks.count == 1 {
+                let expanded = [domain.lowerBound, ticks[0], domain.upperBound]
+                return Array(Set(expanded)).sorted()
+            }
+            return ticks
+        }
+
+        private func niceAxisStep(_ value: Double) -> Double {
+            guard value.isFinite, value > 0 else { return 1 }
+            let exponent = floor(log10(value))
+            let fraction = value / pow(10, exponent)
+            let niceFraction: Double
+            if fraction <= 1 {
+                niceFraction = 1
+            } else if fraction <= 2 {
+                niceFraction = 2
+            } else if fraction <= 5 {
+                niceFraction = 5
+            } else {
+                niceFraction = 10
+            }
+            return niceFraction * pow(10, exponent)
         }
     #endif
 

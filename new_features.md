@@ -7,12 +7,20 @@ This document serves as a central backlog for all pending changes, new features,
 - Tag each Backlog entry with `[bugs]`, `[changes]`, or `[new_features]` based on the request text; if the fit is unclear, ask the user to clarify before adding or updating the item.
 - When work starts on a backlog item, mark it with `[*]`, keep it in the Backlog, and move it to the top of the Backlog list. Use the in-progress format `[*] [new_features] [DS-031]` (with the item’s own tag/ID).
 - After the user confirms testing and explicitly asks to move it, shift the item to **Implemented**, mark it with `[x]`, and append the move date (YYYY-MM-DD) to the entry.
+- This file is the source of truth for release status. `CHANGELOG.md` is generated from **Implemented** items here plus Git tags. Do not hand-edit `CHANGELOG.md`.
+- Keep Implemented items dated so they can be mapped to tags correctly.
+- Before each release, tag `vX.Y.Z`, ensure `VERSION` matches, then run the sync script (`python3 scripts/sync_changelog.py` or Settings → Release Notes Sync). Use `GITHUB_TOKEN` if you want GitHub release body notes included.
+- Optional: run the sync script with `--dry-run` in CI or a pre-commit check to catch drift early.
 
 ## Backlog
 
 - <mark>[*] [bugs] **[DS-071] Price Updates Table Resets Column Widths on Edit**</mark>
     Why: Entering a value in the "New Price" field rebuilds the table and resets all columns to default widths, forcing manual resizing. Status: Not fixed yet; the table still resets on focus/edit.
     What: Preserve the current column widths during inline edits; when the Price Updates table view is rebuilt, reapply in-session widths (even if not manually saved) so editing the "New Price" field no longer resets the layout.
+
+- <mark>[ ] [bugs] **[DS-082] CHANGELOG Lists Implemented Features as Unreleased**</mark>
+    Why: `CHANGELOG.md` shows items like DS-073 and DS-072 as unreleased even though they are marked Implemented in `new_features.md` and already merged into main, creating confusion about what shipped.
+    What: Clarify the source-of-truth for release status (new_features vs changelog vs tags), reconcile DS-072/DS-073 and similar entries, and update the release notes workflow so implemented items appear under the correct release with accurate status.
 
 - <mark>[ ] [new_features] **[DS-077] Monthly Deep Dive Check**</mark>
     Why: Portfolio managers need a structured monthly deep dive to reassess regime, sizing, and behavior patterns, and to keep capital intent aligned with life-stage goals.
@@ -47,14 +55,6 @@ This document serves as a central backlog for all pending changes, new features,
         6. Capital purpose reminder (age-appropriate, brutally honest)
            - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
            - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
-
-- <mark>[ ] [changes] **[DS-081] Close Weekly Checklist Window on Mark Complete**</mark>
-    Why: Completing a weekly checklist should return the user to the previous context without requiring an extra close action.
-    What: When pressing the "Mark Complete" button in the Weekly Macro & Portfolio Checklist (DS-076), automatically close the checklist window after a successful completion.
-
-- <mark>[ ] [bugs] **[DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit**</mark>
-    Why: In the Instrument Dashboard Notes tab and Instrument Edit notes sheet, clicking "Add Note"/"Add Update" or "Open" on an existing note does nothing, so users cannot create or view instrument notes.
-    What: Identify the broken presentation path and ensure the note editor sheet opens from all tabs; likely move the `InstrumentNotesView` editor sheets (`showGeneralEditor`, `editingGeneralNote`, `showThemeEditor`) to the top-level view or consolidate into a single `activeEditor` enum so sheet presentation is always attached; keep Add Update disabled unless a theme is selected, but show a clear hint when disabled; verify add/edit works for general notes and theme updates in both Instrument Dashboard and Instrument Edit, with list refresh on save/cancel.
 
 - <mark>[ ] [new_features] **[DS-074] Portfolio Timeline + Time Horizon End Date**</mark>
     Why: Portfolios need an explicit, standardized time horizon so managers can declare intent and align review timing.
@@ -98,6 +98,18 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [new_features] **[DS-083] Historic Performance Y-Axis Always Visible** (2025-12-31)
+    Why: When scrolling the Historic Performance chart horizontally, the y-axis description and scale disappear, making it harder to read values.
+    What: Keep the y-axis description and scale pinned/visible while the chart scrolls so users can always read the CHF scale during horizontal navigation.
+
+- [x] [bugs] **[DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit** (2025-12-31)
+    Why: In the Instrument Dashboard Notes tab and Instrument Edit notes sheet, clicking "Add Note"/"Add Update" or "Open" on an existing note does nothing, so users cannot create or view instrument notes.
+    What: Identify the broken presentation path and ensure the note editor sheet opens from all tabs; likely move the `InstrumentNotesView` editor sheets (`showGeneralEditor`, `editingGeneralNote`, `showThemeEditor`) to the top-level view or consolidate into a single `activeEditor` enum so sheet presentation is always attached; keep Add Update disabled unless a theme is selected, but show a clear hint when disabled; verify add/edit works for general notes and theme updates in both Instrument Dashboard and Instrument Edit, with list refresh on save/cancel.
+
+- [x] [changes] **[DS-081] Close Weekly Checklist Window on Mark Complete** (2025-12-31)
+    Why: Completing a weekly checklist should return the user to the previous context without requiring an extra close action.
+    What: When pressing the "Mark Complete" button in the Weekly Macro & Portfolio Checklist (DS-076), automatically close the checklist window after a successful completion.
 
 - [x] [new_features] **[DS-079] Prefill Thesis Integrity Fields in Weekly Checklist** (2025-12-29)
     Why: Weekly checklist prep should retain stable thesis context across weeks, while still forcing fresh data capture.

@@ -697,20 +697,24 @@ struct WeeklyChecklistEditorView: View {
 
     private func markComplete() {
         errorMessage = nil
+        let completedAtDate = Date()
         let ok = dbManager.upsertWeeklyChecklist(
             themeId: themeId,
             weekStartDate: weekStartDate,
             status: .completed,
             answers: answers,
             skipComment: nil,
-            completedAt: Date(),
+            completedAt: completedAtDate,
             skippedAt: nil
         )
         if ok {
-            completedAt = Date()
+            completedAt = completedAtDate
             skippedAt = nil
         }
         handleSaveResult(ok, newStatus: .completed)
+        if ok {
+            onExit()
+        }
     }
 
     private func handleSkip(_ comment: String) {
