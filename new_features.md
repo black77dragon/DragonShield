@@ -14,14 +14,6 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
-- <mark>[*] [bugs] **[DS-071] Price Updates Table Resets Column Widths on Edit**</mark>
-    Why: Entering a value in the "New Price" field rebuilds the table and resets all columns to default widths, forcing manual resizing. Status: Not fixed yet; the table still resets on focus/edit.
-    What: Preserve the current column widths during inline edits; when the Price Updates table view is rebuilt, reapply in-session widths (even if not manually saved) so editing the "New Price" field no longer resets the layout.
-
-- <mark>[ ] [bugs] **[DS-082] CHANGELOG Lists Implemented Features as Unreleased**</mark>
-    Why: `CHANGELOG.md` shows items like DS-073 and DS-072 as unreleased even though they are marked Implemented in `new_features.md` and already merged into main, creating confusion about what shipped.
-    What: Clarify the source-of-truth for release status (new_features vs changelog vs tags), reconcile DS-072/DS-073 and similar entries, and update the release notes workflow so implemented items appear under the correct release with accurate status.
-
 - <mark>[ ] [new_features] **[DS-077] Monthly Deep Dive Check**</mark>
     Why: Portfolio managers need a structured monthly deep dive to reassess regime, sizing, and behavior patterns, and to keep capital intent aligned with life-stage goals.
     What: For every portfolio, add a Monthly Deep Dive Check workflow (60-90 minutes, once per month) that records completion and written outputs. Show the next check due date, the last completed check date, and a history list with timestamps and viewable past responses. The GUI must include guidance for each section (inline helper text or hover tips). Before implementation, determine the best UX/UI design for where this lives, how scheduling/reminders work, how responses are captured, how guidance is presented, and how completion/history are tracked. Checklist content:
@@ -56,13 +48,18 @@ This document serves as a central backlog for all pending changes, new features,
            - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
            - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
 
-- <mark>[ ] [new_features] **[DS-074] Portfolio Timeline + Time Horizon End Date**</mark>
-    Why: Portfolios need an explicit, standardized time horizon so managers can declare intent and align review timing.
-    What: Add a required `timeline_id` on Portfolio that references a new `PortfolioTimelines` table; allow selecting a default timeline when creating/editing a portfolio; add a manual `time_horizon_end_date` field; maintain timeline entries in a separate maintenance table with `description` (text) and `time_indication` (text) fields; display the portfolio time horizon on the same line as the portfolio title, aligned to the right, and editable there; add a DB migration/seed to prefill timeline rows with standard values (e.g., Short-Term: "0-12m", Medium-Term: "1-3y", Long-Term: "3-5y", Strategic: "5y+").
-
 - <mark>[ ] [new_features] **[DS-075] Dashboard Trading Profile Field**</mark>
-    Why: Traders need a place to capture and keep a short description of the current trading profile directly in the Dashboard area.
-    What: Add a new "Trading Profile" GUI entry under the Dashboard category in the side view; the view contains a text field that stores a free-form trading profile description; persist it in the database and track two dates: `last_updated_at` (when the text changes) and `next_update_due_at` (user-set or default) to indicate when the profile should be updated.
+    Why: Traders need a dedicated, structured Trading Profile GUI to capture identity, regime, alignment, risk, and review memory for governance-first allocation.
+    What: Build a desktop-first Trading Profile section (not just a single field) with a left rail for navigation and a persistent top bar for Regime + Risk. The module is read-only by default and focuses on governance, not performance.
+        - Global shell: top bar shows "Active Regime" and "Risk State" at all times; left rail tabs: Profile, Regime, Alignment, Strategies, Risk, Rules, Review Log.
+        - Profile dashboard: Identity header (profile type, objective, last/next review) and a locked "Profile Coordinates" panel with weighted sliders (read-only; unlock requires explicit review mode).
+        - Dominance stack: three lists (What defines me / Secondary modulators / Should not drive decisions) for cognitive anchoring.
+        - Regime view: Current regime, confidence, confirming/invalidating signals, and implications.
+        - Portfolio alignment view: Table of positions with Regime Fit, Profile Stress, Rule Status; row drill-in shows stressed axes and rule gating.
+        - Strategy compatibility view: Fit matrix that explicitly shows blocked strategies with reasons.
+        - Risk & early warning view: Behavioral risk monitor with warnings and automatic actions; badge mirrors the top bar.
+        - Rules & violations view: Non-negotiable rules plus immutable violation log (no override).
+        - Review log: Append-only decisions with event, decision, confidence, and notes.
 
 - <mark>[ ] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings**</mark>
     Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
@@ -98,6 +95,37 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [bugs] **[DS-071] Price Updates Table Resets Column Widths on Edit** (2026-01-01)
+    Why: Entering a value in the "New Price" field rebuilds the table and resets all columns to default widths, forcing manual resizing. This was only relevant to the legacy Price Updates GUI, which has been abandoned.
+    What: No change required; the issue is scoped to the legacy UI and is no longer actionable.
+
+- [x] [new_features] **[DS-074] Portfolio Timeline + Time Horizon End Date** (2026-01-01)
+    Why: Portfolios need an explicit, standardized time horizon so managers can declare intent and align review timing.
+    What: Add a required `timeline_id` on Portfolio that references a new `PortfolioTimelines` table; allow selecting a default timeline when creating/editing a portfolio; add a manual `time_horizon_end_date` field; maintain timeline entries in a separate maintenance table with `description` (text) and `time_indication` (text) fields; display the portfolio time horizon on the same line as the portfolio title, aligned to the right, and editable there; add a DB migration/seed to prefill timeline rows with standard values (e.g., Short-Term: "0-12m", Medium-Term: "1-3y", Long-Term: "3-5y", Strategic: "5y+").
+        - GUI: Add a Configuration → Portfolio Timelines maintenance view to add/edit/reorder timelines (description + time indication).
+        - GUI: Add Time Horizon picker + End Date toggle/date in Add/Edit Portfolio and in Portfolio Settings.
+        - GUI: In the portfolio title bar, show the current time horizon + end date inline (right-aligned) with inline editing.
+        - GUI: End date status is color-coded: amber when within 30 days, red when overdue.
+
+- [x] [changes] **[DS-085] Remove Asset Allocation Feature** (2025-12-31)
+    Why: Asset Allocation GUI and related workflows are being retired and should be removed to reduce maintenance surface area.
+    What: Remove the Asset Allocation GUI and all related functionality; delete code paths, models, services, and assets that are not used elsewhere after removal, ensuring remaining features compile and run without references to Asset Allocation.
+
+- [x] [new_features] **[DS-084] Price Update Manager UX + Unified Update Source** (2025-12-31)
+    Why: The current Price Updates GUI mixes auto and manual workflows, shows irrelevant fields (manual "New Price" even when auto is enabled), and splits overlapping concepts ("Auto", "Auto Provider", "Price Source", "Manual Source"), making it hard to scan or update many instruments efficiently.
+    What: Keep the existing Price Updates GUI unchanged, and add a new "Next Level Price Update" page that delivers a dense, high-signal experience with filters, sorting, and a coherent update model.
+        - Introduce an explicit per-instrument "Update Mode" (Auto or Manual) and a single "Update Source" concept; Auto uses a provider name, Manual uses a user-entered source label. Avoid the overlapping UI fields ("Auto", "Auto Provider", "Price Source", "Manual Source") in the new page in favor of this model.
+        - New Next Level table is dense and scannable (compact row height, minimal columns, no redundant fields) and shows as many instruments as possible on one page.
+        - Row layout: Instrument, Current Price + Date, Update Mode (chip), Update Source (provider or manual label), Last Update/Status; Manual rows reveal "New Price" + Date inputs, Auto rows hide these inputs and instead show last auto-fetch timestamp/health.
+        - Provide filters/tabs: All, Manual, Auto, and Needs Update (stale/missing) with counts; search stays available across all modes.
+        - Provide sorting on key columns (Instrument, Current Price, Prices As Of, Update Mode, Last Update/Status) and remember the last sort for the session.
+        - Switching a row's Update Mode immediately toggles which inputs are visible and enforces required fields (provider for Auto, source + new price for Manual).
+        - Update action applies only to rows with manual inputs; auto rows remain read-only in the update form.
+
+- [x] [bugs] **[DS-082] CHANGELOG Lists Implemented Features as Unreleased** (2025-12-31)
+    Why: `CHANGELOG.md` shows items like DS-073 and DS-072 as unreleased even though they are marked Implemented in `new_features.md` and already merged into main, creating confusion about what shipped.
+    What: Clarify the source-of-truth for release status (new_features vs changelog vs tags), reconcile DS-072/DS-073 and similar entries, and update the release notes workflow so implemented items appear under the correct release with accurate status.
 
 - [x] [new_features] **[DS-083] Historic Performance Y-Axis Always Visible** (2025-12-31)
     Why: When scrolling the Historic Performance chart horizontally, the y-axis description and scale disappear, making it harder to read values.

@@ -7,13 +7,14 @@ struct PortfolioThemesAlignedView: View {
     @EnvironmentObject var dbManager: DatabaseManager
 
     private enum Column: String, CaseIterable, MaintenanceTableColumn {
-        case name, code, status, updatedAt, risk, totalValue, instruments, description
+        case name, code, status, timeHorizon, updatedAt, risk, totalValue, instruments, description
 
         var title: String {
             switch self {
             case .name: return "Portfolio"
             case .code: return "Code"
             case .status: return "Status"
+            case .timeHorizon: return "Time Horizon"
             case .updatedAt: return "Updated"
             case .risk: return "Risk Score"
             case .totalValue: return "Counted Val (CHF)"
@@ -33,7 +34,7 @@ struct PortfolioThemesAlignedView: View {
     }
 
     private enum SortColumn {
-        case name, code, status, updatedAt, risk, totalValue, instruments
+        case name, code, status, timeHorizon, updatedAt, risk, totalValue, instruments
     }
 
     private static let visibleColumnsKey = "PortfolioThemesAlignedView.visibleColumns.v1"
@@ -45,6 +46,7 @@ struct PortfolioThemesAlignedView: View {
         .name: 280,
         .code: 120,
         .status: 150,
+        .timeHorizon: 210,
         .updatedAt: 140,
         .risk: 140,
         .totalValue: 160,
@@ -56,6 +58,7 @@ struct PortfolioThemesAlignedView: View {
         .name: 200,
         .code: 80,
         .status: 90,
+        .timeHorizon: 160,
         .updatedAt: 100,
         .risk: 90,
         .totalValue: 110,
@@ -134,6 +137,7 @@ struct PortfolioThemesAlignedView: View {
 
     @State private var themes: [PortfolioTheme] = []
     @State private var statuses: [PortfolioThemeStatus] = []
+    @State private var timelines: [PortfolioTimelineRow] = []
     @State private var selectedTheme: PortfolioTheme?
     @State private var themeToOpen: PortfolioTheme?
     @State private var searchText = ""
@@ -164,6 +168,10 @@ struct PortfolioThemesAlignedView: View {
         }
     }
 
+    private var timelineById: [Int: PortfolioTimelineRow] {
+        Dictionary(uniqueKeysWithValues: timelines.map { ($0.id, $0) })
+    }
+
     private var sortedThemes: [PortfolioTheme] {
         filteredThemes.sorted { lhs, rhs in
             switch sortColumn {
@@ -175,6 +183,10 @@ struct PortfolioThemesAlignedView: View {
                 let lStatus = statusName(for: lhs.statusId)
                 let rStatus = statusName(for: rhs.statusId)
                 return sortAscending ? lStatus < rStatus : lStatus > rStatus
+            case .timeHorizon:
+                let lLabel = timeHorizonLabel(for: lhs)
+                let rLabel = timeHorizonLabel(for: rhs)
+                return sortAscending ? lLabel < rLabel : lLabel > rLabel
             case .updatedAt:
                 let lDate = parsedDate(lhs.updatedAt)
                 let rDate = parsedDate(rhs.updatedAt)
@@ -535,6 +547,17 @@ struct PortfolioThemesAlignedView: View {
                     .font(.system(size: fontConfig.primary, weight: .medium))
                     .foregroundColor(.primary)
             }
+        case .timeHorizon:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(timeHorizonLabel(for: theme))
+                    .font(.system(size: fontConfig.primary, weight: .medium))
+                    .foregroundColor(.primary)
+                if let endDateText = endDateLabel(for: theme) {
+                    Text(endDateText)
+                        .font(.system(size: fontConfig.secondary))
+                        .foregroundColor(endDateStatusColor(for: theme))
+                }
+            }
         case .updatedAt:
             Text(formattedDate(theme.updatedAt))
                 .font(.system(size: fontConfig.secondary))
@@ -579,6 +602,31 @@ struct PortfolioThemesAlignedView: View {
         currencyFormatter.minimumFractionDigits = 0
         let raw = currencyFormatter.string(from: NSNumber(value: value)) ?? "—"
         return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func timeHorizonLabel(for theme: PortfolioTheme) -> String {
+        guard let id = theme.timelineId, let row = timelineById[id] else { return "—" }
+        return "\(row.description) (\(row.timeIndication))"
+    }
+
+    private func endDateLabel(for theme: PortfolioTheme) -> String? {
+        guard let raw = theme.timeHorizonEndDate, !raw.isEmpty else { return nil }
+        let formatted = DateFormatting.dateOnly(raw)
+        if formatted == "—" { return "End \(raw)" }
+        return "End \(formatted)"
+    }
+
+    private func endDateStatusColor(for theme: PortfolioTheme) -> Color {
+        guard let raw = theme.timeHorizonEndDate, let date = ISO8601DateParser.parse(raw) else {
+            return DSColor.textSecondary
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let endDay = calendar.startOfDay(for: date)
+        let days = calendar.dateComponents([.day], from: today, to: endDay).day ?? 0
+        if days < 0 { return DSColor.accentError }
+        if days <= 30 { return DSColor.accentWarning }
+        return DSColor.textSecondary
     }
 
     private func riskText(_ score: Double?, category: String?) -> String {
@@ -661,6 +709,7 @@ struct PortfolioThemesAlignedView: View {
         case .name: return .name
         case .code: return .code
         case .status: return .status
+        case .timeHorizon: return .timeHorizon
         case .updatedAt: return .updatedAt
         case .risk: return .risk
         case .totalValue: return .totalValue
@@ -672,6 +721,7 @@ struct PortfolioThemesAlignedView: View {
     private func loadData() {
         statuses = dbManager.fetchPortfolioThemeStatuses()
         themes = dbManager.fetchPortfolioThemes(includeArchived: true, includeSoftDeleted: true)
+        timelines = dbManager.listPortfolioTimelines(includeInactive: true)
         if let selected = selectedTheme, !themes.contains(where: { $0.id == selected.id }) {
             selectedTheme = nil
         }

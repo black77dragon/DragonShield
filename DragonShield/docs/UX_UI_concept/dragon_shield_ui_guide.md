@@ -96,8 +96,6 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 ### 1. Dashboard
 - Tile layout (2x2 grid)
 - Key tiles:
-  - Allocation vs. Target (pie)
-  - Asset Allocation (horizontal bars)
   - Top 5–8 Positions (text + color-coded change)
   - Alerts & Actions (list style)
 - List tiles adopt `DashboardTileLayout` constants for default spacing and padding
@@ -108,11 +106,6 @@ Dragon Shield follows a **ZEN-minimalist** approach combined with Apple-native U
 - Strategy note field: Freeform markdown-style block
 - Price chart: Time-based with date ticks and hover tooltips
 - Key metrics: Position size, gain/loss, performance
-- Asset Class Allocation editing:
-  - Persistent pencil button in Target column for each row
-  - Double-click or Enter/Space when focused opens the Target-Editor beneath the row
-  - Active row highlights with a soft blue background during editing
-  - Target-Editor includes a tolerance percentage field
 
 ### 3. Transaction Log
 - Filters: Date / Asset / Type

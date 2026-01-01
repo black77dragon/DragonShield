@@ -82,21 +82,6 @@ struct DragonShieldApp: App {
                 Text("Account not found")
             }
         }
-        WindowGroup(id: "targetEdit", for: Int.self) { $classId in
-            if let cid = classId {
-                TargetEditPanel(classId: cid)
-                    .environmentObject(databaseManager)
-                    .environmentObject(databaseManager.preferences)
-                    .environmentObject(ichimokuSettingsService)
-                    .environmentObject(ichimokuViewModel)
-                    .environmentObject(ichimokuScheduler)
-            } else {
-                Text("Asset class not found")
-            }
-        }
-        .defaultSize(width: 800, height: 600)
-        .windowResizability(.contentSize)
-
         WindowGroup(id: "instrumentDashboard", for: Int.self) { $instrumentId in
             if let iid = instrumentId {
                 InstrumentDashboardWindowView(instrumentId: iid)

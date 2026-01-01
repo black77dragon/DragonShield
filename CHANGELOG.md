@@ -12,12 +12,17 @@ When applicable, include the feature reference ID and implementation date in ISO
 ## [Unreleased]
 
 ### Added
+- [DS-074] Portfolio Timeline + Time Horizon End Date (implemented 2026-01-01)
+- [DS-084] Price Update Manager UX + Unified Update Source (implemented 2025-12-31)
 - [DS-083] Historic Performance Y-Axis Always Visible (implemented 2025-12-31)
 
 ### Changed
+- [DS-085] Remove Asset Allocation Feature (implemented 2025-12-31)
 - [DS-081] Close Weekly Checklist Window on Mark Complete (implemented 2025-12-31)
 
 ### Fixed
+- [DS-071] Price Updates Table Resets Column Widths on Edit (implemented 2026-01-01)
+- [DS-082] CHANGELOG Lists Implemented Features as Unreleased (implemented 2025-12-31)
 - [DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit (implemented 2025-12-31)
 - [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
 

@@ -18,6 +18,7 @@ struct NewPortfoliosView: View {
         case name
         case code
         case status
+        case timeHorizon
         case updatedAt
         case risk
         case totalValue
@@ -29,6 +30,7 @@ struct NewPortfoliosView: View {
             case .name: return "Theme"
             case .code: return "Code"
             case .status: return "Status"
+            case .timeHorizon: return "Time Horizon"
             case .updatedAt: return "Updated"
             case .risk: return "Risk"
             case .totalValue: return "Counted Value"
@@ -47,6 +49,7 @@ struct NewPortfoliosView: View {
         case name
         case code
         case status
+        case timeHorizon
         case updatedAt
         case risk
         case totalValue
@@ -90,8 +93,8 @@ struct NewPortfoliosView: View {
         let neighborBaseWidth: CGFloat
     }
 
-    fileprivate static let columnOrder: [ThemeColumn] = [.name, .code, .status, .updatedAt, .risk, .totalValue, .instruments, .description]
-    fileprivate static let defaultVisibleColumns: Set<ThemeColumn> = [.name, .status, .updatedAt, .risk, .totalValue, .instruments, .description]
+    fileprivate static let columnOrder: [ThemeColumn] = [.name, .code, .status, .timeHorizon, .updatedAt, .risk, .totalValue, .instruments, .description]
+    fileprivate static let defaultVisibleColumns: Set<ThemeColumn> = [.name, .status, .timeHorizon, .updatedAt, .risk, .totalValue, .instruments, .description]
     fileprivate static let requiredColumns: Set<ThemeColumn> = [.name]
     fileprivate static let visibleColumnsKey = "NewPortfoliosView.visibleColumns.v1"
 
@@ -99,6 +102,7 @@ struct NewPortfoliosView: View {
         .name: 280,
         .code: 120,
         .status: 160,
+        .timeHorizon: 200,
         .updatedAt: 140,
         .risk: 140,
         .totalValue: 160,
@@ -110,6 +114,7 @@ struct NewPortfoliosView: View {
         .name: 220,
         .code: 100,
         .status: 140,
+        .timeHorizon: 170,
         .updatedAt: 120,
         .risk: 120,
         .totalValue: 140,
@@ -133,6 +138,7 @@ struct NewPortfoliosView: View {
 
     @State private var themes: [PortfolioTheme] = []
     @State private var statuses: [PortfolioThemeStatus] = []
+    @State private var timelines: [PortfolioTimelineRow] = []
     @State private var selectedTheme: PortfolioTheme? = nil
     @State private var searchText = ""
     @State private var showArchivedThemes = true
@@ -165,6 +171,7 @@ struct NewPortfoliosView: View {
         if let stored = UserDefaults.standard.array(forKey: NewPortfoliosView.visibleColumnsKey) as? [String] {
             var decoded = Set(stored.compactMap(ThemeColumn.init(rawValue:)))
             decoded.insert(.risk) // ensure new risk column is visible by default
+            decoded.insert(.timeHorizon)
             _visibleColumns = State(initialValue: decoded.isEmpty ? NewPortfoliosView.defaultVisibleColumns : decoded)
         } else {
             _visibleColumns = State(initialValue: NewPortfoliosView.defaultVisibleColumns)
@@ -351,6 +358,7 @@ struct NewPortfoliosView: View {
                     PortfolioThemeRowView(
                         theme: theme,
                         status: status(for: theme.statusId),
+                        timeline: theme.timelineId.flatMap { timelineById[$0] },
                         columns: activeColumns,
                         fontConfig: fontConfig,
                         baseCurrency: preferences.baseCurrency,
@@ -587,6 +595,10 @@ struct NewPortfoliosView: View {
         )
     }
 
+    private var timelineById: [Int: PortfolioTimelineRow] {
+        Dictionary(uniqueKeysWithValues: timelines.map { ($0.id, $0) })
+    }
+
     private var filteredThemes: [PortfolioTheme] {
         themes.filter { theme in
             if !showArchivedThemes {
@@ -621,6 +633,11 @@ struct NewPortfoliosView: View {
                 let r = statusName(for: rhs.statusId)
                 let result = l.localizedCaseInsensitiveCompare(r)
                 return sortAscending ? result != .orderedDescending : result == .orderedDescending
+            case .timeHorizon:
+                let l = timeHorizonLabel(for: lhs)
+                let r = timeHorizonLabel(for: rhs)
+                let result = l.localizedCaseInsensitiveCompare(r)
+                return sortAscending ? result != .orderedDescending : result == .orderedDescending
             case .updatedAt:
                 let l = lhs.updatedAt
                 let r = rhs.updatedAt
@@ -650,6 +667,7 @@ struct NewPortfoliosView: View {
         case .name: return .name
         case .code: return .code
         case .status: return .status
+        case .timeHorizon: return .timeHorizon
         case .updatedAt: return .updatedAt
         case .risk: return .risk
         case .totalValue: return .totalValue
@@ -681,6 +699,11 @@ struct NewPortfoliosView: View {
 
     private func statusName(for id: Int) -> String {
         status(for: id)?.name ?? ""
+    }
+
+    private func timeHorizonLabel(for theme: PortfolioTheme) -> String {
+        guard let id = theme.timelineId, let row = timelineById[id] else { return "—" }
+        return "\(row.description) (\(row.timeIndication))"
     }
 
     private func width(for column: ThemeColumn) -> CGFloat {
@@ -844,6 +867,7 @@ struct NewPortfoliosView: View {
 
     private func loadData() {
         statuses = dbManager.fetchPortfolioThemeStatuses()
+        timelines = dbManager.listPortfolioTimelines(includeInactive: true)
         themes = dbManager.fetchPortfolioThemes(includeArchived: showArchivedThemes, includeSoftDeleted: showSoftDeletedThemes)
         if let selected = selectedTheme, !themes.contains(where: { $0.id == selected.id }) {
             selectedTheme = nil
@@ -919,6 +943,7 @@ struct NewPortfoliosView: View {
 private struct PortfolioThemeRowView: View {
     let theme: PortfolioTheme
     let status: PortfolioThemeStatus?
+    let timeline: PortfolioTimelineRow?
     let columns: [NewPortfoliosView.ThemeColumn]
     let fontConfig: NewPortfoliosView.TableFontConfig
     let baseCurrency: String
@@ -1020,6 +1045,22 @@ private struct PortfolioThemeRowView: View {
             .padding(.leading, NewPortfoliosView.columnTextInset)
             .padding(.trailing, 8)
             .frame(width: widthFor(.status), alignment: .leading)
+        case .timeHorizon:
+            VStack(alignment: .leading, spacing: 2) {
+                Text(timeHorizonLabel)
+                    .dsBodySmall()
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let endDateText = endDateLabel {
+                    Text(endDateText)
+                        .font(.system(size: fontConfig.secondarySize))
+                        .foregroundColor(endDateStatusColor)
+                }
+            }
+            .padding(.leading, NewPortfoliosView.columnTextInset)
+            .padding(.trailing, 8)
+            .frame(width: widthFor(.timeHorizon), alignment: .leading)
         case .updatedAt:
             updatedAtText()
         case .risk:
@@ -1083,6 +1124,31 @@ private struct PortfolioThemeRowView: View {
         if theme.archivedAt != nil {
             return DSColor.accentWarning
         }
+        return DSColor.textSecondary
+    }
+
+    private var timeHorizonLabel: String {
+        guard let timeline else { return "—" }
+        return "\(timeline.description) (\(timeline.timeIndication))"
+    }
+
+    private var endDateLabel: String? {
+        guard let raw = theme.timeHorizonEndDate, !raw.isEmpty else { return nil }
+        let formatted = DateFormatting.dateOnly(raw)
+        if formatted == "—" { return "End \(raw)" }
+        return "End \(formatted)"
+    }
+
+    private var endDateStatusColor: Color {
+        guard let raw = theme.timeHorizonEndDate, let date = ISO8601DateParser.parse(raw) else {
+            return DSColor.textSecondary
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let endDay = calendar.startOfDay(for: date)
+        let days = calendar.dateComponents([.day], from: today, to: endDay).day ?? 0
+        if days < 0 { return DSColor.accentError }
+        if days <= 30 { return DSColor.accentWarning }
         return DSColor.textSecondary
     }
 

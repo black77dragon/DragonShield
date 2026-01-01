@@ -80,6 +80,8 @@
             let hasBudget = tableHasColumnIOS(table: "PortfolioTheme", column: "theoretical_budget_chf")
             let hasSoftDelete = tableHasColumnIOS(table: "PortfolioTheme", column: "soft_delete")
             let hasArchivedAt = tableHasColumnIOS(table: "PortfolioTheme", column: "archived_at")
+            let hasTimelineId = tableHasColumnIOS(table: "PortfolioTheme", column: "timeline_id")
+            let hasEndDate = tableHasColumnIOS(table: "PortfolioTheme", column: "time_horizon_end_date")
             let columns = [
                 "pt.name",
                 "pt.code",
@@ -91,6 +93,10 @@
             sql += ","
             sql += hasSoftDelete ? "pt.soft_delete" : "0"
             if hasBudget { sql += ", pt.theoretical_budget_chf" }
+            sql += ","
+            sql += hasTimelineId ? "pt.timeline_id" : "NULL"
+            sql += ","
+            sql += hasEndDate ? "pt.time_horizon_end_date" : "NULL"
             if hasAssetTable {
                 sql += ", (SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id)"
             } else {
@@ -126,6 +132,20 @@
                 } else {
                     budget = nil
                 }
+                let timelineId: Int?
+                if hasTimelineId {
+                    timelineId = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, Int32(idx)))
+                    idx += 1
+                } else {
+                    timelineId = nil
+                }
+                let timeHorizonEndDate: String?
+                if hasEndDate {
+                    timeHorizonEndDate = sqlite3_column_text(stmt, Int32(idx)).map { String(cString: $0) }
+                    idx += 1
+                } else {
+                    timeHorizonEndDate = nil
+                }
                 let instrumentCount = Int(sqlite3_column_int(stmt, Int32(idx)))
                 let theme = PortfolioTheme(
                     id: id,
@@ -134,6 +154,8 @@
                     description: desc,
                     institutionId: instId,
                     statusId: statusId,
+                    timelineId: timelineId,
+                    timeHorizonEndDate: timeHorizonEndDate,
                     createdAt: createdAt,
                     updatedAt: updatedAt,
                     archivedAt: archivedAt,

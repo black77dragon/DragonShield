@@ -19,6 +19,8 @@ struct PortfolioTheme: Identifiable, Hashable {
     var description: String?
     var institutionId: Int?
     var statusId: Int
+    var timelineId: Int? = nil
+    var timeHorizonEndDate: String? = nil
     var createdAt: String
     var updatedAt: String
     var archivedAt: String?

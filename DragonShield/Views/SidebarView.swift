@@ -98,10 +98,6 @@ struct SidebarView: View {
                     Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
                 }
                 
-                NavigationLink(destination: AllocationDashboardView()) {
-                    Label("Asset Allocation", systemImage: "chart.pie")
-                }
-
                 NavigationLink(destination: HistoricPerformanceView().environmentObject(dbManager)) {
                     Label("Historic Performance", systemImage: "chart.line.uptrend.xyaxis")
                 }
@@ -117,8 +113,8 @@ struct SidebarView: View {
                     Label("Instruments", systemImage: "pencil.and.list.clipboard")
                 }
                 
-                NavigationLink(destination: PriceUpdatesView().environmentObject(dbManager)) {
-                    Label("Price Updates", systemImage: "dollarsign.circle")
+                NavigationLink(destination: NextLevelPriceUpdatesView().environmentObject(dbManager)) {
+                    Label("Price Update", systemImage: "sparkles")
                 }
                 
                 NavigationLink(destination: CurrenciesView()) {
@@ -185,6 +181,10 @@ struct SidebarView: View {
                 
                 NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
                     Label("Theme Statuses", systemImage: "paintpalette")
+                }
+
+                NavigationLink(destination: PortfolioTimelineSettingsView().environmentObject(dbManager)) {
+                    Label("Portfolio Timelines", systemImage: "clock")
                 }
                 
                 NavigationLink(destination: NewsTypeSettingsView().environmentObject(dbManager)) {

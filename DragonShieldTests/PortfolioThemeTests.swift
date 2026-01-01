@@ -37,6 +37,7 @@ final class PortfolioThemeTests: XCTestCase {
             ('\(PortfolioThemeStatus.archivedCode)','Archived','#B0BEC5',0);
         """
         sqlite3_exec(manager.db, statusSQL, nil, nil, nil)
+        manager.ensurePortfolioTimelinesTable()
         manager.ensurePortfolioThemeTable()
         let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: nil, institutionId: nil, statusId: 1)
         XCTAssertNotNil(theme)
@@ -68,6 +69,7 @@ final class PortfolioThemeTests: XCTestCase {
         INSERT INTO Institutions (institution_name) VALUES ('Credit Suisse');
         """
         sqlite3_exec(manager.db, setupSQL, nil, nil, nil)
+        manager.ensurePortfolioTimelinesTable()
         manager.ensurePortfolioThemeTable()
         let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: "Test", institutionId: 1, statusId: 1)
         XCTAssertEqual(theme?.description, "Test")
@@ -90,6 +92,7 @@ final class PortfolioThemeTests: XCTestCase {
         INSERT INTO PortfolioThemeStatus VALUES (1,'ACTIVE','Active','#fff',1);
         """
         sqlite3_exec(manager.db, setupSQL, nil, nil, nil)
+        manager.ensurePortfolioTimelinesTable()
         manager.ensurePortfolioThemeTable()
         let longDesc = String(repeating: "a", count: 2001)
         let theme = manager.createPortfolioTheme(name: "Growth", code: "GROWTH", description: longDesc, institutionId: nil, statusId: 1)

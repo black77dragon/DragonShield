@@ -21,20 +21,12 @@
       "sha": "ef36fd9c11623db32a5cae0a14626b28c3635843"
     },
     {
-      "path": "UX_UI_concept/allocation_targets_table_spec.md",
-      "sha": "ba5842a4a4072604ef0d85cac8e28cf8b437f15d"
-    },
-    {
       "path": "UX_UI_concept/data_import_export_view.md",
       "sha": "bcc15dd2feac7db10deeee57494af3ec6ce9e267"
     },
     {
       "path": "UX_UI_concept/dragon_shield_ui_guide.md",
-      "sha": "f38a098c01459a518db018a17bdef6fa3b136665"
-    },
-    {
-      "path": "UX_UI_concept/target_allocation_edit_panel.md",
-      "sha": "2a8acb3aca870fcc67e456ed0b996444d13d5ed8"
+      "sha": "a4806f7850160b289cbf3e33609d69621cbe4670"
     },
     {
       "path": "adding_health_checks.md",

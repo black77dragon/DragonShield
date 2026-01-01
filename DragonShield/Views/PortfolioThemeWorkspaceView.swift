@@ -141,6 +141,11 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var isArchivedTheme: Bool = false
     @State private var isSoftDeletedTheme: Bool = false
     @State private var weeklyChecklistEnabled: Bool = true
+    @State private var timelines: [PortfolioTimelineRow] = []
+    @State private var selectedTimelineId: Int = 0
+    @State private var timeHorizonEndDate: Date? = nil
+    @State private var hasTimeHorizonEndDate: Bool = false
+    @State private var suppressTimeHorizonPersist: Bool = false
 
     private enum HoldingsFontSize: String, CaseIterable {
         case xSmall, small, medium, large, xLarge
@@ -248,6 +253,12 @@ struct PortfolioThemeWorkspaceView: View {
             lastTabRaw = newValue.rawValue
             if newValue == .overview || newValue == .analytics || newValue == .holdings || newValue == .risks { runValuation() }
         }
+        .onChange(of: selectedTimelineId) { _, _ in
+            persistTimeHorizon()
+        }
+        .onChange(of: timeHorizonEndDate) { _, _ in
+            persistTimeHorizon()
+        }
     }
 
     // MARK: - Header
@@ -276,6 +287,7 @@ struct PortfolioThemeWorkspaceView: View {
             Text("Portfolio: \(displayName)")
                 .dsHeaderLarge()
             Spacer()
+            timeHorizonHeader
         }
         .padding(.horizontal, DSLayout.spaceL)
         .padding(.top, DSLayout.spaceL)
@@ -307,6 +319,64 @@ struct PortfolioThemeWorkspaceView: View {
         .dsBody()
         .lineLimit(1)
         .minimumScaleFactor(0.85)
+    }
+
+    private var timeHorizonHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("Horizon")
+                    .foregroundColor(DSColor.textSecondary)
+                Picker("", selection: $selectedTimelineId) {
+                    if timelines.isEmpty {
+                        Text("No timelines").tag(0)
+                    } else {
+                        ForEach(timelines) { row in
+                            Text(timelineLabel(row)).tag(row.id)
+                        }
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(minWidth: 200, alignment: .leading)
+                .disabled(timelines.isEmpty || isArchivedTheme || isSoftDeletedTheme)
+            }
+            HStack(spacing: 6) {
+                Text("End")
+                    .foregroundColor(endDateStatusColor)
+                if hasTimeHorizonEndDate {
+                    DatePicker("", selection: endDateBinding, displayedComponents: .date)
+                        .labelsHidden()
+                        .frame(width: 140)
+                        .disabled(isArchivedTheme || isSoftDeletedTheme || selectedTimelineId == 0)
+                    if let status = endDateStatusLabel {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundColor(endDateStatusColor)
+                    }
+                    Button(action: clearTimeHorizonEndDate) {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(DSColor.textSecondary)
+                    .disabled(isArchivedTheme || isSoftDeletedTheme || selectedTimelineId == 0)
+                    .help("Clear end date")
+                } else {
+                    Button {
+                        setTimeHorizonEndDate()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("End: —")
+                            Image(systemName: "calendar.badge.plus")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(DSColor.textSecondary)
+                    .disabled(isArchivedTheme || isSoftDeletedTheme || selectedTimelineId == 0)
+                    .help("Set end date")
+                }
+            }
+        }
+        .dsBody()
     }
 
     private var headerActions: some View {
@@ -1649,6 +1719,49 @@ struct PortfolioThemeWorkspaceView: View {
                     Spacer()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Time Horizon").frame(width: labelWidth, alignment: .leading)
+                    Picker("", selection: $selectedTimelineId) {
+                        if timelines.isEmpty {
+                            Text("No timelines").tag(0)
+                        } else {
+                            ForEach(timelines) { row in
+                                Text(timelineLabel(row)).tag(row.id)
+                            }
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 260)
+                    .padding(.vertical, 2)
+                    .background(Color.white)
+                    .cornerRadius(6)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
+                    .disabled(timelines.isEmpty || isArchivedTheme || isSoftDeletedTheme)
+                    Spacer()
+                }
+                HStack(alignment: .center, spacing: 12) {
+                    Text("End Date").frame(width: labelWidth, alignment: .leading)
+                    Toggle("Set", isOn: Binding(
+                        get: { hasTimeHorizonEndDate },
+                        set: { newValue in
+                            if newValue { setTimeHorizonEndDate() } else { clearTimeHorizonEndDate() }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .disabled(isArchivedTheme || isSoftDeletedTheme || timelines.isEmpty || selectedTimelineId == 0)
+                    if hasTimeHorizonEndDate {
+                        DatePicker("", selection: endDateBinding, displayedComponents: .date)
+                            .labelsHidden()
+                            .frame(width: 160)
+                            .disabled(isArchivedTheme || isSoftDeletedTheme || timelines.isEmpty || selectedTimelineId == 0)
+                        if let status = endDateStatusLabel {
+                            Text(status)
+                                .font(.caption)
+                                .foregroundColor(endDateStatusColor)
+                        }
+                    }
+                    Spacer()
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Institution").frame(width: labelWidth, alignment: .leading)
                     Picker("", selection: $institutionId) {
                         Text("None").tag(nil as Int?)
@@ -2012,6 +2125,22 @@ struct PortfolioThemeWorkspaceView: View {
         weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
         statuses = dbManager.fetchPortfolioThemeStatuses()
         institutions = dbManager.fetchInstitutions()
+        timelines = dbManager.listPortfolioTimelines(includeInactive: true)
+        suppressTimeHorizonPersist = true
+        let fallbackTimeline = dbManager.defaultPortfolioTimelineId() ?? timelines.first?.id ?? 0
+        selectedTimelineId = fetched.timelineId ?? fallbackTimeline
+        if let endDate = fetched.timeHorizonEndDate,
+           let parsed = DateFormatter.iso8601DateOnly.date(from: endDate) ?? ISO8601DateParser.parse(endDate)
+        {
+            timeHorizonEndDate = parsed
+            hasTimeHorizonEndDate = true
+        } else {
+            timeHorizonEndDate = nil
+            hasTimeHorizonEndDate = false
+        }
+        DispatchQueue.main.async {
+            suppressTimeHorizonPersist = false
+        }
         if let parsed = Self.isoFormatter.date(from: fetched.updatedAt) {
             updatedAtDate = parsed
             originalUpdatedAtDate = parsed
@@ -2059,6 +2188,88 @@ struct PortfolioThemeWorkspaceView: View {
                 let isoString = Self.isoFormatter.string(from: updatedAtDate)
                 _ = dbManager.setPortfolioThemeUpdatedAt(id: current.id, isoString: isoString)
             }
+            loadTheme()
+        }
+    }
+
+    private enum EndDateStatus {
+        case none
+        case ok
+        case approaching(days: Int)
+        case overdue(days: Int)
+    }
+
+    private var endDateBinding: Binding<Date> {
+        Binding(
+            get: { timeHorizonEndDate ?? Date() },
+            set: { timeHorizonEndDate = $0 }
+        )
+    }
+
+    private var endDateStatus: EndDateStatus {
+        guard let endDate = timeHorizonEndDate else { return .none }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let endDay = calendar.startOfDay(for: endDate)
+        let days = calendar.dateComponents([.day], from: today, to: endDay).day ?? 0
+        if days < 0 { return .overdue(days: abs(days)) }
+        if days <= 30 { return .approaching(days: days) }
+        return .ok
+    }
+
+    private var endDateStatusColor: Color {
+        switch endDateStatus {
+        case .overdue:
+            return DSColor.accentError
+        case .approaching:
+            return DSColor.accentWarning
+        case .ok:
+            return DSColor.textSecondary
+        case .none:
+            return DSColor.textTertiary
+        }
+    }
+
+    private var endDateStatusLabel: String? {
+        switch endDateStatus {
+        case .approaching(let days):
+            return "Due in \(days)d"
+        case .overdue(let days):
+            return "Overdue \(days)d"
+        default:
+            return nil
+        }
+    }
+
+    private func timelineLabel(_ row: PortfolioTimelineRow) -> String {
+        let label = "\(row.description) (\(row.timeIndication))"
+        return row.active ? label : "\(label) (inactive)"
+    }
+
+    private func setTimeHorizonEndDate() {
+        hasTimeHorizonEndDate = true
+        if timeHorizonEndDate == nil {
+            timeHorizonEndDate = Date()
+        }
+    }
+
+    private func clearTimeHorizonEndDate() {
+        hasTimeHorizonEndDate = false
+        timeHorizonEndDate = nil
+    }
+
+    private func persistTimeHorizon() {
+        guard !suppressTimeHorizonPersist else { return }
+        guard selectedTimelineId != 0 else { return }
+        let endDateString = timeHorizonEndDate.map { DateFormatter.iso8601DateOnly.string(from: $0) }
+        let ok = dbManager.updatePortfolioThemeTimeHorizon(id: themeId, timelineId: selectedTimelineId, timeHorizonEndDate: endDateString)
+        if ok {
+            if var t = theme {
+                t.timelineId = selectedTimelineId
+                t.timeHorizonEndDate = endDateString
+                theme = t
+            }
+        } else {
             loadTheme()
         }
     }

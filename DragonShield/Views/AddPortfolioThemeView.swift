@@ -14,6 +14,10 @@ struct AddPortfolioThemeView: View {
     @State private var statusId: Int = 0 // Use Int, not Int64
     @State private var statuses: [PortfolioThemeStatus] = []
     @State private var weeklyChecklistExempt: Bool = false
+    @State private var timelines: [PortfolioTimelineRow] = []
+    @State private var timelineId: Int = 0
+    @State private var hasEndDate: Bool = false
+    @State private var endDate: Date = .init()
     @State private var errorMessage: String?
 
     var body: some View {
@@ -36,6 +40,22 @@ struct AddPortfolioThemeView: View {
                         ForEach(statuses) { status in
                             Text(status.name).tag(status.id)
                         }
+                    }
+
+                    Picker("Time Horizon", selection: $timelineId) {
+                        if timelines.isEmpty {
+                            Text("No timelines configured").tag(0)
+                        } else {
+                            ForEach(timelines) { timeline in
+                                Text("\(timeline.description) (\(timeline.timeIndication))").tag(timeline.id)
+                            }
+                        }
+                    }
+                    .disabled(timelines.isEmpty)
+
+                    Toggle("Set Time Horizon End Date", isOn: $hasEndDate)
+                    if hasEndDate {
+                        DatePicker("End Date", selection: $endDate, displayedComponents: .date)
                     }
 
                     Toggle("Exempt from Weekly Checklist", isOn: $weeklyChecklistExempt)
@@ -63,7 +83,7 @@ struct AddPortfolioThemeView: View {
                     saveTheme()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || code.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || code.trimmingCharacters(in: .whitespaces).isEmpty || timelineId == 0)
             }
             .padding()
         }
@@ -77,6 +97,8 @@ struct AddPortfolioThemeView: View {
         if let firstStatus = statuses.first {
             statusId = firstStatus.id
         }
+        timelines = dbManager.listPortfolioTimelines(includeInactive: false)
+        timelineId = dbManager.defaultPortfolioTimelineId() ?? timelines.first?.id ?? 0
     }
 
     private func saveTheme() {
@@ -89,7 +111,9 @@ struct AddPortfolioThemeView: View {
             description: nil,
             institutionId: nil,
             statusId: statusId,
-            weeklyChecklistEnabled: !weeklyChecklistExempt
+            weeklyChecklistEnabled: !weeklyChecklistExempt,
+            timelineId: timelineId == 0 ? nil : timelineId,
+            timeHorizonEndDate: hasEndDate ? DateFormatter.iso8601DateOnly.string(from: endDate) : nil
         )
 
         if newTheme != nil {
