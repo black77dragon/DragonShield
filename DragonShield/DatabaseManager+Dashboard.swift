@@ -17,14 +17,6 @@ struct LargestPositionItem: Identifiable {
     // Later: P&L, deltaToTarget, etc.
 }
 
-struct AssetClassAllocationItem: Identifiable {
-    let id: String // Asset class name or ID
-    let assetClassName: String
-    let valueInBaseCurrency: Double
-    let actualPercentage: Double
-    // Later: targetPercentage
-}
-
 struct OptionHoldingItem: Identifiable {
     let id: String // Could be instrument ISIN or a unique generated ID
     let name: String // e.g., "AAPL 2025-12-31 C150"
@@ -34,15 +26,6 @@ struct OptionHoldingItem: Identifiable {
     let strikePrice: Double
     let underlyingAsset: String?
     let type: String // Call or Put
-}
-
-struct AssetAllocationVarianceItem: Identifiable {
-    let id: String
-    let assetClassName: String
-    let currentPercent: Double
-    let targetPercent: Double
-    let currentValue: Double
-    let lastRebalance: Date?
 }
 
 extension DatabaseManager {
@@ -59,19 +42,6 @@ extension DatabaseManager {
         ].prefix(count).map { $0 }
     }
 
-    func fetchAssetClassAllocation() -> [AssetClassAllocationItem] {
-        // Placeholder: Returns sample data.
-        // Actual implementation will aggregate values by asset class.
-        print("ℹ️ fetchAssetClassAllocation() called - returning sample data.")
-        let totalValue = 56000.0 // Sample total portfolio value for percentage calculation
-        return [
-            AssetClassAllocationItem(id: "Equity", assetClassName: "Equities", valueInBaseCurrency: 35500.00, actualPercentage: (35500 / totalValue) * 100),
-            AssetClassAllocationItem(id: "ETF", assetClassName: "ETFs", valueInBaseCurrency: 11000.00, actualPercentage: (11000 / totalValue) * 100),
-            AssetClassAllocationItem(id: "Crypto", assetClassName: "Cryptocurrencies", valueInBaseCurrency: 9500.00, actualPercentage: (9500 / totalValue) * 100),
-            // Add other classes like Bonds, Cash, Real Estate as needed
-        ]
-    }
-
     func fetchOptionHoldings() -> [OptionHoldingItem] {
         // Placeholder: Returns sample data.
         // Actual implementation will query instruments identified as options and their current holdings.
@@ -86,18 +56,5 @@ extension DatabaseManager {
             OptionHoldingItem(id: "AAPL2512C150", name: "AAPL DEC 2025 150C", quantity: 10, currentPrice: 5.50, expiryDate: oneMonthFromNow, strikePrice: 150.00, underlyingAsset: "AAPL", type: "Call"),
             OptionHoldingItem(id: "SPY2509P400", name: "SPY SEP 2025 400P", quantity: 5, currentPrice: 8.20, expiryDate: threeMonthsFromNow, strikePrice: 400.00, underlyingAsset: "SPY", type: "Put"),
         ]
-    }
-
-    func fetchAssetAllocationVariance() -> (items: [AssetAllocationVarianceItem], portfolioValue: Double) {
-        print("ℹ️ fetchAssetAllocationVariance() called - returning sample data.")
-
-        let portfolioValue = 56000.0
-        let allocations = [
-            AssetAllocationVarianceItem(id: "Equity", assetClassName: "Equities", currentPercent: (35500 / portfolioValue) * 100, targetPercent: 60, currentValue: 35500, lastRebalance: Date(timeIntervalSinceNow: -60 * 60 * 24 * 30)),
-            AssetAllocationVarianceItem(id: "ETF", assetClassName: "ETFs", currentPercent: (11000 / portfolioValue) * 100, targetPercent: 25, currentValue: 11000, lastRebalance: Date(timeIntervalSinceNow: -60 * 60 * 24 * 60)),
-            AssetAllocationVarianceItem(id: "Crypto", assetClassName: "Cryptocurrencies", currentPercent: (9500 / portfolioValue) * 100, targetPercent: 10, currentValue: 9500, lastRebalance: Date(timeIntervalSinceNow: -60 * 60 * 24 * 10)),
-        ]
-
-        return (allocations, portfolioValue)
     }
 }

@@ -52,6 +52,8 @@ extension DatabaseManager {
             description TEXT NULL CHECK (LENGTH(description) <= 2000),
             institution_id INTEGER NULL REFERENCES Institutions(institution_id) ON DELETE SET NULL,
             status_id INTEGER NOT NULL REFERENCES PortfolioThemeStatus(id),
+            timeline_id INTEGER NOT NULL DEFAULT 5 REFERENCES PortfolioTimelines(id),
+            time_horizon_end_date TEXT NULL,
             created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
             updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
             archived_at TEXT NULL,
@@ -60,10 +62,12 @@ extension DatabaseManager {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_theme_name_unique ON PortfolioTheme(LOWER(name)) WHERE soft_delete = 0;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_theme_code_unique ON PortfolioTheme(LOWER(code)) WHERE soft_delete = 0;
         CREATE INDEX IF NOT EXISTS idx_portfolio_theme_institution_id ON PortfolioTheme(institution_id);
+        CREATE INDEX IF NOT EXISTS idx_portfolio_theme_timeline_id ON PortfolioTheme(timeline_id);
         """
         if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
             LoggingService.shared.log("ensurePortfolioThemeTable failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         }
+        ensureThemeTimeHorizonColumns()
     }
 
     /// Normalize legacy archived_at values: some older DBs stored empty string instead of NULL.
@@ -199,6 +203,8 @@ extension DatabaseManager {
         let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
         let hasArchivedAt = tableHasColumn(table: "PortfolioTheme", column: "archived_at")
         let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
+        let hasTimelineId = tableHasColumn(table: "PortfolioTheme", column: "timeline_id")
+        let hasEndDate = tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date")
 
         var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,"
         sql += (hasArchivedAt ? "pt.archived_at" : "NULL")
@@ -207,6 +213,10 @@ extension DatabaseManager {
         sql += ","
         sql += (hasWeeklyChecklist ? "COALESCE(pt.weekly_checklist_enabled,1)" : "1")
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
+        sql += ","
+        sql += (hasTimelineId ? "pt.timeline_id" : "NULL")
+        sql += ","
+        sql += (hasEndDate ? "pt.time_horizon_end_date" : "NULL")
         if hasAssetTable {
             sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id)"
         } else {
@@ -246,6 +256,7 @@ extension DatabaseManager {
                     idx = 11
                 } else {
                     weeklyChecklistEnabled = true
+                    idx = 11
                 }
                 let budget: Double?
                 if hasBudget {
@@ -254,8 +265,22 @@ extension DatabaseManager {
                 } else {
                     budget = nil
                 }
+                let timelineId: Int?
+                if hasTimelineId {
+                    timelineId = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, Int32(idx)))
+                    idx += 1
+                } else {
+                    timelineId = nil
+                }
+                let timeHorizonEndDate: String?
+                if hasEndDate {
+                    timeHorizonEndDate = sqlite3_column_text(stmt, Int32(idx)).map { String(cString: $0) }
+                    idx += 1
+                } else {
+                    timeHorizonEndDate = nil
+                }
                 let count = Int(sqlite3_column_int(stmt, Int32(idx)))
-                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count))
+                themes.append(PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, timelineId: timelineId, timeHorizonEndDate: timeHorizonEndDate, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count))
             }
         } else {
             LoggingService.shared.log("Failed to prepare fetchPortfolioThemes: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -269,8 +294,11 @@ extension DatabaseManager {
                               description: String? = nil,
                               institutionId: Int? = nil,
                               statusId: Int? = nil,
-                              weeklyChecklistEnabled: Bool = true) -> PortfolioTheme?
+                              weeklyChecklistEnabled: Bool = true,
+                              timelineId: Int? = nil,
+                              timeHorizonEndDate: String? = nil) -> PortfolioTheme?
     {
+        ensureThemeTimeHorizonColumns()
         let upperCode = code.uppercased()
         guard PortfolioTheme.isValidName(name) else {
             LoggingService.shared.log("Invalid theme name", type: .info, logger: .database)
@@ -300,30 +328,72 @@ extension DatabaseManager {
             return nil
         }
         let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
-        let sql = hasWeeklyChecklist
-            ? "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id, weekly_checklist_enabled) VALUES (?,?,?,?,?,?)"
-            : "INSERT INTO PortfolioTheme (name, code, description, institution_id, status_id) VALUES (?,?,?,?,?)"
+        let hasTimelineId = tableHasColumn(table: "PortfolioTheme", column: "timeline_id")
+        let hasEndDate = tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date")
+        let resolvedTimelineId: Int?
+        if hasTimelineId {
+            resolvedTimelineId = timelineId ?? defaultPortfolioTimelineId()
+            guard let resolvedTimelineId else {
+                LoggingService.shared.log("No default Portfolio Timeline found", type: .error, logger: .database)
+                return nil
+            }
+            let exists = singleIntQuery("SELECT id FROM PortfolioTimelines WHERE id = ? LIMIT 1") { stmt in
+                sqlite3_bind_int(stmt, 1, Int32(resolvedTimelineId))
+            }
+            guard exists != nil else {
+                LoggingService.shared.log("Invalid timeline id=\(resolvedTimelineId)", type: .error, logger: .database)
+                return nil
+            }
+        } else {
+            resolvedTimelineId = nil
+        }
+        var columns = ["name", "code", "description", "institution_id", "status_id"]
+        var values = ["?", "?", "?", "?", "?"]
+        if hasWeeklyChecklist { columns.append("weekly_checklist_enabled"); values.append("?") }
+        if hasTimelineId { columns.append("timeline_id"); values.append("?") }
+        if hasEndDate { columns.append("time_horizon_end_date"); values.append("?") }
+        let sql = "INSERT INTO PortfolioTheme (\(columns.joined(separator: ", "))) VALUES (\(values.joined(separator: ", ")))"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             LoggingService.shared.log("prepare createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
             return nil
         }
         let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 2, upperCode, -1, SQLITE_TRANSIENT)
+        var idx: Int32 = 1
+        sqlite3_bind_text(stmt, idx, name, -1, SQLITE_TRANSIENT); idx += 1
+        sqlite3_bind_text(stmt, idx, upperCode, -1, SQLITE_TRANSIENT); idx += 1
         if let d = trimmedDesc, !d.isEmpty {
-            sqlite3_bind_text(stmt, 3, d, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, idx, d, -1, SQLITE_TRANSIENT)
         } else {
-            sqlite3_bind_null(stmt, 3)
+            sqlite3_bind_null(stmt, idx)
         }
+        idx += 1
         if let inst = institutionId {
-            sqlite3_bind_int(stmt, 4, Int32(inst))
+            sqlite3_bind_int(stmt, idx, Int32(inst))
         } else {
-            sqlite3_bind_null(stmt, 4)
+            sqlite3_bind_null(stmt, idx)
         }
-        sqlite3_bind_int(stmt, 5, Int32(status))
+        idx += 1
+        sqlite3_bind_int(stmt, idx, Int32(status)); idx += 1
         if hasWeeklyChecklist {
-            sqlite3_bind_int(stmt, 6, weeklyChecklistEnabled ? 1 : 0)
+            sqlite3_bind_int(stmt, idx, weeklyChecklistEnabled ? 1 : 0)
+            idx += 1
+        }
+        if hasTimelineId {
+            if let resolvedTimelineId {
+                sqlite3_bind_int(stmt, idx, Int32(resolvedTimelineId))
+            } else {
+                sqlite3_bind_null(stmt, idx)
+            }
+            idx += 1
+        }
+        if hasEndDate {
+            if let dateValue = timeHorizonEndDate, !dateValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                sqlite3_bind_text(stmt, idx, dateValue, -1, SQLITE_TRANSIENT)
+            } else {
+                sqlite3_bind_null(stmt, idx)
+            }
+            idx += 1
         }
         if sqlite3_step(stmt) != SQLITE_DONE {
             LoggingService.shared.log("createPortfolioTheme failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -340,11 +410,17 @@ extension DatabaseManager {
         let hasBudget = tableHasColumn(table: "PortfolioTheme", column: "theoretical_budget_chf")
         let hasSoftDelete = tableHasColumn(table: "PortfolioTheme", column: "soft_delete")
         let hasWeeklyChecklist = tableHasColumn(table: "PortfolioTheme", column: "weekly_checklist_enabled")
+        let hasTimelineId = tableHasColumn(table: "PortfolioTheme", column: "timeline_id")
+        let hasEndDate = tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date")
         var sql = "SELECT pt.id,pt.name,pt.code,pt.description,pt.institution_id,pt.status_id,pt.created_at,pt.updated_at,pt.archived_at,"
         sql += hasSoftDelete ? "COALESCE(pt.soft_delete,0)" : "0"
         sql += ","
         sql += hasWeeklyChecklist ? "COALESCE(pt.weekly_checklist_enabled,1)" : "1"
         if hasBudget { sql += ",pt.theoretical_budget_chf" }
+        sql += ","
+        sql += hasTimelineId ? "pt.timeline_id" : "NULL"
+        sql += ","
+        sql += hasEndDate ? "pt.time_horizon_end_date" : "NULL"
         sql += ",(SELECT COUNT(*) FROM PortfolioThemeAsset pta WHERE pta.theme_id = pt.id) FROM PortfolioTheme pt WHERE id = ?"
         if hasSoftDelete && !includeSoftDeleted { sql += " AND COALESCE(pt.soft_delete,0) = 0" }
         var stmt: OpaquePointer?
@@ -370,6 +446,7 @@ extension DatabaseManager {
                     idx = 11
                 } else {
                     weeklyChecklistEnabled = true
+                    idx = 11
                 }
                 let budget: Double?
                 if hasBudget {
@@ -378,8 +455,22 @@ extension DatabaseManager {
                 } else {
                     budget = nil
                 }
+                let timelineId: Int?
+                if hasTimelineId {
+                    timelineId = sqlite3_column_type(stmt, Int32(idx)) == SQLITE_NULL ? nil : Int(sqlite3_column_int(stmt, Int32(idx)))
+                    idx += 1
+                } else {
+                    timelineId = nil
+                }
+                let timeHorizonEndDate: String?
+                if hasEndDate {
+                    timeHorizonEndDate = sqlite3_column_text(stmt, Int32(idx)).map { String(cString: $0) }
+                    idx += 1
+                } else {
+                    timeHorizonEndDate = nil
+                }
                 let count = Int(sqlite3_column_int(stmt, Int32(idx)))
-                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count)
+                theme = PortfolioTheme(id: id, name: name, code: code, description: desc, institutionId: instId, statusId: statusId, timelineId: timelineId, timeHorizonEndDate: timeHorizonEndDate, createdAt: createdAt, updatedAt: updatedAt, archivedAt: archivedAt, softDelete: softDelete, weeklyChecklistEnabled: weeklyChecklistEnabled, theoreticalBudgetChf: budget, totalValueBase: nil, instrumentCount: count)
             }
         }
         sqlite3_finalize(stmt)
@@ -483,6 +574,70 @@ extension DatabaseManager {
             return true
         }
         LoggingService.shared.log("setPortfolioThemeWeeklyChecklistEnabled failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        return false
+    }
+
+    @discardableResult
+    func updatePortfolioThemeTimeHorizon(id: Int, timelineId: Int, timeHorizonEndDate: String?) -> Bool {
+        ensureThemeTimeHorizonColumns()
+        var guardStmt: OpaquePointer?
+        var locked = false
+        if sqlite3_prepare_v2(db, "SELECT archived_at, COALESCE(soft_delete, 0) FROM PortfolioTheme WHERE id = ?", -1, &guardStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(guardStmt, 1, Int32(id))
+            if sqlite3_step(guardStmt) == SQLITE_ROW {
+                let archived = sqlite3_column_text(guardStmt, 0) != nil
+                let soft = sqlite3_column_int(guardStmt, 1) == 1
+                locked = archived || soft
+            }
+        }
+        sqlite3_finalize(guardStmt)
+        if locked {
+            LoggingService.shared.log("no changes possible, restore theme first", type: .info, logger: .database)
+            return false
+        }
+        let hasTimelineId = tableHasColumn(table: "PortfolioTheme", column: "timeline_id")
+        let hasEndDate = tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date")
+        guard hasTimelineId || hasEndDate else { return false }
+        if hasTimelineId {
+            let exists = singleIntQuery("SELECT id FROM PortfolioTimelines WHERE id = ? LIMIT 1") { stmt in
+                sqlite3_bind_int(stmt, 1, Int32(timelineId))
+            }
+            guard exists != nil else {
+                LoggingService.shared.log("Invalid timeline id=\(timelineId)", type: .error, logger: .database)
+                return false
+            }
+        }
+        var sets: [String] = []
+        if hasTimelineId { sets.append("timeline_id = ?") }
+        if hasEndDate { sets.append("time_horizon_end_date = ?") }
+        sets.append("updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')")
+        let sql = "UPDATE PortfolioTheme SET \(sets.joined(separator: ", ")) WHERE id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            LoggingService.shared.log("prepare updatePortfolioThemeTimeHorizon failed: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            return false
+        }
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        var idx: Int32 = 1
+        if hasTimelineId {
+            sqlite3_bind_int(stmt, idx, Int32(timelineId))
+            idx += 1
+        }
+        if hasEndDate {
+            if let dateValue = timeHorizonEndDate, !dateValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                sqlite3_bind_text(stmt, idx, dateValue, -1, SQLITE_TRANSIENT)
+            } else {
+                sqlite3_bind_null(stmt, idx)
+            }
+            idx += 1
+        }
+        sqlite3_bind_int(stmt, idx, Int32(id))
+        let rc = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+        if rc == SQLITE_DONE {
+            return true
+        }
+        LoggingService.shared.log("updatePortfolioThemeTimeHorizon failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
         return false
     }
 
@@ -691,6 +846,44 @@ extension DatabaseManager {
             LoggingService.shared.log("Added PortfolioTheme.theoretical_budget_chf column via ALTER TABLE", logger: .database)
         } else {
             LoggingService.shared.log("Failed to add theoretical_budget_chf: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+        }
+    }
+
+    private func ensureThemeTimeHorizonColumns() {
+        guard let db else { return }
+        guard tableExistsSafe("PortfolioTheme") else { return }
+        let defaultId = defaultPortfolioTimelineId()
+        if !tableHasColumn(table: "PortfolioTheme", column: "timeline_id") {
+            var sql = "ALTER TABLE PortfolioTheme ADD COLUMN timeline_id INTEGER"
+            if let defaultId {
+                sql += " NOT NULL DEFAULT \(defaultId)"
+            }
+            sql += " REFERENCES PortfolioTimelines(id)"
+            if sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK {
+                LoggingService.shared.log("Added PortfolioTheme.timeline_id column via ALTER TABLE", logger: .database)
+            } else {
+                LoggingService.shared.log("Failed to add timeline_id: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        }
+        if !tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date") {
+            let sql = "ALTER TABLE PortfolioTheme ADD COLUMN time_horizon_end_date TEXT NULL"
+            if sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK {
+                LoggingService.shared.log("Added PortfolioTheme.time_horizon_end_date column via ALTER TABLE", logger: .database)
+            } else {
+                LoggingService.shared.log("Failed to add time_horizon_end_date: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
+        }
+        if tableHasColumn(table: "PortfolioTheme", column: "timeline_id") {
+            if let defaultId {
+                let sql = "UPDATE PortfolioTheme SET timeline_id = \(defaultId) WHERE timeline_id IS NULL"
+                if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
+                    LoggingService.shared.log("Failed to backfill timeline_id: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+                }
+            }
+            let indexSql = "CREATE INDEX IF NOT EXISTS idx_portfolio_theme_timeline_id ON PortfolioTheme(timeline_id)"
+            if sqlite3_exec(db, indexSql, nil, nil, nil) != SQLITE_OK {
+                LoggingService.shared.log("Failed to create idx_portfolio_theme_timeline_id: \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
+            }
         }
     }
 

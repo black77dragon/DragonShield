@@ -38,7 +38,6 @@
 				"DatabaseManager+Configuration.swift",
 				"DatabaseManager+Dashboard.swift",
 				"DatabaseManager+Institutions.swift",
-				"DatabaseManager+PortfolioTargets.swift",
 				"DatabaseManager+PortfolioThemeAssetUpdates.swift",
 				"DatabaseManager+PortfolioThemes.swift",
 				"DatabaseManager+PortfolioThemeStatus.swift",

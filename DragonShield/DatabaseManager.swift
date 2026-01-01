@@ -329,6 +329,7 @@ class DatabaseManager: ObservableObject {
             // Table setup and migrations are only needed on macOS (authoring environment).
             // The iOS app opens a read-only snapshot and does not create/modify schema.
             ensurePortfolioThemeStatusDefault()
+            ensurePortfolioTimelinesTable()
             ensurePortfolioThemeTable()
             ensurePortfolioThemeAssetTable()
             ensurePortfolioThemeUpdateTable()
