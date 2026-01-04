@@ -281,7 +281,7 @@ struct AssetManagementReportView: View {
 
     private var cryptoSection: some View {
         let cryptoShareText = "\(formatPercentage(percentageShare(of: summary.totalCryptoBase, total: summary.totalPortfolioBase))) of total assets"
-        ReportSectionCard(
+        return ReportSectionCard(
             letter: "E",
             header: {
                 sectionHeader(

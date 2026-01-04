@@ -13,12 +13,21 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Added
 - [DS-086] Sidebar Menu Manual Reordering (implemented 2026-03-01)
+
+### Changed
+- [DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings
+
+### Fixed
+- [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
+
+## [1.40.0] - 2026-01-04
+
+### Added
 - [DS-088] Weekly Macro Check: High Priority Portfolios (implemented 2026-01-04)
 - [DS-089] Weekly Macro Checklist: Counted Val (CHF) Column (implemented 2026-01-04)
 
 ### Fixed
 - [DS-087] Asset Management Report Crypto Orig Currency + Total Crypto Share (implemented 2026-01-04)
-- [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
 
 ## [1.39.0] - 2026-01-01
 
@@ -114,7 +123,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Fixed
 - [DS-059] Align Risk Report Portfolio Risk Score with Dashboard (implemented 2025-12-14)
-- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14) (#1080)
+- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14)
 
 ## [1.29.0] - 2025-12-13
 
@@ -172,7 +181,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Changed
 - [DS-013] Move Transactions to Portfolio Sidebar (implemented 2025-11-25)
-- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25) (#1080)
+- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25)
 - [DS-011] Rename Accounts Update Dialog (implemented 2025-11-25)
 - [DS-015] Rename Asset Classes Navigation & Tabs (implemented 2025-11-25)
 - [DS-016] Update DragonShield Logo (implemented 2025-11-25)

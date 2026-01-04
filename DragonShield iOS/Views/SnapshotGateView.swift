@@ -4,6 +4,7 @@
 
     struct SnapshotGateView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @Environment(\.dismiss) private var dismiss
 
         let onContinue: () -> Void
@@ -17,7 +18,7 @@
                         .font(.title2.bold())
                     if hasSnapshot {
                         Group {
-                            HStack { Text("DB Version"); Spacer(); Text(dbManager.dbVersion).foregroundColor(.secondary) }
+                            HStack { Text("DB Version"); Spacer(); Text(preferences.dbVersion).foregroundColor(.secondary) }
                             if let created = dbManager.dbCreated { HStack { Text("Created"); Spacer(); Text(created, formatter: DateFormatter.iso8601DateTime).foregroundColor(.secondary) } }
                             if let modified = dbManager.dbModified { HStack { Text("Modified"); Spacer(); Text(modified, formatter: DateFormatter.iso8601DateTime).foregroundColor(.secondary) } }
                             if !dbManager.dbFilePath.isEmpty { HStack { Text("File"); Spacer(); Text(URL(fileURLWithPath: dbManager.dbFilePath).lastPathComponent).foregroundColor(.secondary) } }

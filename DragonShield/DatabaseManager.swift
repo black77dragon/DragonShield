@@ -206,87 +206,9 @@ class DatabaseManager: ObservableObject {
 
     @Published var dbMode: DatabaseMode
     @Published var dbFileSize: Int64 = 0
-
-    // Deprecated @Published preferences (use AppPreferences)
-    @available(*, deprecated, message: "Use AppPreferences.baseCurrency")
-    @Published var baseCurrency: String = "CHF"
-    @available(*, deprecated, message: "Use AppPreferences.asOfDate")
-    @Published var asOfDate: Date = .init()
-    @available(*, deprecated, message: "Use AppPreferences.decimalPrecision")
-    @Published var decimalPrecision: Int = 4
-
-    @available(*, deprecated, message: "Use AppPreferences.defaultTimeZone")
-    @Published var defaultTimeZone: String = "Europe/Zurich"
-    @available(*, deprecated, message: "Use AppPreferences.dbVersion")
-    @Published var dbVersion: String = ""
     @Published var dbFilePath: String = ""
     @Published var dbCreated: Date?
     @Published var dbModified: Date?
-
-    @available(*, deprecated, message: "Use AppPreferences.includeDirectRealEstate")
-    @Published var includeDirectRealEstate: Bool = true
-    @available(*, deprecated, message: "Use AppPreferences.directRealEstateTargetCHF")
-    @Published var directRealEstateTargetCHF: Double = 0.0
-    // FX Auto Update configuration (defaults)
-    @available(*, deprecated, message: "Use AppPreferences.fxAutoUpdateEnabled")
-    @Published var fxAutoUpdateEnabled: Bool = true
-    /// 'daily' or 'weekly'
-    @available(*, deprecated, message: "Use AppPreferences.fxUpdateFrequency")
-    @Published var fxUpdateFrequency: String = "daily"
-    // iOS Snapshot Export configuration (defaults)
-    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotAutoEnabled")
-    @Published var iosSnapshotAutoEnabled: Bool = true
-    /// 'daily' or 'weekly'
-    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotFrequency")
-    @Published var iosSnapshotFrequency: String = "daily"
-    /// Destination folder for iOS snapshot export
-    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotTargetPath")
-    @Published var iosSnapshotTargetPath: String = ""
-    @available(*, deprecated, message: "Use AppPreferences.iosSnapshotTargetBookmark")
-    @Published var iosSnapshotTargetBookmark: Data? = nil
-    // Table view personalisation
-    @available(*, deprecated, message: "Use AppPreferences.institutionsTableFontSize")
-    @Published var institutionsTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.institutionsTableColumnFractions")
-    @Published var institutionsTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.instrumentsTableFontSize")
-    @Published var instrumentsTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.instrumentsTableColumnFractions")
-    @Published var instrumentsTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.assetSubClassesTableFontSize")
-    @Published var assetSubClassesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.assetSubClassesTableColumnFractions")
-    @Published var assetSubClassesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.assetClassesTableFontSize")
-    @Published var assetClassesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.assetClassesTableColumnFractions")
-    @Published var assetClassesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.currenciesTableFontSize")
-    @Published var currenciesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.currenciesTableColumnFractions")
-    @Published var currenciesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.accountsTableFontSize")
-    @Published var accountsTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.accountsTableColumnFractions")
-    @Published var accountsTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.positionsTableFontSize")
-    @Published var positionsTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.positionsTableColumnFractions")
-    @Published var positionsTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.portfolioThemesTableFontSize")
-    @Published var portfolioThemesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.portfolioThemesTableColumnFractions")
-    @Published var portfolioThemesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.transactionTypesTableFontSize")
-    @Published var transactionTypesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.transactionTypesTableColumnFractions")
-    @Published var transactionTypesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.accountTypesTableFontSize")
-    @Published var accountTypesTableFontSize: String = "medium"
-    @available(*, deprecated, message: "Use AppPreferences.accountTypesTableColumnFractions")
-    @Published var accountTypesTableColumnFractions: [String: Double] = [:]
-    @available(*, deprecated, message: "Use AppPreferences.todoBoardFontSize")
-    @Published var todoBoardFontSize: String = "medium"
     // Last trade error for UI feedback
     @Published var lastTradeErrorMessage: String? = nil
 

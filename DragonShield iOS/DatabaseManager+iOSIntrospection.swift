@@ -1,6 +1,7 @@
 #if os(iOS)
     import Foundation
     import SQLite3
+    import os
 
     extension DatabaseManager {
         func tableExistsIOS(_ name: String) -> Bool {
