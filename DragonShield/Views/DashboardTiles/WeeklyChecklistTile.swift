@@ -7,6 +7,7 @@ struct WeeklyChecklistTile: DashboardTile {
     @State private var totalEnabled: Int = 0
     @State private var completedCount: Int = 0
     @State private var loading = false
+    private let highPriorityColor = DSColor.accentError
 
     init() {}
     static let tileID = "weekly_checklist"
@@ -27,8 +28,13 @@ struct WeeklyChecklistTile: DashboardTile {
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(dueThemes.prefix(3)) { theme in
-                                Text("- \(theme.name)")
-                                    .font(.caption)
+                                HStack(spacing: 6) {
+                                    Text("- \(theme.name)")
+                                        .font(.caption)
+                                    if theme.weeklyChecklistHighPriority {
+                                        DSBadge(text: "High", color: highPriorityColor)
+                                    }
+                                }
                             }
                             if dueThemes.count > 3 {
                                 Text("...and \(dueThemes.count - 3) more")
@@ -90,7 +96,12 @@ struct WeeklyChecklistTile: DashboardTile {
                 }
             }
             DispatchQueue.main.async {
-                dueThemes = due.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                dueThemes = due.sorted {
+                    if $0.weeklyChecklistHighPriority != $1.weeklyChecklistHighPriority {
+                        return $0.weeklyChecklistHighPriority && !$1.weeklyChecklistHighPriority
+                    }
+                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
                 totalEnabled = enabled.count
                 completedCount = completed
                 loading = false

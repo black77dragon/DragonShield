@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 final class IOSSnapshotExportService {
     private let db: DatabaseManager

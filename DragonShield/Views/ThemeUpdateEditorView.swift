@@ -7,6 +7,7 @@
 // - 1.0 -> 1.1: Add Markdown editing with preview and pin toggle.
 
 import AppKit
+import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 

@@ -25,7 +25,7 @@ struct TodoDashboardTile: DashboardTile {
         return formatter
     }()
 
-    private var actionableTodos: [KanbanTodo] {
+    @MainActor private var actionableTodos: [KanbanTodo] {
         let prioritised = viewModel.todos(in: .prioritised).filter { !$0.isCompleted }
         let doing = viewModel.todos(in: .doing).filter { !$0.isCompleted }
         let combined = prioritised + doing

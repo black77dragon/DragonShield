@@ -48,19 +48,6 @@ This document serves as a central backlog for all pending changes, new features,
            - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
            - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
 
-- <mark>[ ] [new_features] **[DS-075] Dashboard Trading Profile Field**</mark>
-    Why: Traders need a dedicated, structured Trading Profile GUI to capture identity, regime, alignment, risk, and review memory for governance-first allocation.
-    What: Build a desktop-first Trading Profile section (not just a single field) with a left rail for navigation and a persistent top bar for Regime + Risk. The module is read-only by default and focuses on governance, not performance.
-        - Global shell: top bar shows "Active Regime" and "Risk State" at all times; left rail tabs: Profile, Regime, Alignment, Strategies, Risk, Rules, Review Log.
-        - Profile dashboard: Identity header (profile type, objective, last/next review) and a locked "Profile Coordinates" panel with weighted sliders (read-only; unlock requires explicit review mode).
-        - Dominance stack: three lists (What defines me / Secondary modulators / Should not drive decisions) for cognitive anchoring.
-        - Regime view: Current regime, confidence, confirming/invalidating signals, and implications.
-        - Portfolio alignment view: Table of positions with Regime Fit, Profile Stress, Rule Status; row drill-in shows stressed axes and rule gating.
-        - Strategy compatibility view: Fit matrix that explicitly shows blocked strategies with reasons.
-        - Risk & early warning view: Behavioral risk monitor with warnings and automatic actions; badge mirrors the top bar.
-        - Rules & violations view: Non-negotiable rules plus immutable violation log (no override).
-        - Review log: Append-only decisions with event, decision, confidence, and notes.
-
 - <mark>[ ] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings**</mark>
     Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
     What: Move the remaining iOS preference bindings from `DatabaseManager` to `AppPreferences`, then remove the deprecated published fields once no call sites remain. Update:
@@ -95,6 +82,35 @@ This document serves as a central backlog for all pending changes, new features,
     What: Audit the Ichimoku computation and plotting (conversion/base lines, leading spans, lagging line, defaults/offsets) against the reference spec, fix any deviations, and document expected behavior plus tests.
 
 ## Implemented
+
+- [x] [new_features] **[DS-086] Sidebar Menu Manual Reordering** (2026-03-01)
+    Why: Users want to customize the sidebar order to match their workflow without changing the existing category structure.
+    What: Allow sidebar menu items to be manually reordered within their current categories; persist the order per user so it survives app restarts; provide a simple reset-to-default action that restores the current default order without changing category groupings.
+
+- [x] [new_features] **[DS-075] Dashboard Trading Profile Field** (2026-01-01)
+    Why: Traders need a dedicated, structured Trading Profile GUI to capture identity, regime, alignment, risk, and review memory for governance-first allocation.
+    What: Build a desktop-first Trading Profile section (not just a single field) with a left rail for navigation and a persistent top bar for Regime + Risk. The module is read-only by default and focuses on governance, not performance.
+        - Global shell: top bar shows "Active Regime" and "Risk State" at all times; left rail tabs: Profile, Regime, Alignment, Strategies, Risk, Rules, Review Log.
+        - Profile dashboard: Identity header (profile type, objective, last/next review) and a locked "Profile Coordinates" panel with weighted sliders (read-only; unlock requires explicit review mode).
+        - Dominance stack: three lists (What defines me / Secondary modulators / Should not drive decisions) for cognitive anchoring.
+        - Regime view: Current regime, confidence, confirming/invalidating signals, and implications.
+        - Portfolio alignment view: Table of positions with Regime Fit, Profile Stress, Rule Status; row drill-in shows stressed axes and rule gating.
+        - Strategy compatibility view: Fit matrix that explicitly shows blocked strategies with reasons.
+        - Risk & early warning view: Behavioral risk monitor with warnings and automatic actions; badge mirrors the top bar.
+        - Rules & violations view: Non-negotiable rules plus immutable violation log (no override).
+        - Review log: Append-only decisions with event, decision, confidence, and notes.
+
+- [x] [new_features] **[DS-088] Weekly Macro Check: High Priority Portfolios** (2026-01-04)
+    Why: Weekly checklist reviews should emphasize the most critical portfolios so they stand out during planning and execution.
+    What: Determine the best place to store a per-portfolio "high priority" flag for the Weekly Macro & Portfolio Checklist, document the decision, and implement the required DB migration/model update. Surface the flag in the weekly checklist UI (e.g., badge/visual emphasis or sort/filter) so high-priority portfolios are clearly indicated. Set the flag to "high priority" for these portfolios: RV Crypto Thesis, China AI Tech Portfolio, Avalaor special Investments, I/O Fund AI Technology, Energy.
+
+- [x] [new_features] **[DS-089] Weekly Macro Checklist: Counted Val (CHF) Column** (2026-01-04)
+    Why: Users need the same counted valuation reference in the weekly checklist that they already rely on in the Portfolios overview for consistent review context.
+    What: In the Weekly Macro & Portfolio Checklist GUI, add a new column "Counted Val (CHF)" and populate it with the same value used in the Portfolios GUI overview.
+
+- [x] [bugs] **[DS-087] Asset Management Report Crypto Orig Currency + Total Crypto Share** (2026-01-04)
+    Why: The crypto exposure section reports the "orig. curr" value incorrectly and omits how much crypto contributes to total assets, which can mislead allocation decisions.
+    What: In the Asset Management Report (Chapter E), compute the "orig. curr" column from the local value (quantity × price) in the instrument currency instead of showing units; verify the aggregation per crypto; under the "TOTAL CRYPTO" amount, display the crypto total as a percentage of current total assets.
 
 - [x] [bugs] **[DS-071] Price Updates Table Resets Column Widths on Edit** (2026-01-01)
     Why: Entering a value in the "New Price" field rebuilds the table and resets all columns to default widths, forcing manual resizing. This was only relevant to the legacy Price Updates GUI, which has been abandoned.

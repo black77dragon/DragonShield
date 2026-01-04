@@ -1907,208 +1907,285 @@ private struct AlertEditorView: View {
         }
     }
 
-    var body: some View {
+    private var headerView: some View {
+        Text(alert.id < 0 ? "Create Alert" : "Edit Alert")
+            .font(.title2).bold()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding([.top, .horizontal], 16)
+    }
+
+    private var formSections: some View {
+        Group {
+            BasicsSectionView(name: $alert.name,
+                              enabled: $alert.enabled,
+                              severity: Binding(get: { alert.severity }, set: { alert.severity = $0 }),
+                              subjectType: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 }),
+                              selectedScopeName: selectedScopeName,
+                              requiresNumericScope: alert.scopeType.requiresNumericScope,
+                              subjectReference: $subjectReferenceText,
+                              onChooseScope: { showScopePicker = true })
+            AnyView(TriggerSectionView(triggerTypes: triggerTypes,
+                                       triggerTypeCode: Binding(get: { alert.triggerTypeCode }, set: { alert.triggerTypeCode = $0 }),
+                                       showAdvancedJSON: $showAdvancedJSON,
+                                       paramsJson: $alert.paramsJson,
+                                       jsonError: jsonError,
+                                       onValidateJSON: { validateJSON() },
+                                       onInsertTemplate: { insertTemplate() },
+                                       onValidityChange: { ok in triggerValid = ok },
+                                       holdingAbsCurrency: holdingAbsCurrency,
+                                       holdingsQuantity: holdingAbsQuantity,
+                                       holdingsValue: holdingAbsValue))
+            AnyView(ThresholdsSectionView(nearValueText: $nearValueText, nearUnitText: $nearUnitText))
+            AnyView(SchedulingSectionView(scheduleStart: $scheduleStartDate,
+                                          scheduleEnd: $scheduleEndDate,
+                                          muteUntil: $muteUntilDate))
+            AnyView(NotesAndTagsSectionView(notes: Binding(get: { alert.notes }, set: { alert.notes = $0 }),
+                                            allTags: allTags,
+                                            selectedTags: $selectedTags))
+        }
+    }
+
+    private var formView: some View {
+        Form {
+            formSections
+        }
+        .formStyle(.grouped)
+        .padding(16)
+    }
+
+    private var actionBar: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial).frame(height: 56).overlay(Divider(), alignment: .top)
+            HStack {
+                Button("Cancel", role: .cancel) { onCancel() }
+                Button("Save") { onSave(alert, selectedTags) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!formValid)
+                Spacer()
+                Button("Evaluate Now") { evaluateNow() }
+                    .disabled(alert.triggerTypeCode != "date")
+                    .help("Runs evaluation for this alert now (date alerts supported).")
+                if alert.id > 0 && alert.triggerTypeCode == "date" {
+                    Button("Reset Today’s Trigger") { showResetConfirm = true }
+                        .disabled(!hasTodayTrigger)
+                        .foregroundColor(hasTodayTrigger ? .red : .secondary)
+                        .help("Deletes today’s 'triggered' event for this alert.")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func handleAppear() {
+        subjectReferenceText = alert.subjectReference ?? ""
+        if alert.id > 0 {
+            let current = dbManager.listTagsForAlert(alertId: alert.id).map { $0.id }
+            selectedTags = Set(current)
+        } else {
+            selectedTags = []
+        }
+        // Load scope options (start with Instruments by default)
+        loadScopeOptions()
+        // Trigger validity defaults to true; typed subviews will update it
+        triggerValid = true
+        // Pre-fill near window state
+        nearValueText = alert.nearValue.map { String($0) } ?? ""
+        nearUnitText = alert.nearUnit ?? ""
+        scheduleStartDate = dateFromISO(alert.scheduleStart)
+        scheduleEndDate = dateFromISO(alert.scheduleEnd)
+        muteUntilDate = dateFromISO(alert.muteUntil)
+        syncScheduleStrings()
+        refreshTodayTriggerFlag()
+        handleSubjectTypeChange(alert.scopeType)
+        syncSubjectReferenceFromScope()
+        if !alert.scopeType.requiresNumericScope {
+            syncSubjectReferenceFromText()
+        }
+        updateHoldingAbsContext()
+    }
+
+    private func handleScopeTypeChange(_ newType: AlertSubjectType) {
+        alert.scopeId = 0
+        scopeText = ""
+        loadScopeOptions()
+        handleSubjectTypeChange(newType)
+        updateHoldingAbsContext()
+        syncInstrumentSelectionFromAlert()
+    }
+
+    private func handleScopeIdChange() {
+        syncSubjectReferenceFromScope()
+        updateHoldingAbsContext()
+        syncInstrumentSelectionFromAlert()
+    }
+
+    private func handleSubjectReferenceTextChange() {
+        syncSubjectReferenceFromText()
+        updateHoldingAbsContext()
+    }
+
+    private func handleTriggerTypeChange() {
+        updateHoldingAbsContext()
+    }
+
+    private func handleNearValueChange() {
+        let t = nearValueText.trimmingCharacters(in: .whitespaces)
+        alert.nearValue = t.isEmpty ? nil : Double(t)
+    }
+
+    private func handleNearUnitChange() {
+        let t = nearUnitText.trimmingCharacters(in: .whitespaces)
+        alert.nearUnit = t.isEmpty ? nil : t
+    }
+
+    private func handleScheduleChange() {
+        syncScheduleStrings()
+    }
+
+    private var instrumentPickerItems: [FloatingSearchPicker.Item] {
+        instrumentRows.map { row in
+            FloatingSearchPicker.Item(
+                id: AnyHashable(row.id),
+                title: instrumentDisplay(row),
+                subtitle: nil,
+                searchText: instrumentSearchKey(row)
+            )
+        }
+    }
+
+    private var instrumentPickerBinding: Binding<AnyHashable?> {
+        Binding<AnyHashable?>(
+            get: { selectedInstrumentId.map { AnyHashable($0) } },
+            set: { newValue in
+                if let value = newValue as? Int,
+                   let match = instrumentRows.first(where: { $0.id == value })
+                {
+                    selectedInstrumentId = value
+                    alert.scopeId = value
+                    instrumentQuery = instrumentDisplay(match)
+                } else {
+                    selectedInstrumentId = nil
+                    alert.scopeId = 0
+                    instrumentQuery = ""
+                }
+            }
+        )
+    }
+
+    private func handleInstrumentPickerAppear() {
+        instrumentRows = dbManager.fetchAssets()
+        syncInstrumentSelectionFromAlert()
+    }
+
+    @ViewBuilder
+    private var scopePickerSelector: some View {
+        if alert.scopeType == .Instrument {
+            FloatingSearchPicker(
+                placeholder: "Search instrument, ticker, or ISIN",
+                items: instrumentPickerItems,
+                selectedId: instrumentPickerBinding,
+                showsClearButton: true,
+                emptyStateText: "No instruments",
+                query: $instrumentQuery,
+                onSelection: { _ in
+                    showScopePicker = false
+                },
+                onClear: {
+                    instrumentPickerBinding.wrappedValue = nil
+                },
+                selectsFirstOnSubmit: false
+            )
+            .frame(minWidth: 520)
+            .onAppear(perform: handleInstrumentPickerAppear)
+        } else {
+            MacComboBox(items: scopeNames, text: $scopeText) { idx in
+                guard idx >= 0 && idx < scopeNames.count else { return }
+                if let pair = scopeIdMap.first(where: { $0.value == scopeNames[idx] }) {
+                    alert.scopeId = pair.key
+                    showScopePicker = false
+                }
+            }
+            .frame(width: 520)
+        }
+    }
+
+    private var scopePickerSheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Select \(alert.scopeType.rawValue)").font(.headline)
+            scopePickerSelector
+            HStack {
+                Spacer()
+                Button("Close") { showScopePicker = false }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.gray)
+                    .foregroundColor(.white)
+            }
+        }
+        .padding(16)
+        .frame(width: 600)
+    }
+
+    private var baseView: some View {
         VStack(spacing: 0) {
-            Text(alert.id < 0 ? "Create Alert" : "Edit Alert")
-                .font(.title2).bold()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding([.top, .horizontal], 16)
+            headerView
             Divider()
             ScrollView {
                 evaluateBannerView
-                Form {
-                    BasicsSectionView(name: $alert.name,
-                                      enabled: $alert.enabled,
-                                      severity: Binding(get: { alert.severity }, set: { alert.severity = $0 }),
-                                      subjectType: Binding(get: { alert.scopeType }, set: { alert.scopeType = $0 }),
-                                      selectedScopeName: selectedScopeName,
-                                      requiresNumericScope: alert.scopeType.requiresNumericScope,
-                                      subjectReference: $subjectReferenceText,
-                                      onChooseScope: { showScopePicker = true })
-                    AnyView(TriggerSectionView(triggerTypes: triggerTypes,
-                                               triggerTypeCode: Binding(get: { alert.triggerTypeCode }, set: { alert.triggerTypeCode = $0 }),
-                                               showAdvancedJSON: $showAdvancedJSON,
-                                               paramsJson: $alert.paramsJson,
-                                               jsonError: jsonError,
-                                               onValidateJSON: { validateJSON() },
-                                               onInsertTemplate: { insertTemplate() },
-                                               onValidityChange: { ok in triggerValid = ok },
-                                               holdingAbsCurrency: holdingAbsCurrency,
-                                               holdingsQuantity: holdingAbsQuantity,
-                                               holdingsValue: holdingAbsValue))
-                    AnyView(ThresholdsSectionView(nearValueText: $nearValueText, nearUnitText: $nearUnitText))
-                    AnyView(SchedulingSectionView(scheduleStart: $scheduleStartDate,
-                                                  scheduleEnd: $scheduleEndDate,
-                                                  muteUntil: $muteUntilDate))
-                    AnyView(NotesAndTagsSectionView(notes: Binding(get: { alert.notes }, set: { alert.notes = $0 }),
-                                                    allTags: allTags,
-                                                    selectedTags: $selectedTags))
-                }
-                .formStyle(.grouped)
-                .padding(16)
+                formView
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial).frame(height: 56).overlay(Divider(), alignment: .top)
-                HStack {
-                    Button("Cancel", role: .cancel) { onCancel() }
-                    Button("Save") { onSave(alert, selectedTags) }
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!formValid)
-                    Spacer()
-                    Button("Evaluate Now") { evaluateNow() }
-                        .disabled(alert.triggerTypeCode != "date")
-                        .help("Runs evaluation for this alert now (date alerts supported).")
-                    if alert.id > 0 && alert.triggerTypeCode == "date" {
-                        Button("Reset Today’s Trigger") { showResetConfirm = true }
-                            .disabled(!hasTodayTrigger)
-                            .foregroundColor(hasTodayTrigger ? .red : .secondary)
-                            .help("Deletes today’s 'triggered' event for this alert.")
-                    }
-                }
-                .padding(.horizontal, 16)
+    }
+
+    private func applyLifecycle<Content: View>(_ content: Content) -> some View {
+        content
+            .onAppear(perform: handleAppear)
+            // Reload available options when scope type changes; clear selection text
+            .onChange(of: alert.scopeType) { _, newType in
+                handleScopeTypeChange(newType)
             }
-        }
-        .onAppear {
-            subjectReferenceText = alert.subjectReference ?? ""
-            if alert.id > 0 {
-                let current = dbManager.listTagsForAlert(alertId: alert.id).map { $0.id }
-                selectedTags = Set(current)
-            } else {
-                selectedTags = []
+            .onChange(of: alert.scopeId) { _, _ in
+                handleScopeIdChange()
             }
-            // Load scope options (start with Instruments by default)
-            loadScopeOptions()
-            // Trigger validity defaults to true; typed subviews will update it
-            triggerValid = true
-            // Pre-fill near window state
-            nearValueText = alert.nearValue.map { String($0) } ?? ""
-            nearUnitText = alert.nearUnit ?? ""
-            scheduleStartDate = dateFromISO(alert.scheduleStart)
-            scheduleEndDate = dateFromISO(alert.scheduleEnd)
-            muteUntilDate = dateFromISO(alert.muteUntil)
-            syncScheduleStrings()
-            refreshTodayTriggerFlag()
-            handleSubjectTypeChange(alert.scopeType)
-            syncSubjectReferenceFromScope()
-            if !alert.scopeType.requiresNumericScope {
-                syncSubjectReferenceFromText()
+            .onChange(of: subjectReferenceText) { _, _ in
+                handleSubjectReferenceTextChange()
             }
-            updateHoldingAbsContext()
-        }
-        // Reload available options when scope type changes; clear selection text
-        .onChange(of: alert.scopeType) { _, newType in
-            alert.scopeId = 0
-            scopeText = ""
-            loadScopeOptions()
-            handleSubjectTypeChange(newType)
-            updateHoldingAbsContext()
-            syncInstrumentSelectionFromAlert()
-        }
-        .onChange(of: alert.scopeId) { _, _ in
-            syncSubjectReferenceFromScope()
-            updateHoldingAbsContext()
-            syncInstrumentSelectionFromAlert()
-        }
-        .onChange(of: subjectReferenceText) { _, _ in
-            syncSubjectReferenceFromText()
-            updateHoldingAbsContext()
-        }
-        // Trigger type change and typed params are handled inside subviews
-        // If JSON changes externally (e.g., Template), typed subviews will re-render with the new JSON
-        .onChange(of: alert.paramsJson) { _, _ in }
-        .onChange(of: alert.triggerTypeCode) { _, _ in
-            updateHoldingAbsContext()
-        }
-        // Sync near window state back to alert
-        .onChange(of: nearValueText) { _, _ in
-            let t = nearValueText.trimmingCharacters(in: .whitespaces)
-            alert.nearValue = t.isEmpty ? nil : Double(t)
-        }
-        .onChange(of: nearUnitText) { _, _ in
-            let t = nearUnitText.trimmingCharacters(in: .whitespaces)
-            alert.nearUnit = t.isEmpty ? nil : t
-        }
-        .onChange(of: scheduleStartDate) { _, _ in syncScheduleStrings() }
-        .onChange(of: scheduleEndDate) { _, _ in syncScheduleStrings() }
-        .onChange(of: muteUntilDate) { _, _ in syncScheduleStrings() }
-        // Scope picker sheet
-        .sheet(isPresented: $showScopePicker) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Select \(alert.scopeType.rawValue)").font(.headline)
-                if alert.scopeType == .Instrument {
-                    let pickerItems = instrumentRows.map { row in
-                        FloatingSearchPicker.Item(
-                            id: AnyHashable(row.id),
-                            title: instrumentDisplay(row),
-                            subtitle: nil,
-                            searchText: instrumentSearchKey(row)
-                        )
-                    }
-                    let binding = Binding<AnyHashable?>(
-                        get: { selectedInstrumentId.map { AnyHashable($0) } },
-                        set: { newValue in
-                            if let value = newValue as? Int,
-                               let match = instrumentRows.first(where: { $0.id == value })
-                            {
-                                selectedInstrumentId = value
-                                alert.scopeId = value
-                                instrumentQuery = instrumentDisplay(match)
-                            } else {
-                                selectedInstrumentId = nil
-                                alert.scopeId = 0
-                                instrumentQuery = ""
-                            }
-                        }
-                    )
-                    FloatingSearchPicker(
-                        placeholder: "Search instrument, ticker, or ISIN",
-                        items: pickerItems,
-                        selectedId: binding,
-                        showsClearButton: true,
-                        emptyStateText: "No instruments",
-                        query: $instrumentQuery,
-                        onSelection: { _ in
-                            showScopePicker = false
-                        },
-                        onClear: {
-                            binding.wrappedValue = nil
-                        },
-                        selectsFirstOnSubmit: false
-                    )
-                    .frame(minWidth: 520)
-                    .onAppear {
-                        instrumentRows = dbManager.fetchAssets()
-                        syncInstrumentSelectionFromAlert()
-                    }
-                } else {
-                    MacComboBox(items: scopeNames, text: $scopeText) { idx in
-                        guard idx >= 0 && idx < scopeNames.count else { return }
-                        if let pair = scopeIdMap.first(where: { $0.value == scopeNames[idx] }) {
-                            alert.scopeId = pair.key
-                            showScopePicker = false
-                        }
-                    }
-                    .frame(width: 520)
-                }
-                HStack {
-                    Spacer()
-                    Button("Close") { showScopePicker = false }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.gray)
-                        .foregroundColor(.white)
-                }
+            // Trigger type change and typed params are handled inside subviews
+            // If JSON changes externally (e.g., Template), typed subviews will re-render with the new JSON
+            .onChange(of: alert.paramsJson) { _, _ in }
+            .onChange(of: alert.triggerTypeCode) { _, _ in
+                handleTriggerTypeChange()
             }
-            .padding(16)
-            .frame(width: 600)
-        }
-        .alert("Reset Today’s Trigger?", isPresented: $showResetConfirm) {
-            Button("Reset", role: .destructive) { resetTodaysTrigger() }
-            Button("Cancel", role: .cancel) { showResetConfirm = false }
-        } message: {
-            Text("This will delete today’s trigger event for this alert. This cannot be undone.")
-        }
+            // Sync near window state back to alert
+            .onChange(of: nearValueText) { _, _ in
+                handleNearValueChange()
+            }
+            .onChange(of: nearUnitText) { _, _ in
+                handleNearUnitChange()
+            }
+            .onChange(of: scheduleStartDate) { _, _ in handleScheduleChange() }
+            .onChange(of: scheduleEndDate) { _, _ in handleScheduleChange() }
+            .onChange(of: muteUntilDate) { _, _ in handleScheduleChange() }
+    }
+
+    private func applyOverlays<Content: View>(_ content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom) {
+                actionBar
+            }
+            // Scope picker sheet
+            .sheet(isPresented: $showScopePicker) {
+                scopePickerSheet
+            }
+            .alert("Reset Today’s Trigger?", isPresented: $showResetConfirm) {
+                Button("Reset", role: .destructive) { resetTodaysTrigger() }
+                Button("Cancel", role: .cancel) { showResetConfirm = false }
+            } message: {
+                Text("This will delete today’s trigger event for this alert. This cannot be undone.")
+            }
+    }
+
+    var body: some View {
+        applyOverlays(applyLifecycle(baseView))
     }
 
     // MARK: - Small subviews to help type-checking

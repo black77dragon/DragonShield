@@ -5,6 +5,7 @@
 // Repository providing queries for unused instruments under strict criteria.
 
 import Foundation
+import OSLog
 import SQLite3
 
 struct UnusedInstrument: Identifiable {

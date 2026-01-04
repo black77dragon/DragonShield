@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct DashboardRiskInstrument: Identifiable {
     let id: Int

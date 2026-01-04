@@ -27,6 +27,15 @@ struct SidebarView: View {
     @AppStorage("sidebar.showMarket") private var showMarket = true
     @AppStorage("sidebar.showSystem") private var showSystem = true
     @AppStorage("sidebar.showConfiguration") private var showConfiguration = false
+    @State private var dashboardOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .dashboard)
+    @State private var portfolioOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .portfolio)
+    @State private var marketOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .market)
+    @State private var systemCoreOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .systemCore)
+    @State private var systemMaintenanceOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .systemMaintenance)
+    @State private var configurationOrder: [SidebarItemID] = SidebarOrderStore.loadOrder(for: .configuration)
+    #if os(iOS)
+    @State private var editMode: EditMode = .inactive
+    #endif
 
     private var dueTodayOrOverdueCount: Int {
         let calendar = Calendar.current
@@ -51,217 +60,484 @@ struct SidebarView: View {
         }.count
     }
 
-    var body: some View {
-        List {
-            // 1. Dashboard Group
-            DisclosureGroup("Dashboard", isExpanded: $showDashboard) {
-                NavigationLink(destination: CategorizedDashboardView()) {
-                    HStack(spacing: 8) {
-                        Label("Dashboard", systemImage: "square.grid.3x1.below.line.grid.1x2")
-                    }
+    @ViewBuilder
+    private func sidebarLink(for item: SidebarItemID) -> some View {
+        switch item {
+        case .dashboard:
+            NavigationLink(destination: CategorizedDashboardView()) {
+                HStack(spacing: 8) {
+                    Label("Dashboard", systemImage: "square.grid.3x1.below.line.grid.1x2")
                 }
-                
-                NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {
-                    HStack(spacing: 8) {
-                        Label("To-Do Board", systemImage: "list.bullet.rectangle.fill")
-                        if dueTodayOrOverdueCount > 0 {
-                            TodoDueBadge(count: dueTodayOrOverdueCount)
-                        }
+            }
+        case .todoBoard:
+            NavigationLink(destination: TodoKanbanBoardView().environmentObject(dbManager)) {
+                HStack(spacing: 8) {
+                    Label("To-Do Board", systemImage: "list.bullet.rectangle.fill")
+                    if dueTodayOrOverdueCount > 0 {
+                        TodoDueBadge(count: dueTodayOrOverdueCount)
                     }
                 }
             }
-
-            // 2. Portfolio Group
-            DisclosureGroup("Portfolio", isExpanded: $showPortfolio) {
-                NavigationLink(destination: PortfolioThemesAlignedView().environmentObject(dbManager)) {
-                    Label("Portfolios", systemImage: "tablecells")
-                }
-
-                NavigationLink(destination: WeeklyChecklistOverviewView()) {
-                    HStack(spacing: 8) {
-                        Label("Weekly Checklist", systemImage: "checklist")
-                        if weeklyDueCount > 0 {
-                            WeeklyChecklistDueBadge(count: weeklyDueCount)
-                        }
+        case .portfolios:
+            NavigationLink(destination: PortfolioThemesAlignedView().environmentObject(dbManager)) {
+                Label("Portfolios", systemImage: "tablecells")
+            }
+        case .weeklyChecklist:
+            NavigationLink(destination: WeeklyChecklistOverviewView()) {
+                HStack(spacing: 8) {
+                    Label("Weekly Checklist", systemImage: "checklist")
+                    if weeklyDueCount > 0 {
+                        WeeklyChecklistDueBadge(count: weeklyDueCount)
                     }
                 }
-                
-                NavigationLink(destination: RiskReportView().environmentObject(dbManager).environmentObject(AssetManager())) {
-                    Label("Risk Report", systemImage: "shield")
-                }
-                
-                NavigationLink(destination: PositionsView()) {
-                    Label("Positions", systemImage: "tablecells")
-                }
-
-                NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
-                    Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
-                }
-                
-                NavigationLink(destination: HistoricPerformanceView().environmentObject(dbManager)) {
-                    Label("Historic Performance", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                
-                NavigationLink(destination: AssetManagementReportView()) {
-                    Label("Asset Management Report", systemImage: "chart.bar.fill")
+            }
+        case .tradingProfile:
+            NavigationLink(destination: TradingProfileView()) {
+                Label("Trading Profile", systemImage: "person.text.rectangle")
+            }
+        case .riskReport:
+            NavigationLink(destination: RiskReportView().environmentObject(dbManager).environmentObject(AssetManager())) {
+                Label("Risk Report", systemImage: "shield")
+            }
+        case .positions:
+            NavigationLink(destination: PositionsView()) {
+                Label("Positions", systemImage: "tablecells")
+            }
+        case .transactions:
+            NavigationLink(destination: TradesHistoryView().environmentObject(dbManager)) {
+                Label("Transactions", systemImage: "list.bullet.rectangle.portrait")
+            }
+        case .historicPerformance:
+            NavigationLink(destination: HistoricPerformanceView().environmentObject(dbManager)) {
+                Label("Historic Performance", systemImage: "chart.line.uptrend.xyaxis")
+            }
+        case .assetManagementReport:
+            NavigationLink(destination: AssetManagementReportView()) {
+                Label("Asset Management Report", systemImage: "chart.bar.fill")
+            }
+        case .instruments:
+            NavigationLink(destination: PortfolioView()) {
+                Label("Instruments", systemImage: "pencil.and.list.clipboard")
+            }
+        case .priceUpdate:
+            NavigationLink(destination: NextLevelPriceUpdatesView().environmentObject(dbManager)) {
+                Label("Price Update", systemImage: "sparkles")
+            }
+        case .currenciesFx:
+            NavigationLink(destination: CurrenciesView()) {
+                Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
+            }
+        case .ichimokuDragon:
+            NavigationLink(destination: IchimokuDragonView()) {
+                HStack(spacing: 8) {
+                    Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
+                    Spacer()
+                    SidebarStatusBadge(text: "Legacy")
                 }
             }
-
-            // 3. Market Group
-            DisclosureGroup("Market", isExpanded: $showMarket) {
-                NavigationLink(destination: PortfolioView()) {
-                    Label("Instruments", systemImage: "pencil.and.list.clipboard")
-                }
-                
-                NavigationLink(destination: NextLevelPriceUpdatesView().environmentObject(dbManager)) {
-                    Label("Price Update", systemImage: "sparkles")
-                }
-                
-                NavigationLink(destination: CurrenciesView()) {
-                    Label("Currencies & FX", systemImage: "dollarsign.circle.fill")
-                }
-                
-                NavigationLink(destination: IchimokuDragonView()) {
-                    HStack(spacing: 8) {
-                        Label("Ichimoku Dragon", systemImage: "cloud.sun.rain")
-                        Spacer()
-                        SidebarStatusBadge(text: "Legacy")
-                    }
-                }
-                .disabled(true)
-                .opacity(0.55)
-
-                NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
-                    Label("Alerts & Events", systemImage: "bell")
-                }
+            .disabled(true)
+            .opacity(0.55)
+        case .alertsEvents:
+            NavigationLink(destination: AlertsSettingsView().environmentObject(dbManager)) {
+                Label("Alerts & Events", systemImage: "bell")
             }
-
-            // 4. System Group
-            DisclosureGroup("System", isExpanded: $showSystem) {
-                SidebarSectionHeader(title: "Core")
-                NavigationLink(destination: SettingsView()) {
-                    Label("Settings", systemImage: "gear")
-                }
-
-                NavigationLink(destination: DataImportExportView()) {
-                    Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
-                }
-
-                SidebarSectionHeader(title: "Maintenance")
-                NavigationLink(destination: DatabaseManagementView()) {
-                    Label("Database Management", systemImage: "externaldrive.badge.timemachine")
-                }
+        case .settings:
+            NavigationLink(destination: SettingsView()) {
+                Label("Settings", systemImage: "gear")
             }
-
-            // 5. Configuration Group
-            DisclosureGroup("Configuration", isExpanded: $showConfiguration) {
-                NavigationLink(destination: InstitutionsView()) {
-                    Label("Institutions", systemImage: "building.2.fill")
-                }
-                
-                NavigationLink(destination: AccountsView()) {
-                    Label("Accounts", systemImage: "building.columns.fill")
-                }
-                
-                NavigationLink(destination: ClassManagementView()) {
-                    Label("Asset Classes & Instr. Types", systemImage: "folder")
-                }
-                
-                NavigationLink(destination: AccountTypesView().environmentObject(dbManager)) {
-                    Label("Account Types", systemImage: "creditcard")
-                }
-                
-                NavigationLink(destination: TransactionTypesView()) {
-                    Label("Transaction Types", systemImage: "tag.circle.fill")
-                }
-                
-                NavigationLink(destination: RiskManagementMaintenanceView().environmentObject(dbManager)) {
-                    Label("Instrument Risk Maint.", systemImage: "shield.lefthalf.filled")
-                }
-                
-                NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
-                    Label("Theme Statuses", systemImage: "paintpalette")
-                }
-
-                NavigationLink(destination: PortfolioTimelineSettingsView().environmentObject(dbManager)) {
-                    Label("Portfolio Timelines", systemImage: "clock")
-                }
-                
-                NavigationLink(destination: NewsTypeSettingsView().environmentObject(dbManager)) {
-                    Label("News Types", systemImage: "newspaper")
-                }
-                
-                NavigationLink(destination: AlertTriggerTypeSettingsView().environmentObject(dbManager)) {
-                    Label("Alert Trigger Types", systemImage: "bell.badge")
-                }
-                
-                NavigationLink(destination: TagSettingsView().environmentObject(dbManager)) {
-                    Label("Tags", systemImage: "tag.fill")
-                }
+        case .dataImportExport:
+            NavigationLink(destination: DataImportExportView()) {
+                Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
             }
+        case .databaseManagement:
+            NavigationLink(destination: DatabaseManagementView()) {
+                Label("Database Management", systemImage: "externaldrive.badge.timemachine")
+            }
+        case .institutions:
+            NavigationLink(destination: InstitutionsView()) {
+                Label("Institutions", systemImage: "building.2.fill")
+            }
+        case .accounts:
+            NavigationLink(destination: AccountsView()) {
+                Label("Accounts", systemImage: "building.columns.fill")
+            }
+        case .assetClasses:
+            NavigationLink(destination: ClassManagementView()) {
+                Label("Asset Classes & Instr. Types", systemImage: "folder")
+            }
+        case .accountTypes:
+            NavigationLink(destination: AccountTypesView().environmentObject(dbManager)) {
+                Label("Account Types", systemImage: "creditcard")
+            }
+        case .transactionTypes:
+            NavigationLink(destination: TransactionTypesView()) {
+                Label("Transaction Types", systemImage: "tag.circle.fill")
+            }
+        case .instrumentRiskMaintenance:
+            NavigationLink(destination: RiskManagementMaintenanceView().environmentObject(dbManager)) {
+                Label("Instrument Risk Maint.", systemImage: "shield.lefthalf.filled")
+            }
+        case .themeStatuses:
+            NavigationLink(destination: ThemeStatusSettingsView().environmentObject(dbManager)) {
+                Label("Theme Statuses", systemImage: "paintpalette")
+            }
+        case .portfolioTimelines:
+            NavigationLink(destination: PortfolioTimelineSettingsView().environmentObject(dbManager)) {
+                Label("Portfolio Timelines", systemImage: "clock")
+            }
+        case .tradingProfileSettings:
+            NavigationLink(destination: TradingProfileSettingsView().environmentObject(dbManager)) {
+                Label("Trading Profile Settings", systemImage: "person.crop.square.filled.and.at.rectangle")
+            }
+        case .newsTypes:
+            NavigationLink(destination: NewsTypeSettingsView().environmentObject(dbManager)) {
+                Label("News Types", systemImage: "newspaper")
+            }
+        case .alertTriggerTypes:
+            NavigationLink(destination: AlertTriggerTypeSettingsView().environmentObject(dbManager)) {
+                Label("Alert Trigger Types", systemImage: "bell.badge")
+            }
+        case .tags:
+            NavigationLink(destination: TagSettingsView().environmentObject(dbManager)) {
+                Label("Tags", systemImage: "tag.fill")
+            }
+        }
+    }
 
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("About")
-                        .dsHeaderSmall()
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button {
-                            showReleaseNotes = true
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("VERSION")
-                                    .dsCaption()
-                                Text(AppVersionProvider.version)
-                                    .dsBody()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                HStack(spacing: 6) {
-                                    Image(systemName: "doc.text.magnifyingglass")
-                                    Text("Release Notes")
-                                }
-                                .dsCaption()
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .help("Click to view release notes")
-                        if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("VERSION_LAST_CHANGE")
-                                    .dsCaption()
-                                Text(lastChange)
-                                    .dsBody()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        if let branch = GitInfoProvider.branch, !branch.isEmpty {
-                            Text("Branch: \(branch)")
-                                .dsCaption()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
+    private func moveDashboardItems(from source: IndexSet, to destination: Int) {
+        dashboardOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func movePortfolioItems(from source: IndexSet, to destination: Int) {
+        portfolioOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func moveMarketItems(from source: IndexSet, to destination: Int) {
+        marketOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func moveSystemCoreItems(from source: IndexSet, to destination: Int) {
+        systemCoreOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func moveSystemMaintenanceItems(from source: IndexSet, to destination: Int) {
+        systemMaintenanceOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func moveConfigurationItems(from source: IndexSet, to destination: Int) {
+        configurationOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func resetSidebarOrder() {
+        dashboardOrder = SidebarListKind.dashboard.defaultOrder
+        portfolioOrder = SidebarListKind.portfolio.defaultOrder
+        marketOrder = SidebarListKind.market.defaultOrder
+        systemCoreOrder = SidebarListKind.systemCore.defaultOrder
+        systemMaintenanceOrder = SidebarListKind.systemMaintenance.defaultOrder
+        configurationOrder = SidebarListKind.configuration.defaultOrder
+    }
+
+    private var dashboardSection: some View {
+        DisclosureGroup("Dashboard", isExpanded: $showDashboard) {
+            ForEach(dashboardOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: moveDashboardItems)
+        }
+    }
+
+    private var portfolioSection: some View {
+        DisclosureGroup("Portfolio", isExpanded: $showPortfolio) {
+            ForEach(portfolioOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: movePortfolioItems)
+        }
+    }
+
+    private var marketSection: some View {
+        DisclosureGroup("Market", isExpanded: $showMarket) {
+            ForEach(marketOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: moveMarketItems)
+        }
+    }
+
+    private var systemSection: some View {
+        DisclosureGroup("System", isExpanded: $showSystem) {
+            SidebarSectionHeader(title: "Core")
+            ForEach(systemCoreOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: moveSystemCoreItems)
+
+            SidebarSectionHeader(title: "Maintenance")
+            ForEach(systemMaintenanceOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: moveSystemMaintenanceItems)
+        }
+    }
+
+    private var configurationSection: some View {
+        DisclosureGroup("Configuration", isExpanded: $showConfiguration) {
+            ForEach(configurationOrder) { item in
+                sidebarLink(for: item)
+            }
+            .onMove(perform: moveConfigurationItems)
+        }
+    }
+
+    private var releaseNotesButton: some View {
+        Button {
+            showReleaseNotes = true
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("VERSION")
+                    .dsCaption()
+                Text(AppVersionProvider.version)
+                    .dsBody()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                    Text("Release Notes")
                 }
+                .dsCaption()
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .help("Click to view release notes")
+    }
+
+    @ViewBuilder
+    private var lastChangeView: some View {
+        if let lastChange = GitInfoProvider.lastChangeSummary, !lastChange.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("VERSION_LAST_CHANGE")
+                    .dsCaption()
+                Text(lastChange)
+                    .dsBody()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var branchView: some View {
+        if let branch = GitInfoProvider.branch, !branch.isEmpty {
+            Text("Branch: \(branch)")
+                .dsCaption()
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var aboutSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("About")
+                    .dsHeaderSmall()
+                VStack(alignment: .leading, spacing: 8) {
+                    releaseNotesButton
+                    lastChangeView
+                    branchView
+                }
             }
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 16))
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .listStyle(.sidebar)
-        .navigationTitle("Dragon Shield (Gemini Version)")
-        .sheet(isPresented: $showReleaseNotes) {
-            ReleaseNotesView(version: AppVersionProvider.version)
+        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 16))
+    }
+
+    private var listContent: some View {
+        List {
+            dashboardSection
+            portfolioSection
+            marketSection
+            systemSection
+            configurationSection
+            aboutSection
         }
-        .onAppear {
-            todoBoardViewModel.refreshFromStorage()
-            refreshWeeklyDueCount()
+    }
+
+    private func applyListChrome<Content: View>(_ content: Content) -> some View {
+        content
+            .listStyle(.sidebar)
+            #if os(iOS)
+            .environment(\.editMode, $editMode)
+            #endif
+            .navigationTitle("Dragon Shield (Gemini Version)")
+            .toolbar {
+                #if os(iOS)
+                ToolbarItem(placement: .primaryAction) {
+                    EditButton()
+                }
+                #endif
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(action: resetSidebarOrder) {
+                        Label("Reset Sidebar Order", systemImage: "arrow.counterclockwise")
+                    }
+                }
+            }
+            .sheet(isPresented: $showReleaseNotes) {
+                ReleaseNotesView(version: AppVersionProvider.version)
+            }
+    }
+
+    private func applySidebarUpdates<Content: View>(_ content: Content) -> some View {
+        content
+            .onAppear {
+                todoBoardViewModel.refreshFromStorage()
+                refreshWeeklyDueCount()
+            }
+            .onChange(of: dashboardOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .dashboard)
+            }
+            .onChange(of: portfolioOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .portfolio)
+            }
+            .onChange(of: marketOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .market)
+            }
+            .onChange(of: systemCoreOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .systemCore)
+            }
+            .onChange(of: systemMaintenanceOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .systemMaintenance)
+            }
+            .onChange(of: configurationOrder) { _, updated in
+                SidebarOrderStore.saveOrder(updated, for: .configuration)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .weeklyChecklistUpdated)) { _ in
+                refreshWeeklyDueCount()
+            }
+    }
+
+    var body: some View {
+        applySidebarUpdates(applyListChrome(listContent))
+    }
+}
+
+private enum SidebarItemID: String, CaseIterable, Identifiable {
+    case dashboard
+    case todoBoard
+    case portfolios
+    case weeklyChecklist
+    case tradingProfile
+    case riskReport
+    case positions
+    case transactions
+    case historicPerformance
+    case assetManagementReport
+    case instruments
+    case priceUpdate
+    case currenciesFx
+    case ichimokuDragon
+    case alertsEvents
+    case settings
+    case dataImportExport
+    case databaseManagement
+    case institutions
+    case accounts
+    case assetClasses
+    case accountTypes
+    case transactionTypes
+    case instrumentRiskMaintenance
+    case themeStatuses
+    case portfolioTimelines
+    case tradingProfileSettings
+    case newsTypes
+    case alertTriggerTypes
+    case tags
+
+    var id: String { rawValue }
+}
+
+private enum SidebarListKind: String, CaseIterable {
+    case dashboard
+    case portfolio
+    case market
+    case systemCore
+    case systemMaintenance
+    case configuration
+
+    var storageKey: String { "sidebar.order.\(rawValue)" }
+
+    var defaultOrder: [SidebarItemID] {
+        switch self {
+        case .dashboard:
+            return [.dashboard, .todoBoard]
+        case .portfolio:
+            return [
+                .portfolios,
+                .weeklyChecklist,
+                .tradingProfile,
+                .riskReport,
+                .positions,
+                .transactions,
+                .historicPerformance,
+                .assetManagementReport,
+            ]
+        case .market:
+            return [
+                .instruments,
+                .priceUpdate,
+                .currenciesFx,
+                .ichimokuDragon,
+                .alertsEvents,
+            ]
+        case .systemCore:
+            return [.settings, .dataImportExport]
+        case .systemMaintenance:
+            return [.databaseManagement]
+        case .configuration:
+            return [
+                .institutions,
+                .accounts,
+                .assetClasses,
+                .accountTypes,
+                .transactionTypes,
+                .instrumentRiskMaintenance,
+                .themeStatuses,
+                .portfolioTimelines,
+                .tradingProfileSettings,
+                .newsTypes,
+                .alertTriggerTypes,
+                .tags,
+            ]
         }
-        .onReceive(NotificationCenter.default.publisher(for: .weeklyChecklistUpdated)) { _ in
-            refreshWeeklyDueCount()
+    }
+}
+
+private struct SidebarOrderStore {
+    static func loadOrder(for kind: SidebarListKind) -> [SidebarItemID] {
+        let defaults = UserDefaults.standard
+        guard let raw = defaults.array(forKey: kind.storageKey) as? [String] else {
+            return kind.defaultOrder
         }
+        let stored = raw.compactMap(SidebarItemID.init)
+        let normalized = normalize(stored, defaultOrder: kind.defaultOrder)
+        return normalized.isEmpty ? kind.defaultOrder : normalized
+    }
+
+    static func saveOrder(_ order: [SidebarItemID], for kind: SidebarListKind) {
+        let raw = order.map { $0.rawValue }
+        UserDefaults.standard.set(raw, forKey: kind.storageKey)
+    }
+
+    private static func normalize(_ stored: [SidebarItemID], defaultOrder: [SidebarItemID]) -> [SidebarItemID] {
+        let defaultSet = Set(defaultOrder)
+        var seen = Set<SidebarItemID>()
+        let filtered = stored.filter { defaultSet.contains($0) }
+        let unique = filtered.filter { seen.insert($0).inserted }
+        let missing = defaultOrder.filter { !seen.contains($0) }
+        return unique + missing
     }
 }
 

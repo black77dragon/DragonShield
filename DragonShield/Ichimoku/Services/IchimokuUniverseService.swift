@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct IchimokuBundledTicker: Decodable {
     let symbol: String

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SQLite3
 #if os(macOS)
     import AppKit

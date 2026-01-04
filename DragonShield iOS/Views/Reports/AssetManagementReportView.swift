@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import Combine
 
 // iOS version of the Asset Management Report. Mirrors the desktop report structure
 // (cash, near cash, currency, asset class, crypto, custody) using snapshot data.
@@ -213,6 +214,7 @@ struct AssetManagementReportView: View {
                 DisclosureGroup(isExpanded: $showCurrency) {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(summary.currencyAllocations) { allocation in
+                            let percentage = clampedPercentage(allocation.percentage)
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text(allocation.currency).font(.headline)
@@ -220,9 +222,9 @@ struct AssetManagementReportView: View {
                                     Text(formatCurrency(allocation.baseValue, currency: summary.baseCurrency))
                                         .font(.body.monospacedDigit())
                                 }
-                                ProgressView(value: clampedPercentage(allocation.percentage), total: 100)
+                                ProgressView(value: percentage, total: 100)
                                     .tint(currencyColor(for: allocation.currency))
-                                Text(String(format: "%.1f%% of invested assets", allocation.percentage))
+                                Text(String(format: "%.1f%% of invested assets", percentage))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -250,6 +252,7 @@ struct AssetManagementReportView: View {
                 DisclosureGroup(isExpanded: $showAssetClass) {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(sortedAssetClasses) { item in
+                            let percentage = clampedPercentage(item.percentage)
                             Button {
                                 selectedAssetClass = item
                             } label: {
@@ -260,9 +263,9 @@ struct AssetManagementReportView: View {
                                         Text(formatCurrency(item.baseValue, currency: summary.baseCurrency))
                                             .font(.subheadline.monospacedDigit())
                                     }
-                                    ProgressView(value: clampedPercentage(item.percentage), total: 100)
+                                    ProgressView(value: percentage, total: 100)
                                         .tint(item.displayColor)
-                                    Text(String(format: "%.1f%%", item.percentage))
+                                    Text(String(format: "%.1f%%", percentage))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -277,13 +280,15 @@ struct AssetManagementReportView: View {
     }
 
     private var cryptoSection: some View {
+        let cryptoShareText = "\(formatPercentage(percentageShare(of: summary.totalCryptoBase, total: summary.totalPortfolioBase))) of total assets"
         ReportSectionCard(
             letter: "E",
             header: {
                 sectionHeader(
                     title: Text("What is my ") + highlight("crypto currency") + Text(" exposure?"),
                     summaryTitle: "Total crypto",
-                    amount: summary.totalCryptoBase
+                    amount: summary.totalCryptoBase,
+                    secondaryText: cryptoShareText
                 )
             }
         ) {
@@ -305,7 +310,7 @@ struct AssetManagementReportView: View {
                                             .foregroundColor(.secondary)
                                     }
                                     Spacer()
-                                    Text("\(formatCryptoQuantity(row.totalQuantity)) \(row.currency)")
+                                    Text("\(row.currency) \(formatNumber(row.localValue, decimals: 0))")
                                         .font(.body.monospacedDigit())
                                         .frame(width: 140, alignment: .trailing)
                                     Text(formatCurrency(row.baseValue, currency: summary.baseCurrency))
@@ -475,13 +480,18 @@ struct AssetManagementReportView: View {
 
     // MARK: Helpers
 
-    private func sectionHeader(title: Text, summaryTitle: String, amount: Double) -> some View {
+    private func sectionHeader(title: Text, summaryTitle: String, amount: Double, secondaryText: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             title
                 .font(.title3.weight(.semibold))
             Text("\(summaryTitle): \(formatCurrency(amount, currency: summary.baseCurrency))")
                 .font(.subheadline.monospacedDigit())
                 .foregroundColor(.secondary)
+            if let secondaryText {
+                Text(secondaryText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -578,7 +588,8 @@ struct AssetManagementReportView: View {
     }
 
     private func clampedPercentage(_ value: Double) -> Double {
-        min(max(value, 0), 100)
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 100)
     }
 }
 
@@ -696,6 +707,7 @@ struct AssetManagementReportSummary {
         let instrumentName: String
         let currency: String
         let totalQuantity: Double
+        let localValue: Double
         let baseValue: Double
     }
 
@@ -857,7 +869,7 @@ final class AssetManagementReportViewModel: ObservableObject {
         var rateCache: [String: Double] = ["CHF": 1.0]
         var currencyTotals: [String: Double] = [:]
         var assetClassTotals: [String: (code: String?, name: String, value: Double, positions: [AssetManagementReportSummary.AssetClassPosition])] = [:]
-        var cryptoAggregates: [Int: (instrumentName: String, currency: String, totalQuantity: Double, baseValue: Double)] = [:]
+        var cryptoAggregates: [Int: (instrumentName: String, currency: String, totalQuantity: Double, localValue: Double, baseValue: Double)] = [:]
         var custodyAggregates: [CustodyInstitution: (totalBaseValue: Double, accounts: [String: (id: String, name: String, totalBaseValue: Double, positions: [AssetManagementReportSummary.AssetClassPosition])])] = [:]
 
         func convertToBase(_ value: Double, currency: String) -> Double? {
@@ -907,8 +919,9 @@ final class AssetManagementReportViewModel: ObservableObject {
 
             if isCryptoPosition(position) {
                 let keyId = position.instrumentId ?? position.id
-                var aggregateCrypto = cryptoAggregates[keyId] ?? (instrumentName: position.instrumentName, currency: latest.currency, totalQuantity: 0, baseValue: 0)
+                var aggregateCrypto = cryptoAggregates[keyId] ?? (instrumentName: position.instrumentName, currency: latest.currency, totalQuantity: 0, localValue: 0, baseValue: 0)
                 aggregateCrypto.totalQuantity += position.quantity
+                aggregateCrypto.localValue += localValue
                 aggregateCrypto.baseValue += baseValue
                 cryptoAggregates[keyId] = aggregateCrypto
                 summary.totalCryptoBase += baseValue
@@ -964,6 +977,7 @@ final class AssetManagementReportViewModel: ObservableObject {
                     instrumentName: $0.instrumentName,
                     currency: $0.currency,
                     totalQuantity: $0.totalQuantity,
+                    localValue: $0.localValue,
                     baseValue: $0.baseValue
                 )
             }
