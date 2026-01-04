@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct AssetManagementReportSummary {
     struct CashBreakdown: Identifiable {
@@ -15,6 +16,7 @@ struct AssetManagementReportSummary {
         let instrumentName: String
         let currency: String
         let totalQuantity: Double
+        let localValue: Double
         let baseValue: Double
     }
 
@@ -199,10 +201,13 @@ final class AssetManagementReportViewModel: ObservableObject {
             var instrumentName: String
             var currency: String
             var totalQuantity: Double
+            var localValue: Double
             var baseValue: Double
         }
         var cryptoAggregates: [Int: CryptoAggregate] = [:]
         var custodyAggregates: [CustodyInstitution: CustodyInstitutionAggregate] = [:]
+        var latestPriceCache: [Int: (price: Double, currency: String)] = [:]
+        var missingLatestPriceIds: Set<Int> = []
 
         for account in accounts where isCashAccount(account, cashTypeIds: cashTypeIds, accountTypeCodes: accountTypeCodes) {
             let localAmount = dbManager.currentCashBalance(accountId: account.id, upTo: today)
@@ -226,7 +231,18 @@ final class AssetManagementReportViewModel: ObservableObject {
         let positions = dbManager.fetchPositionReports()
         var nearCashRows: [AssetManagementReportSummary.NearCashHolding] = []
         for position in positions {
-            let localValue = localValue(for: position)
+            let latestPrice: Double?
+            if position.currentPrice == nil && position.purchasePrice == nil {
+                latestPrice = latestInstrumentPrice(
+                    for: position,
+                    using: dbManager,
+                    cache: &latestPriceCache,
+                    missing: &missingLatestPriceIds
+                )
+            } else {
+                latestPrice = nil
+            }
+            let localValue = localValue(for: position, latestPrice: latestPrice)
             guard abs(localValue) > 0.05 else { continue }
             let currency = position.instrumentCurrency.uppercased()
             guard let conversion = dbManager.convertValueToBase(value: localValue, from: currency, baseCurrency: baseCurrency) else { continue }
@@ -240,11 +256,13 @@ final class AssetManagementReportViewModel: ObservableObject {
                     instrumentName: position.instrumentName,
                     currency: currency,
                     totalQuantity: 0,
+                    localValue: 0,
                     baseValue: 0
                 )
                 aggregate.instrumentName = position.instrumentName
                 aggregate.currency = currency
                 aggregate.totalQuantity += position.quantity
+                aggregate.localValue += localValue
                 aggregate.baseValue += baseValue
                 cryptoAggregates[key] = aggregate
                 summary.totalCryptoBase += baseValue
@@ -327,6 +345,7 @@ final class AssetManagementReportViewModel: ObservableObject {
                     instrumentName: $0.instrumentName,
                     currency: $0.currency,
                     totalQuantity: $0.totalQuantity,
+                    localValue: $0.localValue,
                     baseValue: $0.baseValue
                 )
             }
@@ -338,7 +357,14 @@ final class AssetManagementReportViewModel: ObservableObject {
         summary.totalPortfolioBase = totalPortfolioBase
         if totalPortfolioBase > 0 {
             summary.currencyAllocations = currencyTotals
-                .map { AssetManagementReportSummary.CurrencyAllocation(id: $0.key, currency: $0.key, baseValue: $0.value, percentage: ($0.value / totalPortfolioBase) * 100) }
+                .map {
+                    AssetManagementReportSummary.CurrencyAllocation(
+                        id: $0.key,
+                        currency: $0.key,
+                        baseValue: $0.value,
+                        percentage: safePercentage(($0.value / totalPortfolioBase) * 100)
+                    )
+                }
                 .sorted { $0.baseValue > $1.baseValue }
         } else {
             summary.currencyAllocations = []
@@ -364,7 +390,7 @@ final class AssetManagementReportViewModel: ObservableObject {
                 code: aggregate.code,
                 name: aggregate.name,
                 baseValue: aggregate.value,
-                percentage: totalPortfolioBase > 0 ? (aggregate.value / totalPortfolioBase) * 100 : 0,
+                percentage: safePercentage(totalPortfolioBase > 0 ? (aggregate.value / totalPortfolioBase) * 100 : 0),
                 positions: aggregate.positions.sorted { $0.baseValue > $1.baseValue }
             )
         }
@@ -390,6 +416,11 @@ final class AssetManagementReportViewModel: ObservableObject {
         }
 
         return summary
+    }
+
+    private func safePercentage(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 100)
     }
 
     private func isCashAccount(
@@ -454,11 +485,37 @@ final class AssetManagementReportViewModel: ObservableObject {
             .lowercased()
     }
 
-    private func localValue(for report: PositionReportData) -> Double {
-        if let price = report.currentPrice ?? report.purchasePrice {
+    private func localValue(for report: PositionReportData, latestPrice: Double?) -> Double {
+        if let price = report.currentPrice ?? report.purchasePrice ?? latestPrice {
             return report.quantity * price
         }
         return report.quantity
+    }
+
+    private func latestInstrumentPrice(
+        for report: PositionReportData,
+        using dbManager: DatabaseManager,
+        cache: inout [Int: (price: Double, currency: String)],
+        missing: inout Set<Int>
+    ) -> Double? {
+        guard let instrumentId = report.instrumentId else { return nil }
+        if missing.contains(instrumentId) { return nil }
+        if let cached = cache[instrumentId] {
+            return matchesInstrumentCurrency(cached.currency, report.instrumentCurrency) ? cached.price : nil
+        }
+        guard let latest = dbManager.getLatestPrice(instrumentId: instrumentId) else {
+            missing.insert(instrumentId)
+            return nil
+        }
+        cache[instrumentId] = (price: latest.price, currency: latest.currency)
+        return matchesInstrumentCurrency(latest.currency, report.instrumentCurrency) ? latest.price : nil
+    }
+
+    private func matchesInstrumentCurrency(_ priceCurrency: String, _ instrumentCurrency: String) -> Bool {
+        let priceCode = priceCurrency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let instrumentCode = instrumentCurrency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if instrumentCode.isEmpty { return true }
+        return priceCode == instrumentCode
     }
 
     private func normalizedBaseCurrency(_ value: String) -> String {
@@ -502,8 +559,8 @@ private extension String {
                     .init(id: 102, name: "iShares Ultra Short Bond ETF", accountName: "IBKR Custody", category: "Money Market", currency: "USD", localValue: 45000, baseValue: 39000),
                 ],
                 cryptoHoldings: [
-                    .init(id: 900, instrumentName: "Bitcoin", currency: "BTC", totalQuantity: 1.8, baseValue: 60000),
-                    .init(id: 901, instrumentName: "Ethereum", currency: "ETH", totalQuantity: 12, baseValue: 25000),
+                    .init(id: 900, instrumentName: "Bitcoin", currency: "USD", totalQuantity: 1.8, localValue: 65000, baseValue: 60000),
+                    .init(id: 901, instrumentName: "Ethereum", currency: "USD", totalQuantity: 12, localValue: 27000, baseValue: 25000),
                 ],
                 currencyAllocations: [
                     .init(id: "CHF", currency: "CHF", baseValue: 320_000, percentage: 61.5),

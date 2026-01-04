@@ -14,6 +14,7 @@
 // - 1.1 -> 1.2: Added a #if DEBUG block to init() to force delete/re-copy database from bundle.
 
 import Foundation
+import Combine
 import SQLite3
 
 struct DatabaseFileMetadata {

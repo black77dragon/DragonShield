@@ -12,7 +12,26 @@ When applicable, include the feature reference ID and implementation date in ISO
 ## [Unreleased]
 
 ### Added
+- [DS-086] Sidebar Menu Manual Reordering (implemented 2026-03-01)
+- [DS-088] Weekly Macro Check: High Priority Portfolios (implemented 2026-01-04)
+- [DS-089] Weekly Macro Checklist: Counted Val (CHF) Column (implemented 2026-01-04)
+
+### Fixed
+- [DS-087] Asset Management Report Crypto Orig Currency + Total Crypto Share (implemented 2026-01-04)
+- [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
+
+## [1.39.0] - 2026-01-01
+
+### Added
+- [DS-075] Dashboard Trading Profile Field (implemented 2026-01-01)
 - [DS-074] Portfolio Timeline + Time Horizon End Date (implemented 2026-01-01)
+
+### Fixed
+- [DS-071] Price Updates Table Resets Column Widths on Edit (implemented 2026-01-01)
+
+## [1.38.0] - 2025-12-31
+
+### Added
 - [DS-084] Price Update Manager UX + Unified Update Source (implemented 2025-12-31)
 - [DS-083] Historic Performance Y-Axis Always Visible (implemented 2025-12-31)
 
@@ -21,10 +40,8 @@ When applicable, include the feature reference ID and implementation date in ISO
 - [DS-081] Close Weekly Checklist Window on Mark Complete (implemented 2025-12-31)
 
 ### Fixed
-- [DS-071] Price Updates Table Resets Column Widths on Edit (implemented 2026-01-01)
 - [DS-082] CHANGELOG Lists Implemented Features as Unreleased (implemented 2025-12-31)
 - [DS-072] Instrument Notes Editor Does Not Open from Instrument Dashboard/Edit (implemented 2025-12-31)
-- [DS-012] Fix Account Price Update Flow (implemented 2026-02-06)
 
 ## [1.37.0] - 2025-12-29
 
@@ -97,7 +114,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Fixed
 - [DS-059] Align Risk Report Portfolio Risk Score with Dashboard (implemented 2025-12-14)
-- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14)
+- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14) (#1080)
 
 ## [1.29.0] - 2025-12-13
 
@@ -155,7 +172,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Changed
 - [DS-013] Move Transactions to Portfolio Sidebar (implemented 2025-11-25)
-- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25)
+- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25) (#1080)
 - [DS-011] Rename Accounts Update Dialog (implemented 2025-11-25)
 - [DS-015] Rename Asset Classes Navigation & Tabs (implemented 2025-11-25)
 - [DS-016] Update DragonShield Logo (implemented 2025-11-25)

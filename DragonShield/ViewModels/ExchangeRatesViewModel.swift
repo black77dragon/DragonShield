@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 class ExchangeRatesViewModel: ObservableObject {
     @Published var rates: [DatabaseManager.ExchangeRate] = []

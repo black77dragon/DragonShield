@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct CurrencyBreakdown: Identifiable {
     let id = UUID()

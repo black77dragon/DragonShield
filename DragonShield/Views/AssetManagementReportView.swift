@@ -486,6 +486,8 @@ struct AssetManagementReportView: View {
                 ) {
                     VStack(alignment: .leading, spacing: ReportRowLayout.stackSpacing) {
                         ForEach(summary.currencyAllocations) { allocation in
+                            let percentage = clampedPercentage(allocation.percentage)
+                            let progress = progressValue(percentage, total: 100)
                             VStack(alignment: .leading, spacing: ReportRowLayout.rowSpacing) {
                                 HStack {
                                     Text(allocation.currency)
@@ -494,9 +496,9 @@ struct AssetManagementReportView: View {
                                     Text(formatCurrency(allocation.baseValue, currency: summary.baseCurrency))
                                         .font(.body.monospacedDigit())
                                 }
-                                ProgressView(value: allocation.percentage, total: 100)
+                                ProgressView(value: progress, total: 100)
                                     .tint(currencyColor(for: allocation.currency))
-                                Text(String(format: "%.1f%% of invested assets", allocation.percentage))
+                                Text(String(format: "%.1f%% of invested assets", percentage))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -561,6 +563,8 @@ struct AssetManagementReportView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(sortedAssetClassBreakdown) { item in
+                                let percentage = clampedPercentage(item.percentage)
+                                let progress = progressValue(percentage, total: 100)
                                 Button {
                                     selectedAssetClass = item
                                 } label: {
@@ -576,9 +580,9 @@ struct AssetManagementReportView: View {
                                                 .font(.subheadline.monospacedDigit())
                                         }
                                         HStack {
-                                            ProgressView(value: item.percentage, total: 100)
+                                            ProgressView(value: progress, total: 100)
                                                 .tint(item.displayColor)
-                                            Text(String(format: "%.1f%%", item.percentage))
+                                            Text(String(format: "%.1f%%", percentage))
                                                 .font(.caption.monospacedDigit())
                                                 .foregroundColor(.secondary)
                                                 .frame(width: 60, alignment: .trailing)
@@ -608,14 +612,16 @@ struct AssetManagementReportView: View {
     }
 
     private func cryptoSection(expandedAll: Bool) -> some View {
-        ReportSectionCard(
+        let cryptoShareText = "\(formatPercentage(percentageShare(of: summary.totalCryptoBase, total: summary.totalPortfolioBase))) of total assets"
+        return ReportSectionCard(
             letter: "E",
             header: {
                 sectionHeaderWithSummary(
                     title: Text("What is my ") + highlight("crypto currency") + Text(" exposure?"),
                     summaryTitle: "Total crypto",
                     amount: summary.totalCryptoBase,
-                    currency: summary.baseCurrency
+                    currency: summary.baseCurrency,
+                    secondaryText: cryptoShareText
                 )
             }
         ) {
@@ -653,7 +659,7 @@ struct AssetManagementReportView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Text("\(formatCryptoQuantity(row.totalQuantity)) \(row.currency)")
+                        Text("\(row.currency) \(formatNumber(row.localValue, decimals: 0))")
                             .font(.body.monospacedDigit())
                             .frame(width: 160, alignment: .trailing)
                         Text(formatCurrency(row.baseValue, currency: summary.baseCurrency))
@@ -916,14 +922,22 @@ struct AssetManagementReportView: View {
         title: Text,
         summaryTitle: String,
         amount: Double,
-        currency: String
+        currency: String,
+        secondaryText: String? = nil
     ) -> some View {
         HStack(alignment: .top, spacing: 16) {
             sectionTitleView(title)
                 .layoutPriority(1)
             Spacer(minLength: 12)
-            metricRow(title: summaryTitle, amount: amount, currency: currency)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 4) {
+                metricRow(title: summaryTitle, amount: amount, currency: currency)
+                if let secondaryText {
+                    Text(secondaryText)
+                        .font(.caption)
+                        .foregroundColor(ReportPalette.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -1045,6 +1059,17 @@ struct AssetManagementReportView: View {
     private func percentageShare(of value: Double, total: Double) -> Double {
         guard abs(total) > 0.0001 else { return 0 }
         return (value / total) * 100
+    }
+
+    private func clampedPercentage(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 100)
+    }
+
+    private func progressValue(_ value: Double, total: Double) -> Double {
+        guard total.isFinite, total > 0 else { return 0 }
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), total)
     }
 
     private func currencyColor(for code: String) -> Color {

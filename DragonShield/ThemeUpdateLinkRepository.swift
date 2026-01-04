@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SQLite3
 
 final class ThemeUpdateLinkRepository {

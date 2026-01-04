@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let newLayoutKey = UserDefaultsKeys.newDashboardColumnsLayout
 private let newLayoutVersionKey = UserDefaultsKeys.newDashboardLayoutVersion

@@ -141,6 +141,7 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var isArchivedTheme: Bool = false
     @State private var isSoftDeletedTheme: Bool = false
     @State private var weeklyChecklistEnabled: Bool = true
+    @State private var weeklyChecklistHighPriority: Bool = false
     @State private var timelines: [PortfolioTimelineRow] = []
     @State private var selectedTimelineId: Int = 0
     @State private var timeHorizonEndDate: Date? = nil
@@ -1790,6 +1791,20 @@ struct PortfolioThemeWorkspaceView: View {
                     .help("Exclude this portfolio from weekly checklist scheduling and reminders.")
                     Spacer()
                 }
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Weekly Priority").frame(width: labelWidth, alignment: .leading)
+                    Toggle("High Priority", isOn: Binding(
+                        get: { weeklyChecklistHighPriority },
+                        set: { newVal in
+                            if dbManager.setPortfolioThemeWeeklyChecklistHighPriority(id: themeId, isHighPriority: newVal) {
+                                weeklyChecklistHighPriority = newVal
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .help("Highlight this portfolio in weekly checklist views.")
+                    Spacer()
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Updated").frame(width: labelWidth, alignment: .leading)
                     DatePicker("", selection: $updatedAtDate, displayedComponents: [.date, .hourAndMinute])
@@ -2123,6 +2138,7 @@ struct PortfolioThemeWorkspaceView: View {
         descriptionText = fetched.description ?? ""
         institutionId = fetched.institutionId
         weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
+        weeklyChecklistHighPriority = fetched.weeklyChecklistHighPriority
         statuses = dbManager.fetchPortfolioThemeStatuses()
         institutions = dbManager.fetchInstitutions()
         timelines = dbManager.listPortfolioTimelines(includeInactive: true)
@@ -2152,6 +2168,7 @@ struct PortfolioThemeWorkspaceView: View {
         isArchivedTheme = fetched.archivedAt != nil
         isSoftDeletedTheme = fetched.softDelete
         weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
+        weeklyChecklistHighPriority = fetched.weeklyChecklistHighPriority
     }
 
     private func shouldPersistCustomUpdatedAt() -> Bool {

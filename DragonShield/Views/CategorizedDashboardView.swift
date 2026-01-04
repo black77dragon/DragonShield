@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let categorizedLayoutKey = UserDefaultsKeys.categorizedDashboardMainLayout
 private let categorizedWarningsKey = UserDefaultsKeys.categorizedDashboardWarningsLayout

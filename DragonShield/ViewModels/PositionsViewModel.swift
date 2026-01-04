@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 class PositionsViewModel: ObservableObject {
     @Published var totalAssetValueCHF: Double = 0

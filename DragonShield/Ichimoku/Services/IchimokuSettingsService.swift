@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SQLite3
 
 final class IchimokuSettingsService: ObservableObject {

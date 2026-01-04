@@ -20,6 +20,7 @@ import AppKit
 // - 2.0.2.5 -> 2.0.2.6: Log import details to file and forward progress.
 // - 2.0.2.6 -> 2.0.3.0: Route log messages through OSLog categories.
 import Foundation
+import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 

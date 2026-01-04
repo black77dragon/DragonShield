@@ -1,6 +1,7 @@
 // DragonShield/Repositories/PortfolioThemeUpdateRepository.swift
 
 import Foundation
+import OSLog
 import SQLite3
 
 enum ThemeUpdateView {

@@ -1,6 +1,7 @@
 // DragonShield/Repositories/PortfolioThemeStatusRepository.swift
 
 import Foundation
+import OSLog
 import SQLite3
 
 enum ThemeStatusDBError: Error, Equatable, LocalizedError {

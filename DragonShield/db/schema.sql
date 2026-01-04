@@ -910,7 +910,7 @@ CREATE TABLE PortfolioTheme (
     updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
     archived_at TEXT NULL,
     soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1))
-, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL, theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0), weekly_checklist_enabled INTEGER NOT NULL DEFAULT 1 CHECK(weekly_checklist_enabled IN (0,1)), time_horizon_end_date TEXT NULL, timeline_id INTEGER NOT NULL DEFAULT 5 REFERENCES PortfolioTimelines(id));
+, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL, theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0), weekly_checklist_enabled INTEGER NOT NULL DEFAULT 1 CHECK(weekly_checklist_enabled IN (0,1)), time_horizon_end_date TEXT NULL, timeline_id INTEGER NOT NULL DEFAULT 5 REFERENCES PortfolioTimelines(id), weekly_checklist_high_priority INTEGER NOT NULL DEFAULT 0 CHECK (weekly_checklist_high_priority IN (0,1)));
 CREATE UNIQUE INDEX idx_portfolio_theme_name_unique
 ON PortfolioTheme(LOWER(name))
 WHERE soft_delete = 0;
@@ -1850,6 +1850,106 @@ CREATE TABLE PortfolioTimelines (
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
 );
 CREATE INDEX idx_portfolio_theme_timeline_id ON PortfolioTheme(timeline_id);
+CREATE TABLE TradingProfiles (
+    profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_name TEXT NOT NULL,
+    profile_type TEXT NOT NULL,
+    primary_objective TEXT,
+    last_review_date TEXT,
+    next_review_text TEXT,
+    active_regime TEXT,
+    regime_confidence TEXT,
+    risk_state TEXT,
+    is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0,1)),
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+, trading_strategy_executive_summary TEXT);
+CREATE TABLE TradingProfileCoordinates (
+    coordinate_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    weight_percent REAL NOT NULL DEFAULT 0,
+    value REAL NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_locked INTEGER NOT NULL DEFAULT 1 CHECK (is_locked IN (0,1)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(profile_id, title)
+);
+CREATE TABLE TradingProfileDominance (
+    dominance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    category TEXT NOT NULL CHECK (category IN ('primary','secondary','avoid')),
+    text TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileRegimeSignals (
+    signal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    signal_type TEXT NOT NULL CHECK (signal_type IN ('confirming','invalidating','implication')),
+    text TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileStrategyFit (
+    strategy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    strategy_name TEXT NOT NULL,
+    status_label TEXT NOT NULL,
+    status_tone TEXT NOT NULL CHECK (status_tone IN ('success','warning','danger','accent','neutral')),
+    reason TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileRiskSignals (
+    risk_signal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    signal_type TEXT NOT NULL CHECK (signal_type IN ('warning','action')),
+    text TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileRules (
+    rule_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    rule_text TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileRuleViolations (
+    violation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    violation_date TEXT NOT NULL,
+    rule_text TEXT NOT NULL,
+    resolution_text TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE TradingProfileReviewLog (
+    review_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES TradingProfiles(profile_id) ON DELETE CASCADE,
+    review_date TEXT NOT NULL,
+    event TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_trading_profile_default ON TradingProfiles(is_default, is_active);
+CREATE INDEX idx_trading_profile_coordinates_profile ON TradingProfileCoordinates(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_dominance_profile ON TradingProfileDominance(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_regime_signals_profile ON TradingProfileRegimeSignals(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_strategy_profile ON TradingProfileStrategyFit(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_risk_profile ON TradingProfileRiskSignals(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_rules_profile ON TradingProfileRules(profile_id, sort_order);
+CREATE INDEX idx_trading_profile_violations_profile ON TradingProfileRuleViolations(profile_id, violation_date);
+CREATE INDEX idx_trading_profile_review_profile ON TradingProfileReviewLog(profile_id, review_date);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -1893,4 +1993,9 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('040'),
   ('041'),
   ('042'),
-  ('043');
+  ('043'),
+  ('044'),
+  ('045'),
+  ('046'),
+  ('047'),
+  ('048');

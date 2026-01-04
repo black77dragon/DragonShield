@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 final class AccountDetailWindowViewModel: ObservableObject {
     @Published var account: DatabaseManager.AccountData

@@ -1,6 +1,7 @@
 // DragonShield/Repositories/InstrumentPriceRepository.swift
 
 import Foundation
+import OSLog
 import SQLite3
 
 struct InstrumentPriceHistoryRow: Identifiable {

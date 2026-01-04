@@ -13,6 +13,7 @@
 //               and handle opening_date as optional, aligning with the definitive DB schema.
 
 import Foundation
+import OSLog
 import SQLite3
 
 extension DatabaseManager {

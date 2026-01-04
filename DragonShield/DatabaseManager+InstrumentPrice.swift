@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 extension DatabaseManager {
     /// Lists instruments with their latest price (if any), with optional filters.

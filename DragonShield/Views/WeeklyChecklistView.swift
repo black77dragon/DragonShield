@@ -5,10 +5,12 @@ private struct WeeklyChecklistSummary: Identifiable {
     let currentEntry: WeeklyChecklistEntry?
     let lastCompleted: WeeklyChecklistEntry?
     let nextDueWeekStart: Date?
+    var countedValueBase: Double?
     var id: Int { theme.id }
 }
 
 private let skippedStatusColor = Color(red: 0.09, green: 0.35, blue: 0.76)
+private let highPriorityColor = DSColor.accentError
 
 private enum WeeklyChecklistStatusCategory: Int {
     case due
@@ -22,6 +24,21 @@ struct WeeklyChecklistOverviewView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var summaries: [WeeklyChecklistSummary] = []
     @State private var lastUpdated: Date?
+    @State private var valuationTask: Task<Void, Never>? = nil
+
+    private static let countedValueColumnWidth: CGFloat = 150
+    private static let priorityColumnWidth: CGFloat = 34
+    private static let statusColumnWidth: CGFloat = 120
+    private static let actionColumnWidth: CGFloat = 96
+    private static let countedValueFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "CHF"
+        formatter.currencySymbol = ""
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -34,8 +51,10 @@ struct WeeklyChecklistOverviewView: View {
                     .padding(.top, 8)
             } else {
                 List {
-                    ForEach(summaries) { summary in
-                        summaryRow(summary)
+                    Section(header: summaryHeader) {
+                        ForEach(summaries) { summary in
+                            summaryRow(summary)
+                        }
                     }
                 }
                 .listStyle(.inset)
@@ -93,21 +112,74 @@ struct WeeklyChecklistOverviewView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            priorityColumn(summary)
+                .frame(width: Self.priorityColumnWidth, alignment: .center)
+            countedValueView(summary)
             DSBadge(text: statusLabel, color: statusColor)
-            if summary.theme.weeklyChecklistEnabled {
-                Button("Review") {
-                    openWindow(id: "weeklyChecklistPortfolio", value: summary.theme.id)
-                }
-                .buttonStyle(DSButtonStyle(type: .primary, size: .small))
-            } else {
-                Button("Enable") {
-                    enableChecklist(summary.theme.id)
-                }
-                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-            }
+                .frame(width: Self.statusColumnWidth, alignment: .center)
+            actionView(summary)
+                .frame(width: Self.actionColumnWidth, alignment: .center)
         }
         .padding(.vertical, 6)
+    }
+
+    private var summaryHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("Portfolio")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Priority")
+                .frame(width: Self.priorityColumnWidth, alignment: .center)
+            Text("Counted Val (CHF)")
+                .frame(width: Self.countedValueColumnWidth, alignment: .trailing)
+            Text("Status")
+                .frame(width: Self.statusColumnWidth, alignment: .center)
+            Text("Action")
+                .frame(width: Self.actionColumnWidth, alignment: .center)
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .textCase(nil)
+    }
+
+    private func priorityColumn(_ summary: WeeklyChecklistSummary) -> some View {
+        Image(systemName: "flame.fill")
+            .foregroundColor(highPriorityColor)
+            .opacity(summary.theme.weeklyChecklistHighPriority ? 1 : 0)
+            .help("High priority portfolio")
+    }
+
+    @ViewBuilder
+    private func countedValueView(_ summary: WeeklyChecklistSummary) -> some View {
+        if let value = summary.countedValueBase {
+            Text(formattedCountedValue(value))
+                .font(.subheadline.monospacedDigit())
+                .frame(width: Self.countedValueColumnWidth, alignment: .trailing)
+        } else {
+            HStack(spacing: 4) {
+                Text("—")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                ProgressView()
+                    .controlSize(.small)
+            }
+            .frame(width: Self.countedValueColumnWidth, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private func actionView(_ summary: WeeklyChecklistSummary) -> some View {
+        if summary.theme.weeklyChecklistEnabled {
+            Button("Review") {
+                openWindow(id: "weeklyChecklistPortfolio", value: summary.theme.id)
+            }
+            .buttonStyle(DSButtonStyle(type: .primary, size: .small))
+        } else {
+            Button("Enable") {
+                enableChecklist(summary.theme.id)
+            }
+            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+        }
     }
 
     private func statusText(_ summary: WeeklyChecklistSummary) -> String {
@@ -168,11 +240,12 @@ struct WeeklyChecklistOverviewView: View {
     }
 
     private func load() {
+        valuationTask?.cancel()
         let currentWeek = WeeklyChecklistDateHelper.weekStart(for: Date())
         let themes = dbManager.fetchPortfolioThemes(includeArchived: false, includeSoftDeleted: false)
         let items = themes.map { theme -> WeeklyChecklistSummary in
             if !theme.weeklyChecklistEnabled {
-                return WeeklyChecklistSummary(theme: theme, currentEntry: nil, lastCompleted: nil, nextDueWeekStart: nil)
+                return WeeklyChecklistSummary(theme: theme, currentEntry: nil, lastCompleted: nil, nextDueWeekStart: nil, countedValueBase: nil)
             }
             let current = dbManager.fetchWeeklyChecklist(themeId: theme.id, weekStartDate: currentWeek)
             let lastCompleted = dbManager.fetchLastWeeklyChecklist(themeId: theme.id, status: .completed)
@@ -182,7 +255,7 @@ struct WeeklyChecklistOverviewView: View {
             } else {
                 nextDue = currentWeek
             }
-            return WeeklyChecklistSummary(theme: theme, currentEntry: current, lastCompleted: lastCompleted, nextDueWeekStart: nextDue)
+            return WeeklyChecklistSummary(theme: theme, currentEntry: current, lastCompleted: lastCompleted, nextDueWeekStart: nextDue, countedValueBase: nil)
         }
         summaries = items.sorted { lhs, rhs in
             let lhsCategory = statusCategory(lhs).rawValue
@@ -190,9 +263,36 @@ struct WeeklyChecklistOverviewView: View {
             if lhsCategory != rhsCategory {
                 return lhsCategory < rhsCategory
             }
+            if lhs.theme.weeklyChecklistHighPriority != rhs.theme.weeklyChecklistHighPriority {
+                return lhs.theme.weeklyChecklistHighPriority && !rhs.theme.weeklyChecklistHighPriority
+            }
             return lhs.theme.name.localizedCaseInsensitiveCompare(rhs.theme.name) == .orderedAscending
         }
         lastUpdated = Date()
+        loadValuations(themeIds: summaries.map { $0.theme.id })
+    }
+
+    private func loadValuations(themeIds: [Int]) {
+        valuationTask?.cancel()
+        guard !themeIds.isEmpty else { return }
+        valuationTask = Task {
+            let fxService = FXConversionService(dbManager: dbManager)
+            let valuationService = PortfolioValuationService(dbManager: dbManager, fxService: fxService)
+            for id in themeIds {
+                if Task.isCancelled { break }
+                let snapshot = valuationService.snapshot(themeId: id)
+                await MainActor.run {
+                    if let index = summaries.firstIndex(where: { $0.theme.id == id }) {
+                        summaries[index].countedValueBase = snapshot.includedTotalValueBase
+                    }
+                }
+            }
+        }
+    }
+
+    private func formattedCountedValue(_ value: Double) -> String {
+        let raw = Self.countedValueFormatter.string(from: NSNumber(value: value)) ?? "—"
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
