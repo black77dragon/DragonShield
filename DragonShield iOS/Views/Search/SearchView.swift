@@ -452,6 +452,7 @@
 
     struct ThemeUpdateDetailView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         let hit: DatabaseManager.ThemeUpdateSearchHit
 
         var body: some View {

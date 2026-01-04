@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 struct InstrumentsListView: View {
     @EnvironmentObject var dbManager: DatabaseManager

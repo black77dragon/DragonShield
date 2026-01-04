@@ -192,6 +192,43 @@ extension DatabaseManager {
         #endif
     }
 
+    private func resolvedDefaultPortfolioTimelineId() -> Int? {
+        #if os(iOS)
+            return defaultPortfolioTimelineIdFallback()
+        #else
+            return defaultPortfolioTimelineId()
+        #endif
+    }
+
+    #if os(iOS)
+    private func defaultPortfolioTimelineIdFallback() -> Int? {
+        guard let db else { return nil }
+        guard tableExistsSafe("PortfolioTimelines") else { return nil }
+        var stmt: OpaquePointer?
+        var result: Int?
+        let preferred = """
+        SELECT id FROM PortfolioTimelines
+        WHERE is_active = 1 AND LOWER(description) = 'to be determined'
+        ORDER BY sort_order, id LIMIT 1
+        """
+        if sqlite3_prepare_v2(db, preferred, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                result = Int(sqlite3_column_int(stmt, 0))
+            }
+        }
+        sqlite3_finalize(stmt)
+        if result != nil { return result }
+        let fallback = "SELECT id FROM PortfolioTimelines WHERE is_active = 1 ORDER BY sort_order, id LIMIT 1"
+        if sqlite3_prepare_v2(db, fallback, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                result = Int(sqlite3_column_int(stmt, 0))
+            }
+        }
+        sqlite3_finalize(stmt)
+        return result
+    }
+    #endif
+
     func fetchPortfolioThemes(includeArchived: Bool = true, includeSoftDeleted: Bool = false, search: String? = nil) -> [PortfolioTheme] {
         var themes: [PortfolioTheme] = []
         guard tableExistsSafe("PortfolioTheme") else {
@@ -345,7 +382,7 @@ extension DatabaseManager {
         let hasEndDate = tableHasColumn(table: "PortfolioTheme", column: "time_horizon_end_date")
         let resolvedTimelineId: Int?
         if hasTimelineId {
-            resolvedTimelineId = timelineId ?? defaultPortfolioTimelineId()
+            resolvedTimelineId = timelineId ?? resolvedDefaultPortfolioTimelineId()
             guard let resolvedTimelineId else {
                 LoggingService.shared.log("No default Portfolio Timeline found", type: .error, logger: .database)
                 return nil
@@ -598,7 +635,11 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         if rc == SQLITE_DONE {
             LoggingService.shared.log("setPortfolioThemeWeeklyChecklistEnabled id=\(id) -> \(enabled)", logger: .database)
-            NotificationCenter.default.post(name: .weeklyChecklistUpdated, object: nil)
+            #if os(iOS)
+                NotificationCenter.default.post(name: Notification.Name("WeeklyChecklistUpdated"), object: nil)
+            #else
+                NotificationCenter.default.post(name: .weeklyChecklistUpdated, object: nil)
+            #endif
             return true
         }
         LoggingService.shared.log("setPortfolioThemeWeeklyChecklistEnabled failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -620,7 +661,11 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         if rc == SQLITE_DONE {
             LoggingService.shared.log("setPortfolioThemeWeeklyChecklistHighPriority id=\(id) -> \(isHighPriority)", logger: .database)
-            NotificationCenter.default.post(name: .weeklyChecklistUpdated, object: nil)
+            #if os(iOS)
+                NotificationCenter.default.post(name: Notification.Name("WeeklyChecklistUpdated"), object: nil)
+            #else
+                NotificationCenter.default.post(name: .weeklyChecklistUpdated, object: nil)
+            #endif
             return true
         }
         LoggingService.shared.log("setPortfolioThemeWeeklyChecklistHighPriority failed id=\(id): \(String(cString: sqlite3_errmsg(db)))", type: .error, logger: .database)
@@ -902,7 +947,7 @@ extension DatabaseManager {
     private func ensureThemeTimeHorizonColumns() {
         guard let db else { return }
         guard tableExistsSafe("PortfolioTheme") else { return }
-        let defaultId = defaultPortfolioTimelineId()
+        let defaultId = resolvedDefaultPortfolioTimelineId()
         if !tableHasColumn(table: "PortfolioTheme", column: "timeline_id") {
             var sql = "ALTER TABLE PortfolioTheme ADD COLUMN timeline_id INTEGER"
             if let defaultId {

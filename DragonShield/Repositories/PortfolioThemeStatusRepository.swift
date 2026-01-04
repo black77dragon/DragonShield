@@ -4,6 +4,7 @@ import Foundation
 import OSLog
 import SQLite3
 
+#if !os(iOS)
 enum ThemeStatusDBError: Error, Equatable, LocalizedError {
     case invalidCode
     case duplicateCode
@@ -32,6 +33,7 @@ enum ThemeStatusDBError: Error, Equatable, LocalizedError {
         }
     }
 }
+#endif
 
 final class PortfolioThemeStatusRepository {
     private let connection: DatabaseConnection

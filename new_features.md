@@ -14,6 +14,14 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- <mark>[ ] [changes] **[DS-091] iOS To-Do Board Dark Mode for Readability**</mark>
+    Why: The current iOS To-Do Board appearance is barely readable, so users cannot comfortably read or manage tasks.
+    What: Update the iOS To-Do Board representation to a dark-mode style that materially improves text/background contrast and overall legibility; ensure key elements (columns, cards, titles, status indicators, and action buttons) remain readable in the new styling and align with the iOS design system used elsewhere.
+
+- <mark>[ ] [bugs] **[DS-090] Release Notes Show v1.39.0 While App Is v1.40.0**</mark>
+    Why: The sidebar shows version 1.40.0, but the Release Notes window highlights v1.39.0, so users think the latest features are missing or not released.
+    What: Problem analysis: `ReleaseNotesView` always calls `ReleaseNotesProvider.loadAll()` and never uses the current app version, so the UI highlights the latest dated section in `CHANGELOG.md`. Because the bundled `CHANGELOG.md` still tops out at v1.39.0 (v1.40.0 is still under Unreleased due to missing tag/sync), the popup defaults to v1.39.0 and omits v1.40.0 features from the "latest release" grouping. Resolution strategy: (1) finalize the release flow by tagging `v1.40.0`, running `scripts/sync_changelog.py`, and ensuring the updated `CHANGELOG.md` is bundled so v1.40.0 exists as a dated section; (2) update `ReleaseNotesView` to call `ReleaseNotesProvider.load(for: AppVersionProvider.version)` and fall back to Unreleased with a clear note when the version is missing; (3) add a build-time or startup check that logs/alerts when the app version is not found in the changelog to prevent future drift.
+
 - <mark>[ ] [new_features] **[DS-077] Monthly Deep Dive Check**</mark>
     Why: Portfolio managers need a structured monthly deep dive to reassess regime, sizing, and behavior patterns, and to keep capital intent aligned with life-stage goals.
     What: For every portfolio, add a Monthly Deep Dive Check workflow (60-90 minutes, once per month) that records completion and written outputs. Show the next check due date, the last completed check date, and a history list with timestamps and viewable past responses. The GUI must include guidance for each section (inline helper text or hover tips). Before implementation, determine the best UX/UI design for where this lives, how scheduling/reminders work, how responses are captured, how guidance is presented, and how completion/history are tracked. Checklist content:
@@ -48,7 +56,7 @@ This document serves as a central backlog for all pending changes, new features,
            - End the review by completing the sentence in writing: "The purpose of my capital at this stage of life is ____________, not ____________."
            - Examples: Independence, not ego. Optionality, not maximum return. Robustness, not brilliance.
 
-- <mark>[ ] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings**</mark>
+- <mark>[x] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings** (implemented 2026-01-04)</mark>
     Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
     What: Move the remaining iOS preference bindings from `DatabaseManager` to `AppPreferences`, then remove the deprecated published fields once no call sites remain. Update:
         - `DragonShield iOS/Views/SnapshotGateView.swift`: replace `dbManager.dbVersion` with `preferences.dbVersion` and inject `@EnvironmentObject var preferences: AppPreferences`.

@@ -3,6 +3,7 @@
 
     struct TodoBoardView: View {
         @EnvironmentObject var dbManager: DatabaseManager
+        @EnvironmentObject var preferences: AppPreferences
         @StateObject private var viewModel = KanbanBoardViewModel()
         @State private var tagsByID: [Int: TagRow] = [:]
         @State private var visibleColumns: Set<KanbanColumn> = Set(KanbanColumn.allCases)
@@ -99,7 +100,7 @@
                 hydrateVisibleColumnsIfNeeded()
                 hydrateColumnBackgroundShadeIfNeeded()
             }
-            .onReceive(dbManager.$todoBoardFontSize) { handleExternalFontSizeUpdate($0) }
+            .onReceive(preferences.$todoBoardFontSize) { handleExternalFontSizeUpdate($0) }
             .onChangeCompat(of: selectedFontSize) { _ in
                 persistFontSize()
             }
@@ -490,7 +491,7 @@
             guard !hasHydratedFontSize else { return }
             hasHydratedFontSize = true
             isHydratingFontSize = true
-            if let stored = KanbanFontSize(rawValue: dbManager.todoBoardFontSize) {
+            if let stored = KanbanFontSize(rawValue: preferences.todoBoardFontSize) {
                 selectedFontSize = stored
             }
             DispatchQueue.main.async {
@@ -511,7 +512,7 @@
 
         private func persistFontSize() {
             guard !isHydratingFontSize else { return }
-            guard dbManager.todoBoardFontSize != selectedFontSize.rawValue else { return }
+            guard preferences.todoBoardFontSize != selectedFontSize.rawValue else { return }
             isHydratingFontSize = true
             dbManager.setTodoBoardFontSize(selectedFontSize.rawValue)
             DispatchQueue.main.async {
