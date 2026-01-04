@@ -750,14 +750,14 @@ struct PortfolioView: View {
         .onChange(of: selectedFontSize) { _, _ in
             persistFontSize()
         }
-        .onReceive(dbManager.$instrumentsTableFontSize) { newValue in
+        .onReceive(preferences.$instrumentsTableFontSize) { newValue in
             guard !isHydratingPreferences, let size = TableFontSize(rawValue: newValue), size != selectedFontSize else { return }
             isHydratingPreferences = true
             print("📥 [instruments] Received font size update from configuration: \(newValue)")
             selectedFontSize = size
             DispatchQueue.main.async { isHydratingPreferences = false }
         }
-        .onReceive(dbManager.$instrumentsTableColumnFractions) { newValue in
+        .onReceive(preferences.$instrumentsTableColumnFractions) { newValue in
             guard !isHydratingPreferences else { return }
             isHydratingPreferences = true
             print("📥 [instruments] Received column fractions from configuration: \(newValue)")

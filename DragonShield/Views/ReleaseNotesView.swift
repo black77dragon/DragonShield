@@ -128,12 +128,41 @@ struct ReleaseNotesView: View {
     private func load() {
         switch ReleaseNotesProvider.loadAll() {
         case .success(let data):
-            result = data
+            let note = versionNote(for: data.sections, appVersion: version) ?? data.note
+            result = ReleaseNotesLoadResult(sections: data.sections, sourceLabel: data.sourceLabel, note: note)
             errorMessage = nil
         case .failure(let error):
             result = nil
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func versionNote(for sections: [ReleaseNotesSection], appVersion: String) -> String? {
+        let target = normalizeVersion(appVersion)
+        if target.isEmpty || target.lowercased() == "n/a" {
+            return "App version unavailable; showing all releases."
+        }
+        let hasMatch = sections.contains { section in
+            normalizeVersion(section.version).localizedCaseInsensitiveCompare(target) == .orderedSame
+        }
+        if hasMatch {
+            return nil
+        }
+        return "App version \(appVersion) not found in CHANGELOG.md; showing all releases."
+    }
+
+    private func normalizeVersion(_ value: String) -> String {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("[") && trimmed.hasSuffix("]") {
+            trimmed = String(trimmed.dropFirst().dropLast())
+        }
+        if trimmed.lowercased().hasPrefix("version ") {
+            trimmed = String(trimmed.dropFirst("version ".count))
+        }
+        if trimmed.lowercased().hasPrefix("v") {
+            trimmed = String(trimmed.dropFirst())
+        }
+        return trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func sectionHeader(for section: ReleaseNotesSection) -> String {
