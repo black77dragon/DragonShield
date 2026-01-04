@@ -51,15 +51,33 @@ enum ReleaseNotesProvider {
         let target = normalizeVersion(version)
 
         let isUnknown = target.isEmpty || target.lowercased() == "n/a"
+        let unreleasedSection = sections.first(where: { isUnreleased($0) })
+        let latestReleased = latestReleasedSection(in: sections)
 
         if !isUnknown, let section = sections.first(where: { matches($0.version, target: target) }) {
             return .success(ReleaseNotesLoadResult(sections: [section], sourceLabel: sourceLabel, note: nil))
         }
 
-        if let section = sections.first(where: { normalizeVersion($0.version).lowercased() == "unreleased" }) {
-            let note: String? = isUnknown
-                ? "Showing Unreleased because the app version is unavailable."
-                : "Showing Unreleased because version \(version) was not found in CHANGELOG.md."
+        if isUnknown {
+            if let section = unreleasedSection {
+                let note = "Showing Unreleased because the app version is unavailable."
+                return .success(ReleaseNotesLoadResult(sections: [section], sourceLabel: sourceLabel, note: note))
+            }
+            if let section = latestReleased {
+                let note = "Showing latest release because the app version is unavailable."
+                return .success(ReleaseNotesLoadResult(sections: [section], sourceLabel: sourceLabel, note: note))
+            }
+        } else if let section = unreleasedSection {
+            var fallbackSections: [ReleaseNotesSection] = [section]
+            if let latestReleased, latestReleased.version != section.version {
+                fallbackSections.append(latestReleased)
+            }
+            let note = latestReleased == nil
+                ? "Showing Unreleased because version \(version) was not found in CHANGELOG.md."
+                : "Showing Unreleased and latest release because version \(version) was not found in CHANGELOG.md."
+            return .success(ReleaseNotesLoadResult(sections: fallbackSections, sourceLabel: sourceLabel, note: note))
+        } else if let section = latestReleased {
+            let note = "Showing latest release because version \(version) was not found in CHANGELOG.md."
             return .success(ReleaseNotesLoadResult(sections: [section], sourceLabel: sourceLabel, note: note))
         }
 
@@ -254,4 +272,34 @@ enum ReleaseNotesProvider {
         }
         return trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    private static func isUnreleased(_ section: ReleaseNotesSection) -> Bool {
+        normalizeVersion(section.version).lowercased() == "unreleased"
+    }
+
+    private static func latestReleasedSection(in sections: [ReleaseNotesSection]) -> ReleaseNotesSection? {
+        let datedSections = sections.compactMap { section -> (ReleaseNotesSection, Date)? in
+            guard !isUnreleased(section) else { return nil }
+            guard let date = parseReleaseDate(section.date) else { return nil }
+            return (section, date)
+        }
+        if let latest = datedSections.max(by: { $0.1 < $1.1 }) {
+            return latest.0
+        }
+        return sections.first(where: { !isUnreleased($0) })
+    }
+
+    private static func parseReleaseDate(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        return releaseDateFormatter.date(from: value)
+    }
+
+    private static let releaseDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }

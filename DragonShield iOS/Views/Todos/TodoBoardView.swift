@@ -4,6 +4,7 @@
     struct TodoBoardView: View {
         @EnvironmentObject var dbManager: DatabaseManager
         @EnvironmentObject var preferences: AppPreferences
+        @Environment(\.colorScheme) private var colorScheme
         @StateObject private var viewModel = KanbanBoardViewModel()
         @State private var tagsByID: [Int: TagRow] = [:]
         @State private var visibleColumns: Set<KanbanColumn> = Set(KanbanColumn.allCases)
@@ -27,8 +28,8 @@
             let completionRate = total == 0 ? 0 : Double(completed) / Double(total)
             return [
                 BoardStat(id: "total", title: "Total Tasks", value: "\(total)", icon: "list.bullet", accent: Color(hex: "5B6CE3")),
-                BoardStat(id: "in-progress", title: "In Progress", value: "\(inProgress)", icon: "hammer", accent: KanbanColumn.doing.palette.accent),
-                BoardStat(id: "completed", title: "Completed", value: "\(completed)", icon: "checkmark.circle", accent: KanbanColumn.done.palette.accent),
+                BoardStat(id: "in-progress", title: "In Progress", value: "\(inProgress)", icon: "hammer", accent: KanbanColumn.doing.palette(for: colorScheme).accent),
+                BoardStat(id: "completed", title: "Completed", value: "\(completed)", icon: "checkmark.circle", accent: KanbanColumn.done.palette(for: colorScheme).accent),
                 BoardStat(id: "overdue", title: "Overdue", value: "\(overdue)", icon: "clock.badge.exclamationmark", accent: Color(hex: "F16063")),
                 BoardStat(id: "completion", title: "Completion", value: completionRate.formattedPercentage, icon: "chart.bar", accent: Color(hex: "7C5CFF"), progress: completionRate),
             ]
@@ -53,14 +54,44 @@
             !visibleColumns.isEmpty
         }
 
+        private var isDarkMode: Bool {
+            colorScheme == .dark
+        }
+
+        private var boardBackgroundColor: Color {
+            Color(.systemGroupedBackground)
+        }
+
+        private var controlBackgroundColor: Color {
+            Color(.secondarySystemBackground)
+        }
+
+        private var controlBorderColor: Color {
+            Color.primary.opacity(isDarkMode ? 0.24 : 0.12)
+        }
+
+        private var controlShadowColor: Color {
+            Color.black.opacity(isDarkMode ? 0.28 : 0.04)
+        }
+
+        private var columnShadowColor: Color {
+            Color.black.opacity(isDarkMode ? 0.35 : 0.04)
+        }
+
         private var columnBackgroundColor: Color {
             let normalized = max(0, min(columnBackgroundShade, 100)) / 100
+            if isDarkMode {
+                let minWhite = 0.12
+                let maxWhite = 0.28
+                let whiteValue = maxWhite - (maxWhite - minWhite) * normalized
+                return Color(.sRGB, white: whiteValue, opacity: 1)
+            }
             let whiteValue = 1 - normalized
             return Color(.sRGB, white: whiteValue, opacity: 1)
         }
 
         private var columnBorderColor: Color {
-            columnBackgroundColor.opacity(0.6)
+            Color.primary.opacity(isDarkMode ? 0.18 : 0.08)
         }
 
         var body: some View {
@@ -90,7 +121,7 @@
                 .padding(.vertical, 24)
                 .padding(.horizontal, 20)
             }
-            .background(Color(hex: "F5F6FB"))
+            .background(boardBackgroundColor)
             .navigationTitle("To-Do Board")
             .toolbar { toolbarContent }
             .refreshable { await refresh() }
@@ -170,13 +201,13 @@
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(controlBackgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(hex: "E5E7FF"), lineWidth: 0.8)
+                    .stroke(controlBorderColor, lineWidth: 0.8)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+            .shadow(color: controlShadowColor, radius: 6, x: 0, y: 4)
             .frame(width: 200, alignment: .leading)
         }
 
@@ -210,13 +241,13 @@
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(controlBackgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(hex: "E5E7FF"), lineWidth: 0.8)
+                    .stroke(controlBorderColor, lineWidth: 0.8)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+            .shadow(color: controlShadowColor, radius: 6, x: 0, y: 4)
             .frame(width: 220, alignment: .leading)
         }
 
@@ -254,14 +285,14 @@
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white)
+                            .fill(controlBackgroundColor)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(hex: "DEE0EA"), lineWidth: 0.8)
+                            .stroke(controlBorderColor, lineWidth: 0.8)
                     )
-                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
-                    .foregroundStyle(Color(hex: "474C63"))
+                    .shadow(color: controlShadowColor, radius: 6, x: 0, y: 4)
+                    .foregroundStyle(.primary)
             }
         }
 
@@ -284,13 +315,13 @@
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(controlBackgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(hex: "DEE0EA"), lineWidth: 0.8)
+                    .stroke(controlBorderColor, lineWidth: 0.8)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+            .shadow(color: controlShadowColor, radius: 6, x: 0, y: 4)
             .frame(width: 220, alignment: .leading)
         }
 
@@ -309,14 +340,14 @@
         private func columnView(for column: KanbanColumn) -> some View {
             let todos = sortedTodos(for: column)
             let containsRepeating = column == .done && todos.contains { $0.isRepeating }
-            let palette = column.palette
+            let palette = column.palette(for: colorScheme)
 
             return VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(column.displayTitle)
                             .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                         Text(column.subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -334,9 +365,9 @@
                                 .padding(.vertical, 8)
                                 .background(
                                     Capsule()
-                                        .fill(Color(hex: "E0E2EB"))
+                                        .fill(Color(.tertiarySystemBackground))
                                 )
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(.primary)
                         }
                         .buttonStyle(.plain)
                         .disabled(containsRepeating)
@@ -349,20 +380,20 @@
                         .padding(10)
                         .background(
                             Circle()
-                                .fill(Color.white)
+                                .fill(Color(.secondarySystemBackground))
                                 .overlay(
                                     Circle()
-                                        .stroke(Color(hex: "D9DCE8"), lineWidth: 1)
+                                        .stroke(Color(.separator), lineWidth: 1)
                                 )
                         )
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(.primary)
                 }
 
                 if todos.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("No tasks yet")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                         Text(column.emptyPlaceholder)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -404,7 +435,7 @@
                 RoundedRectangle(cornerRadius: 24)
                     .stroke(columnBorderColor, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 18, x: 0, y: 10)
+            .shadow(color: columnShadowColor, radius: 18, x: 0, y: 10)
         }
 
         private func tags(for todo: KanbanTodo) -> [TagRow] {
@@ -572,12 +603,33 @@
 
     private struct BoardStatCard: View {
         let stat: BoardStat
+        @Environment(\.colorScheme) private var colorScheme
+
+        private var isDarkMode: Bool {
+            colorScheme == .dark
+        }
+
+        private var cardBackground: Color {
+            Color(.secondarySystemBackground)
+        }
+
+        private var cardBorderColor: Color {
+            Color.primary.opacity(isDarkMode ? 0.22 : 0.12)
+        }
+
+        private var cardShadowColor: Color {
+            Color.black.opacity(isDarkMode ? 0.28 : 0.03)
+        }
+
+        private var iconBackgroundOpacity: Double {
+            isDarkMode ? 0.22 : 0.12
+        }
 
         var body: some View {
             HStack(alignment: .center, spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(stat.accent.opacity(0.12))
+                        .fill(stat.accent.opacity(iconBackgroundOpacity))
                         .frame(width: 30, height: 30)
                     Image(systemName: stat.icon)
                         .font(.system(size: 15, weight: .semibold))
@@ -602,13 +654,13 @@
             .frame(width: 180, height: 60, alignment: .center)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(cardBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(hex: "E6E8F5"), lineWidth: 0.6)
+                    .stroke(cardBorderColor, lineWidth: 0.6)
             )
-            .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+            .shadow(color: cardShadowColor, radius: 5, x: 0, y: 2)
         }
     }
 
@@ -630,52 +682,53 @@
     }
 
     private extension KanbanColumn {
-        var palette: KanbanColumnPalette {
+        func palette(for colorScheme: ColorScheme) -> KanbanColumnPalette {
+            let isDarkMode = colorScheme == .dark
             switch self {
             case .backlog:
                 return KanbanColumnPalette(
                     accent: Color(hex: "F29933"),
-                    backgroundTop: Color(hex: "FFF8E9"),
-                    backgroundBottom: Color(hex: "FFEFD1"),
-                    cardBackground: .white,
-                    cardBorder: Color(hex: "FFE2B2"),
-                    filterActiveBackground: Color(hex: "FFF3DF")
+                    backgroundTop: isDarkMode ? Color(hex: "2F2418") : Color(hex: "FFF8E9"),
+                    backgroundBottom: isDarkMode ? Color(hex: "241B12") : Color(hex: "FFEFD1"),
+                    cardBackground: isDarkMode ? Color(hex: "2A221A") : .white,
+                    cardBorder: isDarkMode ? Color(hex: "5B3A1A") : Color(hex: "FFE2B2"),
+                    filterActiveBackground: isDarkMode ? Color(hex: "3A2B1B") : Color(hex: "FFF3DF")
                 )
             case .prioritised:
                 return KanbanColumnPalette(
                     accent: Color(hex: "F45B7A"),
-                    backgroundTop: Color(hex: "FFEFF4"),
-                    backgroundBottom: Color(hex: "FFDDE5"),
-                    cardBackground: .white,
-                    cardBorder: Color(hex: "FFC5D5"),
-                    filterActiveBackground: Color(hex: "FFE7ED")
+                    backgroundTop: isDarkMode ? Color(hex: "2E1C22") : Color(hex: "FFEFF4"),
+                    backgroundBottom: isDarkMode ? Color(hex: "24161B") : Color(hex: "FFDDE5"),
+                    cardBackground: isDarkMode ? Color(hex: "2A1C22") : .white,
+                    cardBorder: isDarkMode ? Color(hex: "5C2B3A") : Color(hex: "FFC5D5"),
+                    filterActiveBackground: isDarkMode ? Color(hex: "3A222A") : Color(hex: "FFE7ED")
                 )
             case .doing:
                 return KanbanColumnPalette(
                     accent: Color(hex: "7A6BFF"),
-                    backgroundTop: Color(hex: "F2F1FF"),
-                    backgroundBottom: Color(hex: "E3E1FF"),
-                    cardBackground: .white,
-                    cardBorder: Color(hex: "CCC8FF"),
-                    filterActiveBackground: Color(hex: "ECEBFF")
+                    backgroundTop: isDarkMode ? Color(hex: "221E34") : Color(hex: "F2F1FF"),
+                    backgroundBottom: isDarkMode ? Color(hex: "1A182C") : Color(hex: "E3E1FF"),
+                    cardBackground: isDarkMode ? Color(hex: "25213A") : .white,
+                    cardBorder: isDarkMode ? Color(hex: "3F3173") : Color(hex: "CCC8FF"),
+                    filterActiveBackground: isDarkMode ? Color(hex: "2D2546") : Color(hex: "ECEBFF")
                 )
             case .done:
                 return KanbanColumnPalette(
                     accent: Color(hex: "42C195"),
-                    backgroundTop: Color(hex: "EEFBF5"),
-                    backgroundBottom: Color(hex: "DBF3E7"),
-                    cardBackground: .white,
-                    cardBorder: Color(hex: "B5E8D4"),
-                    filterActiveBackground: Color(hex: "E8F7F0")
+                    backgroundTop: isDarkMode ? Color(hex: "1C2C26") : Color(hex: "EEFBF5"),
+                    backgroundBottom: isDarkMode ? Color(hex: "16231E") : Color(hex: "DBF3E7"),
+                    cardBackground: isDarkMode ? Color(hex: "1E2A24") : .white,
+                    cardBorder: isDarkMode ? Color(hex: "2F5B4A") : Color(hex: "B5E8D4"),
+                    filterActiveBackground: isDarkMode ? Color(hex: "24342C") : Color(hex: "E8F7F0")
                 )
             case .archived:
                 return KanbanColumnPalette(
                     accent: Color(hex: "8F95A5"),
-                    backgroundTop: Color(hex: "F4F5F8"),
-                    backgroundBottom: Color(hex: "E7E8EF"),
-                    cardBackground: .white,
-                    cardBorder: Color(hex: "D5D6E0"),
-                    filterActiveBackground: Color(hex: "F0F1F5")
+                    backgroundTop: isDarkMode ? Color(hex: "23262B") : Color(hex: "F4F5F8"),
+                    backgroundBottom: isDarkMode ? Color(hex: "1B1E23") : Color(hex: "E7E8EF"),
+                    cardBackground: isDarkMode ? Color(hex: "22252B") : .white,
+                    cardBorder: isDarkMode ? Color(hex: "3A3F4C") : Color(hex: "D5D6E0"),
+                    filterActiveBackground: isDarkMode ? Color(hex: "2B2F36") : Color(hex: "F0F1F5")
                 )
             }
         }
@@ -705,6 +758,15 @@
         let tags: [TagRow]
         let palette: KanbanColumnPalette
         var onToggleCompletion: (Bool) -> Void
+        @Environment(\.colorScheme) private var colorScheme
+
+        private var isDarkMode: Bool {
+            colorScheme == .dark
+        }
+
+        private var cardShadowColor: Color {
+            Color.black.opacity(isDarkMode ? 0.32 : 0.04)
+        }
 
         private static let dateFormatter: DateFormatter = {
             let formatter = DateFormatter()
@@ -762,15 +824,15 @@
 
         private var dueStateBackgroundColor: Color? {
             switch dueState {
-            case .overdue: return Color(hex: "FFE2E2")
-            case .dueToday: return Color(hex: "E5F1FF")
+            case .overdue: return isDarkMode ? Color.red.opacity(0.24) : Color(hex: "FFE2E2")
+            case .dueToday: return isDarkMode ? Color.blue.opacity(0.22) : Color(hex: "E5F1FF")
             default: return nil
             }
         }
 
         private var completedColumnBackgroundColor: Color? {
             guard [.done, .archived].contains(todo.column) else { return nil }
-            return Color(hex: "E9EAEF")
+            return isDarkMode ? Color(.tertiarySystemBackground) : Color(hex: "E9EAEF")
         }
 
         private var cardBackgroundColor: Color {
@@ -811,7 +873,7 @@
                     PriorityBadge(priority: todo.priority, fontSize: fontSize)
 
                     Rectangle()
-                        .fill(Color(hex: "D8D9E3"))
+                        .fill(Color(.separator))
                         .frame(width: 1, height: 18)
 
                     Spacer()
@@ -853,12 +915,17 @@
             }
             .opacity(todo.isCompleted ? 0.6 : 1)
             .contentShape(RoundedRectangle(cornerRadius: 18))
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .shadow(color: cardShadowColor, radius: 8, x: 0, y: 4)
         }
 
         private struct PriorityBadge: View {
             let priority: KanbanPriority
             let fontSize: KanbanFontSize
+            @Environment(\.colorScheme) private var colorScheme
+
+            private var backgroundOpacity: Double {
+                colorScheme == .dark ? 0.28 : 0.16
+            }
 
             var body: some View {
                 HStack(spacing: 6) {
@@ -872,7 +939,7 @@
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(priority.color.opacity(0.16))
+                        .fill(priority.color.opacity(backgroundOpacity))
                 )
                 .foregroundColor(priority.color)
             }
@@ -881,6 +948,11 @@
         private struct RepeatBadge: View {
             let frequency: KanbanRepeatFrequency
             let fontSize: KanbanFontSize
+            @Environment(\.colorScheme) private var colorScheme
+
+            private var backgroundOpacity: Double {
+                colorScheme == .dark ? 0.22 : 0.1
+            }
 
             var body: some View {
                 HStack(spacing: 4) {
@@ -893,7 +965,7 @@
                 .padding(.vertical, 2)
                 .background(
                     Capsule()
-                        .fill(Color.accentColor.opacity(0.1))
+                        .fill(Color.accentColor.opacity(backgroundOpacity))
                 )
                 .foregroundColor(.accentColor)
                 .accessibilityLabel("Repeats \(frequency.displayName)")
@@ -903,14 +975,24 @@
 
     private struct TagPill: View {
         let tag: TagRow
+        @Environment(\.colorScheme) private var colorScheme
+
+        private var isDarkMode: Bool {
+            colorScheme == .dark
+        }
 
         private var backgroundColor: Color {
-            guard let hex = tag.color, !hex.isEmpty else { return Color.gray.opacity(0.2) }
-            return Color(hex: hex).opacity(0.18)
+            guard let hex = tag.color, !hex.isEmpty else {
+                return Color.gray.opacity(isDarkMode ? 0.35 : 0.2)
+            }
+            return Color(hex: hex).opacity(isDarkMode ? 0.32 : 0.18)
         }
 
         private var textColor: Color {
             guard let hex = tag.color, !hex.isEmpty else { return .primary }
+            if isDarkMode {
+                return .white
+            }
             return Color.textColor(forHex: hex)
         }
 
