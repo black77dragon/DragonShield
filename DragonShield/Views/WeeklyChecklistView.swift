@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(macOS)
+    import AppKit
+#elseif canImport(UIKit)
+    import UIKit
+#endif
 
 private struct WeeklyChecklistSummary: Identifiable {
     let theme: PortfolioTheme
@@ -461,8 +466,7 @@ struct WeeklyChecklistEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     sectionCard(title: "1. Regime sanity check", subtitle: "Answer in order. If you cannot articulate the regime in one sentence, you are reacting, not allocating.") {
-                        TextField("One-sentence regime statement", text: $answers.regimeStatement)
-                            .textFieldStyle(.roundedBorder)
+                        adaptiveTextField("One-sentence regime statement", text: $answers.regimeStatement)
                             .help("Required for completion.")
                         Picker("Regime change vs noise", selection: $answers.regimeAssessment) {
                             Text("Select...").tag(RegimeAssessment?.none)
@@ -506,11 +510,11 @@ struct WeeklyChecklistEditorView: View {
 
                     sectionCard(title: "4. Exposure and sizing check", subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules.") {
                         ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
-                            TextField("Top macro risk \(idx + 1)", text: Binding(
+                            let binding = Binding(
                                 get: { answers.exposureCheck.topMacroRisks[idx] },
                                 set: { answers.exposureCheck.topMacroRisks[idx] = $0 }
-                            ))
-                            .textFieldStyle(.roundedBorder)
+                            )
+                            adaptiveTextField("Top macro risk \(idx + 1)", text: binding)
                         }
                         TextEditor(text: $answers.exposureCheck.sharedRiskPositions)
                             .frame(minHeight: 70)
@@ -562,12 +566,10 @@ struct WeeklyChecklistEditorView: View {
     private var topBar: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Button("Cancel") { cancelChanges() }
-                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                 Button(saveLabel) { saveProgress() }
-                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+                    .buttonStyle(DSButtonStyle(type: saveButtonType, size: .small))
                 Button("Mark Complete") { markComplete() }
-                    .buttonStyle(DSButtonStyle(type: .primary, size: .small))
+                    .buttonStyle(DSButtonStyle(type: .success, size: .small))
                 Button("Skip Week") { showSkipSheet = true }
                     .buttonStyle(DSButtonStyle(type: .destructive, size: .small))
                 Spacer()
@@ -630,8 +632,7 @@ struct WeeklyChecklistEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Position / Theme", text: bindingForThesis(item.id, \.position))
                 .textFieldStyle(.roundedBorder)
-            TextField("Original thesis (1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
-                .textFieldStyle(.roundedBorder)
+            adaptiveTextField("Original thesis (1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
             TextField("New data this week", text: bindingForThesis(item.id, \.newData))
                 .textFieldStyle(.roundedBorder)
             Picker("Impact", selection: bindingForThesis(item.id, \.impact)) {
@@ -665,6 +666,105 @@ struct WeeklyChecklistEditorView: View {
 
     private func defaultValue<Value>(for keyPath: WritableKeyPath<ThesisCheck, Value>) -> Value {
         ThesisCheck()[keyPath: keyPath]
+    }
+
+    private func adaptiveTextField(_ title: String, text: Binding<String>, minLines: Int = 2, maxLines: Int = 15) -> some View {
+        AdaptiveTextEditor(title: title, text: text, minLines: minLines, maxLines: maxLines)
+    }
+
+    private struct AdaptiveTextEditor: View {
+        let title: String
+        @Binding var text: String
+        let minLines: Int
+        let maxLines: Int
+
+        @State private var measuredHeight: CGFloat = 0
+
+        private let contentPadding = EdgeInsets(top: 7, leading: 6, bottom: 7, trailing: 6)
+        private let sliderWidth: CGFloat = 4
+        private let sliderPadding: CGFloat = 4
+        private let overflowTolerance: CGFloat = 1
+
+        var body: some View {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $text)
+                    .font(.body)
+                    .frame(height: editorHeight)
+                    .scrollIndicators(.visible)
+                    .tint(.blue)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+
+                if text.isEmpty {
+                    Text(title)
+                        .foregroundColor(.secondary)
+                        .padding(contentPadding)
+                        .allowsHitTesting(false)
+                }
+
+                measurementText
+            }
+            .onPreferenceChange(HeightKey.self) { measuredHeight = $0 }
+            .overlay(alignment: .trailing) {
+                if showsOverflowIndicator {
+                    Capsule()
+                        .fill(Color.blue)
+                        .frame(width: sliderWidth, height: sliderHeight)
+                        .padding(.trailing, sliderPadding)
+                }
+            }
+        }
+
+        private var measurementText: some View {
+            Text(text.isEmpty ? " " : text)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(contentPadding)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: HeightKey.self, value: proxy.size.height)
+                    }
+                )
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
+
+        private var editorHeight: CGFloat {
+            max(minHeight, min(maxHeight, measuredHeight))
+        }
+
+        private var showsOverflowIndicator: Bool {
+            measuredHeight > maxHeight + overflowTolerance
+        }
+
+        private var sliderHeight: CGFloat {
+            max(24, min(64, maxHeight * 0.25))
+        }
+
+        private var minHeight: CGFloat {
+            lineHeight * CGFloat(max(1, minLines)) + contentPadding.top + contentPadding.bottom
+        }
+
+        private var maxHeight: CGFloat {
+            lineHeight * CGFloat(max(1, maxLines)) + contentPadding.top + contentPadding.bottom
+        }
+
+        private var lineHeight: CGFloat {
+            #if os(macOS)
+                NSFont.systemFont(ofSize: NSFont.systemFontSize).boundingRectForFont.height
+            #elseif canImport(UIKit)
+                UIFont.preferredFont(forTextStyle: .body).lineHeight
+            #else
+                17
+            #endif
+        }
+
+        private struct HeightKey: PreferenceKey {
+            static var defaultValue: CGFloat = 0
+
+            static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+                value = max(value, nextValue())
+            }
+        }
     }
 
     private var canComplete: Bool {
@@ -726,10 +826,6 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
-    private func cancelChanges() {
-        loadState()
-    }
-
     private func captureBaseline() {
         baselineAnswers = answers
         baselineSkipComment = skipComment
@@ -769,6 +865,13 @@ struct WeeklyChecklistEditorView: View {
             return "Save Changes"
         }
         return "Save Draft"
+    }
+
+    private var saveButtonType: DSButtonStyleType {
+        if status == .completed || status == .skipped {
+            return .secondary
+        }
+        return .primary
     }
 
     @discardableResult
