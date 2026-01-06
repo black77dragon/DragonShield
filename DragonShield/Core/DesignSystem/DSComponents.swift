@@ -32,6 +32,7 @@ enum DSButtonStyleType {
     case secondary
     case ghost
     case destructive
+    case success
 }
 
 struct DSButtonStyle: ButtonStyle {
@@ -64,7 +65,7 @@ struct DSButtonStyle: ButtonStyle {
             switch type {
             case .ghost:
                 return Color.clear
-            case .secondary, .primary, .destructive:
+            case .secondary, .primary, .destructive, .success:
                 return DSColor.surfaceSecondary
             }
         }
@@ -77,6 +78,8 @@ struct DSButtonStyle: ButtonStyle {
             return isPressed ? DSColor.surfaceHighlight : Color.clear
         case .destructive:
             return isPressed ? DSColor.accentError.opacity(0.9) : DSColor.accentError
+        case .success:
+            return isPressed ? DSColor.accentSuccess.opacity(0.9) : DSColor.accentSuccess
         }
     }
     
@@ -85,7 +88,7 @@ struct DSButtonStyle: ButtonStyle {
             return DSColor.textTertiary
         }
         switch type {
-        case .primary, .destructive:
+        case .primary, .destructive, .success:
             return DSColor.textOnAccent
         case .secondary, .ghost:
             return DSColor.textPrimary

@@ -83,6 +83,16 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [changes] **[DS-092] Weekly Checklist Dynamic Multi-Line Inputs + Overflow Indicator** (2026-01-05)
+    Why: Weekly checklist descriptions need more space and clearer overflow cues so longer notes remain readable without sacrificing compact layouts for short entries.
+    What: Replace the targeted weekly checklist text fields with adaptive multi-line inputs that expand up to 15 lines based on content; show a blue overflow indicator when content exceeds the visible area for Regime statement, Original thesis, and Top Macro Risk 1.
+    Tested: confirmed by user.
+
+- [x] [changes] **[DS-093] Redesign Historic Performance GUI to Match Reference** (2026-01-06)
+    Why: The current Historic Performance view does not match the desired design, so it feels inconsistent with the new visual direction and makes it harder to scan key performance signals.
+    What: Redesign the Historic Performance GUI to match the attached reference design, including the header layout (instrument name, large price, delta with percent and timeframe), the segmented time-range control (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, MAX) with the active chip styling, and the chart style (clean grid, muted axis labels, green line with a soft gradient fill). Keep the data and interactions intact while updating typography, spacing, and visual hierarchy to align with the reference.
+    Tested: confirmed by user.
+
 - [x] [changes] **[DS-070] DS-062 Cleanup: Remove Remaining DatabaseManager Preference Bindings** (2026-01-04)
     Why: DS-062 split preferences into `AppPreferences`, but a couple of iOS screens still read deprecated `DatabaseManager` prefs. This keeps UI state coupled to the DB manager and blocks full removal of the legacy published fields.
     What: Move the remaining iOS preference bindings from `DatabaseManager` to `AppPreferences`, then remove the deprecated published fields once no call sites remain. Update:

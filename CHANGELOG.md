@@ -11,7 +11,11 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ## [Unreleased]
 
-## [1.41.0] - 2026-01-04
+### Changed
+- [DS-092] Weekly Checklist Dynamic Multi-Line Inputs + Overflow Indicator (implemented 2026-01-05)
+- [DS-093] Redesign Historic Performance GUI to Match Reference (implemented 2026-01-06)
+
+## [1.42.0] - 2026-01-04
 
 ### Added
 - [DS-086] Sidebar Menu Manual Reordering (implemented 2026-01-04)
@@ -24,6 +28,8 @@ When applicable, include the feature reference ID and implementation date in ISO
 ### Fixed
 - [DS-087] Asset Management Report Crypto Orig Currency + Total Crypto Share (implemented 2026-01-04)
 - [DS-012] Fix Account Price Update Flow (implemented 2026-01-04)
+
+## [1.41.0] - 2026-01-04
 
 ## [1.40.0] - 2026-01-04
 
