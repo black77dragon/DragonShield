@@ -25,11 +25,17 @@ enum ThesisRiskLevel: String, CaseIterable, Codable {
     case warn
 }
 
+enum ThesisRiskTriggered: String, CaseIterable, Codable {
+    case yes
+    case no
+}
+
 struct ThesisRisk: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
     var level: ThesisRiskLevel = .warn
     var rule: String = ""
     var trigger: String = ""
+    var triggered: ThesisRiskTriggered = .no
 }
 
 struct ThesisCheck: Identifiable, Codable, Hashable {
