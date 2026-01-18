@@ -465,79 +465,18 @@ struct WeeklyChecklistEditorView: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    sectionCard(title: "1. Regime sanity check", subtitle: "Answer in order. If you cannot articulate the regime in one sentence, you are reacting, not allocating.") {
-                        adaptiveTextField("One-sentence regime statement", text: $answers.regimeStatement)
-                            .help("Required for completion.")
-                        Picker("Regime change vs noise", selection: $answers.regimeAssessment) {
-                            Text("Select...").tag(RegimeAssessment?.none)
-                            ForEach(RegimeAssessment.allCases, id: \.self) { item in
-                                Text(item.rawValue.capitalized).tag(Optional(item))
-                            }
-                        }
-                        TextField("Liquidity", text: $answers.liquidity)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Rates (real, not nominal)", text: $answers.rates)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Policy stance", text: $answers.policyStance)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Risk appetite", text: $answers.riskAppetite)
-                            .textFieldStyle(.roundedBorder)
-                    }
-
-                    sectionCard(title: "2. Thesis integrity check", subtitle: "For each major position or theme, capture the original thesis and what changed this week.") {
+                    sectionCard(title: "Thesis weekly pulse", subtitle: "Capture scores, deltas, and the one-line change that matters.") {
                         if answers.thesisChecks.isEmpty {
-                            Text("No positions added yet.")
+                            Text("No thesis entries yet.")
                                 .foregroundColor(.secondary)
                         }
                         ForEach(answers.thesisChecks) { item in
                             thesisCard(item)
                         }
-                        Button("Add position") {
+                        Button("Add thesis entry") {
                             answers.thesisChecks.append(ThesisCheck())
                         }
                         .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                    }
-
-                    sectionCard(title: "3. Narrative drift detection", subtitle: "Check the statements that apply and capture any red-flag language.") {
-                        Toggle("Explaining price action with better stories, not better evidence", isOn: $answers.narrativeDrift.storyOverEvidence)
-                        Toggle("Relaxed or redefined invalidation criteria", isOn: $answers.narrativeDrift.invalidationCriteriaRelaxed)
-                        Toggle("Added new reasons to justify an old position", isOn: $answers.narrativeDrift.addedNewReasons)
-                        TextEditor(text: $answers.narrativeDrift.redFlagNotes)
-                            .frame(minHeight: 80)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Examples: Longer term..., The market doesn't understand yet..., This is actually bullish if you think about it...")
-                    }
-
-                    sectionCard(title: "4. Exposure and sizing check", subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules.") {
-                        ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
-                            let binding = Binding(
-                                get: { answers.exposureCheck.topMacroRisks[idx] },
-                                set: { answers.exposureCheck.topMacroRisks[idx] = $0 }
-                            )
-                            adaptiveTextField("Top macro risk \(idx + 1)", text: binding)
-                        }
-                        TextEditor(text: $answers.exposureCheck.sharedRiskPositions)
-                            .frame(minHeight: 70)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Which positions express the same risk?")
-                        TextEditor(text: $answers.exposureCheck.hiddenCorrelations)
-                            .frame(minHeight: 70)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Hidden correlations to acknowledge.")
-                        Toggle("No single theme can hurt sleep if wrong", isOn: $answers.exposureCheck.sleepRiskAcknowledged)
-                        Toggle("Upsizing requires fresh confirmation, not comfort", isOn: $answers.exposureCheck.upsizingRuleConfirmed)
-                    }
-
-                    sectionCard(title: "5. Action discipline", subtitle: "Choose a single action and write it in one line.") {
-                        Picker("Decision", selection: $answers.actionDiscipline.decision) {
-                            Text("Select...").tag(ActionDecision?.none)
-                            ForEach(ActionDecision.allCases, id: \.self) { decision in
-                                Text(decisionLabel(decision)).tag(Optional(decision))
-                            }
-                        }
-                        TextField("Decision (one line)", text: $answers.actionDiscipline.decisionLine)
-                            .textFieldStyle(.roundedBorder)
-                            .help("Required for completion.")
                     }
                 }
                 .padding(16)
@@ -570,6 +509,8 @@ struct WeeklyChecklistEditorView: View {
                     .buttonStyle(DSButtonStyle(type: saveButtonType, size: .small))
                 Button("Mark Complete") { markComplete() }
                     .buttonStyle(DSButtonStyle(type: .success, size: .small))
+                    .disabled(!canComplete)
+                    .help("Complete all thesis entries before marking complete.")
                 Button("Skip Week") { showSkipSheet = true }
                     .buttonStyle(DSButtonStyle(type: .destructive, size: .small))
                 Spacer()
@@ -632,17 +573,42 @@ struct WeeklyChecklistEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Position / Theme", text: bindingForThesis(item.id, \.position))
                 .textFieldStyle(.roundedBorder)
-            adaptiveTextField("Original thesis (1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
-            TextField("New data this week", text: bindingForThesis(item.id, \.newData))
-                .textFieldStyle(.roundedBorder)
-            Picker("Impact", selection: bindingForThesis(item.id, \.impact)) {
-                Text("Select...").tag(ThesisImpact?.none)
-                ForEach(ThesisImpact.allCases, id: \.self) { impact in
-                    Text(impact.rawValue.capitalized).tag(Optional(impact))
+            adaptiveTextField("Base thesis (locked, 1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
+            scoreRow(
+                title: "Macro",
+                score: bindingForThesis(item.id, \.macroScore),
+                delta: bindingForThesis(item.id, \.macroDelta),
+                note: bindingForThesis(item.id, \.macroNote),
+                notePlaceholder: "Macro note (tailwind / headwind)"
+            )
+            scoreRow(
+                title: "Edge",
+                score: bindingForThesis(item.id, \.edgeScore),
+                delta: bindingForThesis(item.id, \.edgeDelta),
+                note: bindingForThesis(item.id, \.edgeNote),
+                notePlaceholder: "Edge note (moat in 4 words)"
+            )
+            scoreRow(
+                title: "Growth",
+                score: bindingForThesis(item.id, \.growthScore),
+                delta: bindingForThesis(item.id, \.growthDelta),
+                note: bindingForThesis(item.id, \.growthNote),
+                notePlaceholder: "Growth note (next buyer + trigger)"
+            )
+            if let netScore = item.netScore {
+                Text(String(format: "Net score: %.1f", netScore))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Picker("Action", selection: bindingForThesis(item.id, \.actionTag)) {
+                Text("Select...").tag(ThesisActionTag?.none)
+                ForEach(ThesisActionTag.allCases, id: \.self) { tag in
+                    Text(actionTagLabel(tag)).tag(Optional(tag))
                 }
             }
-            Toggle("If I did not own this, I would still enter today", isOn: bindingForThesis(item.id, \.wouldEnterToday))
-            Button("Remove position") {
+            adaptiveTextField("Change log (one sentence)", text: bindingForThesis(item.id, \.changeLog), minLines: 1, maxLines: 4)
+            riskSection(for: item)
+            Button("Remove thesis") {
                 answers.thesisChecks.removeAll { $0.id == item.id }
             }
             .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
@@ -670,6 +636,131 @@ struct WeeklyChecklistEditorView: View {
 
     private func adaptiveTextField(_ title: String, text: Binding<String>, minLines: Int = 2, maxLines: Int = 15) -> some View {
         AdaptiveTextEditor(title: title, text: text, minLines: minLines, maxLines: maxLines)
+    }
+
+    private func scoreRow(
+        title: String,
+        score: Binding<Int?>,
+        delta: Binding<ThesisScoreDelta?>,
+        note: Binding<String>,
+        notePlaceholder: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            HStack(spacing: 12) {
+                Picker("Score", selection: score) {
+                    Text("Score").tag(Int?.none)
+                    ForEach(1...10, id: \.self) { value in
+                        Text("\(value)").tag(Optional(value))
+                    }
+                }
+                Picker("Delta", selection: delta) {
+                    Text("Delta").tag(ThesisScoreDelta?.none)
+                    ForEach(ThesisScoreDelta.allCases, id: \.self) { deltaValue in
+                        Text(deltaLabel(deltaValue)).tag(Optional(deltaValue))
+                    }
+                }
+                .frame(maxWidth: 120)
+            }
+            adaptiveTextField(notePlaceholder, text: note, minLines: 1, maxLines: 3)
+        }
+    }
+
+    private func riskSection(for item: ThesisCheck) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Risks")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if item.risks.isEmpty {
+                Text("No risks logged.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            ForEach(item.risks) { risk in
+                riskRow(thesisId: item.id, riskId: risk.id)
+            }
+            Button("Add risk") {
+                addRisk(to: item.id)
+            }
+            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+        }
+    }
+
+    private func riskRow(thesisId: UUID, riskId: UUID) -> some View {
+        HStack(spacing: 8) {
+            Picker("Level", selection: bindingForRisk(thesisId, riskId, \.level)) {
+                ForEach(ThesisRiskLevel.allCases, id: \.self) { level in
+                    Text(riskLevelLabel(level)).tag(level)
+                }
+            }
+            TextField("Rule", text: bindingForRisk(thesisId, riskId, \.rule))
+                .textFieldStyle(.roundedBorder)
+            TextField("Trigger", text: bindingForRisk(thesisId, riskId, \.trigger))
+                .textFieldStyle(.roundedBorder)
+            Button("Remove") {
+                removeRisk(from: thesisId, riskId: riskId)
+            }
+            .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+        }
+    }
+
+    private func bindingForRisk<Value>(_ thesisId: UUID, _ riskId: UUID, _ keyPath: WritableKeyPath<ThesisRisk, Value>) -> Binding<Value> {
+        Binding(
+            get: {
+                guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }),
+                      let riskIndex = answers.thesisChecks[thesisIndex].risks.firstIndex(where: { $0.id == riskId }) else {
+                    return ThesisRisk()[keyPath: keyPath]
+                }
+                return answers.thesisChecks[thesisIndex].risks[riskIndex][keyPath: keyPath]
+            },
+            set: { newValue in
+                guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }),
+                      let riskIndex = answers.thesisChecks[thesisIndex].risks.firstIndex(where: { $0.id == riskId }) else {
+                    return
+                }
+                answers.thesisChecks[thesisIndex].risks[riskIndex][keyPath: keyPath] = newValue
+            }
+        )
+    }
+
+    private func addRisk(to thesisId: UUID) {
+        guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }) else { return }
+        answers.thesisChecks[thesisIndex].risks.append(ThesisRisk())
+    }
+
+    private func removeRisk(from thesisId: UUID, riskId: UUID) {
+        guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }) else { return }
+        answers.thesisChecks[thesisIndex].risks.removeAll { $0.id == riskId }
+    }
+
+    private func deltaLabel(_ delta: ThesisScoreDelta) -> String {
+        switch delta {
+        case .up: return "Up"
+        case .flat: return "Flat"
+        case .down: return "Down"
+        }
+    }
+
+    private func actionTagLabel(_ tag: ThesisActionTag) -> String {
+        switch tag {
+        case .none: return "None"
+        case .watch: return "Watch"
+        case .add: return "Add"
+        case .trim: return "Trim"
+        case .exit: return "Exit"
+        }
+    }
+
+    private func riskLevelLabel(_ level: ThesisRiskLevel) -> String {
+        switch level {
+        case .breaker: return "Breaker"
+        case .warn: return "Warn"
+        }
     }
 
     private struct AdaptiveTextEditor: View {
@@ -768,18 +859,16 @@ struct WeeklyChecklistEditorView: View {
     }
 
     private var canComplete: Bool {
-        !answers.regimeStatement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        answers.actionDiscipline.decision != nil &&
-        !answers.actionDiscipline.decisionLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !answers.thesisChecks.isEmpty && answers.thesisChecks.allSatisfy { isThesisComplete($0) }
     }
 
-    private func decisionLabel(_ decision: ActionDecision) -> String {
-        switch decision {
-        case .doNothing: return "Do nothing"
-        case .trim: return "Trim"
-        case .add: return "Add"
-        case .exit: return "Exit"
-        }
+    private func isThesisComplete(_ item: ThesisCheck) -> Bool {
+        let hasPosition = !item.position.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasThesis = !item.originalThesis.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasScores = item.macroScore != nil && item.edgeScore != nil && item.growthScore != nil
+        let hasAction = item.actionTag != nil
+        let hasChangeLog = !item.changeLog.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasPosition && hasThesis && hasScores && hasAction && hasChangeLog
     }
 
     private func loadState() {
@@ -801,7 +890,6 @@ struct WeeklyChecklistEditorView: View {
             revision = 0
             prefillThesisChecks()
         }
-        normalizeAnswers()
         errorMessage = nil
         captureBaseline()
     }
@@ -815,14 +903,6 @@ struct WeeklyChecklistEditorView: View {
             copy.position = prior.position
             copy.originalThesis = prior.originalThesis
             return copy
-        }
-    }
-
-    private func normalizeAnswers() {
-        if answers.exposureCheck.topMacroRisks.count < 3 {
-            answers.exposureCheck.topMacroRisks.append(contentsOf: Array(repeating: "", count: 3 - answers.exposureCheck.topMacroRisks.count))
-        } else if answers.exposureCheck.topMacroRisks.count > 3 {
-            answers.exposureCheck.topMacroRisks = Array(answers.exposureCheck.topMacroRisks.prefix(3))
         }
     }
 
@@ -900,6 +980,10 @@ struct WeeklyChecklistEditorView: View {
 
     private func markComplete() {
         errorMessage = nil
+        guard canComplete else {
+            errorMessage = "Fill in all thesis entries before completing this week."
+            return
+        }
         let completedAtDate = Date()
         let ok = dbManager.upsertWeeklyChecklist(
             themeId: themeId,
@@ -969,7 +1053,6 @@ struct WeeklyChecklistEditorView: View {
         completedAt = updated.completedAt
         skippedAt = updated.skippedAt
         revision = updated.revision
-        normalizeAnswers()
         captureBaseline()
     }
 
