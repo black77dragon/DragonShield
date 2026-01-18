@@ -524,6 +524,9 @@ struct WeeklyChecklistEditorView: View {
     @State private var exportErrorMessage: String?
     @State private var isShowingExportError = false
     @State private var reportGeneratedAt: Date?
+    @State private var thesisDrafts: [ThesisAssessmentDraft] = []
+    @State private var baselineThesisDrafts: [ThesisAssessmentDraft] = []
+    @State private var showThesisManager = false
     private static let reportPDFWidth: CGFloat = 1200
 
     private enum TooltipText {
@@ -605,11 +608,16 @@ struct WeeklyChecklistEditorView: View {
         .onChange(of: answers) { _, _ in updateDirtyState() }
         .onChange(of: skipComment) { _, _ in updateDirtyState() }
         .onChange(of: status) { _, _ in updateDirtyState() }
+        .onChange(of: thesisDrafts) { _, _ in updateDirtyState() }
         .onDisappear {
             saveHandler = nil
         }
         .sheet(isPresented: $showSkipSheet) {
             SkipWeekSheet(skipComment: skipComment, onCancel: { showSkipSheet = false }, onConfirm: handleSkip)
+        }
+        .sheet(isPresented: $showThesisManager, onDismiss: loadThesisDrafts) {
+            PortfolioThesisLinkManagerView(themeId: themeId)
+                .environmentObject(dbManager)
         }
         .fileExporter(
             isPresented: $isShowingPDFExporter,
@@ -638,27 +646,215 @@ struct WeeklyChecklistEditorView: View {
 
     private func reportBody(includeActions: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionCard(
-                title: "Thesis weekly pulse",
-                titleHelp: TooltipText.weeklyPulse,
-                subtitle: "Capture scores, deltas, and the one-line change that matters."
-            ) {
-                if answers.thesisChecks.isEmpty {
-                    Text("No thesis entries yet.")
-                        .foregroundColor(.secondary)
-                }
-                ForEach(answers.thesisChecks) { item in
-                    thesisCard(item, includeActions: includeActions)
-                }
-                if includeActions {
-                    Button("Add thesis entry") {
-                        answers.thesisChecks.append(ThesisCheck())
-                    }
-                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                }
-            }
+            regimeSection(includeActions: includeActions)
+            thesisAssessmentsSection(includeActions: includeActions)
+            legacyThesisSection(includeActions: includeActions)
+            narrativeSection(includeActions: includeActions)
+            exposureSection(includeActions: includeActions)
+            actionSection(includeActions: includeActions)
         }
         .padding(16)
+    }
+
+    private func regimeSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "1. Regime sanity check",
+            subtitle: "Answer in order. If you cannot articulate the regime in one sentence, you are reacting, not allocating."
+        ) {
+            if includeActions {
+                adaptiveTextField("One-sentence regime statement", text: $answers.regimeStatement)
+                    .help("Required for completion.")
+                Picker("Regime change vs noise", selection: $answers.regimeAssessment) {
+                    Text("Select...").tag(RegimeAssessment?.none)
+                    ForEach(RegimeAssessment.allCases, id: \.self) { item in
+                        Text(item.rawValue.capitalized).tag(Optional(item))
+                    }
+                }
+                TextField("Liquidity", text: $answers.liquidity)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Rates (real, not nominal)", text: $answers.rates)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Policy stance", text: $answers.policyStance)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Risk appetite", text: $answers.riskAppetite)
+                    .textFieldStyle(.roundedBorder)
+            } else {
+                reportTextArea(answers.regimeStatement, placeholder: "One-sentence regime statement", minHeight: 46)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Regime change vs noise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    reportPickerLabel(
+                        text: regimeAssessmentText(answers.regimeAssessment),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 220
+                    )
+                }
+                reportTextField(answers.liquidity, placeholder: "Liquidity")
+                reportTextField(answers.rates, placeholder: "Rates (real, not nominal)")
+                reportTextField(answers.policyStance, placeholder: "Policy stance")
+                reportTextField(answers.riskAppetite, placeholder: "Risk appetite")
+            }
+        }
+    }
+
+    private func thesisAssessmentsSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "2. Thesis assessments",
+            subtitle: "Review linked theses with driver and risk scores. Update deltas and capture actions."
+        ) {
+            if thesisDrafts.isEmpty {
+                Text("No theses linked to this portfolio yet.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach($thesisDrafts) { $draft in
+                    if includeActions {
+                        DisclosureGroup(isExpanded: $draft.isExpanded) {
+                            ThesisAssessmentPanel(draft: $draft)
+                        } label: {
+                            Text(draft.thesisName)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(draft.thesisName)
+                                .font(.subheadline.weight(.semibold))
+                            if let summary = draft.thesisSummary,
+                               !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            {
+                                Text(summary)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            reportTextField(draft.verdict.map { $0.rawValue.capitalized } ?? "", placeholder: "No verdict")
+                            reportTextArea(draft.topChangesText, placeholder: "Top changes", minHeight: 46)
+                            reportTextArea(draft.actionsSummary, placeholder: "Actions summary", minHeight: 46)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            if includeActions {
+                Button("Manage Thesis Links") { showThesisManager = true }
+                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+            }
+        }
+    }
+
+    private func legacyThesisSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "3. Thesis integrity notes (legacy)",
+            subtitle: "Optional free-form notes for positions not covered by thesis definitions."
+        ) {
+            if answers.thesisChecks.isEmpty {
+                Text("No positions added yet.")
+                    .foregroundColor(.secondary)
+            }
+            ForEach(answers.thesisChecks) { item in
+                thesisCard(item, includeActions: includeActions)
+            }
+            if includeActions {
+                Button("Add position") {
+                    answers.thesisChecks.append(ThesisCheck())
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+            }
+        }
+    }
+
+    private func narrativeSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "4. Narrative drift detection",
+            subtitle: "Check the statements that apply and capture any red-flag language."
+        ) {
+            if includeActions {
+                Toggle("Explaining price action with better stories, not better evidence", isOn: $answers.narrativeDrift.storyOverEvidence)
+                Toggle("Relaxed or redefined invalidation criteria", isOn: $answers.narrativeDrift.invalidationCriteriaRelaxed)
+                Toggle("Added new reasons to justify an old position", isOn: $answers.narrativeDrift.addedNewReasons)
+                TextEditor(text: $answers.narrativeDrift.redFlagNotes)
+                    .frame(minHeight: 80)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Examples: Longer term..., The market doesn't understand yet..., This is actually bullish if you think about it...")
+            } else {
+                reportToggleRow("Explaining price action with better stories, not better evidence", isOn: answers.narrativeDrift.storyOverEvidence)
+                reportToggleRow("Relaxed or redefined invalidation criteria", isOn: answers.narrativeDrift.invalidationCriteriaRelaxed)
+                reportToggleRow("Added new reasons to justify an old position", isOn: answers.narrativeDrift.addedNewReasons)
+                reportTextArea(answers.narrativeDrift.redFlagNotes, placeholder: "Red-flag notes", minHeight: 80)
+            }
+        }
+    }
+
+    private func exposureSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "5. Exposure and sizing check",
+            subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules."
+        ) {
+            ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
+                let placeholder = "Top macro risk \(idx + 1)"
+                if includeActions {
+                    let binding = Binding(
+                        get: { answers.exposureCheck.topMacroRisks[idx] },
+                        set: { answers.exposureCheck.topMacroRisks[idx] = $0 }
+                    )
+                    adaptiveTextField(placeholder, text: binding)
+                } else {
+                    reportTextField(answers.exposureCheck.topMacroRisks[idx], placeholder: placeholder)
+                }
+            }
+            if includeActions {
+                TextEditor(text: $answers.exposureCheck.sharedRiskPositions)
+                    .frame(minHeight: 70)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Which positions express the same risk?")
+                TextEditor(text: $answers.exposureCheck.hiddenCorrelations)
+                    .frame(minHeight: 70)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Hidden correlations to acknowledge.")
+                Toggle("No single theme can hurt sleep if wrong", isOn: $answers.exposureCheck.sleepRiskAcknowledged)
+                Toggle("Upsizing requires fresh confirmation, not comfort", isOn: $answers.exposureCheck.upsizingRuleConfirmed)
+            } else {
+                reportTextArea(answers.exposureCheck.sharedRiskPositions, placeholder: "Shared risk positions", minHeight: 70)
+                reportTextArea(answers.exposureCheck.hiddenCorrelations, placeholder: "Hidden correlations", minHeight: 70)
+                reportToggleRow("No single theme can hurt sleep if wrong", isOn: answers.exposureCheck.sleepRiskAcknowledged)
+                reportToggleRow("Upsizing requires fresh confirmation, not comfort", isOn: answers.exposureCheck.upsizingRuleConfirmed)
+            }
+        }
+    }
+
+    private func actionSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "6. Action discipline",
+            subtitle: "Choose a single action and write it in one line."
+        ) {
+            if includeActions {
+                Picker("Decision", selection: $answers.actionDiscipline.decision) {
+                    Text("Select...").tag(ActionDecision?.none)
+                    ForEach(ActionDecision.allCases, id: \.self) { decision in
+                        Text(decisionLabel(decision)).tag(Optional(decision))
+                    }
+                }
+                TextField("Decision (one line)", text: $answers.actionDiscipline.decisionLine)
+                    .textFieldStyle(.roundedBorder)
+                    .help("Required for completion.")
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Decision")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    reportPickerLabel(
+                        text: actionDecisionText(answers.actionDiscipline.decision),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 180
+                    )
+                }
+                reportTextField(answers.actionDiscipline.decisionLine, placeholder: "Decision (one line)")
+            }
+        }
     }
 
     private var printableReportView: some View {
@@ -1240,6 +1436,23 @@ struct WeeklyChecklistEditorView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func reportToggleRow(_ title: String, isOn: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            reportTextField(isOn ? "Yes" : "No", placeholder: "No")
+        }
+    }
+
+    private func regimeAssessmentText(_ assessment: RegimeAssessment?) -> String {
+        assessment.map { $0.rawValue.capitalized } ?? "n/a"
+    }
+
+    private func actionDecisionText(_ decision: ActionDecision?) -> String {
+        decision.map(decisionLabel) ?? "n/a"
+    }
+
     private func valueOrPlaceholder(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "n/a" : trimmed
@@ -1760,6 +1973,8 @@ struct WeeklyChecklistEditorView: View {
             revision = 0
             prefillThesisChecks()
         }
+        loadThesisDrafts()
+        normalizeAnswers()
         errorMessage = nil
         captureBaseline()
     }
@@ -1776,15 +1991,175 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
+    private func loadThesisDrafts() {
+        let linkDetails = dbManager.listPortfolioThesisLinkDetails(themeId: themeId).filter { $0.link.status == .active }
+        guard !linkDetails.isEmpty else {
+            thesisDrafts = []
+            return
+        }
+        var drafts: [ThesisAssessmentDraft] = []
+        let entryId = entry?.id
+        for (index, detail) in linkDetails.enumerated() {
+            let drivers = dbManager.listThesisDrivers(thesisDefId: detail.link.thesisDefId)
+            let risks = dbManager.listThesisRisks(thesisDefId: detail.link.thesisDefId)
+
+            var currentDriverItems: [DriverWeeklyAssessmentItem] = []
+            var currentRiskItems: [RiskWeeklyAssessmentItem] = []
+            var verdict: ThesisVerdict?
+            var topChanges = ""
+            var actions = ""
+            if let entryId,
+               let assessment = dbManager.fetchPortfolioThesisWeeklyAssessment(weeklyChecklistId: entryId, portfolioThesisId: detail.link.id)
+            {
+                verdict = assessment.verdict
+                topChanges = assessment.topChangesText ?? ""
+                actions = assessment.actionsSummary ?? ""
+                currentDriverItems = dbManager.fetchDriverAssessmentItems(assessmentId: assessment.id)
+                currentRiskItems = dbManager.fetchRiskAssessmentItems(assessmentId: assessment.id)
+            }
+
+            var priorDriverScores: [Int: Int] = [:]
+            var priorRiskScores: [Int: Int] = [:]
+            var priorDriverItems: [DriverWeeklyAssessmentItem] = []
+            var priorRiskItems: [RiskWeeklyAssessmentItem] = []
+            if let prior = dbManager.fetchLatestPortfolioThesisWeeklyAssessment(portfolioThesisId: detail.link.id, beforeWeekStartDate: weekStartDate) {
+                priorDriverItems = dbManager.fetchDriverAssessmentItems(assessmentId: prior.id)
+                priorRiskItems = dbManager.fetchRiskAssessmentItems(assessmentId: prior.id)
+                priorDriverScores = Dictionary(uniqueKeysWithValues: priorDriverItems.compactMap { item in
+                    guard let score = item.score else { return nil }
+                    return (item.driverDefId, score)
+                })
+                priorRiskScores = Dictionary(uniqueKeysWithValues: priorRiskItems.compactMap { item in
+                    guard let score = item.score else { return nil }
+                    return (item.riskDefId, score)
+                })
+            }
+
+            let driverItems = buildDriverItems(definitions: drivers, current: currentDriverItems, prior: priorDriverItems)
+            let riskItems = buildRiskItems(definitions: risks, current: currentRiskItems, prior: priorRiskItems)
+            let draft = ThesisAssessmentDraft(
+                portfolioThesisId: detail.link.id,
+                thesisName: detail.thesisName,
+                thesisSummary: detail.thesisSummary,
+                drivers: drivers,
+                risks: risks,
+                verdict: verdict,
+                topChangesText: topChanges,
+                actionsSummary: actions,
+                driverItems: driverItems,
+                riskItems: riskItems,
+                priorDriverScores: priorDriverScores,
+                priorRiskScores: priorRiskScores,
+                isExpanded: index == 0
+            )
+            drafts.append(draft)
+        }
+        thesisDrafts = drafts
+    }
+
+    private func buildDriverItems(definitions: [ThesisDriverDefinition], current: [DriverWeeklyAssessmentItem], prior: [DriverWeeklyAssessmentItem]) -> [DriverWeeklyAssessmentItem] {
+        definitions.map { definition in
+            if let existing = current.first(where: { $0.driverDefId == definition.id }) {
+                var updated = existing
+                updated.sortOrder = definition.sortOrder
+                return updated
+            }
+            if let priorItem = prior.first(where: { $0.driverDefId == definition.id }) {
+                return DriverWeeklyAssessmentItem(
+                    id: 0,
+                    assessmentId: 0,
+                    driverDefId: priorItem.driverDefId,
+                    rag: priorItem.rag,
+                    score: priorItem.score,
+                    deltaVsPrior: nil,
+                    changeSentence: "",
+                    evidenceRefs: priorItem.evidenceRefs,
+                    implication: priorItem.implication,
+                    sortOrder: definition.sortOrder
+                )
+            }
+            return DriverWeeklyAssessmentItem(
+                id: 0,
+                assessmentId: 0,
+                driverDefId: definition.id,
+                rag: nil,
+                score: nil,
+                deltaVsPrior: nil,
+                changeSentence: "",
+                evidenceRefs: [],
+                implication: nil,
+                sortOrder: definition.sortOrder
+            )
+        }
+    }
+
+    private func buildRiskItems(definitions: [ThesisRiskDefinition], current: [RiskWeeklyAssessmentItem], prior: [RiskWeeklyAssessmentItem]) -> [RiskWeeklyAssessmentItem] {
+        definitions.map { definition in
+            if let existing = current.first(where: { $0.riskDefId == definition.id }) {
+                var updated = existing
+                updated.sortOrder = definition.sortOrder
+                return updated
+            }
+            if let priorItem = prior.first(where: { $0.riskDefId == definition.id }) {
+                return RiskWeeklyAssessmentItem(
+                    id: 0,
+                    assessmentId: 0,
+                    riskDefId: priorItem.riskDefId,
+                    rag: priorItem.rag,
+                    score: priorItem.score,
+                    deltaVsPrior: nil,
+                    changeSentence: "",
+                    evidenceRefs: priorItem.evidenceRefs,
+                    thesisImpact: priorItem.thesisImpact,
+                    recommendedAction: priorItem.recommendedAction,
+                    sortOrder: definition.sortOrder
+                )
+            }
+            return RiskWeeklyAssessmentItem(
+                id: 0,
+                assessmentId: 0,
+                riskDefId: definition.id,
+                rag: nil,
+                score: nil,
+                deltaVsPrior: nil,
+                changeSentence: "",
+                evidenceRefs: [],
+                thesisImpact: nil,
+                recommendedAction: nil,
+                sortOrder: definition.sortOrder
+            )
+        }
+    }
+
+    private func normalizeAnswers() {
+        if answers.exposureCheck.topMacroRisks.count < 3 {
+            answers.exposureCheck.topMacroRisks.append(contentsOf: Array(repeating: "", count: 3 - answers.exposureCheck.topMacroRisks.count))
+        } else if answers.exposureCheck.topMacroRisks.count > 3 {
+            answers.exposureCheck.topMacroRisks = Array(answers.exposureCheck.topMacroRisks.prefix(3))
+        }
+    }
+
     private func captureBaseline() {
         baselineAnswers = answers
         baselineSkipComment = skipComment
         baselineStatus = status
+        baselineThesisDrafts = normalizedDrafts(thesisDrafts)
         updateDirtyState()
     }
 
     private var isDirty: Bool {
-        answers != baselineAnswers || skipComment != baselineSkipComment || status != baselineStatus
+        answers != baselineAnswers
+            || skipComment != baselineSkipComment
+            || status != baselineStatus
+            || normalizedDrafts(thesisDrafts) != baselineThesisDrafts
+    }
+
+    private func normalizedDrafts(_ drafts: [ThesisAssessmentDraft]) -> [ThesisAssessmentDraft] {
+        drafts.map { draft in
+            var copy = draft
+            copy.isExpanded = false
+            return copy
+        }
     }
 
     private func registerSaveHandler() {
@@ -1863,8 +2238,9 @@ struct WeeklyChecklistEditorView: View {
             completedAt: completed,
             skippedAt: skipped
         )
-        handleSaveResult(ok, newStatus: targetStatus)
-        return ok
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        handleSaveResult(persisted, newStatus: targetStatus)
+        return persisted
     }
 
     private func markComplete() {
@@ -1883,12 +2259,13 @@ struct WeeklyChecklistEditorView: View {
             completedAt: completedAtDate,
             skippedAt: nil
         )
-        if ok {
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        if persisted {
             completedAt = completedAtDate
             skippedAt = nil
         }
-        handleSaveResult(ok, newStatus: .completed)
-        if ok {
+        handleSaveResult(persisted, newStatus: .completed)
+        if persisted {
             onExit()
         }
     }
@@ -1908,13 +2285,106 @@ struct WeeklyChecklistEditorView: View {
             completedAt: nil,
             skippedAt: Date()
         )
-        if ok {
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        if persisted {
             skippedAt = Date()
             completedAt = nil
         }
-        handleSaveResult(ok, newStatus: .skipped)
+        handleSaveResult(persisted, newStatus: .skipped)
         skipComment = trimmed
         showSkipSheet = false
+    }
+
+    private func persistThesisAssessmentsIfNeeded(ok: Bool) -> Bool {
+        guard ok else { return false }
+        guard !thesisDrafts.isEmpty else { return true }
+        guard let updatedEntry = dbManager.fetchWeeklyChecklist(themeId: themeId, weekStartDate: weekStartDate) else { return false }
+        let persisted = persistThesisAssessments(weeklyChecklistId: updatedEntry.id)
+        if !persisted {
+            errorMessage = "Unable to save thesis assessments."
+        }
+        return persisted
+    }
+
+    private func persistThesisAssessments(weeklyChecklistId: Int) -> Bool {
+        for draft in thesisDrafts {
+            let driverItems = normalizeDriverItems(draft.driverItems, priorScores: draft.priorDriverScores)
+                .sorted { $0.sortOrder < $1.sortOrder }
+            let riskItems = normalizeRiskItems(draft.riskItems, priorScores: draft.priorRiskScores)
+                .sorted { $0.sortOrder < $1.sortOrder }
+            let driverStrength = ThesisScoring.weightedAverage(items: driverItems.map { item in
+                let weight = draft.drivers.first(where: { $0.id == item.driverDefId })?.weight
+                return (score: item.score, weight: weight)
+            })
+            let riskPressure = ThesisScoring.weightedAverage(items: riskItems.map { item in
+                let weight = draft.risks.first(where: { $0.id == item.riskDefId })?.weight
+                return (score: item.score, weight: weight)
+            })
+            let suggested = ThesisScoring.verdictSuggestion(
+                driverStrength: driverStrength,
+                riskPressure: riskPressure,
+                driverItems: driverItems,
+                riskItems: riskItems,
+                riskDefinitions: draft.risks
+            )
+            let verdict = draft.verdict ?? suggested
+            let rag = verdict.map { verdict in
+                switch verdict {
+                case .valid: return ThesisRAG.green
+                case .watch: return ThesisRAG.amber
+                case .impaired, .broken: return ThesisRAG.red
+                }
+            }
+
+            let ok = dbManager.upsertPortfolioThesisWeeklyAssessment(
+                weeklyChecklistId: weeklyChecklistId,
+                portfolioThesisId: draft.portfolioThesisId,
+                verdict: verdict,
+                rag: rag,
+                driverStrengthScore: driverStrength,
+                riskPressureScore: riskPressure,
+                topChangesText: draft.topChangesText.trimmingCharacters(in: .whitespacesAndNewlines),
+                actionsSummary: draft.actionsSummary.trimmingCharacters(in: .whitespacesAndNewlines),
+                driverItems: driverItems,
+                riskItems: riskItems
+            )
+            if !ok { return false }
+        }
+        return true
+    }
+
+    private func normalizeDriverItems(_ items: [DriverWeeklyAssessmentItem], priorScores: [Int: Int]) -> [DriverWeeklyAssessmentItem] {
+        items.map { item in
+            var updated = item
+            let score = item.score
+            updated.rag = item.rag ?? ThesisRAG.driverRAG(for: score)
+            if let score, let prior = priorScores[item.driverDefId] {
+                updated.deltaVsPrior = score - prior
+            } else {
+                updated.deltaVsPrior = nil
+            }
+            if let sentence = updated.changeSentence?.trimmingCharacters(in: .whitespacesAndNewlines), sentence.isEmpty {
+                updated.changeSentence = nil
+            }
+            return updated
+        }
+    }
+
+    private func normalizeRiskItems(_ items: [RiskWeeklyAssessmentItem], priorScores: [Int: Int]) -> [RiskWeeklyAssessmentItem] {
+        items.map { item in
+            var updated = item
+            let score = item.score
+            updated.rag = item.rag ?? ThesisRAG.riskRAG(for: score)
+            if let score, let prior = priorScores[item.riskDefId] {
+                updated.deltaVsPrior = score - prior
+            } else {
+                updated.deltaVsPrior = nil
+            }
+            if let sentence = updated.changeSentence?.trimmingCharacters(in: .whitespacesAndNewlines), sentence.isEmpty {
+                updated.changeSentence = nil
+            }
+            return updated
+        }
     }
 
     private func handleSaveResult(_ ok: Bool, newStatus: WeeklyChecklistStatus) {
@@ -1942,6 +2412,8 @@ struct WeeklyChecklistEditorView: View {
         completedAt = updated.completedAt
         skippedAt = updated.skippedAt
         revision = updated.revision
+        normalizeAnswers()
+        loadThesisDrafts()
         captureBaseline()
     }
 

@@ -14,9 +14,17 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Backlog
 
+- <mark>[*] [new_features] **[DS-094] Portfolio Investment Thesis Framework**</mark>
+    Why: Portfolio decisions need an explicit, maintained thesis that stays current without introducing a parallel review system.
+    What: Introduce a generic Investment Thesis framework linked to every portfolio that captures core drivers, key risks, dashboards, and RAG-style scores/status. The thesis must be required for each portfolio, visible in portfolio views, and reusable across workflows. Extend the existing Weekly Macro & Portfolio Checklist to read and update thesis elements (instead of a separate thesis workflow), preserving a single source of truth with a clear history of thesis updates. Detailed specifications will be provided separately and should be incorporated before implementation.
+
 - <mark>[*] [bugs] **[DS-090] Release Notes Show v1.39.0 While App Is v1.40.0**</mark>
     Why: The sidebar shows version 1.40.0, but the Release Notes window highlights v1.39.0, so users think the latest features are missing or not released.
     What: Problem analysis: `ReleaseNotesView` always calls `ReleaseNotesProvider.loadAll()` and never uses the current app version, so the UI highlights the latest dated section in `CHANGELOG.md`. Because the bundled `CHANGELOG.md` still tops out at v1.39.0 (v1.40.0 is still under Unreleased due to missing tag/sync), the popup defaults to v1.39.0 and omits v1.40.0 features from the "latest release" grouping. Resolution strategy: (1) finalize the release flow by tagging `v1.40.0`, running `scripts/sync_changelog.py`, and ensuring the updated `CHANGELOG.md` is bundled so v1.40.0 exists as a dated section; (2) update `ReleaseNotesView` to call `ReleaseNotesProvider.load(for: AppVersionProvider.version)` and fall back to Unreleased with a clear note when the version is missing; (3) add a build-time or startup check that logs/alerts when the app version is not found in the changelog to prevent future drift.
+
+- <mark>[ ] [bugs] **[DS-095] Asset Management Report Cash EUR Value Wrong for Zuercher Kantonal Bank**</mark>
+    Why: The cash account value EUR (Cash EUR position) in the Asset Management Report for Zuercher Kantonal bank is completely wrong, while the Positions GUI shows the correct value, so the report is misleading.
+    What: Investigate the full report pipeline for the Cash EUR position (account mapping, quantity/price source, FX conversion, and aggregation) for the Zuercher Kantonal bank account, identify the root cause, and fix it so the report matches the Positions GUI; then double-check the valuation logic for all other positions to confirm they match the Positions GUI totals.
 
 - <mark>[ ] [changes] **[DS-091] iOS To-Do Board Dark Mode for Readability**</mark>
     Why: The current iOS To-Do Board appearance is barely readable, so users cannot comfortably read or manage tasks.
