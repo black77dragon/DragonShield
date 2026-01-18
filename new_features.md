@@ -91,6 +91,11 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [new_features] **[DS-094] Weekly Checklist Report Export + Risk UX Enhancements** (2026-01-18)
+    Why: Weekly checklist reviews need clearer guidance, explicit risk-trigger state, and a shareable report output while avoiding data loss when switching weeks.
+    What: In Weekly Checklist, add a triggered yes/no flag to thesis risks; add info tooltips for key terms; add PDF report export with a report header, printable read-only layout, and a macOS text appendix plus safe file naming; implement unsaved-changes tracking with confirmation prompts on exit and week selection; allow double-click on overview rows to open the most current weekly report; render score/delta/action pickers in a report-friendly style.
+    Tested: not confirmed by user.
+
 - [x] [changes] **[DS-092] Weekly Checklist Dynamic Multi-Line Inputs + Overflow Indicator** (2026-01-05)
     Why: Weekly checklist descriptions need more space and clearer overflow cues so longer notes remain readable without sacrificing compact layouts for short entries.
     What: Replace the targeted weekly checklist text fields with adaptive multi-line inputs that expand up to 15 lines based on content; show a blue overflow indicator when content exceeds the visible area for Regime statement, Original thesis, and Top Macro Risk 1.

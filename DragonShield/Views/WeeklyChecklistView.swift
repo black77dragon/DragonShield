@@ -1,4 +1,8 @@
 import SwiftUI
+import UniformTypeIdentifiers
+#if os(macOS)
+    import PDFKit
+#endif
 #if os(macOS)
     import AppKit
 #elseif canImport(UIKit)
@@ -118,6 +122,10 @@ struct WeeklyChecklistOverviewView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                openMostCurrentWeeklyReport(for: summary)
+            }
             priorityColumn(summary)
                 .frame(width: Self.priorityColumnWidth, alignment: .center)
             countedValueView(summary)
@@ -244,6 +252,11 @@ struct WeeklyChecklistOverviewView: View {
         _ = dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: true)
     }
 
+    private func openMostCurrentWeeklyReport(for summary: WeeklyChecklistSummary) {
+        guard summary.theme.weeklyChecklistEnabled else { return }
+        openWindow(id: "weeklyChecklistPortfolio", value: summary.theme.id)
+    }
+
     private func load() {
         valuationTask?.cancel()
         let currentWeek = WeeklyChecklistDateHelper.weekStart(for: Date())
@@ -309,6 +322,10 @@ struct WeeklyChecklistPortfolioView: View {
 
     @State private var entries: [WeeklyChecklistEntry] = []
     @State private var selectedWeekKey: String = ""
+    @State private var hasUnsavedChanges = false
+    @State private var pendingWeekKey: String?
+    @State private var showUnsavedConfirm = false
+    @State private var saveHandler: (() -> Bool)?
 
     var body: some View {
         let items = historyItems
@@ -317,7 +334,7 @@ struct WeeklyChecklistPortfolioView: View {
             header
             Divider()
             HStack(spacing: 0) {
-                List(selection: $selectedWeekKey) {
+                List(selection: selectionBinding) {
                     ForEach(items) { item in
                         historyRow(item)
                             .tag(item.id)
@@ -333,6 +350,8 @@ struct WeeklyChecklistPortfolioView: View {
                         themeName: themeName,
                         weekStartDate: selectedItem.weekStartDate,
                         entry: selectedItem.entry,
+                        hasUnsavedChanges: $hasUnsavedChanges,
+                        saveHandler: $saveHandler,
                         onSaved: handleSaved,
                         onExit: { dismiss() }
                     )
@@ -350,6 +369,35 @@ struct WeeklyChecklistPortfolioView: View {
         .onReceive(NotificationCenter.default.publisher(for: .weeklyChecklistUpdated)) { _ in
             load()
         }
+        .alert("Unsaved changes", isPresented: $showUnsavedConfirm) {
+            Button("Save") {
+                guard let pendingWeekKey else { return }
+                let ok = saveHandler?() ?? false
+                if ok {
+                    selectedWeekKey = pendingWeekKey
+                }
+                self.pendingWeekKey = nil
+            }
+            Button("Discard", role: .destructive) {
+                guard let pendingWeekKey else { return }
+                selectedWeekKey = pendingWeekKey
+                self.pendingWeekKey = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingWeekKey = nil
+            }
+        } message: {
+            Text("You have unsaved changes. Save before switching weeks?")
+        }
+    }
+
+    private var selectionBinding: Binding<String> {
+        Binding(
+            get: { selectedWeekKey },
+            set: { newValue in
+                handleSelectionChange(newValue)
+            }
+        )
     }
 
     private var header: some View {
@@ -418,6 +466,16 @@ struct WeeklyChecklistPortfolioView: View {
         }
     }
 
+    private func handleSelectionChange(_ newValue: String) {
+        guard newValue != selectedWeekKey else { return }
+        if hasUnsavedChanges {
+            pendingWeekKey = newValue
+            showUnsavedConfirm = true
+        } else {
+            selectedWeekKey = newValue
+        }
+    }
+
     private struct WeeklyChecklistHistoryItem: Identifiable {
         let weekStartDate: Date
         let entry: WeeklyChecklistEntry?
@@ -442,6 +500,8 @@ struct WeeklyChecklistEditorView: View {
     let themeName: String
     let weekStartDate: Date
     let entry: WeeklyChecklistEntry?
+    @Binding var hasUnsavedChanges: Bool
+    @Binding var saveHandler: (() -> Bool)?
     let onSaved: () -> Void
     let onExit: () -> Void
 
@@ -458,123 +518,118 @@ struct WeeklyChecklistEditorView: View {
     @State private var baselineSkipComment: String = ""
     @State private var baselineStatus: WeeklyChecklistStatus = .draft
     @State private var showExitConfirm = false
+    @State private var isGeneratingPDF = false
+    @State private var pdfExportDocument = WeeklyChecklistPDFDocument.empty
+    @State private var isShowingPDFExporter = false
+    @State private var exportErrorMessage: String?
+    @State private var isShowingExportError = false
+    @State private var reportGeneratedAt: Date?
     @State private var thesisDrafts: [ThesisAssessmentDraft] = []
     @State private var baselineThesisDrafts: [ThesisAssessmentDraft] = []
     @State private var showThesisManager = false
+    private static let reportPDFWidth: CGFloat = 1200
+
+    private enum TooltipText {
+        static let thesis = "A structured, testable investment belief linking macro conditions, asset edge, growth, and risks to portfolio actions."
+        static let baseThesis = "The long-lived core logic of the investment; changes only on structural regime or thesis breaks."
+        static let hook = "A concise narrative summarizing the macro tailwind, why the thesis works, portfolio posture, and exit logic."
+        static let weeklyPulse = "The recurring lightweight review cycle focused on signal over noise."
+        static let score = "Normalized strength rating of a thesis dimension; ordinal guidance, not precision measurement."
+        static let delta = "Directional change versus the prior week, capturing momentum rather than absolute level."
+        static let macroScore = "Strength of the macro or regime tailwind supporting the thesis."
+        static let edgeScore = "Degree of structural advantage or moat (e.g., scarcity, decentralization, network effects)."
+        static let growthScore = "Adoption and scaling trajectory of the asset or platform."
+        static let netScore = "Simple average of Macro, Edge, and Growth scores; used to bias action, not optimize outcomes."
+        static let actionTag = "Forced single weekly decision: none, watch, add, trim, or exit."
+        static let changeLog = "One-sentence causal explanation of what changed and why scores or actions moved."
+        static let riskRule = "A predefined condition that alters how the thesis should be treated if triggered."
+        static let breaker = "Thesis-breaking risk; if triggered, the core thesis is invalidated and exit is typically required."
+        static let warn = "Cautionary risk; degrades expected returns or increases volatility but does not invalidate the thesis."
+        static let trigger = "A concrete, observable condition that activates a risk rule."
+        static let triggeredFlag = "Boolean indicator showing whether a risk trigger is currently active."
+        static let portfolioPosture = "How the thesis is expressed in sizing, concentration, and role (core vs venture)."
+        static let trimLogic = "Predefined conditions for reducing exposure without invalidating the thesis."
+        static let exitLogic = "Predefined conditions for fully closing the position, usually tied to breaker risks or lifecycle goals."
+    }
+
+    private struct InfoTooltipIcon: View {
+        let help: String
+        @State private var isShowingTooltip = false
+
+        var body: some View {
+            Text("ⓘ")
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 2)
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    isShowingTooltip = hovering
+                }
+                .popover(isPresented: $isShowingTooltip, arrowEdge: .bottom) {
+                    Text(help)
+                        .font(.caption)
+                        .padding(8)
+                        .frame(maxWidth: 260, alignment: .leading)
+                }
+                .help(help)
+                .accessibilityLabel("Info")
+                .accessibilityHint(help)
+        }
+    }
+
+    private func termLabel(_ text: String, help: String) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+            InfoTooltipIcon(help: help)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
+            topBar(includeActions: true, includeReportHeader: false)
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    sectionCard(title: "1. Regime sanity check", subtitle: "Answer in order. If you cannot articulate the regime in one sentence, you are reacting, not allocating.") {
-                        adaptiveTextField("One-sentence regime statement", text: $answers.regimeStatement)
-                            .help("Required for completion.")
-                        Picker("Regime change vs noise", selection: $answers.regimeAssessment) {
-                            Text("Select...").tag(RegimeAssessment?.none)
-                            ForEach(RegimeAssessment.allCases, id: \.self) { item in
-                                Text(item.rawValue.capitalized).tag(Optional(item))
-                            }
-                        }
-                        TextField("Liquidity", text: $answers.liquidity)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Rates (real, not nominal)", text: $answers.rates)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Policy stance", text: $answers.policyStance)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Risk appetite", text: $answers.riskAppetite)
-                            .textFieldStyle(.roundedBorder)
-                    }
-
-                    sectionCard(title: "2. Thesis assessments", subtitle: "Review linked theses with driver and risk scores. Update deltas and capture actions.") {
-                        if thesisDrafts.isEmpty {
-                            Text("No theses linked to this portfolio yet.")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach($thesisDrafts) { $draft in
-                                DisclosureGroup(isExpanded: $draft.isExpanded) {
-                                    ThesisAssessmentPanel(draft: $draft)
-                                } label: {
-                                    Text(draft.thesisName)
-                                        .font(.subheadline.weight(.semibold))
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        Button("Manage Thesis Links") { showThesisManager = true }
-                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                    }
-
-                    sectionCard(title: "3. Thesis integrity notes (legacy)", subtitle: "Optional free-form notes for positions not covered by thesis definitions.") {
-                        if answers.thesisChecks.isEmpty {
-                            Text("No positions added yet.")
-                                .foregroundColor(.secondary)
-                        }
-                        ForEach(answers.thesisChecks) { item in
-                            thesisCard(item)
-                        }
-                        Button("Add position") {
-                            answers.thesisChecks.append(ThesisCheck())
-                        }
-                        .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                    }
-
-                    sectionCard(title: "4. Narrative drift detection", subtitle: "Check the statements that apply and capture any red-flag language.") {
-                        Toggle("Explaining price action with better stories, not better evidence", isOn: $answers.narrativeDrift.storyOverEvidence)
-                        Toggle("Relaxed or redefined invalidation criteria", isOn: $answers.narrativeDrift.invalidationCriteriaRelaxed)
-                        Toggle("Added new reasons to justify an old position", isOn: $answers.narrativeDrift.addedNewReasons)
-                        TextEditor(text: $answers.narrativeDrift.redFlagNotes)
-                            .frame(minHeight: 80)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Examples: Longer term..., The market doesn't understand yet..., This is actually bullish if you think about it...")
-                    }
-
-                    sectionCard(title: "5. Exposure and sizing check", subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules.") {
-                        ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
-                            let binding = Binding(
-                                get: { answers.exposureCheck.topMacroRisks[idx] },
-                                set: { answers.exposureCheck.topMacroRisks[idx] = $0 }
-                            )
-                            adaptiveTextField("Top macro risk \(idx + 1)", text: binding)
-                        }
-                        TextEditor(text: $answers.exposureCheck.sharedRiskPositions)
-                            .frame(minHeight: 70)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Which positions express the same risk?")
-                        TextEditor(text: $answers.exposureCheck.hiddenCorrelations)
-                            .frame(minHeight: 70)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
-                            .help("Hidden correlations to acknowledge.")
-                        Toggle("No single theme can hurt sleep if wrong", isOn: $answers.exposureCheck.sleepRiskAcknowledged)
-                        Toggle("Upsizing requires fresh confirmation, not comfort", isOn: $answers.exposureCheck.upsizingRuleConfirmed)
-                    }
-
-                    sectionCard(title: "6. Action discipline", subtitle: "Choose a single action and write it in one line.") {
-                        Picker("Decision", selection: $answers.actionDiscipline.decision) {
-                            Text("Select...").tag(ActionDecision?.none)
-                            ForEach(ActionDecision.allCases, id: \.self) { decision in
-                                Text(decisionLabel(decision)).tag(Optional(decision))
-                            }
-                        }
-                        TextField("Decision (one line)", text: $answers.actionDiscipline.decisionLine)
-                            .textFieldStyle(.roundedBorder)
-                            .help("Required for completion.")
-                    }
-                }
-                .padding(16)
+                reportBody(includeActions: true)
             }
             .scrollIndicators(.visible)
         }
-        .onAppear(perform: loadState)
-        .onChange(of: weekStartDate) { _, _ in loadState() }
-        .onChange(of: entry?.id ?? -1) { _, _ in loadState() }
+        .onAppear {
+            registerSaveHandler()
+            loadState()
+        }
+        .onChange(of: weekStartDate) { _, _ in
+            registerSaveHandler()
+            loadState()
+        }
+        .onChange(of: entry?.id ?? -1) { _, _ in
+            registerSaveHandler()
+            loadState()
+        }
+        .onChange(of: answers) { _, _ in updateDirtyState() }
+        .onChange(of: skipComment) { _, _ in updateDirtyState() }
+        .onChange(of: status) { _, _ in updateDirtyState() }
+        .onChange(of: thesisDrafts) { _, _ in updateDirtyState() }
+        .onDisappear {
+            saveHandler = nil
+        }
         .sheet(isPresented: $showSkipSheet) {
             SkipWeekSheet(skipComment: skipComment, onCancel: { showSkipSheet = false }, onConfirm: handleSkip)
         }
         .sheet(isPresented: $showThesisManager, onDismiss: loadThesisDrafts) {
             PortfolioThesisLinkManagerView(themeId: themeId)
                 .environmentObject(dbManager)
+        }
+        .fileExporter(
+            isPresented: $isShowingPDFExporter,
+            document: pdfExportDocument,
+            contentType: .pdf,
+            defaultFilename: pdfExportDocument.suggestedFilename,
+            onCompletion: handleFileExportResult
+        )
+        .alert("Print Failed", isPresented: $isShowingExportError, presenting: exportErrorMessage) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
         }
         .alert("Unsaved changes", isPresented: $showExitConfirm) {
             Button("Save") {
@@ -589,19 +644,264 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
-    private var topBar: some View {
+    private func reportBody(includeActions: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            regimeSection(includeActions: includeActions)
+            thesisAssessmentsSection(includeActions: includeActions)
+            legacyThesisSection(includeActions: includeActions)
+            narrativeSection(includeActions: includeActions)
+            exposureSection(includeActions: includeActions)
+            actionSection(includeActions: includeActions)
+        }
+        .padding(16)
+    }
+
+    private func regimeSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "1. Regime sanity check",
+            subtitle: "Answer in order. If you cannot articulate the regime in one sentence, you are reacting, not allocating."
+        ) {
+            if includeActions {
+                adaptiveTextField("One-sentence regime statement", text: $answers.regimeStatement)
+                    .help("Required for completion.")
+                Picker("Regime change vs noise", selection: $answers.regimeAssessment) {
+                    Text("Select...").tag(RegimeAssessment?.none)
+                    ForEach(RegimeAssessment.allCases, id: \.self) { item in
+                        Text(item.rawValue.capitalized).tag(Optional(item))
+                    }
+                }
+                TextField("Liquidity", text: $answers.liquidity)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Rates (real, not nominal)", text: $answers.rates)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Policy stance", text: $answers.policyStance)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Risk appetite", text: $answers.riskAppetite)
+                    .textFieldStyle(.roundedBorder)
+            } else {
+                reportTextArea(answers.regimeStatement, placeholder: "One-sentence regime statement", minHeight: 46)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Regime change vs noise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    reportPickerLabel(
+                        text: regimeAssessmentText(answers.regimeAssessment),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 220
+                    )
+                }
+                reportTextField(answers.liquidity, placeholder: "Liquidity")
+                reportTextField(answers.rates, placeholder: "Rates (real, not nominal)")
+                reportTextField(answers.policyStance, placeholder: "Policy stance")
+                reportTextField(answers.riskAppetite, placeholder: "Risk appetite")
+            }
+        }
+    }
+
+    private func thesisAssessmentsSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "2. Thesis assessments",
+            subtitle: "Review linked theses with driver and risk scores. Update deltas and capture actions."
+        ) {
+            if thesisDrafts.isEmpty {
+                Text("No theses linked to this portfolio yet.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach($thesisDrafts) { $draft in
+                    if includeActions {
+                        DisclosureGroup(isExpanded: $draft.isExpanded) {
+                            ThesisAssessmentPanel(draft: $draft)
+                        } label: {
+                            Text(draft.thesisName)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(draft.thesisName)
+                                .font(.subheadline.weight(.semibold))
+                            if let summary = draft.thesisSummary,
+                               !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            {
+                                Text(summary)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            reportTextField(draft.verdict.map { $0.rawValue.capitalized } ?? "", placeholder: "No verdict")
+                            reportTextArea(draft.topChangesText, placeholder: "Top changes", minHeight: 46)
+                            reportTextArea(draft.actionsSummary, placeholder: "Actions summary", minHeight: 46)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            if includeActions {
+                Button("Manage Thesis Links") { showThesisManager = true }
+                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+            }
+        }
+    }
+
+    private func legacyThesisSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "3. Thesis integrity notes (legacy)",
+            subtitle: "Optional free-form notes for positions not covered by thesis definitions."
+        ) {
+            if answers.thesisChecks.isEmpty {
+                Text("No positions added yet.")
+                    .foregroundColor(.secondary)
+            }
+            ForEach(answers.thesisChecks) { item in
+                thesisCard(item, includeActions: includeActions)
+            }
+            if includeActions {
+                Button("Add position") {
+                    answers.thesisChecks.append(ThesisCheck())
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+            }
+        }
+    }
+
+    private func narrativeSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "4. Narrative drift detection",
+            subtitle: "Check the statements that apply and capture any red-flag language."
+        ) {
+            if includeActions {
+                Toggle("Explaining price action with better stories, not better evidence", isOn: $answers.narrativeDrift.storyOverEvidence)
+                Toggle("Relaxed or redefined invalidation criteria", isOn: $answers.narrativeDrift.invalidationCriteriaRelaxed)
+                Toggle("Added new reasons to justify an old position", isOn: $answers.narrativeDrift.addedNewReasons)
+                TextEditor(text: $answers.narrativeDrift.redFlagNotes)
+                    .frame(minHeight: 80)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Examples: Longer term..., The market doesn't understand yet..., This is actually bullish if you think about it...")
+            } else {
+                reportToggleRow("Explaining price action with better stories, not better evidence", isOn: answers.narrativeDrift.storyOverEvidence)
+                reportToggleRow("Relaxed or redefined invalidation criteria", isOn: answers.narrativeDrift.invalidationCriteriaRelaxed)
+                reportToggleRow("Added new reasons to justify an old position", isOn: answers.narrativeDrift.addedNewReasons)
+                reportTextArea(answers.narrativeDrift.redFlagNotes, placeholder: "Red-flag notes", minHeight: 80)
+            }
+        }
+    }
+
+    private func exposureSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "5. Exposure and sizing check",
+            subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules."
+        ) {
+            ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
+                let placeholder = "Top macro risk \(idx + 1)"
+                if includeActions {
+                    let binding = Binding(
+                        get: { answers.exposureCheck.topMacroRisks[idx] },
+                        set: { answers.exposureCheck.topMacroRisks[idx] = $0 }
+                    )
+                    adaptiveTextField(placeholder, text: binding)
+                } else {
+                    reportTextField(answers.exposureCheck.topMacroRisks[idx], placeholder: placeholder)
+                }
+            }
+            if includeActions {
+                TextEditor(text: $answers.exposureCheck.sharedRiskPositions)
+                    .frame(minHeight: 70)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Which positions express the same risk?")
+                TextEditor(text: $answers.exposureCheck.hiddenCorrelations)
+                    .frame(minHeight: 70)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(DSColor.borderStrong))
+                    .help("Hidden correlations to acknowledge.")
+                Toggle("No single theme can hurt sleep if wrong", isOn: $answers.exposureCheck.sleepRiskAcknowledged)
+                Toggle("Upsizing requires fresh confirmation, not comfort", isOn: $answers.exposureCheck.upsizingRuleConfirmed)
+            } else {
+                reportTextArea(answers.exposureCheck.sharedRiskPositions, placeholder: "Shared risk positions", minHeight: 70)
+                reportTextArea(answers.exposureCheck.hiddenCorrelations, placeholder: "Hidden correlations", minHeight: 70)
+                reportToggleRow("No single theme can hurt sleep if wrong", isOn: answers.exposureCheck.sleepRiskAcknowledged)
+                reportToggleRow("Upsizing requires fresh confirmation, not comfort", isOn: answers.exposureCheck.upsizingRuleConfirmed)
+            }
+        }
+    }
+
+    private func actionSection(includeActions: Bool) -> some View {
+        sectionCard(
+            title: "6. Action discipline",
+            subtitle: "Choose a single action and write it in one line."
+        ) {
+            if includeActions {
+                Picker("Decision", selection: $answers.actionDiscipline.decision) {
+                    Text("Select...").tag(ActionDecision?.none)
+                    ForEach(ActionDecision.allCases, id: \.self) { decision in
+                        Text(decisionLabel(decision)).tag(Optional(decision))
+                    }
+                }
+                TextField("Decision (one line)", text: $answers.actionDiscipline.decisionLine)
+                    .textFieldStyle(.roundedBorder)
+                    .help("Required for completion.")
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Decision")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    reportPickerLabel(
+                        text: actionDecisionText(answers.actionDiscipline.decision),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 180
+                    )
+                }
+                reportTextField(answers.actionDiscipline.decisionLine, placeholder: "Decision (one line)")
+            }
+        }
+    }
+
+    private var printableReportView: some View {
+        VStack(spacing: 0) {
+            topBar(includeActions: false, includeReportHeader: true)
+            Divider()
+            reportBody(includeActions: false)
+        }
+        .frame(width: Self.reportPDFWidth, alignment: .leading)
+        .background(DSColor.background)
+    }
+
+    private func topBar(includeActions: Bool, includeReportHeader: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            if includeReportHeader {
+                reportHeader
+            }
             HStack(spacing: 12) {
-                Button(saveLabel) { saveProgress() }
-                    .buttonStyle(DSButtonStyle(type: saveButtonType, size: .small))
-                Button("Mark Complete") { markComplete() }
-                    .buttonStyle(DSButtonStyle(type: .success, size: .small))
-                Button("Skip Week") { showSkipSheet = true }
-                    .buttonStyle(DSButtonStyle(type: .destructive, size: .small))
+                if includeActions {
+                    Button(saveLabel) { saveProgress() }
+                        .buttonStyle(DSButtonStyle(type: saveButtonType, size: .small))
+                    Button("Mark Complete") { markComplete() }
+                        .buttonStyle(DSButtonStyle(type: .success, size: .small))
+                        .disabled(!canComplete)
+                        .help("Complete all thesis entries before marking complete.")
+                    Button("Skip Week") { showSkipSheet = true }
+                        .buttonStyle(DSButtonStyle(type: .destructive, size: .small))
+                    Button {
+                        Task { await exportReportAsPDF() }
+                    } label: {
+                        Label {
+                            Text(isGeneratingPDF ? "Preparing…" : "Report")
+                        } icon: {
+                            Text("🗒️")
+                        }
+                        .labelStyle(.titleAndIcon)
+                    }
+                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+                    .disabled(isGeneratingPDF)
+                    .help("Create a PDF copy of this weekly report.")
+                }
                 Spacer()
                 DSBadge(text: statusLabel, color: statusColor)
-                Button("Exit") { requestExit() }
-                    .buttonStyle(WeeklyChecklistExitButtonStyle())
+                if includeActions {
+                    Button("Exit") { requestExit() }
+                        .buttonStyle(WeeklyChecklistExitButtonStyle())
+                }
             }
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -614,13 +914,38 @@ struct WeeklyChecklistEditorView: View {
                 Spacer()
                 statusFootnote
             }
-            if let errorMessage {
+            if includeActions, let errorMessage {
                 Text(errorMessage)
                     .foregroundColor(.red)
             }
         }
         .padding()
         .background(DSColor.surface)
+    }
+
+    private var reportHeader: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Weekly Risk Report")
+                    .font(.title2.weight(.semibold))
+                Text("\(themeName) • \(WeeklyChecklistDateHelper.weekLabel(weekStartDate))")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Generated")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(reportTimestampText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var reportTimestampText: String {
+        WeeklyChecklistDateHelper.timestampFormatter.string(from: reportGeneratedAt ?? Date())
     }
 
     private var statusLabel: String {
@@ -654,24 +979,346 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
-    private func thesisCard(_ item: ThesisCheck) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("Position / Theme", text: bindingForThesis(item.id, \.position))
-                .textFieldStyle(.roundedBorder)
-            adaptiveTextField("Original thesis (1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
-            TextField("New data this week", text: bindingForThesis(item.id, \.newData))
-                .textFieldStyle(.roundedBorder)
-            Picker("Impact", selection: bindingForThesis(item.id, \.impact)) {
-                Text("Select...").tag(ThesisImpact?.none)
-                ForEach(ThesisImpact.allCases, id: \.self) { impact in
-                    Text(impact.rawValue.capitalized).tag(Optional(impact))
+    private var pdfDefaultFileName: String {
+        let dateComponent = WeeklyChecklistDateHelper.weekKey(weekStartDate)
+        let themeComponent = fileSafeComponent(themeName)
+        return "Weekly-Risk-Report-\(themeComponent)-\(dateComponent)"
+    }
+
+    private func fileSafeComponent(_ value: String) -> String {
+        let parts = value.components(separatedBy: CharacterSet.alphanumerics.inverted)
+        let cleaned = parts.filter { !$0.isEmpty }.joined(separator: "-")
+        return cleaned.isEmpty ? "Theme" : cleaned
+    }
+
+    @available(macOS 13.0, iOS 16.0, *)
+    private func renderPDFData<Content: View>(from view: Content) -> Data? {
+        #if os(macOS)
+            guard let visualData = rasterizedPDFData(from: view) else {
+                return nil
+            }
+            guard let appendixData = textAppendixPDFData() else {
+                return visualData
+            }
+            return mergePDFData(primary: visualData, appendix: appendixData) ?? visualData
+        #else
+            let sizedView = view.fixedSize(horizontal: false, vertical: true)
+            let controller = UIHostingController(rootView: sizedView)
+            let targetSize = controller.sizeThatFits(in: CGSize(width: Self.reportPDFWidth, height: .greatestFiniteMagnitude))
+            controller.view.bounds = CGRect(origin: .zero, size: targetSize)
+            controller.view.backgroundColor = .clear
+            controller.view.layoutIfNeeded()
+            let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: targetSize))
+            let data = renderer.pdfData { context in
+                context.beginPage()
+                controller.view.layer.render(in: context.cgContext)
+            }
+            if data.count > 1024 {
+                return data
+            }
+            return rasterizedPDFData(from: view)
+        #endif
+    }
+
+    @available(macOS 13.0, iOS 16.0, *)
+    private func rasterizedPDFData<Content: View>(from view: Content) -> Data? {
+        let renderer = ImageRenderer(content: view)
+        #if os(macOS)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        #else
+            renderer.scale = UIScreen.main.scale
+        #endif
+        guard let cgImage = renderer.cgImage else { return nil }
+        let data = NSMutableData()
+        var mediaBox = CGRect(origin: .zero, size: CGSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+        else {
+            return nil
+        }
+        context.beginPDFPage(nil)
+        context.draw(cgImage, in: mediaBox)
+        context.endPDFPage()
+        context.closePDF()
+        return data as Data
+    }
+
+    #if os(macOS)
+    private func textAppendixPDFData() -> Data? {
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = true
+        textView.backgroundColor = .white
+        textView.textContainerInset = NSSize(width: 24, height: 24)
+        textView.textStorage?.setAttributedString(reportTextAppendix())
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
+
+        let width = Self.reportPDFWidth
+        let containerWidth = width - (textView.textContainerInset.width * 2)
+        textView.textContainer?.containerSize = NSSize(width: containerWidth, height: .greatestFiniteMagnitude)
+        textView.frame = NSRect(origin: .zero, size: NSSize(width: width, height: 1))
+        textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+        let usedRect = textView.layoutManager?.usedRect(for: textView.textContainer!) ?? .zero
+        let height = max(usedRect.height + (textView.textContainerInset.height * 2), 200)
+        textView.frame = NSRect(origin: .zero, size: NSSize(width: width, height: height))
+        textView.layoutSubtreeIfNeeded()
+        return textView.dataWithPDF(inside: textView.bounds)
+    }
+
+    private func mergePDFData(primary: Data, appendix: Data) -> Data? {
+        guard let primaryDoc = PDFDocument(data: primary),
+              let appendixDoc = PDFDocument(data: appendix) else {
+            return nil
+        }
+        for index in 0..<appendixDoc.pageCount {
+            if let page = appendixDoc.page(at: index) {
+                primaryDoc.insert(page, at: primaryDoc.pageCount)
+            }
+        }
+        return primaryDoc.dataRepresentation()
+    }
+
+    private func reportTextAppendix() -> NSAttributedString {
+        let text = NSMutableAttributedString()
+        let headingStyle = paragraphStyle(lineSpacing: 4, paragraphSpacing: 10)
+        let sectionStyle = paragraphStyle(lineSpacing: 3, paragraphSpacing: 8)
+        let bodyStyle = paragraphStyle(lineSpacing: 3, paragraphSpacing: 6)
+        let heading = [
+            NSAttributedString.Key.font: NSFont.systemFont(ofSize: 18, weight: .semibold),
+            NSAttributedString.Key.paragraphStyle: headingStyle
+        ]
+        let section = [
+            NSAttributedString.Key.font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+            NSAttributedString.Key.paragraphStyle: sectionStyle
+        ]
+        let label = [
+            NSAttributedString.Key.font: NSFont.systemFont(ofSize: 12, weight: .medium),
+            NSAttributedString.Key.paragraphStyle: bodyStyle
+        ]
+        let body = [
+            NSAttributedString.Key.font: NSFont.systemFont(ofSize: 12),
+            NSAttributedString.Key.paragraphStyle: bodyStyle
+        ]
+
+        func appendLine(_ string: String, _ attrs: [NSAttributedString.Key: Any]) {
+            text.append(NSAttributedString(string: "\(string)\n", attributes: attrs))
+        }
+
+        appendLine("Weekly Risk Report (Text Extract)", heading)
+        appendLine("Theme: \(themeName)", body)
+        appendLine("Week: \(WeeklyChecklistDateHelper.weekLabel(weekStartDate))", body)
+        appendLine("Status: \(statusLabel)", body)
+        appendLine("Generated: \(reportTimestampText)", body)
+        if revision > 0 {
+            appendLine("Revision: \(revision)", body)
+        }
+        if let lastEditedAt {
+            appendLine("Last edited: \(WeeklyChecklistDateHelper.timestampFormatter.string(from: lastEditedAt))", body)
+        }
+        if let completedAt {
+            appendLine("Completed at: \(WeeklyChecklistDateHelper.timestampFormatter.string(from: completedAt))", body)
+        }
+        if let skippedAt {
+            appendLine("Skipped at: \(WeeklyChecklistDateHelper.timestampFormatter.string(from: skippedAt))", body)
+        }
+        if !skipComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appendLine("Skip comment: \(skipComment.trimmingCharacters(in: .whitespacesAndNewlines))", body)
+        }
+        appendLine("", body)
+
+        if answers.thesisChecks.isEmpty {
+            appendLine("No thesis entries.", body)
+            return text
+        }
+
+        for (index, item) in answers.thesisChecks.enumerated() {
+            appendLine("Thesis \(index + 1)", section)
+            appendLine("Position / Theme: \(valueOrPlaceholder(item.position))", body)
+            appendLine("Base Thesis: \(valueOrPlaceholder(item.originalThesis))", body)
+            appendLine("Macro Score: \(scoreText(item.macroScore))", body)
+            appendLine("Macro Delta: \(deltaText(item.macroDelta))", body)
+            appendLine("Macro Note: \(valueOrPlaceholder(item.macroNote))", body)
+            appendLine("Edge Score: \(scoreText(item.edgeScore))", body)
+            appendLine("Edge Delta: \(deltaText(item.edgeDelta))", body)
+            appendLine("Edge Note: \(valueOrPlaceholder(item.edgeNote))", body)
+            appendLine("Growth Score: \(scoreText(item.growthScore))", body)
+            appendLine("Growth Delta: \(deltaText(item.growthDelta))", body)
+            appendLine("Growth Note: \(valueOrPlaceholder(item.growthNote))", body)
+            if let netScore = item.netScore {
+                appendLine(String(format: "Net Score: %.1f", netScore), body)
+            }
+            appendLine("Action Tag: \(item.actionTag.map(actionTagLabel) ?? "None")", body)
+            appendLine("Change Log: \(valueOrPlaceholder(item.changeLog))", body)
+            if item.risks.isEmpty {
+                appendLine("Risks: None", body)
+            } else {
+                appendLine("Risks:", label)
+                for risk in item.risks {
+                    let riskLine = " - Level: \(riskLevelLabel(risk.level)), Rule: \(valueOrPlaceholder(risk.rule)), Trigger: \(valueOrPlaceholder(risk.trigger)), Triggered: \(riskTriggeredLabel(risk.triggered))"
+                    appendLine(riskLine, body)
                 }
             }
-            Toggle("If I did not own this, I would still enter today", isOn: bindingForThesis(item.id, \.wouldEnterToday))
-            Button("Remove position") {
-                answers.thesisChecks.removeAll { $0.id == item.id }
+            appendLine("", body)
+        }
+        return text
+    }
+
+    private func paragraphStyle(lineSpacing: CGFloat, paragraphSpacing: CGFloat) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = lineSpacing
+        style.paragraphSpacing = paragraphSpacing
+        return style
+    }
+    #endif
+
+    @MainActor
+    private func exportReportAsPDF() async {
+        guard !isGeneratingPDF else { return }
+
+        #if os(macOS)
+            guard #available(macOS 13.0, *) else {
+                presentExportError("Printing requires macOS 13 or newer.")
+                return
             }
-            .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+        #else
+            guard #available(iOS 16.0, macCatalyst 16.0, *) else {
+                presentExportError("Printing requires iOS/macCatalyst 16 or newer.")
+                return
+            }
+        #endif
+
+        isGeneratingPDF = true
+        defer { isGeneratingPDF = false }
+        reportGeneratedAt = Date()
+
+        if #available(macOS 13.0, iOS 16.0, *) {
+            if let data = renderPDFData(from: printableReportView) {
+                pdfExportDocument = WeeklyChecklistPDFDocument(data: data, suggestedFilename: pdfDefaultFileName)
+                isShowingPDFExporter = true
+            } else {
+                presentExportError("Unable to render the report to PDF.")
+            }
+        }
+    }
+
+    @MainActor
+    private func handleFileExportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success:
+            exportErrorMessage = nil
+        case let .failure(error):
+            presentExportError("Failed to save the PDF: \(error.localizedDescription)")
+        }
+        pdfExportDocument = .empty
+    }
+
+    private func presentExportError(_ message: String) {
+        exportErrorMessage = message
+        isShowingExportError = true
+        pdfExportDocument = .empty
+    }
+
+    private func thesisCard(_ item: ThesisCheck, includeActions: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            termLabel("A. Main Thesis", help: TooltipText.thesis)
+                .font(.title3.weight(.semibold))
+            termLabel("Hook (North Star)", help: TooltipText.hook)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if includeActions {
+                TextField("Position / Theme", text: bindingForThesis(item.id, \.position))
+                    .textFieldStyle(.roundedBorder)
+            } else {
+                reportTextField(item.position, placeholder: "Position / Theme")
+            }
+            termLabel("Base Thesis", help: TooltipText.baseThesis)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if includeActions {
+                adaptiveTextField("Base thesis (locked, 1-2 lines)", text: bindingForThesis(item.id, \.originalThesis))
+            } else {
+                reportTextArea(item.originalThesis, placeholder: "Base thesis (locked, 1-2 lines)", minHeight: 72)
+            }
+            scoreRow(
+                title: "B. Macro Score",
+                titleHelp: TooltipText.macroScore,
+                score: bindingForThesis(item.id, \.macroScore),
+                delta: bindingForThesis(item.id, \.macroDelta),
+                note: bindingForThesis(item.id, \.macroNote),
+                notePlaceholder: "Macro note (tailwind / headwind)",
+                includeActions: includeActions
+            )
+            scoreRow(
+                title: "C. Edge Score",
+                titleHelp: TooltipText.edgeScore,
+                score: bindingForThesis(item.id, \.edgeScore),
+                delta: bindingForThesis(item.id, \.edgeDelta),
+                note: bindingForThesis(item.id, \.edgeNote),
+                notePlaceholder: "Edge note (moat in 4 words)",
+                includeActions: includeActions
+            )
+            scoreRow(
+                title: "D. Growth Score",
+                titleHelp: TooltipText.growthScore,
+                score: bindingForThesis(item.id, \.growthScore),
+                delta: bindingForThesis(item.id, \.growthDelta),
+                note: bindingForThesis(item.id, \.growthNote),
+                notePlaceholder: "Growth note (next buyer + trigger)",
+                includeActions: includeActions
+            )
+            if let netScore = item.netScore {
+                HStack(spacing: 4) {
+                    Text(String(format: "Net score: %.1f", netScore))
+                    InfoTooltipIcon(help: TooltipText.netScore)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            termLabel("Action Tag", help: TooltipText.actionTag)
+                .font(.subheadline.weight(.semibold))
+            termLabel("Portfolio Posture", help: TooltipText.portfolioPosture)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if includeActions {
+                Picker("Action", selection: bindingForThesis(item.id, \.actionTag)) {
+                    Text("Select...").tag(ThesisActionTag?.none)
+                    ForEach(ThesisActionTag.allCases, id: \.self) { tag in
+                        Text(actionTagLabel(tag)).tag(Optional(tag))
+                    }
+                }
+                .labelsHidden()
+            } else {
+                reportPickerLabel(
+                    text: item.actionTag.map(actionTagLabel) ?? "Select...",
+                    tint: DSColor.textPrimary,
+                    fill: DSColor.surfaceSecondary,
+                    border: DSColor.borderStrong,
+                    minWidth: 140
+                )
+            }
+            HStack(spacing: 12) {
+                termLabel("Trim Logic", help: TooltipText.trimLogic)
+                termLabel("Exit Logic", help: TooltipText.exitLogic)
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            termLabel("Change Log", help: TooltipText.changeLog)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if includeActions {
+                adaptiveTextField("Change log (one sentence)", text: bindingForThesis(item.id, \.changeLog), minLines: 1, maxLines: 4)
+            } else {
+                reportTextArea(item.changeLog, placeholder: "Change log (one sentence)", minHeight: 52)
+            }
+            riskSection(for: item, includeActions: includeActions)
+            if includeActions {
+                Button("Remove thesis") {
+                    answers.thesisChecks.removeAll { $0.id == item.id }
+                }
+                .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+            }
         }
         .padding(10)
         .background(DSColor.surfaceSubtle)
@@ -696,6 +1343,507 @@ struct WeeklyChecklistEditorView: View {
 
     private func adaptiveTextField(_ title: String, text: Binding<String>, minLines: Int = 2, maxLines: Int = 15) -> some View {
         AdaptiveTextEditor(title: title, text: text, minLines: minLines, maxLines: maxLines)
+    }
+
+    private func scoreRow(
+        title: String,
+        titleHelp: String,
+        score: Binding<Int?>,
+        delta: Binding<ThesisScoreDelta?>,
+        note: Binding<String>,
+        notePlaceholder: String,
+        includeActions: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                termLabel(title, help: titleHelp)
+                    .font(.title3.weight(.semibold))
+                Spacer()
+            }
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    termLabel("Score (1-10)", help: TooltipText.score)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    if includeActions {
+                        scorePicker(score)
+                    } else {
+                        reportPickerLabel(
+                            text: score.wrappedValue.map(String.init) ?? "Score",
+                            tint: scoreTint(score.wrappedValue),
+                            fill: scoreBackground(score.wrappedValue),
+                            border: scoreBorder(score.wrappedValue),
+                            minWidth: 84
+                        )
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    termLabel("Delta (up / flat / down)", help: TooltipText.delta)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    if includeActions {
+                        deltaPicker(delta)
+                    } else {
+                        reportPickerLabel(
+                            text: delta.wrappedValue.map(deltaLabel) ?? "Delta",
+                            tint: deltaTint(delta.wrappedValue),
+                            fill: deltaBackground(delta.wrappedValue),
+                            border: deltaBorder(delta.wrappedValue),
+                            minWidth: 110
+                        )
+                    }
+                }
+                .frame(maxWidth: 160)
+            }
+            if includeActions {
+                adaptiveTextField(notePlaceholder, text: note, minLines: 1, maxLines: 3)
+            } else {
+                reportTextArea(note.wrappedValue, placeholder: notePlaceholder, minHeight: 46)
+            }
+        }
+    }
+
+    private func reportTextField(_ value: String, placeholder: String) -> some View {
+        reportTextBox(
+            value: value,
+            placeholder: placeholder,
+            minHeight: 34
+        )
+    }
+
+    private func reportTextArea(_ value: String, placeholder: String, minHeight: CGFloat) -> some View {
+        reportTextBox(
+            value: value,
+            placeholder: placeholder,
+            minHeight: minHeight
+        )
+    }
+
+    private func reportTextBox(value: String, placeholder: String, minHeight: CGFloat) -> some View {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayText = trimmed.isEmpty ? placeholder : trimmed
+        return Text(displayText)
+            .font(.body)
+            .foregroundColor(trimmed.isEmpty ? .secondary : DSColor.textPrimary)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(DSColor.surfaceSecondary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(DSColor.borderStrong, lineWidth: 1)
+            )
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func reportToggleRow(_ title: String, isOn: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            reportTextField(isOn ? "Yes" : "No", placeholder: "No")
+        }
+    }
+
+    private func regimeAssessmentText(_ assessment: RegimeAssessment?) -> String {
+        assessment.map { $0.rawValue.capitalized } ?? "n/a"
+    }
+
+    private func actionDecisionText(_ decision: ActionDecision?) -> String {
+        decision.map(decisionLabel) ?? "n/a"
+    }
+
+    private func valueOrPlaceholder(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "n/a" : trimmed
+    }
+
+    private func scoreText(_ score: Int?) -> String {
+        score.map(String.init) ?? "n/a"
+    }
+
+    private func deltaText(_ delta: ThesisScoreDelta?) -> String {
+        delta.map(deltaLabel) ?? "n/a"
+    }
+
+    private func scorePicker(_ score: Binding<Int?>) -> some View {
+        ChecklistDropdown(
+            placeholder: "Score",
+            options: Array(1...10),
+            selection: score,
+            labelText: { $0.map(String.init) ?? "Score" },
+            optionText: { String($0) },
+            tint: scoreTint,
+            fill: scoreBackground,
+            border: scoreBorder,
+            minWidth: 84
+        )
+    }
+
+    private func deltaPicker(_ delta: Binding<ThesisScoreDelta?>) -> some View {
+        ChecklistDropdown(
+            placeholder: "Delta",
+            options: ThesisScoreDelta.allCases,
+            selection: delta,
+            labelText: { $0.map(deltaLabel) ?? "Delta" },
+            optionText: deltaLabel,
+            tint: deltaTint,
+            fill: deltaBackground,
+            border: deltaBorder,
+            minWidth: 110
+        )
+    }
+
+    private struct ChecklistDropdown<Option: Hashable>: View {
+        let placeholder: String
+        let options: [Option]
+        @Binding var selection: Option?
+        let labelText: (Option?) -> String
+        let optionText: (Option) -> String
+        let tint: (Option?) -> Color
+        let fill: (Option?) -> Color
+        let border: (Option?) -> Color
+        let minWidth: CGFloat
+
+        @State private var isPresented = false
+
+        var body: some View {
+            Button {
+                isPresented = true
+            } label: {
+                DropdownLabel(
+                    text: labelText(selection),
+                    tint: tint(selection),
+                    fill: fill(selection),
+                    border: border(selection),
+                    minWidth: minWidth
+                )
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Button(placeholder) {
+                        selection = nil
+                        isPresented = false
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                    ForEach(options, id: \.self) { option in
+                        Button {
+                            selection = option
+                            isPresented = false
+                        } label: {
+                            HStack {
+                                Text(optionText(option))
+                                Spacer()
+                                if selection == option {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.semibold))
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(10)
+                .frame(minWidth: minWidth + 40)
+            }
+        }
+    }
+
+    private struct DropdownLabel: View {
+        let text: String
+        let tint: Color
+        let fill: Color
+        let border: Color
+        let minWidth: CGFloat
+
+        var body: some View {
+            HStack(spacing: 8) {
+                Text(text)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(minWidth: minWidth)
+            .background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
+            .overlay(
+                RoundedRectangle(cornerRadius: DSLayout.radiusS)
+                    .stroke(border, lineWidth: 1)
+            )
+        }
+    }
+
+    private func pickerLabel(text: String, tint: Color, fill: Color, border: Color, minWidth: CGFloat, showsChevron: Bool = true) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+            if showsChevron {
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(minWidth: minWidth, alignment: .leading)
+        .background(fill)
+        .clipShape(RoundedRectangle(cornerRadius: DSLayout.radiusS))
+        .overlay(
+            RoundedRectangle(cornerRadius: DSLayout.radiusS)
+                .stroke(border, lineWidth: 1)
+        )
+    }
+
+    private func reportPickerLabel(text: String, tint: Color, fill: Color, border: Color, minWidth: CGFloat) -> some View {
+        pickerLabel(
+            text: text,
+            tint: tint,
+            fill: fill,
+            border: border,
+            minWidth: minWidth,
+            showsChevron: false
+        )
+    }
+
+    private func scoreTint(_ score: Int?) -> Color {
+        guard let score else { return DSColor.textSecondary }
+        switch score {
+        case 1...4:
+            return .numberRed
+        case 5...7:
+            return .numberAmber
+        case 8...10:
+            return .numberGreen
+        default:
+            return DSColor.textSecondary
+        }
+    }
+
+    private func scoreBackground(_ score: Int?) -> Color {
+        guard score != nil else { return DSColor.surfaceSecondary }
+        return scoreTint(score).opacity(0.24)
+    }
+
+    private func scoreBorder(_ score: Int?) -> Color {
+        guard score != nil else { return DSColor.borderStrong }
+        return scoreTint(score).opacity(0.4)
+    }
+
+    private func deltaTint(_ delta: ThesisScoreDelta?) -> Color {
+        switch delta {
+        case .up:
+            return .numberGreen
+        case .down:
+            return .numberRed
+        case .flat:
+            return .secondary
+        case .none:
+            return DSColor.textSecondary
+        }
+    }
+
+    private func deltaBackground(_ delta: ThesisScoreDelta?) -> Color {
+        switch delta {
+        case .up:
+            return Color.numberGreen.opacity(0.24)
+        case .down:
+            return Color.numberRed.opacity(0.24)
+        case .flat:
+            return Color.secondary.opacity(0.18)
+        case .none:
+            return DSColor.surfaceSecondary
+        }
+    }
+
+    private func deltaBorder(_ delta: ThesisScoreDelta?) -> Color {
+        switch delta {
+        case .up:
+            return Color.numberGreen.opacity(0.4)
+        case .down:
+            return Color.numberRed.opacity(0.4)
+        case .flat:
+            return Color.secondary.opacity(0.35)
+        case .none:
+            return DSColor.borderStrong
+        }
+    }
+
+    private func riskSection(for item: ThesisCheck, includeActions: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("E. Risks")
+                .font(.title3.weight(.semibold))
+            if item.risks.isEmpty {
+                Text("No risks logged.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            ForEach(item.risks) { risk in
+                riskRow(thesisId: item.id, riskId: risk.id, includeActions: includeActions)
+            }
+            if includeActions {
+                Button("Add risk") {
+                    addRisk(to: item.id)
+                }
+                .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+            }
+        }
+    }
+
+    private func riskRow(thesisId: UUID, riskId: UUID, includeActions: Bool) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("Level")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    termLabel("Breaker", help: TooltipText.breaker)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    termLabel("Warn", help: TooltipText.warn)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                if includeActions {
+                    Picker("Level", selection: bindingForRisk(thesisId, riskId, \.level)) {
+                        ForEach(ThesisRiskLevel.allCases, id: \.self) { level in
+                            Text(riskLevelLabel(level)).tag(level)
+                        }
+                    }
+                    .labelsHidden()
+                } else {
+                    let levelValue = bindingForRisk(thesisId, riskId, \.level).wrappedValue
+                    reportPickerLabel(
+                        text: riskLevelLabel(levelValue),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 90
+                    )
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                termLabel("Risk Rule", help: TooltipText.riskRule)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if includeActions {
+                    TextField("Rule", text: bindingForRisk(thesisId, riskId, \.rule))
+                        .textFieldStyle(.roundedBorder)
+                } else {
+                    reportTextField(bindingForRisk(thesisId, riskId, \.rule).wrappedValue, placeholder: "Rule")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                termLabel("Trigger", help: TooltipText.trigger)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if includeActions {
+                    TextField("Trigger", text: bindingForRisk(thesisId, riskId, \.trigger))
+                        .textFieldStyle(.roundedBorder)
+                } else {
+                    reportTextField(bindingForRisk(thesisId, riskId, \.trigger).wrappedValue, placeholder: "Trigger")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                termLabel("Triggered Flag", help: TooltipText.triggeredFlag)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if includeActions {
+                    Picker("Triggered", selection: bindingForRisk(thesisId, riskId, \.triggered)) {
+                        ForEach(ThesisRiskTriggered.allCases, id: \.self) { triggered in
+                            Text(riskTriggeredLabel(triggered)).tag(triggered)
+                        }
+                    }
+                    .labelsHidden()
+                } else {
+                    let triggeredValue = bindingForRisk(thesisId, riskId, \.triggered).wrappedValue
+                    reportPickerLabel(
+                        text: riskTriggeredLabel(triggeredValue),
+                        tint: DSColor.textPrimary,
+                        fill: DSColor.surfaceSecondary,
+                        border: DSColor.borderStrong,
+                        minWidth: 110
+                    )
+                }
+            }
+            if includeActions {
+                Button("Remove") {
+                    removeRisk(from: thesisId, riskId: riskId)
+                }
+                .buttonStyle(DSButtonStyle(type: .ghost, size: .small))
+                .padding(.top, 18)
+            }
+        }
+    }
+
+    private func bindingForRisk<Value>(_ thesisId: UUID, _ riskId: UUID, _ keyPath: WritableKeyPath<ThesisRisk, Value>) -> Binding<Value> {
+        Binding(
+            get: {
+                guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }),
+                      let riskIndex = answers.thesisChecks[thesisIndex].risks.firstIndex(where: { $0.id == riskId }) else {
+                    return ThesisRisk()[keyPath: keyPath]
+                }
+                return answers.thesisChecks[thesisIndex].risks[riskIndex][keyPath: keyPath]
+            },
+            set: { newValue in
+                guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }),
+                      let riskIndex = answers.thesisChecks[thesisIndex].risks.firstIndex(where: { $0.id == riskId }) else {
+                    return
+                }
+                answers.thesisChecks[thesisIndex].risks[riskIndex][keyPath: keyPath] = newValue
+            }
+        )
+    }
+
+    private func addRisk(to thesisId: UUID) {
+        guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }) else { return }
+        answers.thesisChecks[thesisIndex].risks.append(ThesisRisk())
+    }
+
+    private func removeRisk(from thesisId: UUID, riskId: UUID) {
+        guard let thesisIndex = answers.thesisChecks.firstIndex(where: { $0.id == thesisId }) else { return }
+        answers.thesisChecks[thesisIndex].risks.removeAll { $0.id == riskId }
+    }
+
+    private func deltaLabel(_ delta: ThesisScoreDelta) -> String {
+        switch delta {
+        case .up: return "Up"
+        case .flat: return "Flat"
+        case .down: return "Down"
+        }
+    }
+
+    private func actionTagLabel(_ tag: ThesisActionTag) -> String {
+        switch tag {
+        case .none: return "None"
+        case .watch: return "Watch"
+        case .add: return "Add"
+        case .trim: return "Trim"
+        case .exit: return "Exit"
+        }
+    }
+
+    private func riskLevelLabel(_ level: ThesisRiskLevel) -> String {
+        switch level {
+        case .breaker: return "Breaker"
+        case .warn: return "Warn"
+        }
+    }
+
+    private func riskTriggeredLabel(_ triggered: ThesisRiskTriggered) -> String {
+        switch triggered {
+        case .yes: return "Yes"
+        case .no: return "No"
+        }
     }
 
     private struct AdaptiveTextEditor: View {
@@ -794,18 +1942,16 @@ struct WeeklyChecklistEditorView: View {
     }
 
     private var canComplete: Bool {
-        !answers.regimeStatement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        answers.actionDiscipline.decision != nil &&
-        !answers.actionDiscipline.decisionLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !answers.thesisChecks.isEmpty && answers.thesisChecks.allSatisfy { isThesisComplete($0) }
     }
 
-    private func decisionLabel(_ decision: ActionDecision) -> String {
-        switch decision {
-        case .doNothing: return "Do nothing"
-        case .trim: return "Trim"
-        case .add: return "Add"
-        case .exit: return "Exit"
-        }
+    private func isThesisComplete(_ item: ThesisCheck) -> Bool {
+        let hasPosition = !item.position.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasThesis = !item.originalThesis.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasScores = item.macroScore != nil && item.edgeScore != nil && item.growthScore != nil
+        let hasAction = item.actionTag != nil
+        let hasChangeLog = !item.changeLog.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasPosition && hasThesis && hasScores && hasAction && hasChangeLog
     }
 
     private func loadState() {
@@ -998,10 +2144,14 @@ struct WeeklyChecklistEditorView: View {
         baselineSkipComment = skipComment
         baselineStatus = status
         baselineThesisDrafts = normalizedDrafts(thesisDrafts)
+        updateDirtyState()
     }
 
-    private var hasUnsavedChanges: Bool {
-        answers != baselineAnswers || skipComment != baselineSkipComment || status != baselineStatus || normalizedDrafts(thesisDrafts) != baselineThesisDrafts
+    private var isDirty: Bool {
+        answers != baselineAnswers
+            || skipComment != baselineSkipComment
+            || status != baselineStatus
+            || normalizedDrafts(thesisDrafts) != baselineThesisDrafts
     }
 
     private func normalizedDrafts(_ drafts: [ThesisAssessmentDraft]) -> [ThesisAssessmentDraft] {
@@ -1012,19 +2162,37 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
+    private func registerSaveHandler() {
+        saveHandler = saveProgress
+    }
+
+    private func updateDirtyState() {
+        hasUnsavedChanges = isDirty
+    }
+
     private func requestExit() {
-        if hasUnsavedChanges {
+        if isDirty {
             showExitConfirm = true
         } else {
             onExit()
         }
     }
 
-    private func sectionCard<Content: View>(title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+    private func sectionCard<Content: View>(
+        title: String,
+        titleHelp: String? = nil,
+        subtitle: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         DSCard(padding: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(title)
-                    .font(.headline)
+                if let titleHelp {
+                    termLabel(title, help: titleHelp)
+                        .font(.headline)
+                } else {
+                    Text(title)
+                        .font(.headline)
+                }
                 if let subtitle {
                     Text(subtitle)
                         .font(.caption)
@@ -1077,6 +2245,10 @@ struct WeeklyChecklistEditorView: View {
 
     private func markComplete() {
         errorMessage = nil
+        guard canComplete else {
+            errorMessage = "Fill in all thesis entries before completing this week."
+            return
+        }
         let completedAtDate = Date()
         let ok = dbManager.upsertWeeklyChecklist(
             themeId: themeId,
@@ -1295,5 +2467,35 @@ struct WeeklyChecklistEditorView: View {
                         .stroke(DSColor.border, lineWidth: 1)
                 )
         }
+    }
+}
+
+private struct WeeklyChecklistPDFDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.pdf] }
+    static var writableContentTypes: [UTType] { [.pdf] }
+    static var empty: WeeklyChecklistPDFDocument {
+        WeeklyChecklistPDFDocument(data: Data(), suggestedFilename: "Weekly-Risk-Report")
+    }
+
+    var data: Data
+    var suggestedFilename: String
+
+    init(data: Data, suggestedFilename: String) {
+        self.data = data
+        self.suggestedFilename = suggestedFilename
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.data = data
+        suggestedFilename = "Weekly-Risk-Report"
+    }
+
+    func fileWrapper(configuration _: WriteConfiguration) throws -> FileWrapper {
+        let wrapper = FileWrapper(regularFileWithContents: data)
+        wrapper.preferredFilename = suggestedFilename
+        return wrapper
     }
 }
