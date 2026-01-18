@@ -458,6 +458,9 @@ struct WeeklyChecklistEditorView: View {
     @State private var baselineSkipComment: String = ""
     @State private var baselineStatus: WeeklyChecklistStatus = .draft
     @State private var showExitConfirm = false
+    @State private var thesisDrafts: [ThesisAssessmentDraft] = []
+    @State private var baselineThesisDrafts: [ThesisAssessmentDraft] = []
+    @State private var showThesisManager = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -484,7 +487,26 @@ struct WeeklyChecklistEditorView: View {
                             .textFieldStyle(.roundedBorder)
                     }
 
-                    sectionCard(title: "2. Thesis integrity check", subtitle: "For each major position or theme, capture the original thesis and what changed this week.") {
+                    sectionCard(title: "2. Thesis assessments", subtitle: "Review linked theses with driver and risk scores. Update deltas and capture actions.") {
+                        if thesisDrafts.isEmpty {
+                            Text("No theses linked to this portfolio yet.")
+                                .foregroundColor(.secondary)
+                        } else {
+                            ForEach($thesisDrafts) { $draft in
+                                DisclosureGroup(isExpanded: $draft.isExpanded) {
+                                    ThesisAssessmentPanel(draft: $draft)
+                                } label: {
+                                    Text(draft.thesisName)
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                        Button("Manage Thesis Links") { showThesisManager = true }
+                            .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
+                    }
+
+                    sectionCard(title: "3. Thesis integrity notes (legacy)", subtitle: "Optional free-form notes for positions not covered by thesis definitions.") {
                         if answers.thesisChecks.isEmpty {
                             Text("No positions added yet.")
                                 .foregroundColor(.secondary)
@@ -498,7 +520,7 @@ struct WeeklyChecklistEditorView: View {
                         .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
                     }
 
-                    sectionCard(title: "3. Narrative drift detection", subtitle: "Check the statements that apply and capture any red-flag language.") {
+                    sectionCard(title: "4. Narrative drift detection", subtitle: "Check the statements that apply and capture any red-flag language.") {
                         Toggle("Explaining price action with better stories, not better evidence", isOn: $answers.narrativeDrift.storyOverEvidence)
                         Toggle("Relaxed or redefined invalidation criteria", isOn: $answers.narrativeDrift.invalidationCriteriaRelaxed)
                         Toggle("Added new reasons to justify an old position", isOn: $answers.narrativeDrift.addedNewReasons)
@@ -508,7 +530,7 @@ struct WeeklyChecklistEditorView: View {
                             .help("Examples: Longer term..., The market doesn't understand yet..., This is actually bullish if you think about it...")
                     }
 
-                    sectionCard(title: "4. Exposure and sizing check", subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules.") {
+                    sectionCard(title: "5. Exposure and sizing check", subtitle: "Capture risks, overlaps, and correlations. Confirm the sizing rules.") {
                         ForEach(answers.exposureCheck.topMacroRisks.indices, id: \.self) { idx in
                             let binding = Binding(
                                 get: { answers.exposureCheck.topMacroRisks[idx] },
@@ -528,7 +550,7 @@ struct WeeklyChecklistEditorView: View {
                         Toggle("Upsizing requires fresh confirmation, not comfort", isOn: $answers.exposureCheck.upsizingRuleConfirmed)
                     }
 
-                    sectionCard(title: "5. Action discipline", subtitle: "Choose a single action and write it in one line.") {
+                    sectionCard(title: "6. Action discipline", subtitle: "Choose a single action and write it in one line.") {
                         Picker("Decision", selection: $answers.actionDiscipline.decision) {
                             Text("Select...").tag(ActionDecision?.none)
                             ForEach(ActionDecision.allCases, id: \.self) { decision in
@@ -549,6 +571,10 @@ struct WeeklyChecklistEditorView: View {
         .onChange(of: entry?.id ?? -1) { _, _ in loadState() }
         .sheet(isPresented: $showSkipSheet) {
             SkipWeekSheet(skipComment: skipComment, onCancel: { showSkipSheet = false }, onConfirm: handleSkip)
+        }
+        .sheet(isPresented: $showThesisManager, onDismiss: loadThesisDrafts) {
+            PortfolioThesisLinkManagerView(themeId: themeId)
+                .environmentObject(dbManager)
         }
         .alert("Unsaved changes", isPresented: $showExitConfirm) {
             Button("Save") {
@@ -801,6 +827,7 @@ struct WeeklyChecklistEditorView: View {
             revision = 0
             prefillThesisChecks()
         }
+        loadThesisDrafts()
         normalizeAnswers()
         errorMessage = nil
         captureBaseline()
@@ -818,6 +845,146 @@ struct WeeklyChecklistEditorView: View {
         }
     }
 
+    private func loadThesisDrafts() {
+        let linkDetails = dbManager.listPortfolioThesisLinkDetails(themeId: themeId).filter { $0.link.status == .active }
+        guard !linkDetails.isEmpty else {
+            thesisDrafts = []
+            return
+        }
+        var drafts: [ThesisAssessmentDraft] = []
+        let entryId = entry?.id
+        for (index, detail) in linkDetails.enumerated() {
+            let drivers = dbManager.listThesisDrivers(thesisDefId: detail.link.thesisDefId)
+            let risks = dbManager.listThesisRisks(thesisDefId: detail.link.thesisDefId)
+
+            var currentDriverItems: [DriverWeeklyAssessmentItem] = []
+            var currentRiskItems: [RiskWeeklyAssessmentItem] = []
+            var verdict: ThesisVerdict?
+            var topChanges = ""
+            var actions = ""
+            if let entryId,
+               let assessment = dbManager.fetchPortfolioThesisWeeklyAssessment(weeklyChecklistId: entryId, portfolioThesisId: detail.link.id)
+            {
+                verdict = assessment.verdict
+                topChanges = assessment.topChangesText ?? ""
+                actions = assessment.actionsSummary ?? ""
+                currentDriverItems = dbManager.fetchDriverAssessmentItems(assessmentId: assessment.id)
+                currentRiskItems = dbManager.fetchRiskAssessmentItems(assessmentId: assessment.id)
+            }
+
+            var priorDriverScores: [Int: Int] = [:]
+            var priorRiskScores: [Int: Int] = [:]
+            var priorDriverItems: [DriverWeeklyAssessmentItem] = []
+            var priorRiskItems: [RiskWeeklyAssessmentItem] = []
+            if let prior = dbManager.fetchLatestPortfolioThesisWeeklyAssessment(portfolioThesisId: detail.link.id, beforeWeekStartDate: weekStartDate) {
+                priorDriverItems = dbManager.fetchDriverAssessmentItems(assessmentId: prior.id)
+                priorRiskItems = dbManager.fetchRiskAssessmentItems(assessmentId: prior.id)
+                priorDriverScores = Dictionary(uniqueKeysWithValues: priorDriverItems.compactMap { item in
+                    guard let score = item.score else { return nil }
+                    return (item.driverDefId, score)
+                })
+                priorRiskScores = Dictionary(uniqueKeysWithValues: priorRiskItems.compactMap { item in
+                    guard let score = item.score else { return nil }
+                    return (item.riskDefId, score)
+                })
+            }
+
+            let driverItems = buildDriverItems(definitions: drivers, current: currentDriverItems, prior: priorDriverItems)
+            let riskItems = buildRiskItems(definitions: risks, current: currentRiskItems, prior: priorRiskItems)
+            let draft = ThesisAssessmentDraft(
+                portfolioThesisId: detail.link.id,
+                thesisName: detail.thesisName,
+                thesisSummary: detail.thesisSummary,
+                drivers: drivers,
+                risks: risks,
+                verdict: verdict,
+                topChangesText: topChanges,
+                actionsSummary: actions,
+                driverItems: driverItems,
+                riskItems: riskItems,
+                priorDriverScores: priorDriverScores,
+                priorRiskScores: priorRiskScores,
+                isExpanded: index == 0
+            )
+            drafts.append(draft)
+        }
+        thesisDrafts = drafts
+    }
+
+    private func buildDriverItems(definitions: [ThesisDriverDefinition], current: [DriverWeeklyAssessmentItem], prior: [DriverWeeklyAssessmentItem]) -> [DriverWeeklyAssessmentItem] {
+        definitions.map { definition in
+            if let existing = current.first(where: { $0.driverDefId == definition.id }) {
+                var updated = existing
+                updated.sortOrder = definition.sortOrder
+                return updated
+            }
+            if let priorItem = prior.first(where: { $0.driverDefId == definition.id }) {
+                return DriverWeeklyAssessmentItem(
+                    id: 0,
+                    assessmentId: 0,
+                    driverDefId: priorItem.driverDefId,
+                    rag: priorItem.rag,
+                    score: priorItem.score,
+                    deltaVsPrior: nil,
+                    changeSentence: "",
+                    evidenceRefs: priorItem.evidenceRefs,
+                    implication: priorItem.implication,
+                    sortOrder: definition.sortOrder
+                )
+            }
+            return DriverWeeklyAssessmentItem(
+                id: 0,
+                assessmentId: 0,
+                driverDefId: definition.id,
+                rag: nil,
+                score: nil,
+                deltaVsPrior: nil,
+                changeSentence: "",
+                evidenceRefs: [],
+                implication: nil,
+                sortOrder: definition.sortOrder
+            )
+        }
+    }
+
+    private func buildRiskItems(definitions: [ThesisRiskDefinition], current: [RiskWeeklyAssessmentItem], prior: [RiskWeeklyAssessmentItem]) -> [RiskWeeklyAssessmentItem] {
+        definitions.map { definition in
+            if let existing = current.first(where: { $0.riskDefId == definition.id }) {
+                var updated = existing
+                updated.sortOrder = definition.sortOrder
+                return updated
+            }
+            if let priorItem = prior.first(where: { $0.riskDefId == definition.id }) {
+                return RiskWeeklyAssessmentItem(
+                    id: 0,
+                    assessmentId: 0,
+                    riskDefId: priorItem.riskDefId,
+                    rag: priorItem.rag,
+                    score: priorItem.score,
+                    deltaVsPrior: nil,
+                    changeSentence: "",
+                    evidenceRefs: priorItem.evidenceRefs,
+                    thesisImpact: priorItem.thesisImpact,
+                    recommendedAction: priorItem.recommendedAction,
+                    sortOrder: definition.sortOrder
+                )
+            }
+            return RiskWeeklyAssessmentItem(
+                id: 0,
+                assessmentId: 0,
+                riskDefId: definition.id,
+                rag: nil,
+                score: nil,
+                deltaVsPrior: nil,
+                changeSentence: "",
+                evidenceRefs: [],
+                thesisImpact: nil,
+                recommendedAction: nil,
+                sortOrder: definition.sortOrder
+            )
+        }
+    }
+
     private func normalizeAnswers() {
         if answers.exposureCheck.topMacroRisks.count < 3 {
             answers.exposureCheck.topMacroRisks.append(contentsOf: Array(repeating: "", count: 3 - answers.exposureCheck.topMacroRisks.count))
@@ -830,10 +997,19 @@ struct WeeklyChecklistEditorView: View {
         baselineAnswers = answers
         baselineSkipComment = skipComment
         baselineStatus = status
+        baselineThesisDrafts = normalizedDrafts(thesisDrafts)
     }
 
     private var hasUnsavedChanges: Bool {
-        answers != baselineAnswers || skipComment != baselineSkipComment || status != baselineStatus
+        answers != baselineAnswers || skipComment != baselineSkipComment || status != baselineStatus || normalizedDrafts(thesisDrafts) != baselineThesisDrafts
+    }
+
+    private func normalizedDrafts(_ drafts: [ThesisAssessmentDraft]) -> [ThesisAssessmentDraft] {
+        drafts.map { draft in
+            var copy = draft
+            copy.isExpanded = false
+            return copy
+        }
     }
 
     private func requestExit() {
@@ -894,8 +1070,9 @@ struct WeeklyChecklistEditorView: View {
             completedAt: completed,
             skippedAt: skipped
         )
-        handleSaveResult(ok, newStatus: targetStatus)
-        return ok
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        handleSaveResult(persisted, newStatus: targetStatus)
+        return persisted
     }
 
     private func markComplete() {
@@ -910,12 +1087,13 @@ struct WeeklyChecklistEditorView: View {
             completedAt: completedAtDate,
             skippedAt: nil
         )
-        if ok {
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        if persisted {
             completedAt = completedAtDate
             skippedAt = nil
         }
-        handleSaveResult(ok, newStatus: .completed)
-        if ok {
+        handleSaveResult(persisted, newStatus: .completed)
+        if persisted {
             onExit()
         }
     }
@@ -935,13 +1113,106 @@ struct WeeklyChecklistEditorView: View {
             completedAt: nil,
             skippedAt: Date()
         )
-        if ok {
+        let persisted = persistThesisAssessmentsIfNeeded(ok: ok)
+        if persisted {
             skippedAt = Date()
             completedAt = nil
         }
-        handleSaveResult(ok, newStatus: .skipped)
+        handleSaveResult(persisted, newStatus: .skipped)
         skipComment = trimmed
         showSkipSheet = false
+    }
+
+    private func persistThesisAssessmentsIfNeeded(ok: Bool) -> Bool {
+        guard ok else { return false }
+        guard !thesisDrafts.isEmpty else { return true }
+        guard let updatedEntry = dbManager.fetchWeeklyChecklist(themeId: themeId, weekStartDate: weekStartDate) else { return false }
+        let persisted = persistThesisAssessments(weeklyChecklistId: updatedEntry.id)
+        if !persisted {
+            errorMessage = "Unable to save thesis assessments."
+        }
+        return persisted
+    }
+
+    private func persistThesisAssessments(weeklyChecklistId: Int) -> Bool {
+        for draft in thesisDrafts {
+            let driverItems = normalizeDriverItems(draft.driverItems, priorScores: draft.priorDriverScores)
+                .sorted { $0.sortOrder < $1.sortOrder }
+            let riskItems = normalizeRiskItems(draft.riskItems, priorScores: draft.priorRiskScores)
+                .sorted { $0.sortOrder < $1.sortOrder }
+            let driverStrength = ThesisScoring.weightedAverage(items: driverItems.map { item in
+                let weight = draft.drivers.first(where: { $0.id == item.driverDefId })?.weight
+                return (score: item.score, weight: weight)
+            })
+            let riskPressure = ThesisScoring.weightedAverage(items: riskItems.map { item in
+                let weight = draft.risks.first(where: { $0.id == item.riskDefId })?.weight
+                return (score: item.score, weight: weight)
+            })
+            let suggested = ThesisScoring.verdictSuggestion(
+                driverStrength: driverStrength,
+                riskPressure: riskPressure,
+                driverItems: driverItems,
+                riskItems: riskItems,
+                riskDefinitions: draft.risks
+            )
+            let verdict = draft.verdict ?? suggested
+            let rag = verdict.map { verdict in
+                switch verdict {
+                case .valid: return ThesisRAG.green
+                case .watch: return ThesisRAG.amber
+                case .impaired, .broken: return ThesisRAG.red
+                }
+            }
+
+            let ok = dbManager.upsertPortfolioThesisWeeklyAssessment(
+                weeklyChecklistId: weeklyChecklistId,
+                portfolioThesisId: draft.portfolioThesisId,
+                verdict: verdict,
+                rag: rag,
+                driverStrengthScore: driverStrength,
+                riskPressureScore: riskPressure,
+                topChangesText: draft.topChangesText.trimmingCharacters(in: .whitespacesAndNewlines),
+                actionsSummary: draft.actionsSummary.trimmingCharacters(in: .whitespacesAndNewlines),
+                driverItems: driverItems,
+                riskItems: riskItems
+            )
+            if !ok { return false }
+        }
+        return true
+    }
+
+    private func normalizeDriverItems(_ items: [DriverWeeklyAssessmentItem], priorScores: [Int: Int]) -> [DriverWeeklyAssessmentItem] {
+        items.map { item in
+            var updated = item
+            let score = item.score
+            updated.rag = item.rag ?? ThesisRAG.driverRAG(for: score)
+            if let score, let prior = priorScores[item.driverDefId] {
+                updated.deltaVsPrior = score - prior
+            } else {
+                updated.deltaVsPrior = nil
+            }
+            if let sentence = updated.changeSentence?.trimmingCharacters(in: .whitespacesAndNewlines), sentence.isEmpty {
+                updated.changeSentence = nil
+            }
+            return updated
+        }
+    }
+
+    private func normalizeRiskItems(_ items: [RiskWeeklyAssessmentItem], priorScores: [Int: Int]) -> [RiskWeeklyAssessmentItem] {
+        items.map { item in
+            var updated = item
+            let score = item.score
+            updated.rag = item.rag ?? ThesisRAG.riskRAG(for: score)
+            if let score, let prior = priorScores[item.riskDefId] {
+                updated.deltaVsPrior = score - prior
+            } else {
+                updated.deltaVsPrior = nil
+            }
+            if let sentence = updated.changeSentence?.trimmingCharacters(in: .whitespacesAndNewlines), sentence.isEmpty {
+                updated.changeSentence = nil
+            }
+            return updated
+        }
     }
 
     private func handleSaveResult(_ ok: Bool, newStatus: WeeklyChecklistStatus) {
@@ -970,6 +1241,7 @@ struct WeeklyChecklistEditorView: View {
         skippedAt = updated.skippedAt
         revision = updated.revision
         normalizeAnswers()
+        loadThesisDrafts()
         captureBaseline()
     }
 
