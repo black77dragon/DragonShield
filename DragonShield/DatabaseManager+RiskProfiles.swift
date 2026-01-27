@@ -434,6 +434,7 @@ extension DatabaseManager {
               FROM InstrumentRiskProfile irp
               JOIN Instruments i ON i.instrument_id = irp.instrument_id
              WHERE irp.manual_override = 1
+               AND i.is_deleted = 0
              ORDER BY i.instrument_name COLLATE NOCASE
         """
         var stmt: OpaquePointer?

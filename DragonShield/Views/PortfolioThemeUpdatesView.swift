@@ -24,10 +24,18 @@ struct PortfolioThemeUpdatesView: View {
     @State private var isArchived: Bool = false
     @State private var showDeleteConfirm: Bool = false
     @State private var deleteCandidateId: Int? = nil
+    @State private var statusMessage: String?
+    @State private var statusClearTask: DispatchWorkItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             filterRow
+            if let message = statusMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(Color.green.opacity(0.8))
+                    .transition(.opacity)
+            }
             if let hint = searchHint {
                 Text(hint)
                     .font(.caption)
@@ -61,6 +69,7 @@ struct PortfolioThemeUpdatesView: View {
             ThemeUpdateEditorView(themeId: themeId, themeName: themeName, onSave: { _ in
                 showEditor = false
                 load()
+                showStatus("Update saved to the database.")
             }, onCancel: {
                 showEditor = false
             })
@@ -70,6 +79,7 @@ struct PortfolioThemeUpdatesView: View {
             ThemeUpdateEditorView(themeId: themeId, themeName: themeName, existing: upd, onSave: { _ in
                 editingUpdate = nil
                 load()
+                showStatus("Update changes saved.")
             }, onCancel: {
                 editingUpdate = nil
             })
@@ -238,6 +248,14 @@ struct PortfolioThemeUpdatesView: View {
         sortOrder = .newest
         dateFilter = .all
         load()
+    }
+
+    private func showStatus(_ message: String) {
+        statusClearTask?.cancel()
+        statusMessage = message
+        let task = DispatchWorkItem { statusMessage = nil }
+        statusClearTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
     }
 
     // MARK: - Actions

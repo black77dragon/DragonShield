@@ -71,7 +71,6 @@ enum DashboardTileCategories {
         AllNotesTile.tileID: .general,
         UnusedInstrumentsTile.tileID: .general,
         UnthemedInstrumentsTile.tileID: .general,
-        WeeklyChecklistTile.tileID: .general,
         TextTile.tileID: .general,
     ]
 

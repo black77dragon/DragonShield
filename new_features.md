@@ -91,6 +91,21 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [bugs] **[DS-098] Exclude Soft-Deleted Instruments from Risk Overrides** (2026-01-27)
+    Why: Soft-deleted instruments should not appear in override governance views.
+    What: Filter manual overrides so the Risk Overrides dashboard tile and the Risk Report Overrides & Expiries table skip instruments marked soft-deleted.
+    Tested: not confirmed by user.
+
+- [x] [new_features] **[DS-097] Historic Performance Event Annotations** (2026-01-27)
+    Why: The historic performance chart needs contextual notes for cash flows or market events so large moves are explained at a glance.
+    What: Add a global performance events table with date, type, short description (tooltip), and long description (stored); surface an events table at the bottom of the Historic Performance GUI with add/edit/delete controls; overlay event markers on the chart with hover tooltips showing the short description; support multiple events on the same date; events are visual only and do not affect calculations.
+    Tested: confirmed by user.
+
+- [x] [changes] **[DS-096] KPI Management: Delete + Primary/Secondary Toggle** (2026-01-27)
+    Why: KPI management needs basic lifecycle controls so users can clean up and reclassify KPI definitions without manual workarounds.
+    What: Allow deleting a KPI definition and switching it between primary and secondary in the KPI editor, while enforcing the existing KPI caps and keeping the management view in sync.
+    Tested: not confirmed by user.
+
 - [x] [new_features] **[DS-094] Weekly Checklist Report Export + Risk UX Enhancements** (2026-01-18)
     Why: Weekly checklist reviews need clearer guidance, explicit risk-trigger state, and a shareable report output while avoiding data loss when switching weeks.
     What: In Weekly Checklist, add a triggered yes/no flag to thesis risks; add info tooltips for key terms; add PDF report export with a report header, printable read-only layout, and a macOS text appendix plus safe file naming; implement unsaved-changes tracking with confirmation prompts on exit and week selection; allow double-click on overview rows to open the most current weekly report; render score/delta/action pickers in a report-friendly style.

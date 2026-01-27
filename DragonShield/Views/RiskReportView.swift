@@ -28,7 +28,7 @@ struct RiskReportView: View {
         Color.red
     ]
 
-    private var heroColumns: [GridItem] { [GridItem(.adaptive(minimum: 240), spacing: 12)] }
+    private var heroColumns: [GridItem] { [GridItem(.adaptive(minimum: 240), spacing: 12, alignment: .topLeading)] }
 
     private var sriBuckets: [(value: Int, label: String)] {
         [
@@ -301,15 +301,24 @@ struct RiskReportView: View {
                     .foregroundColor(.secondary)
                 Spacer()
             }
+            Text("All prices in CHF")
+                .font(.caption)
+                .foregroundColor(.secondary)
             ForEach(sortedSRIBuckets()) { bucket in
                 let shareValue = share(for: bucket, metric: sriMetric)
                 HStack {
                     riskBadge(bucket.bucket)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(bucket.label)
-                        Text("\(bucket.count) • \(formatCurrency(bucket.value)) • \(formatPercent(shareValue))")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 0) {
+                            Text("\(bucket.count) • ")
+                            Text(formatChfNoDecimals(bucket.value))
+                                .bold()
+                                .monospacedDigit()
+                            Text(" • \(formatPercent(shareValue))")
+                        }
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                     }
                     Spacer()
                     Image(systemName: expandedSRI.contains(bucket.bucket) ? "chevron.up" : "chevron.down")
@@ -366,18 +375,30 @@ struct RiskReportView: View {
             } else {
                 Chart(allocationSegments) { segment in
                     BarMark(
-                        x: .value("Value", segment.value),
+                        x: .value("Share", segment.share),
                         y: .value("Asset Class", segment.classLabel)
                     )
                     .foregroundStyle(by: .value("SRI", "SRI \(segment.sri)"))
-                    .position(by: .value("SRI", segment.sri))
                 }
                 .chartForegroundStyleScale(
                     domain: sriBuckets.map { "SRI \($0.value)" },
                     range: riskColors
                 )
+                .chartXScale(domain: 0 ... 1)
+                .chartXAxis {
+                    AxisMarks(values: [0.0, 0.25, 0.5, 0.75, 1.0]) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let share = value.as(Double.self) {
+                                Text(formatPercent(share))
+                            }
+                        }
+                    }
+                }
+                .chartXAxisLabel("Share of asset class", alignment: .trailing)
+                .chartYAxisLabel("Asset class", alignment: .leading)
                 .chartLegend(.visible)
-                .frame(height: max(Double(allocationSegments.count) * 14.0, 200))
+                .frame(height: max(Double(heatmapRows.count) * 36.0, 200))
             }
         }
     }
@@ -673,7 +694,10 @@ struct RiskReportView: View {
         heatmapRows.flatMap { row in
             row.cells
                 .filter { $0.value > 0 }
-                .map { AllocationSegment(id: UUID(), classLabel: row.label, sri: $0.bucket, value: $0.value) }
+                .map {
+                    let share = row.total > 0 ? $0.value / row.total : 0
+                    return AllocationSegment(id: UUID(), classLabel: row.label, sri: $0.bucket, value: $0.value, share: share)
+                }
         }
     }
 
@@ -719,7 +743,7 @@ struct RiskReportView: View {
                             .font(.footnote)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(formatCurrency(positionValue(pr)))
+                        Text(formatChfNoDecimals(positionValue(pr)))
                             .font(.footnote.monospacedDigit())
                             .foregroundColor(.secondary)
                     }
@@ -767,6 +791,17 @@ struct RiskReportView: View {
         formatter.currencyCode = baseCurrency
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
+    }
+
+    private func formatChfNoDecimals(_ value: Double) -> String {
+        let truncated = value.rounded(.towardZero)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "de_CH")
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        formatter.usesGroupingSeparator = true
+        return formatter.string(from: NSNumber(value: truncated)) ?? String(Int(truncated))
     }
 
     private func formatCompactCurrency(_ value: Double) -> String {
@@ -991,6 +1026,7 @@ private struct AllocationSegment: Identifiable {
     let classLabel: String
     let sri: Int
     let value: Double
+    let share: Double
 }
 
 private enum OverrideStatus {

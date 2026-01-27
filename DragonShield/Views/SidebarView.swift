@@ -19,7 +19,6 @@ struct SidebarView: View {
     @EnvironmentObject var dbManager: DatabaseManager
     @StateObject private var todoBoardViewModel = KanbanBoardViewModel()
     @State private var showReleaseNotes = false
-    @State private var weeklyDueCount = 0
 
     // New AppStorage keys for the new structure
     @AppStorage("sidebar.showDashboard") private var showDashboard = true
@@ -49,17 +48,6 @@ struct SidebarView: View {
         }.count
     }
 
-    private func refreshWeeklyDueCount() {
-        let currentWeek = WeeklyChecklistDateHelper.weekStart(for: Date())
-        let themes = dbManager.fetchPortfolioThemes(includeArchived: false, includeSoftDeleted: false)
-        weeklyDueCount = themes.filter { $0.weeklyChecklistEnabled }.filter { theme in
-            guard let entry = dbManager.fetchWeeklyChecklist(themeId: theme.id, weekStartDate: currentWeek) else {
-                return true
-            }
-            return entry.status != .completed && entry.status != .skipped
-        }.count
-    }
-
     @ViewBuilder
     private func sidebarLink(for item: SidebarItemID) -> some View {
         switch item {
@@ -82,14 +70,9 @@ struct SidebarView: View {
             NavigationLink(destination: PortfolioThemesAlignedView().environmentObject(dbManager)) {
                 Label("Portfolios", systemImage: "tablecells")
             }
-        case .weeklyChecklist:
-            NavigationLink(destination: WeeklyChecklistOverviewView()) {
-                HStack(spacing: 8) {
-                    Label("Weekly Checklist", systemImage: "checklist")
-                    if weeklyDueCount > 0 {
-                        WeeklyChecklistDueBadge(count: weeklyDueCount)
-                    }
-                }
+        case .thesisManagement:
+            NavigationLink(destination: ThesisManagementRootView()) {
+                Label("Thesis Mgmt", systemImage: "brain.head.profile")
             }
         case .tradingProfile:
             NavigationLink(destination: TradingProfileView()) {
@@ -394,7 +377,6 @@ struct SidebarView: View {
         content
             .onAppear {
                 todoBoardViewModel.refreshFromStorage()
-                refreshWeeklyDueCount()
             }
             .onChange(of: dashboardOrder) { _, updated in
                 SidebarOrderStore.saveOrder(updated, for: .dashboard)
@@ -414,9 +396,6 @@ struct SidebarView: View {
             .onChange(of: configurationOrder) { _, updated in
                 SidebarOrderStore.saveOrder(updated, for: .configuration)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .weeklyChecklistUpdated)) { _ in
-                refreshWeeklyDueCount()
-            }
     }
 
     var body: some View {
@@ -428,7 +407,7 @@ private enum SidebarItemID: String, CaseIterable, Identifiable {
     case dashboard
     case todoBoard
     case portfolios
-    case weeklyChecklist
+    case thesisManagement
     case tradingProfile
     case riskReport
     case positions
@@ -476,7 +455,7 @@ private enum SidebarListKind: String, CaseIterable {
         case .portfolio:
             return [
                 .portfolios,
-                .weeklyChecklist,
+                .thesisManagement,
                 .tradingProfile,
                 .riskReport,
                 .positions,
@@ -1249,31 +1228,6 @@ private struct TodoDueBadge: View {
                     .fill(Color.red)
             )
             .accessibilityLabel("\(accessibilityCountText) to-dos due soon")
-    }
-}
-
-private struct WeeklyChecklistDueBadge: View {
-    let count: Int
-
-    private var displayText: String {
-        count > 99 ? "99+" : "\(count)"
-    }
-
-    private var accessibilityCountText: String {
-        count > 99 ? "99 or more" : "\(count)"
-    }
-
-    var body: some View {
-        Text(displayText)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-                Capsule()
-                    .fill(DSColor.accentWarning)
-            )
-            .accessibilityLabel("\(accessibilityCountText) weekly checklists due")
     }
 }
 

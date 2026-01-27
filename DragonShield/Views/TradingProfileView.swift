@@ -170,8 +170,7 @@ struct TradingProfileView: View {
                                 weight: coordinate.weightPercent,
                                 value: $coordinate.value,
                                 minLabel: descriptor?.minLabel,
-                                maxLabel: descriptor?.maxLabel,
-                                isEditable: false
+                                maxLabel: descriptor?.maxLabel
                             )
                         }
                     }
@@ -508,7 +507,6 @@ private struct ProfileCoordinateRow: View {
     @Binding var value: Double
     let minLabel: String?
     let maxLabel: String?
-    let isEditable: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -519,15 +517,7 @@ private struct ProfileCoordinateRow: View {
                 Text("Weight \(String(format: "%.0f", weight))%")
                     .dsCaption()
             }
-            HStack(spacing: 12) {
-                Slider(value: $value, in: 0...10, step: 0.5)
-                    .accentColor(DSColor.accentMain)
-                    .disabled(!isEditable)
-                Text(String(format: "%.1f", value))
-                    .font(.ds.monoSmall)
-                    .foregroundStyle(DSColor.textSecondary)
-                    .frame(width: 44, alignment: .trailing)
-            }
+            ProfileCoordinateSlider(value: value, range: 0...10)
             if let minLabel, let maxLabel {
                 HStack {
                     Text(minLabel)
@@ -539,6 +529,86 @@ private struct ProfileCoordinateRow: View {
                 .foregroundStyle(DSColor.textSecondary)
             }
         }
+    }
+}
+
+private enum ProfileCoordinateSliderStyle {
+    static let trackHeight: CGFloat = 10
+    static let knobDiameter: CGFloat = 32
+    static let knobStrokeWidth: CGFloat = 2
+}
+
+private struct ProfileCoordinateSlider: View {
+    let value: Double
+    let range: ClosedRange<Double>
+
+    private var clampedValue: Double {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    private var progress: CGFloat {
+        guard range.upperBound > range.lowerBound else { return 0 }
+        return CGFloat((clampedValue - range.lowerBound) / (range.upperBound - range.lowerBound))
+    }
+
+    private var valueText: String {
+        String(format: "%.1f", clampedValue)
+    }
+
+    private var fillGradient: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: DSColor.accentMain.opacity(0.4), location: 0.0),
+                .init(color: DSColor.accentMain, location: 0.6),
+                .init(color: DSColor.accentWarning.opacity(0.9), location: 1.0)
+            ]),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let knobRadius = ProfileCoordinateSliderStyle.knobDiameter / 2
+            let width = max(geo.size.width, ProfileCoordinateSliderStyle.knobDiameter)
+            let availableWidth = max(width - ProfileCoordinateSliderStyle.knobDiameter, 1)
+            let knobX = knobRadius + progress * availableWidth
+            let fillWidth = max(knobRadius, knobX)
+
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: ProfileCoordinateSliderStyle.trackHeight / 2)
+                    .fill(DSColor.surfaceSubtle)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ProfileCoordinateSliderStyle.trackHeight / 2)
+                            .stroke(DSColor.borderStrong, lineWidth: 1)
+                    )
+                    .frame(height: ProfileCoordinateSliderStyle.trackHeight)
+
+                RoundedRectangle(cornerRadius: ProfileCoordinateSliderStyle.trackHeight / 2)
+                    .fill(fillGradient)
+                    .frame(width: fillWidth, height: ProfileCoordinateSliderStyle.trackHeight)
+
+                Circle()
+                    .fill(DSColor.accentMain)
+                    .overlay(
+                        Circle()
+                            .stroke(DSColor.textOnAccent.opacity(0.9), lineWidth: ProfileCoordinateSliderStyle.knobStrokeWidth)
+                    )
+                    .overlay(
+                        Text(valueText)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(DSColor.textOnAccent)
+                    )
+                    .frame(width: ProfileCoordinateSliderStyle.knobDiameter, height: ProfileCoordinateSliderStyle.knobDiameter)
+                    .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                    .position(x: knobX, y: geo.size.height / 2)
+            }
+        }
+        .frame(height: ProfileCoordinateSliderStyle.knobDiameter)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Profile coordinate value")
+        .accessibilityValue(valueText)
     }
 }
 

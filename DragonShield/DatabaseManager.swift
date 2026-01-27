@@ -260,7 +260,9 @@ class DatabaseManager: ObservableObject {
             ensureAttachmentTable()
             ensureThemeUpdateAttachmentTable()
             ensureThemeAssetUpdateAttachmentTable()
+            repairLegacyPortfolioThemeForeignKeys()
             ensureAlertReferenceTables()
+            ensureThesisTables()
             // Trades schema now provisioned via db/migrations (dbmate). No runtime DDL here.
             let version = loadConfiguration()
             DispatchQueue.main.async { self.preferences.dbVersion = version }

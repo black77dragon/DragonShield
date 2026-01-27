@@ -40,6 +40,7 @@ struct ThemeUpdateEditorView: View {
     @State private var linkError: String?
     @State private var editingLinkId: Int?
     @State private var editingLinkTitle: String = ""
+    @State private var feedback: SaveFeedback?
 
     @State private var showHelp = false
 
@@ -123,6 +124,9 @@ struct ThemeUpdateEditorView: View {
                 selectedTypeId = newsTypes.first?.id
             }
         }
+        .alert(item: $feedback) { info in
+            Alert(title: Text(info.title), message: Text(info.message), dismissButton: .default(Text("OK")))
+        }
     }
 
     private func deleteExisting() {
@@ -169,10 +173,23 @@ struct ThemeUpdateEditorView: View {
     }
 
     private func save() {
+        guard PortfolioThemeUpdate.isValidTitle(title) else {
+            feedback = SaveFeedback(title: "Missing Title", message: "Enter a title between 1 and 120 characters.")
+            return
+        }
+        guard PortfolioThemeUpdate.isValidBody(bodyMarkdown) else {
+            feedback = SaveFeedback(title: "Missing Body", message: "Enter an update between 1 and 5000 characters.")
+            return
+        }
+        guard let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code else {
+            let message = newsTypes.isEmpty
+                ? "No update types are configured. Add one in News Types settings."
+                : "Select an update type before saving."
+            feedback = SaveFeedback(title: "Missing Update Type", message: message)
+            return
+        }
         if let existing = existing {
-            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource)
-            {
+            if let updated = dbManager.updateThemeUpdate(id: existing.id, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, actor: NSFullUserName(), expectedUpdatedAt: existing.updatedAt, source: logSource) {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 let currentIds = Set(attachments.map { $0.id })
                 let initialIds = Set(repo.listAttachments(updateId: existing.id).map { $0.id })
@@ -202,11 +219,15 @@ struct ThemeUpdateEditorView: View {
                     }
                 }
                 onSave(updated)
+            } else {
+                if let current = dbManager.getThemeUpdate(id: existing.id), current.updatedAt != existing.updatedAt {
+                    feedback = SaveFeedback(title: "Save Failed", message: "This update was changed elsewhere. Reload and try again.")
+                } else {
+                    feedback = SaveFeedback(title: "Save Failed", message: saveErrorMessage(fallback: "Failed to save update. Check your inputs and try again."))
+                }
             }
         } else {
-            if let code = newsTypes.first(where: { $0.id == selectedTypeId })?.code,
-               let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource)
-            {
+            if let created = dbManager.createThemeUpdate(themeId: themeId, title: title, bodyMarkdown: bodyMarkdown, newsTypeCode: code, pinned: pinned, author: NSFullUserName(), positionsAsOf: positionsAsOf, totalValueChf: totalValueChf, source: logSource) {
                 let repo = ThemeUpdateRepository(dbManager: dbManager)
                 for att in attachments {
                     _ = repo.linkAttachment(updateId: created.id, attachmentId: att.id)
@@ -217,8 +238,18 @@ struct ThemeUpdateEditorView: View {
                     LoggingService.shared.log("{ themeUpdateId: \(created.id), linkId: \(link.id), op:'link_add' }", type: .info, logger: .database)
                 }
                 onSave(created)
+            } else {
+                feedback = SaveFeedback(title: "Save Failed", message: saveErrorMessage(fallback: "Failed to save update. Check your inputs and try again."))
             }
         }
+    }
+
+    private func saveErrorMessage(fallback: String) -> String {
+        let err = dbManager.lastSQLErrorMessage()
+        if err == "not an error" || err == "unknown database error" || err == "database not open" {
+            return fallback
+        }
+        return err
     }
 
     @MainActor
@@ -451,4 +482,10 @@ private struct MarkdownHelpView: View {
             Text(MarkdownRenderer.attributedString(from: rendered))
         }
     }
+}
+
+private struct SaveFeedback: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
