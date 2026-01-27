@@ -18,4 +18,21 @@ extension DatabaseManager {
         sqlite3_finalize(stmt)
         return has
     }
+
+    func tableHasForeignKey(_ table: String, references target: String) -> Bool {
+        guard let db else { return false }
+        let sql = "PRAGMA foreign_key_list(\(table));"
+        var stmt: OpaquePointer?
+        var has = false
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let nameC = sqlite3_column_text(stmt, 2) {
+                    let name = String(cString: nameC)
+                    if name.caseInsensitiveCompare(target) == .orderedSame { has = true; break }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return has
+    }
 }

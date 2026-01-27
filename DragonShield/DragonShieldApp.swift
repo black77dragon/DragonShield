@@ -9,6 +9,7 @@ struct DragonShieldApp: App {
     @StateObject private var ichimokuSettingsService: IchimokuSettingsService
     @StateObject private var ichimokuViewModel: IchimokuDragonViewModel
     @StateObject private var ichimokuScheduler: IchimokuScheduler
+    @StateObject private var thesisStore: ThesisStore
 
     init() {
         UserDefaults.standard.removeObject(forKey: "portfolioAttachmentsEnabled")
@@ -16,6 +17,7 @@ struct DragonShieldApp: App {
         let dbManager = DatabaseManager()
         _databaseManager = StateObject(wrappedValue: dbManager)
         _assetManager = StateObject(wrappedValue: AssetManager())
+        _thesisStore = StateObject(wrappedValue: ThesisStore(dbManager: dbManager))
         HealthCheckRegistry.register(DatabaseFileHealthCheck(pathProvider: { dbManager.dbFilePath }))
         HealthCheckRegistry.register(ReleaseNotesVersionHealthCheck())
         // Register FX health check to display last/next FX update info
@@ -47,6 +49,7 @@ struct DragonShieldApp: App {
             .environmentObject(ichimokuSettingsService)
             .environmentObject(ichimokuViewModel)
             .environmentObject(ichimokuScheduler)
+            .environmentObject(thesisStore)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     ModeBadge()
@@ -105,28 +108,6 @@ struct DragonShieldApp: App {
         }
         .defaultSize(width: 1120, height: 720)
         .windowResizability(.contentSize)
-
-        WindowGroup(id: "weeklyChecklist") {
-            WeeklyChecklistOverviewView()
-                .environmentObject(databaseManager)
-                .environmentObject(databaseManager.preferences)
-        }
-        .defaultSize(width: 1400, height: 900)
-        .windowResizability(.automatic)
-
-        WindowGroup(id: "weeklyChecklistPortfolio", for: Int.self) { $themeId in
-            if let tid = themeId,
-               let theme = databaseManager.getPortfolioTheme(id: tid, includeSoftDeleted: true)
-            {
-                WeeklyChecklistPortfolioView(themeId: tid, themeName: theme.name)
-                    .environmentObject(databaseManager)
-                    .environmentObject(databaseManager.preferences)
-            } else {
-                Text("Portfolio not found")
-            }
-        }
-        .defaultSize(width: 1400, height: 900)
-        .windowResizability(.automatic)
 
         WindowGroup(id: "themeWorkspace", for: Int.self) { $themeId in
             if let tid = themeId {

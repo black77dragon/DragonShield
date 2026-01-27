@@ -18,16 +18,6 @@ private struct HoldingsTableFontConfig {
     let headerSize: CGFloat
 }
 
-private struct ThesisOverviewRow: Identifiable {
-    let link: PortfolioThesisLink
-    let name: String
-    let verdict: ThesisVerdict?
-    let driverStrength: Double?
-    let riskPressure: Double?
-    let exposurePct: Double?
-    var id: Int { link.id }
-}
-
 private struct HoldingsColumnsInfoView: View {
     private let items: [(String, String)] = [
         ("Research %", "Baseline allocation suggested by research or strategy."),
@@ -72,7 +62,6 @@ struct PortfolioThemeWorkspaceView: View {
 
     enum WorkspaceTab: String, CaseIterable, Identifiable {
         case overview
-        case thesis
         case holdings
         case analytics
         case risks
@@ -83,7 +72,6 @@ struct PortfolioThemeWorkspaceView: View {
         var label: String {
             switch self {
             case .overview: return "Overview"
-            case .thesis: return "Thesis"
             case .holdings: return "Holdings"
             case .analytics: return "Analytics"
             case .risks: return "Risks"
@@ -95,7 +83,6 @@ struct PortfolioThemeWorkspaceView: View {
         var systemImage: String {
             switch self {
             case .overview: return "rectangle.grid.2x2"
-            case .thesis: return "text.book.closed"
             case .holdings: return "list.bullet.rectangle"
             case .analytics: return "chart.bar"
             case .risks: return "shield.lefthalf.filled"
@@ -116,9 +103,6 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var theme: PortfolioTheme?
     @State private var valuation: ValuationSnapshot?
     @State private var riskSnapshot: PortfolioRiskSnapshot?
-    @State private var thesisOverview: [ThesisOverviewRow] = []
-    @State private var showThesisManager: Bool = false
-    @State private var thesisDetailTarget: ThesisDetailTarget? = nil
     @State private var loadingValuation = false
     // Classic editor references removed; Workspace is the default
     @State private var instrumentCurrencies: [Int: String] = [:]
@@ -157,8 +141,6 @@ struct PortfolioThemeWorkspaceView: View {
     @State private var originalUpdatedAtDate: Date? = nil
     @State private var isArchivedTheme: Bool = false
     @State private var isSoftDeletedTheme: Bool = false
-    @State private var weeklyChecklistEnabled: Bool = true
-    @State private var weeklyChecklistHighPriority: Bool = false
     @State private var timelines: [PortfolioTimelineRow] = []
     @State private var selectedTimelineId: Int = 0
     @State private var timeHorizonEndDate: Date? = nil
@@ -234,9 +216,6 @@ struct PortfolioThemeWorkspaceView: View {
                     overviewTab
                         .tag(WorkspaceTab.overview)
                         .tabItem { Label(WorkspaceTab.overview.label, systemImage: WorkspaceTab.overview.systemImage) }
-                    thesisTab
-                        .tag(WorkspaceTab.thesis)
-                        .tabItem { Label(WorkspaceTab.thesis.label, systemImage: WorkspaceTab.thesis.systemImage) }
                     holdingsTab
                         .tag(WorkspaceTab.holdings)
                         .tabItem { Label(WorkspaceTab.holdings.label, systemImage: WorkspaceTab.holdings.systemImage) }
@@ -269,26 +248,16 @@ struct PortfolioThemeWorkspaceView: View {
             loadTheme()
             runValuation()
             loadInstrumentCurrencies()
-            loadThesisOverview()
         }
         .onChange(of: selectedTab) { _, newValue in
             lastTabRaw = newValue.rawValue
             if newValue == .overview || newValue == .analytics || newValue == .holdings || newValue == .risks { runValuation() }
-            if newValue == .thesis { loadThesisOverview() }
         }
         .onChange(of: selectedTimelineId) { _, _ in
             persistTimeHorizon()
         }
         .onChange(of: timeHorizonEndDate) { _, _ in
             persistTimeHorizon()
-        }
-        .sheet(isPresented: $showThesisManager, onDismiss: loadThesisOverview) {
-            PortfolioThesisLinkManagerView(themeId: themeId)
-                .environmentObject(dbManager)
-        }
-        .sheet(item: $thesisDetailTarget, onDismiss: loadThesisOverview) { target in
-            ThesisDefinitionDetailView(thesisDefId: target.id)
-                .environmentObject(dbManager)
         }
     }
 
@@ -434,9 +403,6 @@ struct PortfolioThemeWorkspaceView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if loadingValuation { ProgressView().controlSize(.small) }
                 kpiRow
-                if !thesisOverview.isEmpty {
-                    thesisOverviewCard
-                }
                 #if canImport(Charts)
                     HStack(alignment: .top, spacing: 16) {
                         actualAllocationDonut
@@ -447,140 +413,6 @@ struct PortfolioThemeWorkspaceView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var thesisTab: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("Portfolio Thesis")
-                        .font(.title3.weight(.semibold))
-                    Spacer()
-                    Button("Open Weekly Review") {
-                        openWindow(id: "weeklyChecklistPortfolio", value: themeId)
-                    }
-                    .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                    Button("Manage Links") { showThesisManager = true }
-                        .buttonStyle(DSButtonStyle(type: .primary, size: .small))
-                }
-
-                if thesisOverview.isEmpty {
-                    DSCard(padding: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("No theses linked yet.")
-                                .font(.headline)
-                            Text("Link a thesis definition to start tracking drivers, risks, and weekly verdicts.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                } else {
-                    ForEach(thesisOverview) { row in
-                        thesisRow(row)
-                    }
-                }
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var thesisOverviewCard: some View {
-        DSCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Thesis Overview")
-                        .font(.headline)
-                    Spacer()
-                    Button("Manage") { showThesisManager = true }
-                        .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                }
-                ForEach(thesisOverview) { row in
-                    HStack(spacing: 12) {
-                        Text(row.name)
-                            .font(.subheadline.weight(.semibold))
-                        if let verdict = row.verdict {
-                            DSBadge(text: verdict.rawValue.capitalized, color: verdictColor(verdict))
-                        } else {
-                            Text("No verdict")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if let exposure = row.exposurePct {
-                            Text(String(format: "Exposure %.1f%%", exposure))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        if let driver = row.driverStrength {
-                            Text(String(format: "Driver %.1f", driver))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        if let risk = row.riskPressure {
-                            Text(String(format: "Risk %.1f", risk))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func thesisRow(_ row: ThesisOverviewRow) -> some View {
-        DSCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    Text(row.name)
-                        .font(.headline)
-                    if let verdict = row.verdict {
-                        DSBadge(text: verdict.rawValue.capitalized, color: verdictColor(verdict))
-                    } else {
-                        Text("No verdict")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Button("View Thesis") { thesisDetailTarget = ThesisDetailTarget(id: row.link.thesisDefId) }
-                        .buttonStyle(DSButtonStyle(type: .secondary, size: .small))
-                    if let exposure = row.exposurePct {
-                        Text(String(format: "Exposure %.1f%%", exposure))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                HStack(spacing: 16) {
-                    if let driver = row.driverStrength {
-                        Text(String(format: "Driver Strength %.1f", driver))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    if let risk = row.riskPressure {
-                        Text(String(format: "Risk Pressure %.1f", risk))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private struct ThesisDetailTarget: Identifiable {
-        let id: Int
-    }
-
-    private func verdictColor(_ verdict: ThesisVerdict) -> Color {
-        switch verdict {
-        case .valid: return DSColor.accentSuccess
-        case .watch: return DSColor.accentWarning
-        case .impaired, .broken: return DSColor.accentError
         }
     }
 
@@ -1943,35 +1775,6 @@ struct PortfolioThemeWorkspaceView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2)))
                     Spacer()
                 }
-                HStack(alignment: .center, spacing: 12) {
-                    Text("Weekly Checklist").frame(width: labelWidth, alignment: .leading)
-                    Toggle("Exempt", isOn: Binding(
-                        get: { !weeklyChecklistEnabled },
-                        set: { newVal in
-                            let enabled = !newVal
-                            if dbManager.setPortfolioThemeWeeklyChecklistEnabled(id: themeId, enabled: enabled) {
-                                weeklyChecklistEnabled = enabled
-                            }
-                        }
-                    ))
-                    .toggleStyle(.switch)
-                    .help("Exclude this portfolio from weekly checklist scheduling and reminders.")
-                    Spacer()
-                }
-                HStack(alignment: .center, spacing: 12) {
-                    Text("Weekly Priority").frame(width: labelWidth, alignment: .leading)
-                    Toggle("High Priority", isOn: Binding(
-                        get: { weeklyChecklistHighPriority },
-                        set: { newVal in
-                            if dbManager.setPortfolioThemeWeeklyChecklistHighPriority(id: themeId, isHighPriority: newVal) {
-                                weeklyChecklistHighPriority = newVal
-                            }
-                        }
-                    ))
-                    .toggleStyle(.switch)
-                    .help("Highlight this portfolio in weekly checklist views.")
-                    Spacer()
-                }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Updated").frame(width: labelWidth, alignment: .leading)
                     DatePicker("", selection: $updatedAtDate, displayedComponents: [.date, .hourAndMinute])
@@ -2304,8 +2107,6 @@ struct PortfolioThemeWorkspaceView: View {
         statusId = fetched.statusId
         descriptionText = fetched.description ?? ""
         institutionId = fetched.institutionId
-        weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
-        weeklyChecklistHighPriority = fetched.weeklyChecklistHighPriority
         statuses = dbManager.fetchPortfolioThemeStatuses()
         institutions = dbManager.fetchInstitutions()
         timelines = dbManager.listPortfolioTimelines(includeInactive: true)
@@ -2328,35 +2129,12 @@ struct PortfolioThemeWorkspaceView: View {
             updatedAtDate = parsed
             originalUpdatedAtDate = parsed
         }
-        loadThesisOverview()
-    }
-
-    private func loadThesisOverview() {
-        let details = dbManager.listPortfolioThesisLinkDetails(themeId: themeId).filter { $0.link.status == .active }
-        let cutoff = Date().addingTimeInterval(24 * 60 * 60)
-        thesisOverview = details.map { detail in
-            let assessment = dbManager.fetchLatestPortfolioThesisWeeklyAssessment(
-                portfolioThesisId: detail.link.id,
-                beforeWeekStartDate: cutoff
-            )
-            let exposure = dbManager.computeThesisExposure(themeId: themeId, portfolioThesisId: detail.link.id)
-            return ThesisOverviewRow(
-                link: detail.link,
-                name: detail.thesisName,
-                verdict: assessment?.verdict,
-                driverStrength: assessment?.driverStrengthScore,
-                riskPressure: assessment?.riskPressureScore,
-                exposurePct: exposure?.totalPct
-            )
-        }
     }
 
     private func applyThemeState(_ fetched: PortfolioTheme) {
         theme = fetched
         isArchivedTheme = fetched.archivedAt != nil
         isSoftDeletedTheme = fetched.softDelete
-        weeklyChecklistEnabled = fetched.weeklyChecklistEnabled
-        weeklyChecklistHighPriority = fetched.weeklyChecklistHighPriority
     }
 
     private func shouldPersistCustomUpdatedAt() -> Bool {

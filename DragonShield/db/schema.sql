@@ -901,47 +901,6 @@ CREATE TABLE PortfolioThemeStatus (
 );
 CREATE UNIQUE INDEX idx_portfolio_theme_status_default
 ON PortfolioThemeStatus(is_default) WHERE is_default = 1;
-CREATE TABLE PortfolioTheme (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 64),
-    code TEXT NOT NULL CHECK (code GLOB '[A-Z][A-Z0-9_]*' AND LENGTH(code) BETWEEN 2 AND 31),
-    status_id INTEGER NOT NULL REFERENCES PortfolioThemeStatus(id),
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    archived_at TEXT NULL,
-    soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1))
-, description TEXT, institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL, theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0), weekly_checklist_enabled INTEGER NOT NULL DEFAULT 1 CHECK(weekly_checklist_enabled IN (0,1)), time_horizon_end_date TEXT NULL, timeline_id INTEGER NOT NULL DEFAULT 5 REFERENCES PortfolioTimelines(id), weekly_checklist_high_priority INTEGER NOT NULL DEFAULT 0 CHECK (weekly_checklist_high_priority IN (0,1)));
-CREATE UNIQUE INDEX idx_portfolio_theme_name_unique
-ON PortfolioTheme(LOWER(name))
-WHERE soft_delete = 0;
-CREATE UNIQUE INDEX idx_portfolio_theme_code_unique
-ON PortfolioTheme(LOWER(code))
-WHERE soft_delete = 0;
-CREATE TABLE PortfolioThemeAsset (
-    theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE RESTRICT,
-    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE RESTRICT,
-    research_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(research_target_pct >= 0.0 AND research_target_pct <= 100.0),
-    user_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(user_target_pct >= 0.0 AND user_target_pct <= 100.0),
-    notes TEXT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')), rwk_set_target_chf REAL NULL,
-    PRIMARY KEY (theme_id, instrument_id)
-);
-CREATE INDEX idx_portfolio_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
-CREATE INDEX idx_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
-CREATE INDEX idx_portfolio_theme_institution_id ON PortfolioTheme(institution_id);
-CREATE TRIGGER trg_portfolio_theme_description_len
-BEFORE INSERT ON PortfolioTheme
-WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
-BEGIN
-  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
-END;
-CREATE TRIGGER trg_portfolio_theme_description_len_upd
-BEFORE UPDATE ON PortfolioTheme
-WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
-BEGIN
-  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
-END;
 CREATE TABLE Attachment (
     id INTEGER PRIMARY KEY,
     sha256 TEXT NOT NULL UNIQUE,
@@ -1230,43 +1189,6 @@ CREATE TABLE NewsType (
 );
 CREATE UNIQUE INDEX idx_news_type_code ON NewsType(code);
 CREATE INDEX idx_news_type_active_order ON NewsType(active, sort_order);
-CREATE TABLE IF NOT EXISTS "PortfolioThemeUpdate" (
-  id INTEGER PRIMARY KEY,
-  theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
-  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
-  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-  type_id INTEGER NOT NULL REFERENCES NewsType(id),
-  author TEXT NOT NULL,
-  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
-  positions_asof TEXT NULL,
-  total_value_chf REAL NULL,
-  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-  soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)),
-  deleted_at TEXT NULL,
-  deleted_by TEXT NULL
-);
-CREATE INDEX idx_ptu_theme_active_order ON PortfolioThemeUpdate(theme_id, soft_delete, pinned, created_at DESC);
-CREATE INDEX idx_ptu_theme_deleted_order ON PortfolioThemeUpdate(theme_id, soft_delete, deleted_at DESC);
-CREATE TABLE IF NOT EXISTS "PortfolioThemeAssetUpdate" (
-  id INTEGER PRIMARY KEY,
-  theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-  instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
-  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
-  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
-  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-  type_id INTEGER NOT NULL REFERENCES NewsType(id),
-  author TEXT NOT NULL,
-  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
-  positions_asof TEXT NULL,
-  value_chf REAL NULL,
-  actual_percent REAL NULL,
-  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_ptau_theme_instr_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
-CREATE INDEX idx_ptau_theme_instr_pinned_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
 CREATE TABLE InstrumentPrice (
   id            INTEGER PRIMARY KEY,
   instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE CASCADE,
@@ -1590,24 +1512,6 @@ BEGIN
     UPDATE ichimoku_positions SET updated_at = CURRENT_TIMESTAMP
     WHERE position_id = OLD.position_id;
 END;
-CREATE TABLE InstrumentNote (
-    id INTEGER PRIMARY KEY,
-    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
-    title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
-    body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
-    body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
-    type TEXT NOT NULL DEFAULT 'General' CHECK (type IN ('General','Research','Rebalance','Risk','Investment')),
-    type_id INTEGER NULL REFERENCES NewsType(id),
-    author TEXT NOT NULL,
-    pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
-    positions_asof TEXT NULL,
-    value_chf REAL NULL,
-    actual_percent REAL NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-, theme_id INTEGER NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE);
-CREATE INDEX idx_instrument_note_instrument_order ON InstrumentNote(instrument_id, created_at DESC);
-CREATE INDEX idx_instrument_note_pinned_order ON InstrumentNote(pinned DESC, created_at DESC);
 CREATE TABLE InstrumentNoteAttachment (
     id INTEGER PRIMARY KEY,
     instrument_note_id INTEGER NOT NULL
@@ -1618,8 +1522,6 @@ CREATE TABLE InstrumentNoteAttachment (
 );
 CREATE INDEX idx_ina_note ON InstrumentNoteAttachment(instrument_note_id);
 CREATE INDEX idx_ina_attachment ON InstrumentNoteAttachment(attachment_id);
-CREATE INDEX idx_instrument_note_theme ON InstrumentNote(theme_id, created_at DESC);
-CREATE INDEX idx_instrument_note_pinned ON InstrumentNote(pinned, created_at DESC);
 CREATE TABLE InstrumentRiskMapping (
     sub_class_id INTEGER PRIMARY KEY,
     default_sri INTEGER NOT NULL CHECK (default_sri BETWEEN 1 AND 7),
@@ -1823,175 +1725,6 @@ CREATE TABLE PortfolioValueHistory (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE WeeklyChecklist (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-    week_start_date TEXT NOT NULL,
-    status TEXT NOT NULL CHECK(status IN ('draft','completed','skipped')),
-    answers_json TEXT,
-    completed_at TEXT,
-    skipped_at TEXT,
-    skip_comment TEXT,
-    last_edited_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    revision INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE UNIQUE INDEX idx_weekly_checklist_theme_week
-    ON WeeklyChecklist(theme_id, week_start_date);
-CREATE INDEX idx_weekly_checklist_theme_status
-    ON WeeklyChecklist(theme_id, status);
-CREATE INDEX idx_weekly_checklist_week
-    ON WeeklyChecklist(week_start_date);
-CREATE TABLE ThesisDefinition (
-    thesis_def_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 120),
-    summary_core_thesis TEXT NULL CHECK (LENGTH(summary_core_thesis) <= 8000),
-    default_scoring_rules TEXT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE TABLE ThesisSection (
-    section_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thesis_def_id INTEGER NOT NULL REFERENCES ThesisDefinition(thesis_def_id) ON DELETE CASCADE,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    headline TEXT NOT NULL CHECK (LENGTH(headline) BETWEEN 1 AND 200),
-    description TEXT NULL CHECK (LENGTH(description) <= 4000),
-    rag_default TEXT NULL CHECK (rag_default IN ('green','amber','red')),
-    score_default INTEGER NULL CHECK (score_default BETWEEN 1 AND 10),
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_thesis_section_def_order ON ThesisSection(thesis_def_id, sort_order);
-CREATE TABLE ThesisBullet (
-    bullet_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    section_id INTEGER NOT NULL REFERENCES ThesisSection(section_id) ON DELETE CASCADE,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    text TEXT NOT NULL CHECK (LENGTH(text) BETWEEN 1 AND 2000),
-    type TEXT NOT NULL CHECK (type IN ('claim','datapoint','implication','rule')),
-    linked_metrics_json TEXT NULL,
-    linked_evidence_json TEXT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_thesis_bullet_section_order ON ThesisBullet(section_id, sort_order);
-CREATE TABLE ThesisDriverDefinition (
-    driver_def_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thesis_def_id INTEGER NOT NULL REFERENCES ThesisDefinition(thesis_def_id) ON DELETE CASCADE,
-    code TEXT NOT NULL,
-    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 120),
-    definition TEXT NULL,
-    review_question TEXT NULL,
-    weight REAL NULL CHECK (weight >= 0),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE UNIQUE INDEX idx_thesis_driver_code ON ThesisDriverDefinition(thesis_def_id, code);
-CREATE INDEX idx_thesis_driver_order ON ThesisDriverDefinition(thesis_def_id, sort_order);
-CREATE TABLE ThesisRiskDefinition (
-    risk_def_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thesis_def_id INTEGER NOT NULL REFERENCES ThesisDefinition(thesis_def_id) ON DELETE CASCADE,
-    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 160),
-    category TEXT NOT NULL DEFAULT 'market' CHECK (category IN ('thesis-breaking','operational','market','structure','liquidity','regulatory','valuation','other')),
-    what_worsens TEXT NULL,
-    what_improves TEXT NULL,
-    mitigations TEXT NULL,
-    weight REAL NULL CHECK (weight >= 0),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_thesis_risk_order ON ThesisRiskDefinition(thesis_def_id, sort_order);
-CREATE TABLE PortfolioThesisLink (
-    portfolio_thesis_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    theme_id INTEGER NOT NULL REFERENCES PortfolioTheme(id) ON DELETE CASCADE,
-    thesis_def_id INTEGER NOT NULL REFERENCES ThesisDefinition(thesis_def_id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
-    is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0,1)),
-    review_frequency TEXT NOT NULL DEFAULT 'weekly',
-    notes TEXT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(theme_id, thesis_def_id)
-);
-CREATE INDEX idx_portfolio_thesis_theme ON PortfolioThesisLink(theme_id, status);
-CREATE TABLE PortfolioThesisSleeve (
-    sleeve_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    portfolio_thesis_id INTEGER NOT NULL REFERENCES PortfolioThesisLink(portfolio_thesis_id) ON DELETE CASCADE,
-    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 120),
-    target_min_pct REAL NULL CHECK (target_min_pct >= 0),
-    target_max_pct REAL NULL CHECK (target_max_pct >= 0),
-    max_pct REAL NULL CHECK (max_pct >= 0),
-    rule_text TEXT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_thesis_sleeve_portfolio ON PortfolioThesisSleeve(portfolio_thesis_id, sort_order);
-CREATE TABLE PortfolioThesisExposureRule (
-    exposure_rule_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    portfolio_thesis_id INTEGER NOT NULL REFERENCES PortfolioThesisLink(portfolio_thesis_id) ON DELETE CASCADE,
-    sleeve_id INTEGER NULL REFERENCES PortfolioThesisSleeve(sleeve_id) ON DELETE SET NULL,
-    rule_type TEXT NOT NULL CHECK (rule_type IN ('by_ticker','by_instrument_id','by_asset_class','by_tag','by_custom_query')),
-    rule_value TEXT NOT NULL,
-    weighting REAL NULL CHECK (weighting >= 0),
-    effective_from TEXT NULL,
-    effective_to TEXT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX idx_thesis_exposure_portfolio ON PortfolioThesisExposureRule(portfolio_thesis_id, rule_type);
-CREATE INDEX idx_thesis_exposure_sleeve ON PortfolioThesisExposureRule(sleeve_id);
-CREATE TABLE PortfolioThesisWeeklyAssessment (
-    assessment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    weekly_checklist_id INTEGER NOT NULL REFERENCES WeeklyChecklist(id) ON DELETE CASCADE,
-    portfolio_thesis_id INTEGER NOT NULL REFERENCES PortfolioThesisLink(portfolio_thesis_id) ON DELETE CASCADE,
-    verdict TEXT NULL CHECK (verdict IN ('valid','watch','impaired','broken')),
-    rag TEXT NULL CHECK (rag IN ('green','amber','red')),
-    driver_strength_score REAL NULL CHECK (driver_strength_score >= 0 AND driver_strength_score <= 10),
-    risk_pressure_score REAL NULL CHECK (risk_pressure_score >= 0 AND risk_pressure_score <= 10),
-    top_changes_text TEXT NULL,
-    actions_summary TEXT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(weekly_checklist_id, portfolio_thesis_id)
-);
-CREATE INDEX idx_thesis_assessment_weekly ON PortfolioThesisWeeklyAssessment(weekly_checklist_id);
-CREATE INDEX idx_thesis_assessment_portfolio ON PortfolioThesisWeeklyAssessment(portfolio_thesis_id);
-CREATE TABLE DriverWeeklyAssessmentItem (
-    assessment_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    assessment_id INTEGER NOT NULL REFERENCES PortfolioThesisWeeklyAssessment(assessment_id) ON DELETE CASCADE,
-    driver_def_id INTEGER NOT NULL REFERENCES ThesisDriverDefinition(driver_def_id) ON DELETE CASCADE,
-    rag TEXT NULL CHECK (rag IN ('green','amber','red')),
-    score INTEGER NULL CHECK (score BETWEEN 1 AND 10),
-    delta_vs_prior INTEGER NULL,
-    change_sentence TEXT NULL,
-    evidence_refs_json TEXT NULL,
-    implication TEXT NULL CHECK (implication IN ('none','monitor','adjust')),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(assessment_id, driver_def_id)
-);
-CREATE INDEX idx_driver_assessment_order ON DriverWeeklyAssessmentItem(assessment_id, sort_order);
-CREATE TABLE RiskWeeklyAssessmentItem (
-    assessment_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    assessment_id INTEGER NOT NULL REFERENCES PortfolioThesisWeeklyAssessment(assessment_id) ON DELETE CASCADE,
-    risk_def_id INTEGER NOT NULL REFERENCES ThesisRiskDefinition(risk_def_id) ON DELETE CASCADE,
-    rag TEXT NULL CHECK (rag IN ('green','amber','red')),
-    score INTEGER NULL CHECK (score BETWEEN 1 AND 10),
-    delta_vs_prior INTEGER NULL,
-    change_sentence TEXT NULL,
-    evidence_refs_json TEXT NULL,
-    thesis_impact TEXT NULL CHECK (thesis_impact IN ('none','minor','material')),
-    recommended_action TEXT NULL CHECK (recommended_action IN ('none','hedge','rebalance','reduce','exit')),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(assessment_id, risk_def_id)
-);
-CREATE INDEX idx_risk_assessment_order ON RiskWeeklyAssessmentItem(assessment_id, sort_order);
 CREATE TABLE PortfolioTimelines (
     id INTEGER PRIMARY KEY,
     description TEXT NOT NULL,
@@ -1999,7 +1732,6 @@ CREATE TABLE PortfolioTimelines (
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1))
 );
-CREATE INDEX idx_portfolio_theme_timeline_id ON PortfolioTheme(timeline_id);
 CREATE TABLE TradingProfiles (
     profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_name TEXT NOT NULL,
@@ -2100,6 +1832,237 @@ CREATE INDEX idx_trading_profile_risk_profile ON TradingProfileRiskSignals(profi
 CREATE INDEX idx_trading_profile_rules_profile ON TradingProfileRules(profile_id, sort_order);
 CREATE INDEX idx_trading_profile_violations_profile ON TradingProfileRuleViolations(profile_id, violation_date);
 CREATE INDEX idx_trading_profile_review_profile ON TradingProfileReviewLog(profile_id, review_date);
+CREATE TABLE PortfolioTheme (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL CHECK (LENGTH(name) BETWEEN 1 AND 64),
+    code TEXT NOT NULL CHECK (code GLOB '[A-Z][A-Z0-9_]*' AND LENGTH(code) BETWEEN 2 AND 31),
+    status_id INTEGER NOT NULL REFERENCES PortfolioThemeStatus(id),
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    archived_at TEXT NULL,
+    soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)),
+    description TEXT NULL,
+    institution_id INTEGER REFERENCES Institutions(institution_id) ON DELETE SET NULL,
+    theoretical_budget_chf REAL NULL CHECK (theoretical_budget_chf >= 0),
+    time_horizon_end_date TEXT NULL,
+    timeline_id INTEGER NOT NULL DEFAULT 5 REFERENCES PortfolioTimelines(id)
+);
+CREATE UNIQUE INDEX idx_portfolio_theme_name_unique
+    ON PortfolioTheme(LOWER(name))
+    WHERE soft_delete = 0;
+CREATE UNIQUE INDEX idx_portfolio_theme_code_unique
+    ON PortfolioTheme(LOWER(code))
+    WHERE soft_delete = 0;
+CREATE INDEX idx_portfolio_theme_institution_id ON PortfolioTheme(institution_id);
+CREATE INDEX idx_portfolio_theme_timeline_id ON PortfolioTheme(timeline_id);
+CREATE TRIGGER trg_portfolio_theme_description_len
+BEFORE INSERT ON PortfolioTheme
+WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
+BEGIN
+  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
+END;
+CREATE TRIGGER trg_portfolio_theme_description_len_upd
+BEFORE UPDATE ON PortfolioTheme
+WHEN NEW.description IS NOT NULL AND LENGTH(NEW.description) > 2000
+BEGIN
+  SELECT RAISE(ABORT, 'Description exceeds 2000 characters');
+END;
+CREATE TABLE Thesis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    north_star TEXT NOT NULL,
+    investment_role TEXT NOT NULL,
+    non_goals TEXT NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('tier1','tier2')),
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE ThesisAssumption (
+    id TEXT PRIMARY KEY,
+    thesis_id TEXT NOT NULL REFERENCES Thesis(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL
+);
+CREATE INDEX idx_thesis_assumption_thesis ON ThesisAssumption(thesis_id);
+CREATE TABLE ThesisKillCriterion (
+    id TEXT PRIMARY KEY,
+    thesis_id TEXT NOT NULL REFERENCES Thesis(id) ON DELETE CASCADE,
+    description TEXT NOT NULL
+);
+CREATE INDEX idx_thesis_kill_thesis ON ThesisKillCriterion(thesis_id);
+CREATE TABLE ThesisKPIDefinition (
+    id TEXT PRIMARY KEY,
+    thesis_id TEXT NOT NULL REFERENCES Thesis(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    description TEXT NOT NULL,
+    is_primary INTEGER NOT NULL CHECK (is_primary IN (0,1)),
+    direction TEXT NOT NULL CHECK (direction IN ('higherIsBetter','lowerIsBetter')),
+    green_low REAL NOT NULL,
+    green_high REAL NOT NULL,
+    amber_low REAL NOT NULL,
+    amber_high REAL NOT NULL,
+    red_low REAL NOT NULL,
+    red_high REAL NOT NULL
+, source TEXT NULL);
+CREATE INDEX idx_thesis_kpi_thesis ON ThesisKPIDefinition(thesis_id);
+CREATE TABLE ThesisWeeklyReview (
+    id TEXT PRIMARY KEY,
+    thesis_id TEXT NOT NULL REFERENCES Thesis(id) ON DELETE CASCADE,
+    week TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    confidence INTEGER NOT NULL,
+    decision TEXT NOT NULL,
+    status TEXT NOT NULL,
+    macro_events_json TEXT NULL,
+    micro_events_json TEXT NULL,
+    rationale_json TEXT NULL,
+    watch_items_json TEXT NULL,
+    finalized_at TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    patch_id TEXT NULL UNIQUE,
+    kill_switch INTEGER NOT NULL DEFAULT 0 CHECK (kill_switch IN (0,1)),
+    notes TEXT NULL,
+    UNIQUE(thesis_id, week)
+);
+CREATE INDEX idx_thesis_review_thesis_week ON ThesisWeeklyReview(thesis_id, week);
+CREATE TABLE ThesisAssumptionStatus (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    review_id TEXT NOT NULL REFERENCES ThesisWeeklyReview(id) ON DELETE CASCADE,
+    assumption_id TEXT NOT NULL REFERENCES ThesisAssumption(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    note TEXT NULL,
+    UNIQUE(review_id, assumption_id)
+);
+CREATE TABLE ThesisKPIReading (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    review_id TEXT NOT NULL REFERENCES ThesisWeeklyReview(id) ON DELETE CASCADE,
+    kpi_id TEXT NOT NULL REFERENCES ThesisKPIDefinition(id) ON DELETE CASCADE,
+    value REAL NULL,
+    trend TEXT NULL,
+    delta_1w REAL NULL,
+    delta_4w REAL NULL,
+    comment TEXT NULL,
+    status TEXT NOT NULL,
+    UNIQUE(review_id, kpi_id)
+);
+CREATE INDEX idx_thesis_reading_review ON ThesisKPIReading(review_id);
+CREATE TABLE ThesisKillStatus (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    review_id TEXT NOT NULL REFERENCES ThesisWeeklyReview(id) ON DELETE CASCADE,
+    kill_id TEXT NOT NULL REFERENCES ThesisKillCriterion(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    note TEXT NULL,
+    UNIQUE(review_id, kill_id)
+);
+CREATE INDEX idx_thesis_kill_status_review ON ThesisKillStatus(review_id);
+CREATE TABLE PromptTemplate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_key TEXT NOT NULL CHECK (template_key IN ('thesis_import','weekly_review')),
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active','inactive','archived')),
+    body TEXT NOT NULL,
+    settings_json TEXT NULL,
+    notes TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(template_key, version)
+);
+CREATE INDEX idx_prompt_template_key ON PromptTemplate(template_key);
+CREATE UNIQUE INDEX idx_prompt_template_active ON PromptTemplate(template_key) WHERE status = 'active';
+CREATE TABLE ThesisKPIPrompt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thesis_id TEXT NOT NULL REFERENCES Thesis(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active','inactive','archived')),
+    body TEXT NOT NULL,
+    notes TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(thesis_id, version)
+);
+CREATE INDEX idx_thesis_kpi_prompt_thesis ON ThesisKPIPrompt(thesis_id);
+CREATE UNIQUE INDEX idx_thesis_kpi_prompt_active ON ThesisKPIPrompt(thesis_id) WHERE status = 'active';
+CREATE TABLE PortfolioThemeAsset (
+    theme_id INTEGER NOT NULL REFERENCES "PortfolioTheme"(id) ON DELETE RESTRICT,
+    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE RESTRICT,
+    research_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(research_target_pct >= 0.0 AND research_target_pct <= 100.0),
+    user_target_pct REAL NOT NULL DEFAULT 0.0 CHECK(user_target_pct >= 0.0 AND user_target_pct <= 100.0),
+    notes TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')), rwk_set_target_chf REAL NULL,
+    PRIMARY KEY (theme_id, instrument_id)
+);
+CREATE INDEX idx_portfolio_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
+CREATE INDEX idx_theme_asset_instrument ON PortfolioThemeAsset(instrument_id);
+CREATE TABLE IF NOT EXISTS "PortfolioThemeUpdate" (
+  id INTEGER PRIMARY KEY,
+  theme_id INTEGER NOT NULL REFERENCES "PortfolioTheme"(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
+  type_id INTEGER NOT NULL REFERENCES NewsType(id),
+  author TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
+  positions_asof TEXT NULL,
+  total_value_chf REAL NULL,
+  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  soft_delete INTEGER NOT NULL DEFAULT 0 CHECK (soft_delete IN (0,1)),
+  deleted_at TEXT NULL,
+  deleted_by TEXT NULL
+);
+CREATE INDEX idx_ptu_theme_active_order ON PortfolioThemeUpdate(theme_id, soft_delete, pinned, created_at DESC);
+CREATE INDEX idx_ptu_theme_deleted_order ON PortfolioThemeUpdate(theme_id, soft_delete, deleted_at DESC);
+CREATE TABLE IF NOT EXISTS "PortfolioThemeAssetUpdate" (
+  id INTEGER PRIMARY KEY,
+  theme_id INTEGER NOT NULL REFERENCES "PortfolioTheme"(id) ON DELETE CASCADE,
+  instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
+  title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+  body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+  body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
+  type_id INTEGER NOT NULL REFERENCES NewsType(id),
+  author TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
+  positions_asof TEXT NULL,
+  value_chf REAL NULL,
+  actual_percent REAL NULL,
+  created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_ptau_theme_instr_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, created_at DESC);
+CREATE INDEX idx_ptau_theme_instr_pinned_order ON PortfolioThemeAssetUpdate(theme_id, instrument_id, pinned DESC, created_at DESC);
+CREATE TABLE InstrumentNote (
+    id INTEGER PRIMARY KEY,
+    instrument_id INTEGER NOT NULL REFERENCES Instruments(instrument_id) ON DELETE SET NULL,
+    title TEXT NOT NULL CHECK (LENGTH(title) BETWEEN 1 AND 120),
+    body_text TEXT NOT NULL CHECK (LENGTH(body_text) BETWEEN 1 AND 5000),
+    body_markdown TEXT NOT NULL CHECK (LENGTH(body_markdown) BETWEEN 1 AND 5000),
+    type TEXT NOT NULL DEFAULT 'General' CHECK (type IN ('General','Research','Rebalance','Risk','Investment')),
+    type_id INTEGER NULL REFERENCES NewsType(id),
+    author TEXT NOT NULL,
+    pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0,1)),
+    positions_asof TEXT NULL,
+    value_chf REAL NULL,
+    actual_percent REAL NULL,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+, theme_id INTEGER NULL REFERENCES "PortfolioTheme"(id) ON DELETE CASCADE);
+CREATE INDEX idx_instrument_note_instrument_order ON InstrumentNote(instrument_id, created_at DESC);
+CREATE INDEX idx_instrument_note_pinned_order ON InstrumentNote(pinned DESC, created_at DESC);
+CREATE INDEX idx_instrument_note_theme ON InstrumentNote(theme_id, created_at DESC);
+CREATE INDEX idx_instrument_note_pinned ON InstrumentNote(pinned, created_at DESC);
+CREATE TABLE PortfolioPerformanceEvents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_date TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    short_description TEXT NOT NULL,
+    long_description TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_portfolio_performance_events_date
+    ON PortfolioPerformanceEvents(event_date);
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
   ('001'),
@@ -2148,4 +2111,12 @@ INSERT INTO "schema_migrations" (version) VALUES
   ('045'),
   ('046'),
   ('047'),
-  ('048');
+  ('048'),
+  ('049'),
+  ('050'),
+  ('051'),
+  ('052'),
+  ('053'),
+  ('054'),
+  ('055'),
+  ('056');

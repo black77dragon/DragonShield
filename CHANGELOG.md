@@ -12,6 +12,18 @@ When applicable, include the feature reference ID and implementation date in ISO
 ## [Unreleased]
 
 ### Changed
+- [DS-096] KPI Management: Delete + Primary/Secondary Toggle (implemented 2026-01-27)
+
+## [1.45.0] - 2026-01-18
+
+### Added
+- [DS-094] Weekly Checklist Report Export + Risk UX Enhancements (implemented 2026-01-18)
+
+## [1.44.0] - 2026-01-18
+
+## [1.43.0] - 2026-01-06
+
+### Changed
 - [DS-092] Weekly Checklist Dynamic Multi-Line Inputs + Overflow Indicator (implemented 2026-01-05)
 - [DS-093] Redesign Historic Performance GUI to Match Reference (implemented 2026-01-06)
 
@@ -127,7 +139,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Fixed
 - [DS-059] Align Risk Report Portfolio Risk Score with Dashboard (implemented 2025-12-14)
-- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14)
+- [DS-001] Fix Instrument Edit Save Button (implemented 2025-12-14) (#1080)
 
 ## [1.29.0] - 2025-12-13
 
@@ -185,7 +197,7 @@ When applicable, include the feature reference ID and implementation date in ISO
 
 ### Changed
 - [DS-013] Move Transactions to Portfolio Sidebar (implemented 2025-11-25)
-- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25)
+- [DS-010] Improve contrast in Edit Instrument GUI (change white fields to light grey) (implemented 2025-11-25) (#1080)
 - [DS-011] Rename Accounts Update Dialog (implemented 2025-11-25)
 - [DS-015] Rename Asset Classes Navigation & Tabs (implemented 2025-11-25)
 - [DS-016] Update DragonShield Logo (implemented 2025-11-25)

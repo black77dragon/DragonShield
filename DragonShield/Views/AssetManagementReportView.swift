@@ -496,8 +496,11 @@ struct AssetManagementReportView: View {
                                     Text(formatCurrency(allocation.baseValue, currency: summary.baseCurrency))
                                         .font(.body.monospacedDigit())
                                 }
-                                ProgressView(value: progress, total: 100)
-                                    .tint(currencyColor(for: allocation.currency))
+                                ReportProgressBar(
+                                    value: progress,
+                                    total: 100,
+                                    color: currencyColor(for: allocation.currency)
+                                )
                                 Text(String(format: "%.1f%% of invested assets", percentage))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -580,8 +583,7 @@ struct AssetManagementReportView: View {
                                                 .font(.subheadline.monospacedDigit())
                                         }
                                         HStack {
-                                            ProgressView(value: progress, total: 100)
-                                                .tint(item.displayColor)
+                                            ReportProgressBar(value: progress, total: 100, color: item.displayColor)
                                             Text(String(format: "%.1f%%", percentage))
                                                 .font(.caption.monospacedDigit())
                                                 .foregroundColor(.secondary)
@@ -1094,6 +1096,41 @@ struct AssetManagementReportView: View {
 
     private enum AssetClassBarLayout {
         static let primaryHeight: CGFloat = 34
+    }
+
+    private enum ProgressBarLayout {
+        static let height: CGFloat = 8
+        static let cornerRadius: CGFloat = 4
+        static let minFillWidth: CGFloat = 2
+    }
+
+    private struct ReportProgressBar: View {
+        let value: Double
+        let total: Double
+        let color: Color
+
+        private var ratio: CGFloat {
+            guard total > 0 else { return 0 }
+            return CGFloat(min(max(value / total, 0), 1))
+        }
+
+        var body: some View {
+            GeometryReader { proxy in
+                let width = proxy.size.width
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: ProgressBarLayout.cornerRadius)
+                        .fill(ReportPalette.surfaceSubtle)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: ProgressBarLayout.cornerRadius)
+                                .stroke(ReportPalette.border.opacity(0.6), lineWidth: 0.6)
+                        )
+                    RoundedRectangle(cornerRadius: ProgressBarLayout.cornerRadius)
+                        .fill(color)
+                        .frame(width: max(width * ratio, ratio > 0 ? ProgressBarLayout.minFillWidth : 0))
+                }
+            }
+            .frame(height: ProgressBarLayout.height)
+        }
     }
 
     private struct CurrencyAllocationBarView: View {

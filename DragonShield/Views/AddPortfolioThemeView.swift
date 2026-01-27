@@ -13,8 +13,6 @@ struct AddPortfolioThemeView: View {
     @State private var code: String = ""
     @State private var statusId: Int = 0 // Use Int, not Int64
     @State private var statuses: [PortfolioThemeStatus] = []
-    @State private var weeklyChecklistExempt: Bool = false
-    @State private var weeklyChecklistHighPriority: Bool = false
     @State private var timelines: [PortfolioTimelineRow] = []
     @State private var timelineId: Int = 0
     @State private var hasEndDate: Bool = false
@@ -59,10 +57,6 @@ struct AddPortfolioThemeView: View {
                         DatePicker("End Date", selection: $endDate, displayedComponents: .date)
                     }
 
-                    Toggle("Exempt from Weekly Checklist", isOn: $weeklyChecklistExempt)
-                        .help("Exclude this portfolio from weekly checklist scheduling and reminders.")
-                    Toggle("High Priority (Weekly Checklist)", isOn: $weeklyChecklistHighPriority)
-                        .help("Highlight this portfolio in weekly checklist views.")
                 }
             }
             .padding()
@@ -114,8 +108,6 @@ struct AddPortfolioThemeView: View {
             description: nil,
             institutionId: nil,
             statusId: statusId,
-            weeklyChecklistEnabled: !weeklyChecklistExempt,
-            weeklyChecklistHighPriority: weeklyChecklistHighPriority,
             timelineId: timelineId == 0 ? nil : timelineId,
             timeHorizonEndDate: hasEndDate ? DateFormatter.iso8601DateOnly.string(from: endDate) : nil
         )

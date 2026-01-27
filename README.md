@@ -184,6 +184,10 @@ At present the application must be run from Xcode. Future releases will ship a s
 See [DragonShield/docs/troubleshooting.md](DragonShield/docs/troubleshooting.md) for solutions to common issues. This includes the harmless
 `default.metallib` warning printed by the Metal framework on some systems.
 
+## Thesis Management (v1.2) quick start
+- Run: open the macOS app target in Xcode and navigate to Sidebar → Thesis Mgmt. From the dashboard, hit “Review” on any card to enter focus mode; detail tabs cover Trends, History, KPIs, and LLM import/export.
+- Tests: `xcodebuild -scheme DragonShield -destination 'platform=macOS' test -only-testing:DragonShieldTests/ThesisManagementTests`
+
 ## 🤝 Contributing
 
 This is a personal passion project, but issues and PRs are welcome. Please keep PRs focused and well-documented.

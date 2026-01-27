@@ -39,7 +39,7 @@ struct CurrencyExposureTile: DashboardTile {
                                 Text(String(format: "%.0f%%", item.percentage))
                                     .frame(width: 50, alignment: .trailing)
                                 Text(String(format: "%.0f CHF", item.totalCHF))
-                                    .frame(alignment: .trailing)
+                                    .frame(width: 90, alignment: .trailing)
                             }
                             .foregroundColor(item.percentage > 50 ? .orange : .primary)
                         }
