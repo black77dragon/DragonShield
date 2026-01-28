@@ -91,6 +91,16 @@ This document serves as a central backlog for all pending changes, new features,
 
 ## Implemented
 
+- [x] [bugs] **[DS-100] Price Update Manual Mode Not Persisting** (2026-01-28)
+    Why: Switching an instrument from Auto to Manual in the Price Update GUI does not persist, so on the next load it flips back to Auto and prompts for a provider again.
+    What: When a row is switched to Manual, disable all InstrumentPriceSource entries for that instrument (enabled = 0) so the mode persists across restarts while retaining the last provider/external ID for later reuse.
+    Tested: confirmed by user.
+
+- [x] [changes] **[DS-099] Trading Profile Coordinate Slider Contrast Upgrade** (2026-01-28)
+    Why: The Trading Profile coordinate sliders had low contrast between the track and the white thumb, making values hard to read at a glance.
+    What: Replace the default slider presentation in the Profile Coordinates & Weighting view with a custom track that shows a filled bar up to the value and a larger thumb that displays the numeric score inside for immediate clarity.
+    Tested: not confirmed by user.
+
 - [x] [bugs] **[DS-098] Exclude Soft-Deleted Instruments from Risk Overrides** (2026-01-27)
     Why: Soft-deleted instruments should not appear in override governance views.
     What: Filter manual overrides so the Risk Overrides dashboard tile and the Risk Report Overrides & Expiries table skip instruments marked soft-deleted.

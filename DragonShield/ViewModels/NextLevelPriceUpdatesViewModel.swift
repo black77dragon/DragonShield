@@ -272,7 +272,11 @@ final class NextLevelPriceUpdatesViewModel: ObservableObject {
 
     func setUpdateMode(_ mode: UpdateMode, for row: DisplayRow) {
         updateState(row) { $0.autoEnabled = mode == .auto }
-        persistAutoState(for: row)
+        if mode == .auto {
+            persistAutoState(for: row)
+        } else {
+            disableAutoSources(for: row)
+        }
         reload()
     }
 
@@ -331,6 +335,11 @@ final class NextLevelPriceUpdatesViewModel: ObservableObject {
             enabled: enabled,
             priority: 1
         )
+    }
+
+    private func disableAutoSources(for row: DisplayRow) {
+        guard let dbManager else { return }
+        _ = dbManager.disablePriceSources(instrumentId: row.id)
     }
 
     func fetchLatestSelected(for rows: [DisplayRow]) {
