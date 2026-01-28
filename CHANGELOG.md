@@ -12,7 +12,21 @@ When applicable, include the feature reference ID and implementation date in ISO
 ## [Unreleased]
 
 ### Changed
+- [DS-099] Trading Profile Coordinate Slider Contrast Upgrade (implemented 2026-01-28)
+
+### Fixed
+- [DS-100] Price Update Manual Mode Not Persisting (implemented 2026-01-28)
+
+## [1.46.0] - 2026-01-27
+
+### Added
+- [DS-097] Historic Performance Event Annotations (implemented 2026-01-27)
+
+### Changed
 - [DS-096] KPI Management: Delete + Primary/Secondary Toggle (implemented 2026-01-27)
+
+### Fixed
+- [DS-098] Exclude Soft-Deleted Instruments from Risk Overrides (implemented 2026-01-27)
 
 ## [1.45.0] - 2026-01-18
 

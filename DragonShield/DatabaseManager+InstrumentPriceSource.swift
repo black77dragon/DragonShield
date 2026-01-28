@@ -40,4 +40,10 @@ extension DatabaseManager {
                 status: status
             )
     }
+
+    @discardableResult
+    func disablePriceSources(instrumentId: Int) -> Bool {
+        InstrumentPriceSourceRepository(connection: databaseConnection)
+            .disablePriceSources(instrumentId: instrumentId)
+    }
 }

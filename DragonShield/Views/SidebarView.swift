@@ -128,6 +128,10 @@ struct SidebarView: View {
             NavigationLink(destination: SettingsView()) {
                 Label("Settings", systemImage: "gear")
             }
+        case .releaseManagement:
+            NavigationLink(destination: ReleaseManagementRootView()) {
+                Label("Release Management", systemImage: "tag")
+            }
         case .dataImportExport:
             NavigationLink(destination: DataImportExportView()) {
                 Label("Data Import/Export", systemImage: "square.and.arrow.up.on.square")
@@ -420,6 +424,7 @@ private enum SidebarItemID: String, CaseIterable, Identifiable {
     case ichimokuDragon
     case alertsEvents
     case settings
+    case releaseManagement
     case dataImportExport
     case databaseManagement
     case institutions
@@ -472,7 +477,7 @@ private enum SidebarListKind: String, CaseIterable {
                 .alertsEvents,
             ]
         case .systemCore:
-            return [.settings, .dataImportExport]
+            return [.settings, .releaseManagement, .dataImportExport]
         case .systemMaintenance:
             return [.databaseManagement]
         case .configuration:

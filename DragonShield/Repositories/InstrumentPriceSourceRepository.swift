@@ -174,4 +174,19 @@ final class InstrumentPriceSourceRepository {
         sqlite3_bind_text(stmt, 3, providerCode, -1, SQLITE_TRANSIENT)
         return sqlite3_step(stmt) == SQLITE_DONE
     }
+
+    @discardableResult
+    func disablePriceSources(instrumentId: Int) -> Bool {
+        let sql = """
+            UPDATE InstrumentPriceSource
+               SET enabled = 0,
+                   updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ','now')
+             WHERE instrument_id = ?
+        """
+        var stmt: OpaquePointer?
+        guard let db, sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(instrumentId))
+        return sqlite3_step(stmt) == SQLITE_DONE
+    }
 }
